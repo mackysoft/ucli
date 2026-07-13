@@ -39,28 +39,24 @@ public sealed class DaemonPingResponseCodecTests
     public void TryDecodePayload_WhenPayloadIsValid_ReturnsTrue ()
     {
         const string expectedServerVersion = " 0.5.0 ";
-        const string expectedRuntime = " batchmode ";
         const string expectedUnityVersion = " 2022.3.5f1 ";
-        const string expectedCompileState = " ready ";
 
         var response = CreateResponse(
             IpcProtocol.StatusOk,
             Array.Empty<IpcError>(),
-            new IpcPingResponse(
-                ServerVersion: expectedServerVersion,
-                EditorMode: expectedRuntime,
-                UnityVersion: expectedUnityVersion,
-                ProjectFingerprint: " project-fingerprint ",
-                CompileState: expectedCompileState));
+            IpcUnityEditorObservationTestFactory.Create(
+                serverVersion: expectedServerVersion,
+                unityVersion: expectedUnityVersion,
+                projectFingerprint: " project-fingerprint "));
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
 
         Assert.True(result);
         Assert.NotNull(payload);
         Assert.Equal(expectedServerVersion, payload.ServerVersion);
-        Assert.Equal(expectedRuntime, payload.EditorMode);
+        Assert.Equal(DaemonEditorMode.Batchmode, payload.State.EditorMode);
         Assert.Equal(expectedUnityVersion, payload.UnityVersion);
-        Assert.Equal(expectedCompileState, payload.CompileState);
+        Assert.Equal(IpcCompileState.Ready, payload.State.CompileState);
         Assert.Null(error);
     }
 
@@ -85,42 +81,31 @@ public sealed class DaemonPingResponseCodecTests
         var response = CreateResponse(
             IpcProtocol.StatusOk,
             Array.Empty<IpcError>(),
-            new IpcPingResponse(
-                ServerVersion: " ",
-                EditorMode: "batchmode",
-                UnityVersion: "2022.3.5f1",
-                ProjectFingerprint: "project-fingerprint",
-                CompileState: "ready"));
+            CreateWirePayload(serverVersion: " "));
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
 
         Assert.False(result);
         Assert.Null(payload);
         Assert.NotNull(error);
-        Assert.Contains("required fields", error.Message, StringComparison.Ordinal);
+        Assert.Contains("payload is invalid", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDecodePayload_WhenCompileStateIsMissing_ReturnsTrue ()
+    public void TryDecodePayload_WhenCompileStateIsMissing_ReturnsFalse ()
     {
         var response = CreateResponse(
             IpcProtocol.StatusOk,
             Array.Empty<IpcError>(),
-            new
-            {
-                serverVersion = "0.5.0",
-                editorMode = "batchmode",
-                unityVersion = "2022.3.5f1",
-                projectFingerprint = "project-fingerprint",
-            });
+                CreateWirePayload(includeCompileState: false));
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
 
-        Assert.True(result);
-        Assert.NotNull(payload);
-        Assert.True(string.IsNullOrWhiteSpace(payload.CompileState));
-        Assert.Null(error);
+        Assert.False(result);
+        Assert.Null(payload);
+        Assert.NotNull(error);
+        Assert.Contains("payload is invalid", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -130,13 +115,7 @@ public sealed class DaemonPingResponseCodecTests
         var response = CreateResponse(
             IpcProtocol.StatusOk,
             Array.Empty<IpcError>(),
-            new
-            {
-                serverVersion = "0.5.0",
-                editorMode = "batchmode",
-                unityVersion = "2022.3.5f1",
-                compileState = "ready",
-            });
+            CreateWirePayload(projectFingerprint: null));
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
 
@@ -156,10 +135,29 @@ public sealed class DaemonPingResponseCodecTests
             new
             {
                 serverVersion = "0.5.0",
-                runtime = "batchmode",
                 unityVersion = "2022.3.5f1",
                 projectFingerprint = "project-fingerprint",
-                compileState = "ready",
+                state = new
+                {
+                    runtime = "batchmode",
+                    lifecycleState = "ready",
+                    compileState = "ready",
+                    generations = new
+                    {
+                        compileGeneration = 0,
+                        domainReloadGeneration = 0,
+                        assetRefreshGeneration = 0,
+                        playModeGeneration = 0,
+                    },
+                    playMode = new
+                    {
+                        state = "stopped",
+                        transition = "none",
+                        isPlaying = false,
+                        isPlayingOrWillChangePlaymode = false,
+                    },
+                },
+                observedAtUtc = "2026-05-21T00:00:00+00:00",
             });
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
@@ -218,13 +216,64 @@ public sealed class DaemonPingResponseCodecTests
         return new IpcResponse(IpcProtocol.CurrentVersion, "req-1", status, payloadElement, errors);
     }
 
-    private static IpcPingResponse CreatePayload ()
+    private static IpcUnityEditorObservation CreatePayload ()
     {
-        return new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: "ready");
+        return IpcUnityEditorObservationTestFactory.Create(
+            serverVersion: "0.5.0",
+            unityVersion: "2022.3.5f1",
+            projectFingerprint: "project-fingerprint");
+    }
+
+    private static object CreateWirePayload (
+        string serverVersion = "0.5.0",
+        string? projectFingerprint = "project-fingerprint",
+        bool includeCompileState = true)
+    {
+        var state = includeCompileState
+            ? (object)new
+            {
+                editorMode = "batchmode",
+                lifecycleState = "ready",
+                compileState = "ready",
+                generations = CreateGenerationWirePayload(),
+                playMode = CreatePlayModeWirePayload(),
+            }
+            : new
+            {
+                editorMode = "batchmode",
+                lifecycleState = "ready",
+                generations = CreateGenerationWirePayload(),
+                playMode = CreatePlayModeWirePayload(),
+            };
+        return new
+        {
+            serverVersion,
+            unityVersion = "2022.3.5f1",
+            projectFingerprint,
+            state,
+            observedAtUtc = "2026-05-21T00:00:00+00:00",
+        };
+    }
+
+    private static object CreateGenerationWirePayload ()
+    {
+        return new
+        {
+            compileGeneration = 0,
+            domainReloadGeneration = 0,
+            assetRefreshGeneration = 0,
+            playModeGeneration = 0,
+        };
+    }
+
+    private static object CreatePlayModeWirePayload ()
+    {
+        return new
+        {
+            state = "stopped",
+            transition = "none",
+            isPlaying = false,
+            isPlayingOrWillChangePlaymode = false,
+        };
     }
 }

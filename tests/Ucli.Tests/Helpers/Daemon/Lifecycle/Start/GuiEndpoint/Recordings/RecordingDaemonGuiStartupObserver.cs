@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
 internal sealed class RecordingDaemonGuiStartupObserver : IDaemonGuiStartupObserver
@@ -8,7 +10,8 @@ internal sealed class RecordingDaemonGuiStartupObserver : IDaemonGuiStartupObser
         DaemonGuiStartupObservationResult.Success(DaemonSessionTestFactory.Create(
             processId: 2000,
             sessionToken: "session-token",
-            endpointAddress: "ucli-daemon-test-endpoint"));
+            endpointAddress: "ucli-daemon-test-endpoint"),
+            IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Ready));
 
     public Func<CancellationToken, ValueTask<DaemonGuiStartupObservationResult>>? Handler { get; set; }
 

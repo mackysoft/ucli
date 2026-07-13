@@ -20,6 +20,7 @@ internal static class UcliServiceCollectionExtensions
         services.AddUcliSharedServices();
         services.AddUcliUnityIntegrationServices();
         services.AddUcliAssuranceFeatureServices();
+        services.AddUcliScreenshotFeatureServices();
         services.AddUcliInitFeatureServices();
         services.AddUcliOperationCatalogFeatureServices();
         services.AddUcliDaemonFeatureServices();

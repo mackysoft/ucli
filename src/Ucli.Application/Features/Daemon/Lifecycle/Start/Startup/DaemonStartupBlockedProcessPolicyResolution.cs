@@ -5,4 +5,4 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 /// <param name="ProcessActionWhenNotTerminated"> The process action to report when no termination is attempted. </param>
 internal sealed record DaemonStartupBlockedProcessPolicyResolution (
     bool ShouldTerminateProcess,
-    string ProcessActionWhenNotTerminated);
+    DaemonStartupProcessAction ProcessActionWhenNotTerminated);

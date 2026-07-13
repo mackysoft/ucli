@@ -31,11 +31,11 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerPersistenceFailure
             processId: scenario.ProcessId,
             processStartedAtUtc: scenario.ProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup!.ProcessAction);
         DaemonLaunchAttemptStoreAssert.LaunchAttemptEvidenceBeforeAndAfterCompensationFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
+            DaemonStartupProcessAction.Terminated);
     }
 
     [Fact]
@@ -61,11 +61,11 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerPersistenceFailure
             processId: scenario.ProcessId,
             processStartedAtUtc: scenario.ProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup!.ProcessAction);
         DaemonLaunchAttemptStoreAssert.LaunchAttemptEvidenceBeforeAndAfterCompensationWithoutPruneFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
+            DaemonStartupProcessAction.Terminated);
     }
 
     [Fact]
@@ -92,10 +92,10 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerPersistenceFailure
             processId: scenario.ProcessId,
             processStartedAtUtc: scenario.ProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup!.ProcessAction);
         DaemonLaunchAttemptStoreAssert.LaunchAttemptEvidenceBeforeAndAfterCompensationFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
+            DaemonStartupProcessAction.Terminated);
     }
 }

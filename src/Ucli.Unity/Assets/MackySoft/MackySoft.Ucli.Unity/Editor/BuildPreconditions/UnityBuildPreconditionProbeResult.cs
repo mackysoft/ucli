@@ -15,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Build
     internal sealed record UnityBuildPreconditionProbeResult (
         bool IsSuccess,
         IpcProjectIdentity Project,
-        IpcBuildLifecycleSnapshot LifecycleBefore,
+        IpcUnityEditorObservation LifecycleBefore,
         IpcBuildDirtyState? DirtyState,
         IpcBuildInputProbe? InputProbe,
         UnityBuildResolvedInput? ResolvedInput,
@@ -24,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Build
         /// <summary> Creates a successful precondition result. </summary>
         public static UnityBuildPreconditionProbeResult Success (
             IpcProjectIdentity project,
-            IpcBuildLifecycleSnapshot lifecycleBefore,
+            IpcUnityEditorObservation lifecycleBefore,
             IpcBuildDirtyState dirtyState,
             IpcBuildInputProbe inputProbe,
             UnityBuildResolvedInput resolvedInput)
@@ -42,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Build
         /// <summary> Creates a failed precondition result. </summary>
         public static UnityBuildPreconditionProbeResult Failure (
             IpcProjectIdentity project,
-            IpcBuildLifecycleSnapshot lifecycleBefore,
+            IpcUnityEditorObservation lifecycleBefore,
             IpcBuildDirtyState? dirtyState,
             IpcBuildInputProbe? inputProbe,
             IpcError error)

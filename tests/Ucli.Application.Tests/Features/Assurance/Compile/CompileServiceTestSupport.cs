@@ -69,8 +69,8 @@ internal static class CompileServiceTestSupport
             ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
                 Started: true,
                 Completed: true,
-                CompileGenerationBefore: "12",
-                CompileGenerationAfter: "14",
+                CompileGenerationBefore: 12,
+                CompileGenerationAfter: 14,
                 Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
                     ErrorCount: errorCount,
                     WarningCount: 0,
@@ -78,19 +78,30 @@ internal static class CompileServiceTestSupport
             DomainReload: new IpcCompileSummary.DomainReloadEvidence(
                 ReloadRequired: false,
                 ReloadObserved: false,
-                GenerationBefore: "7",
-                GenerationAfter: "7",
+                GenerationBefore: 7,
+                GenerationAfter: 7,
                 Settled: true),
             Lifecycle: new IpcCompileSummary.LifecycleEvidence(
                 ServerVersion: "0.5.0",
                 UnityVersion: "6000.1.4f1",
-                EditorMode: "batchmode",
-                LifecycleState: canAcceptExecutionRequests ? "ready" : "compileFailed",
-                BlockingReason: canAcceptExecutionRequests ? null : "compileFailed",
-                CompileState: canAcceptExecutionRequests ? "ready" : "failed",
-                CompileGeneration: "14",
-                DomainReloadGeneration: "7",
-                CanAcceptExecutionRequests: canAcceptExecutionRequests,
+                State: new UnityEditorStateSnapshot(
+                    editorMode: DaemonEditorMode.Batchmode,
+                    lifecycleState: canAcceptExecutionRequests
+                        ? IpcEditorLifecycleState.Ready
+                        : IpcEditorLifecycleState.CompileFailed,
+                    compileState: canAcceptExecutionRequests
+                        ? IpcCompileState.Ready
+                        : IpcCompileState.Failed,
+                    generations: new IpcUnityGenerationSnapshot(
+                        CompileGeneration: 14,
+                        DomainReloadGeneration: 7,
+                        AssetRefreshGeneration: 3,
+                        PlayModeGeneration: 2),
+                    playMode: new IpcPlayModeSnapshot(
+                        State: IpcPlayModeState.Stopped,
+                        Transition: IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
                 ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:03Z"),
                 ActionRequired: canAcceptExecutionRequests ? null : "fixCompileErrors",
                 PrimaryDiagnostic: primaryDiagnostic));
@@ -115,21 +126,21 @@ internal static class CompileServiceTestSupport
     {
         return new StartupFailureDetail(
             Startup: new DaemonStartupObservationOutput(
-                StartupStatus: "blocked",
+                StartupStatus: DaemonStartupStatus.Blocked,
                 StartupBlockingReason: string.Equals(reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal)
-                    ? "compile"
-                    : "packageResolution",
+                    ? DaemonStartupBlockingReason.Compile
+                    : DaemonStartupBlockingReason.PackageResolution,
                 LaunchAttemptId: null,
-                EditorMode: "batchmode",
-                OwnerKind: "oneshot",
+                EditorMode: DaemonEditorMode.Batchmode,
+                OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: null,
                 ProcessId: 1234,
                 StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                 ElapsedMilliseconds: 1200,
-                ProcessAction: "unknown",
+                ProcessAction: DaemonStartupProcessAction.Unknown,
                 ProcessTermination: null,
                 ArtifactPath: null,
-                RetryDisposition: "manualActionRequired"),
+                RetryDisposition: DaemonStartupRetryDisposition.ManualActionRequired),
             Diagnosis: new DaemonDiagnosisOutput(
                 Reason: reason,
                 Message: string.Equals(reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal)
@@ -142,12 +153,12 @@ internal static class CompileServiceTestSupport
                 EditorInstancePath: null,
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                 UnityLogPath: "/workspace/UnityProject/Logs/Editor.log",
-                StartupPhase: "scriptCompilation",
+                StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
                 ActionRequired: string.Equals(reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal)
                     ? DaemonDiagnosisActionRequiredValues.FixCompileErrors
                     : DaemonDiagnosisActionRequiredValues.ResolvePackages,
                 PrimaryDiagnostic: primaryDiagnostic),
-            RetryDisposition: "manualActionRequired",
+            RetryDisposition: DaemonStartupRetryDisposition.ManualActionRequired,
             SafeToRetryImmediately: false);
     }
 }

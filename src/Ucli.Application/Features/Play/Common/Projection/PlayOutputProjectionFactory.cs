@@ -1,37 +1,35 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Play.Common.Contracts;
-using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Play.Common.Projection;
 
-/// <summary> Creates public Play Mode command projection values from IPC lifecycle contracts. </summary>
+/// <summary> Creates public Play Mode command projection values from Unity Editor observations. </summary>
 internal static class PlayOutputProjectionFactory
 {
-    /// <summary> Creates one lifecycle snapshot output from a Unity Play Mode lifecycle snapshot. </summary>
-    /// <param name="snapshot"> The IPC lifecycle snapshot. </param>
+    /// <summary> Creates one public lifecycle output from a Unity Editor observation. </summary>
+    /// <param name="observation"> The Unity Editor observation. </param>
     /// <returns> The public lifecycle snapshot output. </returns>
-    public static PlayLifecycleSnapshotOutput CreateSnapshotOutput (IpcPlayLifecycleSnapshot snapshot)
+    public static PlayLifecycleSnapshotOutput CreateSnapshotOutput (IpcUnityEditorObservation observation)
     {
-        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(observation);
 
-        var lifecycle = LifecycleProjectionFactory.Create(snapshot);
+        var state = observation.State;
         return new PlayLifecycleSnapshotOutput(
-            ServerVersion: lifecycle.ServerVersion,
-            EditorMode: lifecycle.EditorMode,
-            UnityVersion: lifecycle.UnityVersion,
-            ProjectFingerprint: snapshot.ProjectFingerprint,
-            LifecycleState: lifecycle.LifecycleState,
-            BlockingReason: lifecycle.BlockingReason,
-            CompileState: lifecycle.CompileState,
-            CompileGeneration: lifecycle.CompileGeneration,
-            DomainReloadGeneration: lifecycle.DomainReloadGeneration,
-            CanAcceptExecutionRequests: lifecycle.CanAcceptExecutionRequests,
-            ObservedAtUtc: lifecycle.ObservedAtUtc,
-            ActionRequired: lifecycle.ActionRequired,
-            PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(lifecycle.PrimaryDiagnostic),
-            PlayMode: lifecycle.PlayMode!);
+            ServerVersion: StringValueNormalizer.TrimToNull(observation.ServerVersion),
+            EditorMode: state.EditorMode,
+            UnityVersion: StringValueNormalizer.TrimToNull(observation.UnityVersion),
+            ProjectFingerprint: observation.ProjectFingerprint,
+            LifecycleState: state.LifecycleState,
+            BlockingReason: IpcEditorLifecycleSemantics.ResolveBlockingReason(state.LifecycleState),
+            CompileState: state.CompileState,
+            Generations: state.Generations,
+            CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
+            ObservedAtUtc: observation.ObservedAtUtc,
+            ActionRequired: StringValueNormalizer.TrimToNull(observation.ActionRequired),
+            PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(observation.PrimaryDiagnostic),
+            PlayMode: state.PlayMode);
     }
 
     /// <summary> Creates one public primary diagnostic projection. </summary>

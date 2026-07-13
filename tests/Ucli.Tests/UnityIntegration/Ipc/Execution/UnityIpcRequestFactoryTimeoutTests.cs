@@ -2,6 +2,7 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using static MackySoft.Ucli.Tests.Ipc.UnityIpcRequestBuilderTestSupport;
@@ -22,6 +23,26 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest compileRequest, out _));
         Assert.Equal("run-1", compileRequest.RunId);
         Assert.Equal(1234, compileRequest.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityIpcRequestFactory_WithScreenshotDispatchTimeout_InjectsTimeoutPayload ()
+    {
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.ScreenshotCapture(
+            Target: IpcScreenshotTarget.Game,
+            RequestedWidth: null,
+            RequestedHeight: null,
+            StagingPath: "/tmp/ucli-screenshot.raw",
+            TimeoutMilliseconds: 30000));
+
+        var request = UnityIpcRequestFactory.Create(
+            "session-token",
+            dispatchRequest,
+            TimeSpan.FromMilliseconds(1234));
+
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcScreenshotCaptureRequest screenshotRequest, out _));
+        Assert.Equal(1234, screenshotRequest.TimeoutMilliseconds);
     }
 
     [Fact]

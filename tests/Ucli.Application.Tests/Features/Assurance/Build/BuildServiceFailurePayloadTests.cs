@@ -23,7 +23,7 @@ public sealed class BuildServiceFailurePayloadTests
         var input = CreateInputProbe();
         var errorPayload = new IpcBuildRunErrorPayload(
             Project: new IpcProjectIdentity("/workspace/UnityProject", ProjectFingerprint, "6000.1.4f1"),
-            LifecycleBefore: CreateLifecycleSnapshot("before", canAcceptExecutionRequests: true),
+            LifecycleBefore: CreateLifecycleSnapshot(10),
             DirtyState: dirtyState,
             Input: input);
         var response = new UnityRequestResponse(
@@ -61,7 +61,7 @@ public sealed class BuildServiceFailurePayloadTests
             Items: []);
         var errorPayload = new IpcBuildRunErrorPayload(
             Project: new IpcProjectIdentity("/workspace/UnityProject", ProjectFingerprint, "6000.1.4f1"),
-            LifecycleBefore: CreateLifecycleSnapshot("before", canAcceptExecutionRequests: true),
+            LifecycleBefore: CreateLifecycleSnapshot(10),
             DirtyState: dirtyState,
             Input: CreateInputProbe());
         var response = new UnityRequestResponse(
@@ -100,7 +100,7 @@ public sealed class BuildServiceFailurePayloadTests
             ]);
         var errorPayload = new IpcBuildRunErrorPayload(
             Project: new IpcProjectIdentity("/workspace/UnityProject", ProjectFingerprint, "6000.1.4f1"),
-            LifecycleBefore: CreateLifecycleSnapshot("before", canAcceptExecutionRequests: true),
+            LifecycleBefore: CreateLifecycleSnapshot(10),
             DirtyState: dirtyState,
             Input: CreateInputProbe());
         var response = new UnityRequestResponse(

@@ -888,7 +888,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var text = value.GetString();
-            if (string.IsNullOrWhiteSpace(text)
+            if (text == null
+                || string.IsNullOrWhiteSpace(text)
                 || text.Length != 32
                 || !IsHexString(text))
             {
@@ -1346,7 +1347,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (value.ValueKind == JsonValueKind.String)
             {
                 var text = value.GetString();
-                if (string.IsNullOrEmpty(text) || text.Length != 1)
+                if (text == null || string.IsNullOrEmpty(text) || text.Length != 1)
                 {
                     errorMessage = $"SerializedProperty '{logicalPath}' must be a single-character string.";
                     return false;

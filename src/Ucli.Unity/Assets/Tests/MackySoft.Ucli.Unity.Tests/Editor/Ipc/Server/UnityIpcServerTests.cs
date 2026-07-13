@@ -14,8 +14,9 @@ using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Execution.Dispatch;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
@@ -27,12 +28,7 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityIpcServerTests
     {
-        private static readonly JsonSerializerOptions SerializerOptions = new JsonSerializerOptions
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            PropertyNameCaseInsensitive = true,
-            WriteIndented = false,
-        };
+        private static readonly JsonSerializerOptions SerializerOptions = IpcJsonSerializerOptions.Default;
 
         private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
@@ -622,30 +618,23 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(response.Errors, Is.Empty);
-            var payload = response.Payload.Deserialize<IpcPingResponse>(SerializerOptions);
+            var payload = response.Payload.Deserialize<IpcUnityEditorObservation>(SerializerOptions);
             Assert.That(payload, Is.Not.Null);
-            Assert.That(payload.EditorMode, Is.EqualTo("batchmode"));
+            Assert.That(payload.State.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
             Assert.That(string.IsNullOrWhiteSpace(payload.UnityVersion), Is.False);
             Assert.That(string.IsNullOrWhiteSpace(payload.ServerVersion), Is.False);
             var expectedServerVersion = new AssemblyServerVersionProvider().GetVersion();
             Assert.That(payload.ServerVersion, Is.EqualTo(expectedServerVersion));
             Assert.That(Regex.IsMatch(payload.ServerVersion, "^[0-9]+\\.[0-9]+\\.[0-9]+(\\.[0-9]+)?$"), Is.True);
             Assert.That(
-                payload.CompileState == IpcCompileStateCodec.Ready
-                || payload.CompileState == IpcCompileStateCodec.Compiling,
+                payload.State.CompileState is IpcCompileState.Ready or IpcCompileState.Compiling,
                 Is.True);
-            Assert.That(string.IsNullOrWhiteSpace(payload.LifecycleState), Is.False);
-            Assert.That(IpcEditorLifecycleStateCodec.TryParse(payload.LifecycleState, out _), Is.True);
-            if (!string.IsNullOrWhiteSpace(payload.BlockingReason))
-            {
-                Assert.That(IpcEditorBlockingReasonCodec.TryParse(payload.BlockingReason, out _), Is.True);
-            }
-
-            Assert.That(string.IsNullOrWhiteSpace(payload.CompileGeneration), Is.False);
-            Assert.That(string.IsNullOrWhiteSpace(payload.DomainReloadGeneration), Is.False);
+            Assert.That(ContractLiteralCodec.IsDefined(payload.State.LifecycleState), Is.True);
+            Assert.That(payload.State.Generations.CompileGeneration, Is.GreaterThanOrEqualTo(0));
+            Assert.That(payload.State.Generations.DomainReloadGeneration, Is.GreaterThanOrEqualTo(0));
             Assert.That(
-                payload.CanAcceptExecutionRequests,
-                Is.EqualTo(string.Equals(payload.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)));
+                IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(payload.State.LifecycleState),
+                Is.EqualTo(payload.State.LifecycleState == IpcEditorLifecycleState.Ready));
         });
 
         [UnityTest]
@@ -1010,7 +999,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var methodDispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[]
                 {
-                    new PingUnityIpcMethodHandler(new AssemblyServerVersionProvider(), new StubUnityEditorReadinessGate(), "project-fingerprint"),
+                    new PingUnityIpcMethodHandler(
+                        new AssemblyServerVersionProvider(),
+                        new StubUnityEditorReadinessGate(),
+                        new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1")),
                     new ExecuteUnityIpcMethodHandler(
                         executeRequestDispatcher,
                         new IpcRequestTimeoutScopeFactory(),

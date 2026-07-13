@@ -4,9 +4,9 @@ namespace MackySoft.Ucli.Contracts.Daemon;
 public sealed record DaemonStartProgressEntry (
     string ProjectFingerprint,
     int TimeoutMilliseconds,
-    string? EditorMode,
-    string OnStartupBlocked,
-    string? Result,
+    DaemonEditorMode? EditorMode,
+    DaemonStartupBlockedProcessPolicy OnStartupBlocked,
+    CommandProgressResult? Result,
     string? StartStatus,
     string? DaemonStatus,
     string? ErrorCode);

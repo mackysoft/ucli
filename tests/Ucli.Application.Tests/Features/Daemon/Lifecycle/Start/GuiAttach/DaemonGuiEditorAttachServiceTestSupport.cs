@@ -26,20 +26,19 @@ internal static class DaemonGuiEditorAttachServiceTestSupport
             sessionToken: "session-token",
             projectFingerprint: "fingerprint",
             issuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero),
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock",
             processId: 1234,
             ownerProcessId: null);
     }
 
-    public static DaemonStartLifecycleSnapshot CreateReadyLifecycleSnapshot ()
+    public static IpcUnityEditorObservation CreateReadyLifecycleObservation ()
     {
-        return new DaemonStartLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
-            null,
-            CanAcceptExecutionRequests: true);
+        return IpcUnityEditorObservationTestFactory.Create(
+            IpcEditorLifecycleState.Ready,
+            DaemonEditorMode.Gui);
     }
 }

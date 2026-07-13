@@ -1,6 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Unity;
 
@@ -20,7 +21,7 @@ public sealed class UnityProjectLockOwnerProbeTests
                 ReadResult = DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(
                     sessionToken: "session-token",
                     projectFingerprint: unityProject.ProjectFingerprint,
-                    endpointTransportKind: "unixDomainSocket",
+                    endpointTransportKind: IpcTransportKind.UnixDomainSocket,
                     endpointAddress: "/tmp/ucli.sock",
                     processId: Environment.ProcessId,
                     ownerProcessId: null)),

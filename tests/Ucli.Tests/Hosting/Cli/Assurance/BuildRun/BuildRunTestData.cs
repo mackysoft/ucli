@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -107,9 +108,9 @@ internal static class BuildRunTestData
                 FileCount: 1,
                 TotalBytes: 4096),
             Generations: new BuildGenerationsOutput(
-                Before: new BuildGenerationSnapshotOutput("compile-before", "domain-before", "asset-before"),
-                After: new BuildGenerationSnapshotOutput("compile-after", "domain-after", "asset-after"),
-                ValidFor: new BuildGenerationSnapshotOutput("compile-after", "domain-after", "asset-after")),
+                Before: new IpcUnityGenerationSnapshot(1, 1, 1, 1),
+                After: new IpcUnityGenerationSnapshot(2, 1, 1, 1),
+                ValidFor: new IpcUnityGenerationSnapshot(2, 1, 1, 1)),
             Summary: new BuildSummaryOutput(
                 Result: reportResult,
                 DurationMilliseconds: 2500,

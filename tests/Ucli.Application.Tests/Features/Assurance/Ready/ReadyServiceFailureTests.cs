@@ -9,27 +9,6 @@ public sealed class ReadyServiceFailureTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WithUnsupportedDaemonLifecycleState_ReturnsCommandFailure ()
-    {
-        var service = CreateService(
-            modeDecisionService: CreateModeDecisionService(
-                UnityExecutionMode.Daemon,
-                daemonRunning: true,
-                UnityExecutionTarget.Daemon),
-            daemonPingInfoClient: new RecordingDaemonPingInfoClient(CreateReadyPingResponse(
-                lifecycleState: "futureState",
-                canAcceptExecutionRequests: false)));
-
-        var result = await service.ExecuteAsync(CreateExecutionInput(UnityExecutionMode.Daemon, failFast: true));
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("unsupported state", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task Execute_WithModeContractError_ReturnsCommandFailure ()
     {
         var service = CreateService(

@@ -29,6 +29,7 @@ internal static class UcliConfigStoreTestSupport
         new(UcliContractConstants.Config.IpcTimeoutCommandLogsDaemonRead, UcliContractConstants.Config.IpcTimeoutDefaultLogsDaemonMilliseconds),
         new(UcliContractConstants.Config.IpcTimeoutCommandLogsUnityRead, UcliContractConstants.Config.IpcTimeoutDefaultLogsUnityMilliseconds),
         new(UcliContractConstants.Config.IpcTimeoutCommandLogsUnityClear, UcliContractConstants.Config.IpcTimeoutDefaultLogsUnityClearMilliseconds),
+        new(UcliContractConstants.Config.IpcTimeoutCommandScreenshot, UcliContractConstants.Config.IpcTimeoutDefaultScreenshotMilliseconds),
         new(UcliContractConstants.Config.IpcTimeoutCommandPlayStatus, UcliContractConstants.Config.IpcTimeoutDefaultPlayStatusMilliseconds),
         new(UcliContractConstants.Config.IpcTimeoutCommandPlayEnter, UcliContractConstants.Config.IpcTimeoutDefaultPlayEnterMilliseconds),
         new(UcliContractConstants.Config.IpcTimeoutCommandPlayExit, UcliContractConstants.Config.IpcTimeoutDefaultPlayExitMilliseconds),

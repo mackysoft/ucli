@@ -32,11 +32,11 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
         Assert.Contains("ArtifactError=final artifact failed", error.Message, StringComparison.Ordinal);
         Assert.Contains("CleanupError=cleanup failed", error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Unknown, result.Startup!.ProcessAction);
         DaemonLaunchAttemptStoreAssert.LaunchAttemptEvidenceBeforeAndAfterCompensationFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown));
+            DaemonStartupProcessAction.Unknown);
     }
 
     [Fact]
@@ -71,15 +71,15 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
             processStartedAtUtc: scenario.ProcessStartedAtUtc);
         Assert.NotNull(result.Diagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation), result.Diagnosis.StartupPhase);
+        Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, result.Diagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, result.Diagnosis.ActionRequired);
         Assert.Equal(primaryDiagnostic, result.Diagnosis.PrimaryDiagnostic);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Unknown, result.Startup!.ProcessAction);
         var finalLaunchAttempt = DaemonLaunchAttemptStoreAssert.LaunchAttemptEvidenceBeforeAndAfterCompensationFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown));
+            DaemonStartupProcessAction.Unknown);
         Assert.Equal(result.Diagnosis, finalLaunchAttempt.Diagnosis);
     }
 }

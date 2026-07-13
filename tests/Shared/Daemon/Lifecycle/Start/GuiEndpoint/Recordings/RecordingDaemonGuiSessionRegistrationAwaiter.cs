@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -9,7 +10,7 @@ internal sealed class RecordingDaemonGuiSessionRegistrationAwaiter : IDaemonGuiS
     private Action<int>? onWait;
 
     public DaemonGuiSessionRegistrationWaitResult Result { get; set; } =
-        DaemonGuiSessionRegistrationWaitResult.Success(CreateDefaultSession());
+        DaemonGuiSessionRegistrationWaitResult.Success(CreateDefaultSession(), IpcUnityEditorObservationTestFactory.Create());
 
     public DaemonGuiSessionRegistrationWaitResult NextResult
     {
@@ -59,10 +60,10 @@ internal sealed class RecordingDaemonGuiSessionRegistrationAwaiter : IDaemonGuiS
             SessionToken: "secret-token",
             ProjectFingerprint: "fingerprint",
             IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
+            EditorMode: DaemonEditorMode.Batchmode,
+            OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
+            EndpointTransportKind: IpcTransportKind.NamedPipe,
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.UtcNow,

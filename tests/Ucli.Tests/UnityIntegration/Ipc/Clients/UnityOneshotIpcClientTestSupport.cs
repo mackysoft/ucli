@@ -52,7 +52,7 @@ internal static class UnityOneshotIpcClientTestSupport
         return new UnityIpcDispatchRequest(
             IpcMethodNames.Compile,
             IpcPayloadCodec.SerializeToElement(new IpcCompileRequest("compile-run-1")),
-            [IpcEditorLifecycleStateCodec.CompileFailed, IpcEditorLifecycleStateCodec.SafeMode]);
+            [IpcEditorLifecycleState.CompileFailed, IpcEditorLifecycleState.SafeMode]);
     }
 
     public static IpcResponse CreateSuccessResponse (string requestId)
@@ -115,13 +115,11 @@ internal static class UnityOneshotIpcClientTestSupport
 
     public static IpcResponse CreatePingResponse (
         string requestId,
-        string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
-        bool canAcceptExecutionRequests = true,
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
         string projectFingerprint = "project-fingerprint")
     {
-        var payload = IpcPayloadCodec.SerializeToElement(IpcPingResponseTestFactory.Create(
+        var payload = IpcPayloadCodec.SerializeToElement(IpcUnityEditorObservationTestFactory.Create(
             lifecycleState: lifecycleState,
-            canAcceptExecutionRequests: canAcceptExecutionRequests,
             projectFingerprint: projectFingerprint));
         return new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,

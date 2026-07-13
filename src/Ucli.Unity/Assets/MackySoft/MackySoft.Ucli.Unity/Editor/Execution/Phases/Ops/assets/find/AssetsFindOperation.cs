@@ -114,9 +114,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             Type? typeFilter = null;
-            if (args.Type != null)
+            var typeId = args.Type?.Value;
+            if (typeId != null)
             {
-                if (!OperationRuntimeTypeResolver.TryResolveRuntimeType(args.Type, out typeFilter, out var errorMessage))
+                if (!OperationRuntimeTypeResolver.TryResolveRuntimeType(typeId, out typeFilter, out var errorMessage))
                 {
                     failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                     return false;
@@ -126,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 {
                     failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                         operation.Id,
-                        $"TypeId must resolve to a UnityEngine.Object type: {args.Type}.");
+                        $"TypeId must resolve to a UnityEngine.Object type: {typeId}.");
                     return false;
                 }
             }

@@ -21,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Build
         /// <returns> The captured project snapshot. </returns>
         public ProjectMutationSnapshot CaptureBaseline (string projectPath)
         {
-            return CaptureSnapshot(projectPath);
+            return CaptureObservation(projectPath);
         }
 
         /// <summary> Compares a baseline snapshot with the current project state. </summary>
@@ -39,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Build
                 throw new ArgumentNullException(nameof(baseline));
             }
 
-            var after = CaptureSnapshot(projectPath);
+            var after = CaptureObservation(projectPath);
             var items = CreateItems(baseline.FilesByPath, after.FilesByPath);
             var coverage = ResolveCoverage(baseline.Coverage, after.Coverage);
             return new IpcBuildProjectMutationAudit(
@@ -51,7 +51,7 @@ namespace MackySoft.Ucli.Unity.Build
                 Items: items);
         }
 
-        private static ProjectMutationSnapshot CaptureSnapshot (string projectPath)
+        private static ProjectMutationSnapshot CaptureObservation (string projectPath)
         {
             if (string.IsNullOrWhiteSpace(projectPath))
             {

@@ -12,10 +12,10 @@ internal sealed class UnityIpcRequestBuilder
 {
     private static readonly TimeSpan PlayTransitionRecoverableResponseAttemptTimeout = TimeSpan.FromMilliseconds(1000);
 
-    private static readonly IReadOnlyList<string> CompileAllowedStartupLifecycleStates =
+    private static readonly IReadOnlyList<IpcEditorLifecycleState> CompileAllowedStartupLifecycleStates =
     [
-        IpcEditorLifecycleStateCodec.CompileFailed,
-        IpcEditorLifecycleStateCodec.SafeMode,
+        IpcEditorLifecycleState.CompileFailed,
+        IpcEditorLifecycleState.SafeMode,
     ];
 
     /// <summary> Converts one application request into the IPC method and serialized payload. </summary>
@@ -84,6 +84,15 @@ internal sealed class UnityIpcRequestBuilder
             UnityRequestPayload.PlayStatus => new UnityIpcDispatchRequest(
                 IpcMethodNames.PlayStatus,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayStatusRequest())),
+            UnityRequestPayload.ScreenshotCapture screenshotCapture => new UnityIpcDispatchRequest(
+                IpcMethodNames.ScreenshotCapture,
+                IpcPayloadCodec.SerializeToElement(new IpcScreenshotCaptureRequest(
+                    Target: screenshotCapture.Target,
+                    RequestedWidth: screenshotCapture.RequestedWidth,
+                    RequestedHeight: screenshotCapture.RequestedHeight,
+                    StagingPath: screenshotCapture.StagingPath,
+                    TimeoutMilliseconds: screenshotCapture.TimeoutMilliseconds)),
+                dispatchTimeoutPayloadTransformer: ApplyScreenshotCaptureDispatchTimeout),
             UnityRequestPayload.PlayEnter playEnter => new UnityIpcDispatchRequest(
                 IpcMethodNames.PlayEnter,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayEnterRequest
@@ -138,6 +147,21 @@ internal sealed class UnityIpcRequestBuilder
         }
 
         return IpcPayloadCodec.SerializeToElement(compileRequest with
+        {
+            TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
+        });
+    }
+
+    private static JsonElement ApplyScreenshotCaptureDispatchTimeout (
+        JsonElement payload,
+        TimeSpan dispatchTimeout)
+    {
+        if (!IpcPayloadCodec.TryDeserialize(payload, out IpcScreenshotCaptureRequest screenshotRequest, out _))
+        {
+            return payload;
+        }
+
+        return IpcPayloadCodec.SerializeToElement(screenshotRequest with
         {
             TimeoutMilliseconds = ToTimeoutMilliseconds(dispatchTimeout),
         });

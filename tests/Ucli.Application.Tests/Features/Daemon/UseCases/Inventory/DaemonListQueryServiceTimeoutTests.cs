@@ -227,7 +227,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
                 if (unityProject.ProjectFingerprint == "fp-b")
                 {
                     timeProvider.Advance(TimeSpan.FromMilliseconds(50));
-                    return ValueTask.FromException<IpcPingResponse>(new TimeoutException("probe timed out"));
+                    return ValueTask.FromException<IpcUnityEditorObservation>(new TimeoutException("probe timed out"));
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();

@@ -147,6 +147,56 @@ public sealed class UcliStoragePathResolverArtifactContractTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ResolveScreenshotCapturePaths_ReturnCaptureScopedArtifactAndStagingFiles ()
+    {
+        const string captureId = "20260711_120000Z_deadbeef";
+
+        var artifactPath = UcliStoragePathResolver.ResolveScreenshotCaptureArtifactPath(
+            UcliStoragePathResolverTestSupport.StorageRoot,
+            UcliStoragePathResolverTestSupport.ProjectFingerprint,
+            captureId);
+        var stagingPath = UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
+            UcliStoragePathResolverTestSupport.StorageRoot,
+            UcliStoragePathResolverTestSupport.ProjectFingerprint,
+            captureId);
+
+        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+            artifactPath,
+            UcliStoragePathNames.ArtifactsDirectoryName,
+            UcliStoragePathNames.ScreenshotDirectoryName,
+            captureId,
+            UcliStoragePathNames.ScreenshotPngFileName);
+        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+            stagingPath,
+            UcliStoragePathNames.WorkDirectoryName,
+            UcliStoragePathNames.ScreenshotDirectoryName,
+            captureId,
+            UcliStoragePathNames.ScreenshotRawStagingFileName);
+    }
+
+    [Theory]
+    [InlineData("../escape")]
+    [InlineData("nested/capture")]
+    [InlineData("nested\\capture")]
+    [InlineData("capture:alternate")]
+    [InlineData("capture id")]
+    [InlineData("capture\t")]
+    [InlineData(".")]
+    [InlineData("..")]
+    [Trait("Size", "Small")]
+    public void ResolveScreenshotCapturePaths_WithUnsafeCaptureId_ThrowsArgumentException (string captureId)
+    {
+        var exception = Assert.Throws<ArgumentException>(() =>
+            UcliStoragePathResolver.ResolveScreenshotCaptureArtifactPath(
+                UcliStoragePathResolverTestSupport.StorageRoot,
+                UcliStoragePathResolverTestSupport.ProjectFingerprint,
+                captureId));
+
+        Assert.Equal("captureId", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void RunScopedPathResolvers_WithPathSegmentOrTraversalRunId_ThrowArgumentException ()
     {
         foreach (var resolverCase in RunScopedPathResolvers)

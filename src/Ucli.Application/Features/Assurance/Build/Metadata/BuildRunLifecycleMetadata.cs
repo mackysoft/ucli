@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Metadata;
 
 /// <summary> Represents lifecycle snapshots captured around BuildPipeline execution. </summary>
 internal sealed record BuildRunLifecycleMetadata (
-    IpcBuildLifecycleSnapshot Before,
-    IpcBuildLifecycleSnapshot After);
+    IpcUnityEditorObservation Before,
+    IpcUnityEditorObservation After);

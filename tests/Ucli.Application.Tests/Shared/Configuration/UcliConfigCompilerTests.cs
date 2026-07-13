@@ -157,6 +157,30 @@ public sealed class UcliConfigCompilerTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Compile_WithScreenshotTimeoutOverride_AcceptsRootCommandKey ()
+    {
+        const string json = """
+        {
+          "schemaVersion": 1,
+          "operationPolicy": "safe",
+          "planTokenMode": "optional",
+          "ipcTimeoutMillisecondsByCommand": {
+            "screenshot": 7000
+          },
+          "operationAllowlist": ["^ucli\\."]
+        }
+        """;
+
+        var result = Compile(json);
+
+        Assert.True(result.IsSuccess);
+        Assert.Empty(result.Diagnostics);
+        var config = Assert.IsType<UcliConfig>(result.Config);
+        Assert.Equal(7000, config.IpcTimeoutMillisecondsByCommand[UcliCommandIds.Screenshot.Name]);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void CreateDocument_WithValidConfig_ReturnsSerializableDocument ()
     {
         var config = new UcliConfig(

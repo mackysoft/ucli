@@ -1,0 +1,15 @@
+{
+  "protocolVersion": 1,
+  "command": "screenshot.game",
+  "status": "error",
+  "exitCode": 4,
+  "message": "Screenshot capture requires a registered GUI Editor session.",
+  "payload": {},
+  "errors": [
+    {
+      "code": "SCREENSHOT_REQUIRES_GUI_SESSION",
+      "message": "Screenshot capture requires a registered GUI Editor session.",
+      "opId": null
+    }
+  ]
+}

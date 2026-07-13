@@ -149,8 +149,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            var target = targetResolution.GameObject;
+            if (target == null)
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    "Reference did not resolve to a GameObject.");
+                return false;
+            }
+
             validationState = new ValidationState(
-                targetResolution.GameObject!,
+                target,
                 args.Depth);
             return true;
         }
@@ -165,7 +174,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 Depth = depth;
             }
 
-            public GameObject? Target { get; }
+            public GameObject Target { get; }
 
             public int? Depth { get; }
         }

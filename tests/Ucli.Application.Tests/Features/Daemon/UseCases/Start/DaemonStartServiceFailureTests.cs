@@ -120,11 +120,11 @@ public sealed class DaemonStartServiceFailureTests
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var startup = new DaemonStartupObservation(
-            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
+            StartupStatus: DaemonStartupStatus.Blocked,
+            StartupBlockingReason: DaemonStartupBlockingReason.Compile,
             LaunchAttemptId: "20260312_040500Z_00abcdef",
-            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix));
+            ProcessAction: DaemonStartupProcessAction.Kept,
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix);
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
         {
             EnsureRunningResult = DaemonStartResult.Failure(
@@ -151,7 +151,7 @@ public sealed class DaemonStartServiceFailureTests
         Assert.Equal(startup.StartupBlockingReason, failureOutput.Startup!.StartupBlockingReason);
         Assert.Equal(startup.RetryDisposition, failureOutput.Startup.RetryDisposition);
         DaemonServiceOutputAssert.DiagnosisMatches(diagnosis, failureOutput.Diagnosis);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), failureOutput.RetryDisposition);
+        Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, failureOutput.RetryDisposition);
         Assert.False(failureOutput.SafeToRetryImmediately);
     }
 }

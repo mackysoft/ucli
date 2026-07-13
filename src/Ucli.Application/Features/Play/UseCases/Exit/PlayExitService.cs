@@ -1,10 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Play.Common;
 using MackySoft.Ucli.Application.Features.Play.Common.Projection;
-using MackySoft.Ucli.Application.Shared.CommandContracts.Projection;
 using MackySoft.Ucli.Contracts.Ipc;
-
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 
@@ -172,33 +169,27 @@ internal sealed class PlayExitService : IPlayExitService
             return PlayExitOutputCreationResult.Failure(validationFailure);
         }
 
-        var lifecycle = LifecycleProjectionFactory.Create(currentSnapshot);
-        if (!ContractLiteralCodec.Matches(lifecycle.EditorMode, DaemonEditorMode.Gui))
+        var lifecycle = PlayOutputProjectionFactory.CreateSnapshotOutput(currentSnapshot);
+        if (lifecycle.EditorMode != DaemonEditorMode.Gui)
         {
             return PlayExitOutputCreationResult.Failure(ApplicationFailure.InternalError(
                 RequiresGuiEditorMessage,
                 PlayModeErrorCodes.PlayModeRequiresGuiEditor));
         }
 
-        if (lifecycle.PlayMode is null)
-        {
-            return PlayExitOutputCreationResult.Failure(CreateStateUnknownFailure("Unity play exit playMode snapshot is missing or invalid."));
-        }
-
         return PlayExitOutputCreationResult.Success(new PlayExitExecutionOutput(
             Project: context.Project,
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: lifecycle.ServerVersion,
-            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
+            EditorMode: DaemonEditorMode.Gui,
             LifecycleState: lifecycle.LifecycleState,
             BlockingReason: lifecycle.BlockingReason,
             CompileState: lifecycle.CompileState,
-            CompileGeneration: lifecycle.CompileGeneration,
-            DomainReloadGeneration: lifecycle.DomainReloadGeneration,
+            Generations: lifecycle.Generations,
             CanAcceptExecutionRequests: lifecycle.CanAcceptExecutionRequests,
             ObservedAtUtc: lifecycle.ObservedAtUtc,
             ActionRequired: lifecycle.ActionRequired,
-            PrimaryDiagnostic: PlayOutputProjectionFactory.CreatePrimaryDiagnosticOutput(lifecycle.PrimaryDiagnostic),
+            PrimaryDiagnostic: lifecycle.PrimaryDiagnostic,
             PlayMode: lifecycle.PlayMode,
             Transition: CreateTransitionOutput(transition),
             TimeoutMilliseconds: context.TimeoutMilliseconds));
@@ -231,7 +222,7 @@ internal sealed class PlayExitService : IPlayExitService
             : CreateStateUnknownFailure($"Unity play exit transition error applicationState is invalid. Actual={transition.ApplicationState}.");
     }
 
-    private static IpcPlayLifecycleSnapshot? ResolveCurrentSnapshot (IpcPlayTransitionResult transition)
+    private static IpcUnityEditorObservation? ResolveCurrentSnapshot (IpcPlayTransitionResult transition)
     {
         return transition.Result switch
         {
@@ -255,15 +246,15 @@ internal sealed class PlayExitService : IPlayExitService
     private static ApplicationFailure? ValidateTransitionSnapshots (
         PlayCommandExecutionContext context,
         IpcPlayTransitionResult transition,
-        IpcPlayLifecycleSnapshot currentSnapshot)
+        IpcUnityEditorObservation currentSnapshot)
     {
-        var beforeFailure = ValidateSnapshotProjectAndPlayMode(context, transition.Before, "before");
+        var beforeFailure = ValidateSnapshotProject(context, transition.Before, "before");
         if (beforeFailure is not null)
         {
             return beforeFailure;
         }
 
-        var currentFailure = ValidateSnapshotProjectAndPlayMode(context, currentSnapshot, "current");
+        var currentFailure = ValidateSnapshotProject(context, currentSnapshot, "current");
         if (currentFailure is not null)
         {
             return currentFailure;
@@ -279,9 +270,9 @@ internal sealed class PlayExitService : IPlayExitService
         };
     }
 
-    private static ApplicationFailure? ValidateSnapshotProjectAndPlayMode (
+    private static ApplicationFailure? ValidateSnapshotProject (
         PlayCommandExecutionContext context,
-        IpcPlayLifecycleSnapshot snapshot,
+        IpcUnityEditorObservation snapshot,
         string label)
     {
         if (!string.Equals(snapshot.ProjectFingerprint, context.Project.ProjectFingerprint, StringComparison.Ordinal))
@@ -290,14 +281,12 @@ internal sealed class PlayExitService : IPlayExitService
                 $"Unity play exit {label} projectFingerprint mismatch. Requested={context.Project.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}.");
         }
 
-        return PlayModeSnapshotOutputFactory.Create(snapshot.PlayMode) is null
-            ? CreateStateUnknownFailure($"Unity play exit {label} playMode snapshot is missing or invalid.")
-            : null;
+        return null;
     }
 
     private static ApplicationFailure? ValidateExited (
-        IpcPlayLifecycleSnapshot before,
-        IpcPlayLifecycleSnapshot after)
+        IpcUnityEditorObservation before,
+        IpcUnityEditorObservation after)
     {
         if (!IsEnteredSnapshot(before))
         {
@@ -309,26 +298,26 @@ internal sealed class PlayExitService : IPlayExitService
             return CreateStateUnknownFailure("Unity play exit reported exited without a ready stopped snapshot.");
         }
 
-        if (string.Equals(before.PlayMode?.Generation, after.PlayMode?.Generation, StringComparison.Ordinal))
+        if (before.State.Generations.PlayModeGeneration == after.State.Generations.PlayModeGeneration)
         {
-            return CreateStateUnknownFailure("Unity play exit reported exited without changing playMode.generation.");
+            return CreateStateUnknownFailure("Unity play exit reported exited without changing generations.playModeGeneration.");
         }
 
         return null;
     }
 
     private static ApplicationFailure? ValidateAlreadyExited (
-        IpcPlayLifecycleSnapshot before,
-        IpcPlayLifecycleSnapshot after)
+        IpcUnityEditorObservation before,
+        IpcUnityEditorObservation after)
     {
         if (!IsStoppedPlayModeSnapshot(before) || !IsStoppedPlayModeSnapshot(after))
         {
             return CreateStateUnknownFailure("Unity play exit reported alreadyExited without a stopped snapshot.");
         }
 
-        if (!string.Equals(before.PlayMode?.Generation, after.PlayMode?.Generation, StringComparison.Ordinal))
+        if (before.State.Generations.PlayModeGeneration != after.State.Generations.PlayModeGeneration)
         {
-            return CreateStateUnknownFailure("Unity play exit reported alreadyExited after changing playMode.generation.");
+            return CreateStateUnknownFailure("Unity play exit reported alreadyExited after changing generations.playModeGeneration.");
         }
 
         return null;
@@ -372,54 +361,29 @@ internal sealed class PlayExitService : IPlayExitService
             or IpcPlayApplicationStateNames.Unknown;
     }
 
-    private static bool IsReadyStoppedSnapshot (IpcPlayLifecycleSnapshot snapshot)
+    private static bool IsReadyStoppedSnapshot (IpcUnityEditorObservation snapshot)
     {
         return IsStoppedPlayModeSnapshot(snapshot)
-            && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-            && string.IsNullOrWhiteSpace(snapshot.BlockingReason)
-            && snapshot.CanAcceptExecutionRequests;
+            && snapshot.State.LifecycleState == IpcEditorLifecycleState.Ready;
     }
 
-    private static bool IsStoppedPlayModeSnapshot (IpcPlayLifecycleSnapshot snapshot)
+    private static bool IsStoppedPlayModeSnapshot (IpcUnityEditorObservation snapshot)
     {
-        return TryReadPlayModeSnapshot(
-                snapshot,
-                out var playMode,
-                out var playModeState,
-                out var playModeTransition)
-            && playModeState == IpcPlayModeState.Stopped
-            && playModeTransition == IpcPlayModeTransition.None
+        var playMode = snapshot.State.PlayMode;
+        return playMode.State == IpcPlayModeState.Stopped
+            && playMode.Transition == IpcPlayModeTransition.None
             && !playMode.IsPlaying
             && !playMode.IsPlayingOrWillChangePlaymode;
     }
 
-    private static bool IsEnteredSnapshot (IpcPlayLifecycleSnapshot snapshot)
+    private static bool IsEnteredSnapshot (IpcUnityEditorObservation snapshot)
     {
-        return TryReadPlayModeSnapshot(
-                snapshot,
-                out var playMode,
-                out var playModeState,
-                out var playModeTransition)
-            && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, StringComparison.Ordinal)
-            && string.Equals(snapshot.BlockingReason, IpcEditorBlockingReasonCodec.PlayMode, StringComparison.Ordinal)
-            && playModeState == IpcPlayModeState.Playing
-            && playModeTransition == IpcPlayModeTransition.None
-            && playMode.IsPlaying
-            && !snapshot.CanAcceptExecutionRequests;
-    }
-
-    private static bool TryReadPlayModeSnapshot (
-        IpcPlayLifecycleSnapshot snapshot,
-        out IpcPlayModeSnapshot playMode,
-        out IpcPlayModeState state,
-        out IpcPlayModeTransition transition)
-    {
-        playMode = snapshot.PlayMode!;
-        state = default;
-        transition = default;
-        return playMode is not null
-            && ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeState>(playMode.State, out state)
-            && ContractLiteralInputParser.TryParseTrimmed<IpcPlayModeTransition>(playMode.Transition, out transition);
+        var state = snapshot.State;
+        var playMode = state.PlayMode;
+        return state.LifecycleState == IpcEditorLifecycleState.PlayMode
+            && playMode.State == IpcPlayModeState.Playing
+            && playMode.Transition == IpcPlayModeTransition.None
+            && playMode.IsPlaying;
     }
 
     private static ApplicationFailure CreateErrorFromUnityRequestFailure (UnityRequestFailure failure)

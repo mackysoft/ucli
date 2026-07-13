@@ -29,13 +29,10 @@ public sealed class DaemonStartServiceSuccessTests
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create();
-        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
-            CanAcceptExecutionRequests: false);
+        var lifecycleObservation = IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Compiling);
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
         {
-            EnsureRunningResult = DaemonStartResult.Started(session, lifecycleSnapshot),
+            EnsureRunningResult = DaemonStartResult.Started(session, lifecycleObservation),
         };
         var service = DaemonStartServiceTestSupport.CreateService(resolver, supervisorProjectGateway);
 
@@ -47,8 +44,8 @@ public sealed class DaemonStartServiceSuccessTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal(1200, output.TimeoutMilliseconds);
         DaemonServiceOutputAssert.SessionMatches(session, output.Session);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.Compile, output.BlockingReason);
+        Assert.Equal(IpcEditorLifecycleState.Compiling, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.Compile, output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
         var invocation = DaemonProjectLifecycleGatewayAssert.EnsureRunningRequested(
             supervisorProjectGateway,
@@ -72,7 +69,7 @@ public sealed class DaemonStartServiceSuccessTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
         {
-            EnsureRunningResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create()),
+            EnsureRunningResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(), IpcUnityEditorObservationTestFactory.Create()),
         };
         var service = DaemonStartServiceTestSupport.CreateService(resolver, supervisorProjectGateway);
 
@@ -109,8 +106,8 @@ public sealed class DaemonStartServiceSuccessTests
         {
             EnsureRunningResult = caseName switch
             {
-                "already-running" => DaemonStartResult.AlreadyRunning(session),
-                "attached" => DaemonStartResult.Attached(session),
+                "already-running" => DaemonStartResult.AlreadyRunning(session, IpcUnityEditorObservationTestFactory.Create()),
+                "attached" => DaemonStartResult.Attached(session, IpcUnityEditorObservationTestFactory.Create()),
                 _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unsupported running status case."),
             },
         };

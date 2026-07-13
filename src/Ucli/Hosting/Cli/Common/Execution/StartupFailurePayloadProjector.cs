@@ -45,11 +45,7 @@ internal static class StartupFailurePayloadProjector
             payload["diagnosis"] = startupFailure.Diagnosis;
         }
 
-        if (!string.IsNullOrWhiteSpace(startupFailure.RetryDisposition))
-        {
-            payload["retryDisposition"] = startupFailure.RetryDisposition;
-        }
-
+        payload["retryDisposition"] = startupFailure.RetryDisposition;
         payload["safeToRetryImmediately"] = startupFailure.SafeToRetryImmediately;
     }
 }

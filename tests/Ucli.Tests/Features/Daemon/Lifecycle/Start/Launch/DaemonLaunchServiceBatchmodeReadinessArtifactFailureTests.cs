@@ -32,14 +32,14 @@ public sealed class DaemonLaunchServiceBatchmodeReadinessArtifactFailureTests
         Assert.Contains("ProbeError=probe failed", error.Message, StringComparison.Ordinal);
         Assert.Contains("ArtifactError=artifact write failed", error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), result.Startup!.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Timeout, result.Startup!.StartupStatus);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup.ProcessAction);
         DaemonLaunchAttemptStoreAssert.SingleLaunchAttemptRecordedWithoutPruneFor(
             launchAttemptStore,
             scenario.Context,
             AssertStartupLaunchAttemptId(result.Startup),
-            ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout),
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
+            DaemonStartupStatus.Timeout,
+            DaemonStartupProcessAction.Terminated);
     }
 
     [Fact]
@@ -67,13 +67,13 @@ public sealed class DaemonLaunchServiceBatchmodeReadinessArtifactFailureTests
         Assert.Contains("ProbeError=probe failed", error.Message, StringComparison.Ordinal);
         Assert.Contains("ArtifactError=artifact prune failed", error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), result.Startup!.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Timeout, result.Startup!.StartupStatus);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup.ProcessAction);
         DaemonLaunchAttemptStoreAssert.SingleLaunchAttemptRecordedAndPrunedFor(
             launchAttemptStore,
             scenario.Context,
             AssertStartupLaunchAttemptId(result.Startup),
-            ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout),
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
+            DaemonStartupStatus.Timeout,
+            DaemonStartupProcessAction.Terminated);
     }
 }

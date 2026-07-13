@@ -22,10 +22,13 @@ internal sealed class DaemonSessionJsonSerializer : IDaemonSessionSerializer
             SessionToken: StringValueNormalizer.TrimOrEmpty(contract.SessionToken),
             ProjectFingerprint: StringValueNormalizer.TrimOrEmpty(contract.ProjectFingerprint),
             IssuedAtUtc: contract.IssuedAtUtc,
-            EditorMode: StringValueNormalizer.TrimOrEmpty(contract.EditorMode),
-            OwnerKind: StringValueNormalizer.TrimOrEmpty(contract.OwnerKind),
+            EditorMode: contract.EditorMode
+                ?? throw new JsonException("Daemon session editorMode is missing."),
+            OwnerKind: contract.OwnerKind
+                ?? throw new JsonException("Daemon session ownerKind is missing."),
             CanShutdownProcess: contract.CanShutdownProcess,
-            EndpointTransportKind: StringValueNormalizer.TrimOrEmpty(contract.EndpointTransportKind),
+            EndpointTransportKind: contract.EndpointTransportKind
+                ?? throw new JsonException("Daemon session endpointTransportKind is missing."),
             EndpointAddress: StringValueNormalizer.TrimOrEmpty(contract.EndpointAddress),
             ProcessId: contract.ProcessId,
             ProcessStartedAtUtc: contract.ProcessStartedAtUtc,

@@ -17,6 +17,7 @@ public static class UcliKnownErrorDescriptors
         PlanTokenErrorCodeDescriptors.All,
         PlayModeErrorCodeDescriptors.All,
         ReadIndexErrorCodeDescriptors.All,
+        ScreenshotErrorCodeDescriptors.All,
     ];
 
     /// <summary> Gets bundled descriptors sorted by error code value. </summary>

@@ -19,8 +19,7 @@ internal static class StatusServiceAssert
         Assert.Null(output.LifecycleState);
         Assert.Null(output.BlockingReason);
         Assert.Null(output.CompileState);
-        Assert.Null(output.CompileGeneration);
-        Assert.Null(output.DomainReloadGeneration);
+        Assert.Null(output.Generations);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.EditorMode);
         Assert.Null(output.PlayMode);
@@ -36,11 +35,10 @@ internal static class StatusServiceAssert
         Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
         Assert.Equal(expectedUnityVersion, output.UnityVersion);
         Assert.Null(output.ServerVersion);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Unavailable, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.Unavailable, output.BlockingReason);
+        Assert.Equal(IpcEditorLifecycleState.Unavailable, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.Unavailable, output.BlockingReason);
         Assert.Null(output.CompileState);
-        Assert.Null(output.CompileGeneration);
-        Assert.Null(output.DomainReloadGeneration);
+        Assert.Null(output.Generations);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.EditorMode);
         Assert.Null(output.PlayMode);

@@ -123,7 +123,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                             targetReferenceKey,
                             validationState.ComponentType,
                             component!,
-                            validationState.Target!,
+                            validationState.Target,
                             validationState.Resource);
                     }
                 }
@@ -195,16 +195,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!ComponentTypeResolver.TryResolveComponentType(args.Type, out var resolvedComponentType, out errorMessage))
+            var target = targetResolution.GameObject;
+            if (target == null)
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    "Reference did not resolve to a GameObject.");
+                return false;
+            }
+
+            var componentTypeId = args.Type?.Value ?? string.Empty;
+            if (!ComponentTypeResolver.TryResolveComponentType(componentTypeId, out var resolvedComponentType, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
             validationState = new ValidationState(
-                targetResolution.GameObject!,
+                target,
                 targetResolution.Resource,
-                resolvedComponentType!);
+                resolvedComponentType);
             return true;
         }
 
@@ -257,11 +267,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ComponentType = componentType;
             }
 
-            public GameObject? Target { get; }
+            public GameObject Target { get; }
 
             public OperationResource Resource { get; }
 
-            public Type? ComponentType { get; }
+            public Type ComponentType { get; }
         }
     }
 }

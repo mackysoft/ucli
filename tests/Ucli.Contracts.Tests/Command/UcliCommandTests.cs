@@ -15,6 +15,8 @@ public sealed class UcliCommandTests
         "logs.daemon.read",
         "logs.unity.read",
         "logs.unity.clear",
+        "screenshot.game",
+        "screenshot.scene",
     ];
 
     private static readonly string?[] InvalidCommandNames =
@@ -59,6 +61,9 @@ public sealed class UcliCommandTests
         new(UcliCommandIds.LogsDaemonRead, "logs.daemon.read"),
         new(UcliCommandIds.LogsUnityRead, "logs.unity.read"),
         new(UcliCommandIds.LogsUnityClear, "logs.unity.clear"),
+        new(UcliCommandIds.Screenshot, "screenshot"),
+        new(UcliCommandIds.ScreenshotGame, "screenshot.game"),
+        new(UcliCommandIds.ScreenshotScene, "screenshot.scene"),
         new(UcliCommandIds.Codes, "codes"),
         new(UcliCommandIds.CodesList, "codes.list"),
         new(UcliCommandIds.CodesDescribe, "codes.describe"),
@@ -153,6 +158,15 @@ public sealed class UcliCommandTests
     {
         Assert.Contains(UcliCommandIds.Build, UcliPublicCommandCatalog.KnownCommands);
         Assert.Contains(UcliCommandIds.BuildRun, UcliPublicCommandCatalog.KnownCommands);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void PublicCommandCatalog_IncludesScreenshotCommandFamily ()
+    {
+        Assert.Contains(UcliCommandIds.Screenshot, UcliPublicCommandCatalog.KnownCommands);
+        Assert.Contains(UcliCommandIds.ScreenshotGame, UcliPublicCommandCatalog.KnownCommands);
+        Assert.Contains(UcliCommandIds.ScreenshotScene, UcliPublicCommandCatalog.KnownCommands);
     }
 
     [Fact]

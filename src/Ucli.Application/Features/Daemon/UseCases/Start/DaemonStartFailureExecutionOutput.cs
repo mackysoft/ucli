@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 
@@ -16,7 +15,7 @@ internal sealed record DaemonStartFailureExecutionOutput (
     int TimeoutMilliseconds,
     DaemonStartupObservationOutput? Startup,
     DaemonDiagnosisOutput? Diagnosis,
-    string RetryDisposition,
+    DaemonStartupRetryDisposition RetryDisposition,
     bool SafeToRetryImmediately)
 {
     /// <summary> Creates one failure output with final-response retry disposition normalization applied. </summary>
@@ -33,24 +32,24 @@ internal sealed record DaemonStartFailureExecutionOutput (
             ToOutput(startup, retryDisposition),
             diagnosis,
             retryDisposition,
-            ContractLiteralCodec.Matches(retryDisposition, DaemonStartupRetryDisposition.RetryImmediately));
+            retryDisposition == DaemonStartupRetryDisposition.RetryImmediately);
     }
 
-    private static string ResolveFinalRetryDisposition (DaemonStartupObservation? startup)
+    private static DaemonStartupRetryDisposition ResolveFinalRetryDisposition (DaemonStartupObservation? startup)
     {
         if (startup is null)
         {
-            return ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown);
+            return DaemonStartupRetryDisposition.Unknown;
         }
 
-        return ContractLiteralCodec.Matches(startup.RetryDisposition, DaemonStartupRetryDisposition.WaitThenRetry)
-            ? ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown)
+        return startup.RetryDisposition == DaemonStartupRetryDisposition.WaitThenRetry
+            ? DaemonStartupRetryDisposition.Unknown
             : startup.RetryDisposition;
     }
 
     private static DaemonStartupObservationOutput? ToOutput (
         DaemonStartupObservation? startup,
-        string retryDisposition)
+        DaemonStartupRetryDisposition retryDisposition)
     {
         if (startup is null)
         {

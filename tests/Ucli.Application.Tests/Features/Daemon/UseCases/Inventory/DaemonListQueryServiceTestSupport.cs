@@ -93,7 +93,7 @@ internal static class DaemonListQueryServiceTestSupport
             SessionIssuedAtUtc: session.IssuedAtUtc,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp-current/unity.log",
-            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
+            StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
                 Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit,
@@ -120,12 +120,12 @@ internal static class DaemonListQueryServiceTestSupport
         return CreatePingClient((_, _, _, _, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromException<IpcPingResponse>(exception);
+            return ValueTask.FromException<IpcUnityEditorObservation>(exception);
         });
     }
 
     public static RecordingDaemonPingInfoClient CreatePingClient (
-        Func<ResolvedUnityProjectContext, TimeSpan, string?, bool, CancellationToken, ValueTask<IpcPingResponse>> handler)
+        Func<ResolvedUnityProjectContext, TimeSpan, string?, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>> handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
 
@@ -135,19 +135,10 @@ internal static class DaemonListQueryServiceTestSupport
         };
     }
 
-    public static IpcPingResponse CreatePingResponse (ResolvedUnityProjectContext unityProject)
+    public static IpcUnityEditorObservation CreatePingResponse (ResolvedUnityProjectContext unityProject)
     {
-        return new IpcPingResponse(
-            ServerVersion: "0.0.1",
-            EditorMode: "batchmode",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: unityProject.ProjectFingerprint,
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-            BlockingReason: null,
-            CompileGeneration: "1",
-            DomainReloadGeneration: "1",
-            CanAcceptExecutionRequests: true);
+        return IpcUnityEditorObservationTestFactory.Create(
+            projectFingerprint: unityProject.ProjectFingerprint);
     }
 
     private static RecordingDaemonSessionDiagnosisResolver CreateDiagnosisResolver (IDaemonDiagnosisStore daemonDiagnosisStore)

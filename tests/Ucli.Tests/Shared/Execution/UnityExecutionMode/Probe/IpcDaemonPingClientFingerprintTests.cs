@@ -18,7 +18,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
                 request,
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
-                IpcPingResponseTestFactory.Create(projectFingerprint: "different-fingerprint")));
+                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: "different-fingerprint")));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
@@ -41,7 +41,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
                 request,
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
-                IpcPingResponseTestFactory.Create(projectFingerprint: "different-fingerprint")));
+                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: "different-fingerprint")));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
 
         var result = await pingClient.PingAndReadAsync(

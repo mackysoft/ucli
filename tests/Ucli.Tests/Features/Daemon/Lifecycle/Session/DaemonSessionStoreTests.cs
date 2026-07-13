@@ -5,7 +5,10 @@ namespace MackySoft.Ucli.Tests.Daemon;
 using System.Runtime.Versioning;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Tests;
 using MackySoft.Ucli.Tests.Helpers;
 
@@ -181,7 +184,7 @@ public sealed class DaemonSessionStoreTests
             projectFingerprint: "fingerprint-invalid-transport",
             sessionToken: "token-1") with
         {
-            EndpointTransportKind = "unsupported-transport",
+            EndpointTransportKind = (IpcTransportKind)int.MaxValue,
         };
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
@@ -202,7 +205,7 @@ public sealed class DaemonSessionStoreTests
             projectFingerprint: "fingerprint-invalid-editor-mode",
             sessionToken: "token-1") with
         {
-            EditorMode = "unsupported",
+            EditorMode = (DaemonEditorMode)int.MaxValue,
         };
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
@@ -210,7 +213,7 @@ public sealed class DaemonSessionStoreTests
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("editorMode", error.Message, StringComparison.Ordinal);
+        Assert.Contains("editorMode", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -223,7 +226,7 @@ public sealed class DaemonSessionStoreTests
             projectFingerprint: "fingerprint-invalid-owner-kind",
             sessionToken: "token-1") with
         {
-            OwnerKind = "gui",
+            OwnerKind = (DaemonSessionOwnerKind)int.MaxValue,
         };
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
@@ -268,17 +271,20 @@ public sealed class DaemonSessionStoreTests
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "read-invalid-editor-mode");
         var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
         var requestedFingerprint = "fingerprint-read-invalid-editor-mode";
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: requestedFingerprint, sessionToken: "token-1") with
-        {
-            EditorMode = "unsupported",
-        };
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: requestedFingerprint, sessionToken: "token-1");
 
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         var serializer = new DaemonSessionJsonSerializer();
+        var json = serializer.Serialize(session);
+        var editorModeProperty = $"\"editorMode\": \"{ContractLiteralCodec.ToValue(session.EditorMode)}\"";
+        Assert.Contains(editorModeProperty, json, StringComparison.Ordinal);
         await File.WriteAllTextAsync(
             sessionPath,
-            serializer.Serialize(session) + Environment.NewLine,
+            json.Replace(
+                editorModeProperty,
+                "\"editorMode\": \"unsupported\"",
+                StringComparison.Ordinal) + Environment.NewLine,
             CancellationToken.None);
 
         var readResult = await store.ReadAsync(scope.FullPath, requestedFingerprint, CancellationToken.None);
@@ -288,7 +294,7 @@ public sealed class DaemonSessionStoreTests
         Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("editorMode", error.Message, StringComparison.Ordinal);
+        Assert.Contains("editorMode", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -301,8 +307,8 @@ public sealed class DaemonSessionStoreTests
             projectFingerprint: "fingerprint-user-owner-can-shutdown-true",
             sessionToken: "token-1") with
         {
-            EditorMode = "gui",
-            OwnerKind = "user",
+            EditorMode = DaemonEditorMode.Gui,
+            OwnerKind = DaemonSessionOwnerKind.User,
             CanShutdownProcess = true,
         };
 
@@ -324,8 +330,8 @@ public sealed class DaemonSessionStoreTests
             projectFingerprint: "fingerprint-gui-user-owner",
             sessionToken: "token-1") with
         {
-            EditorMode = "gui",
-            OwnerKind = "user",
+            EditorMode = DaemonEditorMode.Gui,
+            OwnerKind = DaemonSessionOwnerKind.User,
             CanShutdownProcess = false,
         };
 

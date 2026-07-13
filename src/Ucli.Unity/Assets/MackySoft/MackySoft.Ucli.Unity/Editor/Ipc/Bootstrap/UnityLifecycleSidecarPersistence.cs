@@ -4,8 +4,6 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Persists Unity lifecycle observations for CLI reads while the IPC endpoint is unavailable. </summary>
@@ -16,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string storageRoot,
             string projectFingerprint,
             string serverVersion,
-            UnityEditorLifecycleSnapshot snapshot)
+            UnityEditorObservation snapshot)
         {
             if (string.IsNullOrWhiteSpace(storageRoot))
             {
@@ -41,23 +39,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             using var currentProcess = Process.GetCurrentProcess();
             var path = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);
             var contract = new DaemonLifecycleJsonContract(
-                ProcessId: currentProcess.Id,
-                ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
-                EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
-                LifecycleState: snapshot.LifecycleState,
-                BlockingReason: snapshot.BlockingReason,
-                CompileState: snapshot.CompileState,
-                CompileGeneration: snapshot.CompileGeneration,
-                DomainReloadGeneration: snapshot.DomainReloadGeneration,
-                ObservedAtUtc: snapshot.ObservedAtUtc ?? DateTimeOffset.UtcNow,
-                ActionRequired: snapshot.ActionRequired,
-                PrimaryDiagnostic: snapshot.PrimaryDiagnostic)
-            {
-                ServerVersion = serverVersion,
-                CanAcceptExecutionRequests = snapshot.CanAcceptExecutionRequests,
-                EditorInstanceId = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId(),
-                PlayMode = snapshot.PlayMode,
-            };
+                processId: currentProcess.Id,
+                processStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
+                state: snapshot.State,
+                observedAtUtc: snapshot.ObservedAtUtc,
+                actionRequired: snapshot.ActionRequired,
+                primaryDiagnostic: snapshot.PrimaryDiagnostic,
+                serverVersion: serverVersion,
+                editorInstanceId: UnityEditorSessionStateStore.GetOrCreateEditorInstanceId());
             FileUtilities.WriteAllTextAtomically(path, DaemonLifecycleJsonContractSerializer.Serialize(contract));
         }
     }

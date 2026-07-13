@@ -5,20 +5,6 @@ namespace MackySoft.Ucli.Contracts.Storage;
 /// <summary> Provides shared serializer settings for GUI supervisor manifest contracts. </summary>
 internal static class GuiSupervisorManifestJsonContractSerializer
 {
-    private static readonly JsonSerializerOptions DeserializeOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = false,
-    };
-
-    private static readonly JsonSerializerOptions SerializeOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = true,
-    };
-
     /// <summary> Deserializes GUI supervisor manifest JSON text to contract. </summary>
     /// <param name="json"> The GUI supervisor manifest JSON text. </param>
     /// <returns> The deserialized contract; or <see langword="null" /> when JSON root is <c>null</c>. </returns>
@@ -31,7 +17,9 @@ internal static class GuiSupervisorManifestJsonContractSerializer
             throw new ArgumentException("JSON text must not be empty.", nameof(json));
         }
 
-        return JsonSerializer.Deserialize<GuiSupervisorManifestJsonContract>(json, DeserializeOptions);
+        return JsonSerializer.Deserialize<GuiSupervisorManifestJsonContract>(
+            json,
+            DaemonStorageJsonSerializerOptions.Deserialize);
     }
 
     /// <summary> Serializes GUI supervisor manifest contract to JSON text. </summary>
@@ -45,6 +33,6 @@ internal static class GuiSupervisorManifestJsonContractSerializer
             throw new ArgumentNullException(nameof(contract));
         }
 
-        return JsonSerializer.Serialize(contract, SerializeOptions);
+        return JsonSerializer.Serialize(contract, DaemonStorageJsonSerializerOptions.Serialize);
     }
 }

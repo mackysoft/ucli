@@ -26,23 +26,13 @@ public sealed class StatusServiceTests
             sessionToken: "session-token",
             projectFingerprint: "project-fingerprint",
             endpointAddress: "ucli-daemon-status")));
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: "ready",
-            LifecycleState: "busy",
-            BlockingReason: "busy",
-            CompileGeneration: "12",
-            DomainReloadGeneration: "7",
-            CanAcceptExecutionRequests: false,
-            PlayMode: new IpcPlayModeSnapshot(
-                State: "stopped",
-                Transition: "none",
-                IsPlaying: false,
-                IsPlayingOrWillChangePlaymode: false,
-                Generation: "2")));
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse(
+            lifecycleState: IpcEditorLifecycleState.Busy,
+            generations: new IpcUnityGenerationSnapshot(
+                CompileGeneration: 12,
+                DomainReloadGeneration: 7,
+                AssetRefreshGeneration: 3,
+                PlayModeGeneration: 2)));
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -56,19 +46,21 @@ public sealed class StatusServiceTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal("6000.1.4f1", output.UnityVersion);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal("busy", output.LifecycleState);
-        Assert.Equal("busy", output.BlockingReason);
-        Assert.Equal("ready", output.CompileState);
-        Assert.Equal("12", output.CompileGeneration);
-        Assert.Equal("7", output.DomainReloadGeneration);
+        Assert.Equal(IpcEditorLifecycleState.Busy, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.Busy, output.BlockingReason);
+        Assert.Equal(IpcCompileState.Ready, output.CompileState);
+        Assert.NotNull(output.Generations);
+        Assert.Equal(12, output.Generations.CompileGeneration);
+        Assert.Equal(7, output.Generations.DomainReloadGeneration);
+        Assert.Equal(3, output.Generations.AssetRefreshGeneration);
+        Assert.Equal(2, output.Generations.PlayModeGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Equal("batchmode", output.EditorMode);
+        Assert.Equal(DaemonEditorMode.Batchmode, output.EditorMode);
         Assert.NotNull(output.PlayMode);
-        Assert.Equal("stopped", output.PlayMode.State);
-        Assert.Equal("none", output.PlayMode.Transition);
+        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransition.None, output.PlayMode.Transition);
         Assert.False(output.PlayMode.IsPlaying);
         Assert.False(output.PlayMode.IsPlayingOrWillChangePlaymode);
-        Assert.Equal("2", output.PlayMode.Generation);
         var expectedTimeoutMilliseconds = UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand[UcliCommandIds.Status.Name];
         Assert.NotNull(expectedTimeoutMilliseconds);
         Assert.Equal(expectedTimeoutMilliseconds, output.TimeoutMilliseconds);
@@ -93,12 +85,7 @@ public sealed class StatusServiceTests
         var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: "ready"));
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse());
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -123,12 +110,7 @@ public sealed class StatusServiceTests
             sessionToken: "stale-session-token",
             projectFingerprint: "project-fingerprint",
             endpointAddress: "ucli-daemon-status")));
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: "ready"));
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse());
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -150,12 +132,7 @@ public sealed class StatusServiceTests
         var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: "ready"));
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse());
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -175,12 +152,7 @@ public sealed class StatusServiceTests
             ExecutionError.InvalidArgument("Unity project path is invalid.")));
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: "ready"));
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse());
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -204,12 +176,7 @@ public sealed class StatusServiceTests
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Failure(
             ExecutionError.InternalError("Failed to read daemon session.")));
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
-            CompileState: "ready"));
+        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse());
         var service = CreateService(
             contextResolver,
             unityVersionResolver,
@@ -246,7 +213,7 @@ public sealed class StatusServiceTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<StatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Unavailable, output.LifecycleState);
+        Assert.Equal(IpcEditorLifecycleState.Unavailable, output.LifecycleState);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(result.Error);
     }
@@ -318,5 +285,26 @@ public sealed class StatusServiceTests
                 new StubDaemonReachabilityClassifier(static exception => exception is SocketException),
                 new RecordingDaemonLifecycleStore(),
                 new RecordingDaemonProcessIdentityAssessor()));
+    }
+
+    private static IpcUnityEditorObservation CreatePingResponse (
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
+        IpcUnityGenerationSnapshot? generations = null)
+    {
+        return new IpcUnityEditorObservation(
+            serverVersion: "0.5.0",
+            unityVersion: "2022.3.5f1",
+            projectFingerprint: "project-fingerprint",
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Batchmode,
+                lifecycleState: lifecycleState,
+                compileState: IpcCompileState.Ready,
+                generations: generations ?? new IpcUnityGenerationSnapshot(0, 0, 0, 0),
+                playMode: new IpcPlayModeSnapshot(
+                    State: IpcPlayModeState.Stopped,
+                    Transition: IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
+            observedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero));
     }
 }

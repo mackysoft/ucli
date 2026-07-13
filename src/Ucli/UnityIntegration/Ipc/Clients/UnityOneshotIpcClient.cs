@@ -714,7 +714,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             return null;
         }
 
-        var message = classification!.Message;
+        var message = classification.Message;
         var startupFailure = StartupFailureDetailFactory.CreateClassifiedBatchmodeFailure(
             classification,
             string.IsNullOrWhiteSpace(message) ? fallbackMessage : message,
@@ -862,14 +862,12 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private static bool IsStartupLifecycleDispatchAllowed (
         UnityIpcDispatchRequest dispatchRequest,
-        IpcPingResponse pingResponse)
+        IpcUnityEditorObservation pingResponse)
     {
         ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentNullException.ThrowIfNull(pingResponse);
 
-        return dispatchRequest.AllowedStartupLifecycleStates.Contains(
-            pingResponse.LifecycleState,
-            StringComparer.Ordinal);
+        return dispatchRequest.AllowedStartupLifecycleStates.Contains(pingResponse.State.LifecycleState);
     }
 
     private static bool TryReadFailFast<TRequest> (

@@ -10,6 +10,7 @@ using MackySoft.Ucli.Hosting.Cli.Init;
 using MackySoft.Ucli.Hosting.Cli.Ops;
 using MackySoft.Ucli.Hosting.Cli.Play;
 using MackySoft.Ucli.Hosting.Cli.Requests;
+using MackySoft.Ucli.Hosting.Cli.Screenshot;
 using MackySoft.Ucli.Hosting.Cli.Status;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 
@@ -58,6 +59,14 @@ internal static class UcliCommandCatalog
                     new CommandLeafEntry(UcliCommandNames.ClearSubcommand, UcliCommandNames.LogsUnityClear),
                 ]),
         ]);
+
+    private static readonly CommandGroupEntry ScreenshotCommandGroup = new(
+        UcliCommandNames.Screenshot,
+        [
+            new CommandLeafEntry(UcliCommandNames.GameSubcommand, UcliCommandNames.ScreenshotGame),
+            new CommandLeafEntry(UcliCommandNames.SceneSubcommand, UcliCommandNames.ScreenshotScene),
+        ],
+        []);
 
     private static readonly CommandGroupEntry OpsCommandGroup = new(
         UcliCommandNames.Ops,
@@ -138,6 +147,7 @@ internal static class UcliCommandCatalog
     [
         DaemonCommandGroup,
         LogsCommandGroup,
+        ScreenshotCommandGroup,
         OpsCommandGroup,
         CodesCommandGroup,
         PlayCommandGroup,
@@ -196,6 +206,8 @@ internal static class UcliCommandCatalog
         app.Add<LogsDaemonReadCommand>("logs daemon");
         app.Add<LogsUnityReadCommand>("logs unity");
         app.Add<LogsUnityClearCommand>("logs unity");
+        app.Add<ScreenshotGameCommand>("screenshot");
+        app.Add<ScreenshotSceneCommand>("screenshot");
         app.Add<OpsListCommand>("ops");
         app.Add<OpsDescribeCommand>("ops");
         app.Add<CodesListCommand>("codes");

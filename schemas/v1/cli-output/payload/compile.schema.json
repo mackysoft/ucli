@@ -160,10 +160,18 @@
               "type": "boolean"
             },
             "compileGenerationBefore": {
-              "type": "string"
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
             },
             "compileGenerationAfter": {
-              "type": "string"
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
             },
             "diagnostics": {
               "type": "object",
@@ -247,10 +255,18 @@
               "type": "boolean"
             },
             "generationBefore": {
-              "type": "string"
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
             },
             "generationAfter": {
-              "type": "string"
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0
             },
             "settled": {
               "type": "boolean"
@@ -304,16 +320,39 @@
                 "null"
               ]
             },
-            "compileGeneration": {
-              "type": [
-                "string",
-                "null"
-              ]
-            },
-            "domainReloadGeneration": {
-              "type": [
-                "string",
-                "null"
+            "generations": {
+              "oneOf": [
+                {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "compileGeneration": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "domainReloadGeneration": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "assetRefreshGeneration": {
+                      "type": "integer",
+                      "minimum": 0
+                    },
+                    "playModeGeneration": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "compileGeneration",
+                    "domainReloadGeneration",
+                    "assetRefreshGeneration",
+                    "playModeGeneration"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
               ]
             },
             "canAcceptExecutionRequests": {
@@ -384,8 +423,7 @@
             "lifecycleState",
             "blockingReason",
             "compileState",
-            "compileGeneration",
-            "domainReloadGeneration",
+            "generations",
             "canAcceptExecutionRequests",
             "observedAtUtc",
             "actionRequired",

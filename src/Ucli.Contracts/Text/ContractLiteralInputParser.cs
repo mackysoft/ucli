@@ -9,20 +9,6 @@ internal static class ContractLiteralInputParser
         return literal != null && IsDefinedWithComparison<TEnum>(literal, StringComparison.OrdinalIgnoreCase);
     }
 
-    public static bool IsDefinedTrimmed<TEnum> (string? literal)
-        where TEnum : struct, Enum
-    {
-        return StringValueNormalizer.TryTrimToNonEmpty(literal, out var normalizedLiteral)
-            && ContractLiteralCodec.IsDefined<TEnum>(normalizedLiteral);
-    }
-
-    public static bool IsDefinedTrimmedIgnoreCase<TEnum> (string? literal)
-        where TEnum : struct, Enum
-    {
-        return StringValueNormalizer.TryTrimToNonEmpty(literal, out var normalizedLiteral)
-            && IsDefinedWithComparison<TEnum>(normalizedLiteral, StringComparison.OrdinalIgnoreCase);
-    }
-
     public static bool TryParseIgnoreCase<TEnum> (
         string? literal,
         out TEnum value)
@@ -49,20 +35,6 @@ internal static class ContractLiteralInputParser
         }
 
         return ContractLiteralCodec.TryParse(normalizedLiteral, out value);
-    }
-
-    public static bool TryParseTrimmedIgnoreCase<TEnum> (
-        string? literal,
-        out TEnum value)
-        where TEnum : struct, Enum
-    {
-        if (!StringValueNormalizer.TryTrimToNonEmpty(literal, out var normalizedLiteral))
-        {
-            value = default;
-            return false;
-        }
-
-        return TryParseWithComparison(normalizedLiteral, StringComparison.OrdinalIgnoreCase, out value);
     }
 
     private static bool TryParseWithComparison<TEnum> (

@@ -11,8 +11,8 @@ namespace MackySoft.Ucli.Tests;
 internal static class DaemonStartCommandTestSupport
 {
     public static DaemonStartExecutionOutput CreateSuccessOutput (
-        string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
-        string? blockingReason = null,
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
+        IpcEditorBlockingReason? blockingReason = null,
         bool canAcceptExecutionRequests = true)
     {
         return new DaemonStartExecutionOutput(
@@ -22,16 +22,22 @@ internal static class DaemonStartCommandTestSupport
             Session: new DaemonSessionOutput(
                 ProjectFingerprint: "fingerprint",
                 IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 3, TimeSpan.Zero),
-                EditorMode: "batchmode",
-                OwnerKind: "cli",
+                EditorMode: DaemonEditorMode.Batchmode,
+                OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
-                EndpointTransportKind: "namedPipe",
+                EndpointTransportKind: IpcTransportKind.NamedPipe,
                 EndpointAddress: "ucli-daemon-endpoint",
                 ProcessId: 1234,
                 ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 0, TimeSpan.Zero),
                 OwnerProcessId: 5678),
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,
+            Generations: new IpcUnityGenerationSnapshot(0, 0, 0, 0),
+            PlayMode: new IpcPlayModeSnapshot(
+                IpcPlayModeState.Stopped,
+                IpcPlayModeTransition.None,
+                IsPlaying: false,
+                IsPlayingOrWillChangePlaymode: false),
             CanAcceptExecutionRequests: canAcceptExecutionRequests);
     }
 
@@ -47,7 +53,7 @@ internal static class DaemonStartCommandTestSupport
             .ConfigureAwait(false);
         await progressSink.OnEntryAsync(
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed),
-                CreateProgressEntry(ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded), "started", "running", errorCode: null),
+                CreateProgressEntry(CommandProgressResult.Succeeded, "started", "running", errorCode: null),
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -73,18 +79,18 @@ internal static class DaemonStartCommandTestSupport
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                     startedAtUtc: DaemonStartProgressEntryTestFactory.SampleStartedAtUtc,
-                    startupStatus: "waitingForEndpoint",
-                    startupPhase: "endpointRegistration"),
+                    startupStatus: DaemonStartupStatus.WaitingForEndpoint,
+                    startupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration),
                 cancellationToken)
             .ConfigureAwait(false);
         await progressSink.OnEntryAsync(
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.BlockerDetected),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                     startedAtUtc: DaemonStartProgressEntryTestFactory.SampleStartedAtUtc,
-                    startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-                    startupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
-                    startupPhase: "endpointRegistration",
-                    retryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
+                    startupStatus: DaemonStartupStatus.Blocked,
+                    startupBlockingReason: DaemonStartupBlockingReason.Compile,
+                    startupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
+                    retryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
                     message: "Unity startup is blocked.",
                     errorCode: DaemonErrorCodes.DaemonStartupBlocked.Value),
                 cancellationToken)
@@ -98,13 +104,14 @@ internal static class DaemonStartCommandTestSupport
         await progressSink.OnEntryAsync(
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved),
                 new DaemonStartLifecycleSnapshotProgressEntry(
-                    ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
+                    DaemonStartProgressPayloadKind.LifecycleSnapshot,
                     "fingerprint",
                     1234,
-                    "batchmode",
-                    "auto",
-                    IpcEditorLifecycleStateCodec.Compiling,
-                    IpcEditorBlockingReasonCodec.Compile,
+                    DaemonEditorMode.Batchmode,
+                    DaemonStartupBlockedProcessPolicy.Auto,
+                    IpcEditorLifecycleState.Compiling,
+                    IpcEditorBlockingReason.Compile,
+                    new IpcUnityGenerationSnapshot(0, 0, 0, 0),
                     CanAcceptExecutionRequests: false),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -123,7 +130,7 @@ internal static class DaemonStartCommandTestSupport
     }
 
     private static DaemonStartProgressEntry CreateProgressEntry (
-        string? result,
+        CommandProgressResult? result,
         string? startStatus,
         string? daemonStatus,
         string? errorCode)
@@ -131,8 +138,8 @@ internal static class DaemonStartCommandTestSupport
         return new DaemonStartProgressEntry(
             ProjectFingerprint: "fingerprint",
             TimeoutMilliseconds: 1234,
-            EditorMode: "batchmode",
-            OnStartupBlocked: "auto",
+            EditorMode: DaemonEditorMode.Batchmode,
+            OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             Result: result,
             StartStatus: startStatus,
             DaemonStatus: daemonStatus,

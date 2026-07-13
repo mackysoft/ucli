@@ -42,6 +42,7 @@ internal static class InvalidArgumentErrorCodeSet
         codes.Add(BuildErrorCodes.BuildTargetUnsupported);
         codes.Add(BuildErrorCodes.BuildInputsInvalid);
         codes.Add(BuildErrorCodes.BuildSceneNotFound);
+        codes.Add(ScreenshotErrorCodes.ScreenshotRequestedSizeUnsupported);
 
         return codes;
     }

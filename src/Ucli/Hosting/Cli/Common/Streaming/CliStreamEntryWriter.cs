@@ -2,17 +2,13 @@ using System.Buffers;
 using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Hosting.Cli.Common.Serialization;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 
 /// <summary> Writes public stream entries to standard error. </summary>
 internal sealed class CliStreamEntryWriter
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     private readonly string command;
     private readonly string streamId;
     private readonly TextWriter errorWriter;
@@ -55,7 +51,7 @@ internal sealed class CliStreamEntryWriter
             writer.WriteString("timestamp", timeProvider.GetUtcNow().ToString("O"));
             writer.WriteString("event", eventName);
             writer.WritePropertyName("payload");
-            JsonSerializer.Serialize(writer, payload, SerializerOptions);
+            JsonSerializer.Serialize(writer, payload, CliOutputJsonSerializerOptions.Default);
             writer.WriteEndObject();
         }
 

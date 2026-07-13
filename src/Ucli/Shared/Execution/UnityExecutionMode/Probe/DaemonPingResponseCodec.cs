@@ -38,10 +38,10 @@ internal static class DaemonPingResponseCodec
     /// <param name="response"> The response returned from daemon. </param>
     /// <param name="payload"> The decoded ping payload when decoding succeeds; otherwise <see langword="null" />. </param>
     /// <param name="error"> The response decoding error when decoding fails; otherwise <see langword="null" />. </param>
-    /// <returns> <see langword="true" /> when ping payload is decoded and required fields are non-empty; otherwise <see langword="false" />. </returns>
+    /// <returns> <see langword="true" /> when the ping payload is decoded; otherwise <see langword="false" />. </returns>
     public static bool TryDecodePayload (
         IpcResponse response,
-        out IpcPingResponse? payload,
+        out IpcUnityEditorObservation? payload,
         out DaemonPingResponseException? error)
     {
         ArgumentNullException.ThrowIfNull(response);
@@ -52,20 +52,10 @@ internal static class DaemonPingResponseCodec
             return false;
         }
 
-        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse parsedPayload, out var readError))
+        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation parsedPayload, out var readError))
         {
             payload = null;
             error = new DaemonPingResponseException($"Daemon ping payload is invalid. {readError.Message}");
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(parsedPayload.ServerVersion)
-            || string.IsNullOrWhiteSpace(parsedPayload.EditorMode)
-            || string.IsNullOrWhiteSpace(parsedPayload.UnityVersion)
-            || string.IsNullOrWhiteSpace(parsedPayload.ProjectFingerprint))
-        {
-            payload = null;
-            error = new DaemonPingResponseException("Daemon ping payload is invalid. One or more required fields are empty.");
             return false;
         }
 
@@ -85,7 +75,7 @@ internal static class DaemonPingResponseCodec
         IpcResponse response,
         string expectedProjectFingerprint,
         string operationName,
-        out IpcPingResponse? payload,
+        out IpcUnityEditorObservation? payload,
         out DaemonPingResponseException? error)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(expectedProjectFingerprint);

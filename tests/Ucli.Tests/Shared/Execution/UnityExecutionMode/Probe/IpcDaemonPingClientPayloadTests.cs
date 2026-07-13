@@ -16,12 +16,12 @@ public sealed class IpcDaemonPingClientPayloadTests
                 request,
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
-                IpcPingResponseTestFactory.Create(
+                IpcUnityEditorObservationTestFactory.Create(
                     serverVersion: "0.5.0",
-                    editorMode: "batchmode",
+                    editorMode: DaemonEditorMode.Batchmode,
                     unityVersion: "2022.3.5f1",
                     projectFingerprint: "fingerprint",
-                    compileState: "ready")));
+                    compileState: IpcCompileState.Ready)));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
 
         var result = await pingClient.PingAndReadAsync(
@@ -30,10 +30,10 @@ public sealed class IpcDaemonPingClientPayloadTests
             cancellationToken: CancellationToken.None);
 
         Assert.Equal("0.5.0", result.ServerVersion);
-        Assert.Equal("batchmode", result.EditorMode);
+        Assert.Equal(DaemonEditorMode.Batchmode, result.State.EditorMode);
         Assert.Equal("2022.3.5f1", result.UnityVersion);
         Assert.Equal("fingerprint", result.ProjectFingerprint);
-        Assert.Equal("ready", result.CompileState);
+        Assert.Equal(IpcCompileState.Ready, result.State.CompileState);
     }
 
     [Fact]
@@ -63,7 +63,7 @@ public sealed class IpcDaemonPingClientPayloadTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task PingAndRead_WhenCompileStateIsMissing_ReturnsPayload ()
+    public async Task PingAndRead_WhenEditorStateIsMissing_ThrowsDaemonPingResponseException ()
     {
         var unityIpcClient = new RecordingIpcTransportClient(request =>
             CreateResponse(
@@ -79,14 +79,17 @@ public sealed class IpcDaemonPingClientPayloadTests
                 }));
         var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
 
-        var result = await pingClient.PingAndReadAsync(
-            CreateFingerprintMatchedProject(),
-            DefaultTimeout,
-            cancellationToken: CancellationToken.None);
+        var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
+        {
+            await TestAwaiter.WaitAsync(
+                pingClient.PingAndReadAsync(
+                    CreateFingerprintMatchedProject(),
+                    DefaultTimeout,
+                    cancellationToken: CancellationToken.None).AsTask(),
+                "Missing editor state ping result",
+                AsyncWaitTimeout);
+        });
 
-        Assert.Equal("0.5.0", result.ServerVersion);
-        Assert.Equal("batchmode", result.EditorMode);
-        Assert.Equal("2022.3.5f1", result.UnityVersion);
-        Assert.True(string.IsNullOrWhiteSpace(result.CompileState));
+        Assert.Contains("payload", exception.Message, StringComparison.Ordinal);
     }
 }

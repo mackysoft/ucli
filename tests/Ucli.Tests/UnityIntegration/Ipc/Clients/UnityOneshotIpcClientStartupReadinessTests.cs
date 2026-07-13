@@ -48,11 +48,13 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
 
     [Theory]
     [Trait("Size", "Medium")]
-    [InlineData(IpcEditorLifecycleStateCodec.Starting)]
+    [InlineData(IpcEditorLifecycleState.Starting)]
     public async Task SendAsync_WhenStartupPingReportsWaitableState_RetriesUntilReadyBeforeSendingRequest (
-        string lifecycleState)
+        IpcEditorLifecycleState lifecycleState)
     {
-        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", $"startup-retry-{lifecycleState}");
+        using var scope = TestDirectories.CreateTempScope(
+            "unity-oneshot-ipc-client",
+            $"startup-retry-{ContractLiteralCodec.ToValue(lifecycleState)}");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var timeProvider = new ManualTimeProvider(DateTimeOffset.UtcNow);
         var processHandle = new StubUnityBatchmodeProcessHandle();
@@ -64,8 +66,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             {
                 IpcMethodNames.Ping => CreatePingResponse(
                     request.RequestId,
-                    lifecycleState: ++pingAttempt == 1 ? lifecycleState : IpcEditorLifecycleStateCodec.Ready,
-                    canAcceptExecutionRequests: pingAttempt != 1),
+                    lifecycleState: ++pingAttempt == 1 ? lifecycleState : IpcEditorLifecycleState.Ready),
                 IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
@@ -95,12 +96,14 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
 
     [Theory]
     [Trait("Size", "Medium")]
-    [InlineData(IpcEditorLifecycleStateCodec.CompileFailed)]
-    [InlineData(IpcEditorLifecycleStateCodec.SafeMode)]
+    [InlineData(IpcEditorLifecycleState.CompileFailed)]
+    [InlineData(IpcEditorLifecycleState.SafeMode)]
     public async Task SendAsync_WhenStartupPingReportsAllowedLifecycleState_DispatchesRequestWithoutReadiness (
-        string lifecycleState)
+        IpcEditorLifecycleState lifecycleState)
     {
-        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", $"startup-allowed-{lifecycleState}");
+        using var scope = TestDirectories.CreateTempScope(
+            "unity-oneshot-ipc-client",
+            $"startup-allowed-{ContractLiteralCodec.ToValue(lifecycleState)}");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var processHandle = new StubUnityBatchmodeProcessHandle();
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
@@ -110,8 +113,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             {
                 IpcMethodNames.Ping => CreatePingResponse(
                     request.RequestId,
-                    lifecycleState: lifecycleState,
-                    canAcceptExecutionRequests: false),
+                    lifecycleState: lifecycleState),
                 IpcMethodNames.Compile => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
@@ -146,8 +148,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             {
                 IpcMethodNames.Ping => CreatePingResponse(
                     request.RequestId,
-                    lifecycleState: IpcEditorLifecycleStateCodec.Starting,
-                    canAcceptExecutionRequests: false),
+                    lifecycleState: IpcEditorLifecycleState.Starting),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -258,8 +259,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             Assert.Equal(IpcPingClientVersions.OneshotStartup, payload.ClientVersion);
             return CreatePingResponse(
                 request.RequestId,
-                lifecycleState: IpcEditorLifecycleStateCodec.Starting,
-                canAcceptExecutionRequests: false);
+                lifecycleState: IpcEditorLifecycleState.Starting);
         }
     }
 

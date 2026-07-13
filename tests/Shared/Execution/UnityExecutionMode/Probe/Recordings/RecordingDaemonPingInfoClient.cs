@@ -23,7 +23,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
 
     public Action? OnPingAndRead { get; set; }
 
-    public Func<ResolvedUnityProjectContext, TimeSpan, string?, bool, CancellationToken, ValueTask<IpcPingResponse>>? PingAndReadHandler { get; set; }
+    public Func<ResolvedUnityProjectContext, TimeSpan, string?, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>>? PingAndReadHandler { get; set; }
 
     public Task WaitForFirstInvocationAsync (
         string description,
@@ -32,7 +32,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
         return TestAwaiter.WaitAsync(firstInvocationObserved.Task, description, timeout);
     }
 
-    public ValueTask<IpcPingResponse> PingAndReadAsync (
+    public ValueTask<IpcUnityEditorObservation> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         string? sessionToken = null,
@@ -72,7 +72,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             throw exception;
         }
 
-        return ValueTask.FromResult((IpcPingResponse)response);
+        return ValueTask.FromResult((IpcUnityEditorObservation)response);
     }
 
     internal readonly record struct Invocation (

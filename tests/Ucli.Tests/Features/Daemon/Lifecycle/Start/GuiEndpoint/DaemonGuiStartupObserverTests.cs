@@ -1,11 +1,14 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -20,13 +23,17 @@ public sealed class DaemonGuiStartupObserverTests
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             projectFingerprint: "fingerprint-gui-observer-session",
-            editorMode: "gui",
-            endpointTransportKind: "unixDomainSocket",
+            editorMode: DaemonEditorMode.Gui,
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ipc.sock",
             processId: 4321);
         var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter
         {
-            NextResult = DaemonGuiSessionRegistrationWaitResult.Success(session),
+            NextResult = DaemonGuiSessionRegistrationWaitResult.Success(
+                session,
+                IpcUnityEditorObservationTestFactory.Create(
+                    editorMode: DaemonEditorMode.Gui,
+                    projectFingerprint: session.ProjectFingerprint)),
         };
         var logReader = new UnexpectedUnityLogReader(
             "Session registration success should not read the Unity log.");
@@ -56,11 +63,11 @@ public sealed class DaemonGuiStartupObserverTests
     {
         var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter
         {
-            NextResult = DaemonGuiSessionRegistrationWaitResult.Success(DaemonSessionTestFactory.Create(
+            NextResult = CreateSuccessfulWaitResult(DaemonSessionTestFactory.Create(
                 sessionToken: "session-token",
                 projectFingerprint: "fingerprint-gui-observer-session",
-                editorMode: "gui",
-                endpointTransportKind: "unixDomainSocket",
+                editorMode: DaemonEditorMode.Gui,
+                endpointTransportKind: IpcTransportKind.UnixDomainSocket,
                 endpointAddress: "/tmp/ipc.sock",
                 processId: 4321)),
         };
@@ -114,20 +121,21 @@ public sealed class DaemonGuiStartupObserverTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsBlocked);
-        Assert.NotNull(result.Blocker);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), result.Blocker!.StartupBlockingReason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), result.Blocker.RetryDisposition);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Blocker.Reason);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, result.Blocker.ActionRequired);
-        Assert.Equal(processStartedAtUtc, result.Blocker.ProcessStartedAtUtc);
-        Assert.NotNull(result.Blocker.PrimaryDiagnostic);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation), result.Blocker.StartupPhase);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, result.Blocker.PrimaryDiagnostic!.Kind);
-        Assert.Equal("CS1739", result.Blocker.PrimaryDiagnostic!.Code);
-        Assert.Equal("Assets/Foo.cs", result.Blocker.PrimaryDiagnostic.File);
-        Assert.Equal(74, result.Blocker.PrimaryDiagnostic.Line);
-        Assert.Equal(17, result.Blocker.PrimaryDiagnostic.Column);
-        Assert.Equal("Missing parameter", result.Blocker.PrimaryDiagnostic.Message);
+        var blockerObservation = Assert.IsType<DaemonGuiStartupBlockerObservation>(result.BlockerObservation);
+        var classification = blockerObservation.Classification;
+        Assert.Equal(DaemonStartupBlockingReason.Compile, classification.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
+        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, classification.Reason);
+        Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, classification.ActionRequired);
+        Assert.Equal(processStartedAtUtc, blockerObservation.ProcessStartedAtUtc);
+        var primaryDiagnostic = Assert.IsType<DaemonPrimaryDiagnostic>(classification.PrimaryDiagnostic);
+        Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, classification.StartupPhase);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, primaryDiagnostic.Kind);
+        Assert.Equal("CS1739", primaryDiagnostic.Code);
+        Assert.Equal("Assets/Foo.cs", primaryDiagnostic.File);
+        Assert.Equal(74, primaryDiagnostic.Line);
+        Assert.Equal(17, primaryDiagnostic.Column);
+        Assert.Equal("Missing parameter", primaryDiagnostic.Message);
     }
 
     [Theory]
@@ -196,13 +204,14 @@ public sealed class DaemonGuiStartupObserverTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsBlocked);
-        Assert.NotNull(result.Blocker);
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedStartupBlockingReason), result.Blocker!.StartupBlockingReason);
-        Assert.Equal(expectedReason, result.Blocker!.Reason);
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedRetryDisposition), result.Blocker.RetryDisposition);
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedStartupPhase), result.Blocker.StartupPhase);
-        Assert.Equal(expectedActionRequired, result.Blocker.ActionRequired);
-        Assert.Equal(expectedPrimaryDiagnosticKind, result.Blocker.PrimaryDiagnostic!.Kind);
+        var blockerObservation = Assert.IsType<DaemonGuiStartupBlockerObservation>(result.BlockerObservation);
+        var classification = blockerObservation.Classification;
+        Assert.Equal(expectedStartupBlockingReason, classification.StartupBlockingReason);
+        Assert.Equal(expectedReason, classification.Reason);
+        Assert.Equal(expectedRetryDisposition, classification.RetryDisposition);
+        Assert.Equal(expectedStartupPhase, classification.StartupPhase);
+        Assert.Equal(expectedActionRequired, classification.ActionRequired);
+        Assert.Equal(expectedPrimaryDiagnosticKind, classification.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -236,12 +245,13 @@ public sealed class DaemonGuiStartupObserverTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsBlocked);
-        Assert.NotNull(result.Blocker);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.ProcessExit), result.Blocker!.StartupBlockingReason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown), result.Blocker.RetryDisposition);
-        Assert.Equal(DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, result.Blocker.Reason);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, result.Blocker.ActionRequired);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit, result.Blocker.PrimaryDiagnostic!.Kind);
+        var blockerObservation = Assert.IsType<DaemonGuiStartupBlockerObservation>(result.BlockerObservation);
+        var classification = blockerObservation.Classification;
+        Assert.Equal(DaemonStartupBlockingReason.ProcessExit, classification.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDisposition.Unknown, classification.RetryDisposition);
+        Assert.Equal(DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, classification.Reason);
+        Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, classification.ActionRequired);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit, classification.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -279,11 +289,12 @@ public sealed class DaemonGuiStartupObserverTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsBlocked);
-        Assert.NotNull(result.Blocker);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), result.Blocker!.StartupBlockingReason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), result.Blocker.RetryDisposition);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Blocker.Reason);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, result.Blocker.PrimaryDiagnostic!.Kind);
+        var blockerObservation = Assert.IsType<DaemonGuiStartupBlockerObservation>(result.BlockerObservation);
+        var classification = blockerObservation.Classification;
+        Assert.Equal(DaemonStartupBlockingReason.Compile, classification.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
+        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, classification.Reason);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, classification.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -319,6 +330,15 @@ public sealed class DaemonGuiStartupObserverTests
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error.Code);
+    }
+
+    private static DaemonGuiSessionRegistrationWaitResult CreateSuccessfulWaitResult (DaemonSession session)
+    {
+        return DaemonGuiSessionRegistrationWaitResult.Success(
+            session,
+            IpcUnityEditorObservationTestFactory.Create(
+                editorMode: DaemonEditorMode.Gui,
+                projectFingerprint: session.ProjectFingerprint));
     }
 
 }

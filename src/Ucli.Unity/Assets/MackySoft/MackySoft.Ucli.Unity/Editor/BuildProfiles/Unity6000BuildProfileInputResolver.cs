@@ -252,7 +252,7 @@ namespace MackySoft.Ucli.Unity.Build
         private IpcUnityBuildProfileInput CreateAppliedUnityBuildProfile (
             string profilePath,
             string digest,
-            IpcBuildLifecycleSnapshot lifecycleBefore)
+            IpcUnityEditorObservation lifecycleBefore)
         {
             // NOTE: After SetActiveBuildProfile succeeds, the editor has already been mutated.
             // Capture audit evidence without observing cancellation so post-apply failures still report
@@ -263,8 +263,6 @@ namespace MackySoft.Ucli.Unity.Build
                 Applied: true,
                 LifecycleBefore: lifecycleBefore,
                 LifecycleAfter: lifecycleAfter,
-                GenerationsBefore: CreateGenerationSnapshot(lifecycleBefore),
-                GenerationsAfter: CreateGenerationSnapshot(lifecycleAfter),
                 DirtyStateAfter: dirtyStateAfter);
             return new IpcUnityBuildProfileInput(
                 Path: profilePath,
@@ -276,14 +274,6 @@ namespace MackySoft.Ucli.Unity.Build
         {
             var absolutePath = UnityAssetPathUtility.ToAbsolutePath(profilePath);
             return Sha256LowerHex.Compute(File.ReadAllBytes(absolutePath));
-        }
-
-        private static IpcBuildGenerationSnapshot CreateGenerationSnapshot (IpcBuildLifecycleSnapshot lifecycle)
-        {
-            return new IpcBuildGenerationSnapshot(
-                lifecycle.CompileGeneration,
-                lifecycle.DomainReloadGeneration,
-                lifecycle.AssetRefreshGeneration);
         }
 
         private static IpcError CreateInvalidProfileError (string message)

@@ -161,19 +161,25 @@ internal sealed class SupervisorClient
                     $"Supervisor ensureRunning response payload is invalid. {payloadError.Message}"));
             }
 
+            if (payload.Session is null || payload.LifecycleObservation is null)
+            {
+                return DaemonStartResult.Failure(ExecutionError.InternalError(
+                    "Supervisor ensureRunning response is missing its session or lifecycle observation."));
+            }
+
             if (ContractLiteralCodec.Matches(payload.StartStatus, DaemonStartStatus.Started))
             {
-                return DaemonStartResult.Started(payload.Session, payload.LifecycleSnapshot);
+                return DaemonStartResult.Started(payload.Session, payload.LifecycleObservation);
             }
 
             if (ContractLiteralCodec.Matches(payload.StartStatus, DaemonStartStatus.AlreadyRunning))
             {
-                return DaemonStartResult.AlreadyRunning(payload.Session, payload.LifecycleSnapshot);
+                return DaemonStartResult.AlreadyRunning(payload.Session, payload.LifecycleObservation);
             }
 
             if (ContractLiteralCodec.Matches(payload.StartStatus, DaemonStartStatus.Attached))
             {
-                return DaemonStartResult.Attached(payload.Session, payload.LifecycleSnapshot);
+                return DaemonStartResult.Attached(payload.Session, payload.LifecycleObservation);
             }
 
             return DaemonStartResult.Failure(ExecutionError.InternalError(

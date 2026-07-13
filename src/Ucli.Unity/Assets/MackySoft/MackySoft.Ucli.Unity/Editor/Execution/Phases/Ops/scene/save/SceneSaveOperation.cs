@@ -158,19 +158,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
+            var scenePath = args.Path?.Value ?? string.Empty;
+            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            if (!SceneAssetSourceUtilities.TryGetLoadedScene(args.Path, out var scene, out sceneErrorMessage))
+            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out var scene, out sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            validationState = new ValidationState(args.Path, scene);
+            validationState = new ValidationState(scenePath, scene);
             return true;
         }
 
@@ -184,37 +185,38 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(args.Path, out var sceneErrorMessage))
+            var scenePath = args.Path?.Value ?? string.Empty;
+            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
                 return false;
             }
 
-            var hasLoadedScene = SceneAssetSourceUtilities.TryGetLoadedScene(args.Path, out var loadedScene, out _);
+            var hasLoadedScene = SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out _);
             if (!hasLoadedScene
-                && !executionContext.HasPlannedLiveSceneOpen(args.Path))
+                && !executionContext.HasPlannedLiveSceneOpen(scenePath))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
-                    $"Scene is not loaded: {args.Path}. Use 'ucli.scene.open' first.");
+                    $"Scene is not loaded: {scenePath}. Use 'ucli.scene.open' first.");
                 return false;
             }
 
-            if (executionContext.TryGetTemporaryScene(args.Path, out var temporaryScene))
+            if (executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene))
             {
-                validationState = new ValidationState(args.Path, temporaryScene);
+                validationState = new ValidationState(scenePath, temporaryScene);
                 return true;
             }
 
             if (hasLoadedScene)
             {
-                validationState = new ValidationState(args.Path, loadedScene);
+                validationState = new ValidationState(scenePath, loadedScene);
                 return true;
             }
 
             failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                 operation.Id,
-                $"Scene plan state is not available: {args.Path}.");
+                $"Scene plan state is not available: {scenePath}.");
             return false;
         }
 

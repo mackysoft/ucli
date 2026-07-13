@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
@@ -14,8 +15,8 @@ internal sealed class DaemonStartProgressEmitter :
     private readonly ICommandProgressSink progressSink;
     private readonly string projectFingerprint;
     private readonly int timeoutMilliseconds;
-    private readonly string? editorMode;
-    private readonly string onStartupBlocked;
+    private readonly DaemonEditorMode? editorMode;
+    private readonly DaemonStartupBlockedProcessPolicy onStartupBlocked;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStartProgressEmitter" /> class. </summary>
     public DaemonStartProgressEmitter (
@@ -31,10 +32,8 @@ internal sealed class DaemonStartProgressEmitter :
         this.progressSink = progressSink ?? NullCommandProgressSink.Instance;
         this.projectFingerprint = projectFingerprint;
         this.timeoutMilliseconds = timeoutMilliseconds;
-        this.editorMode = editorMode.HasValue
-            ? ContractLiteralCodec.ToValue(editorMode.Value)
-            : null;
-        this.onStartupBlocked = ContractLiteralCodec.ToValue(onStartupBlocked);
+        this.editorMode = editorMode;
+        this.onStartupBlocked = onStartupBlocked;
     }
 
     /// <summary> Emits the daemon-start workflow start entry. </summary>
@@ -160,21 +159,22 @@ internal sealed class DaemonStartProgressEmitter :
 
     /// <inheritdoc />
     public ValueTask EmitLifecycleObservedAsync (
-        DaemonStartLifecycleSnapshot lifecycleSnapshot,
+        IpcUnityEditorObservation lifecycleObservation,
         CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(lifecycleSnapshot);
+        ArgumentNullException.ThrowIfNull(lifecycleObservation);
         cancellationToken.ThrowIfCancellationRequested();
 
         var entry = new DaemonStartLifecycleSnapshotProgressEntry(
-            PayloadKind: ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
+            PayloadKind: DaemonStartProgressPayloadKind.LifecycleSnapshot,
             ProjectFingerprint: projectFingerprint,
             TimeoutMilliseconds: timeoutMilliseconds,
             EditorMode: editorMode,
             OnStartupBlocked: onStartupBlocked,
-            LifecycleState: lifecycleSnapshot.LifecycleState,
-            BlockingReason: lifecycleSnapshot.BlockingReason,
-            CanAcceptExecutionRequests: lifecycleSnapshot.CanAcceptExecutionRequests);
+            LifecycleState: lifecycleObservation.State.LifecycleState,
+            BlockingReason: IpcEditorLifecycleSemantics.ResolveBlockingReason(lifecycleObservation.State.LifecycleState),
+            Generations: lifecycleObservation.State.Generations,
+            CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleObservation.State.LifecycleState));
         return progressSink.OnEntryAsync(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved), entry, cancellationToken);
     }
 
@@ -188,7 +188,7 @@ internal sealed class DaemonStartProgressEmitter :
 
     private ValueTask EmitAsync (
         DaemonStartProgressEvent progressEvent,
-        string? result,
+        CommandProgressResult? result,
         DaemonStartStatus? startStatus,
         DaemonStatusKind? daemonStatus,
         ExecutionError? error,
@@ -222,7 +222,7 @@ internal sealed class DaemonStartProgressEmitter :
         }
 
         var entry = new DaemonStartStartupObservationProgressEntry(
-            PayloadKind: ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
+            PayloadKind: DaemonStartProgressPayloadKind.StartupObservation,
             ProjectFingerprint: projectFingerprint,
             TimeoutMilliseconds: timeoutMilliseconds,
             EditorMode: observation.EditorMode ?? editorMode,
@@ -260,10 +260,10 @@ internal sealed class DaemonStartProgressEmitter :
             ErrorCode: null);
     }
 
-    private static string ResolveResult (ExecutionError? error)
+    private static CommandProgressResult ResolveResult (ExecutionError? error)
     {
         return error is null
-            ? ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded)
-            : ContractLiteralCodec.ToValue(CommandProgressResult.Failed);
+            ? CommandProgressResult.Succeeded
+            : CommandProgressResult.Failed;
     }
 }

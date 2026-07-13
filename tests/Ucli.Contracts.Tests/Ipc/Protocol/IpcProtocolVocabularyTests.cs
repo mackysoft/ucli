@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -28,9 +29,65 @@ public sealed class IpcProtocolVocabularyTests
         Assert.Equal("daemon.logs.read", IpcMethodNames.DaemonLogsRead);
         Assert.Equal("unity.logs.read", IpcMethodNames.UnityLogsRead);
         Assert.Equal("unity.console.clear", IpcMethodNames.UnityConsoleClear);
+        Assert.Equal("screenshot.capture", IpcMethodNames.ScreenshotCapture);
         Assert.Equal("play.status", IpcMethodNames.PlayStatus);
         Assert.Equal("play.enter", IpcMethodNames.PlayEnter);
         Assert.Equal("play.exit", IpcMethodNames.PlayExit);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcLifecycleLiteralContracts_ExposeExpectedLiterals ()
+    {
+        Assert.Equal(
+            [
+                "starting",
+                "recovering",
+                "ready",
+                "busy",
+                "compiling",
+                "compileFailed",
+                "domainReloading",
+                "reimporting",
+                "playmode",
+                "modalBlocked",
+                "safeMode",
+                "shuttingDown",
+                "unavailable",
+            ],
+            ContractLiteralCodec.GetLiterals<IpcEditorLifecycleState>());
+        Assert.Equal(
+            ["ready", "compiling", "failed"],
+            ContractLiteralCodec.GetLiterals<IpcCompileState>());
+        Assert.Equal(
+            [
+                "startup",
+                "busy",
+                "recovery",
+                "compile",
+                "compileFailed",
+                "domainReload",
+                "reimport",
+                "playMode",
+                "modalDialog",
+                "safeMode",
+                "shutdown",
+                "unavailable",
+            ],
+            ContractLiteralCodec.GetLiterals<IpcEditorBlockingReason>());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcScreenshotLiteralContracts_ExposeExpectedLiterals ()
+    {
+        Assert.Equal(["game", "scene"], ContractLiteralCodec.GetLiterals<IpcScreenshotTarget>());
+        Assert.Equal(
+            ["currentSurface", "requestedResolution"],
+            ContractLiteralCodec.GetLiterals<IpcScreenshotSizeMode>());
+        Assert.Equal(["gamma", "linear"], ContractLiteralCodec.GetLiterals<IpcScreenshotColorSpace>());
+        Assert.Equal(["rgba8Srgb"], ContractLiteralCodec.GetLiterals<IpcScreenshotPixelFormat>());
+        Assert.Equal(["topDown"], ContractLiteralCodec.GetLiterals<IpcScreenshotRowOrder>());
     }
 
     [Fact]

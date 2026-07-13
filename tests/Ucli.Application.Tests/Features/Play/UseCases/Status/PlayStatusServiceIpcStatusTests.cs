@@ -29,21 +29,22 @@ public sealed class PlayStatusServiceIpcStatusTests
         Assert.Equal(context.UnityProject.ProjectFingerprint, output.Project.ProjectFingerprint);
         Assert.Equal("6000.1.4f1", output.Project.UnityVersion);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal("gui", output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, output.LifecycleState);
+        Assert.Equal(DaemonEditorMode.Gui, output.EditorMode);
+        Assert.Equal(IpcEditorLifecycleState.Ready, output.LifecycleState);
         Assert.Null(output.BlockingReason);
-        Assert.Equal(IpcCompileStateCodec.Ready, output.CompileState);
-        Assert.Equal("12", output.CompileGeneration);
-        Assert.Equal("7", output.DomainReloadGeneration);
+        Assert.Equal(IpcCompileState.Ready, output.CompileState);
+        Assert.Equal(12, output.Generations!.CompileGeneration);
+        Assert.Equal(7, output.Generations.DomainReloadGeneration);
+        Assert.Equal(4, output.Generations.AssetRefreshGeneration);
+        Assert.Equal(2, output.Generations.PlayModeGeneration);
         Assert.True(output.CanAcceptExecutionRequests);
         Assert.Equal("2026-05-21T00:00:00.0000000+00:00", output.ObservedAtUtc?.ToString("O", CultureInfo.InvariantCulture));
         Assert.Null(output.ActionRequired);
         Assert.Null(output.PrimaryDiagnostic);
-        Assert.Equal("stopped", output.PlayMode.State);
-        Assert.Equal("none", output.PlayMode.Transition);
+        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransition.None, output.PlayMode.Transition);
         Assert.False(output.PlayMode.IsPlaying);
         Assert.False(output.PlayMode.IsPlayingOrWillChangePlaymode);
-        Assert.Equal("2", output.PlayMode.Generation);
         Assert.Equal(1500, output.TimeoutMilliseconds);
 
         UnityRequestExecutorInvocationAssert.PlayStatusOnce(
@@ -56,24 +57,25 @@ public sealed class PlayStatusServiceIpcStatusTests
     public async Task Execute_WhenPlayModeIsPlaying_ReturnsPlayingSnapshot ()
     {
         var playMode = new IpcPlayModeSnapshot(
-            State: "playing",
-            Transition: "none",
+            State: IpcPlayModeState.Playing,
+            Transition: IpcPlayModeTransition.None,
             IsPlaying: true,
-            IsPlayingOrWillChangePlaymode: true,
-            Generation: "9");
+            IsPlayingOrWillChangePlaymode: true);
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
-        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse(playMode: playMode))));
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse(
+            playMode: playMode,
+            playModeGeneration: 9))));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
-        Assert.Equal("playing", output.PlayMode.State);
-        Assert.Equal("none", output.PlayMode.Transition);
+        Assert.Equal(IpcPlayModeState.Playing, output.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransition.None, output.PlayMode.Transition);
         Assert.True(output.PlayMode.IsPlaying);
         Assert.True(output.PlayMode.IsPlayingOrWillChangePlaymode);
-        Assert.Equal("9", output.PlayMode.Generation);
+        Assert.Equal(9, output.Generations!.PlayModeGeneration);
     }
 
     [Fact]

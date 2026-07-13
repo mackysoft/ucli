@@ -6,6 +6,8 @@ using MackySoft.Ucli.Contracts.Testing;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
 
+#nullable enable annotations
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Executes Unity Test Framework API runs for daemon test-run requests. </summary>
@@ -22,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestContext" /> is <see langword="null" />. </exception>
         public async Task<ITestResultAdaptor> RunAsync (
             UnityTestRunRequestContext requestContext,
-            IUnityTestRunProgressSink progressSink = null,
+            IUnityTestRunProgressSink? progressSink = null,
             CancellationToken cancellationToken = default)
         {
             if (requestContext == null)

@@ -12,7 +12,7 @@ internal static class UnityDaemonReadinessPolicy
     /// <param name="failFast"> Whether waitable states should fail immediately. </param>
     /// <returns> The readiness decision. </returns>
     public static UnityDaemonReadinessDecision Evaluate (
-        IpcPingResponse pingResponse,
+        IpcUnityEditorObservation pingResponse,
         bool failFast)
     {
         var decision = UnityEditorReadinessPolicy.Evaluate(pingResponse, failFast);

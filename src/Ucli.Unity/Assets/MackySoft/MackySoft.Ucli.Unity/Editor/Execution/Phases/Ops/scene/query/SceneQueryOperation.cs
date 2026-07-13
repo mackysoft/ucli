@@ -109,8 +109,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out OperationPhaseStepResult? failure)
         {
             failure = null;
-            scenePath = args.Scene;
-            queryArguments = new SceneQuerySelectionEngine.QueryArguments(args.PathPrefix, args.ComponentType);
+            scenePath = args.Scene?.Value ?? string.Empty;
+            queryArguments = new SceneQuerySelectionEngine.QueryArguments(
+                args.PathPrefix?.Value,
+                args.ComponentType?.Value);
 
             if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var errorMessage))
             {

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -9,10 +10,10 @@ internal static class DaemonSessionTestFactory
         string sessionToken = "secret-token",
         string projectFingerprint = "fingerprint",
         DateTimeOffset? issuedAtUtc = null,
-        string editorMode = "batchmode",
-        string ownerKind = "cli",
+        DaemonEditorMode editorMode = DaemonEditorMode.Batchmode,
+        DaemonSessionOwnerKind ownerKind = DaemonSessionOwnerKind.Cli,
         bool canShutdownProcess = true,
-        string endpointTransportKind = "namedPipe",
+        IpcTransportKind endpointTransportKind = IpcTransportKind.NamedPipe,
         string endpointAddress = "ucli-daemon-endpoint",
         DateTimeOffset? processStartedAtUtc = null,
         int? ownerProcessId = 9876,
@@ -37,7 +38,7 @@ internal static class DaemonSessionTestFactory
     }
 
     public static DaemonSession CreateUserOwned (
-        string editorMode,
+        DaemonEditorMode editorMode,
         string endpointAddress,
         string? editorInstanceId = null)
     {
@@ -45,21 +46,21 @@ internal static class DaemonSessionTestFactory
             sessionToken: "session-token",
             projectFingerprint: "project-fingerprint",
             editorMode: editorMode,
-            ownerKind: "user",
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             endpointAddress: endpointAddress,
             editorInstanceId: editorInstanceId);
     }
 
-    public static DaemonSession CreateEditorInstance (string editorMode = "gui")
+    public static DaemonSession CreateEditorInstance (DaemonEditorMode editorMode = DaemonEditorMode.Gui)
     {
         return Create(
             sessionToken: "session-token",
             projectFingerprint: ProjectIdentityInfoTestFactory.ProjectFingerprint,
             editorMode: editorMode,
-            ownerKind: "user",
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock",
             processId: 1234,
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),

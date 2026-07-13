@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Unity.Tests
     public sealed class IndexCatalogTestComponent : MonoBehaviour
     {
         [SerializeField]
-        private int integerValue = 1;
+        private int integerValue;
 
         [SerializeField]
         private List<IndexCatalogNestedValue> items = new();

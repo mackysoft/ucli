@@ -103,9 +103,9 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
                         DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                             projectFingerprint: payload.ProjectFingerprint,
                             timeoutMilliseconds: payload.TimeoutMilliseconds,
-                            onStartupBlocked: payload.OnStartupBlocked,
-                            startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.WaitingForEndpoint),
-                            startupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration))),
+                            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                            startupStatus: DaemonStartupStatus.WaitingForEndpoint,
+                            startupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration)),
                     cancellationToken)
                 .ConfigureAwait(false);
             return SupervisorProjectGatewayTestSupport.CreateStartedEnsureRunningResponse(request);

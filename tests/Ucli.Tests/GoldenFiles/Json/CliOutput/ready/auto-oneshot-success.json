@@ -52,8 +52,12 @@
               "lifecycleState": "ready",
               "blockingReason": null,
               "compileState": "ready",
-              "compileGeneration": "12",
-              "domainReloadGeneration": "7",
+              "generations": {
+                "compileGeneration": 12,
+                "domainReloadGeneration": 7,
+                "assetRefreshGeneration": 0,
+                "playModeGeneration": 2
+              },
               "canAcceptExecutionRequests": true,
               "observedAtUtc": "2026-05-17T00:00:00+00:00",
               "actionRequired": null,
@@ -62,8 +66,7 @@
                 "state": "stopped",
                 "transition": "none",
                 "isPlaying": false,
-                "isPlayingOrWillChangePlaymode": false,
-                "generation": "2"
+                "isPlayingOrWillChangePlaymode": false
               }
             }
           }
@@ -85,8 +88,12 @@
       "lifecycleState": "ready",
       "blockingReason": null,
       "compileState": "ready",
-      "compileGeneration": "12",
-      "domainReloadGeneration": "7",
+      "generations": {
+        "compileGeneration": 12,
+        "domainReloadGeneration": 7,
+        "assetRefreshGeneration": 0,
+        "playModeGeneration": 2
+      },
       "canAcceptExecutionRequests": true,
       "observedAtUtc": "2026-05-17T00:00:00+00:00",
       "actionRequired": null,
@@ -95,8 +102,7 @@
         "state": "stopped",
         "transition": "none",
         "isPlaying": false,
-        "isPlayingOrWillChangePlaymode": false,
-        "generation": "2"
+        "isPlayingOrWillChangePlaymode": false
       }
     },
     "readIndex": null

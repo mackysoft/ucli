@@ -16,7 +16,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         var pingClient = new RecordingDaemonPingInfoClient
         {
             PingAndReadHandler = static (_, _, _, _, _) =>
-                ValueTask.FromException<IpcPingResponse>(new SocketException((int)SocketError.ConnectionRefused)),
+                ValueTask.FromException<IpcUnityEditorObservation>(new SocketException((int)SocketError.ConnectionRefused)),
         };
         var logReader = new RecordingUnityLogReader
         {
@@ -49,7 +49,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         var pingClient = new RecordingDaemonPingInfoClient
         {
             PingAndReadHandler = static (_, _, _, _, _) =>
-                ValueTask.FromException<IpcPingResponse>(new TimeoutException("probe timeout")),
+                ValueTask.FromException<IpcUnityEditorObservation>(new TimeoutException("probe timeout")),
         };
         var logReader = new UnexpectedUnityLogReader("Probe timeout should not inspect the Unity log.");
         var timeProvider = new ManualTimeProvider();

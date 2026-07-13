@@ -5,8 +5,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 
 /// <summary> Waits through a GUI daemon endpoint gap when lifecycle sidecar proves domain-reload recovery. </summary>
@@ -79,7 +77,7 @@ internal sealed class UnityDaemonRecoveryWaiter
         }
 
         var session = sessionReadResult.Session!;
-        if (!ContractLiteralCodec.Matches(session.EditorMode, DaemonEditorMode.Gui))
+        if (session.EditorMode != DaemonEditorMode.Gui)
         {
             return false;
         }

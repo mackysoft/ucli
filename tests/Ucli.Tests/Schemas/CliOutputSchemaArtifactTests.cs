@@ -48,6 +48,8 @@ public sealed class CliOutputSchemaArtifactTests
         Assert.Contains("play.status", commandEntries.Keys);
         Assert.Contains("play.enter", commandEntries.Keys);
         Assert.Contains("play.exit", commandEntries.Keys);
+        Assert.Contains("screenshot.game", commandEntries.Keys);
+        Assert.Contains("screenshot.scene", commandEntries.Keys);
         Assert.Contains("test.run", commandEntries.Keys);
     }
 

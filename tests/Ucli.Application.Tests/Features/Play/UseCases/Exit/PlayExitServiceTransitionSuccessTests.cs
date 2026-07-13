@@ -22,12 +22,12 @@ public sealed class PlayExitServiceTransitionSuccessTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal(context.UnityProject.UnityProjectRoot, output.Project.ProjectPath);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal("gui", output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, output.LifecycleState);
+        Assert.Equal(DaemonEditorMode.Gui, output.EditorMode);
+        Assert.Equal(IpcEditorLifecycleState.Ready, output.LifecycleState);
         Assert.Null(output.BlockingReason);
         Assert.True(output.CanAcceptExecutionRequests);
-        Assert.Equal("stopped", output.PlayMode.State);
-        Assert.Equal("3", output.PlayMode.Generation);
+        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
+        Assert.Equal(3, output.Generations!.PlayModeGeneration);
         Assert.Equal(1500, output.TimeoutMilliseconds);
         Assert.Equal(IpcPlayTransitionCommandNames.Exit, output.Transition.Transition);
         Assert.Equal(IpcPlayTransitionResultNames.Exited, output.Transition.Result);
@@ -47,10 +47,9 @@ public sealed class PlayExitServiceTransitionSuccessTests
     public async Task Execute_WhenAlreadyStopped_ReturnsAlreadyExitedWithoutGenerationChange ()
     {
         var before = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
-            false,
-            CreateStoppedPlayMode("9"));
+            IpcEditorLifecycleState.Compiling,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 9);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.AlreadyExited,
@@ -66,8 +65,8 @@ public sealed class PlayExitServiceTransitionSuccessTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayExitExecutionOutput>(result.Output);
         Assert.Equal(IpcPlayTransitionResultNames.AlreadyExited, output.Transition.Result);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, output.LifecycleState);
-        Assert.Equal("9", output.Transition.Before.PlayMode!.Generation);
-        Assert.Equal("9", output.Transition.After!.PlayMode!.Generation);
+        Assert.Equal(IpcEditorLifecycleState.Compiling, output.LifecycleState);
+        Assert.Equal(9, output.Transition.Before.Generations!.PlayModeGeneration);
+        Assert.Equal(9, output.Transition.After!.Generations!.PlayModeGeneration);
     }
 }

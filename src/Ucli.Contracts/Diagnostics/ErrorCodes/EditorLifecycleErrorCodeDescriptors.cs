@@ -14,6 +14,9 @@ internal static class EditorLifecycleErrorCodeDescriptors
         UcliCommandIds.Refresh,
         UcliCommandIds.Ops,
         UcliCommandIds.TestRun,
+        UcliCommandIds.Screenshot,
+        UcliCommandIds.ScreenshotGame,
+        UcliCommandIds.ScreenshotScene,
     ];
 
     public static IReadOnlyList<UcliErrorDescriptor> All { get; } =

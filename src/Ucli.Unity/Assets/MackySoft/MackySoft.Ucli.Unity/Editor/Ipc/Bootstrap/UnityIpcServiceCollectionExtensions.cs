@@ -1,5 +1,4 @@
 using System;
-using System.IO;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Build;
@@ -7,8 +6,12 @@ using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Index;
 using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
+using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
+using MackySoft.Ucli.Unity.ScreenshotCapture.GameView;
+using MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution;
+using MackySoft.Ucli.Unity.ScreenshotCapture.SceneView;
+using MackySoft.Ucli.Unity.ScreenshotCapture.Staging;
 using Microsoft.Extensions.DependencyInjection;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -54,7 +57,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddUnityRuntimeServices(editorMode);
             services.AddUnityIndexServices();
             services.AddUnityExecutionServices();
-            services.AddSingleton(CreateProjectIdentity(projectFingerprint));
+            services.AddSingleton(UnityProjectIdentityFactory.Create(projectFingerprint));
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
             services.AddSingleton<UnityLogRedactionScopeProvider>();
@@ -88,7 +91,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new PingUnityIpcMethodHandler(
                     serviceProvider.GetRequiredService<IServerVersionProvider>(),
                     serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
-                    projectFingerprint,
+                    serviceProvider.GetRequiredService<IpcProjectIdentity>(),
                     serviceProvider.GetRequiredService<IDaemonLogger>());
             });
             services.AddSingleton<IUnityIpcMethodHandler, ExecuteUnityIpcMethodHandler>();
@@ -119,18 +122,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
             services.AddSingleton<IUnityIpcRequestProcessor, UnityIpcRequestProcessor>();
             return services;
-        }
-
-        private static IpcProjectIdentity CreateProjectIdentity (string projectFingerprint)
-        {
-            var projectPath = Path.GetFullPath(UnityProjectPathResolver.ResolveProjectRootPath());
-            var unityVersion = string.IsNullOrWhiteSpace(Application.unityVersion)
-                ? "unknown"
-                : Application.unityVersion;
-            return new IpcProjectIdentity(
-                ProjectPath: projectPath,
-                ProjectFingerprint: projectFingerprint,
-                UnityVersion: unityVersion);
         }
 
         /// <summary> Registers daemon-only transport, logging, and lifetime services. </summary>
@@ -173,9 +164,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<UnityLogsReadQueryEngine>();
             services.AddSingleton<UnityLogsReadResponseFactory>();
             services.AddSingleton<IUnityConsoleClearer, UnityEditorConsoleClearer>();
+            services.AddSingleton<IUnityScreenshotResolutionOrphanCleaner, UnityScreenshotResolutionOrphanCleaner>();
+            services.AddSingleton<UnityGameViewResolutionAdapter>();
+            services.AddSingleton<UnityGameViewPresentationAdapter>();
+            services.AddSingleton<UnityGameViewScreenshotCapture>();
+            services.AddSingleton<UnitySceneViewPresentationAdapter>();
+            services.AddSingleton<UnitySceneViewScreenshotCapture>();
+            services.AddSingleton<IUnityScreenshotCaptureBackend, UnityEditorScreenshotCaptureBackend>();
+            services.AddSingleton<IScreenshotStagingImageWriter, ScreenshotStagingImageWriter>();
+            services.AddSingleton<IUnityScreenshotCaptureService, UnityScreenshotCaptureService>();
             services.AddSingleton<IUnityIpcMethodHandler, DaemonLogsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, UnityLogsReadUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, UnityConsoleClearUnityIpcMethodHandler>();
+            services.AddSingleton<IUnityIpcMethodHandler, ScreenshotCaptureUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcConnectionHandler, UnityIpcConnectionHandler>();
             services.AddSingleton<NamedPipeUnityIpcTransportListener>();

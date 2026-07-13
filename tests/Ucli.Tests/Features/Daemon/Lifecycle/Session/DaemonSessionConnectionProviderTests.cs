@@ -23,7 +23,7 @@ public sealed class DaemonSessionConnectionProviderTests
         {
             ProjectFingerprint = context.ProjectFingerprint,
             SessionToken = "resolved-token",
-            EndpointTransportKind = "namedPipe",
+            EndpointTransportKind = IpcTransportKind.NamedPipe,
             EndpointAddress = "ucli-daemon-test",
         };
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);

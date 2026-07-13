@@ -22,7 +22,7 @@ internal static class DaemonSessionStoreAssert
     {
         var session = SingleSessionWrittenFor(sessionStore, expectedUnityProject);
         Assert.Equal(expectedUnityProject.ProjectFingerprint, session.ProjectFingerprint);
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedEditorMode), session.EditorMode);
+        Assert.Equal(expectedEditorMode, session.EditorMode);
         Assert.Null(session.ProcessId);
         Assert.Null(session.ProcessStartedAtUtc);
         return session;

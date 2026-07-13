@@ -1,7 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -31,9 +29,6 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
 
         if (string.IsNullOrWhiteSpace(session.SessionToken)
             || string.IsNullOrWhiteSpace(session.ProjectFingerprint)
-            || string.IsNullOrWhiteSpace(session.EditorMode)
-            || string.IsNullOrWhiteSpace(session.OwnerKind)
-            || string.IsNullOrWhiteSpace(session.EndpointTransportKind)
             || string.IsNullOrWhiteSpace(session.EndpointAddress))
         {
             error = ExecutionError.InvalidArgument($"Daemon session contains required empty values: {sessionPath}");
@@ -77,22 +72,22 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             return false;
         }
 
-        if (!ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(session.EditorMode, out var editorMode))
+        if (!ContractLiteralCodec.IsDefined(session.EditorMode))
         {
             error = ExecutionError.InvalidArgument(
                 $"Daemon session editorMode is invalid. Actual: {session.EditorMode}. {sessionPath}");
             return false;
         }
 
-        if (!ContractLiteralInputParser.TryParseTrimmed<DaemonSessionOwnerKind>(session.OwnerKind, out var ownerKind))
+        if (!ContractLiteralCodec.IsDefined(session.OwnerKind))
         {
             error = ExecutionError.InvalidArgument(
                 $"Daemon session ownerKind is invalid. Actual: {session.OwnerKind}. {sessionPath}");
             return false;
         }
 
-        if (editorMode == DaemonEditorMode.Batchmode
-            && (ownerKind != DaemonSessionOwnerKind.Cli
+        if (session.EditorMode == DaemonEditorMode.Batchmode
+            && (session.OwnerKind != DaemonSessionOwnerKind.Cli
                 || !session.CanShutdownProcess))
         {
             error = ExecutionError.InvalidArgument(
@@ -100,14 +95,14 @@ internal sealed class DaemonSessionValidator : IDaemonSessionValidator
             return false;
         }
 
-        if (ownerKind == DaemonSessionOwnerKind.User && session.CanShutdownProcess)
+        if (session.OwnerKind == DaemonSessionOwnerKind.User && session.CanShutdownProcess)
         {
             error = ExecutionError.InvalidArgument(
                 $"Daemon session ownerKind='{ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User)}' requires canShutdownProcess=false. {sessionPath}");
             return false;
         }
 
-        if (!ContractLiteralCodec.IsDefined<IpcTransportKind>(session.EndpointTransportKind))
+        if (!ContractLiteralCodec.IsDefined(session.EndpointTransportKind))
         {
             error = ExecutionError.InvalidArgument(
                 $"Daemon session endpointTransportKind is invalid: {session.EndpointTransportKind}. {sessionPath}");

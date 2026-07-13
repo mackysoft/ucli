@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Storage;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 
 /// <summary> Represents normalized payload values for one daemon diagnosis projection. </summary>
@@ -23,6 +25,6 @@ internal sealed record DaemonDiagnosisOutput (
     string? EditorInstancePath,
     DateTimeOffset? ProcessStartedAtUtc = null,
     string? UnityLogPath = null,
-    string? StartupPhase = null,
+    DaemonDiagnosisStartupPhase? StartupPhase = null,
     string? ActionRequired = null,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null);

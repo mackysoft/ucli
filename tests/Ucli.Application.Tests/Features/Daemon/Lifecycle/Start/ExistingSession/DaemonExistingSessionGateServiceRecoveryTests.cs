@@ -291,8 +291,8 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var session = DaemonSessionTestFactory.Create(
             processId: 4011,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false);
         var lifecycleStore = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringLifecycleStore(session);
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(

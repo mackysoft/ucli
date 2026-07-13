@@ -18,7 +18,7 @@ public sealed class DaemonStartServiceTimeoutBudgetTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
         {
-            EnsureRunningResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create()),
+            EnsureRunningResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(), IpcUnityEditorObservationTestFactory.Create()),
         };
         var pluginVerifier = new RecordingUnityPluginVerifier
         {
@@ -63,7 +63,7 @@ public sealed class DaemonStartServiceTimeoutBudgetTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
         {
-            EnsureRunningResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create()),
+            EnsureRunningResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(), IpcUnityEditorObservationTestFactory.Create()),
         };
         var pluginVerifier = new RecordingUnityPluginVerifier
         {

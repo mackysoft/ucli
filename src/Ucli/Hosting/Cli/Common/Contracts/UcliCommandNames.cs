@@ -87,6 +87,9 @@ internal static class UcliCommandNames
     /// <summary> Gets the top-level command name for logs. </summary>
     public const string Logs = "logs";
 
+    /// <summary> Gets the top-level command name for screenshot capture. </summary>
+    public const string Screenshot = "screenshot";
+
     /// <summary> Gets the top-level command name for ops. </summary>
     public const string Ops = "ops";
 
@@ -107,6 +110,12 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the command name for <c>logs unity clear</c> result payloads. </summary>
     public const string LogsUnityClear = "logs.unity.clear";
+
+    /// <summary> Gets the command name for <c>screenshot game</c> result payloads. </summary>
+    public const string ScreenshotGame = "screenshot.game";
+
+    /// <summary> Gets the command name for <c>screenshot scene</c> result payloads. </summary>
+    public const string ScreenshotScene = "screenshot.scene";
 
     /// <summary> Gets the command name for <c>ops list</c> result payloads. </summary>
     public const string OpsList = "ops.list";
@@ -212,6 +221,9 @@ internal static class UcliCommandNames
 
     /// <summary> Gets the nested command name for clear operations. </summary>
     public const string ClearSubcommand = "clear";
+
+    /// <summary> Gets the nested command name for GameView screenshot capture. </summary>
+    public const string GameSubcommand = "game";
 
     /// <summary> Gets the nested command name for read operations. </summary>
     public const string ReadSubcommand = "read";

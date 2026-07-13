@@ -91,17 +91,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var applyAudit = unityBuildProfile.ApplyAudit!;
                 Assert.That(applyAudit.Applied, Is.True);
-                Assert.That(applyAudit.LifecycleBefore.CompileGeneration, Is.EqualTo("build-profile-1-compile"));
-                Assert.That(applyAudit.LifecycleAfter.CompileGeneration, Is.EqualTo("build-profile-2-compile"));
-                Assert.That(applyAudit.LifecycleAfter.CompileGeneration, Is.Not.EqualTo(applyAudit.LifecycleBefore.CompileGeneration));
-                Assert.That(applyAudit.LifecycleAfter.DomainReloadGeneration, Is.Not.EqualTo(applyAudit.LifecycleBefore.DomainReloadGeneration));
-                Assert.That(applyAudit.LifecycleAfter.AssetRefreshGeneration, Is.Not.EqualTo(applyAudit.LifecycleBefore.AssetRefreshGeneration));
-                Assert.That(applyAudit.GenerationsBefore.CompileGeneration, Is.EqualTo(applyAudit.LifecycleBefore.CompileGeneration));
-                Assert.That(applyAudit.GenerationsBefore.DomainReloadGeneration, Is.EqualTo(applyAudit.LifecycleBefore.DomainReloadGeneration));
-                Assert.That(applyAudit.GenerationsBefore.AssetRefreshGeneration, Is.EqualTo(applyAudit.LifecycleBefore.AssetRefreshGeneration));
-                Assert.That(applyAudit.GenerationsAfter.CompileGeneration, Is.EqualTo(applyAudit.LifecycleAfter.CompileGeneration));
-                Assert.That(applyAudit.GenerationsAfter.DomainReloadGeneration, Is.EqualTo(applyAudit.LifecycleAfter.DomainReloadGeneration));
-                Assert.That(applyAudit.GenerationsAfter.AssetRefreshGeneration, Is.EqualTo(applyAudit.LifecycleAfter.AssetRefreshGeneration));
+                Assert.That(applyAudit.LifecycleBefore.State.Generations.CompileGeneration, Is.EqualTo(11));
+                Assert.That(applyAudit.LifecycleAfter.State.Generations.CompileGeneration, Is.EqualTo(21));
+                Assert.That(applyAudit.LifecycleAfter.State.Generations, Is.Not.EqualTo(applyAudit.LifecycleBefore.State.Generations));
                 Assert.That(applyAudit.DirtyStateAfter.Checked, Is.True);
                 Assert.That(result.DirtyState, Is.SameAs(applyAudit.DirtyStateAfter));
 
@@ -361,35 +353,35 @@ namespace MackySoft.Ucli.Unity.Tests
             return Sha256LowerHex.Compute(File.ReadAllBytes(UnityAssetPathUtility.ToAbsolutePath(assetPath)));
         }
 
-        private static UnityEditorLifecycleSnapshot CreateLifecycleSnapshot (int captureIndex)
+        private static UnityEditorObservation CreateObservation (int captureIndex)
         {
-            var generation = "build-profile-" + captureIndex;
-            return new UnityEditorLifecycleSnapshot(
-                EditorMode: DaemonEditorMode.Batchmode,
-                LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-                BlockingReason: null,
-                CompileState: IpcCompileStateCodec.Ready,
-                CompileGeneration: generation + "-compile",
-                DomainReloadGeneration: generation + "-domain",
-                CanAcceptExecutionRequests: true,
-                ObservedAtUtc: DateTimeOffset.Parse("2026-06-20T00:00:00+00:00"),
-                PlayMode: new IpcPlayModeSnapshot(
-                    State: "stopped",
-                    Transition: "none",
-                    IsPlaying: false,
-                    IsPlayingOrWillChangePlaymode: false,
-                    Generation: generation + "-play"),
-                AssetRefreshGeneration: generation + "-asset");
+            var generation = (long)captureIndex * 10L;
+            return new UnityEditorObservation(
+                state: new UnityEditorStateSnapshot(
+                    editorMode: DaemonEditorMode.Batchmode,
+                    lifecycleState: IpcEditorLifecycleState.Ready,
+                    compileState: IpcCompileState.Ready,
+                    generations: new IpcUnityGenerationSnapshot(
+                        CompileGeneration: generation + 1,
+                        DomainReloadGeneration: generation + 2,
+                        AssetRefreshGeneration: generation + 4,
+                        PlayModeGeneration: generation + 3),
+                    playMode: new IpcPlayModeSnapshot(
+                        State: IpcPlayModeState.Stopped,
+                        Transition: IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
+                observedAtUtc: new DateTimeOffset(2026, 6, 20, 0, 0, 0, TimeSpan.Zero));
         }
 
         private sealed class CountingReadinessGate : IUnityEditorReadinessGate
         {
             private int captureCount;
 
-            public UnityEditorLifecycleSnapshot CaptureSnapshot ()
+            public UnityEditorObservation CaptureObservation ()
             {
                 captureCount++;
-                return CreateLifecycleSnapshot(captureCount);
+                return CreateObservation(captureCount);
             }
 
             public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReadyAsync (
@@ -399,7 +391,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 captureCount++;
-                return Task.FromResult(UnityEditorExecutionReadinessResult.Ready(CreateLifecycleSnapshot(captureCount)));
+                return Task.FromResult(UnityEditorExecutionReadinessResult.Ready(CreateObservation(captureCount)));
             }
         }
 

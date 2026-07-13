@@ -18,7 +18,7 @@ public sealed class DaemonStatusServiceRunningLifecycleSidecarTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create() with
         {
-            EditorMode = "gui",
+            EditorMode = DaemonEditorMode.Gui,
             EditorInstanceId = "editor-instance-1",
         };
         var lifecycleStore = new RecordingDaemonLifecycleStore
@@ -49,10 +49,10 @@ public sealed class DaemonStatusServiceRunningLifecycleSidecarTests
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, output.BlockingReason);
+        Assert.Equal(IpcEditorLifecycleState.PlayMode, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.PlayMode, output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Equal("playing", output.PlayMode!.State);
+        Assert.Equal(IpcPlayModeState.Playing, output.PlayMode!.State);
         DaemonStatusServiceInvocationAssert.FreshLifecycleSidecarUsed(lifecycleStore, processIdentityAssessor, context, session);
     }
 
@@ -65,15 +65,12 @@ public sealed class DaemonStatusServiceRunningLifecycleSidecarTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create() with
         {
-            EditorMode = "gui",
+            EditorMode = DaemonEditorMode.Gui,
             EditorInstanceId = "editor-instance-1",
         };
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
-            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session) with
-            {
-                EditorInstanceId = null,
-            }),
+            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session, includeEditorInstanceId: false)),
         };
         var processIdentityAssessor = new RecordingDaemonProcessIdentityAssessor
         {

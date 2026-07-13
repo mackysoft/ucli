@@ -78,19 +78,22 @@ internal static class UnityDaemonIpcClientTestSupport
     private static DaemonLifecycleObservation CreateRecoveringObservation (DaemonSession session)
     {
         return new DaemonLifecycleObservation(
-            ProcessId: session.ProcessId!.Value,
-            ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            EditorMode: session.EditorMode,
-            LifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
-            BlockingReason: IpcEditorBlockingReasonCodec.DomainReload,
-            CompileState: IpcCompileStateCodec.Ready,
-            CompileGeneration: "1",
-            DomainReloadGeneration: "2",
-            ObservedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero),
-            ActionRequired: null,
-            PrimaryDiagnostic: null)
-        {
-            EditorInstanceId = session.EditorInstanceId,
-        };
+            processId: session.ProcessId!.Value,
+            processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
+            state: new UnityEditorStateSnapshot(
+                editorMode: session.EditorMode,
+                lifecycleState: IpcEditorLifecycleState.DomainReloading,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Stopped,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
+            observedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero),
+            actionRequired: null,
+            primaryDiagnostic: null,
+            serverVersion: null,
+            editorInstanceId: session.EditorInstanceId);
     }
 }

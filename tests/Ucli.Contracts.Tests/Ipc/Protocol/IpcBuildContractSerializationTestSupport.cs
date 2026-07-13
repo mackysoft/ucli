@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -5,31 +6,33 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 internal static class IpcBuildContractSerializationTestSupport
 {
-    public static IpcBuildLifecycleSnapshot CreateBuildLifecycleSnapshot (
-        string generationSuffix,
+    public static IpcUnityEditorObservation CreateBuildLifecycleSnapshot (
+        long generation,
         bool canAcceptExecutionRequests)
     {
-        return new IpcBuildLifecycleSnapshot(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: "project-fingerprint",
-            LifecycleState: "ready",
-            BlockingReason: "none",
-            CompileState: "idle",
-            CompileGeneration: $"compile-{generationSuffix}",
-            DomainReloadGeneration: $"domain-{generationSuffix}",
-            CanAcceptExecutionRequests: canAcceptExecutionRequests,
-            ObservedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-            ActionRequired: null,
-            PrimaryDiagnostic: null,
-            PlayMode: new IpcPlayModeSnapshot(
-                State: "stopped",
-                Transition: "none",
-                IsPlaying: false,
-                IsPlayingOrWillChangePlaymode: false,
-                Generation: $"play-{generationSuffix}"),
-            AssetRefreshGeneration: $"asset-{generationSuffix}");
+        return new IpcUnityEditorObservation(
+            serverVersion: "0.5.0",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: "project-fingerprint",
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Batchmode,
+                lifecycleState: canAcceptExecutionRequests
+                    ? IpcEditorLifecycleState.Ready
+                    : IpcEditorLifecycleState.Busy,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(
+                    CompileGeneration: generation,
+                    DomainReloadGeneration: generation,
+                    AssetRefreshGeneration: generation,
+                    PlayModeGeneration: generation),
+                playMode: new IpcPlayModeSnapshot(
+                    State: IpcPlayModeState.Stopped,
+                    Transition: IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
+            observedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
+            actionRequired: null,
+            primaryDiagnostic: null);
     }
 
     public static IpcBuildProjectMutationAudit CreateProjectMutationAudit ()

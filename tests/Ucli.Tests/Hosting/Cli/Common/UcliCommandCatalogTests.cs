@@ -29,6 +29,8 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Logs, UcliCommandNames.Daemon, UcliCommandNames.ReadSubcommand, UcliCommandNames.LogsDaemonRead)]
     [InlineData(UcliCommandNames.Logs, UcliCommandNames.UnitySubcommand, UcliCommandNames.ReadSubcommand, UcliCommandNames.LogsUnityRead)]
     [InlineData(UcliCommandNames.Logs, UcliCommandNames.UnitySubcommand, UcliCommandNames.ClearSubcommand, UcliCommandNames.LogsUnityClear)]
+    [InlineData(UcliCommandNames.Screenshot, UcliCommandNames.GameSubcommand, null, UcliCommandNames.ScreenshotGame)]
+    [InlineData(UcliCommandNames.Screenshot, UcliCommandNames.SceneSubcommand, null, UcliCommandNames.ScreenshotScene)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.ListSubcommand, null, UcliCommandNames.OpsList)]
     [InlineData(UcliCommandNames.Ops, UcliCommandNames.DescribeSubcommand, null, UcliCommandNames.OpsDescribe)]
     [InlineData(UcliCommandNames.Codes, UcliCommandNames.ListSubcommand, null, UcliCommandNames.CodesList)]
@@ -81,6 +83,7 @@ public sealed class UcliCommandCatalogTests
     [InlineData(UcliCommandNames.Eval)]
     [InlineData(UcliCommandNames.Daemon)]
     [InlineData(UcliCommandNames.Logs)]
+    [InlineData(UcliCommandNames.Screenshot)]
     [InlineData(UcliCommandNames.Ops)]
     [InlineData(UcliCommandNames.Codes)]
     [InlineData(UcliCommandNames.Build)]
@@ -150,6 +153,23 @@ public sealed class UcliCommandCatalogTests
                 UcliCommandNames.Status,
                 UcliCommandNames.EnterSubcommand,
                 UcliCommandNames.ExitSubcommand,
+            ],
+            subcommands);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryGetPreDispatchSupportedSubcommands_WhenScreenshotCommandSpecified_ReturnsScreenshotTargets ()
+    {
+        var found = UcliCommandCatalog.TryGetPreDispatchSupportedSubcommands(
+            UcliCommandNames.Screenshot,
+            out var subcommands);
+
+        Assert.True(found);
+        Assert.Equal(
+            [
+                UcliCommandNames.GameSubcommand,
+                UcliCommandNames.SceneSubcommand,
             ],
             subcommands);
     }

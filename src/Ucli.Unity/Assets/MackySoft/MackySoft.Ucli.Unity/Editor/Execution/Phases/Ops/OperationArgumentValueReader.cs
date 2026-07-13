@@ -49,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var parsedValue = valueElement.GetString();
-            if (string.IsNullOrWhiteSpace(parsedValue))
+            if (parsedValue == null || string.IsNullOrWhiteSpace(parsedValue))
             {
                 errorMessage = $"Operation '{propertyPath}' must not be empty or whitespace.";
                 return false;

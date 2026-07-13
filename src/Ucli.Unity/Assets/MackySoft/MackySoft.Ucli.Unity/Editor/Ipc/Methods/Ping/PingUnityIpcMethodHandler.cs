@@ -3,8 +3,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
-using UnityEditor;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -13,26 +11,21 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IServerVersionProvider serverVersionProvider;
         private readonly IUnityEditorReadinessGate readinessGate;
-        private readonly string projectFingerprint;
+        private readonly IpcProjectIdentity projectIdentity;
         private readonly IDaemonLogger daemonLogger;
 
         /// <summary> Initializes a new instance of the <see cref="PingUnityIpcMethodHandler" /> class. </summary>
         /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
-        /// <param name="projectFingerprint"> The project fingerprint served by this IPC host. </param>
+        /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
         public PingUnityIpcMethodHandler (
             IServerVersionProvider serverVersionProvider,
             IUnityEditorReadinessGate readinessGate,
-            string projectFingerprint,
+            IpcProjectIdentity projectIdentity,
             IDaemonLogger daemonLogger = null)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
-            {
-                throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
-            }
-
-            this.projectFingerprint = projectFingerprint;
+            this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
         }
 
@@ -61,11 +54,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new ValueTask<IpcResponse>(errorResponse!);
             }
 
-            var payload = UnityLifecycleResponseCodec.CreatePingPayload(
-                Application.unityVersion,
+            var payload = UnityLifecycleResponseFactory.Create(
+                projectIdentity,
                 serverVersionProvider.GetVersion(),
-                projectFingerprint,
-                readinessGate.CaptureSnapshot());
+                readinessGate.CaptureObservation());
             return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
         }
     }

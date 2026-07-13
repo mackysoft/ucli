@@ -66,7 +66,9 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
         var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter();
         awaiter.AdvanceTimeOnFirstWait(timeProvider, TimeSpan.FromMilliseconds(200));
         awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("session missing")));
-        awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Success(DaemonGuiEditorAttachServiceTestSupport.CreateGuiSession()));
+        awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Success(
+            DaemonGuiEditorAttachServiceTestSupport.CreateGuiSession(),
+            DaemonGuiEditorAttachServiceTestSupport.CreateReadyLifecycleObservation()));
         var rebootstrapClient = new RecordingDaemonGuiRebootstrapClient
         {
             OnRequest = () => timeProvider.Advance(TimeSpan.FromMilliseconds(150)),

@@ -1,10 +1,12 @@
+using System;
 using System.Threading;
-using MackySoft.Ucli.Contracts;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
+
+#nullable enable
 
 namespace MackySoft.Ucli.Unity.Tests
 {
@@ -23,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         public StubUnityEditorReadinessGate (DaemonEditorMode editorMode)
-            : this(UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(editorMode, IpcEditorLifecycleStateCodec.Ready, null, true)), null)
+            : this(UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(editorMode, IpcEditorLifecycleState.Ready)), null)
         {
         }
 
@@ -37,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public int CallCount { get; private set; }
 
-        public int CaptureSnapshotCallCount { get; private set; }
+        public int CaptureObservationCallCount { get; private set; }
 
         public bool? LastFailFast { get; private set; }
 
@@ -50,26 +52,23 @@ namespace MackySoft.Ucli.Unity.Tests
             return new StubUnityEditorReadinessGate(
                 CreateBlockedResult(
                     DaemonEditorMode.Batchmode,
-                    IpcEditorLifecycleStateCodec.Busy,
-                    IpcEditorBlockingReasonCodec.Busy,
+                    IpcEditorLifecycleState.Busy,
                     EditorLifecycleErrorCodes.EditorBusy,
                     "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
                 new TaskCompletionSource<UnityEditorExecutionReadinessResult>(TaskCreationOptions.RunContinuationsAsynchronously));
         }
 
-        public UnityEditorLifecycleSnapshot CaptureSnapshot ()
+        public UnityEditorObservation CaptureObservation ()
         {
-            CaptureSnapshotCallCount++;
-            return currentResult.Snapshot;
+            CaptureObservationCallCount++;
+            return currentResult.Observation;
         }
 
         public void Release ()
         {
             currentResult = UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(
-                currentResult.Snapshot.EditorMode,
-                IpcEditorLifecycleStateCodec.Ready,
-                null,
-                true));
+                currentResult.Observation.State.EditorMode,
+                IpcEditorLifecycleState.Ready));
             completionSource?.TrySetResult(currentResult);
         }
 
@@ -93,45 +92,37 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UnityEditorExecutionReadinessResult CreateBlockedResult (
             DaemonEditorMode editorMode,
-            string lifecycleState,
-            string? blockingReason,
+            IpcEditorLifecycleState lifecycleState,
             UcliCode errorCode,
             string errorMessage)
         {
             return UnityEditorExecutionReadinessResult.Blocked(
-                CreateSnapshot(editorMode, lifecycleState, blockingReason, false),
+                CreateSnapshot(editorMode, lifecycleState),
                 new IpcError(errorCode, errorMessage, null));
         }
 
-        private static UnityEditorLifecycleSnapshot CreateSnapshot (
+        private static UnityEditorObservation CreateSnapshot (
             DaemonEditorMode editorMode,
-            string lifecycleState,
-            string? blockingReason,
-            bool canAcceptExecutionRequests)
+            IpcEditorLifecycleState lifecycleState)
         {
-            return new UnityEditorLifecycleSnapshot(
-                EditorMode: editorMode,
-                LifecycleState: lifecycleState,
-                BlockingReason: blockingReason,
-                CompileState: IpcCompileStateCodec.Ready,
-                CompileGeneration: "1",
-                DomainReloadGeneration: "1",
-                CanAcceptExecutionRequests: canAcceptExecutionRequests,
-                PlayMode: CreatePlayModeSnapshot(lifecycleState));
+            return new UnityEditorObservation(
+                state: new UnityEditorStateSnapshot(
+                    editorMode: editorMode,
+                    lifecycleState: lifecycleState,
+                    compileState: IpcCompileState.Ready,
+                    generations: new IpcUnityGenerationSnapshot(1, 1, 0, 1),
+                    playMode: CreatePlayModeSnapshot(lifecycleState)),
+                observedAtUtc: DateTimeOffset.UnixEpoch);
         }
 
-        private static IpcPlayModeSnapshot CreatePlayModeSnapshot (string lifecycleState)
+        private static IpcPlayModeSnapshot CreatePlayModeSnapshot (IpcEditorLifecycleState lifecycleState)
         {
-            var isPlaying = string.Equals(
-                lifecycleState,
-                IpcEditorLifecycleStateCodec.Playmode,
-                System.StringComparison.Ordinal);
+            var isPlaying = lifecycleState == IpcEditorLifecycleState.PlayMode;
             return new IpcPlayModeSnapshot(
-                State: isPlaying ? "playing" : "stopped",
-                Transition: "none",
+                State: isPlaying ? IpcPlayModeState.Playing : IpcPlayModeState.Stopped,
+                Transition: IpcPlayModeTransition.None,
                 IsPlaying: isPlaying,
-                IsPlayingOrWillChangePlaymode: isPlaying,
-                Generation: "1");
+                IsPlayingOrWillChangePlaymode: isPlaying);
         }
     }
 }

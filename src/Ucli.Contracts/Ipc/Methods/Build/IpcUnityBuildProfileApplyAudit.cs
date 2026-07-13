@@ -4,13 +4,9 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="Applied"> Whether the requested profile was applied as the active Unity Build Profile. </param>
 /// <param name="LifecycleBefore"> The lifecycle snapshot captured before applying the profile. </param>
 /// <param name="LifecycleAfter"> The lifecycle snapshot captured after applying the profile. </param>
-/// <param name="GenerationsBefore"> The generation values captured before applying the profile. </param>
-/// <param name="GenerationsAfter"> The generation values captured after applying the profile. </param>
 /// <param name="DirtyStateAfter"> The dirty-state snapshot captured after applying the profile. </param>
 public sealed record IpcUnityBuildProfileApplyAudit (
     bool Applied,
-    IpcBuildLifecycleSnapshot LifecycleBefore,
-    IpcBuildLifecycleSnapshot LifecycleAfter,
-    IpcBuildGenerationSnapshot GenerationsBefore,
-    IpcBuildGenerationSnapshot GenerationsAfter,
+    IpcUnityEditorObservation LifecycleBefore,
+    IpcUnityEditorObservation LifecycleAfter,
     IpcBuildDirtyState DirtyStateAfter);

@@ -11,15 +11,13 @@ public sealed class PlayExitServiceTransitionValidationTests
     public async Task Execute_WhenAlreadyExitedChangesGeneration_ReturnsStateUnknown ()
     {
         var before = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
-            false,
-            CreateStoppedPlayMode("9"));
+            IpcEditorLifecycleState.Compiling,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 9);
         var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
-            false,
-            CreateStoppedPlayMode("10"));
+            IpcEditorLifecycleState.Compiling,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 10);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.AlreadyExited,
@@ -41,16 +39,14 @@ public sealed class PlayExitServiceTransitionValidationTests
     public async Task Execute_WhenResponseProjectFingerprintDiffers_ReturnsMismatchFailure ()
     {
         var before = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreatePlayingPlayMode("2"),
+            IpcEditorLifecycleState.PlayMode,
+            CreatePlayingPlayMode(),
+            playModeGeneration: 2,
             projectFingerprint: "other-project-fingerprint");
         var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
-            null,
-            true,
-            CreateStoppedPlayMode("3"),
+            IpcEditorLifecycleState.Ready,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 3,
             projectFingerprint: "other-project-fingerprint");
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
@@ -72,8 +68,14 @@ public sealed class PlayExitServiceTransitionValidationTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenExitedDoesNotChangeGeneration_ReturnsStateUnknown ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
-        var after = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
+        var before = CreateSnapshot(
+            IpcEditorLifecycleState.PlayMode,
+            CreatePlayingPlayMode(),
+            playModeGeneration: 2);
+        var after = CreateSnapshot(
+            IpcEditorLifecycleState.Ready,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 2);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.Exited,
@@ -94,12 +96,14 @@ public sealed class PlayExitServiceTransitionValidationTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenExitedAfterSnapshotIsStillPlaymode_ReturnsStateUnknown ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
+        var before = CreateSnapshot(
+            IpcEditorLifecycleState.PlayMode,
+            CreatePlayingPlayMode(),
+            playModeGeneration: 2);
         var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            CreateStoppedPlayMode("3"));
+            IpcEditorLifecycleState.PlayMode,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 3);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.Exited,
@@ -120,8 +124,14 @@ public sealed class PlayExitServiceTransitionValidationTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenSuccessTransitionContainsErrorFields_ReturnsStateUnknown ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
-        var after = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("3"));
+        var before = CreateSnapshot(
+            IpcEditorLifecycleState.PlayMode,
+            CreatePlayingPlayMode(),
+            playModeGeneration: 2);
+        var after = CreateSnapshot(
+            IpcEditorLifecycleState.Ready,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 3);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.Exited,
@@ -144,14 +154,20 @@ public sealed class PlayExitServiceTransitionValidationTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenTimeoutTransitionContainsAfter_ReturnsStateUnknown ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
-        var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
-            State: "exiting",
-            Transition: "exiting",
+        var before = CreateSnapshot(
+            IpcEditorLifecycleState.PlayMode,
+            CreatePlayingPlayMode(),
+            playModeGeneration: 2);
+        var observed = CreateSnapshot(IpcEditorLifecycleState.PlayMode, new IpcPlayModeSnapshot(
+            State: IpcPlayModeState.Exiting,
+            Transition: IpcPlayModeTransition.Exiting,
             IsPlaying: true,
-            IsPlayingOrWillChangePlaymode: true,
-            Generation: "2"));
-        var after = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("3"));
+            IsPlayingOrWillChangePlaymode: true),
+            playModeGeneration: 2);
+        var after = CreateSnapshot(
+            IpcEditorLifecycleState.Ready,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 3);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.Timeout,
@@ -177,13 +193,16 @@ public sealed class PlayExitServiceTransitionValidationTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenTimeoutApplicationStateIsNotIndeterminate_ReturnsStateUnknown ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
-        var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
-            State: "exiting",
-            Transition: "exiting",
+        var before = CreateSnapshot(
+            IpcEditorLifecycleState.PlayMode,
+            CreatePlayingPlayMode(),
+            playModeGeneration: 2);
+        var observed = CreateSnapshot(IpcEditorLifecycleState.PlayMode, new IpcPlayModeSnapshot(
+            State: IpcPlayModeState.Exiting,
+            Transition: IpcPlayModeTransition.Exiting,
             IsPlaying: true,
-            IsPlayingOrWillChangePlaymode: true,
-            Generation: "2"));
+            IsPlayingOrWillChangePlaymode: true),
+            playModeGeneration: 2);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.Timeout,

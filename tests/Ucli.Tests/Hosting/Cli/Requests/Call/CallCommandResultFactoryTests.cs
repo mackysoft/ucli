@@ -3,16 +3,15 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class CallCommandResultFactoryTests
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
+    private static readonly CommandResultJsonContractWriter ResultWriter = new();
 
     [Fact]
     [Trait("Size", "Small")]
@@ -34,7 +33,7 @@ public sealed class CallCommandResultFactoryTests
                     PlanToken: null),
                 ReadPostcondition: null)));
 
-        using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, SerializerOptions));
+        using var json = JsonDocument.Parse(ResultWriter.Write(result));
         var payload = json.RootElement.GetProperty("payload");
         Assert.True(payload.TryGetProperty("plan", out var planElement));
         Assert.False(planElement.TryGetProperty("planToken", out _));
@@ -50,7 +49,7 @@ public sealed class CallCommandResultFactoryTests
                 ApplicationFailure.InternalError("Call failed."),
             ]));
 
-        using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, SerializerOptions));
+        using var json = JsonDocument.Parse(ResultWriter.Write(result));
         Assert.False(json.RootElement.GetProperty("payload").EnumerateObject().MoveNext());
     }
 
@@ -68,7 +67,7 @@ public sealed class CallCommandResultFactoryTests
                     startupFailure: startupFailure),
             ]));
 
-        using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, SerializerOptions));
+        using var json = JsonDocument.Parse(ResultWriter.Write(result));
         var root = json.RootElement;
         JsonAssert.For(root)
             .HasString("command", UcliCommandNames.Call)
@@ -104,7 +103,7 @@ public sealed class CallCommandResultFactoryTests
                 ReadPostcondition: readPostcondition),
             "uCLI call completed."));
 
-        using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, SerializerOptions));
+        using var json = JsonDocument.Parse(ResultWriter.Write(result));
         var payload = json.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .HasProperty("readPostcondition", readPostconditionElement => readPostconditionElement
@@ -119,19 +118,19 @@ public sealed class CallCommandResultFactoryTests
     {
         return new StartupFailureDetail(
             Startup: new DaemonStartupObservationOutput(
-                StartupStatus: "blocked",
-                StartupBlockingReason: "compile",
+                StartupStatus: DaemonStartupStatus.Blocked,
+                StartupBlockingReason: DaemonStartupBlockingReason.Compile,
                 LaunchAttemptId: null,
-                EditorMode: "batchmode",
-                OwnerKind: "cli",
+                EditorMode: DaemonEditorMode.Batchmode,
+                OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 ProcessId: 1234,
                 StartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 ElapsedMilliseconds: null,
-                ProcessAction: "terminated",
+                ProcessAction: DaemonStartupProcessAction.Terminated,
                 ProcessTermination: null,
                 ArtifactPath: null,
-                RetryDisposition: "retryAfterFix"),
+                RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
             Diagnosis: new DaemonDiagnosisOutput(
                 Reason: "unityScriptCompilationFailed",
                 Message: "Unity startup is blocked.",
@@ -142,7 +141,7 @@ public sealed class CallCommandResultFactoryTests
                 EditorInstancePath: null,
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
-                StartupPhase: "scriptCompilation",
+                StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
                 ActionRequired: "fixCompileErrors",
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
                     Kind: "compiler",
@@ -151,7 +150,7 @@ public sealed class CallCommandResultFactoryTests
                     Line: 10,
                     Column: 5,
                     Message: "error CS0246")),
-            RetryDisposition: "retryAfterFix",
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
             SafeToRetryImmediately: false);
     }
 }

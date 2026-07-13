@@ -10,13 +10,16 @@ public sealed class PlayExitServiceUnityFailureTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenUnityReturnsTransitionTimeout_ReturnsFailureWithObservedPayload ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
-        var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
-            State: "exiting",
-            Transition: "exiting",
+        var before = CreateSnapshot(
+            IpcEditorLifecycleState.PlayMode,
+            CreatePlayingPlayMode(),
+            playModeGeneration: 2);
+        var observed = CreateSnapshot(IpcEditorLifecycleState.PlayMode, new IpcPlayModeSnapshot(
+            State: IpcPlayModeState.Exiting,
+            Transition: IpcPlayModeTransition.Exiting,
             IsPlaying: true,
-            IsPlayingOrWillChangePlaymode: true,
-            Generation: "2"));
+            IsPlayingOrWillChangePlaymode: true),
+            playModeGeneration: 2);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.Timeout,
@@ -38,7 +41,7 @@ public sealed class PlayExitServiceUnityFailureTests
         Assert.NotNull(result.Output);
         Assert.Equal(IpcPlayTransitionResultNames.Timeout, result.Output!.Transition.Result);
         Assert.Equal(IpcPlayApplicationStateNames.Indeterminate, result.Output.Transition.ApplicationState);
-        Assert.Equal(observed.PlayMode!.State, result.Output.Transition.Observed!.PlayMode!.State);
+        Assert.Equal(observed.State.PlayMode.State, result.Output.Transition.Observed!.PlayMode.State);
         Assert.Null(result.Output.Transition.After);
     }
 
@@ -46,8 +49,14 @@ public sealed class PlayExitServiceUnityFailureTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenUnityReturnsAppliedBlockedTransition_ReturnsFailureWithoutAfter ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
-        var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.SafeMode, IpcEditorBlockingReasonCodec.SafeMode, false, CreateStoppedPlayMode("3"));
+        var before = CreateSnapshot(
+            IpcEditorLifecycleState.PlayMode,
+            CreatePlayingPlayMode(),
+            playModeGeneration: 2);
+        var observed = CreateSnapshot(
+            IpcEditorLifecycleState.SafeMode,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 3);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.Blocked,
@@ -69,7 +78,7 @@ public sealed class PlayExitServiceUnityFailureTests
         Assert.NotNull(result.Output);
         Assert.Equal(IpcPlayApplicationStateNames.Applied, result.Output!.Transition.ApplicationState);
         Assert.Null(result.Output.Transition.After);
-        Assert.Equal(IpcEditorLifecycleStateCodec.SafeMode, result.Output.LifecycleState);
+        Assert.Equal(IpcEditorLifecycleState.SafeMode, result.Output.LifecycleState);
     }
 
     [Fact]

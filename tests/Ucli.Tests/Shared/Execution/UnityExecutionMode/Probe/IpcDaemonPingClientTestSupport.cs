@@ -28,7 +28,7 @@ internal static class IpcDaemonPingClientTestSupport
                 request,
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
-                IpcPingResponseTestFactory.Create(projectFingerprint: "fingerprint")));
+                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: "fingerprint")));
     }
 
     public static IpcResponse CreateResponse (

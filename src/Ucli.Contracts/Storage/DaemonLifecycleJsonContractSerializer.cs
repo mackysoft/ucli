@@ -5,20 +5,6 @@ namespace MackySoft.Ucli.Contracts.Storage;
 /// <summary> Provides shared serializer settings for daemon <c>daemon-lifecycle.json</c> contracts. </summary>
 internal static class DaemonLifecycleJsonContractSerializer
 {
-    private static readonly JsonSerializerOptions DeserializeOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = false,
-    };
-
-    private static readonly JsonSerializerOptions SerializeOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        PropertyNameCaseInsensitive = true,
-        WriteIndented = true,
-    };
-
     /// <summary> Deserializes daemon lifecycle JSON text to contract. </summary>
     public static DaemonLifecycleJsonContract? Deserialize (string json)
     {
@@ -27,7 +13,9 @@ internal static class DaemonLifecycleJsonContractSerializer
             throw new ArgumentException("JSON text must not be empty.", nameof(json));
         }
 
-        return JsonSerializer.Deserialize<DaemonLifecycleJsonContract>(json, DeserializeOptions);
+        return JsonSerializer.Deserialize<DaemonLifecycleJsonContract>(
+            json,
+            DaemonStorageJsonSerializerOptions.Deserialize);
     }
 
     /// <summary> Serializes daemon lifecycle contract to JSON text. </summary>
@@ -38,6 +26,6 @@ internal static class DaemonLifecycleJsonContractSerializer
             throw new ArgumentNullException(nameof(contract));
         }
 
-        return JsonSerializer.Serialize(contract, SerializeOptions);
+        return JsonSerializer.Serialize(contract, DaemonStorageJsonSerializerOptions.Serialize);
     }
 }
