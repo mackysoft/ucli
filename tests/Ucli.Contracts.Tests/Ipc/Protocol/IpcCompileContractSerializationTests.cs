@@ -21,13 +21,11 @@ public sealed class IpcCompileContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcCompileResponse_WhenRunIdIsEmpty_ThrowsArgumentException ()
+    public void IpcCompileResponse_WhenSummaryIsNull_ThrowsArgumentNullException ()
     {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcCompileResponse(
-            Guid.Empty,
-            CreateCompileSummary(RunId)));
+        var exception = Assert.Throws<ArgumentNullException>(() => new IpcCompileResponse(null!));
 
-        Assert.Equal("RunId", exception.ParamName);
+        Assert.Equal("Summary", exception.ParamName);
     }
 
     [Fact]
@@ -47,9 +45,7 @@ public sealed class IpcCompileContractSerializationTests
         {
             TimeoutMilliseconds = 10000,
         };
-        var responsePayload = new IpcCompileResponse(
-            RunId: RunId,
-            Summary: CreateCompileSummary(RunId));
+        var responsePayload = new IpcCompileResponse(CreateCompileSummary(RunId));
 
         var request = IpcPayloadCodec.SerializeToElement(requestPayload);
         var response = IpcPayloadCodec.SerializeToElement(responsePayload);
@@ -58,7 +54,6 @@ public sealed class IpcCompileContractSerializationTests
             .HasString("runId", RunIdText)
             .HasInt32("timeoutMilliseconds", 10000);
         JsonAssert.For(response)
-            .HasString("runId", RunIdText)
             .HasProperty("summary", summary => summary
                 .HasString("runId", RunIdText)
                 .HasString("projectFingerprint", ProjectFingerprintText)
@@ -69,6 +64,7 @@ public sealed class IpcCompileContractSerializationTests
                         .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
                             .HasString("kind", "compiler")
                             .HasString("code", "CS1002")))));
+        Assert.False(response.TryGetProperty("runId", out _));
         Assert.False(response.TryGetProperty("summaryJsonPath", out _));
         Assert.False(response.TryGetProperty("diagnosticsJsonPath", out _));
     }

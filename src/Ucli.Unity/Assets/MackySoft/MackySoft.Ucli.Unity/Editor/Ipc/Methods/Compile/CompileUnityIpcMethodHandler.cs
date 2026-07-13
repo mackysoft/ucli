@@ -146,9 +146,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 // NOTE: Compile handling observes Unity Editor APIs across awaits, so it must remain on
                 // Unity's synchronization context instead of resuming on a thread-pool thread.
                 var summary = await recorder.ExecuteAsync(executionCancellationToken);
-                var response = new IpcCompileResponse(
-                    RunId: compileRequest.RunId,
-                    Summary: summary);
+                var response = new IpcCompileResponse(summary);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
             }
             catch (OperationCanceledException) when (IsRequestTimeout(
@@ -265,7 +263,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 // NOTE: summary.json is a public compile artifact, so recovery may reuse it
                 // only when it belongs to the same pending run that the operation store restored.
-                return CreateCompileSuccessResponse(request, compileRequest.RunId, completedSummary);
+                return CreateCompileSuccessResponse(request, completedSummary);
             }
 
             if (!File.Exists(paths.RequestJsonPath))
@@ -288,17 +286,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                     DateTimeOffset.UtcNow);
             WriteDiagnostics(paths.DiagnosticsJsonPath, finalSummary);
             WriteJsonAtomically(paths.SummaryJsonPath, finalSummary);
-            return CreateCompileSuccessResponse(request, compileRequest.RunId, finalSummary);
+            return CreateCompileSuccessResponse(request, finalSummary);
         }
 
         private static IpcResponse CreateCompileSuccessResponse (
             IpcRequest request,
-            Guid runId,
             IpcCompileSummary summary)
         {
-            var response = new IpcCompileResponse(
-                RunId: runId,
-                Summary: summary);
+            var response = new IpcCompileResponse(summary);
             return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
         }
 

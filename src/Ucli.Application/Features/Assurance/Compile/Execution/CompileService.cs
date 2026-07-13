@@ -274,17 +274,6 @@ internal sealed class CompileService : ICompileService
                 $"Unity compile payload is invalid. {payloadError.Message}"));
         }
 
-        if (compileResponse.RunId != runId)
-        {
-            return CompileDispatchResult.Failure(ApplicationFailure.InternalError(
-                $"Unity compile response runId mismatch. Requested={runId}, Actual={compileResponse.RunId}."));
-        }
-
-        if (compileResponse.Summary is null)
-        {
-            return CompileDispatchResult.Failure(ApplicationFailure.InternalError("Unity compile response summary is missing."));
-        }
-
         var summaryValidationFailure = ValidateSummary(
             compileResponse.Summary,
             runId,

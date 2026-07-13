@@ -135,7 +135,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcCompileResponse payload, out _), Is.True);
-                Assert.That(payload.RunId, Is.EqualTo(runId));
+                Assert.That(payload.Summary.RunId, Is.EqualTo(runId));
                 Assert.That(payload.Summary.Completed, Is.True);
                 Assert.That(payload.Summary.StartedAtUtc, Is.EqualTo(pendingSummary.StartedAtUtc));
                 Assert.That(payload.Summary.DomainReload.ReloadObserved, Is.True);

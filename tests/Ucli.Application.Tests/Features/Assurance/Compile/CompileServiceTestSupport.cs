@@ -37,7 +37,7 @@ internal static class CompileServiceTestSupport
     public static UnityRequestExecutionResult CreateCompileResponseResult (IpcCompileSummary summary)
     {
         return UnityRequestExecutionResult.Success(new UnityRequestResponse(
-            IpcPayloadCodec.SerializeToElement(new IpcCompileResponse(summary.RunId, summary)),
+            IpcPayloadCodec.SerializeToElement(new IpcCompileResponse(summary)),
             [],
             HasFailureStatus: false));
     }

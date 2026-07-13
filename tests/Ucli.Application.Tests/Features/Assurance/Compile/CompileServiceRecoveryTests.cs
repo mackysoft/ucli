@@ -38,7 +38,7 @@ public sealed class CompileServiceRecoveryTests
     [Trait("Size", "Small")]
     public async Task Execute_WithCompileResponseMissingSummary_ReturnsCommandFailure ()
     {
-        using var document = JsonDocument.Parse($$"""{"runId":"{{RunId:D}}","summary":null}""");
+        using var document = JsonDocument.Parse("""{"summary":null}""");
         var payload = document.RootElement.Clone();
         var service = CreateService(
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
@@ -54,7 +54,7 @@ public sealed class CompileServiceRecoveryTests
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("summary", error.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("Unity compile payload is invalid.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
