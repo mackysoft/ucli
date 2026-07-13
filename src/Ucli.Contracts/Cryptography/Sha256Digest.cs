@@ -27,20 +27,6 @@ internal sealed class Sha256Digest : IEquatable<Sha256Digest>
     /// <summary> Computes a digest from source bytes. </summary>
     /// <param name="bytes"> The source bytes. </param>
     /// <returns> The computed digest. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="bytes" /> is <see langword="null" />. </exception>
-    internal static Sha256Digest Compute (byte[] bytes)
-    {
-        if (bytes == null)
-        {
-            throw new ArgumentNullException(nameof(bytes));
-        }
-
-        return new Sha256Digest(Sha256LowerHex.Compute(bytes));
-    }
-
-    /// <summary> Computes a digest from source bytes. </summary>
-    /// <param name="bytes"> The source bytes. </param>
-    /// <returns> The computed digest. </returns>
     internal static Sha256Digest Compute (ReadOnlySpan<byte> bytes)
     {
         return new Sha256Digest(Sha256LowerHex.Compute(bytes));

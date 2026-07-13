@@ -17,20 +17,6 @@ internal static class Sha256LowerHex
     /// <summary> Computes a SHA-256 digest string from source bytes. </summary>
     /// <param name="bytes"> The source bytes. </param>
     /// <returns> The lowercase hexadecimal digest string. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="bytes" /> is <see langword="null" />. </exception>
-    public static string Compute (byte[] bytes)
-    {
-        if (bytes == null)
-        {
-            throw new ArgumentNullException(nameof(bytes));
-        }
-
-        return Compute(bytes.AsSpan());
-    }
-
-    /// <summary> Computes a SHA-256 digest string from source bytes. </summary>
-    /// <param name="bytes"> The source bytes. </param>
-    /// <returns> The lowercase hexadecimal digest string. </returns>
     public static string Compute (ReadOnlySpan<byte> bytes)
     {
         Span<byte> hashBytes = stackalloc byte[ByteCount];
@@ -60,20 +46,6 @@ internal static class Sha256LowerHex
         }
 
         return ToLowerHex(hashBytes);
-    }
-
-    /// <summary> Converts SHA-256 digest bytes to lowercase hexadecimal text. </summary>
-    /// <param name="bytes"> The SHA-256 digest bytes. </param>
-    /// <returns> The lowercase hexadecimal SHA-256 digest text. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="bytes" /> is <see langword="null" />. </exception>
-    public static string ToLowerHex (byte[] bytes)
-    {
-        if (bytes == null)
-        {
-            throw new ArgumentNullException(nameof(bytes));
-        }
-
-        return ToLowerHex(bytes.AsSpan());
     }
 
     /// <summary> Converts SHA-256 digest bytes to lowercase hexadecimal text. </summary>
