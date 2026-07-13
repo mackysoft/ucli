@@ -8,6 +8,8 @@ public sealed class IpcExecuteContractSerializationTests
 {
     private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
+    private const string GlobalObjectIdText = "GlobalObjectId_V1-2-0123456789abcdef0123456789abcdef-4-5";
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcProjectIdentity_Constructor_WithNullProjectPath_ThrowsArgumentNullException ()
@@ -278,7 +280,7 @@ public sealed class IpcExecuteContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcExecuteOperationResultFactory_CreatePlanResult_CreatesSharedEnvelopeContract ()
     {
-        var payload = IpcPayloadCodec.SerializeToElement(new IpcResolveOperationResult("GlobalObjectId_V1-2-3-4-5-6"));
+        var payload = IpcPayloadCodec.SerializeToElement(new IpcResolveOperationResult(GlobalObjectIdText));
         var opResult = IpcExecuteOperationResultFactory.CreatePlanResult(
             opId: "resolve",
             op: UcliPrimitiveOperationNames.Resolve,
@@ -311,19 +313,19 @@ public sealed class IpcExecuteContractSerializationTests
                 .HasString("coverageImpact", IpcExecuteDiagnosticCoverageImpactNames.Partial)
                 .HasString("message", "Scene query skipped GameObjects whose names contain '/'."))
             .HasProperty("result", result => result
-                .HasString("globalObjectId", "GlobalObjectId_V1-2-3-4-5-6"));
+                .HasString("globalObjectId", GlobalObjectIdText));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void IpcResolveOperationResult_SerializesWithCamelCaseContractFields ()
     {
-        var payload = new IpcResolveOperationResult("GlobalObjectId_V1-2-3-4-5-6");
+        var payload = new IpcResolveOperationResult(GlobalObjectIdText);
 
         var json = IpcPayloadCodec.SerializeToElement(payload);
 
         JsonAssert.For(json)
-            .HasString("globalObjectId", "GlobalObjectId_V1-2-3-4-5-6");
+            .HasString("globalObjectId", GlobalObjectIdText);
     }
 
     [Fact]
