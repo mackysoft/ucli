@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -14,6 +15,12 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityLifecycleSidecarPersistenceTests
     {
+        private static readonly ProjectFingerprint ProjectFingerprint =
+            ProjectFingerprintTestFactory.Create("lifecycle-sidecar-fingerprint");
+
+        private static readonly ProjectFingerprint OwnershipProjectFingerprint =
+            ProjectFingerprintTestFactory.Create("lifecycle-sidecar-ownership-fingerprint");
+
         private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
         [Test]
@@ -22,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var exception = Assert.Throws<ArgumentException>(() => new UnityLifecycleSidecarPersistence(
                 Path.GetTempPath(),
-                "lifecycle-sidecar-fingerprint",
+                ProjectFingerprint,
                 Guid.Empty,
                 "1.2.3-tests"));
 
@@ -36,7 +43,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = Path.Combine(
                 Path.GetTempPath(),
                 $"ucli-lifecycle-sidecar-persistence-tests-{Guid.NewGuid():N}");
-            const string ProjectFingerprint = "lifecycle-sidecar-fingerprint";
             var observedAtUtc = new DateTimeOffset(2026, 7, 11, 0, 0, 0, TimeSpan.Zero);
             var persistence = new UnityLifecycleSidecarPersistence(
                 storageRoot,
@@ -91,20 +97,19 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = Path.Combine(
                 Path.GetTempPath(),
                 $"ucli-lifecycle-sidecar-ownership-tests-{Guid.NewGuid():N}");
-            const string ProjectFingerprint = "lifecycle-sidecar-ownership-fingerprint";
             var predecessor = new UnityLifecycleSidecarPersistence(
                 storageRoot,
-                ProjectFingerprint,
+                OwnershipProjectFingerprint,
                 EditorInstanceId,
                 "predecessor");
             var successor = new UnityLifecycleSidecarPersistence(
                 storageRoot,
-                ProjectFingerprint,
+                OwnershipProjectFingerprint,
                 EditorInstanceId,
                 "successor");
             var sidecarPath = UcliStoragePathResolver.ResolveDaemonLifecyclePath(
                 storageRoot,
-                ProjectFingerprint);
+                OwnershipProjectFingerprint);
 
             try
             {

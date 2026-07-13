@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Build;
@@ -29,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public static IServiceCollection AddUnityIpcApplicationServices (
             this IServiceCollection services,
             ISessionTokenValidator sessionTokenValidator,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IDaemonLogger daemonLogger,
             DaemonEditorMode editorMode)
         {
@@ -48,9 +49,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(daemonLogger));
             }
 
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
+            if (projectFingerprint == null)
             {
-                throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
+                throw new ArgumentNullException(nameof(projectFingerprint));
             }
 
             // NOTE:
@@ -122,16 +123,16 @@ namespace MackySoft.Ucli.Unity.Ipc
             return services;
         }
 
-        private static IpcProjectIdentity CreateProjectIdentity (string projectFingerprint)
+        private static IpcProjectIdentity CreateProjectIdentity (ProjectFingerprint projectFingerprint)
         {
             var projectPath = Path.GetFullPath(UnityProjectPathResolver.ResolveProjectRootPath());
             var unityVersion = string.IsNullOrWhiteSpace(Application.unityVersion)
                 ? "unknown"
                 : Application.unityVersion;
             return new IpcProjectIdentity(
-                ProjectPath: projectPath,
-                ProjectFingerprint: projectFingerprint,
-                UnityVersion: unityVersion);
+                projectPath: projectPath,
+                projectFingerprint: projectFingerprint,
+                unityVersion: unityVersion);
         }
 
         /// <summary> Registers daemon-only transport, logging, and lifetime services. </summary>
@@ -256,7 +257,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public static IServiceCollection AddUnityGuiSupervisorHostServices (
             this IServiceCollection services,
             ISessionTokenValidator sessionTokenValidator,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IDaemonLogger daemonLogger)
         {
             if (services == null)
@@ -274,9 +275,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(daemonLogger));
             }
 
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
+            if (projectFingerprint == null)
             {
-                throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
+                throw new ArgumentNullException(nameof(projectFingerprint));
             }
 
             services.AddUnityRuntimeServices(DaemonEditorMode.Gui);

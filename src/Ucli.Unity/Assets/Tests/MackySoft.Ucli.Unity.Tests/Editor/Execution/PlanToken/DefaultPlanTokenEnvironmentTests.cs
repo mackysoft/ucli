@@ -26,11 +26,15 @@ namespace MackySoft.Ucli.Unity.Tests
             var nextDomainReloadGeneration = (
                     int.Parse(snapshot.DomainReloadGeneration, CultureInfo.InvariantCulture) + 1)
                 .ToString(CultureInfo.InvariantCulture);
+            var changedSnapshot = new PlanTokenEnvironmentSnapshot(
+                projectRoot: snapshot.ProjectRoot,
+                repositoryRoot: snapshot.RepositoryRoot,
+                projectFingerprint: snapshot.ProjectFingerprint,
+                unityVersion: snapshot.UnityVersion,
+                compileState: snapshot.CompileState,
+                domainReloadGeneration: nextDomainReloadGeneration);
             var changedFingerprint = PlanTokenStateFingerprintCalculator.Compute(
-                snapshot with
-                {
-                    DomainReloadGeneration = nextDomainReloadGeneration,
-                },
+                changedSnapshot,
                 Array.Empty<OperationPhaseTrace>());
 
             Assert.That(changedFingerprint, Is.Not.EqualTo(currentFingerprint));

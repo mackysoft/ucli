@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts;
 
 #nullable enable
 
@@ -12,7 +13,7 @@ namespace MackySoft.Ucli.Unity
         internal UcliBuildRunnerContext (
             string runId,
             string projectPath,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             string outputDir,
             string profilePath,
             string profileDigest,
@@ -25,7 +26,7 @@ namespace MackySoft.Ucli.Unity
         {
             RunId = RequireValue(runId, nameof(runId));
             ProjectPath = RequireValue(projectPath, nameof(projectPath));
-            ProjectFingerprint = RequireValue(projectFingerprint, nameof(projectFingerprint));
+            ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             OutputDir = RequireValue(outputDir, nameof(outputDir));
             ProfilePath = RequireValue(profilePath, nameof(profilePath));
             ProfileDigest = RequireValue(profileDigest, nameof(profileDigest));
@@ -46,7 +47,7 @@ namespace MackySoft.Ucli.Unity
         public string ProjectPath { get; }
 
         /// <summary> Gets the uCLI project fingerprint. </summary>
-        public string ProjectFingerprint { get; }
+        public ProjectFingerprint ProjectFingerprint { get; }
 
         /// <summary> Gets the absolute runner working output directory. </summary>
         public string OutputDir { get; }

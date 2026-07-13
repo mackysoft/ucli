@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
@@ -18,7 +19,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         public static async ValueTask<PublicationLease> AcquirePublicationLeaseAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken)
         {
             if (string.IsNullOrWhiteSpace(storageRoot))
@@ -26,9 +27,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
             }
 
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
+            if (projectFingerprint == null)
             {
-                throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
+                throw new ArgumentNullException(nameof(projectFingerprint));
             }
 
             var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
@@ -44,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         public static void Delete (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IpcSessionToken expectedSessionToken)
         {
             if (expectedSessionToken == null)
@@ -64,7 +65,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static void DeleteWhileLockIsHeld (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IpcSessionToken expectedSessionToken)
         {
             var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(storageRoot, projectFingerprint);
@@ -114,17 +115,17 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             private readonly string storageRoot;
 
-            private readonly string projectFingerprint;
+            private readonly ProjectFingerprint projectFingerprint;
 
             private FileExclusiveLock manifestLock;
 
             public PublicationLease (
                 string storageRoot,
-                string projectFingerprint,
+                ProjectFingerprint projectFingerprint,
                 FileExclusiveLock manifestLock)
             {
                 this.storageRoot = storageRoot;
-                this.projectFingerprint = projectFingerprint;
+                this.projectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
                 this.manifestLock = manifestLock ?? throw new ArgumentNullException(nameof(manifestLock));
             }
 

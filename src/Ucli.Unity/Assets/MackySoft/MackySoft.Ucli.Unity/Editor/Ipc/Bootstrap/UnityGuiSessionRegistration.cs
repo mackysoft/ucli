@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 
@@ -11,7 +12,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string sessionPath,
             string sessionLockPath,
             IpcSessionToken sessionToken,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             DateTimeOffset issuedAtUtc,
             IpcEndpoint endpoint,
             bool canShutdownProcess)
@@ -26,15 +27,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Session lock path must not be empty.", nameof(sessionLockPath));
             }
 
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
-            {
-                throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
-            }
-
             SessionPath = sessionPath;
             SessionLockPath = sessionLockPath;
             SessionToken = sessionToken ?? throw new ArgumentNullException(nameof(sessionToken));
-            ProjectFingerprint = projectFingerprint;
+            ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             IssuedAtUtc = issuedAtUtc;
             Endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
             CanShutdownProcess = canShutdownProcess;
@@ -46,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         public IpcSessionToken SessionToken { get; }
 
-        public string ProjectFingerprint { get; }
+        public ProjectFingerprint ProjectFingerprint { get; }
 
         public DateTimeOffset IssuedAtUtc { get; }
 

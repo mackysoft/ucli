@@ -554,9 +554,9 @@ namespace MackySoft.Ucli.Unity.Tests
             return new UnityBuildPreconditionProbe(
                 readinessGate ?? new MutableReadinessGate(CreateSnapshot()),
                 new IpcProjectIdentity(
-                    ProjectPath: "/project",
-                    ProjectFingerprint: "project-fingerprint",
-                    UnityVersion: "6000.0.0f1"),
+                    projectPath: "/project",
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
+                    unityVersion: "6000.0.0f1"),
                 new StubServerVersionProvider("1.2.3"),
                 targetSupportProbe ?? new StubBuildTargetSupportProbe(
                     UnityBuildTargetSupportProbeResult.Resolved(

@@ -117,7 +117,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     compileRequest.TimeoutMilliseconds,
                     cancellationToken);
                 var executionCancellationToken = requestTimeoutCancellationTokenSource?.Token ?? cancellationToken;
-                paths = CompileArtifactPaths.Resolve(projectIdentity.ProjectFingerprint, compileRequest.RunId);
+                paths = CompileArtifactPaths.Resolve(
+                    projectIdentity.ProjectFingerprint,
+                    compileRequest.RunId);
 
                 if (recoverableContext != null
                     && recoverableContext.HasOperationRecord)
@@ -334,7 +336,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!string.Equals(pendingSummary.ProjectFingerprint, projectIdentity.ProjectFingerprint, StringComparison.Ordinal))
+            if (pendingSummary.ProjectFingerprint != projectIdentity.ProjectFingerprint)
             {
                 errorMessage = "Recoverable compile operation project fingerprint does not match this daemon.";
                 return false;
@@ -351,7 +353,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             return completedSummary != null
                 && pendingSummary != null
                 && string.Equals(completedSummary.RunId, pendingSummary.RunId, StringComparison.Ordinal)
-                && string.Equals(completedSummary.ProjectFingerprint, pendingSummary.ProjectFingerprint, StringComparison.Ordinal)
+                && completedSummary.ProjectFingerprint == pendingSummary.ProjectFingerprint
                 && completedSummary.StartedAtUtc == pendingSummary.StartedAtUtc;
         }
 
@@ -592,7 +594,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     GenerationBefore: beforeSnapshot.DomainReloadGeneration,
                     GenerationAfter: beforeSnapshot.DomainReloadGeneration,
                     Settled: false),
-                Lifecycle: CreateLifecycleEvidence(beforeSnapshot, projectIdentity, serverVersionProvider));
+                Lifecycle: CreateLifecycleEvidence(beforeSnapshot, serverVersionProvider));
         }
 
         private static IpcCompileSummary CreateFinalSummary (
@@ -639,7 +641,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     GenerationAfter = afterSnapshot.DomainReloadGeneration,
                     Settled = IsLifecycleSettled(afterSnapshot),
                 },
-                Lifecycle = CreateLifecycleEvidence(afterSnapshot, pendingSummary.ProjectFingerprint, serverVersionProvider),
+                Lifecycle = CreateLifecycleEvidence(afterSnapshot, serverVersionProvider),
             };
         }
 
@@ -678,7 +680,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     GenerationAfter = afterSnapshot.DomainReloadGeneration,
                     Settled = IsLifecycleSettled(afterSnapshot),
                 },
-                Lifecycle = CreateLifecycleEvidence(afterSnapshot, pendingSummary.ProjectFingerprint, serverVersionProvider),
+                Lifecycle = CreateLifecycleEvidence(afterSnapshot, serverVersionProvider),
             };
         }
 
@@ -706,18 +708,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static IpcCompileSummary.LifecycleEvidence CreateLifecycleEvidence (
             UnityEditorLifecycleSnapshot snapshot,
-            IpcProjectIdentity projectIdentity,
             IServerVersionProvider serverVersionProvider)
         {
-            return CreateLifecycleEvidence(snapshot, projectIdentity.ProjectFingerprint, serverVersionProvider);
-        }
-
-        private static IpcCompileSummary.LifecycleEvidence CreateLifecycleEvidence (
-            UnityEditorLifecycleSnapshot snapshot,
-            string projectFingerprint,
-            IServerVersionProvider serverVersionProvider)
-        {
-            _ = projectFingerprint;
             return new IpcCompileSummary.LifecycleEvidence(
                 ServerVersion: serverVersionProvider.GetVersion(),
                 UnityVersion: Application.unityVersion,
@@ -1122,7 +1114,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string DiagnosticsJsonPath)
         {
             public static CompileArtifactPaths Resolve (
-                string projectFingerprint,
+                ProjectFingerprint projectFingerprint,
                 string runId)
             {
                 var artifactsDir = UcliStoragePathResolver.ResolveCompileRunArtifactsDirectory(
@@ -1134,13 +1126,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                     RequestJsonPath: Path.Combine(artifactsDir, UcliStoragePathNames.CompileRequestFileName),
                     SummaryJsonPath: Path.Combine(artifactsDir, UcliStoragePathNames.CompileSummaryFileName),
                     DiagnosticsJsonPath: Path.Combine(artifactsDir, UcliStoragePathNames.CompileDiagnosticsFileName));
-            }
-
-            public static string ResolveCompileArtifactsDirectory (string projectFingerprint)
-            {
-                return UcliStoragePathResolver.ResolveCompileArtifactsDirectory(
-                    ResolveStorageRoot(),
-                    projectFingerprint);
             }
 
             private static string ResolveStorageRoot ()

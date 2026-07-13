@@ -263,16 +263,17 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void StartingGeneration_WhenManifestTokenDoesNotMatchIdentity_RejectsManifest ()
         {
+            var projectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
             var sessionToken = IpcSessionToken.CreateRandom();
             var state = new UnityGuiSupervisorBootstrap.StartingGuiSupervisorState(
                 NoOpDaemonLogger.Instance);
             try
             {
-                state.AttachIdentity("storage-root", "project-fingerprint", sessionToken);
+                state.AttachIdentity("storage-root", projectFingerprint, sessionToken);
                 var foreignManifest = new GuiSupervisorManifestJsonContract(
                     SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
                     SessionToken: IpcSessionToken.CreateRandom().GetEncodedValue(),
-                    ProjectFingerprint: "project-fingerprint",
+                    ProjectFingerprint: projectFingerprint,
                     EndpointTransportKind: "namedPipe",
                     EndpointAddress: "ucli-supervisor-foreign-manifest",
                     ProcessId: 1,
@@ -292,13 +293,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator StartingGeneration_WhenEditorLifecycleReleases_CancelsAndReleasesOwnedResourcesOnce () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
-            const string ProjectFingerprint = "fingerprint-supervisor-starting";
+            var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-supervisor-starting");
             var sessionToken = IpcSessionToken.CreateRandom();
             try
             {
                 using var publicationLease = await UnityGuiSupervisorPersistence.AcquirePublicationLeaseAsync(
                     storageRoot,
-                    ProjectFingerprint,
+                    projectFingerprint,
                     CancellationToken.None);
                 var publicationTask = publicationLease.PublishAsync(
                         new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-supervisor-starting-lifecycle"),
@@ -311,7 +312,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var serviceProvider = new SpyServiceProvider();
                 var state = new UnityGuiSupervisorBootstrap.StartingGuiSupervisorState(
                     NoOpDaemonLogger.Instance);
-                state.AttachIdentity(storageRoot, ProjectFingerprint, sessionToken);
+                state.AttachIdentity(storageRoot, projectFingerprint, sessionToken);
                 state.AttachResources(server, serviceProvider);
                 state.AttachPublicationLease(publicationLease);
                 state.AttachManifestPublicationTask(publicationTask);
@@ -328,7 +329,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(
                     File.Exists(UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(
                         storageRoot,
-                        ProjectFingerprint)),
+                        projectFingerprint)),
                     Is.False);
                 Assert.That(state.TryClaimNormalCleanup(), Is.False);
             }
@@ -343,13 +344,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator StopState_WhenStopAlreadyInProgress_AwaitsTheSameCompletionResult () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
-            const string ProjectFingerprint = "fingerprint-supervisor-stop";
+            var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-supervisor-stop");
             var sessionToken = IpcSessionToken.CreateRandom();
             try
             {
                 using var publicationLease = await UnityGuiSupervisorPersistence.AcquirePublicationLeaseAsync(
                     storageRoot,
-                    ProjectFingerprint,
+                    projectFingerprint,
                     CancellationToken.None);
                 var manifest = await publicationLease.PublishAsync(
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-supervisor-duplicate-stop"),
@@ -367,7 +368,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     serviceProvider,
                     NoOpDaemonLogger.Instance,
                     storageRoot,
-                    ProjectFingerprint);
+                    projectFingerprint);
 
                 var firstStopTask = UnityGuiSupervisorBootstrap.StopStateAsync(state);
                 var duplicateStopTask = UnityGuiSupervisorBootstrap.StopStateAsync(state);

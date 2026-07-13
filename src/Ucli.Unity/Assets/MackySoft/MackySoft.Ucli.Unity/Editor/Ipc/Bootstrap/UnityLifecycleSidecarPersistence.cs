@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -37,10 +38,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="projectFingerprint"> The project fingerprint served by this Editor. </param>
         /// <param name="editorInstanceId"> The non-empty Editor process identity captured for this host generation. </param>
         /// <param name="serverVersion"> The uCLI server version written to lifecycle observations. </param>
-        /// <exception cref="ArgumentException"> Thrown when a required value is empty. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when a required text or identifier value is empty. </exception>
         public UnityLifecycleSidecarPersistence (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             Guid editorInstanceId,
             string serverVersion)
         {
@@ -49,9 +51,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("storageRoot must not be empty.", nameof(storageRoot));
             }
 
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
+            if (projectFingerprint == null)
             {
-                throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
+                throw new ArgumentNullException(nameof(projectFingerprint));
             }
 
             if (string.IsNullOrWhiteSpace(serverVersion))

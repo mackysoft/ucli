@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 
 #nullable enable
 
@@ -14,14 +15,70 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 /// <param name="IssuedAtUtc"> The UTC timestamp recorded when the token was issued. </param>
 /// <param name="ExpiresAtUtc"> The UTC timestamp after which the token is no longer accepted. </param>
 /// <param name="Nonce"> The token-unique nonce used to prevent deterministic replay tokens. </param>
-internal sealed record PlanTokenPayload (
-        int Version,
-        string KeyId,
-        string ProjectFingerprint,
-        string RequestDigest,
-        string? CompiledExecutionDigest,
-        string StateFingerprint,
-        DateTimeOffset IssuedAtUtc,
-        DateTimeOffset ExpiresAtUtc,
-        string Nonce);
+internal sealed record PlanTokenPayload
+    {
+        public PlanTokenPayload (
+            int version,
+            string keyId,
+            ProjectFingerprint projectFingerprint,
+            string requestDigest,
+            string? compiledExecutionDigest,
+            string stateFingerprint,
+            DateTimeOffset issuedAtUtc,
+            DateTimeOffset expiresAtUtc,
+            string nonce)
+        {
+            if (version <= 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(version), version, "Token version must be positive.");
+            }
+
+            if (expiresAtUtc <= issuedAtUtc)
+            {
+                throw new ArgumentException("Token expiration must be later than its issue time.", nameof(expiresAtUtc));
+            }
+
+            Version = version;
+            KeyId = RequireValue(keyId, nameof(keyId));
+            ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
+            RequestDigest = RequireValue(requestDigest, nameof(requestDigest));
+            CompiledExecutionDigest = compiledExecutionDigest == null
+                ? null
+                : RequireValue(compiledExecutionDigest, nameof(compiledExecutionDigest));
+            StateFingerprint = RequireValue(stateFingerprint, nameof(stateFingerprint));
+            IssuedAtUtc = issuedAtUtc;
+            ExpiresAtUtc = expiresAtUtc;
+            Nonce = RequireValue(nonce, nameof(nonce));
+        }
+
+        public int Version { get; }
+
+        public string KeyId { get; }
+
+        public ProjectFingerprint ProjectFingerprint { get; }
+
+        public string RequestDigest { get; }
+
+        public string? CompiledExecutionDigest { get; }
+
+        public string StateFingerprint { get; }
+
+        public DateTimeOffset IssuedAtUtc { get; }
+
+        public DateTimeOffset ExpiresAtUtc { get; }
+
+        public string Nonce { get; }
+
+        private static string RequireValue (
+            string value,
+            string parameterName)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                throw new ArgumentException($"{parameterName} must not be empty.", parameterName);
+            }
+
+            return value;
+        }
+    }
 }

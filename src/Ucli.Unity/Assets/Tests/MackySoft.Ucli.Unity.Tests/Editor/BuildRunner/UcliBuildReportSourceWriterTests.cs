@@ -71,7 +71,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new UcliBuildRunnerContext(
                 runId: "build-run-1",
                 projectPath: "/workspace/UnityProject",
-                projectFingerprint: "project-fingerprint",
+                projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
                 outputDir: outputDirectory,
                 profilePath: "/workspace/build.ucli.json",
                 profileDigest: new string('a', 64),

@@ -5,6 +5,7 @@ using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
@@ -26,6 +27,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private const string OtherEditorInstanceId = "22222222222222222222222222222222";
 
+        private static readonly ProjectFingerprint ProjectFingerprint =
+            ProjectFingerprintTestFactory.Create("unity-gui-session");
+
         private static readonly Guid EditorInstanceGuid = Guid.Parse(EditorInstanceId);
 
         [Test]
@@ -34,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var exception = Assert.Throws<ArgumentException>(() => UnityGuiSessionPersistence.PrepareAsync(
                     Path.GetTempPath(),
-                    "fingerprint",
+                    ProjectFingerprint,
                     CreateDefaultEndpoint(),
                     UnityGuiBootstrapSessionOptions.Create(null),
                     Guid.Empty,
@@ -51,7 +55,6 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator GuiSupervisorDelete_WhenExpectedTokenDoesNotOwnCurrentManifest_PreservesSuccessorManifest () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
-            const string ProjectFingerprint = "fingerprint";
             var successorToken = ParseSessionToken(FirstCanonicalSessionToken);
             var retiredToken = ParseSessionToken(SecondCanonicalSessionToken);
             try
@@ -121,7 +124,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(contract.SessionToken, Is.Not.Null.And.Not.Empty);
                 Assert.That(IpcSessionToken.IsValidEncodedValue(contract.SessionToken), Is.True);
                 Assert.That(registration.SessionToken.Matches(contract.SessionToken), Is.True);
-                Assert.That(contract.ProjectFingerprint, Is.EqualTo("fingerprint"));
+                Assert.That(contract.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
             }
             finally
             {
@@ -163,7 +166,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
@@ -173,7 +176,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
                         SessionToken: "existing-cli-owned-token",
-                        ProjectFingerprint: "fingerprint",
+                        ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
                         EditorMode: "gui",
                         OwnerKind: "cli",
@@ -214,7 +217,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
@@ -224,7 +227,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
                         SessionToken: "existing-cli-owned-token",
-                        ProjectFingerprint: "fingerprint",
+                        ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
                         EditorMode: "gui",
                         OwnerKind: "cli",
@@ -271,7 +274,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
@@ -281,7 +284,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
                         SessionToken: "existing-other-editor-token",
-                        ProjectFingerprint: "fingerprint",
+                        ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
                         EditorMode: "gui",
                         OwnerKind: "cli",
@@ -363,7 +366,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
@@ -373,7 +376,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
                         SessionToken: "existing-current-process-token",
-                        ProjectFingerprint: "fingerprint",
+                        ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
                         EditorMode: "gui",
                         OwnerKind: "user",
@@ -419,7 +422,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
@@ -429,7 +432,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
                         SessionToken: "existing-open-session-token",
-                        ProjectFingerprint: "fingerprint",
+                        ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
                         EditorMode: "gui",
                         OwnerKind: "user",
@@ -474,7 +477,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
@@ -484,7 +487,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
                         SessionToken: "existing-current-process-token",
-                        ProjectFingerprint: "fingerprint",
+                        ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
                         EditorMode: "gui",
                         OwnerKind: "user",
@@ -528,7 +531,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
@@ -538,7 +541,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
                         SessionToken: "existing-malformed-editor-token",
-                        ProjectFingerprint: "fingerprint",
+                        ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
                         EditorMode: "gui",
                         OwnerKind: "user",
@@ -587,7 +590,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var expectedEndpointPath = CreateShortUnixSocketPath();
             try
             {
-                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
@@ -598,7 +601,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
                         SessionToken: "existing-current-process-token",
-                        ProjectFingerprint: "fingerprint",
+                        ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
                         EditorMode: "gui",
                         OwnerKind: "user",
@@ -647,7 +650,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var storageRoot = CreateStorageRoot();
             try
             {
-                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+                var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
                 var sessionDirectoryPath = Path.GetDirectoryName(sessionPath);
                 Assert.That(sessionDirectoryPath, Is.Not.Null);
                 Directory.CreateDirectory(sessionDirectoryPath!);
@@ -656,7 +659,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
                         SessionToken: "existing-session-token",
-                        ProjectFingerprint: "fingerprint",
+                        ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow,
                         EditorMode: "batchmode",
                         OwnerKind: "cli",
@@ -776,7 +779,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             using var preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
                 storageRoot,
-                "fingerprint",
+                ProjectFingerprint,
                 endpoint,
                 sessionOptions,
                 EditorInstanceGuid,
@@ -794,7 +797,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static DaemonSessionJsonContract ReadSessionContract (string storageRoot)
         {
-            var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, "fingerprint");
+            var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
             var json = File.ReadAllText(sessionPath);
             var contract = DaemonSessionJsonContractSerializer.Deserialize(json);
             Assert.That(contract, Is.Not.Null);

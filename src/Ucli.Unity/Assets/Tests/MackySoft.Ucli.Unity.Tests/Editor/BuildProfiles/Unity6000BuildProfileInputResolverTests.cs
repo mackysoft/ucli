@@ -28,8 +28,11 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class Unity6000BuildProfileInputResolverTests
     {
-        private const string ProjectFingerprint = "unity-6000-build-profile-project";
+        private static readonly ProjectFingerprint ProjectFingerprint =
+            ProjectFingerprintTestFactory.Create("unity-6000-build-profile-project");
+
         private const string RunId = "unity-6000-build-profile-run";
+
         [Test]
         [Category("Size.Small")]
         public async Task ResolveAsync_WithRequestedBuildProfileAsset_AppliesAssetAndReturnsResolvedInput ()
@@ -233,9 +236,9 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcProjectIdentity CreateProjectIdentity ()
         {
             return new IpcProjectIdentity(
-                ProjectPath: UnityProjectPathResolver.ResolveProjectRootPath(),
-                ProjectFingerprint: ProjectFingerprint,
-                UnityVersion: Application.unityVersion);
+                projectPath: UnityProjectPathResolver.ResolveProjectRootPath(),
+                projectFingerprint: ProjectFingerprint,
+                unityVersion: Application.unityVersion);
         }
 
         private static IpcBuildRunRequest CreateRequest (

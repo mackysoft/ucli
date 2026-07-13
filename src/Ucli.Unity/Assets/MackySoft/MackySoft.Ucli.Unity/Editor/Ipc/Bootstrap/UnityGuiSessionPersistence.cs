@@ -4,6 +4,7 @@ using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
@@ -36,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The prepared generation that retains exclusive publication ownership until disposed. </returns>
         public static async Task<PreparedSession> PrepareAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IpcEndpoint endpoint,
             UnityGuiBootstrapSessionOptions sessionOptions,
             Guid editorInstanceId,
@@ -180,7 +181,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static void ValidateArguments (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IpcEndpoint endpoint,
             UnityGuiBootstrapSessionOptions sessionOptions,
             Guid editorInstanceId,
@@ -192,9 +193,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("storageRoot must not be empty.", nameof(storageRoot));
             }
 
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
+            if (projectFingerprint == null)
             {
-                throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
+                throw new ArgumentNullException(nameof(projectFingerprint));
             }
 
             if (endpoint == null)
@@ -228,7 +229,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static DaemonSessionJsonContract ReadExistingSessionForReplacement (
             string sessionPath,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IpcEndpoint expectedEndpoint,
             UnityGuiBootstrapSessionOptions sessionOptions,
             int currentProcessId,
@@ -269,7 +270,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool MatchesCurrentProcessGuiSession (
             DaemonSessionJsonContract sessionContract,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IpcEndpoint expectedEndpoint,
             UnityGuiBootstrapSessionOptions sessionOptions,
             int currentProcessId,
@@ -277,7 +278,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityGuiSessionReplacementScope sessionReplacementScope)
         {
             if (sessionContract.SchemaVersion != DaemonSessionStorageContract.CurrentSchemaVersion
-                || !string.Equals(sessionContract.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
+                || sessionContract.ProjectFingerprint != projectFingerprint
                 || !ContractLiteralCodec.Matches(sessionContract.EditorMode, DaemonEditorMode.Gui)
                 || sessionContract.ProcessId != currentProcessId
                 || !MatchesCurrentProcessIdentity(sessionContract, currentEditorInstanceId))
@@ -337,7 +338,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             using var currentProcess = Process.GetCurrentProcess();
             return sessionContract.SchemaVersion == DaemonSessionStorageContract.CurrentSchemaVersion
                 && registration.SessionToken.Matches(sessionContract.SessionToken)
-                && string.Equals(sessionContract.ProjectFingerprint, registration.ProjectFingerprint, StringComparison.Ordinal)
+                && sessionContract.ProjectFingerprint == registration.ProjectFingerprint
                 && sessionContract.IssuedAtUtc == registration.IssuedAtUtc
                 && sessionContract.CanShutdownProcess == registration.CanShutdownProcess
                 && sessionContract.ProcessId == currentProcess.Id

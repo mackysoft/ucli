@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
@@ -13,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly IServerVersionProvider serverVersionProvider;
         private readonly IUnityEditorReadinessGate readinessGate;
-        private readonly string projectFingerprint;
+        private readonly ProjectFingerprint projectFingerprint;
         private readonly IDaemonLogger daemonLogger;
 
         /// <summary> Initializes a new instance of the <see cref="PingUnityIpcMethodHandler" /> class. </summary>
@@ -22,17 +23,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         public PingUnityIpcMethodHandler (
             IServerVersionProvider serverVersionProvider,
             IUnityEditorReadinessGate readinessGate,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IDaemonLogger daemonLogger)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
-            {
-                throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
-            }
-
-            this.projectFingerprint = projectFingerprint;
+            this.projectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 

@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -30,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             checked((long)(MaintenanceInterval.TotalSeconds * Stopwatch.Frequency));
 
         private readonly string operationsDirectoryPath;
-        private readonly string projectFingerprint;
+        private readonly ProjectFingerprint projectFingerprint;
         private readonly int hostProcessId;
         private readonly Guid hostEditorInstanceId;
         private readonly SemaphoreSlim ioGate = new SemaphoreSlim(1, 1);
@@ -43,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private FileRecoverableIpcOperationStore (
             string operationsDirectoryPath,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             int hostProcessId,
             Guid hostEditorInstanceId)
         {
@@ -52,18 +53,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Operations directory path must not be empty.", nameof(operationsDirectoryPath));
             }
 
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
-            {
-                throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
-            }
-
             if (hostEditorInstanceId == Guid.Empty)
             {
                 throw new ArgumentException("Host Editor instance id must not be empty.", nameof(hostEditorInstanceId));
             }
 
             this.operationsDirectoryPath = operationsDirectoryPath;
-            this.projectFingerprint = projectFingerprint;
+            this.projectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             this.hostProcessId = hostProcessId;
             this.hostEditorInstanceId = hostEditorInstanceId;
             nextMaintenanceTimestamp = Stopwatch.GetTimestamp() + MaintenanceIntervalTimestampTicks;
@@ -502,7 +498,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var identity = string.Concat(
-                projectFingerprint,
+                projectFingerprint.ToString(),
                 "\n",
                 ContractLiteralCodec.ToValue(method),
                 "\n",
@@ -522,7 +518,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             // stale pending/completed records from an older daemon process from being replayed.
             if (record == null
                 || record.SchemaVersion != SchemaVersion
-                || !string.Equals(record.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
+                || record.ProjectFingerprint != projectFingerprint
                 || !string.Equals(record.Method, ContractLiteralCodec.ToValue(method), StringComparison.Ordinal)
                 || record.RequestId != requestId
                 || !Sha256Digest.TryParse(record.RequestPayloadHash, out var storedRequestPayloadHash)

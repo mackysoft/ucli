@@ -32,12 +32,12 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             var compileState = IpcCompileStateCodec.ToValue(EditorApplication.isCompiling);
 
             return new PlanTokenEnvironmentSnapshot(
-                ProjectRoot: projectRoot,
-                RepositoryRoot: repositoryRoot,
-                ProjectFingerprint: projectFingerprint,
-                UnityVersion: unityVersion,
-                CompileState: compileState,
-                DomainReloadGeneration: UnityEditorReadinessGate.CurrentDomainReloadGeneration);
+                projectRoot: projectRoot,
+                repositoryRoot: repositoryRoot,
+                projectFingerprint: projectFingerprint,
+                unityVersion: unityVersion,
+                compileState: compileState,
+                domainReloadGeneration: UnityEditorReadinessGate.CurrentDomainReloadGeneration);
         }
     }
 }

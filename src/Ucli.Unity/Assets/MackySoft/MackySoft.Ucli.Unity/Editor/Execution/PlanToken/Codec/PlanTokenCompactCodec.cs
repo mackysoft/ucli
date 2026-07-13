@@ -5,6 +5,7 @@ using System.IO;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
@@ -162,7 +163,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 writer.WriteStartObject();
                 writer.WriteNumber("v", payload.Version);
                 writer.WriteString("kid", payload.KeyId);
-                writer.WriteString("projectFingerprint", payload.ProjectFingerprint);
+                writer.WriteString("projectFingerprint", payload.ProjectFingerprint.ToString());
                 writer.WriteString("requestDigest", payload.RequestDigest);
                 if (!string.IsNullOrWhiteSpace(payload.CompiledExecutionDigest))
                 {
@@ -300,7 +301,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 var nonce = PlanTokenJsonUtilities.TryReadString(root, "nonce");
 
                 if (string.IsNullOrWhiteSpace(kid)
-                    || string.IsNullOrWhiteSpace(projectFingerprint)
+                    || !ProjectFingerprint.TryParse(projectFingerprint, out var parsedProjectFingerprint)
                     || string.IsNullOrWhiteSpace(requestDigest)
                     || (hasCompiledExecutionDigest && string.IsNullOrWhiteSpace(compiledExecutionDigest))
                     || string.IsNullOrWhiteSpace(stateFingerprint)
@@ -330,15 +331,15 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 }
 
                 payload = new PlanTokenPayload(
-                    Version: version,
-                    KeyId: kid!,
-                    ProjectFingerprint: projectFingerprint!,
-                    RequestDigest: requestDigest!,
-                    CompiledExecutionDigest: string.IsNullOrWhiteSpace(compiledExecutionDigest) ? null : compiledExecutionDigest,
-                    StateFingerprint: stateFingerprint!,
-                    IssuedAtUtc: issuedAtUtc,
-                    ExpiresAtUtc: expiresAtUtc,
-                    Nonce: nonce!);
+                    version: version,
+                    keyId: kid!,
+                    projectFingerprint: parsedProjectFingerprint,
+                    requestDigest: requestDigest!,
+                    compiledExecutionDigest: string.IsNullOrWhiteSpace(compiledExecutionDigest) ? null : compiledExecutionDigest,
+                    stateFingerprint: stateFingerprint!,
+                    issuedAtUtc: issuedAtUtc,
+                    expiresAtUtc: expiresAtUtc,
+                    nonce: nonce!);
                 return true;
             }
             catch

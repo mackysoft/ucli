@@ -1637,7 +1637,7 @@ namespace MackySoft.Ucli.Unity.Tests
             byte[] signingKey,
             int version,
             string keyId,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             string requestDigest,
             string stateFingerprint,
             DateTimeOffset issuedAtUtc,
@@ -1649,7 +1649,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 v = version,
                 kid = keyId,
-                projectFingerprint,
+                projectFingerprint = projectFingerprint.ToString(),
                 requestDigest,
                 stateFingerprint,
                 issuedAtUtc = issuedAtUtc.ToUniversalTime().ToString("O"),
@@ -1782,19 +1782,19 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public string ProjectRoot { get; }
 
-            public string ProjectFingerprint { get; }
+            public ProjectFingerprint ProjectFingerprint { get; }
 
             public string PlanTokenKeyPath { get; }
 
             public MutablePlanTokenEnvironment CreateEnvironment ()
             {
                 var snapshot = new PlanTokenEnvironmentSnapshot(
-                    ProjectRoot: ProjectRoot,
-                    RepositoryRoot: RepositoryRoot,
-                    ProjectFingerprint: ProjectFingerprint,
-                    UnityVersion: "6000.0.0f1",
-                    CompileState: IpcCompileStateCodec.Ready,
-                    DomainReloadGeneration: "na");
+                    projectRoot: ProjectRoot,
+                    repositoryRoot: RepositoryRoot,
+                    projectFingerprint: ProjectFingerprint,
+                    unityVersion: "6000.0.0f1",
+                    compileState: IpcCompileStateCodec.Ready,
+                    domainReloadGeneration: "na");
                 return new MutablePlanTokenEnvironment(snapshot, DateTimeOffset.UtcNow);
             }
 

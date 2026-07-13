@@ -18,7 +18,10 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private const string TypeName = "MackySoft.Ucli.Unity.Tests.BuildExecuteMethodRunnerTests";
         private const string RunId = "build-run-1";
-        private const string ProjectFingerprint = "project-fingerprint";
+
+        private static readonly ProjectFingerprint ProjectFingerprint =
+            ProjectFingerprintTestFactory.Create("project-fingerprint");
+
         private static readonly string OutputDirectory = Path.Combine(Path.GetTempPath(), "ucli-build-execute-method-runner-tests", RunId, "output");
 
         private static UcliBuildRunnerContext? capturedContext;
@@ -326,9 +329,9 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcProjectIdentity CreateProjectIdentity ()
         {
             return new IpcProjectIdentity(
-                ProjectPath: "/workspace/UnityProject",
-                ProjectFingerprint: ProjectFingerprint,
-                UnityVersion: "6000.1.4f1");
+                projectPath: "/workspace/UnityProject",
+                projectFingerprint: ProjectFingerprint,
+                unityVersion: "6000.1.4f1");
         }
 
         private static UnityBuildResolvedInput CreateResolvedInput ()

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -15,7 +16,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityGuiHostGenerationIdentityTests
     {
-        private const string ProjectFingerprint = "gui-host-generation-fingerprint";
+        private static readonly ProjectFingerprint ProjectFingerprint =
+            ProjectFingerprintTestFactory.Create("gui-host-generation-fingerprint");
 
         private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 

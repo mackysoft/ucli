@@ -19,6 +19,9 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class PlayEnterUnityIpcMethodHandlerTests
     {
+        private static readonly ProjectFingerprint ProjectFingerprint =
+            ProjectFingerprintTestFactory.Create("project-fingerprint");
+
         private static readonly Sha256Digest RequestPayloadHash = Sha256Digest.Parse(
             "cda34040abc54e9b351b66c6ecbc9708cf2c70996b0805553b3854bdce80d94b");
 
@@ -387,7 +390,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new PlayEnterTransitionRunner(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
-                new IpcProjectIdentity("/repo/UnityProject", "project-fingerprint", "6000.1.4f1"),
+                new IpcProjectIdentity("/repo/UnityProject", ProjectFingerprint, "6000.1.4f1"),
                 new StubUnityEditorUpdateAwaiter(editorUpdateAwaiter ?? CompleteEditorUpdateAsync),
                 new StubUnityPlayModeController(enterPlayModeRequester ?? RequestNoop),
                 NoOpDaemonLogger.Instance);
@@ -407,7 +410,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new RecoverableIpcOperationRecord
                 {
                     SchemaVersion = 1,
-                    ProjectFingerprint = "project-fingerprint",
+                    ProjectFingerprint = ProjectFingerprint,
                     Method = ContractLiteralCodec.ToValue(UnityIpcMethod.PlayEnter),
                     RequestId = requestId,
                     State = RecoverableIpcOperationState.Pending,
@@ -517,7 +520,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return UnityLifecycleResponseCodec.CreatePlayLifecycleSnapshot(
                 "6000.1.4f1",
                 "1.2.3",
-                "project-fingerprint",
+                ProjectFingerprint,
                 snapshot);
         }
 

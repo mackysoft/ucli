@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -15,11 +16,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="projectFingerprint"> The Unity project fingerprint served by this IPC host. </param>
         /// <param name="snapshot"> The normalized editor lifecycle snapshot. </param>
         /// <returns> The ping response payload. </returns>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="unityVersion" />, <paramref name="serverVersion" />, or <paramref name="projectFingerprint" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="unityVersion" /> or <paramref name="serverVersion" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> or <paramref name="snapshot" /> is <see langword="null" />. </exception>
         public static IpcPingResponse CreatePingPayload (
             string unityVersion,
             string serverVersion,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             UnityEditorLifecycleSnapshot snapshot)
         {
             ValidateInputs(unityVersion, serverVersion, projectFingerprint, snapshot);
@@ -47,11 +49,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="projectFingerprint"> The Unity project fingerprint served by this IPC host. </param>
         /// <param name="snapshot"> The normalized editor lifecycle snapshot. </param>
         /// <returns> The Play Mode lifecycle snapshot payload. </returns>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="unityVersion" />, <paramref name="serverVersion" />, or <paramref name="projectFingerprint" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="unityVersion" /> or <paramref name="serverVersion" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> or <paramref name="snapshot" /> is <see langword="null" />. </exception>
         public static IpcPlayLifecycleSnapshot CreatePlayLifecycleSnapshot (
             string unityVersion,
             string serverVersion,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             UnityEditorLifecycleSnapshot snapshot)
         {
             ValidateInputs(unityVersion, serverVersion, projectFingerprint, snapshot);
@@ -79,11 +82,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="projectFingerprint"> The Unity project fingerprint served by this IPC host. </param>
         /// <param name="snapshot"> The normalized editor lifecycle snapshot. </param>
         /// <returns> The build lifecycle snapshot payload. </returns>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="unityVersion" />, <paramref name="serverVersion" />, or <paramref name="projectFingerprint" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="unityVersion" /> or <paramref name="serverVersion" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> or <paramref name="snapshot" /> is <see langword="null" />. </exception>
         public static IpcBuildLifecycleSnapshot CreateBuildLifecycleSnapshot (
             string unityVersion,
             string serverVersion,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             UnityEditorLifecycleSnapshot snapshot)
         {
             ValidateInputs(unityVersion, serverVersion, projectFingerprint, snapshot);
@@ -109,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static void ValidateInputs (
             string unityVersion,
             string serverVersion,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             UnityEditorLifecycleSnapshot snapshot)
         {
             if (string.IsNullOrWhiteSpace(unityVersion))
@@ -122,9 +126,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("serverVersion must not be empty.", nameof(serverVersion));
             }
 
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
+            if (projectFingerprint == null)
             {
-                throw new ArgumentException("projectFingerprint must not be empty.", nameof(projectFingerprint));
+                throw new ArgumentNullException(nameof(projectFingerprint));
             }
 
             if (snapshot == null)

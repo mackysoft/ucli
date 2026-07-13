@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -17,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public int SchemaVersion { get; set; }
 
         /// <summary> Gets or sets the project fingerprint served by this operation. </summary>
-        public string ProjectFingerprint { get; set; }
+        public ProjectFingerprint ProjectFingerprint { get; set; }
 
         /// <summary> Gets or sets the IPC method name. </summary>
         public string Method { get; set; }

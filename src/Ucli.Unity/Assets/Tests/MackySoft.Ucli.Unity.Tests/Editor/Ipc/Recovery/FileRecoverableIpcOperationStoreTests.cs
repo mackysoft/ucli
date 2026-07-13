@@ -8,6 +8,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -21,11 +22,12 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class FileRecoverableIpcOperationStoreTests
     {
-        private const string ProjectFingerprint = "project-fingerprint";
-
         private const string EditorInstanceId = "11111111111111111111111111111111";
 
         private const string OtherEditorInstanceId = "22222222222222222222222222222222";
+
+        private static readonly ProjectFingerprint ProjectFingerprint =
+            ProjectFingerprintTestFactory.Create("project-fingerprint");
 
         private static readonly Guid EditorInstanceGuid = Guid.Parse(EditorInstanceId);
 
@@ -85,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Is.EqualTo("7b6d4c17-1b8e-4f28-a2e6-123456789abc"));
                 Assert.That(
                     Path.GetFileName(Path.GetDirectoryName(recordPath)),
-                    Is.EqualTo("915924c362f3f70836b55eb1ab0c84c5bd107d4bbeb909a20ffc00d4622ec8e2"));
+                    Is.EqualTo("14fb8047edc50c557a2f91c0c5570982c268705dc819642f2055bcc2defaf8ce"));
                 Assert.That(readResult.Record.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
                 Assert.That(readResult.Record.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.PlayEnter)));
                 Assert.That(readResult.Record.RequestId, Is.EqualTo(requestId));

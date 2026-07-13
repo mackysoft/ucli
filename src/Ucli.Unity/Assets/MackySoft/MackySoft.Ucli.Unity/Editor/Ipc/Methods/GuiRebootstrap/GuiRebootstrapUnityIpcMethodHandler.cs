@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Handles <c>gui.rebootstrap</c> IPC method requests. </summary>
     internal sealed class GuiRebootstrapUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
-        private readonly string projectFingerprint;
+        private readonly ProjectFingerprint projectFingerprint;
 
         private readonly IDaemonLogger daemonLogger;
 
@@ -21,16 +21,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="daemonLogger"> The daemon logger dependency. </param>
         public GuiRebootstrapUnityIpcMethodHandler (
             IUnityGuiBootstrapStarter bootstrapStarter,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IDaemonLogger daemonLogger)
         {
             this.bootstrapStarter = bootstrapStarter ?? throw new ArgumentNullException(nameof(bootstrapStarter));
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
-            {
-                throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
-            }
-
-            this.projectFingerprint = projectFingerprint;
+            this.projectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
@@ -60,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null);
             }
 
-            if (!string.Equals(payload.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal))
+            if (payload.ProjectFingerprint != projectFingerprint)
             {
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,

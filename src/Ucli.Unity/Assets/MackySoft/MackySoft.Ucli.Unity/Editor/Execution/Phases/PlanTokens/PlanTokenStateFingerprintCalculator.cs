@@ -52,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 writer.WriteString("compileState", compileState);
                 writer.WriteString("configDigest", configDigest);
                 writer.WriteString("domainReloadGeneration", domainReloadGeneration);
-                writer.WriteString("projectFingerprint", StringValueNormalizer.TrimOrFallback(snapshot.ProjectFingerprint, NaLiteral));
+                writer.WriteString("projectFingerprint", snapshot.ProjectFingerprint.ToString());
                 writer.WriteString("touchedDigest", touchedDigest);
                 writer.WriteString("unityVersion", unityVersion);
                 writer.WriteEndObject();

@@ -562,7 +562,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 && current != null
                 && IsEnteredSnapshot(pendingBefore)
                 && IsReadyStoppedSnapshot(current)
-                && string.Equals(pendingBefore.ProjectFingerprint, current.ProjectFingerprint, StringComparison.Ordinal)
+                && pendingBefore.ProjectFingerprint == current.ProjectFingerprint
                 && HasGenerationChanged(pendingBefore, current);
         }
 

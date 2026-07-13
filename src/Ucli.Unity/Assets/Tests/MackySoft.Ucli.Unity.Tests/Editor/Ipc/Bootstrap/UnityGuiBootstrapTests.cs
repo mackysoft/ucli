@@ -29,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-publication-order");
                 preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
                     storageRoot,
-                    "fingerprint-publication-order",
+                    ProjectFingerprintTestFactory.Create("fingerprint-publication-order"),
                     endpoint,
                     UnityGuiBootstrapSessionOptions.Create(null),
                     EditorInstanceId,
@@ -74,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-failed-listen");
                 preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
                     storageRoot,
-                    "fingerprint-failed-listen",
+                    ProjectFingerprintTestFactory.Create("fingerprint-failed-listen"),
                     endpoint,
                     UnityGuiBootstrapSessionOptions.Create(null),
                     EditorInstanceId,
@@ -299,7 +299,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
                     storageRoot,
-                    "fingerprint-starting-lifecycle",
+                    ProjectFingerprintTestFactory.Create("fingerprint-starting-lifecycle"),
                     new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-starting-lifecycle"),
                     UnityGuiBootstrapSessionOptions.Create(null),
                     EditorInstanceId,
@@ -416,7 +416,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityGuiSessionRegistration previousRegistration;
                 using (var previousSession = await UnityGuiSessionPersistence.PrepareAsync(
                            storageRoot,
-                           "fingerprint-token-rotation",
+                           ProjectFingerprintTestFactory.Create("fingerprint-token-rotation"),
                            endpoint,
                            UnityGuiBootstrapSessionOptions.Create(null),
                            EditorInstanceId,
@@ -430,7 +430,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 replacementSession = await UnityGuiSessionPersistence.PrepareAsync(
                     storageRoot,
-                    "fingerprint-token-rotation",
+                    ProjectFingerprintTestFactory.Create("fingerprint-token-rotation"),
                     endpoint,
                     UnityGuiBootstrapSessionOptions.Create(null),
                     EditorInstanceId,
@@ -481,7 +481,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             using var preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
                 storageRoot,
-                "fingerprint",
+                ProjectFingerprintTestFactory.Create("fingerprint"),
                 new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-bootstrap-tests"),
                 UnityGuiBootstrapSessionOptions.Create(null),
                 EditorInstanceId,

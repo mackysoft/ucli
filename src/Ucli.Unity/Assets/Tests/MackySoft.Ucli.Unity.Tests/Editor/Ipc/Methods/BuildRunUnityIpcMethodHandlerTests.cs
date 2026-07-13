@@ -32,9 +32,11 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class BuildRunUnityIpcMethodHandlerTests
     {
-        private const string ProjectFingerprint = "project-fingerprint";
         private const string RunId = "build-run-1";
         private const string ExecuteMethodTypeName = "MackySoft.Ucli.Unity.Tests.BuildRunUnityIpcMethodHandlerTests";
+
+        private static readonly ProjectFingerprint ProjectFingerprint =
+            ProjectFingerprintTestFactory.Create("project-fingerprint");
 
         private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
@@ -1350,9 +1352,9 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcProjectIdentity CreateProjectIdentity (string projectPath)
         {
             return new IpcProjectIdentity(
-                ProjectPath: projectPath,
-                ProjectFingerprint: ProjectFingerprint,
-                UnityVersion: "6000.1.4f1");
+                projectPath: projectPath,
+                projectFingerprint: ProjectFingerprint,
+                unityVersion: "6000.1.4f1");
         }
 
         private static IpcBuildRunRequest CreateRequest (

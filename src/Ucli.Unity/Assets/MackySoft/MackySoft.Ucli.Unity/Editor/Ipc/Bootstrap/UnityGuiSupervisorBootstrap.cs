@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
@@ -210,7 +211,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static bool TryAttachStartingIdentity (
             StartingGuiSupervisorState state,
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IpcSessionToken sessionToken)
         {
             lock (SyncRoot)
@@ -836,7 +837,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public string StorageRoot { get; private set; }
 
-            public string ProjectFingerprint { get; private set; }
+            public ProjectFingerprint ProjectFingerprint { get; private set; }
 
             public IpcSessionToken SessionToken { get; private set; }
 
@@ -864,7 +865,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public void AttachIdentity (
                 string storageRoot,
-                string projectFingerprint,
+                ProjectFingerprint projectFingerprint,
                 IpcSessionToken sessionToken)
             {
                 if (!IsUnclaimed)
@@ -877,9 +878,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
                 }
 
-                if (string.IsNullOrWhiteSpace(projectFingerprint))
+                if (projectFingerprint == null)
                 {
-                    throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
+                    throw new ArgumentNullException(nameof(projectFingerprint));
                 }
 
                 if (sessionToken == null)
@@ -1194,7 +1195,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 IServiceProvider serviceProvider,
                 IDaemonLogger daemonLogger,
                 string storageRoot,
-                string projectFingerprint)
+                ProjectFingerprint projectFingerprint)
             {
                 SessionToken = sessionToken ?? throw new ArgumentNullException(nameof(sessionToken));
                 Server = server ?? throw new ArgumentNullException(nameof(server));
@@ -1214,7 +1215,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public string StorageRoot { get; }
 
-            public string ProjectFingerprint { get; }
+            public ProjectFingerprint ProjectFingerprint { get; }
 
             public bool TryBeginStop ()
             {

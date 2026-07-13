@@ -1,10 +1,10 @@
-using MackySoft.Ucli.Infrastructure.Storage;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
 
@@ -17,10 +17,11 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Write_PersistsDiagnosisJson ()
         {
             var storageRoot = Path.Combine(Path.GetTempPath(), $"ucli-daemon-diagnosis-tests-{Guid.NewGuid():N}");
+            var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
             var bootstrapArguments = new IpcDaemonBootstrapArguments(
                 RepositoryRoot: storageRoot,
-                ProjectFingerprint: "fingerprint",
-                SessionPath: Path.Combine(storageRoot, ".ucli", "local", "fingerprints", "fingerprint", "session.json"),
+                ProjectFingerprint: projectFingerprint,
+                SessionPath: UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint),
                 SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
                 EndpointTransportKind: "unixDomainSocket",
                 EndpointAddress: "/tmp/ucli.sock");
@@ -35,7 +36,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     .GetAwaiter()
                     .GetResult();
 
-                var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(storageRoot, "fingerprint");
+                var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(storageRoot, projectFingerprint);
                 Assert.That(File.Exists(diagnosisPath), Is.True);
 
                 var json = File.ReadAllText(diagnosisPath);

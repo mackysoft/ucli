@@ -20,7 +20,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class CompileUnityIpcMethodHandlerTests
     {
-        private const string ProjectFingerprint = "project-fingerprint";
+        private static readonly ProjectFingerprint ProjectFingerprint =
+            ProjectFingerprintTestFactory.Create("project-fingerprint");
 
         private static readonly Sha256Digest RequestPayloadHash = Sha256Digest.Parse(
             "cda34040abc54e9b351b66c6ecbc9708cf2c70996b0805553b3854bdce80d94b");
@@ -117,12 +118,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 var request = CreateCompileRequest(Guid.NewGuid(), runId);
                 var pendingSummary = CreatePendingSummary(runId);
                 Directory.CreateDirectory(artifactsDirectory);
-                var staleSummary = pendingSummary with
-                {
-                    Completed = true,
-                    StartedAtUtc = pendingSummary.StartedAtUtc.AddMinutes(-10),
-                    CompletedAtUtc = pendingSummary.StartedAtUtc.AddMinutes(-9),
-                };
+                var staleStartedAtUtc = pendingSummary.StartedAtUtc.AddMinutes(-10);
+                var staleSummary = new IpcCompileSummary(
+                    RunId: pendingSummary.RunId,
+                    ProjectFingerprint: pendingSummary.ProjectFingerprint,
+                    Completed: true,
+                    StartedAtUtc: staleStartedAtUtc,
+                    CompletedAtUtc: staleStartedAtUtc.AddMinutes(1),
+                    Refresh: pendingSummary.Refresh,
+                    ScriptCompilation: pendingSummary.ScriptCompilation,
+                    DomainReload: pendingSummary.DomainReload,
+                    Lifecycle: pendingSummary.Lifecycle);
                 File.WriteAllText(
                     Path.Combine(artifactsDirectory, UcliStoragePathNames.CompileSummaryFileName),
                     JsonSerializer.Serialize(staleSummary, IpcJsonSerializerOptions.Default));

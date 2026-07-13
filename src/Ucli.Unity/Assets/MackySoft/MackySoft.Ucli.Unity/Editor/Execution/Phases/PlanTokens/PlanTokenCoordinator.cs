@@ -72,15 +72,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var issuedAtUtc = environment.UtcNow;
                 var expiresAtUtc = issuedAtUtc.Add(DefaultTokenTtl);
                 var payload = new PlanTokenPayload(
-                    Version: PlanTokenCompactCodec.TokenVersion,
-                    KeyId: PlanTokenCompactCodec.TokenKeyId,
-                    ProjectFingerprint: snapshot.ProjectFingerprint,
-                    RequestDigest: requestDigest,
-                    CompiledExecutionDigest: compiledExecutionDigest,
-                    StateFingerprint: stateFingerprint,
-                    IssuedAtUtc: issuedAtUtc,
-                    ExpiresAtUtc: expiresAtUtc,
-                    Nonce: PlanTokenCompactCodec.CreateNonce());
+                    version: PlanTokenCompactCodec.TokenVersion,
+                    keyId: PlanTokenCompactCodec.TokenKeyId,
+                    projectFingerprint: snapshot.ProjectFingerprint,
+                    requestDigest: requestDigest,
+                    compiledExecutionDigest: compiledExecutionDigest,
+                    stateFingerprint: stateFingerprint,
+                    issuedAtUtc: issuedAtUtc,
+                    expiresAtUtc: expiresAtUtc,
+                    nonce: PlanTokenCompactCodec.CreateNonce());
 
                 var token = PlanTokenCompactCodec.CreateSignedToken(signingKey, payload);
                 return PlanTokenIssueResult.Success(token);
@@ -267,7 +267,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var payload = parsedToken.Payload;
-            if (!string.Equals(payload.ProjectFingerprint, snapshot.ProjectFingerprint, StringComparison.Ordinal))
+            if (payload.ProjectFingerprint != snapshot.ProjectFingerprint)
             {
                 failure = CreateInvalidTokenFailure("Plan token project fingerprint does not match current project.");
                 return false;
