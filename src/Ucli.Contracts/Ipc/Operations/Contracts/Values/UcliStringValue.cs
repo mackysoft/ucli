@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -22,6 +23,11 @@ public abstract record UcliStringValue
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new ArgumentException("Semantic string value must not be empty or whitespace.", nameof(value));
+        }
+
+        if (StringValueValidator.HasOuterWhitespace(value))
+        {
+            throw new ArgumentException("Semantic string value must not contain leading or trailing whitespace.", nameof(value));
         }
 
         ValidateWellFormedUtf16(value);

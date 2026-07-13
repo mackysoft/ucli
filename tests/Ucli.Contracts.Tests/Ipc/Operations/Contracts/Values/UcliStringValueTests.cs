@@ -11,6 +11,8 @@ public sealed class UcliStringValueTests
         null,
         string.Empty,
         " \t\r\n",
+        " value",
+        "value ",
         "\ud800",
         "\udc00",
         "\ud800A",
@@ -21,6 +23,8 @@ public sealed class UcliStringValueTests
     [
         "\"\"",
         "\" \\t\\r\\n\"",
+        "\" value\"",
+        "\"value \"",
         "\"\\uD800\"",
         "\"\\uDC00\"",
         "\"\\uD800A\"",
