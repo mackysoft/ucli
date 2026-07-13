@@ -8,28 +8,23 @@ internal static class DaemonInvalidSessionEvidenceTestFactory
     public static DaemonInvalidSessionEvidence Create (
         string projectFingerprint,
         int? processId = 1234,
-        DateTimeOffset? processStartedAtUtc = null,
-        int? ownerProcessId = 9876,
-        int schemaVersion = DaemonSessionStorageContract.CurrentSchemaVersion,
-        string? editorMode = "batchmode",
-        string? ownerKind = "cli",
-        bool canShutdownProcess = true)
+        DateTimeOffset? processStartedAtUtc = null)
     {
         var contract = new DaemonSessionJsonContract(
-            SchemaVersion: schemaVersion,
+            SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
             SessionToken: "raw-token-is-intentionally-not-projected",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: default,
-            EditorMode: editorMode,
-            OwnerKind: ownerKind,
-            CanShutdownProcess: canShutdownProcess,
+            EditorMode: "batchmode",
+            OwnerKind: "cli",
+            CanShutdownProcess: true,
             EndpointTransportKind: null,
             EndpointAddress: null,
             ProcessId: processId,
             ProcessStartedAtUtc: processStartedAtUtc ?? (processId is null
                 ? null
                 : new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero)),
-            OwnerProcessId: ownerProcessId);
+            OwnerProcessId: 9876);
         return new DaemonInvalidSessionEvidence(contract);
     }
 }

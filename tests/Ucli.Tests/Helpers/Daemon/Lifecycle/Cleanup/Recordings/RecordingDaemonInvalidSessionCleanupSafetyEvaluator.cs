@@ -5,24 +5,16 @@ namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
 internal sealed class RecordingDaemonInvalidSessionCleanupSafetyEvaluator : IDaemonInvalidSessionCleanupSafetyEvaluator
 {
-    private readonly List<Invocation> invocations = [];
+    private readonly List<DaemonInvalidSessionEvidence?> invocations = [];
 
     public bool RequiresUnsafeSkipResult { get; set; }
 
-    public IReadOnlyList<Invocation> Invocations => invocations;
+    public IReadOnlyList<DaemonInvalidSessionEvidence?> Invocations => invocations;
 
-    public bool RequiresUnsafeSkip (
-        ResolvedUnityProjectContext unityProject,
-        DaemonInvalidSessionEvidence? evidence)
+    public bool RequiresUnsafeSkip (DaemonInvalidSessionEvidence? evidence)
     {
-        ArgumentNullException.ThrowIfNull(unityProject);
-
-        invocations.Add(new Invocation(unityProject, evidence));
+        invocations.Add(evidence);
 
         return RequiresUnsafeSkipResult;
     }
-
-    internal readonly record struct Invocation (
-        ResolvedUnityProjectContext UnityProject,
-        DaemonInvalidSessionEvidence? Evidence);
 }

@@ -12,6 +12,8 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
 
     private readonly IDaemonArtifactCleaner artifactCleaner;
 
+    private readonly IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator;
+
     private readonly DaemonCompensationOperationOwner compensationOperationOwner;
 
     private readonly TimeProvider timeProvider;
@@ -19,17 +21,20 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
     /// <summary> Initializes a new instance of the <see cref="DaemonSessionCleanupService" /> class. </summary>
     /// <param name="processTerminationService"> The process-termination service dependency. </param>
     /// <param name="artifactCleaner"> The daemon artifact-cleaner dependency. </param>
+    /// <param name="invalidSessionCleanupSafetyEvaluator"> The invalid-session cleanup safety-evaluator dependency. </param>
     /// <param name="compensationOperationOwner"> The owner of cleanup mutations that outlive their caller. </param>
     /// <param name="timeProvider"> The time provider used for cleanup deadline accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonSessionCleanupService (
         IDaemonProcessTerminationService processTerminationService,
         IDaemonArtifactCleaner artifactCleaner,
+        IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator,
         DaemonCompensationOperationOwner compensationOperationOwner,
         TimeProvider timeProvider)
     {
         this.processTerminationService = processTerminationService ?? throw new ArgumentNullException(nameof(processTerminationService));
         this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
+        this.invalidSessionCleanupSafetyEvaluator = invalidSessionCleanupSafetyEvaluator ?? throw new ArgumentNullException(nameof(invalidSessionCleanupSafetyEvaluator));
         this.compensationOperationOwner = compensationOperationOwner ?? throw new ArgumentNullException(nameof(compensationOperationOwner));
         this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
@@ -53,9 +58,10 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         ArgumentNullException.ThrowIfNull(readResult);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        if (TryCreateUnsafeInvalidSessionRelaunchError(readResult, unityProject, out var unsafeRelaunchError))
+        if (invalidSessionCleanupSafetyEvaluator.RequiresUnsafeSkip(readResult.InvalidEvidence))
         {
-            return DaemonSessionStoreOperationResult.Failure(unsafeRelaunchError!);
+            return DaemonSessionStoreOperationResult.Failure(ExecutionError.InternalError(
+                "Daemon session is invalid and cannot be safely replaced because its process identity could not be proven inactive."));
         }
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
@@ -121,16 +127,6 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        var hasStopTarget = TryGetInvalidSessionStopTarget(readResult, unityProject, out var target);
-        if (hasStopTarget)
-        {
-            var stopResult = await EnsureStoppedAsync(target, deadline, cancellationToken).ConfigureAwait(false);
-            if (!stopResult.IsSuccess)
-            {
-                return stopResult;
-            }
-        }
-
         if (!deadline.TryGetRemainingTimeout(out _))
         {
             return CreateTimeoutFailure("Timed out before invalid daemon session artifact cleanup could begin.");
@@ -214,65 +210,6 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
     private static DaemonSessionStoreOperationResult CreateTimeoutFailure (string message)
     {
         return DaemonSessionStoreOperationResult.Failure(ExecutionError.Timeout(message));
-    }
-
-    private static bool TryCreateUnsafeInvalidSessionRelaunchError (
-        DaemonSessionReadResult readResult,
-        ResolvedUnityProjectContext unityProject,
-        out ExecutionError? error)
-    {
-        error = null;
-
-        var evidence = readResult.InvalidEvidence;
-        if (evidence == null)
-        {
-            return false;
-        }
-
-        if (!string.Equals(evidence.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        if (evidence.ProcessId is not int processId || processId <= 0)
-        {
-            return false;
-        }
-
-        if (TryGetInvalidSessionStopTarget(readResult, unityProject, out _))
-        {
-            return false;
-        }
-
-        error = ExecutionError.InternalError(
-            $"Daemon session is invalid and cannot be safely replaced because the previously launched daemon may still be running. fingerprint={unityProject.ProjectFingerprint} pid={processId}");
-        return true;
-    }
-
-    /// <summary> Gets process stop target from invalid session snapshot when identity can be validated safely. </summary>
-    /// <param name="readResult"> The daemon session read result. </param>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="target"> The process termination target when stop target can be determined. </param>
-    /// <returns> <see langword="true" /> when stop target can be determined; otherwise <see langword="false" />. </returns>
-    private static bool TryGetInvalidSessionStopTarget (
-        DaemonSessionReadResult readResult,
-        ResolvedUnityProjectContext unityProject,
-        out DaemonProcessTerminationTarget target)
-    {
-        target = default;
-
-        var evidence = readResult.InvalidEvidence;
-        if (evidence == null)
-        {
-            return false;
-        }
-
-        if (!string.Equals(evidence.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        return DaemonSessionTerminationPolicy.TryGetInvalidSessionTerminationTarget(evidence, out target);
     }
 
     private static bool TryGetSessionStopTarget (

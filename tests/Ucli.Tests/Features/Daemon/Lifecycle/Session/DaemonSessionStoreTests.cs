@@ -278,7 +278,6 @@ public sealed class DaemonSessionStoreTests
         Assert.Contains("editorMode", error.Message, StringComparison.Ordinal);
         Assert.Null(readResult.Session);
         Assert.NotNull(readResult.InvalidEvidence);
-        Assert.Equal("unsupported", readResult.InvalidEvidence.EditorMode);
     }
 
     [Fact]

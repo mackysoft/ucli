@@ -90,14 +90,13 @@ public sealed class DaemonStartOperationInvalidSessionTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenLegacyInvalidSessionCannotBeSafelyStopped_ReturnsFailureWithoutLaunch ()
+    public async Task Start_WhenInvalidEvidencePointsToLiveProcess_ReturnsFailureWithoutTerminationOrLaunch ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-invalid-legacy-live");
         var readResult = DaemonSessionReadResultTestFactory.Invalid(
             DaemonInvalidSessionEvidenceTestFactory.Create(
                 projectFingerprint: context.ProjectFingerprint,
-                processId: 3333,
-                ownerProcessId: null));
+                processId: 3333));
         var sessionStore = new RecordingDaemonSessionStore(readResult);
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {
@@ -111,6 +110,8 @@ public sealed class DaemonStartOperationInvalidSessionTests
         var cleanupService = new DaemonSessionCleanupService(
             processTerminationService,
             artifactCleaner,
+            new DaemonInvalidSessionCleanupSafetyEvaluator(
+                RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess()),
             new DaemonCompensationOperationOwner(),
             timeProvider);
         var launchService = new RecordingDaemonLaunchService
@@ -135,7 +136,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains("cannot be safely replaced", error.Message, StringComparison.Ordinal);
-        DaemonStartOperationInvocationAssert.UnsafeLegacyInvalidSessionCleanupSkippedBeforeLaunch(
+        DaemonStartOperationInvocationAssert.UnsafeInvalidSessionCleanupSkippedBeforeLaunch(
             processTerminationService,
             artifactCleaner,
             launchService);

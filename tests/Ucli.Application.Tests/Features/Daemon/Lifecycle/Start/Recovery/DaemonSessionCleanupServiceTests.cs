@@ -21,6 +21,7 @@ public sealed class DaemonSessionCleanupServiceTests
         var service = new DaemonSessionCleanupService(
             processTerminationService,
             artifactCleaner,
+            new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor()),
             new DaemonCompensationOperationOwner(),
             new ManualTimeProvider());
 
@@ -37,10 +38,14 @@ public sealed class DaemonSessionCleanupServiceTests
         Assert.Equal(artifactIdentity, invocation.ExpectedArtifactIdentity);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData(nameof(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess))]
+    [InlineData(nameof(DaemonProcessIdentityAssessmentStatus.Uncertain))]
     [Trait("Size", "Small")]
-    public async Task CleanupInvalidSessionArtifacts_WhenStopTargetIsAvailable_StopsThenCleansUp ()
+    public async Task CleanupInvalidSessionArtifacts_WhenInvalidEvidenceClaimsShutdownAuthorityAndProcessMayBeLive_BlocksWithoutTermination (
+        string assessmentStatusName)
     {
+        var assessmentStatus = Enum.Parse<DaemonProcessIdentityAssessmentStatus>(assessmentStatusName);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-invalid");
         var processStartedAtUtc = new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero);
         var artifactIdentity = DaemonSessionArtifactIdentity.Create("invalid-session-stop-target");
@@ -57,35 +62,38 @@ public sealed class DaemonSessionCleanupServiceTests
         {
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
+        var processIdentityAssessor = new RecordingDaemonProcessIdentityAssessor(assessmentStatus);
         var service = new DaemonSessionCleanupService(
             processTerminationService,
             artifactCleaner,
+            new DaemonInvalidSessionCleanupSafetyEvaluator(processIdentityAssessor),
             new DaemonCompensationOperationOwner(),
             new ManualTimeProvider());
 
         var result = await service.CleanupInvalidSessionArtifactsAsync(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
-        Assert.True(result.IsSuccess);
-        DaemonCleanupInvocationAssert.AssertProcessTerminationAttemptedThenArtifactsInvalidated(
-            processTerminationService,
-            artifactCleaner,
-            context,
-            3131,
-            processStartedAtUtc);
-        var cleanupInvocation = Assert.Single(artifactCleaner.Invocations);
-        Assert.Null(cleanupInvocation.ExpectedSession);
-        Assert.Equal(artifactIdentity, cleanupInvocation.ExpectedArtifactIdentity);
-        Assert.Null(cleanupInvocation.ExpectedStoppedProcess);
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
+        Assert.Contains("cannot be safely replaced", result.Error.Message, StringComparison.Ordinal);
+        Assert.Empty(processTerminationService.Invocations);
+        Assert.Empty(artifactCleaner.Invocations);
+        var assessmentInvocation = Assert.Single(processIdentityAssessor.Invocations);
+        Assert.Equal(3131, assessmentInvocation.ProcessId);
+        Assert.Equal(processStartedAtUtc, assessmentInvocation.ExpectedProcessStartedAtUtc);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData(nameof(DaemonProcessIdentityAssessmentStatus.NotRunning))]
+    [InlineData(nameof(DaemonProcessIdentityAssessmentStatus.DifferentProcess))]
     [Trait("Size", "Small")]
-    public async Task CleanupInvalidSessionArtifacts_WhenStopTargetIsNotAvailable_CleansUpOnly ()
+    public async Task CleanupInvalidSessionArtifacts_WhenClaimedProcessIsInactive_UsesArtifactIdentityCleanupOnly (
+        string assessmentStatusName)
     {
+        var assessmentStatus = Enum.Parse<DaemonProcessIdentityAssessmentStatus>(assessmentStatusName);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-invalid-no-stop");
         var artifactIdentity = DaemonSessionArtifactIdentity.Create("{ invalid project session json");
         var evidence = DaemonInvalidSessionEvidenceTestFactory.Create(
-            "different-fingerprint",
+            context.ProjectFingerprint,
             processId: 7171);
         var readResult = DaemonSessionReadResultTestFactory.Invalid(evidence, artifactIdentity);
         var processTerminationService = new RecordingDaemonProcessTerminationService
@@ -96,9 +104,11 @@ public sealed class DaemonSessionCleanupServiceTests
         {
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
+        var processIdentityAssessor = new RecordingDaemonProcessIdentityAssessor(assessmentStatus);
         var service = new DaemonSessionCleanupService(
             processTerminationService,
             artifactCleaner,
+            new DaemonInvalidSessionCleanupSafetyEvaluator(processIdentityAssessor),
             new DaemonCompensationOperationOwner(),
             new ManualTimeProvider());
 
@@ -110,45 +120,7 @@ public sealed class DaemonSessionCleanupServiceTests
             artifactCleaner,
             context);
         Assert.Equal(artifactIdentity, Assert.Single(artifactCleaner.Invocations).ExpectedArtifactIdentity);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task CleanupInvalidSessionArtifacts_WhenOwnerProcessIdIsMissing_ReturnsFailureWithoutCleanup ()
-    {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-invalid-legacy");
-        var evidence = DaemonInvalidSessionEvidenceTestFactory.Create(
-            context.ProjectFingerprint,
-            processId: 8181,
-            ownerProcessId: null);
-        var readResult = DaemonSessionReadResultTestFactory.Invalid(evidence);
-        var processTerminationService = new RecordingDaemonProcessTerminationService
-        {
-            NextResult = DaemonSessionStoreOperationResult.Success(),
-        };
-        var artifactCleaner = new RecordingDaemonArtifactCleaner
-        {
-            NextResult = DaemonArtifactCleanupResult.Success(),
-        };
-        var service = new DaemonSessionCleanupService(
-            processTerminationService,
-            artifactCleaner,
-            new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
-
-        var result = await service.CleanupInvalidSessionArtifactsAsync(
-            context,
-            readResult,
-            TimeSpan.FromMilliseconds(500),
-            CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Contains("cannot be safely replaced", error.Message, StringComparison.Ordinal);
-        DaemonCleanupInvocationAssert.AssertProcessTerminationAndArtifactCleanupSkipped(
-            processTerminationService,
-            artifactCleaner);
+        Assert.Single(processIdentityAssessor.Invocations);
     }
 
     [Fact]
@@ -168,6 +140,7 @@ public sealed class DaemonSessionCleanupServiceTests
         var service = new DaemonSessionCleanupService(
             processTerminationService,
             artifactCleaner,
+            new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor()),
             new DaemonCompensationOperationOwner(),
             new ManualTimeProvider());
 
@@ -209,6 +182,7 @@ public sealed class DaemonSessionCleanupServiceTests
         var service = new DaemonSessionCleanupService(
             processTerminationService,
             artifactCleaner,
+            new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor()),
             new DaemonCompensationOperationOwner(),
             new ManualTimeProvider());
 
@@ -223,15 +197,14 @@ public sealed class DaemonSessionCleanupServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task CleanupInvalidSessionArtifacts_WhenStopFails_PropagatesFailureWithoutCleanup ()
+    public async Task CleanupStaleSessionArtifacts_WhenStopFails_PropagatesFailureWithoutCleanup ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-cleanup-stop-fail");
         var processStartedAtUtc = new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero);
-        var evidence = DaemonInvalidSessionEvidenceTestFactory.Create(
-            context.ProjectFingerprint,
+        var session = DaemonSessionTestFactory.Create(
             processId: 5151,
-            processStartedAtUtc);
-        var readResult = DaemonSessionReadResultTestFactory.Invalid(evidence);
+            processStartedAtUtc: processStartedAtUtc,
+            projectFingerprint: context.ProjectFingerprint);
         var expectedError = ExecutionError.InternalError("stop failed");
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {
@@ -244,10 +217,11 @@ public sealed class DaemonSessionCleanupServiceTests
         var service = new DaemonSessionCleanupService(
             processTerminationService,
             artifactCleaner,
+            new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor()),
             new DaemonCompensationOperationOwner(),
             new ManualTimeProvider());
 
-        var result = await service.CleanupInvalidSessionArtifactsAsync(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupStaleSessionArtifactsAsync(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);
@@ -294,6 +268,7 @@ public sealed class DaemonSessionCleanupServiceTests
                 NextResult = DaemonSessionStoreOperationResult.Success(),
             },
             artifactCleaner,
+            new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor()),
             owner,
             timeProvider);
         var cleanupTask = invalidSession

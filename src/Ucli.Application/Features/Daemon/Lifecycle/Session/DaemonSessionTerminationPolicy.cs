@@ -1,6 +1,3 @@
-using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 /// <summary> Defines when uCLI may terminate a daemon process from session metadata. </summary>
@@ -67,33 +64,4 @@ internal static class DaemonSessionTerminationPolicy
         return true;
     }
 
-    /// <summary> Tries to authorize a termination target from restricted untrusted invalid-session evidence. </summary>
-    /// <param name="evidence"> The invalid-session evidence. </param>
-    /// <param name="target"> The safe process termination target when all required evidence is valid. </param>
-    /// <returns> <see langword="true" /> when the evidence independently proves a safe target; otherwise <see langword="false" />. </returns>
-    public static bool TryGetInvalidSessionTerminationTarget (
-        DaemonInvalidSessionEvidence evidence,
-        out DaemonProcessTerminationTarget target)
-    {
-        ArgumentNullException.ThrowIfNull(evidence);
-
-        target = default;
-        if (evidence.SchemaVersion != DaemonSessionStorageContract.CurrentSchemaVersion
-            || evidence.OwnerProcessId is not > 0
-            || !ContractLiteralCodec.TryParse<DaemonEditorMode>(evidence.EditorMode, out _)
-            || !ContractLiteralCodec.TryParse<DaemonSessionOwnerKind>(evidence.OwnerKind, out var ownerKind)
-            || ownerKind != DaemonSessionOwnerKind.Cli
-            || !evidence.CanShutdownProcess
-            || evidence.ProcessId is not > 0
-            || evidence.ProcessStartedAtUtc is not DateTimeOffset processStartedAtUtc
-            || processStartedAtUtc == default)
-        {
-            return false;
-        }
-
-        target = new DaemonProcessTerminationTarget(
-            evidence.ProcessId.Value,
-            processStartedAtUtc);
-        return true;
-    }
 }

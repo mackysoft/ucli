@@ -15,8 +15,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-invalid-safe");
         var invalidEvidence = DaemonInvalidSessionEvidenceTestFactory.Create(
             projectFingerprint: context.ProjectFingerprint,
-            processId: 2003,
-            ownerProcessId: null);
+            processId: 2003);
         var artifactIdentity = DaemonSessionArtifactIdentity.Create("{ invalid session artifact");
         var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
@@ -95,8 +94,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-invalid-unsafe");
         var invalidEvidence = DaemonInvalidSessionEvidenceTestFactory.Create(
             projectFingerprint: context.ProjectFingerprint,
-            processId: 2004,
-            ownerProcessId: null);
+            processId: 2004);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
             new ManualTimeProvider(),

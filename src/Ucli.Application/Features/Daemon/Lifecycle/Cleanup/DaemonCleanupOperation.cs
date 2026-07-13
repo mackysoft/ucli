@@ -136,7 +136,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         // Parseable invalid sessions that still point to a plausible live daemon must block
         // destructive cleanup. Once that condition is met, probing must not override the
         // non-destructive skip with an unrelated failure.
-        var requiresUnsafeSkip = invalidSessionCleanupSafetyEvaluator.RequiresUnsafeSkip(unityProject, readResult.InvalidEvidence);
+        var requiresUnsafeSkip = invalidSessionCleanupSafetyEvaluator.RequiresUnsafeSkip(readResult.InvalidEvidence);
         if (requiresUnsafeSkip)
         {
             return DaemonCleanupResult.Skipped(DaemonCleanupSkipReason.UnsafeInvalidSession);

@@ -16,26 +16,23 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
     {
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor());
 
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-invalid-null"),
-            null);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(null);
 
         Assert.False(requiresUnsafeSkip);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void RequiresUnsafeSkip_WhenFingerprintDoesNotMatch_ReturnsFalseWithoutIdentityAssessment ()
+    public void RequiresUnsafeSkip_WhenFingerprintDoesNotMatchAndClaimedProcessIsLive_ReturnsTrueAfterIdentityAssessment ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-current");
         var evidence = CreateEvidence("fingerprint-other");
-        var assessor = new RecordingDaemonProcessIdentityAssessor();
+        var assessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess();
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, evidence);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(evidence);
 
-        Assert.False(requiresUnsafeSkip);
-        Assert.Empty(assessor.Invocations);
+        Assert.True(requiresUnsafeSkip);
+        Assert.Single(assessor.Invocations);
     }
 
     [Theory]
@@ -45,12 +42,11 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
     [InlineData(-1)]
     public void RequiresUnsafeSkip_WhenProcessIdIsNotPositive_ReturnsFalse (int? processId)
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-current");
-        var evidence = CreateEvidence(context.ProjectFingerprint, processId);
+        var evidence = CreateEvidence("fingerprint-current", processId);
         var assessor = new RecordingDaemonProcessIdentityAssessor();
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, evidence);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(evidence);
 
         Assert.False(requiresUnsafeSkip);
         Assert.Empty(assessor.Invocations);
@@ -67,8 +63,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
         bool expected)
     {
         var status = Enum.Parse<DaemonProcessIdentityAssessmentStatus>(statusName);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-current");
-        var evidence = CreateEvidence(context.ProjectFingerprint);
+        var evidence = CreateEvidence("fingerprint-current");
         var assessor = new RecordingDaemonProcessIdentityAssessor
         {
             Assessment = new DaemonProcessIdentityAssessment(
@@ -80,7 +75,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
         };
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
-        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(context, evidence);
+        var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(evidence);
 
         Assert.Equal(expected, requiresUnsafeSkip);
         var invocation = Assert.Single(assessor.Invocations);
@@ -90,9 +85,15 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Evidence_DoesNotExposeSessionToken ()
+    public void Evidence_ExposesNoPersistedAuthorizationFields ()
     {
         Assert.Null(typeof(DaemonInvalidSessionEvidence).GetProperty("SessionToken"));
+        Assert.Null(typeof(DaemonInvalidSessionEvidence).GetProperty("ProjectFingerprint"));
+        Assert.Null(typeof(DaemonInvalidSessionEvidence).GetProperty("SchemaVersion"));
+        Assert.Null(typeof(DaemonInvalidSessionEvidence).GetProperty("EditorMode"));
+        Assert.Null(typeof(DaemonInvalidSessionEvidence).GetProperty("OwnerKind"));
+        Assert.Null(typeof(DaemonInvalidSessionEvidence).GetProperty("CanShutdownProcess"));
+        Assert.Null(typeof(DaemonInvalidSessionEvidence).GetProperty("OwnerProcessId"));
     }
 
     private static DaemonInvalidSessionEvidence CreateEvidence (

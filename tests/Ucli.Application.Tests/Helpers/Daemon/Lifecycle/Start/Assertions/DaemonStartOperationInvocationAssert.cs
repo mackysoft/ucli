@@ -39,7 +39,7 @@ internal static class DaemonStartOperationInvocationAssert
         FreshLaunchSkipped(launchService);
     }
 
-    public static void UnsafeLegacyInvalidSessionCleanupSkippedBeforeLaunch (
+    public static void UnsafeInvalidSessionCleanupSkippedBeforeLaunch (
         RecordingDaemonProcessTerminationService processTerminationService,
         RecordingDaemonArtifactCleaner artifactCleaner,
         RecordingDaemonLaunchService launchService)
