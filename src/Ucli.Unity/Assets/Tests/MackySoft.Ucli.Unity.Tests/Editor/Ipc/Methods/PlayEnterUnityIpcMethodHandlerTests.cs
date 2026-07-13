@@ -251,13 +251,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Runner_WhenPendingEnterIsStillChanging_ResumesObservationWithoutRequestingEnterAgain () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Runner_WhenPendingEnterStartedBeforeCurrentBudget_UsesCurrentBudgetAndResumesObservation () => UniTask.ToCoroutine(async () =>
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreateEnteringSnapshot(generation: "21"));
             var recoverableStore = new StubRecoverableIpcOperationStore();
             var recoverableContext = CreateRecoverableContext(
                 recoverableStore,
-                new PlayEnterRecoveryPayload(CreatePlayLifecycleSnapshot(CreateReadyStoppedSnapshot(generation: "21"))));
+                new PlayEnterRecoveryPayload(CreatePlayLifecycleSnapshot(CreateReadyStoppedSnapshot(generation: "21"))),
+                DateTimeOffset.UtcNow - TimeSpan.FromSeconds(2));
             var enterRequestCount = 0;
             var runner = CreateRunner(
                 readinessGate,
@@ -392,7 +393,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static RecoverableIpcOperationContext CreateRecoverableContext (
             IRecoverableIpcOperationStore store,
-            PlayEnterRecoveryPayload payload)
+            PlayEnterRecoveryPayload payload,
+            DateTimeOffset? startedAtUtc = null)
         {
             var requestId = Guid.NewGuid();
             return new RecoverableIpcOperationContext(
@@ -407,7 +409,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Method = ContractLiteralCodec.ToValue(UnityIpcMethod.PlayEnter),
                     RequestId = requestId,
                     State = RecoverableIpcOperationState.Pending,
-                    StartedAtUtc = DateTimeOffset.UtcNow,
+                    StartedAtUtc = startedAtUtc ?? DateTimeOffset.UtcNow,
                     RecoveryPayload = IpcPayloadCodec.SerializeToElement(payload),
                 });
         }

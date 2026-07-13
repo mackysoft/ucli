@@ -257,13 +257,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Runner_WhenPendingExitIsStillChanging_ResumesObservationWithoutRequestingExitAgain () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Runner_WhenPendingExitStartedBeforeCurrentBudget_UsesCurrentBudgetAndResumesObservation () => UniTask.ToCoroutine(async () =>
         {
             var readinessGate = new MutableUnityEditorReadinessGate(CreateExitingSnapshot(generation: "31"));
             var recoverableStore = new StubRecoverableIpcOperationStore();
             var recoverableContext = CreateRecoverableContext(
                 recoverableStore,
-                new PlayExitRecoveryPayload(CreatePlayLifecycleSnapshot(CreatePlayingSnapshot(generation: "31"))));
+                new PlayExitRecoveryPayload(CreatePlayLifecycleSnapshot(CreatePlayingSnapshot(generation: "31"))),
+                DateTimeOffset.UtcNow - TimeSpan.FromSeconds(2));
             var exitRequestCount = 0;
             var runner = CreateRunner(
                 readinessGate,
@@ -415,7 +416,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static RecoverableIpcOperationContext CreateRecoverableContext (
             IRecoverableIpcOperationStore store,
-            PlayExitRecoveryPayload payload)
+            PlayExitRecoveryPayload payload,
+            DateTimeOffset? startedAtUtc = null)
         {
             var requestId = Guid.NewGuid();
             return new RecoverableIpcOperationContext(
@@ -430,7 +432,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Method = ContractLiteralCodec.ToValue(UnityIpcMethod.PlayExit),
                     RequestId = requestId,
                     State = RecoverableIpcOperationState.Pending,
-                    StartedAtUtc = DateTimeOffset.UtcNow,
+                    StartedAtUtc = startedAtUtc ?? DateTimeOffset.UtcNow,
                     RecoveryPayload = IpcPayloadCodec.SerializeToElement(payload),
                 });
         }

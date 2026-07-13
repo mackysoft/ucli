@@ -73,7 +73,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return await ResumePendingExitAsync(
                     pendingBefore,
                     before,
-                    recoverableContext,
                     timeoutMilliseconds,
                     cancellationToken);
             }
@@ -126,7 +125,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         private async Task<PlayExitTransitionExecutionResult> ResumePendingExitAsync (
             IpcPlayLifecycleSnapshot pendingBefore,
             IpcPlayLifecycleSnapshot current,
-            RecoverableIpcOperationContext recoverableContext,
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
@@ -135,18 +133,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return CreateSuccess(IpcPlayTransitionResultNames.Exited, pendingBefore, current);
             }
 
-            var remainingTimeout = ResolveRemainingPendingTimeout(
-                recoverableContext,
-                timeoutMilliseconds);
-            if (remainingTimeout <= TimeSpan.Zero)
-            {
-                return CreateTimeout(pendingBefore, current, timeoutMilliseconds);
-            }
-
             return await ObserveRequestedExitAsync(
                 pendingBefore,
                 current,
-                remainingTimeout,
+                TimeSpan.FromMilliseconds(timeoutMilliseconds),
                 timeoutMilliseconds,
                 classifyInitialObservation: true,
                 cancellationToken);
@@ -259,22 +249,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                     before,
                     before,
                     IpcPlayApplicationStateNames.NotApplied);
-        }
-
-        private static TimeSpan ResolveRemainingPendingTimeout (
-            RecoverableIpcOperationContext recoverableContext,
-            int timeoutMilliseconds)
-        {
-            var totalTimeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
-            if (recoverableContext?.StartedAtUtc == null)
-            {
-                return totalTimeout;
-            }
-
-            var elapsed = DateTimeOffset.UtcNow - recoverableContext.StartedAtUtc.Value;
-            return elapsed >= totalTimeout
-                ? TimeSpan.Zero
-                : totalTimeout - elapsed;
         }
 
         private PlayExitTransitionExecutionResult ValidatePreconditions (IpcPlayLifecycleSnapshot before)

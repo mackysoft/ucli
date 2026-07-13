@@ -16,7 +16,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenPlayRetryUsesShorterRemainingBudget_PreservesRequestIdWithUpdatedAttemptTimeout ()
+    public async Task SendAsync_WhenRecoverablePlayUsesBoundedResponseAttempts_PreservesLogicalExecutionBudgetInPayload ()
     {
         var timeProvider = new ManualTimeProvider();
         var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
@@ -31,12 +31,12 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
             recoveryWaiter: null,
             timeProvider);
         var dispatchRequest = new UnityIpcRequestBuilder().Build(
-            new UnityRequestPayload.PlayEnter(1050));
+            new UnityRequestPayload.PlayEnter(5000));
 
         var sendTask = client.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
                 dispatchRequest,
-                TimeSpan.FromMilliseconds(1050),
+                TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
 
@@ -46,6 +46,9 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);
+        Assert.Equal(
+            [TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1)],
+            transportClient.Timeouts);
         var requests = IpcRequestAssert.Methods(
             transportClient,
             UnityIpcMethod.PlayEnter,
@@ -53,8 +56,8 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         _ = IpcRequestAssert.SingleRequestId(requests);
         Assert.True(IpcPayloadCodec.TryDeserialize(requests[0].Payload, out IpcPlayEnterRequest firstPayload, out _));
         Assert.True(IpcPayloadCodec.TryDeserialize(requests[1].Payload, out IpcPlayEnterRequest secondPayload, out _));
-        Assert.Equal(900, firstPayload.TimeoutMilliseconds);
-        Assert.Equal(855, secondPayload.TimeoutMilliseconds);
+        Assert.Equal(4500, firstPayload.TimeoutMilliseconds);
+        Assert.Equal(4410, secondPayload.TimeoutMilliseconds);
     }
 
     [Theory]

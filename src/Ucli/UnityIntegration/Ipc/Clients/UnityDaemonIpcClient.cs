@@ -184,8 +184,8 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
 
                 isSessionTokenReplayAttempt = rejectedSessionToken is not null;
 
-                var attemptTimeout = ResolveAttemptTimeout(dispatchRequest, remainingTimeout);
-                var serverExecutionTimeout = ResolveServerExecutionTimeout(attemptTimeout);
+                var transportAttemptTimeout = ResolveTransportAttemptTimeout(dispatchRequest, remainingTimeout);
+                var serverExecutionTimeout = ResolveServerExecutionTimeout(remainingTimeout);
                 var response = await sendAttempt(
                         sessionConnection.Endpoint,
                         UnityIpcRequestFactory.Create(
@@ -194,7 +194,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                             dispatchRequest.CreatePayload(serverExecutionTimeout),
                             requestId,
                             dispatchRequest.ResponseMode),
-                        attemptTimeout,
+                        transportAttemptTimeout,
                         cancellationToken)
                     .ConfigureAwait(false);
                 if (IsSessionTokenInvalid(response) && !sessionTokenRefreshAttempted)
@@ -452,7 +452,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             && DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(socketException);
     }
 
-    private static TimeSpan ResolveAttemptTimeout (
+    private static TimeSpan ResolveTransportAttemptTimeout (
         UnityIpcDispatchRequest dispatchRequest,
         TimeSpan remainingTimeout)
     {
