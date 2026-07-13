@@ -87,10 +87,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         {
             NextResult = DaemonGuiStartupObservationResult.Success(
                 registeredSession,
-                new DaemonStartLifecycleSnapshot(
-                    IpcEditorLifecycleStateCodec.Ready,
-                    null,
-                    CanAcceptExecutionRequests: true)),
+                new DaemonStartLifecycleSnapshot(IpcEditorLifecycleState.Ready)),
         };
         var progressObserver = new CollectingDaemonStartProgressObserver();
         var service = CreateService(
@@ -123,7 +120,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         var waitingObservation = progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(1);
         Assert.Equal(4321, waitingObservation.ProcessId);
         var lifecycleSnapshot = progressObserver.PayloadAt<DaemonStartLifecycleSnapshot>(^1);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, lifecycleSnapshot.LifecycleState);
+        Assert.Equal(IpcEditorLifecycleState.Ready, lifecycleSnapshot.LifecycleState);
     }
 
     [Fact]

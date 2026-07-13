@@ -11,8 +11,8 @@ namespace MackySoft.Ucli.Tests;
 internal static class DaemonStartCommandTestSupport
 {
     public static DaemonStartExecutionOutput CreateSuccessOutput (
-        string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
-        string? blockingReason = null,
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
+        IpcEditorBlockingReason? blockingReason = null,
         bool canAcceptExecutionRequests = true)
     {
         return new DaemonStartExecutionOutput(
@@ -30,8 +30,10 @@ internal static class DaemonStartCommandTestSupport
                 ProcessId: 1234,
                 ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 0, TimeSpan.Zero),
                 OwnerProcessId: 5678),
-            LifecycleState: lifecycleState,
-            BlockingReason: blockingReason,
+            LifecycleState: ContractLiteralCodec.ToValue(lifecycleState),
+            BlockingReason: blockingReason.HasValue
+                ? ContractLiteralCodec.ToValue(blockingReason.Value)
+                : null,
             CanAcceptExecutionRequests: canAcceptExecutionRequests);
     }
 
@@ -103,8 +105,8 @@ internal static class DaemonStartCommandTestSupport
                     1234,
                     "batchmode",
                     "auto",
-                    IpcEditorLifecycleStateCodec.Compiling,
-                    IpcEditorBlockingReasonCodec.Compile,
+                    ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Compiling),
+                    ContractLiteralCodec.ToValue(IpcEditorBlockingReason.Compile),
                     CanAcceptExecutionRequests: false),
                 cancellationToken)
             .ConfigureAwait(false);

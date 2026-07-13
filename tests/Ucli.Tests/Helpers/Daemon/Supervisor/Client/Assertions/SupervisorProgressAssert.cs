@@ -49,8 +49,8 @@ internal static class SupervisorProgressAssert
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved), progress.EventName);
         var payload = Assert.IsType<DaemonStartLifecycleSnapshotProgressEntry>(progress.Payload);
         Assert.Equal("lifecycleSnapshot", payload.PayloadKind);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, payload.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.Compile, payload.BlockingReason);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Compiling), payload.LifecycleState);
+        Assert.Equal(ContractLiteralCodec.ToValue(IpcEditorBlockingReason.Compile), payload.BlockingReason);
         Assert.False(payload.CanAcceptExecutionRequests);
     }
 }

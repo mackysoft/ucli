@@ -29,10 +29,7 @@ public sealed class DaemonStartServiceSuccessTests
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create();
-        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
-            CanAcceptExecutionRequests: false);
+        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(IpcEditorLifecycleState.Compiling);
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
         {
             EnsureRunningResult = DaemonStartResult.Started(session, lifecycleSnapshot),
@@ -47,8 +44,8 @@ public sealed class DaemonStartServiceSuccessTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal(1200, output.TimeoutMilliseconds);
         DaemonServiceOutputAssert.SessionMatches(session, output.Session);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.Compile, output.BlockingReason);
+        Assert.Equal("compiling", output.LifecycleState);
+        Assert.Equal("compile", output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
         var invocation = DaemonProjectLifecycleGatewayAssert.EnsureRunningRequested(
             supervisorProjectGateway,

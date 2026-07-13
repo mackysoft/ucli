@@ -1736,8 +1736,8 @@ internal static class Program
     {
         return payloadState switch
         {
-            PlayLifecyclePayloadState.Entered => ConstString(IpcEditorLifecycleStateCodec.Playmode),
-            PlayLifecyclePayloadState.ReadyStopped => ConstString(IpcEditorLifecycleStateCodec.Ready),
+            PlayLifecyclePayloadState.Entered => ConstString(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode)),
+            PlayLifecyclePayloadState.ReadyStopped => ConstString(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready)),
             _ => NullableStringSchema(),
         };
     }
@@ -1746,7 +1746,7 @@ internal static class Program
     {
         return payloadState switch
         {
-            PlayLifecyclePayloadState.Entered => ConstString(IpcEditorBlockingReasonCodec.PlayMode),
+            PlayLifecyclePayloadState.Entered => ConstString(ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode)),
             PlayLifecyclePayloadState.ReadyStopped => NullSchema(),
             _ => NullableStringSchema(),
         };

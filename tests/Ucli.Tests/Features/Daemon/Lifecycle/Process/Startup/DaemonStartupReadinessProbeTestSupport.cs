@@ -44,11 +44,11 @@ internal static class DaemonStartupReadinessProbeTestSupport
     }
 
     public static IpcPingResponse CreatePingPayload (
-        string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
         bool canAcceptExecutionRequests = true)
     {
         return IpcPingResponseTestFactory.Create(
-            lifecycleState: lifecycleState,
+            lifecycleState: ContractLiteralCodec.ToValue(lifecycleState),
             canAcceptExecutionRequests: canAcceptExecutionRequests);
     }
 

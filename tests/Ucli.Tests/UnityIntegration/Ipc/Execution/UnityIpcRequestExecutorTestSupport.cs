@@ -101,7 +101,7 @@ internal static class UnityIpcRequestExecutorTestSupport
     public static IpcResponse CreateReadyPingResponse (string requestId)
     {
         var payload = IpcPayloadCodec.SerializeToElement(CreatePingPayload(
-            IpcEditorLifecycleStateCodec.Ready,
+            IpcEditorLifecycleState.Ready,
             canAcceptExecutionRequests: true));
         return new IpcResponse(
             ProtocolVersion: IpcProtocol.CurrentVersion,
@@ -112,11 +112,11 @@ internal static class UnityIpcRequestExecutorTestSupport
     }
 
     public static IpcPingResponse CreatePingPayload (
-        string lifecycleState,
+        IpcEditorLifecycleState lifecycleState,
         bool canAcceptExecutionRequests)
     {
         return IpcPingResponseTestFactory.Create(
-            lifecycleState: lifecycleState,
+            lifecycleState: ContractLiteralCodec.ToValue(lifecycleState),
             canAcceptExecutionRequests: canAcceptExecutionRequests);
     }
 

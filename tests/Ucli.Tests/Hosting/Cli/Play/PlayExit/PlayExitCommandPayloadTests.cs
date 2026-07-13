@@ -27,7 +27,7 @@ public sealed class PlayExitCommandPayloadTests
                 .HasString("unityVersion", PlayCommandOutputTestData.UnityVersion))
             .HasString("daemonStatus", "running")
             .HasString("editorMode", "gui")
-            .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Ready)
+            .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready))
             .HasValueKind("blockingReason", JsonValueKind.Null)
             .HasBoolean("canAcceptExecutionRequests", true)
             .HasProperty("playMode", playMode => playMode

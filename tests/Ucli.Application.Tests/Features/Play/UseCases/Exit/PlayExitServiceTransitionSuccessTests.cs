@@ -23,7 +23,7 @@ public sealed class PlayExitServiceTransitionSuccessTests
         Assert.Equal(context.UnityProject.UnityProjectRoot, output.Project.ProjectPath);
         Assert.Equal("0.5.0", output.ServerVersion);
         Assert.Equal("gui", output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, output.LifecycleState);
+        Assert.Equal("ready", output.LifecycleState);
         Assert.Null(output.BlockingReason);
         Assert.True(output.CanAcceptExecutionRequests);
         Assert.Equal("stopped", output.PlayMode.State);
@@ -47,8 +47,8 @@ public sealed class PlayExitServiceTransitionSuccessTests
     public async Task Execute_WhenAlreadyStopped_ReturnsAlreadyExitedWithoutGenerationChange ()
     {
         var before = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
+            "compiling",
+            "compile",
             false,
             CreateStoppedPlayMode("9"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
@@ -66,7 +66,7 @@ public sealed class PlayExitServiceTransitionSuccessTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayExitExecutionOutput>(result.Output);
         Assert.Equal(IpcPlayTransitionResultNames.AlreadyExited, output.Transition.Result);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, output.LifecycleState);
+        Assert.Equal("compiling", output.LifecycleState);
         Assert.Equal("9", output.Transition.Before.PlayMode!.Generation);
         Assert.Equal("9", output.Transition.After!.PlayMode!.Generation);
     }

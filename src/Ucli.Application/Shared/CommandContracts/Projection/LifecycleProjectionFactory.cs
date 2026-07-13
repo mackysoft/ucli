@@ -63,16 +63,20 @@ internal static class LifecycleProjectionFactory
         IpcPrimaryDiagnostic? primaryDiagnostic,
         IpcPlayModeSnapshot? playModeSnapshot)
     {
-        var lifecycleState = IpcEditorLifecycleStateCodec.TryParse(lifecycleStateValue, out var normalizedLifecycleState)
-            ? normalizedLifecycleState
-            : null;
-        var blockingReason = lifecycleState is null || string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-            ? null
-            : IpcEditorBlockingReasonCodec.TryParse(blockingReasonValue, out var normalizedBlockingReason)
-                ? normalizedBlockingReason
-                : null;
-        var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-            && canAcceptExecutionRequestsValue;
+        IpcEditorLifecycleState? lifecycleState = null;
+        IpcEditorBlockingReason? blockingReason = null;
+        var canAcceptExecutionRequests = false;
+        if (ContractLiteralCodec.TryParse<IpcEditorLifecycleState>(lifecycleStateValue, out var parsedLifecycleState)
+            && TryParseOptionalBlockingReason(blockingReasonValue, out var parsedBlockingReason)
+            && IpcEditorLifecycleSemantics.IsConsistent(
+                parsedLifecycleState,
+                parsedBlockingReason,
+                canAcceptExecutionRequestsValue))
+        {
+            lifecycleState = parsedLifecycleState;
+            blockingReason = parsedBlockingReason;
+            canAcceptExecutionRequests = canAcceptExecutionRequestsValue;
+        }
 
         return new LifecycleProjection(
             ServerVersion: StringValueNormalizer.TrimToNull(serverVersion),
@@ -82,9 +86,9 @@ internal static class LifecycleProjectionFactory
                 : null,
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,
-            CompileState: IpcCompileStateCodec.TryParse(compileStateValue, out var compileState)
+            CompileState: ContractLiteralCodec.TryParse<IpcCompileState>(compileStateValue, out var compileState)
                 ? compileState
-                : null,
+                : (IpcCompileState?)null,
             CompileGeneration: StringValueNormalizer.TrimToNull(compileGeneration),
             DomainReloadGeneration: StringValueNormalizer.TrimToNull(domainReloadGeneration),
             CanAcceptExecutionRequests: canAcceptExecutionRequests,
@@ -92,5 +96,25 @@ internal static class LifecycleProjectionFactory
             ActionRequired: StringValueNormalizer.TrimToNull(actionRequired),
             PrimaryDiagnostic: primaryDiagnostic,
             PlayMode: PlayModeSnapshotOutputFactory.Create(playModeSnapshot));
+    }
+
+    private static bool TryParseOptionalBlockingReason (
+        string? value,
+        out IpcEditorBlockingReason? blockingReason)
+    {
+        if (value is null)
+        {
+            blockingReason = null;
+            return true;
+        }
+
+        if (ContractLiteralCodec.TryParse<IpcEditorBlockingReason>(value, out var parsedBlockingReason))
+        {
+            blockingReason = parsedBlockingReason;
+            return true;
+        }
+
+        blockingReason = null;
+        return false;
     }
 }

@@ -1,9 +1,8 @@
 using System.Threading;
-using MackySoft.Ucli.Contracts;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
 #nullable enable
@@ -25,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         public StubUnityEditorReadinessGate (DaemonEditorMode editorMode)
-            : this(UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(editorMode, IpcEditorLifecycleStateCodec.Ready, null, true)), null)
+            : this(UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(editorMode, IpcEditorLifecycleState.Ready)), null)
         {
         }
 
@@ -52,8 +51,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new StubUnityEditorReadinessGate(
                 CreateBlockedResult(
                     DaemonEditorMode.Batchmode,
-                    IpcEditorLifecycleStateCodec.Busy,
-                    IpcEditorBlockingReasonCodec.Busy,
+                    IpcEditorLifecycleState.Busy,
                     EditorLifecycleErrorCodes.EditorBusy,
                     "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
                 new TaskCompletionSource<UnityEditorExecutionReadinessResult>(TaskCreationOptions.RunContinuationsAsynchronously));
@@ -69,9 +67,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             currentResult = UnityEditorExecutionReadinessResult.Ready(CreateSnapshot(
                 currentResult.Snapshot.EditorMode,
-                IpcEditorLifecycleStateCodec.Ready,
-                null,
-                true));
+                IpcEditorLifecycleState.Ready));
             completionSource?.TrySetResult(currentResult);
         }
 
@@ -95,45 +91,37 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UnityEditorExecutionReadinessResult CreateBlockedResult (
             DaemonEditorMode editorMode,
-            string lifecycleState,
-            string? blockingReason,
+            IpcEditorLifecycleState lifecycleState,
             UcliCode errorCode,
             string errorMessage)
         {
             return UnityEditorExecutionReadinessResult.Blocked(
-                CreateSnapshot(editorMode, lifecycleState, blockingReason, false),
+                CreateSnapshot(editorMode, lifecycleState),
                 new IpcError(errorCode, errorMessage, null));
         }
 
         private static UnityEditorLifecycleSnapshot CreateSnapshot (
             DaemonEditorMode editorMode,
-            string lifecycleState,
-            string? blockingReason,
-            bool canAcceptExecutionRequests)
+            IpcEditorLifecycleState lifecycleState)
         {
             return new UnityEditorLifecycleSnapshot(
                 EditorMode: editorMode,
                 LifecycleState: lifecycleState,
-                BlockingReason: blockingReason,
-                CompileState: IpcCompileStateCodec.Ready,
-                CompileGeneration: "1",
-                DomainReloadGeneration: "1",
-                CanAcceptExecutionRequests: canAcceptExecutionRequests,
+                CompileState: IpcCompileState.Ready,
+                CompileGeneration: 1,
+                DomainReloadGeneration: 1,
                 PlayMode: CreatePlayModeSnapshot(lifecycleState));
         }
 
-        private static IpcPlayModeSnapshot CreatePlayModeSnapshot (string lifecycleState)
+        private static UnityEditorPlayModeSnapshot CreatePlayModeSnapshot (IpcEditorLifecycleState lifecycleState)
         {
-            var isPlaying = string.Equals(
-                lifecycleState,
-                IpcEditorLifecycleStateCodec.Playmode,
-                System.StringComparison.Ordinal);
-            return new IpcPlayModeSnapshot(
-                State: isPlaying ? "playing" : "stopped",
-                Transition: "none",
+            var isPlaying = lifecycleState == IpcEditorLifecycleState.PlayMode;
+            return new UnityEditorPlayModeSnapshot(
+                State: isPlaying ? IpcPlayModeState.Playing : IpcPlayModeState.Stopped,
+                Transition: IpcPlayModeTransition.None,
                 IsPlaying: isPlaying,
                 IsPlayingOrWillChangePlaymode: isPlaying,
-                Generation: "1");
+                Generation: 1);
         }
     }
 }

@@ -20,9 +20,7 @@ public sealed class PlayStatusServiceSidecarTests
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
                 session,
-                IpcEditorLifecycleStateCodec.Ready,
-                blockingReason: null,
-                canAcceptExecutionRequests: true,
+                IpcEditorLifecycleState.Ready,
                 playModeState: "stopped",
                 isPlaying: false,
                 isPlayingOrWillChangePlaymode: false)),
@@ -43,7 +41,7 @@ public sealed class PlayStatusServiceSidecarTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, output.LifecycleState);
+        Assert.Equal("ready", output.LifecycleState);
         Assert.Null(output.BlockingReason);
         Assert.True(output.CanAcceptExecutionRequests);
         Assert.Equal("0.5.0", output.ServerVersion);
@@ -112,7 +110,7 @@ public sealed class PlayStatusServiceSidecarTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
+        Assert.Equal("playmode", output.LifecycleState);
         Assert.Equal("playing", output.PlayMode.State);
     }
 
@@ -139,7 +137,7 @@ public sealed class PlayStatusServiceSidecarTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, output.LifecycleState);
+        Assert.Equal("ready", output.LifecycleState);
         Assert.Equal("stopped", output.PlayMode.State);
         Assert.Equal("2", output.PlayMode.Generation);
         UnityRequestExecutorInvocationAssert.PlayStatusOnce(requestExecutor);

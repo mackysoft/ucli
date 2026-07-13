@@ -14,6 +14,53 @@ public sealed class LifecycleProjectionFactoryTests
         Assert.Null(projection.PlayMode);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WhenLifecycleLiteralsAreCanonical_ReturnsTypedLifecycleValues ()
+    {
+        var projection = LifecycleProjectionFactory.Create(CreatePing(playMode: null));
+
+        Assert.Equal(IpcEditorLifecycleState.Ready, projection.LifecycleState);
+        Assert.Null(projection.BlockingReason);
+        Assert.Equal(IpcCompileState.Ready, projection.CompileState);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WhenLifecycleLiteralHasOuterWhitespace_ReturnsNullLifecycleState ()
+    {
+        var projection = LifecycleProjectionFactory.Create(CreatePing(playMode: null) with
+        {
+            LifecycleState = " ready ",
+        });
+
+        Assert.Null(projection.LifecycleState);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("ready", null, false)]
+    [InlineData("ready", "busy", true)]
+    [InlineData("compiling", null, false)]
+    [InlineData("compiling", "busy", false)]
+    [InlineData("compiling", "compile", true)]
+    public void Create_WhenLifecycleTupleIsInconsistent_FailsClosed (
+        string lifecycleState,
+        string? blockingReason,
+        bool canAcceptExecutionRequests)
+    {
+        var projection = LifecycleProjectionFactory.Create(CreatePing(playMode: null) with
+        {
+            LifecycleState = lifecycleState,
+            BlockingReason = blockingReason,
+            CanAcceptExecutionRequests = canAcceptExecutionRequests,
+        });
+
+        Assert.Null(projection.LifecycleState);
+        Assert.Null(projection.BlockingReason);
+        Assert.False(projection.CanAcceptExecutionRequests);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("unsupported", "none")]
@@ -37,8 +84,8 @@ public sealed class LifecycleProjectionFactoryTests
     public void Create_WhenPlayModeGenerationIsBlank_ReturnsPlayModeWithNullGeneration ()
     {
         var projection = LifecycleProjectionFactory.Create(CreatePing(new IpcPlayModeSnapshot(
-            State: $" {"playing"} ",
-            Transition: $" {"none"} ",
+            State: " playing ",
+            Transition: " none ",
             IsPlaying: true,
             IsPlayingOrWillChangePlaymode: true,
             Generation: "   ")));
@@ -56,8 +103,8 @@ public sealed class LifecycleProjectionFactoryTests
             EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: "project-fingerprint",
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: IpcEditorLifecycleStateCodec.Ready,
+            CompileState: "ready",
+            LifecycleState: "ready",
             CanAcceptExecutionRequests: true,
             PlayMode: playMode);
     }

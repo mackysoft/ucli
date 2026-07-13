@@ -22,9 +22,15 @@ internal static class PlayOutputProjectionFactory
             EditorMode: lifecycle.EditorMode,
             UnityVersion: lifecycle.UnityVersion,
             ProjectFingerprint: snapshot.ProjectFingerprint,
-            LifecycleState: lifecycle.LifecycleState,
-            BlockingReason: lifecycle.BlockingReason,
-            CompileState: lifecycle.CompileState,
+            LifecycleState: lifecycle.LifecycleState.HasValue
+                ? ContractLiteralCodec.ToValue(lifecycle.LifecycleState.Value)
+                : null,
+            BlockingReason: lifecycle.BlockingReason.HasValue
+                ? ContractLiteralCodec.ToValue(lifecycle.BlockingReason.Value)
+                : null,
+            CompileState: lifecycle.CompileState.HasValue
+                ? ContractLiteralCodec.ToValue(lifecycle.CompileState.Value)
+                : null,
             CompileGeneration: lifecycle.CompileGeneration,
             DomainReloadGeneration: lifecycle.DomainReloadGeneration,
             CanAcceptExecutionRequests: lifecycle.CanAcceptExecutionRequests,

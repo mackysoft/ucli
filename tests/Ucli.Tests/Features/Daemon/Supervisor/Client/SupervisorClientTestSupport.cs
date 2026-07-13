@@ -39,18 +39,12 @@ internal static class SupervisorClientTestSupport
 
     public static DaemonStartLifecycleSnapshot CreateReadyLifecycleSnapshot ()
     {
-        return new DaemonStartLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
-            null,
-            CanAcceptExecutionRequests: true);
+        return new DaemonStartLifecycleSnapshot(IpcEditorLifecycleState.Ready);
     }
 
     public static DaemonStartLifecycleSnapshot CreateCompilingLifecycleSnapshot ()
     {
-        return new DaemonStartLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
-            CanAcceptExecutionRequests: false);
+        return new DaemonStartLifecycleSnapshot(IpcEditorLifecycleState.Compiling);
     }
 
     public static DaemonStartupObservation CreateStartupObservation ()
@@ -154,8 +148,8 @@ internal static class SupervisorClientTestSupport
             5000,
             "gui",
             "auto",
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
+            ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Compiling),
+            ContractLiteralCodec.ToValue(IpcEditorBlockingReason.Compile),
             CanAcceptExecutionRequests: false);
 
         return CreateProgressFrame(

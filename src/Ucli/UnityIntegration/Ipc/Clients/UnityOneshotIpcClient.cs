@@ -867,9 +867,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentNullException.ThrowIfNull(pingResponse);
 
-        return dispatchRequest.AllowedStartupLifecycleStates.Contains(
-            pingResponse.LifecycleState,
-            StringComparer.Ordinal);
+        return ContractLiteralCodec.TryParse<IpcEditorLifecycleState>(pingResponse.LifecycleState, out var lifecycleState)
+            && dispatchRequest.AllowedStartupLifecycleStates.Contains(lifecycleState);
     }
 
     private static bool TryReadFailFast<TRequest> (

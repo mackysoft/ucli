@@ -1,7 +1,5 @@
 using System;
 using MackySoft.Ucli.Contracts.Daemon;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 using UnityEditor.Compilation;
 
 namespace MackySoft.Ucli.Unity.Runtime
@@ -43,19 +41,16 @@ namespace MackySoft.Ucli.Unity.Runtime
             var isPlayingOrWillChangePlaymode = isPlayingOrWillChangePlaymodeProvider();
             var isPlaymodeActive = isPlaying || isPlayingOrWillChangePlaymode;
             var lifecycleState = lifecycleTelemetryState.ResolveLifecycleState(isPlaymodeActive, isCompiling, isUpdating);
-            var blockingReason = UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(lifecycleState);
-            var canAcceptExecutionRequests = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal);
 
             return new UnityEditorLifecycleSnapshot(
                 EditorMode: editorMode,
                 LifecycleState: lifecycleState,
-                BlockingReason: blockingReason,
-                CompileState: IpcCompileStateCodec.ToValue(isCompiling, lifecycleTelemetryState.HasCompileFailure),
+                CompileState: UnityEditorCompileStateResolver.Resolve(
+                    isCompiling,
+                    lifecycleTelemetryState.HasCompileFailure),
                 CompileGeneration: lifecycleTelemetryState.CompileGeneration,
                 DomainReloadGeneration: lifecycleTelemetryState.DomainReloadGeneration,
-                CanAcceptExecutionRequests: canAcceptExecutionRequests,
                 ObservedAtUtc: DateTimeOffset.UtcNow,
-                ActionRequired: ResolveActionRequired(lifecycleState),
                 PrimaryDiagnostic: lifecycleTelemetryState.PrimaryDiagnostic,
                 PlayMode: lifecycleTelemetryState.CapturePlayModeSnapshot(
                     isPlaying,
@@ -120,16 +115,5 @@ namespace MackySoft.Ucli.Unity.Runtime
             lifecycleTelemetryState.OnPlayModeStateChanged(stateChange);
         }
 
-        private static string ResolveActionRequired (string lifecycleState)
-        {
-            return lifecycleState switch
-            {
-                IpcEditorLifecycleStateCodec.CompileFailed => DaemonDiagnosisActionRequiredValues.FixCompileErrors,
-                IpcEditorLifecycleStateCodec.ModalBlocked => DaemonDiagnosisActionRequiredValues.ResolveUnityDialog,
-                IpcEditorLifecycleStateCodec.SafeMode => DaemonDiagnosisActionRequiredValues.ResolveUnityDialog,
-                IpcEditorLifecycleStateCodec.Unavailable => DaemonDiagnosisActionRequiredValues.InspectUnityLog,
-                _ => null,
-            };
-        }
     }
 }

@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStatusServiceTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
@@ -49,8 +48,8 @@ public sealed class DaemonStatusServiceRunningLifecycleSidecarTests
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, output.BlockingReason);
+        Assert.Equal("playmode", output.LifecycleState);
+        Assert.Equal("playMode", output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Equal("playing", output.PlayMode!.State);
         DaemonStatusServiceInvocationAssert.FreshLifecycleSidecarUsed(lifecycleStore, processIdentityAssessor, context, session);

@@ -1,8 +1,6 @@
 using System;
-using System.Globalization;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
-using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 
@@ -18,14 +16,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var snapshot = environment.Capture();
 
             Assert.That(snapshot.DomainReloadGeneration, Is.EqualTo(UnityEditorReadinessGate.CurrentDomainReloadGeneration));
-            Assert.That(snapshot.DomainReloadGeneration, Is.Not.EqualTo("na"));
+            Assert.That(snapshot.DomainReloadGeneration, Is.GreaterThanOrEqualTo(0));
 
             var currentFingerprint = PlanTokenStateFingerprintCalculator.Compute(
                 snapshot,
                 Array.Empty<OperationPhaseTrace>());
-            var nextDomainReloadGeneration = (
-                    int.Parse(snapshot.DomainReloadGeneration, CultureInfo.InvariantCulture) + 1)
-                .ToString(CultureInfo.InvariantCulture);
+            var nextDomainReloadGeneration = snapshot.DomainReloadGeneration + 1;
             var changedFingerprint = PlanTokenStateFingerprintCalculator.Compute(
                 snapshot with
                 {

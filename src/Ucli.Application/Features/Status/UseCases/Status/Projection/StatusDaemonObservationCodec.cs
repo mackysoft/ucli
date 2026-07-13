@@ -42,9 +42,11 @@ internal static class StatusDaemonObservationCodec
         return new StatusDaemonObservation(
             DaemonStatus: daemonStatus,
             ServerVersion: observation.ServerVersion,
-            LifecycleState: observation.LifecycleState,
-            BlockingReason: observation.BlockingReason,
-            CompileState: observation.CompileState,
+            LifecycleState: ContractLiteralCodec.ToValue(observation.LifecycleState),
+            BlockingReason: observation.BlockingReason.HasValue
+                ? ContractLiteralCodec.ToValue(observation.BlockingReason.Value)
+                : null,
+            CompileState: ContractLiteralCodec.ToValue(observation.CompileState),
             CompileGeneration: observation.CompileGeneration,
             DomainReloadGeneration: observation.DomainReloadGeneration,
             CanAcceptExecutionRequests: observation.CanAcceptExecutionRequests,
@@ -61,8 +63,8 @@ internal static class StatusDaemonObservationCodec
         return new StatusDaemonObservation(
             DaemonStatus: daemonStatus,
             ServerVersion: null,
-            LifecycleState: IpcEditorLifecycleStateCodec.Unavailable,
-            BlockingReason: IpcEditorBlockingReasonCodec.Unavailable,
+            LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Unavailable),
+            BlockingReason: ContractLiteralCodec.ToValue(IpcEditorBlockingReason.Unavailable),
             CompileState: null,
             CompileGeneration: null,
             DomainReloadGeneration: null,
@@ -90,9 +92,15 @@ internal static class StatusDaemonObservationCodec
         return new StatusDaemonObservation(
             DaemonStatus: daemonStatus,
             ServerVersion: projection.ServerVersion,
-            LifecycleState: projection.LifecycleState,
-            BlockingReason: projection.BlockingReason,
-            CompileState: projection.CompileState,
+            LifecycleState: projection.LifecycleState.HasValue
+                ? ContractLiteralCodec.ToValue(projection.LifecycleState.Value)
+                : null,
+            BlockingReason: projection.BlockingReason.HasValue
+                ? ContractLiteralCodec.ToValue(projection.BlockingReason.Value)
+                : null,
+            CompileState: projection.CompileState.HasValue
+                ? ContractLiteralCodec.ToValue(projection.CompileState.Value)
+                : null,
             CompileGeneration: projection.CompileGeneration,
             DomainReloadGeneration: projection.DomainReloadGeneration,
             CanAcceptExecutionRequests: projection.CanAcceptExecutionRequests,

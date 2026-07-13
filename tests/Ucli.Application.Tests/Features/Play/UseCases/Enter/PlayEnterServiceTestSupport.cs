@@ -39,8 +39,8 @@ internal static class PlayEnterServiceTestSupport
 
     public static IpcPlayTransitionResponse CreateEnteredResponse ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
-        var after = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayMode(
+        var before = CreateSnapshot("ready", null, true, CreateStoppedPlayMode("2"));
+        var after = CreateSnapshot("playmode", "playMode", false, CreatePlayMode(
             "playing",
             "none",
             isPlaying: true,
@@ -69,7 +69,7 @@ internal static class PlayEnterServiceTestSupport
             ProjectFingerprint: projectFingerprint,
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,
-            CompileState: IpcCompileStateCodec.Ready,
+            CompileState: "ready",
             CompileGeneration: "12",
             DomainReloadGeneration: "7",
             CanAcceptExecutionRequests: canAcceptExecutionRequests,

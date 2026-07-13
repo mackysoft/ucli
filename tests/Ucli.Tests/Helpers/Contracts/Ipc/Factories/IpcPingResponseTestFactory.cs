@@ -9,8 +9,8 @@ internal static class IpcPingResponseTestFactory
         string editorMode = "batchmode",
         string unityVersion = "2023.2.22f1",
         string projectFingerprint = "project-fingerprint",
-        string compileState = IpcCompileStateCodec.Ready,
-        string? lifecycleState = IpcEditorLifecycleStateCodec.Ready,
+        string compileState = "ready",
+        string? lifecycleState = "ready",
         bool canAcceptExecutionRequests = true,
         string? blockingReason = null,
         string? compileGeneration = "0",
@@ -33,22 +33,15 @@ internal static class IpcPingResponseTestFactory
         string? lifecycleState,
         bool canAcceptExecutionRequests)
     {
-        if (canAcceptExecutionRequests)
+        if (!ContractLiteralCodec.TryParse<IpcEditorLifecycleState>(lifecycleState, out var parsedLifecycleState)
+            || IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(parsedLifecycleState) != canAcceptExecutionRequests)
         {
             return null;
         }
 
-        return lifecycleState switch
-        {
-            IpcEditorLifecycleStateCodec.Starting => IpcEditorBlockingReasonCodec.Startup,
-            IpcEditorLifecycleStateCodec.Busy => IpcEditorBlockingReasonCodec.Busy,
-            IpcEditorLifecycleStateCodec.Compiling => IpcEditorBlockingReasonCodec.Compile,
-            IpcEditorLifecycleStateCodec.DomainReloading => IpcEditorBlockingReasonCodec.DomainReload,
-            IpcEditorLifecycleStateCodec.Playmode => IpcEditorBlockingReasonCodec.PlayMode,
-            IpcEditorLifecycleStateCodec.ModalBlocked => IpcEditorBlockingReasonCodec.ModalDialog,
-            IpcEditorLifecycleStateCodec.SafeMode => IpcEditorBlockingReasonCodec.SafeMode,
-            IpcEditorLifecycleStateCodec.ShuttingDown => IpcEditorBlockingReasonCodec.Shutdown,
-            _ => null,
-        };
+        var blockingReason = IpcEditorLifecycleSemantics.ResolveBlockingReason(parsedLifecycleState);
+        return blockingReason.HasValue
+            ? ContractLiteralCodec.ToValue(blockingReason.Value)
+            : null;
     }
 }

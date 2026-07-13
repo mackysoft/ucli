@@ -172,8 +172,10 @@ internal sealed class DaemonStartProgressEmitter :
             TimeoutMilliseconds: timeoutMilliseconds,
             EditorMode: editorMode,
             OnStartupBlocked: onStartupBlocked,
-            LifecycleState: lifecycleSnapshot.LifecycleState,
-            BlockingReason: lifecycleSnapshot.BlockingReason,
+            LifecycleState: ContractLiteralCodec.ToValue(lifecycleSnapshot.LifecycleState),
+            BlockingReason: lifecycleSnapshot.BlockingReason.HasValue
+                ? ContractLiteralCodec.ToValue(lifecycleSnapshot.BlockingReason.Value)
+                : null,
             CanAcceptExecutionRequests: lifecycleSnapshot.CanAcceptExecutionRequests);
         return progressSink.OnEntryAsync(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved), entry, cancellationToken);
     }

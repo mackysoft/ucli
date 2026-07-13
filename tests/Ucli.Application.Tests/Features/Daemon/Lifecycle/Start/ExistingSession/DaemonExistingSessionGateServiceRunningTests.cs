@@ -24,7 +24,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         Assert.NotNull(result);
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
         Assert.Equal(session, result.Session);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, result.LifecycleSnapshot!.LifecycleState);
+        Assert.Equal(IpcEditorLifecycleState.Ready, result.LifecycleSnapshot!.LifecycleState);
         Assert.True(result.LifecycleSnapshot.CanAcceptExecutionRequests);
     }
 
@@ -36,8 +36,8 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(
                 DaemonExistingSessionGateServiceTestSupport.CreatePingResponse(
-                    IpcEditorLifecycleStateCodec.Compiling,
-                    IpcEditorBlockingReasonCodec.Compile,
+                    "compiling",
+                    "compile",
                     canAcceptExecutionRequests: false)));
 
         var result = await service.TryHandleExistingSessionAsync(
@@ -50,8 +50,8 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         Assert.NotNull(result);
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
         Assert.Equal(session, result.Session);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, result.LifecycleSnapshot!.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.Compile, result.LifecycleSnapshot.BlockingReason);
+        Assert.Equal(IpcEditorLifecycleState.Compiling, result.LifecycleSnapshot!.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.Compile, result.LifecycleSnapshot.BlockingReason);
         Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
     }
 

@@ -1,22 +1,21 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
 using UnityEditor.Compilation;
 using UnityEngine;
-
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -585,14 +584,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
                     Started: false,
                     Completed: false,
-                    CompileGenerationBefore: beforeSnapshot.CompileGeneration,
-                    CompileGenerationAfter: beforeSnapshot.CompileGeneration,
+                    CompileGenerationBefore: ToGenerationLiteral(beforeSnapshot.CompileGeneration),
+                    CompileGenerationAfter: ToGenerationLiteral(beforeSnapshot.CompileGeneration),
                     Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(0, 0, null)),
                 DomainReload: new IpcCompileSummary.DomainReloadEvidence(
                     ReloadRequired: false,
                     ReloadObserved: false,
-                    GenerationBefore: beforeSnapshot.DomainReloadGeneration,
-                    GenerationAfter: beforeSnapshot.DomainReloadGeneration,
+                    GenerationBefore: ToGenerationLiteral(beforeSnapshot.DomainReloadGeneration),
+                    GenerationAfter: ToGenerationLiteral(beforeSnapshot.DomainReloadGeneration),
                     Settled: false),
                 Lifecycle: CreateLifecycleEvidence(beforeSnapshot, projectIdentity, serverVersionProvider));
         }
@@ -625,10 +624,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     Started = diagnostics.CompilationStarted || !string.Equals(
                         pendingSummary.ScriptCompilation.CompileGenerationBefore,
-                        afterSnapshot.CompileGeneration,
+                        ToGenerationLiteral(afterSnapshot.CompileGeneration),
                         StringComparison.Ordinal),
                     Completed = true,
-                    CompileGenerationAfter = afterSnapshot.CompileGeneration,
+                    CompileGenerationAfter = ToGenerationLiteral(afterSnapshot.CompileGeneration),
                     Diagnostics = new IpcCompileSummary.DiagnosticsEvidence(
                         ErrorCount: errorCount,
                         WarningCount: diagnostics.WarningCount,
@@ -638,7 +637,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     ReloadRequired = domainReloadObserved,
                     ReloadObserved = domainReloadObserved,
-                    GenerationAfter = afterSnapshot.DomainReloadGeneration,
+                    GenerationAfter = ToGenerationLiteral(afterSnapshot.DomainReloadGeneration),
                     Settled = IsLifecycleSettled(afterSnapshot),
                 },
                 Lifecycle = CreateLifecycleEvidence(afterSnapshot, pendingSummary.ProjectFingerprint, serverVersionProvider),
@@ -667,7 +666,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     Started = false,
                     Completed = false,
-                    CompileGenerationAfter = afterSnapshot.CompileGeneration,
+                    CompileGenerationAfter = ToGenerationLiteral(afterSnapshot.CompileGeneration),
                     Diagnostics = new IpcCompileSummary.DiagnosticsEvidence(
                         ErrorCount: errorCount,
                         WarningCount: 0,
@@ -677,7 +676,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     ReloadRequired = domainReloadObserved,
                     ReloadObserved = domainReloadObserved,
-                    GenerationAfter = afterSnapshot.DomainReloadGeneration,
+                    GenerationAfter = ToGenerationLiteral(afterSnapshot.DomainReloadGeneration),
                     Settled = IsLifecycleSettled(afterSnapshot),
                 },
                 Lifecycle = CreateLifecycleEvidence(afterSnapshot, pendingSummary.ProjectFingerprint, serverVersionProvider),
@@ -702,7 +701,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             return !string.Equals(
                 pendingSummary.DomainReload.GenerationBefore,
-                afterSnapshot.DomainReloadGeneration,
+                ToGenerationLiteral(afterSnapshot.DomainReloadGeneration),
                 StringComparison.Ordinal);
         }
 
@@ -724,11 +723,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ServerVersion: serverVersionProvider.GetVersion(),
                 UnityVersion: Application.unityVersion,
                 EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
-                LifecycleState: snapshot.LifecycleState,
-                BlockingReason: snapshot.BlockingReason,
-                CompileState: snapshot.CompileState,
-                CompileGeneration: snapshot.CompileGeneration,
-                DomainReloadGeneration: snapshot.DomainReloadGeneration,
+                LifecycleState: ContractLiteralCodec.ToValue(snapshot.LifecycleState),
+                BlockingReason: snapshot.BlockingReason.HasValue
+                    ? ContractLiteralCodec.ToValue(snapshot.BlockingReason.Value)
+                    : null,
+                CompileState: ContractLiteralCodec.ToValue(snapshot.CompileState),
+                CompileGeneration: ToGenerationLiteral(snapshot.CompileGeneration),
+                DomainReloadGeneration: ToGenerationLiteral(snapshot.DomainReloadGeneration),
                 CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests,
                 ObservedAtUtc: snapshot.ObservedAtUtc,
                 ActionRequired: snapshot.ActionRequired,
@@ -737,11 +738,16 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool IsLifecycleSettled (UnityEditorLifecycleSnapshot snapshot)
         {
-            return !string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal)
-                && !string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Compiling, StringComparison.Ordinal)
-                && !string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Reimporting, StringComparison.Ordinal)
-                && !string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Recovering, StringComparison.Ordinal)
-                && !string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Starting, StringComparison.Ordinal);
+            return snapshot.LifecycleState is not IpcEditorLifecycleState.DomainReloading
+                and not IpcEditorLifecycleState.Compiling
+                and not IpcEditorLifecycleState.Reimporting
+                and not IpcEditorLifecycleState.Recovering
+                and not IpcEditorLifecycleState.Starting;
+        }
+
+        private static string ToGenerationLiteral (int generation)
+        {
+            return generation.ToString(CultureInfo.InvariantCulture);
         }
 
         private static async Task<UnityEditorLifecycleSnapshot> WaitUntilCompileSettledAsync (
@@ -856,17 +862,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private bool hasStableSnapshot;
 
-            private string stableLifecycleState;
+            private IpcEditorLifecycleState stableLifecycleState;
 
-            private string stableBlockingReason;
+            private IpcCompileState stableCompileState;
 
-            private string stableCompileState;
+            private int stableCompileGeneration;
 
-            private string stableCompileGeneration;
-
-            private string stableDomainReloadGeneration;
-
-            private bool stableCanAcceptExecutionRequests;
+            private int stableDomainReloadGeneration;
 
             public bool Observe (UnityEditorLifecycleSnapshot snapshot)
             {
@@ -888,35 +890,29 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private bool MatchesStableSnapshot (UnityEditorLifecycleSnapshot snapshot)
             {
-                return string.Equals(stableLifecycleState, snapshot.LifecycleState, StringComparison.Ordinal)
-                    && string.Equals(stableBlockingReason, snapshot.BlockingReason, StringComparison.Ordinal)
-                    && string.Equals(stableCompileState, snapshot.CompileState, StringComparison.Ordinal)
-                    && string.Equals(stableCompileGeneration, snapshot.CompileGeneration, StringComparison.Ordinal)
-                    && string.Equals(stableDomainReloadGeneration, snapshot.DomainReloadGeneration, StringComparison.Ordinal)
-                    && stableCanAcceptExecutionRequests == snapshot.CanAcceptExecutionRequests;
+                return stableLifecycleState == snapshot.LifecycleState
+                    && stableCompileState == snapshot.CompileState
+                    && stableCompileGeneration == snapshot.CompileGeneration
+                    && stableDomainReloadGeneration == snapshot.DomainReloadGeneration;
             }
 
             private void CaptureStableSnapshot (UnityEditorLifecycleSnapshot snapshot)
             {
                 hasStableSnapshot = true;
                 stableLifecycleState = snapshot.LifecycleState;
-                stableBlockingReason = snapshot.BlockingReason;
                 stableCompileState = snapshot.CompileState;
                 stableCompileGeneration = snapshot.CompileGeneration;
                 stableDomainReloadGeneration = snapshot.DomainReloadGeneration;
-                stableCanAcceptExecutionRequests = snapshot.CanAcceptExecutionRequests;
             }
 
             private void Reset ()
             {
                 stableUpdates = 0;
                 hasStableSnapshot = false;
-                stableLifecycleState = null;
-                stableBlockingReason = null;
-                stableCompileState = null;
-                stableCompileGeneration = null;
-                stableDomainReloadGeneration = null;
-                stableCanAcceptExecutionRequests = false;
+                stableLifecycleState = default;
+                stableCompileState = default;
+                stableCompileGeneration = default;
+                stableDomainReloadGeneration = default;
             }
         }
 

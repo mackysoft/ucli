@@ -32,9 +32,8 @@ internal static class DaemonExistingSessionGateServiceTestSupport
             ProcessId: session.ProcessId!.Value,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
             EditorMode: session.EditorMode,
-            LifecycleState: IpcEditorLifecycleStateCodec.Recovering,
-            BlockingReason: IpcEditorBlockingReasonCodec.Recovery,
-            CompileState: IpcCompileStateCodec.Ready,
+            LifecycleState: IpcEditorLifecycleState.Recovering,
+            CompileState: IpcCompileState.Ready,
             CompileGeneration: "1",
             DomainReloadGeneration: "2",
             ObservedAtUtc: DateTimeOffset.UtcNow,
@@ -90,7 +89,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
             EditorMode: "batchmode",
             UnityVersion: "2022.3.0f1",
             ProjectFingerprint: "fingerprint",
-            CompileState: IpcCompileStateCodec.Ready,
+            CompileState: "ready",
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,
             CompileGeneration: "1",
@@ -101,7 +100,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
     public static IpcPingResponse CreateReadyPingResponse ()
     {
         return CreatePingResponse(
-            IpcEditorLifecycleStateCodec.Ready,
+            "ready",
             null,
             true);
     }

@@ -1,10 +1,7 @@
-using System.Globalization;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor;
 using UnityEditor.Compilation;
-
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -82,16 +79,16 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <summary> Gets the current compile-generation counter. </summary>
-        public string CompileGeneration => Volatile.Read(ref compileGeneration).ToString(CultureInfo.InvariantCulture);
+        public int CompileGeneration => Volatile.Read(ref compileGeneration);
 
         /// <summary> Gets the current domain-reload generation counter. </summary>
-        public string DomainReloadGeneration => Volatile.Read(ref domainReloadGeneration).ToString(CultureInfo.InvariantCulture);
+        public int DomainReloadGeneration => Volatile.Read(ref domainReloadGeneration);
 
         /// <summary> Gets the current asset-refresh generation counter. </summary>
-        public string AssetRefreshGeneration => Volatile.Read(ref assetRefreshGeneration).ToString(CultureInfo.InvariantCulture);
+        public int AssetRefreshGeneration => Volatile.Read(ref assetRefreshGeneration);
 
         /// <summary> Gets the current Play Mode generation counter. </summary>
-        public string PlayModeGeneration => Volatile.Read(ref playModeGeneration).ToString(CultureInfo.InvariantCulture);
+        public int PlayModeGeneration => Volatile.Read(ref playModeGeneration);
 
         /// <summary> Gets a value indicating whether the latest completed script compilation failed. </summary>
         public bool HasCompileFailure => hasCompileFailure;
@@ -103,8 +100,8 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="isPlaymodeActive"> Whether Play Mode is active or about to activate. </param>
         /// <param name="isCompiling"> Whether script compilation is in progress. </param>
         /// <param name="isUpdating"> Whether editor import/update work is in progress. </param>
-        /// <returns> The canonical lifecycle-state literal. </returns>
-        public string ResolveLifecycleState (
+        /// <returns> The lifecycle state. </returns>
+        public IpcEditorLifecycleState ResolveLifecycleState (
             bool isPlaymodeActive,
             bool isCompiling,
             bool isUpdating)
@@ -124,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="isPlaying"> Whether Unity reports active Play Mode. </param>
         /// <param name="isPlayingOrWillChangePlaymode"> Whether Unity reports active or pending Play Mode. </param>
         /// <returns> The current Play Mode subsystem snapshot. </returns>
-        public IpcPlayModeSnapshot CapturePlayModeSnapshot (
+        public UnityEditorPlayModeSnapshot CapturePlayModeSnapshot (
             bool isPlaying,
             bool isPlayingOrWillChangePlaymode)
         {
@@ -135,9 +132,9 @@ namespace MackySoft.Ucli.Unity.Runtime
                 ObserveStablePlayModeState(state, advanceWhenUnknown: false);
             }
 
-            return new IpcPlayModeSnapshot(
-                State: ContractLiteralCodec.ToValue(state),
-                Transition: ContractLiteralCodec.ToValue(transition),
+            return new UnityEditorPlayModeSnapshot(
+                State: state,
+                Transition: transition,
                 IsPlaying: isPlaying,
                 IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode,
                 Generation: PlayModeGeneration);

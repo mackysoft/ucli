@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -47,9 +48,9 @@ public sealed class IpcPlayContractSerializationTests
                 .HasString("editorMode", "gui")
                 .HasString("unityVersion", "6000.1.4f1")
                 .HasString("projectFingerprint", "project-fingerprint")
-                .HasString("lifecycleState", "ready")
-                .HasString("blockingReason", "none")
-                .HasString("compileState", "idle")
+                .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready))
+                .HasValueKind("blockingReason", JsonValueKind.Null)
+                .HasString("compileState", ContractLiteralCodec.ToValue(IpcCompileState.Ready))
                 .HasBoolean("canAcceptExecutionRequests", true)
                 .HasString("observedAtUtc", "2026-05-21T00:00:00+00:00")
                 .HasProperty("playMode", playMode => playMode
@@ -89,9 +90,9 @@ public sealed class IpcPlayContractSerializationTests
             EditorMode: "gui",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: "project-fingerprint",
-            LifecycleState: "ready",
-            BlockingReason: "none",
-            CompileState: "idle",
+            LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
+            BlockingReason: null,
+            CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Ready),
             CompileGeneration: "12",
             DomainReloadGeneration: "7",
             CanAcceptExecutionRequests: true,

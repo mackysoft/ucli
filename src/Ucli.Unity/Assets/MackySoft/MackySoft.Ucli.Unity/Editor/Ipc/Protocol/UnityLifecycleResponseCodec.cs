@@ -1,5 +1,5 @@
 using System;
-using MackySoft.Ucli.Contracts.Daemon;
+using System.Globalization;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Runtime;
@@ -29,16 +29,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                 EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
                 UnityVersion: unityVersion,
                 ProjectFingerprint: projectFingerprint,
-                CompileState: snapshot.CompileState,
-                LifecycleState: snapshot.LifecycleState,
-                BlockingReason: snapshot.BlockingReason,
-                CompileGeneration: snapshot.CompileGeneration,
-                DomainReloadGeneration: snapshot.DomainReloadGeneration,
+                CompileState: ContractLiteralCodec.ToValue(snapshot.CompileState),
+                LifecycleState: ContractLiteralCodec.ToValue(snapshot.LifecycleState),
+                BlockingReason: ToBlockingReasonLiteral(snapshot.BlockingReason),
+                CompileGeneration: snapshot.CompileGeneration.ToString(CultureInfo.InvariantCulture),
+                DomainReloadGeneration: snapshot.DomainReloadGeneration.ToString(CultureInfo.InvariantCulture),
                 CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests,
                 ObservedAtUtc: snapshot.ObservedAtUtc,
                 ActionRequired: snapshot.ActionRequired,
                 PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
-                PlayMode: snapshot.PlayMode);
+                PlayMode: CreatePlayModeSnapshot(snapshot.PlayMode));
         }
 
         /// <summary> Creates one Play Mode lifecycle snapshot from Unity editor environment values. </summary>
@@ -61,16 +61,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                 EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
                 UnityVersion: unityVersion,
                 ProjectFingerprint: projectFingerprint,
-                LifecycleState: snapshot.LifecycleState,
-                BlockingReason: snapshot.BlockingReason,
-                CompileState: snapshot.CompileState,
-                CompileGeneration: snapshot.CompileGeneration,
-                DomainReloadGeneration: snapshot.DomainReloadGeneration,
+                LifecycleState: ContractLiteralCodec.ToValue(snapshot.LifecycleState),
+                BlockingReason: ToBlockingReasonLiteral(snapshot.BlockingReason),
+                CompileState: ContractLiteralCodec.ToValue(snapshot.CompileState),
+                CompileGeneration: snapshot.CompileGeneration.ToString(CultureInfo.InvariantCulture),
+                DomainReloadGeneration: snapshot.DomainReloadGeneration.ToString(CultureInfo.InvariantCulture),
                 CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests,
                 ObservedAtUtc: snapshot.ObservedAtUtc,
                 ActionRequired: snapshot.ActionRequired,
                 PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
-                PlayMode: snapshot.PlayMode);
+                PlayMode: CreatePlayModeSnapshot(snapshot.PlayMode));
         }
 
         /// <summary> Creates one build lifecycle snapshot from Unity editor environment values. </summary>
@@ -93,17 +93,40 @@ namespace MackySoft.Ucli.Unity.Ipc
                 EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
                 UnityVersion: unityVersion,
                 ProjectFingerprint: projectFingerprint,
-                LifecycleState: snapshot.LifecycleState,
-                BlockingReason: snapshot.BlockingReason,
-                CompileState: snapshot.CompileState,
-                CompileGeneration: snapshot.CompileGeneration,
-                DomainReloadGeneration: snapshot.DomainReloadGeneration,
+                LifecycleState: ContractLiteralCodec.ToValue(snapshot.LifecycleState),
+                BlockingReason: ToBlockingReasonLiteral(snapshot.BlockingReason),
+                CompileState: ContractLiteralCodec.ToValue(snapshot.CompileState),
+                CompileGeneration: snapshot.CompileGeneration.ToString(CultureInfo.InvariantCulture),
+                DomainReloadGeneration: snapshot.DomainReloadGeneration.ToString(CultureInfo.InvariantCulture),
                 CanAcceptExecutionRequests: snapshot.CanAcceptExecutionRequests,
                 ObservedAtUtc: snapshot.ObservedAtUtc,
                 ActionRequired: snapshot.ActionRequired,
                 PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
-                PlayMode: snapshot.PlayMode,
-                AssetRefreshGeneration: snapshot.AssetRefreshGeneration);
+                PlayMode: CreatePlayModeSnapshot(snapshot.PlayMode),
+                AssetRefreshGeneration: snapshot.AssetRefreshGeneration.ToString(CultureInfo.InvariantCulture));
+        }
+
+        /// <summary> Projects one typed runtime Play Mode snapshot to its IPC representation. </summary>
+        public static IpcPlayModeSnapshot CreatePlayModeSnapshot (UnityEditorPlayModeSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                return null;
+            }
+
+            return new IpcPlayModeSnapshot(
+                State: ContractLiteralCodec.ToValue(snapshot.State),
+                Transition: ContractLiteralCodec.ToValue(snapshot.Transition),
+                IsPlaying: snapshot.IsPlaying,
+                IsPlayingOrWillChangePlaymode: snapshot.IsPlayingOrWillChangePlaymode,
+                Generation: snapshot.Generation.ToString(CultureInfo.InvariantCulture));
+        }
+
+        private static string ToBlockingReasonLiteral (IpcEditorBlockingReason? blockingReason)
+        {
+            return blockingReason.HasValue
+                ? ContractLiteralCodec.ToValue(blockingReason.Value)
+                : null;
         }
 
         private static void ValidateInputs (

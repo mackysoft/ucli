@@ -123,8 +123,7 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
     private bool IsValidLifecycleSnapshot (DaemonStartLifecycleSnapshotProgressEntry entry)
     {
         return HasExpectedEnvelope(entry.PayloadKind, DaemonStartProgressPayloadKind.LifecycleSnapshot, entry.ProjectFingerprint, entry.TimeoutMilliseconds, entry.EditorMode, entry.OnStartupBlocked)
-            && IpcEditorLifecycleStateCodec.TryParse(entry.LifecycleState, out var lifecycleState)
-            && string.Equals(entry.LifecycleState, lifecycleState, StringComparison.Ordinal)
+            && ContractLiteralCodec.TryParse<IpcEditorLifecycleState>(entry.LifecycleState, out _)
             && IsOptionalBlockingReason(entry.BlockingReason);
     }
 
@@ -157,8 +156,7 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
             return true;
         }
 
-        return IpcEditorBlockingReasonCodec.TryParse(value, out var blockingReason)
-            && string.Equals(value, blockingReason, StringComparison.Ordinal);
+        return ContractLiteralCodec.TryParse<IpcEditorBlockingReason>(value, out _);
     }
 
     private static bool IsBlankWhenPresent (string? value)

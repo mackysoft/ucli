@@ -75,7 +75,7 @@ internal static class ReadyServiceTestSupport
     }
 
     public static UnityRequestExecutionResult CreateReadyPingSuccess (
-        string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
+        string lifecycleState = "ready",
         bool canAcceptExecutionRequests = true,
         string projectFingerprint = "project-fingerprint")
     {
@@ -89,7 +89,7 @@ internal static class ReadyServiceTestSupport
     }
 
     public static IpcPingResponse CreateReadyPingResponse (
-        string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
+        string lifecycleState = "ready",
         bool canAcceptExecutionRequests = true,
         string projectFingerprint = "project-fingerprint")
     {
@@ -100,7 +100,7 @@ internal static class ReadyServiceTestSupport
             ProjectFingerprint: projectFingerprint,
             CompileState: "ready",
             LifecycleState: lifecycleState,
-            BlockingReason: lifecycleState == IpcEditorLifecycleStateCodec.Ready ? null : "compileFailed",
+            BlockingReason: lifecycleState == "ready" ? null : "compileFailed",
             CompileGeneration: "12",
             DomainReloadGeneration: "7",
             CanAcceptExecutionRequests: canAcceptExecutionRequests,

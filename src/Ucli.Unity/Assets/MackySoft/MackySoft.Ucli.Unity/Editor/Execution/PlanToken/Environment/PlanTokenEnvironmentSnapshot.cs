@@ -1,5 +1,7 @@
 #nullable enable
 
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Unity.Execution.PlanToken
 {
     /// <summary> Represents one captured runtime snapshot used by plan-token workflows. </summary>
@@ -14,6 +16,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         string RepositoryRoot,
         string ProjectFingerprint,
         string UnityVersion,
-        string CompileState,
-        string DomainReloadGeneration);
+        IpcCompileState CompileState,
+        int DomainReloadGeneration);
 }

@@ -11,10 +11,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenEditorModeIsSpecified_PassesNormalizedValueToStartOperation ()
     {
-        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
-            CanAcceptExecutionRequests: false);
+        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(IpcEditorLifecycleState.Compiling);
         var startOperation = new RecordingDaemonStartOperation
         {
             StartResult = DaemonStartResult.AlreadyRunning(
@@ -79,10 +76,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             endpointAddress: "/tmp/ucli.sock",
             processId: 42,
             ownerProcessId: 24);
-        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
-            null,
-            CanAcceptExecutionRequests: true);
+        var lifecycleSnapshot = new DaemonStartLifecycleSnapshot(IpcEditorLifecycleState.Ready);
         var startOperation = new RecordingDaemonStartOperation
         {
             StartResult = DaemonStartResult.Attached(session, lifecycleSnapshot),

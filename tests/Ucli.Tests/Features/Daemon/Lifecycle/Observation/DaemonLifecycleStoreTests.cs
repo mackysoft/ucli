@@ -9,6 +9,92 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonLifecycleStoreTests
 {
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null)]
+    [InlineData(IpcEditorBlockingReason.Startup)]
+    public async Task Read_WhenBlockingReasonDoesNotMatchLifecycleState_ReturnsInvalidArgument (
+        IpcEditorBlockingReason? blockingReason)
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "inconsistent-blocking-reason");
+        var store = new DaemonLifecycleStore();
+        await WriteContractAsync(
+            scope.FullPath,
+            "fingerprint-invalid",
+            CreateContract() with
+            {
+                BlockingReason = blockingReason.HasValue
+                    ? ContractLiteralCodec.ToValue(blockingReason.Value)
+                    : null,
+            });
+
+        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("blockingReason", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenBlockingReasonIsNotCanonical_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "noncanonical-blocking-reason");
+        var store = new DaemonLifecycleStore();
+        await WriteContractAsync(
+            scope.FullPath,
+            "fingerprint-invalid",
+            CreateContract() with
+            {
+                BlockingReason = $" {ContractLiteralCodec.ToValue(IpcEditorBlockingReason.CompileFailed)} ",
+            });
+
+        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("blockingReason", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenExplicitCanAcceptExecutionRequestsDoesNotMatchLifecycleState_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "inconsistent-request-acceptance");
+        var store = new DaemonLifecycleStore();
+        await WriteContractAsync(
+            scope.FullPath,
+            "fingerprint-invalid",
+            CreateContract() with
+            {
+                CanAcceptExecutionRequests = true,
+            });
+
+        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("canAcceptExecutionRequests", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Read_WhenCanAcceptExecutionRequestsIsOmitted_UsesLifecycleSemantics ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "derived-request-acceptance");
+        var store = new DaemonLifecycleStore();
+        await WriteContractAsync(scope.FullPath, "fingerprint-valid", CreateContract());
+
+        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-valid", CancellationToken.None);
+
+        Assert.True(readResult.IsSuccess);
+        Assert.Equal(IpcEditorBlockingReason.CompileFailed, readResult.Observation!.BlockingReason);
+        Assert.False(readResult.Observation.CanAcceptExecutionRequests);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task Read_WhenLifecycleJsonContainsInvalidActionRequired_ReturnsInvalidArgument ()
@@ -151,9 +237,9 @@ public sealed class DaemonLifecycleStoreTests
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
             EditorMode: "gui",
-            LifecycleState: IpcEditorLifecycleStateCodec.CompileFailed,
-            BlockingReason: null,
-            CompileState: IpcCompileStateCodec.Failed,
+            LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.CompileFailed),
+            BlockingReason: ContractLiteralCodec.ToValue(IpcEditorBlockingReason.CompileFailed),
+            CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Failed),
             CompileGeneration: "compile-1",
             DomainReloadGeneration: "reload-1",
             ObservedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),

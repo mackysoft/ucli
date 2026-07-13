@@ -30,9 +30,9 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
                 EditorMode: "batchmode",
                 UnityVersion: "6000.1.4f1",
                 ProjectFingerprint: "project-fingerprint",
-                CompileState: IpcCompileStateCodec.Compiling,
-                LifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
-                BlockingReason: IpcEditorBlockingReasonCodec.DomainReload,
+                CompileState: "compiling",
+                LifecycleState: "domainReloading",
+                BlockingReason: "domainReload",
                 CompileGeneration: "7",
                 DomainReloadGeneration: "11",
                 CanAcceptExecutionRequests: false));
@@ -51,9 +51,9 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal("9.9.9", output.ServerVersion);
         Assert.Equal("batchmode", output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleStateCodec.DomainReloading, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.DomainReload, output.BlockingReason);
-        Assert.Equal(IpcCompileStateCodec.Compiling, output.CompileState);
+        Assert.Equal("domainReloading", output.LifecycleState);
+        Assert.Equal("domainReload", output.BlockingReason);
+        Assert.Equal("compiling", output.CompileState);
         Assert.Equal("7", output.CompileGeneration);
         Assert.Equal("11", output.DomainReloadGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
@@ -85,12 +85,12 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
                 EditorMode: "gui",
                 UnityVersion: "6000.1.4f1",
                 ProjectFingerprint: "project-fingerprint",
-                CompileState: IpcCompileStateCodec.Ready,
-                LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
-                BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
+                CompileState: "ready",
+                LifecycleState: "playmode",
+                BlockingReason: "playMode",
                 CompileGeneration: "8",
                 DomainReloadGeneration: "12",
-                CanAcceptExecutionRequests: true));
+                CanAcceptExecutionRequests: false));
         var service = CreateService(
             resolver,
             daemonStatusOperation,
@@ -104,8 +104,8 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal("gui", output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, output.BlockingReason);
+        Assert.Equal("playmode", output.LifecycleState);
+        Assert.Equal("playMode", output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.NotNull(output.Session);
         Assert.Equal("gui", output.Session.EditorMode);
@@ -135,7 +135,7 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Unavailable, output.LifecycleState);
+        Assert.Equal("unavailable", output.LifecycleState);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(result.Error);
         DaemonStatusServiceInvocationAssert.DaemonPingTelemetryRead(

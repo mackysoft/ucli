@@ -123,20 +123,45 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             return false;
         }
 
-        if (!IpcEditorLifecycleStateCodec.TryParse(contract.LifecycleState, out var lifecycleState))
+        if (!ContractLiteralCodec.TryParse<IpcEditorLifecycleState>(contract.LifecycleState, out var lifecycleState))
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle lifecycleState is invalid: {path}.");
             return false;
         }
 
-        var blockingReason = StringValueNormalizer.TrimToNull(contract.BlockingReason);
-        if (blockingReason is not null && !IpcEditorBlockingReasonCodec.TryParse(blockingReason, out blockingReason))
+        IpcEditorBlockingReason? blockingReason = null;
+        if (contract.BlockingReason is not null)
         {
-            error = ExecutionError.InvalidArgument($"Daemon lifecycle blockingReason is invalid: {path}.");
+            if (!ContractLiteralCodec.TryParse<IpcEditorBlockingReason>(contract.BlockingReason, out var parsedBlockingReason))
+            {
+                error = ExecutionError.InvalidArgument($"Daemon lifecycle blockingReason is invalid: {path}.");
+                return false;
+            }
+
+            blockingReason = parsedBlockingReason;
+        }
+
+        var expectedBlockingReason = IpcEditorLifecycleSemantics.ResolveBlockingReason(lifecycleState);
+        if (blockingReason != expectedBlockingReason)
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Daemon lifecycle blockingReason is inconsistent with lifecycleState: {path}.");
             return false;
         }
 
-        if (!IpcCompileStateCodec.TryParse(contract.CompileState, out var compileState))
+        var canAcceptExecutionRequests = contract.CanAcceptExecutionRequests
+            ?? IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleState);
+        if (!IpcEditorLifecycleSemantics.IsConsistent(
+                lifecycleState,
+                blockingReason,
+                canAcceptExecutionRequests))
+        {
+            error = ExecutionError.InvalidArgument(
+                $"Daemon lifecycle canAcceptExecutionRequests is inconsistent with lifecycleState: {path}.");
+            return false;
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcCompileState>(contract.CompileState, out var compileState))
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle compileState is invalid: {path}.");
             return false;
@@ -169,9 +194,8 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             ProcessId: processId,
             ProcessStartedAtUtc: processStartedAtUtc,
             EditorMode: ContractLiteralCodec.ToValue(editorMode),
-            LifecycleState: lifecycleState!,
-            BlockingReason: blockingReason,
-            CompileState: compileState!,
+            LifecycleState: lifecycleState,
+            CompileState: compileState,
             CompileGeneration: StringValueNormalizer.TrimToNull(contract.CompileGeneration),
             DomainReloadGeneration: StringValueNormalizer.TrimToNull(contract.DomainReloadGeneration),
             ObservedAtUtc: observedAtUtc,
@@ -179,8 +203,6 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             PrimaryDiagnostic: primaryDiagnostic)
         {
             ServerVersion = StringValueNormalizer.TrimToNull(contract.ServerVersion),
-            CanAcceptExecutionRequests = contract.CanAcceptExecutionRequests
-                ?? string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal),
             EditorInstanceId = StringValueNormalizer.TrimToNull(contract.EditorInstanceId),
             PlayMode = playMode,
         };

@@ -37,9 +37,6 @@ internal static class DaemonGuiEditorAttachServiceTestSupport
 
     public static DaemonStartLifecycleSnapshot CreateReadyLifecycleSnapshot ()
     {
-        return new DaemonStartLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
-            null,
-            CanAcceptExecutionRequests: true);
+        return new DaemonStartLifecycleSnapshot(IpcEditorLifecycleState.Ready);
     }
 }

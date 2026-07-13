@@ -74,9 +74,7 @@ internal static class PlayStatusServiceTestSupport
 
     public static DaemonLifecycleObservation CreateLifecycleObservation (
         DaemonSession session,
-        string lifecycleState = IpcEditorLifecycleStateCodec.Playmode,
-        string? blockingReason = IpcEditorBlockingReasonCodec.PlayMode,
-        bool canAcceptExecutionRequests = false,
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.PlayMode,
         string playModeState = "playing",
         bool isPlaying = true,
         bool isPlayingOrWillChangePlaymode = true)
@@ -86,8 +84,7 @@ internal static class PlayStatusServiceTestSupport
             ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
             EditorMode: "gui",
             LifecycleState: lifecycleState,
-            BlockingReason: blockingReason,
-            CompileState: IpcCompileStateCodec.Ready,
+            CompileState: IpcCompileState.Ready,
             CompileGeneration: "12",
             DomainReloadGeneration: "7",
             ObservedAtUtc: ObservedAtUtc,
@@ -95,7 +92,6 @@ internal static class PlayStatusServiceTestSupport
             PrimaryDiagnostic: null)
         {
             ServerVersion = "0.5.0",
-            CanAcceptExecutionRequests = canAcceptExecutionRequests,
             EditorInstanceId = session.EditorInstanceId,
             PlayMode = new IpcPlayModeSnapshot(
                 State: playModeState,
@@ -115,9 +111,9 @@ internal static class PlayStatusServiceTestSupport
             EditorMode: "gui",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: projectFingerprint,
-            LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-            BlockingReason: "none",
-            CompileState: IpcCompileStateCodec.Ready,
+            LifecycleState: "ready",
+            BlockingReason: null,
+            CompileState: "ready",
             CompileGeneration: "12",
             DomainReloadGeneration: "7",
             CanAcceptExecutionRequests: true,

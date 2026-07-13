@@ -42,8 +42,8 @@ public sealed class StatusDaemonObservationCodecTests
             UnityVersion: "2022.3.5f1",
             ProjectFingerprint: "project-fingerprint",
             CompileState: compileState,
-            LifecycleState: " ready ",
-            BlockingReason: " busy ",
+            LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
+            BlockingReason: null,
             CompileGeneration: " 42 ",
             DomainReloadGeneration: " 17 ",
             CanAcceptExecutionRequests: true,
@@ -125,7 +125,7 @@ public sealed class StatusDaemonObservationCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CreateFromPing_WhenLifecycleStateIsReady_ClearsBlockingReason ()
+    public void CreateFromPing_WhenLifecycleTupleIsInconsistent_ClearsLifecycleReadinessFields ()
     {
         var pingResponse = new IpcPingResponse(
             ServerVersion: "0.5.0",
@@ -143,8 +143,8 @@ public sealed class StatusDaemonObservationCodecTests
             DaemonStatusKind.Running,
             pingResponse);
 
-        Assert.Equal("ready", actual.LifecycleState);
+        Assert.Null(actual.LifecycleState);
         Assert.Null(actual.BlockingReason);
-        Assert.True(actual.CanAcceptExecutionRequests);
+        Assert.False(actual.CanAcceptExecutionRequests);
     }
 }

@@ -18,9 +18,15 @@ internal static class ReadyLifecycleOutputFactory
             ServerVersion: projection.ServerVersion,
             UnityVersion: projection.UnityVersion,
             EditorMode: projection.EditorMode,
-            LifecycleState: projection.LifecycleState,
-            BlockingReason: projection.BlockingReason,
-            CompileState: projection.CompileState,
+            LifecycleState: projection.LifecycleState.HasValue
+                ? ContractLiteralCodec.ToValue(projection.LifecycleState.Value)
+                : null,
+            BlockingReason: projection.BlockingReason.HasValue
+                ? ContractLiteralCodec.ToValue(projection.BlockingReason.Value)
+                : null,
+            CompileState: projection.CompileState.HasValue
+                ? ContractLiteralCodec.ToValue(projection.CompileState.Value)
+                : null,
             CompileGeneration: projection.CompileGeneration,
             DomainReloadGeneration: projection.DomainReloadGeneration,
             CanAcceptExecutionRequests: projection.CanAcceptExecutionRequests,

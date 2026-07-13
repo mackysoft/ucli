@@ -15,7 +15,7 @@ internal static class PlayCommandOutputTestData
 
     public const string ProjectFingerprint = "project-fingerprint";
 
-    public const string CompileState = "ready";
+    public static string CompileState { get; } = ContractLiteralCodec.ToValue(IpcCompileState.Ready);
 
     public const string CompileGeneration = "12";
 
@@ -30,8 +30,8 @@ internal static class PlayCommandOutputTestData
     }
 
     public static IpcPlayLifecycleSnapshot CreateLifecycleSnapshot (
-        string lifecycleState,
-        string? blockingReason,
+        IpcEditorLifecycleState lifecycleState,
+        IpcEditorBlockingReason? blockingReason,
         bool canAcceptExecutionRequests,
         IpcPlayModeSnapshot playMode)
     {
@@ -40,8 +40,10 @@ internal static class PlayCommandOutputTestData
             EditorMode: "gui",
             UnityVersion: UnityVersion,
             ProjectFingerprint: ProjectFingerprint,
-            LifecycleState: lifecycleState,
-            BlockingReason: blockingReason,
+            LifecycleState: ContractLiteralCodec.ToValue(lifecycleState),
+            BlockingReason: blockingReason.HasValue
+                ? ContractLiteralCodec.ToValue(blockingReason.Value)
+                : null,
             CompileState: CompileState,
             CompileGeneration: CompileGeneration,
             DomainReloadGeneration: DomainReloadGeneration,

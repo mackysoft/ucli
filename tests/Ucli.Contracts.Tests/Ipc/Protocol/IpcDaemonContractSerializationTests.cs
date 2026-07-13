@@ -48,7 +48,7 @@ public sealed class IpcDaemonContractSerializationTests
                 120000,
                 ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
                 ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Terminate),
-                IpcEditorLifecycleStateCodec.Ready,
+                ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
                 null,
                 true));
 

@@ -31,8 +31,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 isUpdating: false,
                 isRecoveringPending: false);
 
-            Assert.That(first, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
-            Assert.That(second, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+            Assert.That(first, Is.EqualTo(IpcEditorLifecycleState.Starting));
+            Assert.That(second, Is.EqualTo(IpcEditorLifecycleState.Starting));
             Assert.That(isStartupPending, Is.True);
         }
 
@@ -61,8 +61,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 isUpdating: false,
                 isRecoveringPending: false);
 
-            Assert.That(compiling, Is.EqualTo(IpcEditorLifecycleStateCodec.Compiling));
-            Assert.That(starting, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
+            Assert.That(compiling, Is.EqualTo(IpcEditorLifecycleState.Compiling));
+            Assert.That(starting, Is.EqualTo(IpcEditorLifecycleState.Starting));
         }
 
         [Test]
@@ -81,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isUpdating: true,
                 isRecoveringPending: true);
 
-            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.ShuttingDown));
+            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleState.ShuttingDown));
             Assert.That(isStartupPending, Is.True);
         }
 
@@ -99,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isUpdating: true,
                 isRecoveringPending: true);
 
-            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.DomainReloading));
+            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleState.DomainReloading));
         }
 
         [Test]
@@ -116,7 +116,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isUpdating: true,
                 isRecoveringPending: true);
 
-            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.CompileFailed));
+            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleState.CompileFailed));
         }
 
         [Test]
@@ -133,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isUpdating: true,
                 isRecoveringPending: false);
 
-            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.Reimporting));
+            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleState.Reimporting));
         }
 
         [Test]
@@ -150,7 +150,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 isUpdating: false,
                 isRecoveringPending: true);
 
-            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleStateCodec.Recovering));
+            Assert.That(actual, Is.EqualTo(IpcEditorLifecycleState.Recovering));
         }
 
         [Test]
@@ -177,8 +177,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 isCompiling: false,
                 isUpdating: false);
 
-            Assert.That(beforeUpdate, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
-            Assert.That(afterUpdate, Is.EqualTo(IpcEditorLifecycleStateCodec.Ready));
+            Assert.That(beforeUpdate, Is.EqualTo(IpcEditorLifecycleState.Starting));
+            Assert.That(afterUpdate, Is.EqualTo(IpcEditorLifecycleState.Ready));
         }
 
         [Test]
@@ -205,8 +205,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 isCompiling: false,
                 isUpdating: false);
 
-            Assert.That(beforeUpdate, Is.EqualTo(IpcEditorLifecycleStateCodec.Starting));
-            Assert.That(afterUpdate, Is.EqualTo(IpcEditorLifecycleStateCodec.Playmode));
+            Assert.That(beforeUpdate, Is.EqualTo(IpcEditorLifecycleState.Starting));
+            Assert.That(afterUpdate, Is.EqualTo(IpcEditorLifecycleState.PlayMode));
         }
     }
 }

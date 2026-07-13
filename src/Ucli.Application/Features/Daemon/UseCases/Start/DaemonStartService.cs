@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 
@@ -169,8 +170,10 @@ internal sealed class DaemonStartService : IDaemonStartService
             DaemonStatus: DaemonStatusKind.Running,
             TimeoutMilliseconds: effectiveTimeoutMilliseconds,
             Session: daemonSessionOutputMapper.ToOutput(startResult.Session!),
-            LifecycleState: lifecycleSnapshot.LifecycleState,
-            BlockingReason: lifecycleSnapshot.BlockingReason,
+            LifecycleState: ContractLiteralCodec.ToValue(lifecycleSnapshot.LifecycleState),
+            BlockingReason: lifecycleSnapshot.BlockingReason.HasValue
+                ? ContractLiteralCodec.ToValue(lifecycleSnapshot.BlockingReason.Value)
+                : null,
             CanAcceptExecutionRequests: lifecycleSnapshot.CanAcceptExecutionRequests);
         var success = DaemonStartExecutionResult.Success(output);
         await EmitProgressOutsideBudgetAsync(

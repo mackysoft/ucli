@@ -39,8 +39,8 @@ internal static class PlayExitServiceTestSupport
 
     public static IpcPlayTransitionResponse CreateExitedResponse ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
-        var after = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("3"));
+        var before = CreateSnapshot("playmode", "playMode", false, CreatePlayingPlayMode("2"));
+        var after = CreateSnapshot("ready", null, true, CreateStoppedPlayMode("3"));
         return new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.Exited,
@@ -64,7 +64,7 @@ internal static class PlayExitServiceTestSupport
             ProjectFingerprint: projectFingerprint,
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason,
-            CompileState: IpcCompileStateCodec.Ready,
+            CompileState: "ready",
             CompileGeneration: "12",
             DomainReloadGeneration: "7",
             CanAcceptExecutionRequests: canAcceptExecutionRequests,

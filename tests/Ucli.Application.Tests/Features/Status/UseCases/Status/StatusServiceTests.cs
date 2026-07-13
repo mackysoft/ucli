@@ -246,7 +246,7 @@ public sealed class StatusServiceTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<StatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Unavailable, output.LifecycleState);
+        Assert.Equal("unavailable", output.LifecycleState);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(result.Error);
     }

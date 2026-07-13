@@ -4,9 +4,8 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Runtime;
-
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.Runtime;
 
 #nullable enable annotations
 
@@ -462,7 +461,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     out var playMode,
                     out var playModeState,
                     out var playModeTransition)
-                && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, StringComparison.Ordinal)
+                && ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.PlayMode)
                 && playModeState == IpcPlayModeState.Playing
                 && playModeTransition == IpcPlayModeTransition.None
                 && playMode.IsPlaying
@@ -483,7 +482,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     out var playMode,
                     out var playModeState,
                     out var playModeTransition)
-                && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
+                && ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.Ready)
                 && playModeState == IpcPlayModeState.Stopped
                 && playModeTransition == IpcPlayModeTransition.None
                 && !playMode.IsPlaying
@@ -519,8 +518,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool IsReadyOrPlayModeLifecycle (IpcPlayLifecycleSnapshot snapshot)
         {
-            return string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, StringComparison.Ordinal);
+            return ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.Ready)
+                || ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.PlayMode);
         }
 
         private static bool IsRecoverablePendingEnter (

@@ -14,8 +14,9 @@ using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Execution.Dispatch;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
@@ -631,21 +632,21 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.ServerVersion, Is.EqualTo(expectedServerVersion));
             Assert.That(Regex.IsMatch(payload.ServerVersion, "^[0-9]+\\.[0-9]+\\.[0-9]+(\\.[0-9]+)?$"), Is.True);
             Assert.That(
-                payload.CompileState == IpcCompileStateCodec.Ready
-                || payload.CompileState == IpcCompileStateCodec.Compiling,
+                ContractLiteralCodec.Matches(payload.CompileState, IpcCompileState.Ready)
+                || ContractLiteralCodec.Matches(payload.CompileState, IpcCompileState.Compiling),
                 Is.True);
             Assert.That(string.IsNullOrWhiteSpace(payload.LifecycleState), Is.False);
-            Assert.That(IpcEditorLifecycleStateCodec.TryParse(payload.LifecycleState, out _), Is.True);
+            Assert.That(ContractLiteralCodec.TryParse<IpcEditorLifecycleState>(payload.LifecycleState, out _), Is.True);
             if (!string.IsNullOrWhiteSpace(payload.BlockingReason))
             {
-                Assert.That(IpcEditorBlockingReasonCodec.TryParse(payload.BlockingReason, out _), Is.True);
+                Assert.That(ContractLiteralCodec.TryParse<IpcEditorBlockingReason>(payload.BlockingReason, out _), Is.True);
             }
 
             Assert.That(string.IsNullOrWhiteSpace(payload.CompileGeneration), Is.False);
             Assert.That(string.IsNullOrWhiteSpace(payload.DomainReloadGeneration), Is.False);
             Assert.That(
                 payload.CanAcceptExecutionRequests,
-                Is.EqualTo(string.Equals(payload.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)));
+                Is.EqualTo(ContractLiteralCodec.Matches(payload.LifecycleState, IpcEditorLifecycleState.Ready)));
         });
 
         [UnityTest]

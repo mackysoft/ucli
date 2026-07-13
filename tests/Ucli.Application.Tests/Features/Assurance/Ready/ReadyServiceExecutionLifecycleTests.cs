@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Ready;
 
@@ -49,7 +48,7 @@ public sealed class ReadyServiceExecutionLifecycleTests
                 daemonRunning: true,
                 UnityExecutionTarget.Daemon),
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(CreateReadyPingResponse(
-                lifecycleState: IpcEditorLifecycleStateCodec.CompileFailed,
+                lifecycleState: "compileFailed",
                 canAcceptExecutionRequests: false)));
 
         var result = await service.ExecuteAsync(CreateExecutionInput(UnityExecutionMode.Daemon, failFast: true));
@@ -98,7 +97,7 @@ public sealed class ReadyServiceExecutionLifecycleTests
                 daemonRunning: false,
                 UnityExecutionTarget.Oneshot),
             unityRequestExecutor: new RecordingUnityRequestExecutor(CreateReadyPingSuccess(
-                lifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
+                lifecycleState: "domainReloading",
                 canAcceptExecutionRequests: false)));
 
         var result = await service.ExecuteAsync(CreateExecutionInput());

@@ -32,9 +32,9 @@ public sealed class DaemonStatusCommandTests
                 DaemonStatus: DaemonStatusKind.Running,
                 ServerVersion: "0.0.2",
                 EditorMode: "gui",
-                LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
-                BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
-                CompileState: IpcCompileStateCodec.Ready,
+                LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode),
+                BlockingReason: ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode),
+                CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Ready),
                 CompileGeneration: "3",
                 DomainReloadGeneration: "5",
                 CanAcceptExecutionRequests: false,
@@ -69,8 +69,8 @@ public sealed class DaemonStatusCommandTests
             .HasProperty("payload", payload => payload
                 .HasString("daemonStatus", "running")
                 .HasString("editorMode", "gui")
-                .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Playmode)
-                .HasString("blockingReason", IpcEditorBlockingReasonCodec.PlayMode)
+                .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode))
+                .HasString("blockingReason", ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode))
                 .HasBoolean("canAcceptExecutionRequests", false)
                 .HasProperty("playMode", playMode => playMode
                     .HasString("state", "playing")

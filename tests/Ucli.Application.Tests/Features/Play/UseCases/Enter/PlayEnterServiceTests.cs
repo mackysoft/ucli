@@ -75,8 +75,8 @@ public sealed class PlayEnterServiceTests
         Assert.Equal(context.UnityProject.UnityProjectRoot, output.Project.ProjectPath);
         Assert.Equal("0.5.0", output.ServerVersion);
         Assert.Equal("gui", output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, output.BlockingReason);
+        Assert.Equal("playmode", output.LifecycleState);
+        Assert.Equal("playMode", output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Equal("playing", output.PlayMode.State);
         Assert.Equal("3", output.PlayMode.Generation);
@@ -116,7 +116,7 @@ public sealed class PlayEnterServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenAlreadyPlaying_ReturnsAlreadyEnteredWithoutGenerationChange ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayMode(
+        var before = CreateSnapshot("playmode", "playMode", false, CreatePlayMode(
             "playing",
             "none",
             isPlaying: true,
@@ -146,8 +146,8 @@ public sealed class PlayEnterServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenUnityReturnsTransitionTimeout_ReturnsFailureWithObservedPayload ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
-        var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayMode(
+        var before = CreateSnapshot("ready", null, true, CreateStoppedPlayMode("2"));
+        var observed = CreateSnapshot("playmode", "playMode", false, CreatePlayMode(
             "entering",
             "entering",
             isPlaying: false,
@@ -184,7 +184,7 @@ public sealed class PlayEnterServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenUnityReturnsBlockedTransition_ReturnsFailureWithObservedPayload ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Compiling, IpcEditorBlockingReasonCodec.Compile, false, CreateStoppedPlayMode("2"));
+        var before = CreateSnapshot("compiling", "compile", false, CreateStoppedPlayMode("2"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.Blocked,
@@ -206,7 +206,7 @@ public sealed class PlayEnterServiceTests
         Assert.NotNull(result.Output);
         Assert.Equal(IpcPlayTransitionResultNames.Blocked, result.Output!.Transition.Result);
         Assert.Equal(IpcPlayApplicationStateNames.NotApplied, result.Output.Transition.ApplicationState);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, result.Output.LifecycleState);
+        Assert.Equal("compiling", result.Output.LifecycleState);
     }
 
     [Fact]

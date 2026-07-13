@@ -19,7 +19,7 @@ internal sealed record UnityIpcDispatchRequest
     public UnityIpcDispatchRequest (
         string method,
         JsonElement payload,
-        IReadOnlyList<string>? allowedStartupLifecycleStates = null,
+        IReadOnlyList<IpcEditorLifecycleState>? allowedStartupLifecycleStates = null,
         bool isRecoverable = false,
         TimeSpan? recoverableResponseAttemptTimeout = null,
         IpcResponseMode responseMode = IpcResponseMode.Single,
@@ -47,7 +47,7 @@ internal sealed record UnityIpcDispatchRequest
 
         Method = method;
         Payload = payload;
-        AllowedStartupLifecycleStates = allowedStartupLifecycleStates ?? Array.Empty<string>();
+        AllowedStartupLifecycleStates = allowedStartupLifecycleStates ?? Array.Empty<IpcEditorLifecycleState>();
         IsRecoverable = isRecoverable;
         RecoverableResponseAttemptTimeout = recoverableResponseAttemptTimeout;
         ResponseMode = responseMode;
@@ -62,7 +62,7 @@ internal sealed record UnityIpcDispatchRequest
     public JsonElement Payload { get; }
 
     /// <summary> Gets lifecycle states where this request may be dispatched before normal readiness. </summary>
-    public IReadOnlyList<string> AllowedStartupLifecycleStates { get; }
+    public IReadOnlyList<IpcEditorLifecycleState> AllowedStartupLifecycleStates { get; }
 
     /// <summary> Gets whether daemon dispatch may replay this request with the same request id after endpoint recovery. </summary>
     public bool IsRecoverable { get; }

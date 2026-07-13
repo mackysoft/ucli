@@ -19,8 +19,8 @@ public sealed class UnityDaemonReadinessGateTests
     {
         var timeProvider = new ManualTimeProvider();
         var pingClient = new RecordingDaemonPingInfoClient(
-            CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false),
-            CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
+            CreatePingPayload(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Busy), false),
+            CreatePingPayload(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready), true));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
         var unityProject = CreateContext("wait-ready");
@@ -45,7 +45,9 @@ public sealed class UnityDaemonReadinessGateTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenFailFastBusyState_ReturnsEditorBusyWithoutDispatch ()
     {
-        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false));
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
+            ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Busy),
+            false));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
 
@@ -67,7 +69,9 @@ public sealed class UnityDaemonReadinessGateTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenDomainReloadingState_ReturnsEditorDomainReloadingWithoutDispatch ()
     {
-        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.DomainReloading, false));
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
+            ContractLiteralCodec.ToValue(IpcEditorLifecycleState.DomainReloading),
+            false));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
         var unityProject = CreateContext("domain-reloading");
@@ -93,7 +97,7 @@ public sealed class UnityDaemonReadinessGateTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(IpcPingResponseTestFactory.Create(
             editorMode: "gui",
-            lifecycleState: IpcEditorLifecycleStateCodec.Playmode,
+            lifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode),
             canAcceptExecutionRequests: false));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient);
@@ -121,7 +125,7 @@ public sealed class UnityDaemonReadinessGateTests
         var timeProvider = new ManualTimeProvider();
         var pingClient = new RecordingDaemonPingInfoClient(
             new TimeoutException("probe timed out"),
-            CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
+            CreatePingPayload(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready), true));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
         var unityProject = CreateContext("probe-timeout-ready");
@@ -218,8 +222,8 @@ public sealed class UnityDaemonReadinessGateTests
     public async Task Execute_WhenLateWaitableRegressionOccurs_RewaitsAndRedispatches ()
     {
         var pingClient = new RecordingDaemonPingInfoClient(
-            CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true),
-            CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
+            CreatePingPayload(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready), true),
+            CreatePingPayload(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready), true));
         var daemonClient = new RecordingUnityIpcClient(
             UnityRequestExecutionResult.Success(UnityRequestResponseTestFactory.Create(CreateErrorResponse(
                 EditorLifecycleErrorCodes.EditorBusy,
@@ -248,7 +252,9 @@ public sealed class UnityDaemonReadinessGateTests
         var timeProvider = new ManualTimeProvider();
         var budget = UnityIpcExecutionBudget.Start(TimeSpan.FromMilliseconds(100), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(120));
-        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
+        var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
+            ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
+            true));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
         var gate = new UnityDaemonReadinessGate(pingClient, timeProvider);
 

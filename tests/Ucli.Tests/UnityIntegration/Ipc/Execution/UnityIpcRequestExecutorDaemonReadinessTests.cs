@@ -22,8 +22,8 @@ public sealed class UnityIpcRequestExecutorDaemonReadinessTests
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token"));
         var readinessProbe = new RecordingDaemonPingInfoClient(
-            CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false),
-            CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
+            CreatePingPayload(IpcEditorLifecycleState.Busy, false),
+            CreatePingPayload(IpcEditorLifecycleState.Ready, true));
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var executor = CreateExecutor(
@@ -71,8 +71,8 @@ public sealed class UnityIpcRequestExecutorDaemonReadinessTests
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
         var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token"));
         var readinessProbe = new RecordingDaemonPingInfoClient(
-            CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true),
-            CreatePingPayload(IpcEditorLifecycleStateCodec.Ready, true));
+            CreatePingPayload(IpcEditorLifecycleState.Ready, true),
+            CreatePingPayload(IpcEditorLifecycleState.Ready, true));
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var executor = CreateExecutor(
@@ -110,7 +110,7 @@ public sealed class UnityIpcRequestExecutorDaemonReadinessTests
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
         var readinessProbe = new RecordingDaemonPingInfoClient(
-            CreatePingPayload(IpcEditorLifecycleStateCodec.Busy, false));
+            CreatePingPayload(IpcEditorLifecycleState.Busy, false));
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var executor = CreateExecutor(

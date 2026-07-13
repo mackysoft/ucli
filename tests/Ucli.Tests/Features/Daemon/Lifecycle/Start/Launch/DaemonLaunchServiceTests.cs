@@ -94,10 +94,8 @@ public sealed class DaemonLaunchServiceTests
         };
         var readinessProbe = new RecordingDaemonStartupReadinessProbe
         {
-            NextResult = DaemonStartupReadinessProbeResult.Ready(new DaemonStartLifecycleSnapshot(
-                IpcEditorLifecycleStateCodec.Ready,
-                null,
-                CanAcceptExecutionRequests: true)),
+            NextResult = DaemonStartupReadinessProbeResult.Ready(
+                new DaemonStartLifecycleSnapshot(IpcEditorLifecycleState.Ready)),
         };
         var progressObserver = new CollectingDaemonStartProgressObserver();
         var service = CreateService(
@@ -126,7 +124,7 @@ public sealed class DaemonLaunchServiceTests
         Assert.Equal("batchmode", waitingObservation.EditorMode);
         Assert.Equal(999, waitingObservation.ProcessId);
         var lifecycleSnapshot = progressObserver.PayloadAt<DaemonStartLifecycleSnapshot>(^1);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, lifecycleSnapshot.LifecycleState);
+        Assert.Equal(IpcEditorLifecycleState.Ready, lifecycleSnapshot.LifecycleState);
         Assert.True(lifecycleSnapshot.CanAcceptExecutionRequests);
     }
 

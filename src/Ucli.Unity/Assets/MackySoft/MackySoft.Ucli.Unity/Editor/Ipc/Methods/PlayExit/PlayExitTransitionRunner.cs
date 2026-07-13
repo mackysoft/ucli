@@ -4,9 +4,8 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Unity.Runtime;
-
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.Runtime;
 
 #nullable enable annotations
 
@@ -502,7 +501,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     out var playMode,
                     out var playModeState,
                     out var playModeTransition)
-                && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, StringComparison.Ordinal)
+                && ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.PlayMode)
                 && playModeState == IpcPlayModeState.Playing
                 && playModeTransition == IpcPlayModeTransition.None
                 && playMode.IsPlaying
@@ -519,7 +518,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static bool IsReadyStoppedSnapshot (IpcPlayLifecycleSnapshot snapshot)
         {
             return IsStoppedPlayModeSnapshot(snapshot)
-                && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
+                && ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.Ready)
                 && string.IsNullOrWhiteSpace(snapshot.BlockingReason)
                 && snapshot.CanAcceptExecutionRequests;
         }
@@ -566,14 +565,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool IsExitWaitLifecycle (IpcPlayLifecycleSnapshot snapshot)
         {
-            return string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, StringComparison.Ordinal)
-                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Starting, StringComparison.Ordinal)
-                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Recovering, StringComparison.Ordinal)
-                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Busy, StringComparison.Ordinal)
-                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Compiling, StringComparison.Ordinal)
-                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.DomainReloading, StringComparison.Ordinal)
-                || string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Reimporting, StringComparison.Ordinal);
+            return (ContractLiteralCodec.TryParse<IpcEditorLifecycleState>(snapshot.LifecycleState, out var lifecycleState)
+                    && UnityEditorExecutionReadinessPolicy.IsWaitableState(lifecycleState))
+                || ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.Ready)
+                || ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.PlayMode);
         }
 
         private static bool IsRecoverablePendingExit (

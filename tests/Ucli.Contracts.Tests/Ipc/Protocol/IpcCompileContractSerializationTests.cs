@@ -1,6 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -160,9 +161,9 @@ public sealed class IpcCompileContractSerializationTests
                 ServerVersion: "0.5.0",
                 UnityVersion: "6000.1.4f1",
                 EditorMode: "batchmode",
-                LifecycleState: "compileFailed",
-                BlockingReason: "compileFailed",
-                CompileState: "failed",
+                LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.CompileFailed),
+                BlockingReason: ContractLiteralCodec.ToValue(IpcEditorBlockingReason.CompileFailed),
+                CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Failed),
                 CompileGeneration: "14",
                 DomainReloadGeneration: "7",
                 CanAcceptExecutionRequests: false,

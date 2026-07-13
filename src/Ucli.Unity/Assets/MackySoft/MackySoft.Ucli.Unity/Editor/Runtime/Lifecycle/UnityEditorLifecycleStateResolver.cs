@@ -14,8 +14,8 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="hasCompileFailure"> Whether the latest completed script compilation failed. </param>
         /// <param name="isUpdating"> Whether editor update/import work is in progress. </param>
         /// <param name="isRecoveringPending"> Whether daemon endpoint recovery is still in progress. </param>
-        /// <returns> The canonical lifecycle-state literal. </returns>
-        public static string Resolve (
+        /// <returns> The lifecycle state. </returns>
+        public static IpcEditorLifecycleState Resolve (
             bool isStartupPending,
             bool isShuttingDown,
             bool isPlaymodeActive,
@@ -27,45 +27,45 @@ namespace MackySoft.Ucli.Unity.Runtime
         {
             if (isShuttingDown)
             {
-                return IpcEditorLifecycleStateCodec.ShuttingDown;
+                return IpcEditorLifecycleState.ShuttingDown;
             }
 
             if (isDomainReloading)
             {
-                return IpcEditorLifecycleStateCodec.DomainReloading;
+                return IpcEditorLifecycleState.DomainReloading;
             }
 
             if (isCompiling)
             {
-                return IpcEditorLifecycleStateCodec.Compiling;
+                return IpcEditorLifecycleState.Compiling;
             }
 
             if (hasCompileFailure)
             {
-                return IpcEditorLifecycleStateCodec.CompileFailed;
+                return IpcEditorLifecycleState.CompileFailed;
             }
 
             if (isUpdating)
             {
-                return IpcEditorLifecycleStateCodec.Reimporting;
+                return IpcEditorLifecycleState.Reimporting;
             }
 
             if (isRecoveringPending)
             {
-                return IpcEditorLifecycleStateCodec.Recovering;
+                return IpcEditorLifecycleState.Recovering;
             }
 
             if (isStartupPending)
             {
-                return IpcEditorLifecycleStateCodec.Starting;
+                return IpcEditorLifecycleState.Starting;
             }
 
             if (isPlaymodeActive)
             {
-                return IpcEditorLifecycleStateCodec.Playmode;
+                return IpcEditorLifecycleState.PlayMode;
             }
 
-            return IpcEditorLifecycleStateCodec.Ready;
+            return IpcEditorLifecycleState.Ready;
         }
     }
 }

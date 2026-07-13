@@ -113,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var asset = scope.CreateScriptableAsset<BuildPreconditionDirtyAsset>(nameof(UnityBuildPreconditionProbeTests), out var assetPath);
             var prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
             Assert.That(prefab, Is.Not.Null);
-            asset.Name = "Dirty";
+            asset.dirtyMarker = "Dirty";
             EditorUtility.SetDirty(asset);
             EditorUtility.SetDirty(prefab);
             var probe = CreateProbe();
@@ -425,21 +425,21 @@ namespace MackySoft.Ucli.Unity.Tests
             using var scope = new EditorTestScope().SuppressExistingPersistentDirtyObjects();
             var (scenePath, _) = CreateSavedScene(scope, "BuildPreconditionLifecycle", NewSceneMode.Single);
             var readinessGate = new MutableReadinessGate(CreateSnapshot(
-                compileGeneration: "compile-before",
-                domainReloadGeneration: "domain-before"));
+                compileGeneration: 11,
+                domainReloadGeneration: 12));
             var probe = CreateProbe(readinessGate);
 
             var beforeResult = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(scenePath), CancellationToken.None);
             readinessGate.Snapshot = CreateSnapshot(
-                compileGeneration: "compile-after",
-                domainReloadGeneration: "domain-after");
+                compileGeneration: 21,
+                domainReloadGeneration: 22);
             var after = probe.CaptureAfterBuild();
 
             Assert.That(beforeResult.IsSuccess, Is.True, beforeResult.Error?.Message);
-            Assert.That(beforeResult.LifecycleBefore.CompileGeneration, Is.EqualTo("compile-before"));
-            Assert.That(beforeResult.LifecycleBefore.DomainReloadGeneration, Is.EqualTo("domain-before"));
-            Assert.That(after.CompileGeneration, Is.EqualTo("compile-after"));
-            Assert.That(after.DomainReloadGeneration, Is.EqualTo("domain-after"));
+            Assert.That(beforeResult.LifecycleBefore.CompileGeneration, Is.EqualTo("11"));
+            Assert.That(beforeResult.LifecycleBefore.DomainReloadGeneration, Is.EqualTo("12"));
+            Assert.That(after.CompileGeneration, Is.EqualTo("21"));
+            Assert.That(after.DomainReloadGeneration, Is.EqualTo("22"));
             Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(1));
         }
 
@@ -450,8 +450,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var readinessError = new IpcError(UcliCoreErrorCodes.InternalError, "readiness blocked", null);
             var readinessGate = new MutableReadinessGate(
                 CreateSnapshot(
-                    compileGeneration: "compile-blocked",
-                    domainReloadGeneration: "domain-blocked"),
+                    compileGeneration: 31,
+                    domainReloadGeneration: 32),
                 readinessError);
             var targetSupportProbe = new CountingBuildTargetSupportProbe(
                 UnityBuildTargetSupportProbeResult.Resolved(
@@ -466,8 +466,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.SameAs(readinessError));
-            Assert.That(result.LifecycleBefore.CompileGeneration, Is.EqualTo("compile-blocked"));
-            Assert.That(result.LifecycleBefore.DomainReloadGeneration, Is.EqualTo("domain-blocked"));
+            Assert.That(result.LifecycleBefore.CompileGeneration, Is.EqualTo("31"));
+            Assert.That(result.LifecycleBefore.DomainReloadGeneration, Is.EqualTo("32"));
             Assert.That(result.DirtyState, Is.Null);
             Assert.That(result.InputProbe, Is.Null);
             Assert.That(result.ResolvedInput, Is.Null);
@@ -678,29 +678,27 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UnityEditorLifecycleSnapshot CreateSnapshot (
             DaemonEditorMode editorMode = DaemonEditorMode.Batchmode,
-            string compileGeneration = "compile-1",
-            string domainReloadGeneration = "domain-1")
+            int compileGeneration = 1,
+            int domainReloadGeneration = 1)
         {
             return new UnityEditorLifecycleSnapshot(
                 EditorMode: editorMode,
-                LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-                BlockingReason: null,
-                CompileState: IpcCompileStateCodec.Ready,
+                LifecycleState: IpcEditorLifecycleState.Ready,
+                CompileState: IpcCompileState.Ready,
                 CompileGeneration: compileGeneration,
                 DomainReloadGeneration: domainReloadGeneration,
-                CanAcceptExecutionRequests: true,
                 ObservedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                PlayMode: new IpcPlayModeSnapshot(
-                    State: "stopped",
-                    Transition: "none",
+                PlayMode: new UnityEditorPlayModeSnapshot(
+                    State: IpcPlayModeState.Stopped,
+                    Transition: IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false,
-                    Generation: "play-1"));
+                    Generation: 1));
         }
 
         private sealed class BuildPreconditionDirtyAsset : ScriptableObject
         {
-            public string Name = string.Empty;
+            public string dirtyMarker = string.Empty;
         }
 
         private sealed class MutableReadinessGate : IUnityEditorReadinessGate

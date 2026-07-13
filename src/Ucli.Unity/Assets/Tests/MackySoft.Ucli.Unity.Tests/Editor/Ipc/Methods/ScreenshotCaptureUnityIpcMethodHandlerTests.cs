@@ -155,8 +155,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     Width: 2,
                     Height: 1,
                     ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear),
-                    LifecycleStateAtCapture: IpcEditorLifecycleStateCodec.Ready,
-                    CompileStateAtCapture: IpcCompileStateCodec.Ready,
+                    LifecycleStateAtCapture: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
+                    CompileStateAtCapture: ContractLiteralCodec.ToValue(IpcCompileState.Ready),
                     DomainReloadGeneration: 4,
                     PlayModeState: ContractLiteralCodec.ToValue(IpcPlayModeState.Stopped)),
                 new IpcScreenshotStagingImage(

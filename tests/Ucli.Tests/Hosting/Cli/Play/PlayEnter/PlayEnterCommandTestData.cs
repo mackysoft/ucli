@@ -12,13 +12,13 @@ internal static class PlayEnterCommandTestData
         string applicationState = IpcPlayApplicationStateNames.Indeterminate)
     {
         var before = PlayCommandOutputTestData.CreateLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
+            IpcEditorLifecycleState.Ready,
             null,
             true,
             PlayCommandOutputTestData.CreatePlayMode("stopped", "none", false, false, "2"));
         var current = PlayCommandOutputTestData.CreateLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
+            IpcEditorLifecycleState.PlayMode,
+            IpcEditorBlockingReason.PlayMode,
             false,
             PlayCommandOutputTestData.CreatePlayMode("playing", "none", true, true, "3"));
         var transition = new PlayEnterTransitionOutput(
@@ -50,8 +50,8 @@ internal static class PlayEnterCommandTestData
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: PlayCommandOutputTestData.ServerVersion,
             EditorMode: "gui",
-            LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
-            BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
+            LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode),
+            BlockingReason: ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode),
             CompileState: PlayCommandOutputTestData.CompileState,
             CompileGeneration: PlayCommandOutputTestData.CompileGeneration,
             DomainReloadGeneration: PlayCommandOutputTestData.DomainReloadGeneration,

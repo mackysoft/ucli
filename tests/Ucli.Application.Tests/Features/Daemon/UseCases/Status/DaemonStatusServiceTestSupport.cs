@@ -56,8 +56,8 @@ internal static class DaemonStatusServiceTestSupport
             EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: "project-fingerprint",
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: IpcEditorLifecycleStateCodec.Ready,
+            CompileState: "ready",
+            LifecycleState: "ready",
             BlockingReason: null,
             CompileGeneration: "1",
             DomainReloadGeneration: "1",
@@ -70,9 +70,8 @@ internal static class DaemonStatusServiceTestSupport
             ProcessId: session.ProcessId!.Value,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
             EditorMode: session.EditorMode,
-            LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
-            BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
-            CompileState: IpcCompileStateCodec.Ready,
+            LifecycleState: IpcEditorLifecycleState.PlayMode,
+            CompileState: IpcCompileState.Ready,
             CompileGeneration: "12",
             DomainReloadGeneration: "7",
             ObservedAtUtc: DateTimeOffset.UtcNow,
@@ -80,7 +79,6 @@ internal static class DaemonStatusServiceTestSupport
             PrimaryDiagnostic: null)
         {
             ServerVersion = "0.5.0",
-            CanAcceptExecutionRequests = false,
             EditorInstanceId = session.EditorInstanceId,
             PlayMode = new IpcPlayModeSnapshot(
                 State: "playing",

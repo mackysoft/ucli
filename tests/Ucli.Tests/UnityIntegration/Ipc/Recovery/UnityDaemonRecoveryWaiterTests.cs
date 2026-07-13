@@ -17,7 +17,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var waiter = CreateWaiter(
             session,
-            CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading),
+            CreateObservation(session, IpcEditorLifecycleState.DomainReloading),
             DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
             timeProvider);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
@@ -53,7 +53,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
     {
         var timeProvider = new ManualTimeProvider();
         var session = DaemonSessionTestFactory.CreateEditorInstance();
-        var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading) with
+        var observation = CreateObservation(session, IpcEditorLifecycleState.DomainReloading) with
         {
             ProcessStartedAtUtc = session.ProcessStartedAtUtc!.Value.AddMilliseconds(1),
         };
@@ -78,7 +78,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
     {
         var timeProvider = new ManualTimeProvider();
         var session = DaemonSessionTestFactory.CreateEditorInstance();
-        var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading) with
+        var observation = CreateObservation(session, IpcEditorLifecycleState.DomainReloading) with
         {
             EditorInstanceId = "other-editor-instance",
         };
@@ -103,7 +103,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         {
             EditorInstanceId = null,
         };
-        var observation = CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading);
+        var observation = CreateObservation(session, IpcEditorLifecycleState.DomainReloading);
         var waiter = CreateWaiter(
             session,
             observation,
@@ -124,7 +124,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var waiter = CreateWaiter(
             session,
-            CreateObservation(session, IpcEditorLifecycleStateCodec.Recovering),
+            CreateObservation(session, IpcEditorLifecycleState.Recovering),
             DaemonProcessIdentityAssessmentStatus.DifferentProcess,
             timeProvider);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
@@ -142,7 +142,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var session = DaemonSessionTestFactory.CreateEditorInstance(editorMode: "batchmode");
         var waiter = CreateWaiter(
             session,
-            CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading),
+            CreateObservation(session, IpcEditorLifecycleState.DomainReloading),
             DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
             timeProvider);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
@@ -173,15 +173,14 @@ public sealed class UnityDaemonRecoveryWaiterTests
 
     private static DaemonLifecycleObservation CreateObservation (
         DaemonSession session,
-        string lifecycleState)
+        IpcEditorLifecycleState lifecycleState)
     {
         return new DaemonLifecycleObservation(
             ProcessId: session.ProcessId!.Value,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value,
             EditorMode: session.EditorMode,
             LifecycleState: lifecycleState,
-            BlockingReason: IpcEditorBlockingReasonCodec.DomainReload,
-            CompileState: IpcCompileStateCodec.Ready,
+            CompileState: IpcCompileState.Ready,
             CompileGeneration: "1",
             DomainReloadGeneration: "2",
             ObservedAtUtc: DateTimeOffset.UtcNow,

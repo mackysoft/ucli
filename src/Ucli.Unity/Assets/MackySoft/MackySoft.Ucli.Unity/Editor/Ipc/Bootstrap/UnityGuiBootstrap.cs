@@ -3,6 +3,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -11,8 +12,6 @@ using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
 using UnityEngine;
-
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -588,9 +587,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 var snapshot = capturedState.ReadinessGate.CaptureSnapshot() with
                 {
-                    LifecycleState = IpcEditorLifecycleStateCodec.Recovering,
-                    BlockingReason = UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(IpcEditorLifecycleStateCodec.Recovering),
-                    CanAcceptExecutionRequests = false,
+                    LifecycleState = IpcEditorLifecycleState.Recovering,
                     ObservedAtUtc = DateTimeOffset.UtcNow,
                 };
                 UnityLifecycleSidecarPersistence.Write(

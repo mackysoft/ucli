@@ -122,7 +122,7 @@ public sealed class PlayPayloadSchemaArtifactTests
               "editorMode": "gui",
               "lifecycleState": "ready",
               "blockingReason": null,
-              "compileState": "idle",
+              "compileState": "ready",
               "compileGeneration": "12",
               "domainReloadGeneration": "7",
               "canAcceptExecutionRequests": true,

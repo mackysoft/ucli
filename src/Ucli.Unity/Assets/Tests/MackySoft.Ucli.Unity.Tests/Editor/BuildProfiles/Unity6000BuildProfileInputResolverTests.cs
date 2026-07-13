@@ -91,8 +91,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var applyAudit = unityBuildProfile.ApplyAudit!;
                 Assert.That(applyAudit.Applied, Is.True);
-                Assert.That(applyAudit.LifecycleBefore.CompileGeneration, Is.EqualTo("build-profile-1-compile"));
-                Assert.That(applyAudit.LifecycleAfter.CompileGeneration, Is.EqualTo("build-profile-2-compile"));
+                Assert.That(applyAudit.LifecycleBefore.CompileGeneration, Is.EqualTo("11"));
+                Assert.That(applyAudit.LifecycleAfter.CompileGeneration, Is.EqualTo("21"));
                 Assert.That(applyAudit.LifecycleAfter.CompileGeneration, Is.Not.EqualTo(applyAudit.LifecycleBefore.CompileGeneration));
                 Assert.That(applyAudit.LifecycleAfter.DomainReloadGeneration, Is.Not.EqualTo(applyAudit.LifecycleBefore.DomainReloadGeneration));
                 Assert.That(applyAudit.LifecycleAfter.AssetRefreshGeneration, Is.Not.EqualTo(applyAudit.LifecycleBefore.AssetRefreshGeneration));
@@ -363,23 +363,21 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UnityEditorLifecycleSnapshot CreateLifecycleSnapshot (int captureIndex)
         {
-            var generation = "build-profile-" + captureIndex;
+            var generation = captureIndex * 10;
             return new UnityEditorLifecycleSnapshot(
                 EditorMode: DaemonEditorMode.Batchmode,
-                LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-                BlockingReason: null,
-                CompileState: IpcCompileStateCodec.Ready,
-                CompileGeneration: generation + "-compile",
-                DomainReloadGeneration: generation + "-domain",
-                CanAcceptExecutionRequests: true,
+                LifecycleState: IpcEditorLifecycleState.Ready,
+                CompileState: IpcCompileState.Ready,
+                CompileGeneration: generation + 1,
+                DomainReloadGeneration: generation + 2,
                 ObservedAtUtc: DateTimeOffset.Parse("2026-06-20T00:00:00+00:00"),
-                PlayMode: new IpcPlayModeSnapshot(
-                    State: "stopped",
-                    Transition: "none",
+                PlayMode: new UnityEditorPlayModeSnapshot(
+                    State: IpcPlayModeState.Stopped,
+                    Transition: IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false,
-                    Generation: generation + "-play"),
-                AssetRefreshGeneration: generation + "-asset");
+                    Generation: generation + 3),
+                AssetRefreshGeneration: generation + 4);
         }
 
         private sealed class CountingReadinessGate : IUnityEditorReadinessGate

@@ -10,8 +10,8 @@ public sealed class PlayExitServiceUnityFailureTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenUnityReturnsTransitionTimeout_ReturnsFailureWithObservedPayload ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
-        var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
+        var before = CreateSnapshot("playmode", "playMode", false, CreatePlayingPlayMode("2"));
+        var observed = CreateSnapshot("playmode", "playMode", false, new IpcPlayModeSnapshot(
             State: "exiting",
             Transition: "exiting",
             IsPlaying: true,
@@ -46,8 +46,8 @@ public sealed class PlayExitServiceUnityFailureTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenUnityReturnsAppliedBlockedTransition_ReturnsFailureWithoutAfter ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayingPlayMode("2"));
-        var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.SafeMode, IpcEditorBlockingReasonCodec.SafeMode, false, CreateStoppedPlayMode("3"));
+        var before = CreateSnapshot("playmode", "playMode", false, CreatePlayingPlayMode("2"));
+        var observed = CreateSnapshot("safeMode", "safeMode", false, CreateStoppedPlayMode("3"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Exit,
             IpcPlayTransitionResultNames.Blocked,
@@ -69,7 +69,7 @@ public sealed class PlayExitServiceUnityFailureTests
         Assert.NotNull(result.Output);
         Assert.Equal(IpcPlayApplicationStateNames.Applied, result.Output!.Transition.ApplicationState);
         Assert.Null(result.Output.Transition.After);
-        Assert.Equal(IpcEditorLifecycleStateCodec.SafeMode, result.Output.LifecycleState);
+        Assert.Equal("safeMode", result.Output.LifecycleState);
     }
 
     [Fact]

@@ -25,8 +25,8 @@ public sealed class IpcScreenshotContractSerializationTests
                 Width: 1920,
                 Height: 1080,
                 ColorSpace: ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear),
-                LifecycleStateAtCapture: "ready",
-                CompileStateAtCapture: IpcCompileStateCodec.Ready,
+                LifecycleStateAtCapture: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
+                CompileStateAtCapture: ContractLiteralCodec.ToValue(IpcCompileState.Ready),
                 DomainReloadGeneration: 7,
                 PlayModeState: ContractLiteralCodec.ToValue(IpcPlayModeState.Playing)),
             Staging: new IpcScreenshotStagingImage(

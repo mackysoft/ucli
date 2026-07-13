@@ -41,8 +41,8 @@ public sealed class SupervisorClientEnsureRunningTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, result.LifecycleSnapshot!.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.Compile, result.LifecycleSnapshot.BlockingReason);
+        Assert.Equal(IpcEditorLifecycleState.Compiling, result.LifecycleSnapshot!.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.Compile, result.LifecycleSnapshot.BlockingReason);
         Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
         SupervisorTransportAssert.EnsureRunningRequestedWithUnboundedResponseWait(
             transportClient,

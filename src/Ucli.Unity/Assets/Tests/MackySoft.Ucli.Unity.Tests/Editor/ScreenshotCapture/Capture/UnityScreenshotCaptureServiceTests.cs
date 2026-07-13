@@ -6,7 +6,6 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
-using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Staging;
@@ -25,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var backend = new StubCaptureBackend(CreateBackendSuccess());
             var writer = new StubStagingImageWriter();
             var service = new UnityScreenshotCaptureService(
-                new SequenceReadinessGate(CreateSnapshot(DaemonEditorMode.Batchmode, domainReloadGeneration: "1")),
+                new SequenceReadinessGate(CreateSnapshot(DaemonEditorMode.Batchmode, domainReloadGeneration: 1)),
                 backend,
                 writer);
 
@@ -43,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void CaptureAsync_WithStableGuiFence_WritesRawImageAndReturnsObservedMetadata ()
         {
-            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: "7");
+            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7);
             var backend = new StubCaptureBackend(CreateBackendSuccess());
             var writer = new StubStagingImageWriter();
             var service = new UnityScreenshotCaptureService(
@@ -68,6 +67,12 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Response.Capture.Width, Is.EqualTo(2));
             Assert.That(result.Response.Capture.Height, Is.EqualTo(1));
             Assert.That(
+                result.Response.Capture.LifecycleStateAtCapture,
+                Is.EqualTo(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready)));
+            Assert.That(
+                result.Response.Capture.CompileStateAtCapture,
+                Is.EqualTo(ContractLiteralCodec.ToValue(IpcCompileState.Ready)));
+            Assert.That(
                 result.Response.Capture.ColorSpace,
                 Is.EqualTo(ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear)));
             Assert.That(result.Response.Capture.DomainReloadGeneration, Is.EqualTo(7));
@@ -89,8 +94,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var writer = new StubStagingImageWriter();
             var service = new UnityScreenshotCaptureService(
                 new SequenceReadinessGate(
-                    CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: "7"),
-                    CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: "8")),
+                    CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7),
+                    CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 8)),
                 backend,
                 writer);
 
@@ -113,12 +118,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 new SequenceReadinessGate(
                     CreateSnapshot(
                         DaemonEditorMode.Gui,
-                        domainReloadGeneration: "7",
-                        assetRefreshGeneration: "11"),
+                        domainReloadGeneration: 7,
+                        assetRefreshGeneration: 11),
                     CreateSnapshot(
                         DaemonEditorMode.Gui,
-                        domainReloadGeneration: "7",
-                        assetRefreshGeneration: "12")),
+                        domainReloadGeneration: 7,
+                        assetRefreshGeneration: 12)),
                 backend,
                 writer);
 
@@ -131,21 +136,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(writer.WriteCallCount, Is.Zero);
         }
 
-        [TestCase("compile-state")]
-        [TestCase("play-mode-state")]
+        [Test]
         [Category("Size.Small")]
-        public void CaptureAsync_WithNonCanonicalCaptureMetadata_FailsBeforePixelCapture (string caseName)
+        public void CaptureAsync_WithoutPlayModeMetadata_FailsBeforePixelCapture ()
         {
-            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: "7");
-            snapshot = caseName switch
-            {
-                "compile-state" => snapshot with { CompileState = "ready " },
-                "play-mode-state" => snapshot with
-                {
-                    PlayMode = snapshot.PlayMode with { State = "stopped " },
-                },
-                _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, null),
-            };
+            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7) with { PlayMode = null };
             var backend = new StubCaptureBackend(CreateBackendSuccess());
             var writer = new StubStagingImageWriter();
             var service = new UnityScreenshotCaptureService(
@@ -168,7 +163,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void CaptureAsync_WhenCancelledAfterPublish_DeletesPublishedStagingImage ()
         {
             using var cancellationTokenSource = new CancellationTokenSource();
-            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: "7");
+            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7);
             var writer = new StubStagingImageWriter(() => cancellationTokenSource.Cancel());
             var service = new UnityScreenshotCaptureService(
                 new SequenceReadinessGate(snapshot, snapshot),
@@ -186,7 +181,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void CaptureAsync_WhenWriterReportsWrongSize_DeletesPublishedStagingImage ()
         {
-            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: "7");
+            var snapshot = CreateSnapshot(DaemonEditorMode.Gui, domainReloadGeneration: 7);
             var writer = new StubStagingImageWriter(reportedSizeBytes: 7);
             var service = new UnityScreenshotCaptureService(
                 new SequenceReadinessGate(snapshot, snapshot),
@@ -208,7 +203,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var snapshot = CreateSnapshot(
                 DaemonEditorMode.Gui,
-                domainReloadGeneration: "7",
+                domainReloadGeneration: 7,
                 isPlaying: true);
             var backend = new StubCaptureBackend(CreateBackendSuccess());
             var service = new UnityScreenshotCaptureService(
@@ -252,28 +247,26 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UnityEditorLifecycleSnapshot CreateSnapshot (
             DaemonEditorMode editorMode,
-            string domainReloadGeneration,
+            int domainReloadGeneration,
             bool isPlaying = false,
-            string assetRefreshGeneration = "5")
+            int assetRefreshGeneration = 5)
         {
             return new UnityEditorLifecycleSnapshot(
                 editorMode,
                 isPlaying
-                    ? IpcEditorLifecycleStateCodec.Playmode
-                    : IpcEditorLifecycleStateCodec.Ready,
-                BlockingReason: null,
-                CompileState: IpcCompileStateCodec.Ready,
-                CompileGeneration: "3",
+                    ? IpcEditorLifecycleState.PlayMode
+                    : IpcEditorLifecycleState.Ready,
+                CompileState: IpcCompileState.Ready,
+                CompileGeneration: 3,
                 domainReloadGeneration,
-                CanAcceptExecutionRequests: !isPlaying,
-                PlayMode: new IpcPlayModeSnapshot(
-                    State: ContractLiteralCodec.ToValue(isPlaying
+                PlayMode: new UnityEditorPlayModeSnapshot(
+                    State: isPlaying
                         ? IpcPlayModeState.Playing
-                        : IpcPlayModeState.Stopped),
-                    Transition: ContractLiteralCodec.ToValue(IpcPlayModeTransition.None),
+                        : IpcPlayModeState.Stopped,
+                    Transition: IpcPlayModeTransition.None,
                     IsPlaying: isPlaying,
                     IsPlayingOrWillChangePlaymode: isPlaying,
-                    Generation: "2"),
+                    Generation: 2),
                 AssetRefreshGeneration: assetRefreshGeneration);
         }
 

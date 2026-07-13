@@ -507,7 +507,7 @@ internal static class BuildServiceTestSupport
             ProjectFingerprint: ProjectFingerprint,
             LifecycleState: "ready",
             BlockingReason: null,
-            CompileState: "idle",
+            CompileState: "ready",
             CompileGeneration: $"compile-{generationSuffix}",
             DomainReloadGeneration: $"domain-{generationSuffix}",
             CanAcceptExecutionRequests: canAcceptExecutionRequests,

@@ -37,6 +37,48 @@ public sealed class IpcProtocolVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcLifecycleLiteralContracts_ExposeExpectedLiterals ()
+    {
+        Assert.Equal(
+            [
+                "starting",
+                "recovering",
+                "ready",
+                "busy",
+                "compiling",
+                "compileFailed",
+                "domainReloading",
+                "reimporting",
+                "playmode",
+                "modalBlocked",
+                "safeMode",
+                "shuttingDown",
+                "unavailable",
+            ],
+            ContractLiteralCodec.GetLiterals<IpcEditorLifecycleState>());
+        Assert.Equal(
+            ["ready", "compiling", "failed"],
+            ContractLiteralCodec.GetLiterals<IpcCompileState>());
+        Assert.Equal(
+            [
+                "startup",
+                "busy",
+                "recovery",
+                "compile",
+                "compileFailed",
+                "domainReload",
+                "reimport",
+                "playMode",
+                "modalDialog",
+                "safeMode",
+                "shutdown",
+                "unavailable",
+            ],
+            ContractLiteralCodec.GetLiterals<IpcEditorBlockingReason>());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcScreenshotLiteralContracts_ExposeExpectedLiterals ()
     {
         Assert.Equal(["game", "scene"], ContractLiteralCodec.GetLiterals<IpcScreenshotTarget>());

@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -31,9 +32,9 @@ public sealed class IpcPingContractSerializationTests
             EditorMode: "batchmode",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: "project-fingerprint",
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
-            BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
+            CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Ready),
+            LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode),
+            BlockingReason: ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode),
             CompileGeneration: "12",
             DomainReloadGeneration: "7",
             CanAcceptExecutionRequests: false,
@@ -47,7 +48,7 @@ public sealed class IpcPingContractSerializationTests
         var json = IpcPayloadCodec.SerializeToElement(response);
 
         JsonAssert.For(json)
-            .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Playmode)
+            .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode))
             .HasBoolean("canAcceptExecutionRequests", false)
             .HasProperty("playMode", playMode => playMode
                 .HasString("state", "playing")

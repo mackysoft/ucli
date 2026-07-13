@@ -1,10 +1,10 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
-
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -44,11 +44,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ProcessId: currentProcess.Id,
                 ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
                 EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
-                LifecycleState: snapshot.LifecycleState,
-                BlockingReason: snapshot.BlockingReason,
-                CompileState: snapshot.CompileState,
-                CompileGeneration: snapshot.CompileGeneration,
-                DomainReloadGeneration: snapshot.DomainReloadGeneration,
+                LifecycleState: ContractLiteralCodec.ToValue(snapshot.LifecycleState),
+                BlockingReason: snapshot.BlockingReason.HasValue
+                    ? ContractLiteralCodec.ToValue(snapshot.BlockingReason.Value)
+                    : null,
+                CompileState: ContractLiteralCodec.ToValue(snapshot.CompileState),
+                CompileGeneration: snapshot.CompileGeneration.ToString(CultureInfo.InvariantCulture),
+                DomainReloadGeneration: snapshot.DomainReloadGeneration.ToString(CultureInfo.InvariantCulture),
                 ObservedAtUtc: snapshot.ObservedAtUtc ?? DateTimeOffset.UtcNow,
                 ActionRequired: snapshot.ActionRequired,
                 PrimaryDiagnostic: snapshot.PrimaryDiagnostic)
@@ -56,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ServerVersion = serverVersion,
                 CanAcceptExecutionRequests = snapshot.CanAcceptExecutionRequests,
                 EditorInstanceId = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId(),
-                PlayMode = snapshot.PlayMode,
+                PlayMode = UnityLifecycleResponseCodec.CreatePlayModeSnapshot(snapshot.PlayMode),
             };
             FileUtilities.WriteAllTextAtomically(path, DaemonLifecycleJsonContractSerializer.Serialize(contract));
         }

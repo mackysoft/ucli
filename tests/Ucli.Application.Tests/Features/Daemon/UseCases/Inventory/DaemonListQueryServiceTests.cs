@@ -108,12 +108,12 @@ public sealed class DaemonListQueryServiceTests
             EditorMode: "gui",
             UnityVersion: "6000.1.4f1",
             ProjectFingerprint: currentProject.ProjectFingerprint,
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
-            BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
+            CompileState: "ready",
+            LifecycleState: "playmode",
+            BlockingReason: "playMode",
             CompileGeneration: "3",
             DomainReloadGeneration: "5",
-            CanAcceptExecutionRequests: true);
+            CanAcceptExecutionRequests: false);
         var service = CreateSingleWorktreeService(
             currentProject,
             DaemonSessionReadResult.Success(session),
@@ -130,8 +130,8 @@ public sealed class DaemonListQueryServiceTests
         Assert.Equal("gui", item.EditorMode);
         Assert.Equal("user", item.OwnerKind);
         Assert.False(item.CanShutdownProcess);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, item.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, item.BlockingReason);
+        Assert.Equal("playmode", item.LifecycleState);
+        Assert.Equal("playMode", item.BlockingReason);
         Assert.False(item.CanAcceptExecutionRequests);
         Assert.Null(item.Diagnosis);
     }

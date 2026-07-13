@@ -230,8 +230,8 @@ public sealed class ScreenshotCaptureServiceTests
                 width,
                 height,
                 colorSpace ?? ContractLiteralCodec.ToValue(IpcScreenshotColorSpace.Linear),
-                lifecycleState ?? IpcEditorLifecycleStateCodec.Ready,
-                compileState ?? IpcCompileStateCodec.Ready,
+                lifecycleState ?? "ready",
+                compileState ?? "ready",
                 DomainReloadGeneration: 7,
                 playModeState ?? ContractLiteralCodec.ToValue(IpcPlayModeState.Playing)),
             new IpcScreenshotStagingImage(

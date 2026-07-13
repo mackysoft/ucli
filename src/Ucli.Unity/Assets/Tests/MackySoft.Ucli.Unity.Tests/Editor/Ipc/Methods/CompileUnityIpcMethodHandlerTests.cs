@@ -7,6 +7,7 @@ using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Project;
@@ -218,9 +219,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     ServerVersion: "1.2.3",
                     UnityVersion: "6000.1.4f1",
                     EditorMode: "batchmode",
-                    LifecycleState: IpcEditorLifecycleStateCodec.Ready,
+                    LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
                     BlockingReason: null,
-                    CompileState: IpcCompileStateCodec.Ready,
+                    CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Ready),
                     CompileGeneration: "1",
                     DomainReloadGeneration: "0",
                     CanAcceptExecutionRequests: true,

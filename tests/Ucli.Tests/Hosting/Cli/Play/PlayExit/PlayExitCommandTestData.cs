@@ -12,12 +12,12 @@ internal static class PlayExitCommandTestData
         string applicationState = IpcPlayApplicationStateNames.Indeterminate)
     {
         var before = PlayCommandOutputTestData.CreateLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
+            IpcEditorLifecycleState.PlayMode,
+            IpcEditorBlockingReason.PlayMode,
             false,
             PlayCommandOutputTestData.CreatePlayMode("playing", "none", true, true, "2"));
         var current = PlayCommandOutputTestData.CreateLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
+            IpcEditorLifecycleState.Ready,
             null,
             true,
             PlayCommandOutputTestData.CreatePlayMode("stopped", "none", false, false, "3"));
@@ -50,7 +50,7 @@ internal static class PlayExitCommandTestData
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: PlayCommandOutputTestData.ServerVersion,
             EditorMode: "gui",
-            LifecycleState: IpcEditorLifecycleStateCodec.Ready,
+            LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
             BlockingReason: null,
             CompileState: PlayCommandOutputTestData.CompileState,
             CompileGeneration: PlayCommandOutputTestData.CompileGeneration,

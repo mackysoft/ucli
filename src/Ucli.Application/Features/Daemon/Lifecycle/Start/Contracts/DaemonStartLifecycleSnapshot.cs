@@ -1,25 +1,27 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 
 /// <summary> Represents endpoint-registered lifecycle values returned with daemon start success. </summary>
-/// <param name="LifecycleState"> The normalized lifecycle-state literal. </param>
-/// <param name="BlockingReason"> The normalized blocking-reason literal when the lifecycle is blocked. </param>
-/// <param name="CanAcceptExecutionRequests"> Whether ordinary execution requests can currently be accepted. </param>
+/// <param name="LifecycleState"> The normalized lifecycle state. </param>
 internal sealed record DaemonStartLifecycleSnapshot (
-    string LifecycleState,
-    string? BlockingReason,
-    bool CanAcceptExecutionRequests)
+    IpcEditorLifecycleState LifecycleState)
 {
-    /// <summary> Creates a ready lifecycle snapshot for legacy success paths that do not carry ping details. </summary>
+    /// <summary> Gets the blocking reason required by <see cref="LifecycleState" />. </summary>
+    public IpcEditorBlockingReason? BlockingReason =>
+        IpcEditorLifecycleSemantics.ResolveBlockingReason(LifecycleState);
+
+    /// <summary> Gets whether <see cref="LifecycleState" /> permits normal execution requests. </summary>
+    public bool CanAcceptExecutionRequests =>
+        IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(LifecycleState);
+
+    /// <summary> Creates a ready lifecycle snapshot for success paths that do not carry ping details. </summary>
     /// <returns> The ready lifecycle snapshot. </returns>
     public static DaemonStartLifecycleSnapshot Ready ()
     {
-        return new DaemonStartLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
-            null,
-            true);
+        return new DaemonStartLifecycleSnapshot(IpcEditorLifecycleState.Ready);
     }
 
     /// <summary> Tries to create a normalized lifecycle snapshot from a ping payload. </summary>
@@ -35,24 +37,55 @@ internal sealed record DaemonStartLifecycleSnapshot (
         ArgumentNullException.ThrowIfNull(pingResponse);
 
         snapshot = null;
-        if (!IpcEditorLifecycleStateCodec.TryParse(pingResponse.LifecycleState, out var lifecycleState))
+        if (!ContractLiteralCodec.TryParse<IpcEditorLifecycleState>(pingResponse.LifecycleState, out var lifecycleState))
         {
             error = ExecutionError.InternalError(
                 $"Unity daemon startup probe returned unsupported lifecycleState '{pingResponse.LifecycleState}'.");
             return false;
         }
 
-        var blockingReason = string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-            ? null
-            : IpcEditorBlockingReasonCodec.TryParse(pingResponse.BlockingReason, out var normalizedBlockingReason)
-                ? normalizedBlockingReason
-                : null;
-        snapshot = new DaemonStartLifecycleSnapshot(
-            lifecycleState!,
-            blockingReason,
-            string.Equals(lifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
-                && pingResponse.CanAcceptExecutionRequests);
+        if (!TryParseOptionalBlockingReason(pingResponse.BlockingReason, out var blockingReason))
+        {
+            error = ExecutionError.InternalError(
+                $"Unity daemon startup probe returned unsupported blockingReason '{pingResponse.BlockingReason}'.");
+            return false;
+        }
+
+        if (!IpcEditorLifecycleSemantics.IsConsistent(
+                lifecycleState,
+                blockingReason,
+                pingResponse.CanAcceptExecutionRequests))
+        {
+            error = ExecutionError.InternalError(
+                "Unity daemon startup probe returned an inconsistent lifecycle tuple. "
+                + $"lifecycleState='{pingResponse.LifecycleState}', "
+                + $"blockingReason='{pingResponse.BlockingReason ?? "<null>"}', "
+                + $"canAcceptExecutionRequests={pingResponse.CanAcceptExecutionRequests}.");
+            return false;
+        }
+
+        snapshot = new DaemonStartLifecycleSnapshot(lifecycleState);
         error = null;
         return true;
+    }
+
+    private static bool TryParseOptionalBlockingReason (
+        string? value,
+        out IpcEditorBlockingReason? blockingReason)
+    {
+        if (value is null)
+        {
+            blockingReason = null;
+            return true;
+        }
+
+        if (ContractLiteralCodec.TryParse<IpcEditorBlockingReason>(value, out var parsedBlockingReason))
+        {
+            blockingReason = parsedBlockingReason;
+            return true;
+        }
+
+        blockingReason = null;
+        return false;
     }
 }

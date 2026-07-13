@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 
 /// <summary> Represents normalized payload values for one daemon-start command execution. </summary>
@@ -16,6 +16,6 @@ internal sealed record DaemonStartExecutionOutput (
     DaemonStatusKind DaemonStatus,
     int TimeoutMilliseconds,
     DaemonSessionOutput Session,
-    string LifecycleState = IpcEditorLifecycleStateCodec.Ready,
+    string LifecycleState,
     string? BlockingReason = null,
     bool CanAcceptExecutionRequests = true);

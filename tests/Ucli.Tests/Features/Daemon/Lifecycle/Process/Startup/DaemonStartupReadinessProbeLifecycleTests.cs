@@ -22,7 +22,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, result.LifecycleSnapshot!.LifecycleState);
+        Assert.Equal(IpcEditorLifecycleState.Ready, result.LifecycleSnapshot!.LifecycleState);
         Assert.True(result.LifecycleSnapshot.CanAcceptExecutionRequests);
     }
 
@@ -32,7 +32,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(
             CreatePingPayload(
-                lifecycleState: IpcEditorLifecycleStateCodec.Starting,
+                lifecycleState: IpcEditorLifecycleState.Starting,
                 canAcceptExecutionRequests: false),
             CreatePingPayload(canAcceptExecutionRequests: true));
         var logReader = new UnexpectedUnityLogReader("Accepted starting ping should not inspect the Unity log.");
@@ -45,7 +45,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Starting, result.LifecycleSnapshot!.LifecycleState);
+        Assert.Equal(IpcEditorLifecycleState.Starting, result.LifecycleSnapshot!.LifecycleState);
         Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
     }
 
@@ -55,7 +55,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(
             CreatePingPayload(
-                lifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
+                lifecycleState: IpcEditorLifecycleState.DomainReloading,
                 canAcceptExecutionRequests: false),
             CreatePingPayload(canAcceptExecutionRequests: true));
         var logReader = new UnexpectedUnityLogReader("Accepted domain reload ping should not inspect the Unity log.");
@@ -68,7 +68,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        Assert.Equal(IpcEditorLifecycleStateCodec.DomainReloading, result.LifecycleSnapshot!.LifecycleState);
+        Assert.Equal(IpcEditorLifecycleState.DomainReloading, result.LifecycleSnapshot!.LifecycleState);
         Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
     }
 
@@ -77,7 +77,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
     public async Task WaitUntilReady_WhenPingReportsCompiling_ReturnsReadyWithLifecycleSnapshot ()
     {
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
-            lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
+            lifecycleState: IpcEditorLifecycleState.Compiling,
             canAcceptExecutionRequests: false));
         var logReader = new UnexpectedUnityLogReader("Compiling lifecycle snapshot should not inspect the Unity log.");
         var probe = CreateProbe(pingClient, logReader);
@@ -89,29 +89,30 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, result.LifecycleSnapshot!.LifecycleState);
+        Assert.Equal(IpcEditorLifecycleState.Compiling, result.LifecycleSnapshot!.LifecycleState);
         Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
     }
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode)]
-    [InlineData(IpcEditorLifecycleStateCodec.ModalBlocked, IpcEditorBlockingReasonCodec.ModalDialog)]
-    [InlineData(IpcEditorLifecycleStateCodec.SafeMode, IpcEditorBlockingReasonCodec.SafeMode)]
-    [InlineData(IpcEditorLifecycleStateCodec.ShuttingDown, IpcEditorBlockingReasonCodec.Shutdown)]
+    [InlineData(IpcEditorLifecycleState.PlayMode, IpcEditorBlockingReason.PlayMode)]
+    [InlineData(IpcEditorLifecycleState.ModalBlocked, IpcEditorBlockingReason.ModalDialog)]
+    [InlineData(IpcEditorLifecycleState.SafeMode, IpcEditorBlockingReason.SafeMode)]
+    [InlineData(IpcEditorLifecycleState.ShuttingDown, IpcEditorBlockingReason.Shutdown)]
     public async Task WaitUntilReady_WhenPingReportsNonReadyLifecycleState_ReturnsReadyWithLifecycleSnapshot (
-        string lifecycleState,
-        string blockingReason)
+        IpcEditorLifecycleState lifecycleState,
+        IpcEditorBlockingReason blockingReason)
     {
         var pingClient = new RecordingDaemonPingInfoClient(IpcPingResponseTestFactory.Create(
-            lifecycleState: lifecycleState,
-            blockingReason: blockingReason,
+            lifecycleState: ContractLiteralCodec.ToValue(lifecycleState),
+            blockingReason: ContractLiteralCodec.ToValue(blockingReason),
             canAcceptExecutionRequests: false));
         var logReader = new UnexpectedUnityLogReader("Non-ready lifecycle snapshot should not inspect the Unity log.");
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext($"fingerprint-readiness-{lifecycleState}"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
+                $"fingerprint-readiness-{ContractLiteralCodec.ToValue(lifecycleState)}"),
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
 

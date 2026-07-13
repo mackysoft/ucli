@@ -197,9 +197,15 @@ internal sealed class PlayEnterService : IPlayEnterService
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: lifecycle.ServerVersion,
             EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
-            LifecycleState: lifecycle.LifecycleState,
-            BlockingReason: lifecycle.BlockingReason,
-            CompileState: lifecycle.CompileState,
+            LifecycleState: lifecycle.LifecycleState.HasValue
+                ? ContractLiteralCodec.ToValue(lifecycle.LifecycleState.Value)
+                : null,
+            BlockingReason: lifecycle.BlockingReason.HasValue
+                ? ContractLiteralCodec.ToValue(lifecycle.BlockingReason.Value)
+                : null,
+            CompileState: lifecycle.CompileState.HasValue
+                ? ContractLiteralCodec.ToValue(lifecycle.CompileState.Value)
+                : null,
             CompileGeneration: lifecycle.CompileGeneration,
             DomainReloadGeneration: lifecycle.DomainReloadGeneration,
             CanAcceptExecutionRequests: lifecycle.CanAcceptExecutionRequests,
@@ -386,7 +392,7 @@ internal sealed class PlayEnterService : IPlayEnterService
                 out var playMode,
                 out var playModeState,
                 out var playModeTransition)
-            && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Ready, StringComparison.Ordinal)
+            && ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.Ready)
             && string.IsNullOrWhiteSpace(snapshot.BlockingReason)
             && snapshot.CanAcceptExecutionRequests
             && playModeState == IpcPlayModeState.Stopped
@@ -402,8 +408,8 @@ internal sealed class PlayEnterService : IPlayEnterService
                 out var playMode,
                 out var playModeState,
                 out var playModeTransition)
-            && string.Equals(snapshot.LifecycleState, IpcEditorLifecycleStateCodec.Playmode, StringComparison.Ordinal)
-            && string.Equals(snapshot.BlockingReason, IpcEditorBlockingReasonCodec.PlayMode, StringComparison.Ordinal)
+            && ContractLiteralCodec.Matches(snapshot.LifecycleState, IpcEditorLifecycleState.PlayMode)
+            && ContractLiteralCodec.Matches(snapshot.BlockingReason, IpcEditorBlockingReason.PlayMode)
             && playModeState == IpcPlayModeState.Playing
             && playModeTransition == IpcPlayModeTransition.None
             && playMode.IsPlaying

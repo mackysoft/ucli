@@ -68,8 +68,8 @@ public sealed class DaemonStartCommandTests
     public async Task Start_WhenServiceSucceedsWithCompilingLifecycle_EmitsLifecycleSnapshotPayload ()
     {
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput(
-            lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
-            blockingReason: IpcEditorBlockingReasonCodec.Compile,
+            lifecycleState: IpcEditorLifecycleState.Compiling,
+            blockingReason: IpcEditorBlockingReason.Compile,
             canAcceptExecutionRequests: false)));
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
 
@@ -84,8 +84,8 @@ public sealed class DaemonStartCommandTests
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasString("startStatus", "started")
             .HasString("daemonStatus", "running")
-            .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Compiling)
-            .HasString("blockingReason", IpcEditorBlockingReasonCodec.Compile)
+            .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Compiling))
+            .HasString("blockingReason", ContractLiteralCodec.ToValue(IpcEditorBlockingReason.Compile))
             .HasBoolean("canAcceptExecutionRequests", false);
 
         var payload = outputJson.RootElement.GetProperty("payload");

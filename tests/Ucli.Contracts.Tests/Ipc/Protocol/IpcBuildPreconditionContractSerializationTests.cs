@@ -38,9 +38,9 @@ public sealed class IpcBuildPreconditionContractSerializationTests
                 EditorMode: "batchmode",
                 UnityVersion: "6000.0.0f1",
                 ProjectFingerprint: "project-fingerprint",
-                LifecycleState: IpcEditorLifecycleStateCodec.CompileFailed,
-                BlockingReason: IpcEditorBlockingReasonCodec.CompileFailed,
-                CompileState: IpcCompileStateCodec.Failed,
+                LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.CompileFailed),
+                BlockingReason: ContractLiteralCodec.ToValue(IpcEditorBlockingReason.CompileFailed),
+                CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Failed),
                 CompileGeneration: "compile-1",
                 DomainReloadGeneration: "domain-1",
                 CanAcceptExecutionRequests: false,
@@ -84,9 +84,9 @@ public sealed class IpcBuildPreconditionContractSerializationTests
             .HasString("editorMode", "batchmode")
             .HasString("unityVersion", "6000.0.0f1")
             .HasString("projectFingerprint", "project-fingerprint")
-            .HasString("lifecycleState", IpcEditorLifecycleStateCodec.CompileFailed)
-            .HasString("blockingReason", IpcEditorBlockingReasonCodec.CompileFailed)
-            .HasString("compileState", IpcCompileStateCodec.Failed)
+            .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.CompileFailed))
+            .HasString("blockingReason", ContractLiteralCodec.ToValue(IpcEditorBlockingReason.CompileFailed))
+            .HasString("compileState", ContractLiteralCodec.ToValue(IpcCompileState.Failed))
             .HasString("compileGeneration", "compile-1")
             .HasString("domainReloadGeneration", "domain-1")
             .HasString("assetRefreshGeneration", "asset-1")

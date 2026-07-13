@@ -12,10 +12,10 @@ internal sealed class UnityIpcRequestBuilder
 {
     private static readonly TimeSpan PlayTransitionRecoverableResponseAttemptTimeout = TimeSpan.FromMilliseconds(1000);
 
-    private static readonly IReadOnlyList<string> CompileAllowedStartupLifecycleStates =
+    private static readonly IReadOnlyList<IpcEditorLifecycleState> CompileAllowedStartupLifecycleStates =
     [
-        IpcEditorLifecycleStateCodec.CompileFailed,
-        IpcEditorLifecycleStateCodec.SafeMode,
+        IpcEditorLifecycleState.CompileFailed,
+        IpcEditorLifecycleState.SafeMode,
     ];
 
     /// <summary> Converts one application request into the IPC method and serialized payload. </summary>

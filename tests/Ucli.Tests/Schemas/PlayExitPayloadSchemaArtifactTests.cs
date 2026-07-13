@@ -170,7 +170,7 @@ public sealed class PlayExitPayloadSchemaArtifactTests
               "editorMode": "gui",
               "lifecycleState": "ready",
               "blockingReason": null,
-              "compileState": "idle",
+              "compileState": "ready",
               "compileGeneration": "12",
               "domainReloadGeneration": "7",
               "canAcceptExecutionRequests": true,

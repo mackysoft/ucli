@@ -7,7 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
-using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -1410,20 +1409,18 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UnityEditorLifecycleSnapshot(
                 EditorMode: DaemonEditorMode.Batchmode,
-                LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-                BlockingReason: null,
-                CompileState: IpcCompileStateCodec.Ready,
-                CompileGeneration: "compile-1",
-                DomainReloadGeneration: "domain-1",
-                CanAcceptExecutionRequests: true,
+                LifecycleState: IpcEditorLifecycleState.Ready,
+                CompileState: IpcCompileState.Ready,
+                CompileGeneration: 1,
+                DomainReloadGeneration: 1,
                 ObservedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                PlayMode: new IpcPlayModeSnapshot(
-                    State: "stopped",
-                    Transition: "none",
+                PlayMode: new UnityEditorPlayModeSnapshot(
+                    State: IpcPlayModeState.Stopped,
+                    Transition: IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false,
-                    Generation: "play-1"),
-                AssetRefreshGeneration: "asset-1");
+                    Generation: 1),
+                AssetRefreshGeneration: 1);
         }
 
         private sealed class CountingReadinessGate : IUnityEditorReadinessGate
@@ -1644,9 +1641,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
                 UnityVersion: "6000.1.4f1",
                 ProjectFingerprint: ProjectFingerprint,
-                LifecycleState: IpcEditorLifecycleStateCodec.Ready,
+                LifecycleState: ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready),
                 BlockingReason: null,
-                CompileState: IpcCompileStateCodec.Ready,
+                CompileState: ContractLiteralCodec.ToValue(IpcCompileState.Ready),
                 CompileGeneration: "compile-1",
                 DomainReloadGeneration: "domain-1",
                 CanAcceptExecutionRequests: true,

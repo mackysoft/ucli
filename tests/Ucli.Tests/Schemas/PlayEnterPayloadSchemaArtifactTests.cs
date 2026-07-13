@@ -142,7 +142,7 @@ public sealed class PlayEnterPayloadSchemaArtifactTests
               "editorMode": "gui",
               "lifecycleState": "playmode",
               "blockingReason": "playMode",
-              "compileState": "idle",
+              "compileState": "ready",
               "compileGeneration": "12",
               "domainReloadGeneration": "7",
               "canAcceptExecutionRequests": false,

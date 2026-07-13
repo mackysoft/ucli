@@ -260,11 +260,11 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
             return InvalidResponse("captured dimensions do not satisfy the request");
         }
 
-        if (!ContractLiteralCodec.TryParse<IpcScreenshotColorSpace>(capture.ColorSpace, out _)
-            || !IsCanonicalLifecycleState(capture.LifecycleStateAtCapture)
-            || !IsCanonicalCompileState(capture.CompileStateAtCapture)
+        if (!ContractLiteralCodec.IsDefined<IpcScreenshotColorSpace>(capture.ColorSpace)
+            || !ContractLiteralCodec.IsDefined<IpcEditorLifecycleState>(capture.LifecycleStateAtCapture)
+            || !ContractLiteralCodec.IsDefined<IpcCompileState>(capture.CompileStateAtCapture)
             || capture.DomainReloadGeneration < 0
-            || !ContractLiteralCodec.TryParse<IpcPlayModeState>(capture.PlayModeState, out _))
+            || !ContractLiteralCodec.IsDefined<IpcPlayModeState>(capture.PlayModeState))
         {
             return InvalidResponse("capture state metadata is invalid");
         }
@@ -281,18 +281,6 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         }
 
         return null;
-    }
-
-    private static bool IsCanonicalLifecycleState (string? value)
-    {
-        return IpcEditorLifecycleStateCodec.TryParse(value, out var canonicalValue)
-            && string.Equals(value, canonicalValue, StringComparison.Ordinal);
-    }
-
-    private static bool IsCanonicalCompileState (string? value)
-    {
-        return IpcCompileStateCodec.TryParse(value, out var canonicalValue)
-            && string.Equals(value, canonicalValue, StringComparison.Ordinal);
     }
 
     private static bool IsGuiSession (DaemonSession session)

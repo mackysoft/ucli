@@ -30,9 +30,9 @@ public sealed class PlayStatusServiceIpcStatusTests
         Assert.Equal("6000.1.4f1", output.Project.UnityVersion);
         Assert.Equal("0.5.0", output.ServerVersion);
         Assert.Equal("gui", output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, output.LifecycleState);
+        Assert.Equal("ready", output.LifecycleState);
         Assert.Null(output.BlockingReason);
-        Assert.Equal(IpcCompileStateCodec.Ready, output.CompileState);
+        Assert.Equal("ready", output.CompileState);
         Assert.Equal("12", output.CompileGeneration);
         Assert.Equal("7", output.DomainReloadGeneration);
         Assert.True(output.CanAcceptExecutionRequests);

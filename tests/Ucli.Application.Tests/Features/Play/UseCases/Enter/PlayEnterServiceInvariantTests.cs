@@ -10,7 +10,7 @@ public sealed class PlayEnterServiceInvariantTests
     {
         var data = new TheoryData<string, object>();
 
-        var readyBefore = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
+        var readyBefore = CreateSnapshot("ready", null, true, CreateStoppedPlayMode("2"));
         data.Add(
             "missing transition payload",
             CreateResponseWithoutTransitionPayload());
@@ -22,7 +22,7 @@ public sealed class PlayEnterServiceInvariantTests
                 IpcPlayTransitionResultNames.Entered,
                 readyBefore)
             {
-                After = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, new IpcPlayModeSnapshot(
+                After = CreateSnapshot("playmode", "playMode", false, new IpcPlayModeSnapshot(
                     State: "invalid",
                     Transition: "none",
                     IsPlaying: true,
@@ -38,15 +38,15 @@ public sealed class PlayEnterServiceInvariantTests
                 readyBefore)
             {
                 After = CreateSnapshot(
-                    IpcEditorLifecycleStateCodec.Playmode,
-                    IpcEditorBlockingReasonCodec.PlayMode,
+                    "playmode",
+                    "playMode",
                     false,
                     CreatePlayMode("playing", "none", true, true, "2")),
             })));
 
         var alreadyEnteredBefore = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
+            "playmode",
+            "playMode",
             false,
             CreatePlayMode("playing", "none", true, true, "9"));
         data.Add(
@@ -57,8 +57,8 @@ public sealed class PlayEnterServiceInvariantTests
                 alreadyEnteredBefore)
             {
                 After = CreateSnapshot(
-                    IpcEditorLifecycleStateCodec.Playmode,
-                    IpcEditorBlockingReasonCodec.PlayMode,
+                    "playmode",
+                    "playMode",
                     false,
                     CreatePlayMode("playing", "none", true, true, "10")),
             })));
@@ -71,8 +71,8 @@ public sealed class PlayEnterServiceInvariantTests
                 readyBefore)
             {
                 After = CreateSnapshot(
-                    IpcEditorLifecycleStateCodec.Playmode,
-                    IpcEditorBlockingReasonCodec.PlayMode,
+                    "playmode",
+                    "playMode",
                     false,
                     CreatePlayMode("playing", "none", true, true, "3")),
                 Observed = readyBefore,
@@ -86,7 +86,7 @@ public sealed class PlayEnterServiceInvariantTests
                 IpcPlayTransitionResultNames.Entered,
                 readyBefore)
             {
-                After = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("3")),
+                After = CreateSnapshot("ready", null, true, CreateStoppedPlayMode("3")),
             })));
 
         data.Add(
@@ -94,7 +94,7 @@ public sealed class PlayEnterServiceInvariantTests
             CreateResponse(new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
                 IpcPlayTransitionCommandNames.Enter,
                 IpcPlayTransitionResultNames.AlreadyEntered,
-                CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("9")))
+                CreateSnapshot("ready", null, true, CreateStoppedPlayMode("9")))
             {
                 After = alreadyEnteredBefore,
             })));
@@ -105,9 +105,9 @@ public sealed class PlayEnterServiceInvariantTests
                 new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
                     IpcPlayTransitionCommandNames.Enter,
                     IpcPlayTransitionResultNames.Blocked,
-                    CreateSnapshot(IpcEditorLifecycleStateCodec.Compiling, IpcEditorBlockingReasonCodec.Compile, false, CreateStoppedPlayMode("2")))
+                    CreateSnapshot("compiling", "compile", false, CreateStoppedPlayMode("2")))
                 {
-                    Observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Compiling, IpcEditorBlockingReasonCodec.Compile, false, CreateStoppedPlayMode("2")),
+                    Observed = CreateSnapshot("compiling", "compile", false, CreateStoppedPlayMode("2")),
                     ApplicationState = "maybeApplied",
                 }),
                 PlayModeErrorCodes.PlayModeTransitionBlocked,
@@ -122,8 +122,8 @@ public sealed class PlayEnterServiceInvariantTests
                     readyBefore)
                 {
                     Observed = CreateSnapshot(
-                        IpcEditorLifecycleStateCodec.Playmode,
-                        IpcEditorBlockingReasonCodec.PlayMode,
+                        "playmode",
+                        "playMode",
                         false,
                         CreatePlayMode("entering", "entering", false, true, "2")),
                     ApplicationState = IpcPlayApplicationStateNames.NotApplied,
@@ -139,7 +139,7 @@ public sealed class PlayEnterServiceInvariantTests
                 readyBefore)
             {
                 After = CreateSnapshot(
-                    IpcEditorLifecycleStateCodec.Playmode,
+                    "playmode",
                     blockingReason: null,
                     canAcceptExecutionRequests: false,
                     playMode: CreatePlayMode("playing", "none", true, true, "3")),
@@ -153,8 +153,8 @@ public sealed class PlayEnterServiceInvariantTests
                 alreadyEnteredBefore)
             {
                 After = CreateSnapshot(
-                    IpcEditorLifecycleStateCodec.Playmode,
-                    IpcEditorBlockingReasonCodec.PlayMode,
+                    "playmode",
+                    "playMode",
                     false,
                     CreatePlayMode("playing", "none", true, true, "3")),
             })));
@@ -165,14 +165,14 @@ public sealed class PlayEnterServiceInvariantTests
                 IpcPlayTransitionCommandNames.Enter,
                 IpcPlayTransitionResultNames.Entered,
                 CreateSnapshot(
-                    IpcEditorLifecycleStateCodec.Compiling,
-                    IpcEditorBlockingReasonCodec.Compile,
+                    "compiling",
+                    "compile",
                     false,
                     CreateStoppedPlayMode("2")))
             {
                 After = CreateSnapshot(
-                    IpcEditorLifecycleStateCodec.Playmode,
-                    IpcEditorBlockingReasonCodec.PlayMode,
+                    "playmode",
+                    "playMode",
                     false,
                     CreatePlayMode("playing", "none", true, true, "3")),
             })));
@@ -185,14 +185,14 @@ public sealed class PlayEnterServiceInvariantTests
     public async Task Execute_WhenResponseProjectFingerprintDiffers_ReturnsMismatchFailure ()
     {
         var before = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
+            "ready",
             null,
             true,
             CreateStoppedPlayMode("2"),
             projectFingerprint: "other-project-fingerprint");
         var after = CreateSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
+            "playmode",
+            "playMode",
             false,
             CreatePlayMode("playing", "none", true, true, "3"),
             projectFingerprint: "other-project-fingerprint");

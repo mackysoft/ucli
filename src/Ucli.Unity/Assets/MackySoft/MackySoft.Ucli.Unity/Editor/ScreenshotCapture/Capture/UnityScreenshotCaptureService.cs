@@ -1,5 +1,4 @@
 using System;
-using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
@@ -51,15 +50,11 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             }
 
             var before = readinessResult.Snapshot;
-            if (!TryResolveCaptureMetadata(
-                before,
-                out var domainReloadGeneration,
-                out var playModeState,
-                out var metadataError))
+            if (before.PlayMode == null)
             {
                 return UnityScreenshotCaptureResult.Failure(
                     ScreenshotErrorCodes.ScreenshotCaptureUnsupported,
-                    metadataError);
+                    "Unity Editor Play Mode state was not available for screenshot metadata.");
             }
 
             var stagingPublished = false;
@@ -124,10 +119,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                         Width: frame.Width,
                         Height: frame.Height,
                         ColorSpace: frame.ColorSpace,
-                        LifecycleStateAtCapture: before.LifecycleState,
-                        CompileStateAtCapture: before.CompileState,
-                        DomainReloadGeneration: domainReloadGeneration,
-                        PlayModeState: playModeState),
+                        LifecycleStateAtCapture: ContractLiteralCodec.ToValue(before.LifecycleState),
+                        CompileStateAtCapture: ContractLiteralCodec.ToValue(before.CompileState),
+                        DomainReloadGeneration: before.DomainReloadGeneration,
+                        PlayModeState: ContractLiteralCodec.ToValue(before.PlayMode.State)),
                     new IpcScreenshotStagingImage(
                         Path: request.StagingPath,
                         PixelFormat: ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
@@ -177,58 +172,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             return readinessResult;
         }
 
-        private static bool TryResolveCaptureMetadata (
-            UnityEditorLifecycleSnapshot snapshot,
-            out long domainReloadGeneration,
-            out string playModeState,
-            out string errorMessage)
-        {
-            domainReloadGeneration = default;
-            playModeState = null;
-            if (!IpcEditorLifecycleStateCodec.TryParse(
-                    snapshot.LifecycleState,
-                    out var lifecycleState)
-                || !string.Equals(
-                    snapshot.LifecycleState,
-                    lifecycleState,
-                    StringComparison.Ordinal))
-            {
-                errorMessage =
-                    "Unity Editor lifecycle state was not a canonical screenshot metadata value.";
-                return false;
-            }
-
-            if (!IpcCompileStateCodec.TryParse(snapshot.CompileState, out var compileState)
-                || !string.Equals(snapshot.CompileState, compileState, StringComparison.Ordinal))
-            {
-                errorMessage =
-                    "Unity Editor compile state was not a canonical screenshot metadata value.";
-                return false;
-            }
-
-            if (!long.TryParse(
-                snapshot.DomainReloadGeneration,
-                NumberStyles.None,
-                CultureInfo.InvariantCulture,
-                out domainReloadGeneration))
-            {
-                errorMessage =
-                    "Unity Editor domain-reload generation could not be represented by the screenshot contract.";
-                return false;
-            }
-
-            playModeState = snapshot.PlayMode?.State;
-            if (!ContractLiteralCodec.TryParse<IpcPlayModeState>(playModeState, out _))
-            {
-                errorMessage =
-                    "Unity Editor Play Mode state was not a canonical screenshot metadata value.";
-                return false;
-            }
-
-            errorMessage = null;
-            return true;
-        }
-
         private static bool IsCaptureReady (UnityEditorLifecycleSnapshot snapshot)
         {
             if (snapshot == null || snapshot.EditorMode != DaemonEditorMode.Gui)
@@ -236,11 +179,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                 return false;
             }
 
-            return snapshot.CanAcceptExecutionRequests
-                && string.Equals(
-                    snapshot.LifecycleState,
-                    IpcEditorLifecycleStateCodec.Ready,
-                    StringComparison.Ordinal);
+            return snapshot.LifecycleState == IpcEditorLifecycleState.Ready;
         }
 
         private static bool IsSameCaptureFence (
@@ -253,16 +192,12 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             }
 
             return before.EditorMode == after.EditorMode
-                && string.Equals(before.LifecycleState, after.LifecycleState, StringComparison.Ordinal)
-                && string.Equals(before.CompileState, after.CompileState, StringComparison.Ordinal)
-                && string.Equals(before.CompileGeneration, after.CompileGeneration, StringComparison.Ordinal)
-                && string.Equals(before.AssetRefreshGeneration, after.AssetRefreshGeneration, StringComparison.Ordinal)
-                && string.Equals(before.DomainReloadGeneration, after.DomainReloadGeneration, StringComparison.Ordinal)
-                && string.Equals(before.PlayMode?.State, after.PlayMode?.State, StringComparison.Ordinal)
-                && string.Equals(before.PlayMode?.Transition, after.PlayMode?.Transition, StringComparison.Ordinal)
-                && string.Equals(before.PlayMode?.Generation, after.PlayMode?.Generation, StringComparison.Ordinal)
-                && before.PlayMode?.IsPlaying == after.PlayMode?.IsPlaying
-                && before.PlayMode?.IsPlayingOrWillChangePlaymode == after.PlayMode?.IsPlayingOrWillChangePlaymode;
+                && before.LifecycleState == after.LifecycleState
+                && before.CompileState == after.CompileState
+                && before.CompileGeneration == after.CompileGeneration
+                && before.AssetRefreshGeneration == after.AssetRefreshGeneration
+                && before.DomainReloadGeneration == after.DomainReloadGeneration
+                && before.PlayMode == after.PlayMode;
         }
     }
 }

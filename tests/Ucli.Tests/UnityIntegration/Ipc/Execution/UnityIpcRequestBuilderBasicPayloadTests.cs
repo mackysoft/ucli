@@ -53,7 +53,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         Assert.Equal("run-1", payload.RunId);
         Assert.Null(payload.TimeoutMilliseconds);
         Assert.Equal(
-            [IpcEditorLifecycleStateCodec.CompileFailed, IpcEditorLifecycleStateCodec.SafeMode],
+            [IpcEditorLifecycleState.CompileFailed, IpcEditorLifecycleState.SafeMode],
             request.AllowedStartupLifecycleStates);
     }
 
