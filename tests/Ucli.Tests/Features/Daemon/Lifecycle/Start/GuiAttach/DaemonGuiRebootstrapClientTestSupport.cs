@@ -34,10 +34,10 @@ internal static class DaemonGuiRebootstrapClientTestSupport
             IssuedAtUtc: new DateTimeOffset(2026, 5, 9, 1, 2, 4, TimeSpan.Zero));
     }
 
-    public static async Task WriteManifestAsync (
+    public static async Task WriteManifestAsync<TManifest> (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        GuiSupervisorManifestJsonContract manifest)
+        TManifest manifest)
     {
         var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(storageRoot, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);

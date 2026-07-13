@@ -17,11 +17,21 @@ public sealed class DaemonGuiRebootstrapClientMalformedEndpointTests
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"));
-        var manifest = CreateManifest() with
-        {
-            EndpointAddress = "relative/ucli-gui-supervisor.sock",
-        };
-        await WriteManifestAsync(scope.FullPath, unityProject.ProjectFingerprint, manifest);
+        var manifest = CreateManifest();
+        await WriteManifestAsync(
+            scope.FullPath,
+            unityProject.ProjectFingerprint,
+            new
+            {
+                manifest.SchemaVersion,
+                manifest.SessionToken,
+                ProjectFingerprint = manifest.ProjectFingerprint.ToString(),
+                manifest.EndpointTransportKind,
+                EndpointAddress = "relative/ucli-gui-supervisor.sock",
+                manifest.ProcessId,
+                manifest.ProcessStartedAtUtc,
+                manifest.IssuedAtUtc,
+            });
         var transportClient = new StubIpcTransportClient();
         var client = CreateClient(transportClient);
 

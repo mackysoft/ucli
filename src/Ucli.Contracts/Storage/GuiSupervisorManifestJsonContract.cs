@@ -30,21 +30,21 @@ internal sealed record GuiSupervisorManifestJsonContract
         this.IssuedAtUtc = IssuedAtUtc;
     }
 
-    public int SchemaVersion { get; init; }
+    public int SchemaVersion { get; }
 
-    public string SessionToken { get; init; }
+    public string SessionToken { get; }
 
     public ProjectFingerprint ProjectFingerprint { get; }
 
-    public string EndpointTransportKind { get; init; }
+    public string EndpointTransportKind { get; }
 
-    public string EndpointAddress { get; init; }
+    public string EndpointAddress { get; }
 
-    public int ProcessId { get; init; }
+    public int ProcessId { get; }
 
-    public DateTimeOffset? ProcessStartedAtUtc { get; init; }
+    public DateTimeOffset? ProcessStartedAtUtc { get; }
 
-    public DateTimeOffset IssuedAtUtc { get; init; }
+    public DateTimeOffset IssuedAtUtc { get; }
 
     /// <inheritdoc />
     public override string ToString () => nameof(GuiSupervisorManifestJsonContract);

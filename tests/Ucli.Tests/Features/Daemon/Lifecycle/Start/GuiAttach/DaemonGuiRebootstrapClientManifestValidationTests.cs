@@ -115,23 +115,21 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             "daemon-command-service",
             $"{nameof(RequestRebootstrapAsync_WhenManifestValidationFails_ReturnsUnavailableWithoutIpc)}-{testCase.Name}");
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
-        var baseManifest = CreateManifest();
-        var manifest = new GuiSupervisorManifestJsonContract(
-            baseManifest.SchemaVersion,
-            baseManifest.SessionToken,
-            testCase.ProjectFingerprint,
-            baseManifest.EndpointTransportKind,
-            baseManifest.EndpointAddress,
-            baseManifest.ProcessId,
-            baseManifest.ProcessStartedAtUtc,
-            baseManifest.IssuedAtUtc) with
-        {
-            SchemaVersion = testCase.SchemaVersion,
-            SessionToken = testCase.SessionToken,
-            EndpointTransportKind = testCase.EndpointTransportKind,
-            EndpointAddress = testCase.EndpointAddress,
-        };
-        await WriteManifestAsync(scope.FullPath, unityProject.ProjectFingerprint, manifest);
+        var manifest = CreateManifest();
+        await WriteManifestAsync(
+            scope.FullPath,
+            unityProject.ProjectFingerprint,
+            new
+            {
+                testCase.SchemaVersion,
+                testCase.SessionToken,
+                ProjectFingerprint = testCase.ProjectFingerprint.ToString(),
+                testCase.EndpointTransportKind,
+                testCase.EndpointAddress,
+                manifest.ProcessId,
+                manifest.ProcessStartedAtUtc,
+                manifest.IssuedAtUtc,
+            });
         var transportClient = new StubIpcTransportClient();
         var client = CreateClient(transportClient);
 
@@ -153,12 +151,20 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestTransportKindIsInvalid_ReturnsUnavailableWithoutIpc));
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
+        var manifest = CreateManifest();
         await WriteManifestAsync(
             scope.FullPath,
             unityProject.ProjectFingerprint,
-            CreateManifest() with
+            new
             {
                 EndpointTransportKind = "invalid-transport",
+                manifest.SchemaVersion,
+                manifest.SessionToken,
+                ProjectFingerprint = manifest.ProjectFingerprint.ToString(),
+                manifest.EndpointAddress,
+                manifest.ProcessId,
+                manifest.ProcessStartedAtUtc,
+                manifest.IssuedAtUtc,
             });
         var transportClient = new StubIpcTransportClient();
         var client = CreateClient(transportClient);

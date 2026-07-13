@@ -15,15 +15,25 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenSessionTokenRotates_ReloadsManifestAndReplaysSameRequestOnce ()
     {
-        var initialManifest = CreateManifest() with
-        {
-            SessionToken = IpcSessionTokenTestFactory.Create("initial-token").GetEncodedValue(),
-        };
-        var successorManifest = initialManifest with
-        {
-            SessionToken = IpcSessionTokenTestFactory.Create("successor-token").GetEncodedValue(),
-            IssuedAtUtc = initialManifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var manifest = CreateManifest();
+        var initialManifest = new GuiSupervisorManifestJsonContract(
+            manifest.SchemaVersion,
+            IpcSessionTokenTestFactory.Create("initial-token").GetEncodedValue(),
+            manifest.ProjectFingerprint,
+            manifest.EndpointTransportKind,
+            manifest.EndpointAddress,
+            manifest.ProcessId,
+            manifest.ProcessStartedAtUtc,
+            manifest.IssuedAtUtc);
+        var successorManifest = new GuiSupervisorManifestJsonContract(
+            initialManifest.SchemaVersion,
+            IpcSessionTokenTestFactory.Create("successor-token").GetEncodedValue(),
+            initialManifest.ProjectFingerprint,
+            initialManifest.EndpointTransportKind,
+            initialManifest.EndpointAddress,
+            initialManifest.ProcessId,
+            initialManifest.ProcessStartedAtUtc,
+            initialManifest.IssuedAtUtc.AddSeconds(1));
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             projectFingerprint: initialManifest.ProjectFingerprint);
         var manifestReadCount = 0;
@@ -114,20 +124,34 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenSuccessorTokenIsAlsoRejected_DoesNotObserveThirdGeneration ()
     {
-        var initialManifest = CreateManifest() with
-        {
-            SessionToken = IpcSessionTokenTestFactory.Create("initial-token").GetEncodedValue(),
-        };
-        var successorManifest = initialManifest with
-        {
-            SessionToken = IpcSessionTokenTestFactory.Create("successor-token").GetEncodedValue(),
-            IssuedAtUtc = initialManifest.IssuedAtUtc.AddSeconds(1),
-        };
-        var unexpectedThirdManifest = successorManifest with
-        {
-            SessionToken = IpcSessionTokenTestFactory.Create("unexpected-third-token").GetEncodedValue(),
-            IssuedAtUtc = successorManifest.IssuedAtUtc.AddSeconds(1),
-        };
+        var manifest = CreateManifest();
+        var initialManifest = new GuiSupervisorManifestJsonContract(
+            manifest.SchemaVersion,
+            IpcSessionTokenTestFactory.Create("initial-token").GetEncodedValue(),
+            manifest.ProjectFingerprint,
+            manifest.EndpointTransportKind,
+            manifest.EndpointAddress,
+            manifest.ProcessId,
+            manifest.ProcessStartedAtUtc,
+            manifest.IssuedAtUtc);
+        var successorManifest = new GuiSupervisorManifestJsonContract(
+            initialManifest.SchemaVersion,
+            IpcSessionTokenTestFactory.Create("successor-token").GetEncodedValue(),
+            initialManifest.ProjectFingerprint,
+            initialManifest.EndpointTransportKind,
+            initialManifest.EndpointAddress,
+            initialManifest.ProcessId,
+            initialManifest.ProcessStartedAtUtc,
+            initialManifest.IssuedAtUtc.AddSeconds(1));
+        var unexpectedThirdManifest = new GuiSupervisorManifestJsonContract(
+            successorManifest.SchemaVersion,
+            IpcSessionTokenTestFactory.Create("unexpected-third-token").GetEncodedValue(),
+            successorManifest.ProjectFingerprint,
+            successorManifest.EndpointTransportKind,
+            successorManifest.EndpointAddress,
+            successorManifest.ProcessId,
+            successorManifest.ProcessStartedAtUtc,
+            successorManifest.IssuedAtUtc.AddSeconds(1));
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             projectFingerprint: initialManifest.ProjectFingerprint);
         var manifestReadCount = 0;
@@ -287,10 +311,16 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestStartTimeDiffersWithinTolerance_RequestsSupervisor));
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
-        var manifest = CreateManifest() with
-        {
-            ProcessStartedAtUtc = ProcessStartedAtUtc.AddMilliseconds(1),
-        };
+        var baseManifest = CreateManifest();
+        var manifest = new GuiSupervisorManifestJsonContract(
+            baseManifest.SchemaVersion,
+            baseManifest.SessionToken,
+            baseManifest.ProjectFingerprint,
+            baseManifest.EndpointTransportKind,
+            baseManifest.EndpointAddress,
+            baseManifest.ProcessId,
+            ProcessStartedAtUtc.AddMilliseconds(1),
+            baseManifest.IssuedAtUtc);
         await WriteManifestAsync(scope.FullPath, unityProject.ProjectFingerprint, manifest);
         var timeout = TimeSpan.FromMilliseconds(500);
         var transportClient = CreateAcceptingTransport(unityProject.ProjectFingerprint, manifest);
