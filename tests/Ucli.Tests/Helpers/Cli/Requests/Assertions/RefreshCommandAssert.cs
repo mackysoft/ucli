@@ -45,7 +45,7 @@ internal static class RefreshCommandAssert
                 .HasString("requestId", expectedRequestId)
                 .HasProperty("project", project => project
                     .HasString("projectPath", ProjectIdentityInfoTestFactory.DefaultProjectPath)
-                    .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint)
+                    .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint.ToString())
                     .HasString("unityVersion", ProjectIdentityInfoTestFactory.UnityVersion))
                 .HasArrayLength("opResults", 1)
                 .HasProperty("opResults", 0, op => op

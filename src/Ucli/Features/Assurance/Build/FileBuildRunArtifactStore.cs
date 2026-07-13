@@ -698,7 +698,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
     }
 
-    private static string ResolveProjectFingerprintFromArtifactsDirectory (BuildRunArtifactPaths paths)
+    private static ProjectFingerprint ResolveProjectFingerprintFromArtifactsDirectory (BuildRunArtifactPaths paths)
     {
         var relativePath = NormalizeRepositoryRelativePath(paths.RepositoryRoot, paths.ArtifactsDirectory);
         var segments = relativePath.Split('/');
@@ -708,7 +708,13 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 $"Artifact directory must include a project fingerprint segment: {paths.ArtifactsDirectory}");
         }
 
-        return segments[3];
+        if (!ProjectFingerprint.TryParse(segments[3], out var projectFingerprint))
+        {
+            throw new InvalidOperationException(
+                $"Artifact directory contains an invalid project fingerprint segment: {paths.ArtifactsDirectory}");
+        }
+
+        return projectFingerprint;
     }
 
     private static void EnsureSeparatedOutputRoots (BuildRunArtifactPaths paths)

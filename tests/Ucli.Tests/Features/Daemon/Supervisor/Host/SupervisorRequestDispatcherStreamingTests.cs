@@ -78,7 +78,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint), frames[0].Event);
         JsonAssert.For(frames[0].Payload)
             .HasString("payloadKind", "startupObservation")
-            .HasString("projectFingerprint", projectFingerprint)
+            .HasString("projectFingerprint", projectFingerprint.ToString())
             .HasInt32("timeoutMilliseconds", 1000)
             .HasString("message", "Waiting for daemon endpoint.");
         Assert.Equal(IpcStreamFrameKinds.Terminal, frames[1].Kind);

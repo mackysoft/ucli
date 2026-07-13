@@ -29,7 +29,7 @@ internal static class SupervisorIpcContracts
     /// <param name="OnStartupBlocked"> The requested startup-blocked process policy. </param>
     internal sealed record EnsureRunningRequest (
         string UnityProjectRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         DateTimeOffset DeadlineUtc,
         int AttemptTimeoutMilliseconds,
         string? EditorMode,
@@ -62,7 +62,7 @@ internal static class SupervisorIpcContracts
     /// <param name="AttemptTimeoutMilliseconds"> The monotonic caller budget remaining when this delivery attempt starts. </param>
     internal sealed record StopProjectRequest (
         string UnityProjectRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         DateTimeOffset DeadlineUtc,
         int AttemptTimeoutMilliseconds);
 

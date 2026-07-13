@@ -15,7 +15,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: "/tmp/repo-root",
-            projectFingerprint: "fingerprint-resolver-match");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-match"));
         var session = DaemonSessionTestFactory.Create(
             processId: 1234,
             projectFingerprint: unityProject.ProjectFingerprint,
@@ -37,7 +37,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: "/tmp/repo-root",
-            projectFingerprint: "fingerprint-resolver-process-start-mismatch");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-process-start-mismatch"));
         var session = DaemonSessionTestFactory.Create(
             processId: Environment.ProcessId,
             projectFingerprint: unityProject.ProjectFingerprint,
@@ -62,7 +62,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: "/tmp/repo-root",
-            projectFingerprint: "fingerprint-resolver-synth");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-synth"));
         var session = DaemonSessionTestFactory.Create(
             processId: int.MaxValue,
             projectFingerprint: unityProject.ProjectFingerprint,
@@ -100,7 +100,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: "/tmp/repo-root",
-            projectFingerprint: "fingerprint-resolver-alive");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-alive"));
         var session = DaemonSessionTestFactory.Create(
             processId: Environment.ProcessId,
             projectFingerprint: unityProject.ProjectFingerprint,
@@ -121,7 +121,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: "/tmp/repo-root",
-            projectFingerprint: "fingerprint-resolver-write-fail");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-write-fail"));
         var session = DaemonSessionTestFactory.Create(
             processId: int.MaxValue,
             projectFingerprint: unityProject.ProjectFingerprint,
@@ -149,7 +149,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: "/tmp/repo-root",
-            projectFingerprint: "fingerprint-resolver-write-cancellation");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-write-cancellation"));
         var session = DaemonSessionTestFactory.Create(
             processId: int.MaxValue,
             projectFingerprint: unityProject.ProjectFingerprint,
@@ -200,7 +200,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
 
         public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
@@ -208,7 +208,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             DaemonDiagnosis diagnosis,
             CancellationToken cancellationToken = default)
         {
@@ -220,7 +220,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();

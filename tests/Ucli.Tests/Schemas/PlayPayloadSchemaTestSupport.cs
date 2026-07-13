@@ -4,6 +4,8 @@ namespace MackySoft.Ucli.Tests.Schemas;
 
 internal static class PlayPayloadSchemaTestSupport
 {
+    public static readonly ProjectFingerprint SampleProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
+
     public static string CreatePlayLifecycleSnapshotJson (
         string playModeState = "stopped",
         string playModeTransition = "none",
@@ -20,7 +22,7 @@ internal static class PlayPayloadSchemaTestSupport
               "serverVersion": "0.5.0",
               "editorMode": "gui",
               "unityVersion": "6000.1.4f1",
-              "projectFingerprint": "project-fingerprint",
+              "projectFingerprint": "{{SampleProjectFingerprint.ToString()}}",
               "lifecycleState": "{{lifecycleState}}",
               "blockingReason": {{blockingReasonJson}},
               "compileState": "idle",
@@ -82,7 +84,7 @@ internal static class PlayPayloadSchemaTestSupport
             {
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{SampleProjectFingerprint.ToString()}}",
                 "unityVersion": "6000.1.4f1"
               },
               "daemonStatus": "running",
@@ -125,7 +127,7 @@ internal static class PlayPayloadSchemaTestSupport
             {
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{SampleProjectFingerprint.ToString()}}",
                 "unityVersion": "6000.1.4f1"
               },
               "daemonStatus": "running",
@@ -162,7 +164,7 @@ internal static class PlayPayloadSchemaTestSupport
             {
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{SampleProjectFingerprint.ToString()}}",
                 "unityVersion": "6000.1.4f1"
               },
               "daemonStatus": "running",

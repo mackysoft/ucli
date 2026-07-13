@@ -21,7 +21,7 @@ public sealed class SupervisorExitHandlerTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: scope.FullPath,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
@@ -80,7 +80,7 @@ public sealed class SupervisorExitHandlerTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: scope.FullPath,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
@@ -132,7 +132,7 @@ public sealed class SupervisorExitHandlerTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: scope.FullPath,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             projectFingerprint: unityProject.ProjectFingerprint,
@@ -186,7 +186,7 @@ public sealed class SupervisorExitHandlerTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: scope.FullPath,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero);
         var managedSession = DaemonSessionTestFactory.Create(
             sessionToken: "managed-session-token",
@@ -232,7 +232,7 @@ public sealed class SupervisorExitHandlerTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: ResolvedUnityProjectContextTestFactory.RepositoryRoot,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero);
         var managedSession = DaemonSessionTestFactory.Create(
             sessionToken: "managed-session-token",
@@ -275,7 +275,7 @@ public sealed class SupervisorExitHandlerTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: ResolvedUnityProjectContextTestFactory.RepositoryRoot,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),

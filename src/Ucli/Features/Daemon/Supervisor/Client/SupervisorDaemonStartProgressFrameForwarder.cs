@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Features.Daemon.Supervisor.Client;
 internal sealed class SupervisorDaemonStartProgressFrameForwarder
 {
     private readonly ICommandProgressSink progressSink;
-    private readonly string projectFingerprint;
+    private readonly ProjectFingerprint projectFingerprint;
     private readonly int timeoutMilliseconds;
     private readonly DaemonEditorMode? editorMode;
     private readonly DaemonStartupBlockedProcessPolicy onStartupBlocked;
@@ -18,13 +18,13 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
     /// <summary> Initializes a new instance of the <see cref="SupervisorDaemonStartProgressFrameForwarder" /> class. </summary>
     public SupervisorDaemonStartProgressFrameForwarder (
         ICommandProgressSink progressSink,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int timeoutMilliseconds,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
         this.progressSink = progressSink ?? throw new ArgumentNullException(nameof(progressSink));
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutMilliseconds);
 
         this.projectFingerprint = projectFingerprint;
@@ -131,13 +131,13 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
     private bool HasExpectedEnvelope (
         string payloadKind,
         DaemonStartProgressPayloadKind expectedPayloadKind,
-        string entryProjectFingerprint,
+        ProjectFingerprint entryProjectFingerprint,
         int entryTimeoutMilliseconds,
         string? entryEditorMode,
         string entryOnStartupBlocked)
     {
         return ContractLiteralCodec.Matches(payloadKind, expectedPayloadKind)
-            && string.Equals(entryProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
+            && entryProjectFingerprint == projectFingerprint
             && entryTimeoutMilliseconds > 0
             && entryTimeoutMilliseconds <= timeoutMilliseconds
             && ContractLiteralCodec.Matches(entryOnStartupBlocked, onStartupBlocked)

@@ -12,7 +12,7 @@ public sealed class FileReadIndexArtifactReaderCatalogManifestTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "types-success");
         var reader = new FileReadIndexArtifactReader();
-        const string fingerprint = "fingerprint";
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var contract = new IndexTypesCatalogJsonContract(
             SchemaVersion: 1,
@@ -54,7 +54,7 @@ public sealed class FileReadIndexArtifactReaderCatalogManifestTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "schemas-missing");
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
 
         var result = await reader.ReadSchemasCatalogAsync(project, CancellationToken.None);
 
@@ -70,8 +70,8 @@ public sealed class FileReadIndexArtifactReaderCatalogManifestTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "schemas-malformed-json");
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
-        var catalogPath = UcliStoragePathResolver.ResolveSchemasCatalogPath(scope.FullPath, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
+        var catalogPath = UcliStoragePathResolver.ResolveSchemasCatalogPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         FileReadIndexArtifactReaderTestSupport.WriteText(catalogPath, "{");
 
         var result = await reader.ReadSchemasCatalogAsync(project, CancellationToken.None);
@@ -88,8 +88,8 @@ public sealed class FileReadIndexArtifactReaderCatalogManifestTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "inputs-incomplete-contract");
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
-        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         FileReadIndexArtifactReaderTestSupport.WriteText(
             manifestPath,
             """

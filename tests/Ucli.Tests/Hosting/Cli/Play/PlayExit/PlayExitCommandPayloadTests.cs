@@ -23,7 +23,7 @@ public sealed class PlayExitCommandPayloadTests
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasProperty("project", project => project
                 .HasString("projectPath", PlayCommandOutputTestData.ProjectPath)
-                .HasString("projectFingerprint", PlayCommandOutputTestData.ProjectFingerprint)
+                .HasString("projectFingerprint", PlayCommandOutputTestData.ProjectFingerprint.ToString())
                 .HasString("unityVersion", PlayCommandOutputTestData.UnityVersion))
             .HasString("daemonStatus", "running")
             .HasString("editorMode", "gui")

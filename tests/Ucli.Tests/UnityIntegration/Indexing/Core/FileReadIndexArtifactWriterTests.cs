@@ -24,7 +24,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         await writer.WriteOpsCatalogAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             generatedAtUtc,
             operations,
             "ops-hash",
@@ -32,7 +32,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
         var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
@@ -52,13 +52,13 @@ public sealed class FileReadIndexArtifactWriterTests
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-content-addressed");
         var writer = CreateWriter();
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var firstOperation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
         var secondOperation = firstOperation with { Description = "Updated operation description." };
 
         await writer.WriteOpsCatalogAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
             [firstOperation],
             "first-ops-hash",
@@ -70,12 +70,12 @@ public sealed class FileReadIndexArtifactWriterTests
         var firstEntry = Assert.Single(firstCatalogResult.Value!.Entries!);
         var firstDescribePath = UcliStoragePathResolver.ResolveOpsDescribePath(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             firstEntry.DescribeKey!);
 
         await writer.WriteOpsCatalogAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
             [secondOperation],
             "second-ops-hash",
@@ -87,7 +87,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var secondEntry = Assert.Single(secondCatalogResult.Value!.Entries!);
         var secondDescribePath = UcliStoragePathResolver.ResolveOpsDescribePath(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             secondEntry.DescribeKey!);
         var firstDescribeResult = await reader.ReadOpsDescribeAsync(
             project,
@@ -109,7 +109,7 @@ public sealed class FileReadIndexArtifactWriterTests
     public async Task WriteOpsCatalog_WhenDescribeDirectoryContainsManyOrphans_PrunesOldUnreferencedArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-describe-prune");
-        const string projectFingerprint = "fingerprint";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var describeDirectory = UcliStoragePathResolver.ResolveOpsDescribeDirectory(
             scope.FullPath,
             projectFingerprint);
@@ -159,7 +159,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         await writer.WriteOpsCatalogAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             generatedAtUtc,
             operations,
             "ops-hash",
@@ -167,7 +167,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
         var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
@@ -185,13 +185,13 @@ public sealed class FileReadIndexArtifactWriterTests
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-catalog-write-fails");
         var writer = CreateWriter();
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var oldOperation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
         var newOperation = oldOperation with { Description = "Updated operation description." };
 
         await writer.WriteOpsCatalogAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
             [oldOperation],
             "old-ops-hash",
@@ -203,7 +203,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () => await failingWriter.WriteOpsCatalogAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
             [newOperation],
             "new-ops-hash",
@@ -236,7 +236,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         var firstWriteTask = Task.Run(async () => await firstWriter.WriteOpsCatalogAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
             [ReadIndexOperationTestFactory.CreateGoDescribeEntry()],
             "ops-hash",
@@ -246,7 +246,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         var secondWriteTask = secondWriter.WriteAssetLookupsAsync(
                 scope.FullPath,
-                "fingerprint",
+                ProjectFingerprintTestFactory.Create("fingerprint"),
                 DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
                 Array.Empty<IndexAssetSearchEntryJsonContract>(),
                 Array.Empty<IndexGuidPathEntryJsonContract>(),
@@ -259,8 +259,8 @@ public sealed class FileReadIndexArtifactWriterTests
         await firstWriteTask;
         await secondWriteTask;
 
-        Assert.True(File.Exists(UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, "fingerprint")));
-        Assert.True(File.Exists(UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, "fingerprint")));
+        Assert.True(File.Exists(UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"))));
+        Assert.True(File.Exists(UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"))));
     }
 
     [Fact]
@@ -269,7 +269,7 @@ public sealed class FileReadIndexArtifactWriterTests
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-manifest-rebase");
         using var heldLock = await FileExclusiveLock.AcquireAsync(
-            UcliStoragePathResolver.ResolveReadIndexWriteLockPath(scope.FullPath, "fingerprint"),
+            UcliStoragePathResolver.ResolveReadIndexWriteLockPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint")),
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
         var writer = CreateWriter();
@@ -277,7 +277,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         var writeTask = writer.WriteOpsCatalogAsync(
                 scope.FullPath,
-                "fingerprint",
+                ProjectFingerprintTestFactory.Create("fingerprint"),
                 DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
                 [ReadIndexOperationTestFactory.CreateGoDescribeEntry()],
                 "ops-hash",
@@ -297,7 +297,7 @@ public sealed class FileReadIndexArtifactWriterTests
             AssetSearchHash: "current-asset-search",
             GuidPathHash: "current-guid-path",
             CombinedHash: "current-combined");
-        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, "fingerprint");
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         await FileUtilities.WriteAllTextAtomicallyAsync(
             manifestPath,
             new IndexInputsManifestJsonContractWriter().Write(currentManifest),
@@ -307,7 +307,7 @@ public sealed class FileReadIndexArtifactWriterTests
         await writeTask;
 
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
         Assert.True(manifestResult.IsSuccess);
@@ -324,7 +324,7 @@ public sealed class FileReadIndexArtifactWriterTests
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "asset-manifest-rebase");
         using var heldLock = await FileExclusiveLock.AcquireAsync(
-            UcliStoragePathResolver.ResolveReadIndexWriteLockPath(scope.FullPath, "fingerprint"),
+            UcliStoragePathResolver.ResolveReadIndexWriteLockPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint")),
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
         var writer = CreateWriter();
@@ -332,7 +332,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         var writeTask = writer.WriteAssetLookupsAsync(
                 scope.FullPath,
-                "fingerprint",
+                ProjectFingerprintTestFactory.Create("fingerprint"),
                 DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
                 Array.Empty<IndexAssetSearchEntryJsonContract>(),
                 Array.Empty<IndexGuidPathEntryJsonContract>(),
@@ -352,7 +352,7 @@ public sealed class FileReadIndexArtifactWriterTests
             AssetSearchHash: "current-asset-search",
             GuidPathHash: "current-guid-path",
             CombinedHash: "current-combined");
-        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, "fingerprint");
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         await FileUtilities.WriteAllTextAtomicallyAsync(
             manifestPath,
             new IndexInputsManifestJsonContractWriter().Write(currentManifest),
@@ -362,7 +362,7 @@ public sealed class FileReadIndexArtifactWriterTests
         await writeTask;
 
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
         Assert.True(manifestResult.IsSuccess);
@@ -385,16 +385,16 @@ public sealed class FileReadIndexArtifactWriterTests
         var initialSnapshot = CreateSnapshot();
         await initialWriter.WriteAssetLookupsAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
             [new IndexAssetSearchEntryJsonContract("Assets/Old.asset", "old-guid", "Old", "Old.Type", ["Old.Type"])],
             [new IndexGuidPathEntryJsonContract("old-guid", "Assets/Old.asset")],
             initialSnapshot,
             CancellationToken.None);
 
-        var assetSearchPath = UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, "fingerprint");
-        var guidPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, "fingerprint");
-        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, "fingerprint");
+        var assetSearchPath = UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
+        var guidPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         var initialAssetSearchJson = await File.ReadAllTextAsync(assetSearchPath);
         var initialGuidJson = await File.ReadAllTextAsync(guidPath);
         var initialManifestJson = await File.ReadAllTextAsync(manifestPath);
@@ -410,7 +410,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         await Assert.ThrowsAsync<IOException>(async () => await failingWriter.WriteAssetLookupsAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
             [new IndexAssetSearchEntryJsonContract("Assets/New.asset", "new-guid", "New", "New.Type", ["New.Type"])],
             [new IndexGuidPathEntryJsonContract("new-guid", "Assets/New.asset")],
@@ -450,7 +450,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         await writer.WriteAssetLookupsAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             generatedAtUtc,
             assetSearchEntries,
             guidPathEntries,
@@ -458,7 +458,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var assetSearchResult = await reader.ReadAssetSearchLookupAsync(project, CancellationToken.None);
         var guidPathResult = await reader.ReadGuidPathLookupAsync(project, CancellationToken.None);
         var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
@@ -490,7 +490,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         await writer.WriteSceneTreeLiteAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             generatedAtUtc,
             "Assets\\Scenes\\Main.unity",
             roots,
@@ -498,7 +498,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var result = await reader.ReadSceneTreeLiteLookupAsync(
             project,
             "Assets/Scenes/Main.unity",
@@ -511,7 +511,7 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.Single(result.Value.Roots!);
         Assert.True(File.Exists(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             "Assets/Scenes/Main.unity")));
     }
 
@@ -527,7 +527,7 @@ public sealed class FileReadIndexArtifactWriterTests
 
         await writer.WriteSceneTreeLiteAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             firstGeneratedAtUtc,
             "Assets/Scenes/First.unity",
             [CreateSceneRoot("FirstRoot")],
@@ -535,7 +535,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
         await writer.WriteSceneTreeLiteAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             secondGeneratedAtUtc,
             "Assets/Scenes/Second.unity",
             [CreateSceneRoot("SecondRoot")],
@@ -543,7 +543,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
         await writer.WriteSceneTreeLiteAsync(
             scope.FullPath,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             updatedGeneratedAtUtc,
             "Assets/Scenes/First.unity",
             [CreateSceneRoot("FirstRootUpdated")],
@@ -551,7 +551,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var firstResult = await reader.ReadSceneTreeLiteLookupAsync(
             project,
             "Assets/Scenes/First.unity",

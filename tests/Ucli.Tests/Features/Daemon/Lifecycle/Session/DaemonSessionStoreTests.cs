@@ -18,7 +18,7 @@ public sealed class DaemonSessionStoreTests
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "write-generation-lock-owned");
         var store = new DaemonSessionStore();
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fingerprint-write-generation-lock-owned",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-write-generation-lock-owned"),
             sessionToken: "successor-token");
         var lockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
             scope.FullPath,
@@ -41,7 +41,7 @@ public sealed class DaemonSessionStoreTests
     public async Task Delete_WhenSessionGenerationLockIsOwned_DoesNotDeleteCurrentSession ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "delete-generation-lock-owned");
-        const string projectFingerprint = "fingerprint-delete-generation-lock-owned";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-delete-generation-lock-owned");
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(sessionPath, "current-session", CancellationToken.None);
@@ -64,7 +64,7 @@ public sealed class DaemonSessionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "roundtrip");
         var store = new DaemonSessionStore();
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-roundtrip", sessionToken: "token-1");
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-roundtrip"), sessionToken: "token-1");
         var gitIgnorePath = Path.Combine(
             scope.FullPath,
             UcliStoragePathNames.UcliDirectoryName,
@@ -110,7 +110,7 @@ public sealed class DaemonSessionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "existing-gitignore");
         var store = new DaemonSessionStore();
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-existing-gitignore", sessionToken: "token-1");
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-existing-gitignore"), sessionToken: "token-1");
         var relativeGitIgnorePath = Path.Combine(
             UcliStoragePathNames.UcliDirectoryName,
             UcliStoragePathNames.GitIgnoreFileName);
@@ -135,7 +135,7 @@ public sealed class DaemonSessionStoreTests
 
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "owner-only");
         var store = new DaemonSessionStore();
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-owner-only", sessionToken: "token-1");
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-owner-only"), sessionToken: "token-1");
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
@@ -162,7 +162,7 @@ public sealed class DaemonSessionStoreTests
 
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "current-user-only");
         var store = new DaemonSessionStore();
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-current-user-only", sessionToken: "token-1");
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-current-user-only"), sessionToken: "token-1");
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
@@ -191,7 +191,7 @@ public sealed class DaemonSessionStoreTests
         await File.WriteAllTextAsync(blockedPath, "blocked", CancellationToken.None);
 
         var store = new DaemonSessionStore();
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-blocked", sessionToken: "token-1");
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-blocked"), sessionToken: "token-1");
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
@@ -207,11 +207,11 @@ public sealed class DaemonSessionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "malformed-json");
         var store = new DaemonSessionStore();
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, "fingerprint-malformed");
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-malformed"));
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(sessionPath, "{", CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-malformed", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-malformed"), CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -228,8 +228,8 @@ public sealed class DaemonSessionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "fingerprint-mismatch");
         var store = new DaemonSessionStore();
-        var requestedFingerprint = "fingerprint-requested";
-        var mismatchedSession = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-other", sessionToken: "token-1");
+        var requestedFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-requested");
+        var mismatchedSession = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-other"), sessionToken: "token-1");
 
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
@@ -254,7 +254,7 @@ public sealed class DaemonSessionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "read-invalid-editor-mode");
         var store = new DaemonSessionStore();
-        var requestedFingerprint = "fingerprint-read-invalid-editor-mode";
+        var requestedFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-read-invalid-editor-mode");
         var contract = DaemonSessionContractMapper.ToContract(
             DaemonSessionTestFactory.Create(projectFingerprint: requestedFingerprint, sessionToken: "token-1")) with
         {
@@ -287,7 +287,7 @@ public sealed class DaemonSessionStoreTests
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "gui-user-owner");
         var store = new DaemonSessionStore();
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fingerprint-gui-user-owner",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-gui-user-owner"),
             sessionToken: "token-1",
             editorMode: "gui",
             ownerKind: "user",

@@ -20,7 +20,7 @@ internal sealed class UnityLogReader : IUnityLogReader
     /// <returns> The Unity log read result. </returns>
     public async ValueTask<UnityLogReadResult> ReadTailAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int maxBytes = DefaultMaxBytes,
         CancellationToken cancellationToken = default)
     {

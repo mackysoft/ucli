@@ -58,7 +58,7 @@ internal static class SupervisorProjectCoordinatorTestSupport
         return ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: ResolvedUnityProjectContextTestFactory.RepositoryRoot,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
     }
 
     public static ResolvedUnityProjectContext CreateUnityProject (TestDirectoryScope scope)
@@ -68,7 +68,7 @@ internal static class SupervisorProjectCoordinatorTestSupport
         return ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: scope.FullPath,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
     }
 
     public static DaemonSession CreateExitedProcessSession ()

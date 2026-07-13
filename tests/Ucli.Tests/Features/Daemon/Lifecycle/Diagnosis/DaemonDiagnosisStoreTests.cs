@@ -16,21 +16,21 @@ public sealed class DaemonDiagnosisStoreTests
         var store = new DaemonDiagnosisStore();
         var diagnosis = CreateDiagnosis(processId: 1234);
 
-        var writeResult = await store.WriteAsync(scope.FullPath, "fingerprint-roundtrip", diagnosis, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-roundtrip"), diagnosis, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
         Assert.Null(writeResult.Error);
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-roundtrip", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-roundtrip"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.True(readResult.Exists);
         Assert.Equal(diagnosis, readResult.Diagnosis);
 
-        var deleteResult = await store.DeleteAsync(scope.FullPath, "fingerprint-roundtrip", CancellationToken.None);
+        var deleteResult = await store.DeleteAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-roundtrip"), CancellationToken.None);
 
         Assert.True(deleteResult.IsSuccess);
-        var readAfterDeleteResult = await store.ReadAsync(scope.FullPath, "fingerprint-roundtrip", CancellationToken.None);
+        var readAfterDeleteResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-roundtrip"), CancellationToken.None);
         Assert.True(readAfterDeleteResult.IsSuccess);
         Assert.False(readAfterDeleteResult.Exists);
     }
@@ -41,11 +41,11 @@ public sealed class DaemonDiagnosisStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-diagnosis-store", "malformed-json");
         var store = new DaemonDiagnosisStore();
-        var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(scope.FullPath, "fingerprint-malformed");
+        var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-malformed"));
         Directory.CreateDirectory(Path.GetDirectoryName(diagnosisPath)!);
         await File.WriteAllTextAsync(diagnosisPath, "{", CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-malformed", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-malformed"), CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -65,7 +65,7 @@ public sealed class DaemonDiagnosisStoreTests
             SessionIssuedAtUtc = default,
         };
 
-        var writeResult = await store.WriteAsync(scope.FullPath, "fingerprint-invalid", diagnosis, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), diagnosis, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
@@ -84,7 +84,7 @@ public sealed class DaemonDiagnosisStoreTests
             StartupPhase = "unknownPhase",
         };
 
-        var writeResult = await store.WriteAsync(scope.FullPath, "fingerprint-invalid", diagnosis, CancellationToken.None);
+        var writeResult = await store.WriteAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), diagnosis, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
@@ -98,7 +98,7 @@ public sealed class DaemonDiagnosisStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-diagnosis-store", "invalid-primary-diagnostic-kind");
         var store = new DaemonDiagnosisStore();
-        var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(scope.FullPath, "fingerprint-invalid");
+        var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"));
         Directory.CreateDirectory(Path.GetDirectoryName(diagnosisPath)!);
         var contract = new DaemonDiagnosisJsonContract(
             Reason: DaemonDiagnosisReasonValues.ShutdownRequested,
@@ -125,7 +125,7 @@ public sealed class DaemonDiagnosisStoreTests
             DaemonDiagnosisJsonContractSerializer.Serialize(contract) + Environment.NewLine,
             CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);

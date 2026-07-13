@@ -17,7 +17,7 @@ public sealed class DaemonSessionConnectionProviderTests
         var provider = new DaemonSessionConnectionProvider(store);
         var context = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             scope.FullPath,
-            projectFingerprint: "fingerprint-session-exists");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-session-exists"));
 
         var session = DaemonSessionTestFactory.Create(
             projectFingerprint: context.ProjectFingerprint,
@@ -46,7 +46,7 @@ public sealed class DaemonSessionConnectionProviderTests
         var provider = new DaemonSessionConnectionProvider(DaemonSessionStorageTestSupport.CreateStore());
         var context = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             scope.FullPath,
-            projectFingerprint: "fingerprint-session-missing");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-session-missing"));
 
         var resolveResult = await provider.ResolveAsync(context, CancellationToken.None);
 

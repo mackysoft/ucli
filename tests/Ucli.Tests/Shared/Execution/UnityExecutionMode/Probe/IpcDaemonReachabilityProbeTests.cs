@@ -75,7 +75,7 @@ public sealed class IpcDaemonReachabilityProbeTests
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: scope.FullPath,
                 repositoryRoot: scope.FullPath,
-                projectFingerprint: "fingerprint"),
+                projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
             DefaultProbeTimeout,
             CancellationToken.None);
 
@@ -306,7 +306,7 @@ public sealed class IpcDaemonReachabilityProbeTests
             ? ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: scope.FullPath,
                 repositoryRoot: scope.FullPath,
-                projectFingerprint: "fingerprint")
+                projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"))
             : CreateReadyContext(scope);
         var timeout = TimeSpan.FromSeconds(5);
         var probeTask = probe.ProbeAsync(context, timeout, CancellationToken.None).AsTask();
@@ -377,7 +377,7 @@ public sealed class IpcDaemonReachabilityProbeTests
                     ResolvedUnityProjectContextTestFactory.Create(
                         unityProjectRoot: projectRoot,
                         repositoryRoot: projectRoot,
-                        projectFingerprint: "fingerprint"),
+                        projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
                     DefaultProbeTimeout,
                     cancellationTokenSource.Token).AsTask(),
                 "Canceled daemon reachability probe",
@@ -427,7 +427,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var context = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: unityProjectRoot,
             repositoryRoot: repositoryRoot,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         EnsureEndpointAllowsPing(context);
 
         var result = await probe.ProbeAsync(context, DefaultProbeTimeout, CancellationToken.None);
@@ -461,7 +461,7 @@ public sealed class IpcDaemonReachabilityProbeTests
                         ResolvedUnityProjectContextTestFactory.Create(
                             unityProjectRoot: projectRoot,
                             repositoryRoot: projectRoot,
-                            projectFingerprint: "fingerprint"),
+                            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
                         timeout,
                         CancellationToken.None).AsTask(),
                     "Invalid timeout daemon reachability probe",
@@ -475,7 +475,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var context = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: scope.FullPath,
             repositoryRoot: scope.FullPath,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         EnsureEndpointAllowsPing(context);
         return context;
     }

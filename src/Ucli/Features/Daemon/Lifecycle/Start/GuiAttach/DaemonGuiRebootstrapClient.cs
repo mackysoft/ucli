@@ -160,7 +160,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcGuiRebootstrapResponse payload, out var payloadError)
                     || !payload.Accepted
                     || payload.ProcessId != expectedProcessId
-                    || !string.Equals(payload.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+                    || payload.ProjectFingerprint != unityProject.ProjectFingerprint)
                 {
                     return DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
                         $"GUI supervisor rebootstrap response is invalid. {payloadError.Message}",
@@ -231,7 +231,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 DaemonErrorCodes.DaemonEndpointNotRegistered);
         }
 
-        if (!string.Equals(manifest.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        if (manifest.ProjectFingerprint != unityProject.ProjectFingerprint)
         {
             return ExecutionError.InternalError(
                 "GUI supervisor manifest projectFingerprint does not match the target project.",

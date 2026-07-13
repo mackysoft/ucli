@@ -23,7 +23,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
     /// <inheritdoc />
     public async ValueTask<MutationReadPostconditionReadResult> ReadOrNullAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -91,7 +91,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
     /// <inheritdoc />
     public async ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         OperationExecutionReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default)
     {

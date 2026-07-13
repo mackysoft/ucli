@@ -561,7 +561,7 @@ internal sealed class SupervisorRequestDispatcher
     private static ProjectContextResult TryCreateProjectContext (
         SupervisorRuntimeContext runtimeContext,
         string unityProjectRoot,
-        string projectFingerprint)
+        ProjectFingerprint projectFingerprint)
     {
         if (string.IsNullOrWhiteSpace(unityProjectRoot))
         {
@@ -569,10 +569,10 @@ internal sealed class SupervisorRequestDispatcher
                 "Unity project root must not be empty."));
         }
 
-        if (string.IsNullOrWhiteSpace(projectFingerprint))
+        if (projectFingerprint == null)
         {
             return ProjectContextResult.Failure(ExecutionError.InvalidArgument(
-                "Project fingerprint must not be empty."));
+                "Project fingerprint must not be null."));
         }
 
         try
@@ -588,7 +588,7 @@ internal sealed class SupervisorRequestDispatcher
             var expectedFingerprint = UnityProjectFingerprintCalculator.Create(
                 runtimeContext.StorageRoot,
                 normalizedUnityProjectRoot);
-            if (!string.Equals(expectedFingerprint, projectFingerprint, StringComparison.Ordinal))
+            if (expectedFingerprint != projectFingerprint)
             {
                 return ProjectContextResult.Failure(ExecutionError.InvalidArgument(
                     "Project fingerprint does not match the specified Unity project root."));

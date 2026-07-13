@@ -15,7 +15,7 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
     /// <inheritdoc />
     public async ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -69,7 +69,7 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
     /// <inheritdoc />
     public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -276,7 +276,7 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
 
     private static bool TryResolvePath (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         out string? path,
         out ExecutionError? error)
     {

@@ -18,7 +18,7 @@ public sealed class DaemonGuiRebootstrapClientSupervisorFailureTests
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenSupervisorIsUnreachable_ReturnsUnavailable));
-        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         var manifest = CreateManifest();
         await WriteManifestAsync(scope.FullPath, unityProject.ProjectFingerprint, manifest);
         var timeout = TimeSpan.FromMilliseconds(500);
@@ -45,7 +45,7 @@ public sealed class DaemonGuiRebootstrapClientSupervisorFailureTests
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenSupervisorReturnsInvalidPayload_ReturnsUnavailable));
-        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         var manifest = CreateManifest();
         await WriteManifestAsync(scope.FullPath, unityProject.ProjectFingerprint, manifest);
         var timeout = TimeSpan.FromMilliseconds(500);
@@ -55,7 +55,7 @@ public sealed class DaemonGuiRebootstrapClientSupervisorFailureTests
                 request,
                 new IpcGuiRebootstrapResponse(
                     Accepted: true,
-                    ProjectFingerprint: "other-fingerprint",
+                    ProjectFingerprint: ProjectFingerprintTestFactory.Create("other-fingerprint"),
                     ProcessId: manifest.ProcessId))),
         };
         var client = CreateClient(transportClient);
@@ -77,7 +77,7 @@ public sealed class DaemonGuiRebootstrapClientSupervisorFailureTests
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenSupervisorReturnsError_ReturnsUnavailable));
-        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         var manifest = CreateManifest();
         await WriteManifestAsync(scope.FullPath, unityProject.ProjectFingerprint, manifest);
         var timeout = TimeSpan.FromMilliseconds(500);
@@ -104,7 +104,7 @@ public sealed class DaemonGuiRebootstrapClientSupervisorFailureTests
         DaemonGuiRebootstrapRequestResult result,
         StubIpcTransportClient transportClient,
         GuiSupervisorManifestJsonContract manifest,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         TimeSpan timeout)
     {
         Assert.False(result.IsAccepted);

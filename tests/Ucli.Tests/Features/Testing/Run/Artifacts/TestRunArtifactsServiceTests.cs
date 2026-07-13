@@ -36,7 +36,7 @@ public sealed class TestRunArtifactsServiceTests
                 ".ucli",
                 "local",
                 "fingerprints",
-                configuration.UnityProject.ProjectFingerprint,
+                configuration.UnityProject.ProjectFingerprint.ToString(),
                 "artifacts",
                 "test"),
             session.Paths.ArtifactsDir,
@@ -170,7 +170,7 @@ public sealed class TestRunArtifactsServiceTests
             UnityProject: ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: projectPath,
                 repositoryRoot: scope.FullPath,
-                projectFingerprint: "abc123"),
+                projectFingerprint: ProjectFingerprintTestFactory.Create("abc123")),
             Mode: UnityExecutionMode.Oneshot,
             UnityVersion: "6000.1.4f1",
             UnityEditorPath: scope.GetPath("Editors/6000.1.4f1/Editor/Unity"),

@@ -18,11 +18,11 @@ public sealed class GuiSupervisorManifestStoreTests
         using var scope = TestDirectories.CreateTempScope(
             "gui-supervisor-manifest-store",
             "consistent-publication-read");
-        const string ProjectFingerprint = "fingerprint";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var manifest = CreateManifest();
         var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
             scope.FullPath,
-            ProjectFingerprint);
+            projectFingerprint);
         using var publicationLock = FileExclusiveLock.Acquire(
             manifestLockPath,
             AsyncTestTimeout,
@@ -31,13 +31,13 @@ public sealed class GuiSupervisorManifestStoreTests
 
         var readTask = store.ReadAfterEndpointPublicationAsync(
                 scope.FullPath,
-                ProjectFingerprint,
+                projectFingerprint,
                 AsyncTestTimeout,
                 CancellationToken.None)
             .AsTask();
         Assert.False(readTask.IsCompleted);
 
-        await WriteManifestAsync(scope.FullPath, ProjectFingerprint, manifest);
+        await WriteManifestAsync(scope.FullPath, projectFingerprint, manifest);
         publicationLock.Dispose();
         var result = await readTask.WaitAsync(AsyncTestTimeout);
 
@@ -51,10 +51,10 @@ public sealed class GuiSupervisorManifestStoreTests
         using var scope = TestDirectories.CreateTempScope(
             "gui-supervisor-manifest-store",
             "publication-read-timeout");
-        const string ProjectFingerprint = "fingerprint";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
             scope.FullPath,
-            ProjectFingerprint);
+            projectFingerprint);
         using var publicationLock = FileExclusiveLock.Acquire(
             manifestLockPath,
             TimeSpan.FromSeconds(1),
@@ -63,7 +63,7 @@ public sealed class GuiSupervisorManifestStoreTests
 
         await Assert.ThrowsAsync<TimeoutException>(() => store.ReadAfterEndpointPublicationAsync(
                 scope.FullPath,
-                ProjectFingerprint,
+                projectFingerprint,
                 TimeSpan.FromMilliseconds(50),
                 CancellationToken.None)
             .AsTask());
@@ -76,10 +76,10 @@ public sealed class GuiSupervisorManifestStoreTests
         using var scope = TestDirectories.CreateTempScope(
             "gui-supervisor-manifest-store",
             "publication-read-cancellation");
-        const string ProjectFingerprint = "fingerprint";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
             scope.FullPath,
-            ProjectFingerprint);
+            projectFingerprint);
         using var publicationLock = FileExclusiveLock.Acquire(
             manifestLockPath,
             TimeSpan.FromSeconds(1),
@@ -89,7 +89,7 @@ public sealed class GuiSupervisorManifestStoreTests
 
         var readTask = store.ReadAfterEndpointPublicationAsync(
                 scope.FullPath,
-                ProjectFingerprint,
+                projectFingerprint,
                 TimeSpan.FromSeconds(1),
                 cancellationTokenSource.Token)
             .AsTask();
@@ -105,10 +105,10 @@ public sealed class GuiSupervisorManifestStoreTests
         using var scope = TestDirectories.CreateTempScope(
             "gui-supervisor-manifest-store",
             "rebootstrap-publication-timeout");
-        const string ProjectFingerprint = "fingerprint";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(
             scope.FullPath,
-            ProjectFingerprint);
+            projectFingerprint);
         using var publicationLock = FileExclusiveLock.Acquire(
             manifestLockPath,
             TimeSpan.FromSeconds(1),
@@ -124,7 +124,7 @@ public sealed class GuiSupervisorManifestStoreTests
             TimeProvider.System);
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             scope.FullPath,
-            ProjectFingerprint);
+            projectFingerprint);
 
         var result = await client.RequestRebootstrapAsync(
             unityProject,

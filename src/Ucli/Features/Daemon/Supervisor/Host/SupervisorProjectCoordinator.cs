@@ -41,7 +41,7 @@ internal sealed class SupervisorProjectCoordinator
 
     private readonly TimeProvider timeProvider;
 
-    private readonly ConcurrentDictionary<string, SupervisorProjectSlot> projectSlots = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<ProjectFingerprint, SupervisorProjectSlot> projectSlots = new();
 
     private int managedProjectCount;
 
@@ -302,7 +302,7 @@ internal sealed class SupervisorProjectCoordinator
         }
     }
 
-    private SupervisorProjectSlot GetOrCreateSlot (string projectFingerprint)
+    private SupervisorProjectSlot GetOrCreateSlot (ProjectFingerprint projectFingerprint)
     {
         return projectSlots.GetOrAdd(projectFingerprint, static _ => new SupervisorProjectSlot());
     }

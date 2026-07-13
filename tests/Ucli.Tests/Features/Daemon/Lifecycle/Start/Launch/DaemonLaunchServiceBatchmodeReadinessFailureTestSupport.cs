@@ -11,7 +11,7 @@ internal static class DaemonLaunchServiceBatchmodeReadinessFailureTestSupport
         new(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
 
     public static ReadinessFailureScenario CreateScenario (
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         ExecutionError probeError,
         int processId = 7777,
         DateTimeOffset? processStartedAtUtc = null,

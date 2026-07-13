@@ -2,11 +2,13 @@ namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
 internal static class DaemonStartProgressEntryTestFactory
 {
+    private static readonly ProjectFingerprint DefaultProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+
     public static readonly DateTimeOffset SampleStartedAtUtc = new(2026, 03, 12, 1, 2, 0, TimeSpan.Zero);
 
     public static DaemonStartStartupObservationProgressEntry CreateStartupObservation (
         string? payloadKind = null,
-        string projectFingerprint = "fingerprint",
+        ProjectFingerprint? projectFingerprint = null,
         int timeoutMilliseconds = 1234,
         string editorMode = "batchmode",
         string onStartupBlocked = "auto",
@@ -24,7 +26,7 @@ internal static class DaemonStartProgressEntryTestFactory
     {
         return new DaemonStartStartupObservationProgressEntry(
             payloadKind ?? ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
-            projectFingerprint,
+            projectFingerprint ?? DefaultProjectFingerprint,
             timeoutMilliseconds,
             editorMode,
             onStartupBlocked,

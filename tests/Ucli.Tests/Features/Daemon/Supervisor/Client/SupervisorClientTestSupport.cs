@@ -7,6 +7,8 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 internal static class SupervisorClientTestSupport
 {
+    private static readonly ProjectFingerprint DefaultProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+
     public static DateTimeOffset CreateDeadline (TimeSpan timeout)
     {
         return TimeProvider.System.GetUtcNow().Add(timeout);
@@ -37,9 +39,9 @@ internal static class SupervisorClientTestSupport
             current.IssuedAtUtc.AddSeconds(1));
     }
 
-    public static ResolvedUnityProjectContext CreateUnityProject (string projectFingerprint = "fingerprint")
+    public static ResolvedUnityProjectContext CreateUnityProject (ProjectFingerprint? projectFingerprint = null)
     {
-        return ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: projectFingerprint);
+        return ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: projectFingerprint ?? DefaultProjectFingerprint);
     }
 
     public static DaemonSession CreateGuiDaemonSession ()
@@ -168,7 +170,7 @@ internal static class SupervisorClientTestSupport
     {
         var progressPayload = new DaemonStartLifecycleSnapshotProgressEntry(
             ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
-            "fingerprint",
+            DefaultProjectFingerprint,
             4000,
             "gui",
             "auto",

@@ -14,7 +14,7 @@ public sealed class FileCompileRunArtifactReaderTests
     {
         using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "summary-symlink");
         var store = new FileCompileRunArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var summaryPath = store.ResolveSummaryPath(project, "run-1");
         var directoryPath = Path.GetDirectoryName(summaryPath)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {summaryPath}");
@@ -41,7 +41,7 @@ public sealed class FileCompileRunArtifactReaderTests
     {
         using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "summary-too-large");
         var store = new FileCompileRunArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var summaryPath = store.ResolveSummaryPath(project, "run-1");
         var directoryPath = Path.GetDirectoryName(summaryPath)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {summaryPath}");
@@ -63,7 +63,7 @@ public sealed class FileCompileRunArtifactReaderTests
     {
         using var scope = TestDirectories.CreateTempScope("compile-artifact-reader", "write-replace");
         var store = new FileCompileRunArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var first = CreateSummary(errorCount: 1);
         var second = CreateSummary(errorCount: 0);
 
@@ -96,7 +96,7 @@ public sealed class FileCompileRunArtifactReaderTests
         var canAcceptExecutionRequests = errorCount == 0;
         return new IpcCompileSummary(
             RunId: "run-1",
-            ProjectFingerprint: "fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             Completed: true,
             StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
             CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),

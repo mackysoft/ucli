@@ -76,11 +76,12 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
                 || (progressEvent is null && eventName.EndsWith(".started", StringComparison.Ordinal))
                 ? "started"
                 : "completed";
+        var projectFingerprint = entry.ProjectFingerprint.ToString();
         var length = checked(
             Prefix.Length
             + step.Length
             + ProjectPrefix.Length
-            + entry.ProjectFingerprint.Length
+            + projectFingerprint.Length
             + TimeoutPrefix.Length
             + SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds)
             + SpanTextLength.GetOptionalStringLength(ResultPrefix, entry.Result)
@@ -91,14 +92,14 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             + status.Length);
         return string.Create(
             length,
-            (entry, step, status),
+            (entry, step, status, projectFingerprint),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
                 writer.Append(state.step);
                 writer.Append(ProjectPrefix);
-                writer.Append(state.entry.ProjectFingerprint);
+                writer.Append(state.projectFingerprint);
                 writer.Append(TimeoutPrefix);
                 writer.AppendInvariant(state.entry.TimeoutMilliseconds);
                 writer.AppendOptional(ResultPrefix, state.entry.Result);
@@ -134,11 +135,12 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             DaemonStartProgressEvent.SessionRegistered or DaemonStartProgressEvent.EndpointRegistered => "registered",
             _ => "observed",
         };
+        var projectFingerprint = entry.ProjectFingerprint.ToString();
         var length = checked(
             Prefix.Length
             + step.Length
             + ProjectPrefix.Length
-            + entry.ProjectFingerprint.Length
+            + projectFingerprint.Length
             + TimeoutPrefix.Length
             + SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds)
             + SpanTextLength.GetOptionalStringLength(EditorModePrefix, entry.EditorMode)
@@ -155,14 +157,14 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             + status.Length);
         return string.Create(
             length,
-            (entry, step, status),
+            (entry, step, status, projectFingerprint),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
                 writer.Append(state.step);
                 writer.Append(ProjectPrefix);
-                writer.Append(state.entry.ProjectFingerprint);
+                writer.Append(state.projectFingerprint);
                 writer.Append(TimeoutPrefix);
                 writer.AppendInvariant(state.entry.TimeoutMilliseconds);
                 writer.AppendOptional(EditorModePrefix, state.entry.EditorMode);
@@ -189,11 +191,12 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             ? "lifecycle"
             : eventName;
         const string status = "observed";
+        var projectFingerprint = entry.ProjectFingerprint.ToString();
         var length = checked(
             Prefix.Length
             + step.Length
             + ProjectPrefix.Length
-            + entry.ProjectFingerprint.Length
+            + projectFingerprint.Length
             + TimeoutPrefix.Length
             + SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds)
             + SpanTextLength.GetOptionalStringLength(EditorModePrefix, entry.EditorMode)
@@ -206,14 +209,14 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             + status.Length);
         return string.Create(
             length,
-            (entry, step),
+            (entry, step, projectFingerprint),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
                 writer.Append(state.step);
                 writer.Append(ProjectPrefix);
-                writer.Append(state.entry.ProjectFingerprint);
+                writer.Append(state.projectFingerprint);
                 writer.Append(TimeoutPrefix);
                 writer.AppendInvariant(state.entry.TimeoutMilliseconds);
                 writer.AppendOptional(EditorModePrefix, state.entry.EditorMode);

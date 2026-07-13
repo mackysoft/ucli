@@ -4,6 +4,8 @@ namespace MackySoft.Ucli.Tests.Schemas;
 
 public sealed class ExecutePayloadSchemaArtifactTests
 {
+    private static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
+
     [Theory]
     [InlineData("00000000-0000-0000-0000-000000000000")]
     [InlineData("9B0E6D1E-3F55-4A6B-8C66-5B9A3A7C9C62")]
@@ -32,12 +34,12 @@ public sealed class ExecutePayloadSchemaArtifactTests
     {
         var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
         using var document = JsonDocument.Parse(
-            """
+            $$"""
             {
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{ProjectFingerprint.ToString()}}",
                 "unityVersion": "6000.1.4f1"
               },
               "opResults": [],
@@ -66,12 +68,12 @@ public sealed class ExecutePayloadSchemaArtifactTests
     {
         var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
         using var document = JsonDocument.Parse(
-            """
+            $$"""
             {
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{ProjectFingerprint.ToString()}}",
                 "unityVersion": "6000.1.4f1"
               },
               "opResults": [
@@ -114,12 +116,12 @@ public sealed class ExecutePayloadSchemaArtifactTests
     {
         var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
         using var document = JsonDocument.Parse(
-            """
+            $$"""
             {
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{ProjectFingerprint.ToString()}}",
                 "unityVersion": "6000.1.4f1"
               },
               "opResults": [],
@@ -148,12 +150,12 @@ public sealed class ExecutePayloadSchemaArtifactTests
     {
         var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
         using var document = JsonDocument.Parse(
-            """
+            $$"""
             {
               "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{ProjectFingerprint.ToString()}}",
                 "unityVersion": "6000.1.4f1"
               },
               "opResults": [],
@@ -161,7 +163,7 @@ public sealed class ExecutePayloadSchemaArtifactTests
                 "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 "project": {
                   "projectPath": "/repo/UnityProject",
-                  "projectFingerprint": "project-fingerprint",
+                  "projectFingerprint": "{{ProjectFingerprint.ToString()}}",
                   "unityVersion": "6000.1.4f1"
                 },
                 "opResults": [],

@@ -182,7 +182,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.UnityProjectRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.RepositoryRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.ProjectFingerprint);
+        ArgumentNullException.ThrowIfNull(unityProject.ProjectFingerprint);
         ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentNullException.ThrowIfNull(sendPreparedRequestAsync);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);

@@ -26,7 +26,7 @@ internal static class DaemonGuiRebootstrapClientTestSupport
         return new GuiSupervisorManifestJsonContract(
             SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             SessionToken: IpcSessionTokenTestFactory.Create("supervisor-token").GetEncodedValue(),
-            ProjectFingerprint: "fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             EndpointTransportKind: ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             EndpointAddress: "/tmp/ucli-gui-supervisor.sock",
             ProcessId: 1234,
@@ -36,7 +36,7 @@ internal static class DaemonGuiRebootstrapClientTestSupport
 
     public static async Task WriteManifestAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         GuiSupervisorManifestJsonContract manifest)
     {
         var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(storageRoot, projectFingerprint);

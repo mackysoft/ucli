@@ -26,7 +26,7 @@ internal static class DaemonStartOperationAssert
         RecordingDaemonStartOperation startOperation,
         string expectedRepositoryRoot,
         string expectedUnityProjectRoot,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         TimeSpan maximumTimeout,
         DaemonEditorMode? expectedEditorMode,
         DaemonStartupBlockedProcessPolicy expectedStartupBlockedPolicy)
@@ -48,7 +48,7 @@ internal static class DaemonStartOperationAssert
         RecordingDaemonStartOperation startOperation,
         string expectedRepositoryRoot,
         string expectedUnityProjectRoot,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         TimeSpan maximumTimeout,
         DaemonEditorMode? expectedEditorMode,
         DaemonStartupBlockedProcessPolicy expectedStartupBlockedPolicy)

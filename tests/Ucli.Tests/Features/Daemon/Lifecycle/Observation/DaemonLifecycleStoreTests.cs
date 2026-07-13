@@ -19,13 +19,13 @@ public sealed class DaemonLifecycleStoreTests
         var store = new DaemonLifecycleStore();
         await WriteContractAsync(
             scope.FullPath,
-            "fingerprint-invalid",
+            ProjectFingerprintTestFactory.Create("fingerprint-invalid"),
             CreateContract() with
             {
                 ActionRequired = "unknownAction",
             });
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
@@ -41,7 +41,7 @@ public sealed class DaemonLifecycleStoreTests
         var store = new DaemonLifecycleStore();
         await WriteContractAsync(
             scope.FullPath,
-            "fingerprint-invalid",
+            ProjectFingerprintTestFactory.Create("fingerprint-invalid"),
             CreateContract() with
             {
                 PrimaryDiagnostic = new IpcPrimaryDiagnostic(
@@ -53,7 +53,7 @@ public sealed class DaemonLifecycleStoreTests
                     Message: "Missing parameter"),
             });
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
@@ -69,7 +69,7 @@ public sealed class DaemonLifecycleStoreTests
         var store = new DaemonLifecycleStore();
         await WriteContractAsync(
             scope.FullPath,
-            "fingerprint-diagnostic",
+            ProjectFingerprintTestFactory.Create("fingerprint-diagnostic"),
             CreateContract() with
             {
                 PrimaryDiagnostic = new IpcPrimaryDiagnostic(
@@ -81,7 +81,7 @@ public sealed class DaemonLifecycleStoreTests
                     Message: " Missing parameter "),
             });
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-diagnostic", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-diagnostic"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         var diagnostic = Assert.IsType<IpcPrimaryDiagnostic>(readResult.Observation!.PrimaryDiagnostic);
@@ -109,13 +109,13 @@ public sealed class DaemonLifecycleStoreTests
         var store = new DaemonLifecycleStore();
         await WriteContractAsync(
             scope.FullPath,
-            "fingerprint-editor-instance",
+            ProjectFingerprintTestFactory.Create("fingerprint-editor-instance"),
             CreateContract() with
             {
                 EditorInstanceId = editorInstanceId,
             });
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-editor-instance", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-editor-instance"), CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
@@ -131,7 +131,7 @@ public sealed class DaemonLifecycleStoreTests
         var store = new DaemonLifecycleStore();
         await WriteContractAsync(
             scope.FullPath,
-            "fingerprint-play-mode",
+            ProjectFingerprintTestFactory.Create("fingerprint-play-mode"),
             CreateContract() with
             {
                 ServerVersion = " 0.5.0 ",
@@ -144,7 +144,7 @@ public sealed class DaemonLifecycleStoreTests
                     Generation: " 3 "),
             });
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-play-mode", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-play-mode"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.Equal("0.5.0", readResult.Observation!.ServerVersion);
@@ -178,7 +178,7 @@ public sealed class DaemonLifecycleStoreTests
 
     private static async Task WriteContractAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DaemonLifecycleJsonContract contract)
     {
         var lifecyclePath = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);

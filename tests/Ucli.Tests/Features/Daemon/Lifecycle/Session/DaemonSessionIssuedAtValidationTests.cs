@@ -14,14 +14,15 @@ public sealed class DaemonSessionIssuedAtValidationTests
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-issued-at");
         var store = DaemonSessionStorageTestSupport.CreateStore();
         var sessionToken = IpcSessionTokenTestFactory.Create("missing-issued-at").GetEncodedValue();
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-missing-issued-at");
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
             scope.FullPath,
-            "fingerprint-missing-issued-at",
+            projectFingerprint,
             $$"""
             {
               "schemaVersion": {{DaemonSessionStorageContract.CurrentSchemaVersion}},
               "sessionToken": "{{sessionToken}}",
-              "projectFingerprint": "fingerprint-missing-issued-at",
+              "projectFingerprint": "{{projectFingerprint.ToString()}}",
               "editorMode": "batchmode",
               "ownerKind": "cli",
               "canShutdownProcess": true,
@@ -32,7 +33,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
             """,
             CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-missing-issued-at", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -46,7 +47,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
     public void Constructor_WhenIssuedAtUtcIsDefault_ThrowsArgumentException ()
     {
         Assert.Throws<ArgumentException>(() => DaemonSessionTestFactory.Create(
-            projectFingerprint: "fingerprint-default-issued-at",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-default-issued-at"),
             issuedAtUtc: default(DateTimeOffset)));
     }
 }

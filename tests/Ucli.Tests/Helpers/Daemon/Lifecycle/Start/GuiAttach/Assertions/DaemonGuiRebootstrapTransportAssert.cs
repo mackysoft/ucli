@@ -15,7 +15,7 @@ internal static class DaemonGuiRebootstrapTransportAssert
     public static StubIpcTransportInvocation RebootstrapRequestedForManifest (
         StubIpcTransportClient transportClient,
         GuiSupervisorManifestJsonContract expectedManifest,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         TimeSpan expectedTimeout)
     {
         var invocation = Assert.Single(transportClient.Invocations);

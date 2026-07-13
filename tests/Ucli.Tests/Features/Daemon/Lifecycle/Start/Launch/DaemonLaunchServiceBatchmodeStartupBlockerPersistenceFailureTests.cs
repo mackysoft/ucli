@@ -13,7 +13,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerPersistenceFailure
     public async Task Launch_WhenBatchmodeClassifiedBlockerDiagnosisWriteFails_PreservesPrimaryBlockerAndStillCompensates ()
     {
         var scenario = CreateClassifiedBlockerScenario(
-            "fingerprint-probe-classified-blocker-diagnosis-fail",
+            ProjectFingerprintTestFactory.Create("fingerprint-probe-classified-blocker-diagnosis-fail"),
             processId: 7781);
         scenario.DiagnosisStore.WriteResult =
             DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InternalError("diagnosis failed"));
@@ -45,7 +45,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerPersistenceFailure
     public async Task Launch_WhenBatchmodeClassifiedBlockerLaunchAttemptWriteFails_PreservesPrimaryBlockerAndStillCompensates ()
     {
         var scenario = CreateClassifiedBlockerScenario(
-            "fingerprint-probe-classified-blocker-artifact-fail",
+            ProjectFingerprintTestFactory.Create("fingerprint-probe-classified-blocker-artifact-fail"),
             processId: 7782);
         scenario.LaunchAttemptStore.WriteResult =
             DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InternalError("artifact failed"));

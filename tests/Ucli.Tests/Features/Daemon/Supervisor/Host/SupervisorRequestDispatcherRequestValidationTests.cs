@@ -318,7 +318,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: "bad\u0000path",
-                        ProjectFingerprint: "fingerprint",
+                        ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
                         DeadlineUtc: CreateEnsureRunningDeadline(1000),
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
@@ -364,7 +364,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
-                        ProjectFingerprint: "mismatched-fingerprint",
+                        ProjectFingerprint: ProjectFingerprintTestFactory.Create("mismatched-fingerprint"),
                         DeadlineUtc: CreateEnsureRunningDeadline(1000),
                         AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,

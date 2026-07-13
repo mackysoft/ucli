@@ -16,7 +16,7 @@ public sealed class FileBuildRunArtifactStorePrepareTests
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-layout");
         var store = CreateStore();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
 
         var result = store.Prepare(project, "run-1");
 
@@ -31,7 +31,7 @@ public sealed class FileBuildRunArtifactStorePrepareTests
                 UcliStoragePathNames.UcliDirectoryName,
                 UcliStoragePathNames.LocalDirectoryName,
                 UcliStoragePathNames.FingerprintsDirectoryName,
-                "fingerprint",
+                project.ProjectFingerprint.ToString(),
                 UcliStoragePathNames.ArtifactsDirectoryName,
                 UcliStoragePathNames.BuildArtifactsDirectoryName,
                 "run-1"),
@@ -42,7 +42,7 @@ public sealed class FileBuildRunArtifactStorePrepareTests
                 UcliStoragePathNames.UcliDirectoryName,
                 UcliStoragePathNames.LocalDirectoryName,
                 UcliStoragePathNames.FingerprintsDirectoryName,
-                "fingerprint",
+                project.ProjectFingerprint.ToString(),
                 UcliStoragePathNames.WorkDirectoryName,
                 UcliStoragePathNames.BuildWorkDirectoryName,
                 "run-1",
@@ -56,7 +56,7 @@ public sealed class FileBuildRunArtifactStorePrepareTests
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-existing-output");
         var store = CreateStore();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
 
         var firstResult = store.Prepare(project, "run-1");
         var secondResult = store.Prepare(project, "run-1");
@@ -74,7 +74,7 @@ public sealed class FileBuildRunArtifactStorePrepareTests
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-existing-legacy");
         var store = CreateStore();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
             project.RepositoryRoot,
             project.ProjectFingerprint,

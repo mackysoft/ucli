@@ -13,13 +13,14 @@ public sealed class ReadyCommandStartupFailureTests
     [Trait("Size", "Small")]
     public async Task Ready_WithStartupFailure_EmitsProjectAndStartupDiagnosis ()
     {
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("<projectFingerprint>");
         var startupFailure = CreateStartupFailureDetail();
         var service = new RecordingReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Failure(
             ApplicationFailure.UnityIpcFailure(
                 "Unity startup is blocked.",
                 DaemonErrorCodes.DaemonStartupBlocked,
                 startupFailure: startupFailure),
-            ProjectIdentityInfoTestFactory.Create(projectPath: "<projectPath>", projectFingerprint: "<projectFingerprint>"))));
+            ProjectIdentityInfoTestFactory.Create(projectPath: "<projectPath>", projectFingerprint: projectFingerprint))));
         var command = new ReadyCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ReadyAsync(
@@ -39,7 +40,7 @@ public sealed class ReadyCommandStartupFailureTests
         JsonAssert.For(payload)
             .HasProperty("project", project => project
                 .HasString("projectPath", "<projectPath>")
-                .HasString("projectFingerprint", "<projectFingerprint>"))
+                .HasString("projectFingerprint", projectFingerprint.ToString()))
             .HasProperty("startup", startup => startup
                 .HasString("startupStatus", "blocked")
                 .HasString("startupBlockingReason", "compile"))

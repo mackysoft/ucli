@@ -35,7 +35,7 @@ internal static class CompileCommandTestData
             Verdict: errorCount == 0 ? CompileVerdictValues.Pass : CompileVerdictValues.Fail,
             Project: ProjectIdentityInfoTestFactory.Create(
                 projectPath: "<projectPath>",
-                projectFingerprint: "<projectFingerprint>"),
+                projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>")),
             Verifiers:
             [
                 new CompileVerifierOutput(

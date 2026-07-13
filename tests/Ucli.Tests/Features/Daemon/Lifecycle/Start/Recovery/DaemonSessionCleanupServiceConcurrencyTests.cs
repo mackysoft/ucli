@@ -18,7 +18,7 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
         using var scope = TestDirectories.CreateTempScope(
             "daemon-session-cleanup-service",
             "invalid-successor-publication");
-        const string projectFingerprint = "fingerprint-invalid-successor-publication";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-invalid-successor-publication");
         var processStartedAtUtc = new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero);
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);

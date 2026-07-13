@@ -32,7 +32,7 @@ public sealed class SupervisorStabilityVerifierTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: "/tmp/repo-root",
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var session = DaemonSessionTestFactory.Create(sessionToken: "session-token");
 
         var result = await verifier.EnsureStableAsync(
@@ -71,7 +71,7 @@ public sealed class SupervisorStabilityVerifierTests
                 ResolvedUnityProjectContextTestFactory.Create(
                     unityProjectRoot: "/tmp/unity-project",
                     repositoryRoot: "/tmp/repo-root",
-                    projectFingerprint: "fingerprint"),
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
                 DaemonSessionTestFactory.Create(sessionToken: "session-token"),
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
@@ -107,7 +107,7 @@ public sealed class SupervisorStabilityVerifierTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: "/tmp/repo-root",
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var verifier = new SupervisorStabilityVerifier(
             pingClient,
             new SupervisorDiagnosisWriter(diagnosisStore),
@@ -148,7 +148,7 @@ public sealed class SupervisorStabilityVerifierTests
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: "/tmp/repo-root",
-                projectFingerprint: "fingerprint"),
+                projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
             DaemonSessionTestFactory.Create(sessionToken: "session-token"),
             TimeSpan.FromMilliseconds(400),
             CancellationToken.None);
@@ -179,7 +179,7 @@ public sealed class SupervisorStabilityVerifierTests
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: "/tmp/repo-root",
-            projectFingerprint: "fingerprint-non-cooperative-diagnosis");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-non-cooperative-diagnosis"));
         var verificationTask = verifier.EnsureStableAsync(
                 unityProject,
                 DaemonSessionTestFactory.Create(sessionToken: "session-token"),
@@ -262,7 +262,7 @@ public sealed class SupervisorStabilityVerifierTests
 
         public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromException<DaemonDiagnosisReadResult>(
@@ -271,7 +271,7 @@ public sealed class SupervisorStabilityVerifierTests
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             DaemonDiagnosis diagnosis,
             CancellationToken cancellationToken = default)
         {
@@ -281,7 +281,7 @@ public sealed class SupervisorStabilityVerifierTests
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             return ValueTask.FromException<DaemonDiagnosisStoreOperationResult>(

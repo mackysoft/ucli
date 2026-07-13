@@ -19,7 +19,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     /// <returns> The daemon session read result. </returns>
     public async ValueTask<DaemonSessionReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -179,7 +179,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     /// <returns> The daemon session storage operation result. </returns>
     public async ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

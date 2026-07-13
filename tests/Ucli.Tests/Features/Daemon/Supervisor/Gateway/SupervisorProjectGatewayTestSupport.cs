@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 internal static class SupervisorProjectGatewayTestSupport
 {
-    public const string ProjectFingerprint = "fingerprint";
+    public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
 
     public const int StartTimeoutMilliseconds = 900;
 
@@ -63,11 +63,11 @@ internal static class SupervisorProjectGatewayTestSupport
 
     public static ResolvedUnityProjectContext CreateUnityProject (
         string repositoryRoot,
-        string projectFingerprint = ProjectFingerprint)
+        ProjectFingerprint? projectFingerprint = null)
     {
         return ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             repositoryRoot,
-            projectFingerprint: projectFingerprint);
+            projectFingerprint: projectFingerprint ?? ProjectFingerprint);
     }
 
     public static DaemonStartProgressEmitter CreateStartProgressEmitter (
@@ -158,7 +158,7 @@ internal sealed class SupervisorProjectGatewayScenario
     public SupervisorProjectGateway Gateway { get; }
 
     public ResolvedUnityProjectContext CreateUnityProject (
-        string projectFingerprint = SupervisorProjectGatewayTestSupport.ProjectFingerprint)
+        ProjectFingerprint? projectFingerprint = null)
     {
         return SupervisorProjectGatewayTestSupport.CreateUnityProject(
             repositoryRoot,

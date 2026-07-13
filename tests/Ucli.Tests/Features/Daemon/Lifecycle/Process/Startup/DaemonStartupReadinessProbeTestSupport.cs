@@ -31,7 +31,7 @@ internal static class DaemonStartupReadinessProbeTestSupport
         RecordingDaemonPingInfoClient pingClient,
         ManualTimeProvider timeProvider,
         string description,
-        string projectFingerprint)
+        ProjectFingerprint projectFingerprint)
     {
         var timeout = TimeSpan.FromMilliseconds(20);
         var resultTask = probe.WaitUntilReadyAsync(

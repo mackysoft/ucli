@@ -62,7 +62,7 @@ internal static class DaemonPingResponseCodec
         if (string.IsNullOrWhiteSpace(parsedPayload.ServerVersion)
             || string.IsNullOrWhiteSpace(parsedPayload.EditorMode)
             || string.IsNullOrWhiteSpace(parsedPayload.UnityVersion)
-            || string.IsNullOrWhiteSpace(parsedPayload.ProjectFingerprint))
+            || parsedPayload.ProjectFingerprint == null)
         {
             payload = null;
             error = new DaemonPingResponseException("Daemon ping payload is invalid. One or more required fields are empty.");
@@ -83,12 +83,12 @@ internal static class DaemonPingResponseCodec
     /// <returns> <see langword="true" /> when ping payload is decoded and belongs to the expected project; otherwise <see langword="false" />. </returns>
     public static bool TryDecodePayloadForProject (
         IpcResponse response,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         string operationName,
         out IpcPingResponse? payload,
         out DaemonPingResponseException? error)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(expectedProjectFingerprint);
+        ArgumentNullException.ThrowIfNull(expectedProjectFingerprint);
         ArgumentException.ThrowIfNullOrWhiteSpace(operationName);
 
         if (!TryDecodePayload(response, out payload, out error))
@@ -96,7 +96,7 @@ internal static class DaemonPingResponseCodec
             return false;
         }
 
-        if (!string.Equals(payload!.ProjectFingerprint, expectedProjectFingerprint, StringComparison.Ordinal))
+        if (payload!.ProjectFingerprint != expectedProjectFingerprint)
         {
             error = new DaemonPingResponseException(
                 $"{operationName} projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={payload.ProjectFingerprint}.");

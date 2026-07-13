@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 internal static class DaemonLaunchAttemptStoreTestSupport
 {
-    internal const string ProjectFingerprint = "fingerprint";
+    internal static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
 
     internal static DaemonLaunchAttempt CreateAttempt (
         string launchAttemptId,

@@ -76,10 +76,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(expectedSession);
 
-        if (!string.Equals(
-                expectedSession.ProjectFingerprint,
-                unityProject.ProjectFingerprint,
-                StringComparison.Ordinal))
+        if (expectedSession.ProjectFingerprint != unityProject.ProjectFingerprint)
         {
             return DaemonArtifactCleanupResult.Failure(ExecutionError.InvalidArgument(
                 "Expected daemon session projectFingerprint does not match the cleanup target."));
@@ -276,10 +273,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
     {
         return currentSession.SessionToken == expectedSession.SessionToken
             && currentSession.IssuedAtUtc == expectedSession.IssuedAtUtc
-            && string.Equals(
-                currentSession.ProjectFingerprint,
-                expectedSession.ProjectFingerprint,
-                StringComparison.Ordinal);
+            && currentSession.ProjectFingerprint == expectedSession.ProjectFingerprint;
     }
 
     private static bool MatchesStoppedProcess (

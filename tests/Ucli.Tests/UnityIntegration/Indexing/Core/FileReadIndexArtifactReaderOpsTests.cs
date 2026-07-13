@@ -13,7 +13,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-success");
         var reader = new FileReadIndexArtifactReader();
-        const string fingerprint = "fingerprint";
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
@@ -50,7 +50,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-success");
         var reader = new FileReadIndexArtifactReader();
-        const string fingerprint = "fingerprint";
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         const string sourceInputsHash = "source-hash";
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
@@ -71,7 +71,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-missing");
         var reader = new FileReadIndexArtifactReader();
-        const string fingerprint = "fingerprint";
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var catalogEntry = new IndexOpsCatalogEntryJsonContract(
             UcliPrimitiveOperationNames.GoDescribe,
@@ -95,7 +95,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-hash-mismatch");
         var reader = new FileReadIndexArtifactReader();
-        const string fingerprint = "fingerprint";
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
         var catalogEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(scope.FullPath, fingerprint, operation, "source-hash");
@@ -116,7 +116,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-source-mismatch");
         var reader = new FileReadIndexArtifactReader();
-        const string fingerprint = "fingerprint";
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
         var catalogEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(scope.FullPath, fingerprint, operation, "other-source-hash");
@@ -136,7 +136,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-descriptor-mismatch");
         var reader = new FileReadIndexArtifactReader();
-        const string fingerprint = "fingerprint";
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry() with { Name = "ucli.test.detail" };
         var catalogEntry = FileReadIndexArtifactReaderTestSupport.WriteOpsDescribe(scope.FullPath, fingerprint, operation, "source-hash");

@@ -4,11 +4,13 @@ namespace MackySoft.Ucli.Tests.Helpers.Ipc;
 
 internal static class IpcPingResponseTestFactory
 {
+    private static readonly ProjectFingerprint DefaultProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
+
     public static IpcPingResponse Create (
         string serverVersion = "1.0.0",
         string editorMode = "batchmode",
         string unityVersion = "2023.2.22f1",
-        string projectFingerprint = "project-fingerprint",
+        ProjectFingerprint? projectFingerprint = null,
         string compileState = IpcCompileStateCodec.Ready,
         string? lifecycleState = IpcEditorLifecycleStateCodec.Ready,
         bool canAcceptExecutionRequests = true,
@@ -20,7 +22,7 @@ internal static class IpcPingResponseTestFactory
             ServerVersion: serverVersion,
             EditorMode: editorMode,
             UnityVersion: unityVersion,
-            ProjectFingerprint: projectFingerprint,
+            ProjectFingerprint: projectFingerprint ?? DefaultProjectFingerprint,
             CompileState: compileState,
             LifecycleState: lifecycleState,
             BlockingReason: blockingReason ?? ResolveBlockingReason(lifecycleState, canAcceptExecutionRequests),

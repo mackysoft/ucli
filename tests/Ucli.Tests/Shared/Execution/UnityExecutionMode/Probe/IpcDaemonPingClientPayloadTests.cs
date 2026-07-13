@@ -20,7 +20,7 @@ public sealed class IpcDaemonPingClientPayloadTests
                     serverVersion: "0.5.0",
                     editorMode: "batchmode",
                     unityVersion: "2022.3.5f1",
-                    projectFingerprint: "fingerprint",
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
                     compileState: "ready")));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
@@ -36,7 +36,7 @@ public sealed class IpcDaemonPingClientPayloadTests
         Assert.Equal("0.5.0", result.ServerVersion);
         Assert.Equal("batchmode", result.EditorMode);
         Assert.Equal("2022.3.5f1", result.UnityVersion);
-        Assert.Equal("fingerprint", result.ProjectFingerprint);
+        Assert.Equal(ProjectFingerprintTestFactory.Create("fingerprint"), result.ProjectFingerprint);
         Assert.Equal("ready", result.CompileState);
     }
 
@@ -83,7 +83,7 @@ public sealed class IpcDaemonPingClientPayloadTests
                     serverVersion = "0.5.0",
                     editorMode = "batchmode",
                     unityVersion = "2022.3.5f1",
-                    projectFingerprint = "fingerprint",
+                    projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString(),
                 }));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,

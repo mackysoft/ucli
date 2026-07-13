@@ -50,7 +50,7 @@ public sealed class DaemonPingResponseCodecTests
                 ServerVersion: expectedServerVersion,
                 EditorMode: expectedRuntime,
                 UnityVersion: expectedUnityVersion,
-                ProjectFingerprint: " project-fingerprint ",
+                ProjectFingerprint: ProjectFingerprintTestFactory.Create(" project-fingerprint "),
                 CompileState: expectedCompileState));
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
@@ -89,7 +89,7 @@ public sealed class DaemonPingResponseCodecTests
                 ServerVersion: " ",
                 EditorMode: "batchmode",
                 UnityVersion: "2022.3.5f1",
-                ProjectFingerprint: "project-fingerprint",
+                ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
                 CompileState: "ready"));
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
@@ -112,7 +112,7 @@ public sealed class DaemonPingResponseCodecTests
                 serverVersion = "0.5.0",
                 editorMode = "batchmode",
                 unityVersion = "2022.3.5f1",
-                projectFingerprint = "project-fingerprint",
+                projectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint").ToString(),
             });
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
@@ -158,7 +158,7 @@ public sealed class DaemonPingResponseCodecTests
                 serverVersion = "0.5.0",
                 runtime = "batchmode",
                 unityVersion = "2022.3.5f1",
-                projectFingerprint = "project-fingerprint",
+                projectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint").ToString(),
                 compileState = "ready",
             });
 
@@ -178,7 +178,7 @@ public sealed class DaemonPingResponseCodecTests
 
         var result = DaemonPingResponseCodec.TryDecodePayloadForProject(
             response,
-            "project-fingerprint",
+            ProjectFingerprintTestFactory.Create("project-fingerprint"),
             "Daemon ping",
             out var payload,
             out var error);
@@ -196,7 +196,7 @@ public sealed class DaemonPingResponseCodecTests
 
         var result = DaemonPingResponseCodec.TryDecodePayloadForProject(
             response,
-            "different-fingerprint",
+            ProjectFingerprintTestFactory.Create("different-fingerprint"),
             "Daemon ping",
             out var payload,
             out var error);
@@ -224,7 +224,7 @@ public sealed class DaemonPingResponseCodecTests
             ServerVersion: "0.5.0",
             EditorMode: "batchmode",
             UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             CompileState: "ready");
     }
 }

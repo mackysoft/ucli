@@ -18,7 +18,7 @@ internal static class FileReadIndexArtifactReaderTestSupport
 
     public static IndexOpsCatalogEntryJsonContract WriteOpsDescribe (
         string storageRoot,
-        string fingerprint,
+        ProjectFingerprint fingerprint,
         IndexOpEntryJsonContract operation,
         string sourceInputsHash)
     {

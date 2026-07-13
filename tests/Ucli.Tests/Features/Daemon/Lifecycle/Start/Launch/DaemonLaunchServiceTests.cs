@@ -14,7 +14,7 @@ public sealed class DaemonLaunchServiceTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenLaunchAndReadinessSucceed_ReturnsStarted ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-launch-success");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-success"));
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -74,7 +74,7 @@ public sealed class DaemonLaunchServiceTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenBatchmodeLaunchAndReadinessSucceed_EmitsStartupProgress ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-batchmode-progress");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-batchmode-progress"));
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -139,7 +139,7 @@ public sealed class DaemonLaunchServiceTests
     public async Task Launch_WhenBatchmodeEndpointReadyProgressFails_RunsCompensationAndRethrows ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-batchmode-progress-fail");
+            ProjectFingerprintTestFactory.Create("fingerprint-batchmode-progress-fail"));
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -205,7 +205,7 @@ public sealed class DaemonLaunchServiceTests
     public async Task Launch_WhenBatchmodeSessionRegisteredProgressFails_CleansInitializedSessionAndRethrows ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-batchmode-session-progress-fail");
+            ProjectFingerprintTestFactory.Create("fingerprint-batchmode-session-progress-fail"));
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -253,7 +253,7 @@ public sealed class DaemonLaunchServiceTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenSessionInitializationFails_ReturnsFailureWithoutLaunch ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-launch-init-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-init-fail"));
         var expectedError = ExecutionError.InternalError("session init failed");
         var launchSessionService = new RecordingDaemonLaunchSessionService
         {
@@ -300,7 +300,7 @@ public sealed class DaemonLaunchServiceTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenSessionUpdateFails_RunsCompensationAndReturnsWriteFailure ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-update-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-update-fail"));
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -371,7 +371,7 @@ public sealed class DaemonLaunchServiceTests
     public async Task Launch_WhenDiagnosisPersistenceDoesNotComplete_StartsCompensationAndReturnsAfterSupplementalDeadlines ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-session-update-blocked-diagnosis");
+            ProjectFingerprintTestFactory.Create("fingerprint-session-update-blocked-diagnosis"));
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,

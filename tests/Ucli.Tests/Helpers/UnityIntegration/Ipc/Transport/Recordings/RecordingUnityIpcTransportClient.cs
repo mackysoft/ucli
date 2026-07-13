@@ -42,7 +42,7 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
 
     public ValueTask<IpcResponse> SendAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         IpcRequest request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -54,7 +54,7 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
 
     public async ValueTask<IpcResponse> SendStreamingAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         IpcRequest request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
@@ -155,7 +155,7 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
 
     internal readonly record struct UnityInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         IpcRequest Request,
         TimeSpan Timeout,
         bool IsStreaming);

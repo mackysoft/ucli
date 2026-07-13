@@ -11,7 +11,7 @@ internal static class DaemonSessionStorageTestSupport
 
     public static async Task WriteJsonAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         string json,
         CancellationToken cancellationToken = default)
     {

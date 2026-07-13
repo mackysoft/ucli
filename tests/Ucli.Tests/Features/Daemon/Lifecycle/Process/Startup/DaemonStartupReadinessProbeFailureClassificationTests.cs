@@ -24,7 +24,7 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-compiler-marker"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-compiler-marker")),
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
 
@@ -54,7 +54,7 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-compiler-cs"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-compiler-cs")),
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
 
@@ -84,7 +84,7 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-package-error"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-package-error")),
             TimeSpan.FromSeconds(5),
             cancellationToken: CancellationToken.None);
 
@@ -125,7 +125,7 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-ignore-previous-session-errors"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-ignore-previous-session-errors")),
             TimeSpan.FromSeconds(5),
             daemonProcessId: int.MaxValue,
             cancellationToken: CancellationToken.None);

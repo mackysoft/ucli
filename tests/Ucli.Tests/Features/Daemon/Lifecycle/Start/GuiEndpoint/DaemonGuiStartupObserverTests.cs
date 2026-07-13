@@ -19,7 +19,7 @@ public sealed class DaemonGuiStartupObserverTests
     {
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
-            projectFingerprint: "fingerprint-gui-observer-session",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-session"),
             editorMode: "gui",
             endpointTransportKind: "unixDomainSocket",
             endpointAddress: "/tmp/ipc.sock",
@@ -39,7 +39,7 @@ public sealed class DaemonGuiStartupObserverTests
         var processStartedAtUtc = DateTimeOffset.UtcNow;
 
         var result = await observer.WaitForStartupAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-session"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-session")),
             processId: 4321,
             processStartedAtUtc: processStartedAtUtc,
             unityLogPath: "/tmp/unity.log",
@@ -62,7 +62,7 @@ public sealed class DaemonGuiStartupObserverTests
         {
             NextResult = DaemonGuiSessionRegistrationWaitResult.Success(DaemonSessionTestFactory.Create(
                 sessionToken: "session-token",
-                projectFingerprint: "fingerprint-gui-observer-session",
+                projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-session"),
                 editorMode: "gui",
                 endpointTransportKind: "unixDomainSocket",
                 endpointAddress: "/tmp/ipc.sock",
@@ -75,7 +75,7 @@ public sealed class DaemonGuiStartupObserverTests
             TimeProvider.System);
 
         var result = await observer.WaitForStartupAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-session"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-session")),
             processId: 4321,
             processStartedAtUtc: DateTimeOffset.UtcNow,
             unityLogPath: "/tmp/unity.log",
@@ -112,7 +112,7 @@ public sealed class DaemonGuiStartupObserverTests
             new ManualTimeProvider());
 
         var result = await observer.WaitForStartupAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-compiler"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-compiler")),
             processId: Environment.ProcessId,
             processStartedAtUtc: processStartedAtUtc,
             unityLogPath: "/tmp/unity.log",
@@ -195,7 +195,7 @@ public sealed class DaemonGuiStartupObserverTests
             new ManualTimeProvider());
 
         var result = await observer.WaitForStartupAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext($"fingerprint-gui-observer-{expectedReason}"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create($"fingerprint-gui-observer-{expectedReason}")),
             processId: Environment.ProcessId,
             processStartedAtUtc: processStartedAtUtc,
             unityLogPath: "/tmp/unity.log",
@@ -239,7 +239,7 @@ public sealed class DaemonGuiStartupObserverTests
             new ManualTimeProvider());
 
         var result = await observer.WaitForStartupAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-exit"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-exit")),
             processId: int.MaxValue,
             processStartedAtUtc: processStartedAtUtc,
             unityLogPath: "/tmp/unity.log",
@@ -286,7 +286,7 @@ public sealed class DaemonGuiStartupObserverTests
             new ManualTimeProvider());
 
         var result = await observer.WaitForStartupAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-exit-with-log"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-exit-with-log")),
             processId: int.MaxValue,
             processStartedAtUtc: processStartedAtUtc,
             unityLogPath: "/tmp/unity.log",
@@ -320,7 +320,7 @@ public sealed class DaemonGuiStartupObserverTests
             timeProvider);
 
         var result = await observer.WaitForStartupAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-unclassified-timeout"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-unclassified-timeout")),
             processId: Environment.ProcessId,
             processStartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero),
             unityLogPath: "/tmp/unity.log",
@@ -361,7 +361,7 @@ public sealed class DaemonGuiStartupObserverTests
         var timeout = TimeSpan.FromSeconds(1);
 
         var resultTask = observer.WaitForStartupAsync(
-                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-observer-log-timeout"),
+                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-log-timeout")),
                 processId: Environment.ProcessId,
                 processStartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero),
                 unityLogPath: "/tmp/unity.log",

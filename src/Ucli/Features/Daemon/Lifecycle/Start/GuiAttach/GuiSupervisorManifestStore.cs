@@ -8,12 +8,12 @@ internal sealed class GuiSupervisorManifestStore : IGuiSupervisorManifestStore
 {
     private static async ValueTask<GuiSupervisorManifestJsonContract?> ReadWithoutPublicationLockAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
 
         var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(
             storageRoot,
@@ -32,13 +32,13 @@ internal sealed class GuiSupervisorManifestStore : IGuiSupervisorManifestStore
     /// <inheritdoc />
     public async ValueTask<GuiSupervisorManifestJsonContract?> ReadAfterEndpointPublicationAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var manifestLockPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestLockPath(

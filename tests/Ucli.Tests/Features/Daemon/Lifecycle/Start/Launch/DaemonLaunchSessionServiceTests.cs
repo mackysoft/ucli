@@ -14,7 +14,7 @@ public sealed class DaemonLaunchSessionServiceTests
         var service = new DaemonLaunchSessionService(
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StaticDaemonSessionTokenGenerator());
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-init");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-init"));
 
         var result = await service.InitializeAsync(context, DaemonEditorMode.Batchmode, CancellationToken.None);
 
@@ -36,7 +36,7 @@ public sealed class DaemonLaunchSessionServiceTests
         var service = new DaemonLaunchSessionService(
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StaticDaemonSessionTokenGenerator());
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-init-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-init-fail"));
 
         var result = await service.InitializeAsync(context, DaemonEditorMode.Batchmode, CancellationToken.None);
 
@@ -53,7 +53,7 @@ public sealed class DaemonLaunchSessionServiceTests
         var service = new DaemonLaunchSessionService(
             daemonSessionStore: sessionStore,
             sessionTokenGenerator: new StaticDaemonSessionTokenGenerator());
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-gui");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-gui"));
 
         var result = await service.InitializeAsync(context, DaemonEditorMode.Gui, CancellationToken.None);
 
@@ -76,7 +76,7 @@ public sealed class DaemonLaunchSessionServiceTests
             endpointAddress: "ucli-daemon-test-endpoint");
 
         var result = await service.UpdateProcessIdAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-no-update"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-no-update")),
             session,
             processId: null,
             processStartedAtUtc: null,
@@ -102,7 +102,7 @@ public sealed class DaemonLaunchSessionServiceTests
             processId: null,
             sessionToken: "session-token",
             endpointAddress: "ucli-daemon-test-endpoint");
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-update-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-update-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero);
 
         var result = await service.UpdateProcessIdAsync(
@@ -131,7 +131,7 @@ public sealed class DaemonLaunchSessionServiceTests
             endpointAddress: "ucli-daemon-test-endpoint");
 
         var result = await service.UpdateProcessIdAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-update-missing-start"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-update-missing-start")),
             session,
             processId: 4321,
             processStartedAtUtc: null,
@@ -156,7 +156,7 @@ public sealed class DaemonLaunchSessionServiceTests
             sessionToken: "session-token",
             endpointAddress: "ucli-daemon-test-endpoint");
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero);
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-session-update-success");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-session-update-success"));
 
         var result = await service.UpdateProcessIdAsync(
             context,

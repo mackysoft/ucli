@@ -13,7 +13,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGui_LaunchesGuiAndWaitsForRegisteredSessionWithoutPrewritingSession ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-success");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-success"));
         var registeredSession = DaemonSessionTestFactory.Create(
             processId: 4321,
             sessionToken: LaunchSessionToken,
@@ -66,7 +66,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenGuiLaunchAndRegistrationSucceed_EmitsStartupProgress ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-progress");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-progress"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero);
         var registeredSession = DaemonSessionTestFactory.Create(
             processId: 4321,
@@ -126,7 +126,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiRegistrationTimesOut_WritesGuiEndpointDiagnosis ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-timeout");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-timeout"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var launchSessionService = new RecordingDaemonLaunchSessionService();
         var batchmodeLauncher = new RecordingUnityDaemonProcessLauncher();
@@ -169,7 +169,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         Assert.Equal(5432, diagnosis.ProcessId);
         Assert.Equal(processStartedAtUtc, diagnosis.ProcessStartedAtUtc);
         Assert.Equal(
-            Path.GetFullPath(Path.Combine("/tmp/repo-root", ".ucli", "local", "fingerprints", context.ProjectFingerprint, "unity.log")),
+            Path.GetFullPath(Path.Combine("/tmp/repo-root", ".ucli", "local", "fingerprints", context.ProjectFingerprint.ToString(), "unity.log")),
             diagnosis.UnityLogPath);
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration), diagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, diagnosis.ActionRequired);
@@ -188,7 +188,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiRegistrationTimesOutAndTerminatePolicy_CleansFailedProcess ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-timeout-cleanup-success");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-timeout-cleanup-success"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
@@ -235,7 +235,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiRegistrationTimesOutAndCompensationFails_RecordsUnknownProcessAction ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-timeout-cleanup-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-timeout-cleanup-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {

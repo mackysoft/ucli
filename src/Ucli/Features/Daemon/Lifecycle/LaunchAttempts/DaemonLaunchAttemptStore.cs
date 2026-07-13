@@ -17,7 +17,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
     /// <inheritdoc />
     public async ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteFailureAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DaemonLaunchAttempt launchAttempt,
         CancellationToken cancellationToken = default)
     {
@@ -82,7 +82,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
     /// <inheritdoc />
     public async ValueTask<DaemonLaunchAttemptReadResult> ReadLastFailureAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -126,7 +126,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
     /// <inheritdoc />
     public async ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int keepCount,
         CancellationToken cancellationToken = default)
     {
@@ -187,7 +187,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
 
     private static async ValueTask<LaunchAttemptDirectoryEntriesReadResult> ReadDirectoryEntriesAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         string attemptsDirectory,
         bool failOnInvalidPayload,
         CancellationToken cancellationToken)

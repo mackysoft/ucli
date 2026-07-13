@@ -34,7 +34,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         var timeout = TimeSpan.FromSeconds(1);
 
         var resultTask = probe.WaitUntilReadyAsync(
-                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-preflight-timeout"),
+                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-preflight-timeout")),
                 timeout,
                 cancellationToken: CancellationToken.None)
             .AsTask();
@@ -77,7 +77,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         var timeout = TimeSpan.FromSeconds(1);
 
         var resultTask = probe.WaitUntilReadyAsync(
-                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-log-timeout"),
+                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-log-timeout")),
                 timeout,
                 cancellationToken: CancellationToken.None)
             .AsTask();
@@ -129,7 +129,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         var timeout = TimeSpan.FromMilliseconds(20);
 
         var resultTask = probe.WaitUntilReadyAsync(
-                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-timeout"),
+                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-timeout")),
                 timeout,
                 cancellationToken: CancellationToken.None)
             .AsTask();
@@ -168,7 +168,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
             pingClient,
             timeProvider,
             "timed-out daemon startup probe",
-            "fingerprint-readiness-timeout-exception");
+            ProjectFingerprintTestFactory.Create("fingerprint-readiness-timeout-exception"));
 
         Assert.False(result.IsReady);
         var error = Assert.IsType<ExecutionError>(result.Error);

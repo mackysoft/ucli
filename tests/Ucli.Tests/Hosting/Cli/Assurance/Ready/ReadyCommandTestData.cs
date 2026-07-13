@@ -17,7 +17,9 @@ internal static class ReadyCommandTestData
             : ReadyClaimStatusValues.Failed;
         return new ReadyExecutionOutput(
             Verdict: verdict,
-            Project: ProjectIdentityInfoTestFactory.Create(projectPath: "<projectPath>", projectFingerprint: "<projectFingerprint>"),
+            Project: ProjectIdentityInfoTestFactory.Create(
+                projectPath: "<projectPath>",
+                projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>")),
             Verifiers:
             [
                 new ReadyVerifierOutput(
@@ -65,7 +67,9 @@ internal static class ReadyCommandTestData
         var readIndex = new ReadyReadIndexOutput("allowStale", CreateReadIndexArtifacts());
         return new ReadyExecutionOutput(
             Verdict: ReadyVerdictValues.Pass,
-            Project: ProjectIdentityInfoTestFactory.Create(projectPath: "<projectPath>", projectFingerprint: "<projectFingerprint>"),
+            Project: ProjectIdentityInfoTestFactory.Create(
+                projectPath: "<projectPath>",
+                projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>")),
             Verifiers:
             [
                 new ReadyVerifierOutput(

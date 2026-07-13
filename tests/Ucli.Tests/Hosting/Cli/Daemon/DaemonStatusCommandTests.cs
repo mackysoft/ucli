@@ -17,7 +17,7 @@ public sealed class DaemonStatusCommandTests
     public async Task Status_WhenGuiSessionIsRunning_WritesSessionFieldsAndOmitsRuntimeKind ()
     {
         var session = new DaemonSessionOutput(
-            ProjectFingerprint: "fp-gui",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-gui"),
             IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 3, TimeSpan.Zero),
             EditorMode: "gui",
             OwnerKind: "user",

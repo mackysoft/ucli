@@ -13,7 +13,7 @@ internal static class PlayCommandOutputTestData
 
     public const string UnityVersion = "6000.1.4f1";
 
-    public const string ProjectFingerprint = "project-fingerprint";
+    public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
     public const string CompileState = "ready";
 

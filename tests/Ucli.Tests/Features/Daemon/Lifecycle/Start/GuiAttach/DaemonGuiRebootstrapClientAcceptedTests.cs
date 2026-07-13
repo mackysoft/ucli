@@ -257,7 +257,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestMatchesAndSupervisorAccepts_ReturnsAccepted));
-        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         var manifest = CreateManifest();
         await WriteManifestAsync(scope.FullPath, unityProject.ProjectFingerprint, manifest);
         var transportClient = CreateAcceptingTransport(unityProject.ProjectFingerprint, manifest);
@@ -286,7 +286,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestStartTimeDiffersWithinTolerance_RequestsSupervisor));
-        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         var manifest = CreateManifest() with
         {
             ProcessStartedAtUtc = ProcessStartedAtUtc.AddMilliseconds(1),
@@ -312,7 +312,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     }
 
     private static StubIpcTransportClient CreateAcceptingTransport (
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         GuiSupervisorManifestJsonContract manifest)
     {
         return new StubIpcTransportClient
@@ -338,12 +338,12 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
 
         public ValueTask<GuiSupervisorManifestJsonContract?> ReadAfterEndpointPublicationAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             TimeSpan timeout,
             CancellationToken cancellationToken)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-            ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+            ArgumentNullException.ThrowIfNull(projectFingerprint);
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
             return read(cancellationToken);
         }

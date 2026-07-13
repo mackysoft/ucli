@@ -23,7 +23,7 @@ public sealed class DaemonCleanupOperationFailureTests
                 new InvalidDataException("invalid frame")),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-probe-failure"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-probe-failure")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         var error = DaemonCleanupOperationAssert.FailedWithoutArtifactCleanup(
             result,
@@ -36,7 +36,7 @@ public sealed class DaemonCleanupOperationFailureTests
     [Trait("Size", "Small")]
     public async Task Cleanup_WhenWorkflowBegins_AcquiresLifecycleLockForUnityProjectRoot ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-lock-context");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-lock-context"));
         var lockProvider = new StubProjectLifecycleLockProvider();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
             new ManualTimeProvider(),
@@ -61,7 +61,7 @@ public sealed class DaemonCleanupOperationFailureTests
             TimeProvider.System,
             lifecycleLockProvider: new StubProjectLifecycleLockProvider(throwTimeout: true));
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-lock-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-lock-timeout")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Failed, result.Status);

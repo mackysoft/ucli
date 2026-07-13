@@ -26,7 +26,7 @@ internal static class VerifyCommandTestData
             Verdict: verdict,
             Project: ProjectIdentityInfoTestFactory.Create(
                 projectPath: "<projectPath>",
-                projectFingerprint: "<projectFingerprint>",
+                projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>"),
                 unityVersion: "<unityVersion>"),
             Verifiers:
             [

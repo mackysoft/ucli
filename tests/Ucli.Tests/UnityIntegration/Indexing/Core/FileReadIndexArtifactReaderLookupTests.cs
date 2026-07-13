@@ -12,7 +12,7 @@ public sealed class FileReadIndexArtifactReaderLookupTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "asset-search-success");
         var reader = new FileReadIndexArtifactReader();
-        const string fingerprint = "fingerprint";
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var contract = new IndexAssetSearchLookupJsonContract(
             SchemaVersion: 1,
@@ -51,8 +51,8 @@ public sealed class FileReadIndexArtifactReaderLookupTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "guid-path-malformed");
         var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
-        var lookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
+        var lookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         FileReadIndexArtifactReaderTestSupport.WriteText(lookupPath, "{");
 
         var result = await reader.ReadGuidPathLookupAsync(project, CancellationToken.None);
@@ -69,7 +69,7 @@ public sealed class FileReadIndexArtifactReaderLookupTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "scene-tree-lite-success");
         var reader = new FileReadIndexArtifactReader();
-        const string fingerprint = "fingerprint";
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         const string scenePath = "Assets/Scenes/Sample.unity";
         var contract = new IndexSceneTreeLiteLookupJsonContract(
@@ -105,7 +105,7 @@ public sealed class FileReadIndexArtifactReaderLookupTests
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "scene-tree-lite-mismatch");
         var reader = new FileReadIndexArtifactReader();
-        const string fingerprint = "fingerprint";
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         const string requestedScenePath = "Assets/Scenes/Sample.unity";
         var contract = new IndexSceneTreeLiteLookupJsonContract(

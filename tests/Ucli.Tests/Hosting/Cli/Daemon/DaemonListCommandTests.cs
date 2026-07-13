@@ -18,7 +18,7 @@ public sealed class DaemonListCommandTests
             BranchRef: "refs/heads/main",
             Head: "aaaaaaaa",
             ProjectPath: "/repo/wt-a/UnityProject",
-            ProjectFingerprint: "fp-a",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-a"),
             State: DaemonListItemState.Stale,
             Reason: DaemonListItemReason.StaleSession,
             IssuedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 0, 0, TimeSpan.Zero),

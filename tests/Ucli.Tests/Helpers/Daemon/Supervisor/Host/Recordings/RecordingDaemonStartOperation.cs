@@ -7,7 +7,7 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
     public DaemonStartResult StartResult { get; set; } = DaemonStartResult.AlreadyRunning(
         DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
-            projectFingerprint: "fingerprint",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
             editorMode: "batchmode",
             ownerKind: "cli",

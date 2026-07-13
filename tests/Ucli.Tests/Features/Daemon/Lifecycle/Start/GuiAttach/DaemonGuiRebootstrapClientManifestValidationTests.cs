@@ -15,7 +15,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
         new(
             "schema-version",
             0,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             IpcSessionTokenTestFactory.Create("schema-version-token").GetEncodedValue(),
             ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
@@ -23,7 +23,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
         new(
             "project-fingerprint",
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-            "other-fingerprint",
+            ProjectFingerprintTestFactory.Create("other-fingerprint"),
             IpcSessionTokenTestFactory.Create("project-fingerprint-token").GetEncodedValue(),
             ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
@@ -31,7 +31,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
         new(
             "started-at",
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             IpcSessionTokenTestFactory.Create("started-at-token").GetEncodedValue(),
             ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
@@ -39,7 +39,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
         new(
             "session-token",
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             "",
             ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
@@ -47,7 +47,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
         new(
             "transport-kind",
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             IpcSessionTokenTestFactory.Create("transport-kind-token").GetEncodedValue(),
             "",
             "/tmp/ucli-gui-supervisor.sock",
@@ -55,7 +55,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
         new(
             "endpoint-address",
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-            "fingerprint",
+            ProjectFingerprintTestFactory.Create("fingerprint"),
             IpcSessionTokenTestFactory.Create("endpoint-address-token").GetEncodedValue(),
             ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
             "",
@@ -69,7 +69,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestMissing_ReturnsUnavailableWithoutIpc));
-        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         var transportClient = new StubIpcTransportClient();
         var client = CreateClient(transportClient);
 
@@ -90,7 +90,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestProcessDoesNotMatch_ReturnsUnavailableWithoutIpc));
-        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         await WriteManifestAsync(scope.FullPath, unityProject.ProjectFingerprint, CreateManifest());
         var transportClient = new StubIpcTransportClient();
         var client = CreateClient(transportClient);
@@ -114,7 +114,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             $"{nameof(RequestRebootstrapAsync_WhenManifestValidationFails_ReturnsUnavailableWithoutIpc)}-{testCase.Name}");
-        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         var manifest = CreateManifest() with
         {
             SchemaVersion = testCase.SchemaVersion,
@@ -144,7 +144,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestTransportKindIsInvalid_ReturnsUnavailableWithoutIpc));
-        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, "fingerprint");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         await WriteManifestAsync(
             scope.FullPath,
             unityProject.ProjectFingerprint,
@@ -177,7 +177,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
     public readonly record struct InvalidManifestCase (
         string Name,
         int SchemaVersion,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         string SessionToken,
         string EndpointTransportKind,
         string EndpointAddress,

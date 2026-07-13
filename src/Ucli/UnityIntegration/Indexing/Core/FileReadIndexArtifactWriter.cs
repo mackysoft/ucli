@@ -50,7 +50,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     /// <inheritdoc />
     public async ValueTask WriteOpsCatalogAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexOpEntryJsonContract> operations,
         string sourceInputsHash,
@@ -58,7 +58,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentNullException.ThrowIfNull(operations);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceInputsHash);
         cancellationToken.ThrowIfCancellationRequested();
@@ -169,7 +169,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     /// <inheritdoc />
     public async ValueTask WriteAssetLookupsAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
         IReadOnlyList<IndexGuidPathEntryJsonContract> guidPathEntries,
@@ -177,7 +177,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentNullException.ThrowIfNull(assetSearchEntries);
         ArgumentNullException.ThrowIfNull(guidPathEntries);
         ArgumentNullException.ThrowIfNull(inputSnapshot);
@@ -247,7 +247,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
     /// <inheritdoc />
     public async ValueTask WriteSceneTreeLiteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         string scenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
@@ -255,7 +255,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentException.ThrowIfNullOrWhiteSpace(scenePath);
         ArgumentNullException.ThrowIfNull(roots);
         ArgumentException.ThrowIfNullOrWhiteSpace(sourceInputsHash);
@@ -356,7 +356,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 
     private static async ValueTask<ReadIndexInputHashSnapshot> PreserveCurrentAssetHashesAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         ReadIndexInputHashSnapshot suppliedSnapshot,
         CancellationToken cancellationToken)
     {
@@ -382,7 +382,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 
     private static async ValueTask<ReadIndexInputHashSnapshot> PreserveCurrentCoreHashesAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         ReadIndexInputHashSnapshot suppliedSnapshot,
         CancellationToken cancellationToken)
     {
@@ -410,7 +410,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 
     private static async ValueTask<IndexInputsManifestJsonContract?> TryReadCurrentInputsManifestAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken)
     {
         var inputsManifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(storageRoot, projectFingerprint);
@@ -446,7 +446,7 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 
     private async ValueTask WriteInputsManifestAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         ReadIndexInputHashSnapshot inputSnapshot,
         CancellationToken cancellationToken)

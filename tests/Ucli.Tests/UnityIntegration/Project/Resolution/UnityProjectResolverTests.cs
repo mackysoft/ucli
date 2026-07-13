@@ -24,7 +24,7 @@ public sealed class UnityProjectResolverTests
         Assert.Equal(unityProjectPath, context.RepositoryRoot);
         Assert.Equal(UnityProjectPathSource.CommandOption, context.PathSource);
         Assert.Equal("6000.1.4f1", context.UnityVersion);
-        Assert.Matches("^[0-9a-f]{64}$", context.ProjectFingerprint);
+        Assert.Matches("^[0-9a-f]{64}$", context.ProjectFingerprint.ToString());
     }
 
     [Theory]
@@ -176,7 +176,7 @@ public sealed class UnityProjectResolverTests
         var context = Assert.IsType<ResolvedUnityProjectContext>(result.Context);
         Assert.Equal(unityProjectPath, context.UnityProjectRoot);
         Assert.Equal(repositoryRoot, context.RepositoryRoot);
-        Assert.Matches("^[0-9a-f]{64}$", context.ProjectFingerprint);
+        Assert.Matches("^[0-9a-f]{64}$", context.ProjectFingerprint.ToString());
     }
 
     [Fact]

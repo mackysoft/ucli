@@ -321,7 +321,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
 
     private static async ValueTask<ReadIndexArtifactReadResult<TContract>> ReadContractAsync<TContract> (
         ResolvedUnityProjectContext unityProject,
-        Func<string, string, string> pathResolver,
+        Func<string, ProjectFingerprint, string> pathResolver,
         Func<string, TContract?> deserialize,
         Func<TContract, bool> validator,
         string contractName,
@@ -336,13 +336,6 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
             return ReadIndexArtifactReadResult<TContract>.Failure(
                 UcliCoreErrorCodes.InvalidArgument,
                 "Storage root path must not be empty.");
-        }
-
-        if (string.IsNullOrWhiteSpace(unityProject.ProjectFingerprint))
-        {
-            return ReadIndexArtifactReadResult<TContract>.Failure(
-                UcliCoreErrorCodes.InvalidArgument,
-                "Project fingerprint must not be empty.");
         }
 
         string contractPath;

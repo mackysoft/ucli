@@ -15,7 +15,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
     public async Task Launch_WhenBatchmodeClassifiedBlockerLaunchAttemptWriteAndCleanupFail_ReportsBothSecondaryErrors ()
     {
         var scenario = CreateClassifiedBlockerScenario(
-            "fingerprint-probe-classified-blocker-final-artifact-cleanup-fail",
+            ProjectFingerprintTestFactory.Create("fingerprint-probe-classified-blocker-final-artifact-cleanup-fail"),
             processId: 7785);
         scenario.LaunchAttemptStore.WriteResult =
             DaemonLaunchAttemptStoreOperationResult.Failure(ExecutionError.InternalError("artifact failed"));
@@ -52,7 +52,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
             Column: 13,
             Message: "Semicolon expected");
         var scenario = CreateClassifiedBlockerScenario(
-            "fingerprint-probe-classified-blocker-cleanup-fail",
+            ProjectFingerprintTestFactory.Create("fingerprint-probe-classified-blocker-cleanup-fail"),
             processId: 7783,
             primaryDiagnostic);
         scenario.CompensationService.NextResult =

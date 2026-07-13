@@ -14,7 +14,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenUnityLaunchFails_RunsCompensationAndReturnsLaunchFailure ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-launch-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-fail"));
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -76,7 +76,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenCompensationFails_ReturnsInternalError ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-launch-compensation-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-compensation-fail"));
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -125,7 +125,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenLaunchFailureOccursAfterDeadline_StillRunsCompensation ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-launch-timeout-compensation");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-timeout-compensation"));
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -177,7 +177,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenCancellationRequestedAfterLaunchFailure_StillRunsCompensation ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-launch-cancel-after-failure");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-cancel-after-failure"));
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -228,7 +228,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenDiagnosisWriteFails_ReturnsInternalError ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-launch-diagnosis-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-diagnosis-fail"));
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,

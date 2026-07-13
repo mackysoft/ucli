@@ -18,7 +18,7 @@ internal interface IUnityIpcTransportClient
     /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but the response frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         IpcRequest request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
@@ -34,7 +34,7 @@ internal interface IUnityIpcTransportClient
     /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but a response stream frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendStreamingAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         IpcRequest request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,

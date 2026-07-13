@@ -49,7 +49,7 @@ public sealed class SupervisorClientProgressValidationTests
                 request,
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
-                    projectFingerprint: "other-fingerprint",
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("other-fingerprint"),
                     timeoutMilliseconds: 5000,
                     editorMode: "gui",
                     launchAttemptId: null,

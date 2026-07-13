@@ -20,7 +20,7 @@ internal static class FileBuildRunArtifactStoreTestSupport
     public static (FileBuildRunArtifactStore Store, BuildRunArtifactPaths Paths) PrepareArtifacts (TestDirectoryScope scope)
     {
         var store = CreateStore();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var prepareResult = store.Prepare(project, "run-1");
 
         Assert.True(prepareResult.IsSuccess);

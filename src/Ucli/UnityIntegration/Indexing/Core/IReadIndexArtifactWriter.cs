@@ -9,7 +9,7 @@ internal interface IReadIndexArtifactWriter
     /// <summary> Writes one ops catalog and an optional input manifest. </summary>
     ValueTask WriteOpsCatalogAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexOpEntryJsonContract> operations,
         string sourceInputsHash,
@@ -19,7 +19,7 @@ internal interface IReadIndexArtifactWriter
     /// <summary> Writes asset lookup artifacts and the input manifest. </summary>
     ValueTask WriteAssetLookupsAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
         IReadOnlyList<IndexGuidPathEntryJsonContract> guidPathEntries,
@@ -29,7 +29,7 @@ internal interface IReadIndexArtifactWriter
     /// <summary> Writes one scene-tree-lite lookup artifact. </summary>
     ValueTask WriteSceneTreeLiteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         string scenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,

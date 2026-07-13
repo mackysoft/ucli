@@ -42,7 +42,7 @@ public sealed class SupervisorClientProgressTests
         transportClient.AssertEnsureRunningStreamingRequested();
         SupervisorProgressAssert.WaitingForEndpointProgressForwarded(
             progressSink,
-            expectedProjectFingerprint: "fingerprint",
+            expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             expectedMessage: "Waiting for daemon endpoint.");
     }
 

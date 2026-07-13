@@ -23,7 +23,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         {
             return IpcRequestAssert.ParseMethod(request) switch
             {
-                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId, projectFingerprint: "other-project-fingerprint"),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId, projectFingerprint: ProjectFingerprintTestFactory.Create("other-project-fingerprint")),
                 UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };

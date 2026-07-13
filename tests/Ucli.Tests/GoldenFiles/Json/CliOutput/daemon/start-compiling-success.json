@@ -12,7 +12,7 @@
     "canAcceptExecutionRequests": false,
     "timeoutMilliseconds": 1234,
     "session": {
-      "projectFingerprint": "fingerprint",
+      "projectFingerprint": "44863b03e9909b7100e05b02526909a346fd7455183f6619e0fe6198c89981e0",
       "issuedAtUtc": "2026-03-12T01:02:03+00:00",
       "editorMode": "batchmode",
       "ownerKind": "cli",

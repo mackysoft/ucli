@@ -12,7 +12,7 @@ public sealed class DaemonSessionProbeTests
     public async Task Probe_WhenObservedSessionResponds_ReturnsSameSessionAndPing ()
     {
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-session-probe-current");
+            ProjectFingerprintTestFactory.Create("fingerprint-session-probe-current"));
         var session = DaemonSessionTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "current-token");
@@ -42,7 +42,7 @@ public sealed class DaemonSessionProbeTests
     public async Task Probe_WhenSessionTokenRotates_RereadsAndPingsReplacementOnce ()
     {
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-session-probe-rotation");
+            ProjectFingerprintTestFactory.Create("fingerprint-session-probe-rotation"));
         var observedSession = DaemonSessionTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "observed-token");
@@ -85,7 +85,7 @@ public sealed class DaemonSessionProbeTests
     public async Task Probe_WhenReplacementSessionReadIsInvalid_ReturnsReadFailureWithoutSecondPing ()
     {
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-session-probe-invalid-replacement");
+            ProjectFingerprintTestFactory.Create("fingerprint-session-probe-invalid-replacement"));
         var observedSession = DaemonSessionTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "observed-token");
@@ -121,7 +121,7 @@ public sealed class DaemonSessionProbeTests
     public async Task Probe_WhenReplacementProbeFails_ReturnsFailureWithReplacementSession ()
     {
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-session-probe-replacement-failure");
+            ProjectFingerprintTestFactory.Create("fingerprint-session-probe-replacement-failure"));
         var observedSession = DaemonSessionTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "observed-token");
@@ -162,7 +162,7 @@ public sealed class DaemonSessionProbeTests
     public async Task Probe_WhenRefreshedMetadataKeepsRejectedToken_DoesNotRetrySameToken ()
     {
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-session-probe-same-token");
+            ProjectFingerprintTestFactory.Create("fingerprint-session-probe-same-token"));
         var observedSession = DaemonSessionTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "rejected-token");

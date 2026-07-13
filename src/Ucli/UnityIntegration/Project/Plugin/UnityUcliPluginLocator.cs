@@ -121,5 +121,5 @@ internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
     private sealed record LocateContext (
         string UnityProjectRoot,
         string StorageRoot,
-        string ProjectFingerprint);
+        ProjectFingerprint ProjectFingerprint);
 }

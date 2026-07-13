@@ -10,7 +10,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerEvidenceTests
     public async Task Launch_WhenBatchmodeClassifiedBlockerTerminates_CompensatesBeforeSupplementalEvidence ()
     {
         var scenario = CreateClassifiedBlockerScenario(
-            "fingerprint-probe-classified-blocker-order",
+            ProjectFingerprintTestFactory.Create("fingerprint-probe-classified-blocker-order"),
             processId: 7780);
         var sequence = new List<string>();
         scenario.DiagnosisStore.OnWrite = _ => sequence.Add("diagnosis");

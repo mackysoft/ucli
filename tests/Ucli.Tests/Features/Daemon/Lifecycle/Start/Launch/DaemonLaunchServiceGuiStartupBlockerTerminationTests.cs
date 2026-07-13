@@ -13,7 +13,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiStartupBlockedAndPolicyTerminates_TerminatesCliLaunchedGuiProcess ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-terminate");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-terminate"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
@@ -67,7 +67,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiStartupBlockedAndCleanupFails_PreservesPrimaryBlockerAndRecordsUnknownProcessAction ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-terminate-cleanup-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-terminate-cleanup-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var primaryDiagnostic = new DaemonPrimaryDiagnostic(
             Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
@@ -145,7 +145,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerTerminationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiStartupObserverFindsProcessExit_CleansArtifactsWithoutTerminationTarget ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-process-exit");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-process-exit"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {

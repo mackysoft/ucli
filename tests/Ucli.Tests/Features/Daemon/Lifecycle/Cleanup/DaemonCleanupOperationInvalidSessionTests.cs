@@ -12,7 +12,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
     [Trait("Size", "Small")]
     public async Task Cleanup_WhenInvalidSessionCanBeCleaned_CompletesCleanup ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-invalid-safe");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-invalid-safe"));
         var invalidEvidence = DaemonInvalidSessionEvidenceTestFactory.Create(
             projectFingerprint: context.ProjectFingerprint,
             processId: 2003);
@@ -44,7 +44,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
     [Trait("Size", "Small")]
     public async Task Cleanup_WhenInvalidSessionHasNoParsedMetadataAndProbeShowsNotRunning_CompletesCleanup ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-invalid-null");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-invalid-null"));
         var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
             NextResult = DaemonArtifactCleanupResult.Success(),
@@ -67,7 +67,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
     [Trait("Size", "Small")]
     public async Task Cleanup_WhenInvalidSessionHasNoParsedMetadataAndProbeReturnsConnectTimeout_ReturnsSkippedUncertainReachabilityWithoutCleanup ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-invalid-connect-timeout");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-invalid-connect-timeout"));
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
             new ManualTimeProvider(),
@@ -91,7 +91,7 @@ public sealed class DaemonCleanupOperationInvalidSessionTests
     [Trait("Size", "Small")]
     public async Task Cleanup_WhenInvalidSessionIsUnsafe_ReturnsSkippedWithoutProbing ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-invalid-unsafe");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-invalid-unsafe"));
         var invalidEvidence = DaemonInvalidSessionEvidenceTestFactory.Create(
             projectFingerprint: context.ProjectFingerprint,
             processId: 2004);

@@ -11,7 +11,7 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
     public const string CompileBlockerMessage = "Unity scripts have compiler errors.";
 
     public static ClassifiedBlockerScenario CreateClassifiedBlockerScenario (
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int processId,
         DaemonPrimaryDiagnostic? primaryDiagnostic = null)
     {

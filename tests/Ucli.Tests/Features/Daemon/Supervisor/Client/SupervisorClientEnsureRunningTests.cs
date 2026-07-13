@@ -109,7 +109,7 @@ public sealed class SupervisorClientEnsureRunningTests
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
             Guid.NewGuid(),
-            SupervisorClientTestSupport.CreateUnityProject("different-project-fingerprint"),
+            SupervisorClientTestSupport.CreateUnityProject(ProjectFingerprintTestFactory.Create("different-project-fingerprint")),
             SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(100)),
             attemptTimeout: TimeSpan.FromMilliseconds(100),
             editorMode: DaemonEditorMode.Gui,

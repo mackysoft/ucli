@@ -20,7 +20,7 @@ internal static class DaemonStartCommandTestSupport
             DaemonStatus: DaemonStatusKind.Running,
             TimeoutMilliseconds: 1234,
             Session: new DaemonSessionOutput(
-                ProjectFingerprint: "fingerprint",
+                ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
                 IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 3, TimeSpan.Zero),
                 EditorMode: "batchmode",
                 OwnerKind: "cli",
@@ -99,7 +99,7 @@ internal static class DaemonStartCommandTestSupport
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved),
                 new DaemonStartLifecycleSnapshotProgressEntry(
                     ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
-                    "fingerprint",
+                    ProjectFingerprintTestFactory.Create("fingerprint"),
                     1234,
                     "batchmode",
                     "auto",
@@ -129,7 +129,7 @@ internal static class DaemonStartCommandTestSupport
         string? errorCode)
     {
         return new DaemonStartProgressEntry(
-            ProjectFingerprint: "fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             TimeoutMilliseconds: 1234,
             EditorMode: "batchmode",
             OnStartupBlocked: "auto",

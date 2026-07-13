@@ -17,7 +17,7 @@ public sealed class DaemonArtifactCleanerTests
     public async Task Cleanup_WhenSuccessorAppearsBeforeOwnershipCheck_PreservesSuccessorArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "no-session-successor");
-        const string projectFingerprint = "fingerprint-no-session-successor";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-no-session-successor");
         var sessionStore = new DaemonSessionStore();
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
@@ -64,7 +64,7 @@ public sealed class DaemonArtifactCleanerTests
     public async Task CleanupIfSessionMatches_WhenSuccessorWriteStartsDuringCleanup_PublishesSuccessorAfterCleanup ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "concurrent-successor-write");
-        const string projectFingerprint = "fingerprint-concurrent-successor";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-concurrent-successor");
         var retiredSession = DaemonSessionTestFactory.Create(
             sessionToken: "retired-session-token",
             projectFingerprint: projectFingerprint);
@@ -131,7 +131,7 @@ public sealed class DaemonArtifactCleanerTests
     public async Task CleanupIfSessionMatches_WhenObservedGenerationIsCurrent_DeletesSameGenerationArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "matching-session");
-        const string projectFingerprint = "fingerprint-matching";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-matching");
         var expectedSession = DaemonSessionTestFactory.Create(
             sessionToken: "matching-session-token",
             projectFingerprint: projectFingerprint);
@@ -178,7 +178,7 @@ public sealed class DaemonArtifactCleanerTests
     public async Task CleanupIfSessionMatches_WhenExpectedSessionIsAlreadyMissing_DeletesResidualArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "matching-session-missing");
-        const string projectFingerprint = "fingerprint-matching-missing";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-matching-missing");
         var expectedSession = DaemonSessionTestFactory.Create(
             sessionToken: "missing-session-token",
             projectFingerprint: projectFingerprint);
@@ -217,11 +217,11 @@ public sealed class DaemonArtifactCleanerTests
     public async Task CleanupIfStoppedProcessMatches_WhenRotatedSessionBelongsToStoppedProcess_DeletesCurrentArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "stopped-process-rotation");
-        const string ProjectFingerprint = "fingerprint-stopped-process-rotation";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-stopped-process-rotation");
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 10, 0, 0, 0, TimeSpan.Zero);
         var rotatedSession = DaemonSessionTestFactory.Create(
             sessionToken: "rotated-session-token",
-            projectFingerprint: ProjectFingerprint,
+            projectFingerprint: projectFingerprint,
             processId: 4123,
             processStartedAtUtc: processStartedAtUtc);
         var lifecycleStore = new RecordingDaemonLifecycleStore();
@@ -235,7 +235,7 @@ public sealed class DaemonArtifactCleanerTests
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: scope.FullPath,
-                projectFingerprint: ProjectFingerprint),
+                projectFingerprint: projectFingerprint),
             new DaemonProcessTerminationTarget(4123, processStartedAtUtc),
             CancellationToken.None);
 
@@ -249,10 +249,10 @@ public sealed class DaemonArtifactCleanerTests
     public async Task CleanupIfStoppedProcessMatches_WhenCurrentSessionIsInvalid_ReturnsFailureWithoutDeletingArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "stopped-process-invalid");
-        const string ProjectFingerprint = "fingerprint-stopped-process-invalid";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-stopped-process-invalid");
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 10, 0, 0, 0, TimeSpan.Zero);
         var invalidEvidence = DaemonInvalidSessionEvidenceTestFactory.Create(
-            projectFingerprint: ProjectFingerprint,
+            projectFingerprint: projectFingerprint,
             processId: 4123,
             processStartedAtUtc: processStartedAtUtc);
         var lifecycleStore = new RecordingDaemonLifecycleStore();
@@ -268,7 +268,7 @@ public sealed class DaemonArtifactCleanerTests
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: scope.FullPath,
-                projectFingerprint: ProjectFingerprint),
+                projectFingerprint: projectFingerprint),
             new DaemonProcessTerminationTarget(4123, processStartedAtUtc),
             CancellationToken.None);
 
@@ -282,10 +282,10 @@ public sealed class DaemonArtifactCleanerTests
     public async Task CleanupIfStoppedProcessMatches_WhenCurrentSessionBelongsToAnotherProcess_PreservesCurrentArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "stopped-process-successor");
-        const string ProjectFingerprint = "fingerprint-stopped-process-successor";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-stopped-process-successor");
         var successorSession = DaemonSessionTestFactory.Create(
             sessionToken: "successor-session-token",
-            projectFingerprint: ProjectFingerprint,
+            projectFingerprint: projectFingerprint,
             processId: 9876,
             processStartedAtUtc: new DateTimeOffset(2026, 07, 10, 0, 1, 0, TimeSpan.Zero));
         var lifecycleStore = new RecordingDaemonLifecycleStore();
@@ -299,7 +299,7 @@ public sealed class DaemonArtifactCleanerTests
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: scope.FullPath,
-                projectFingerprint: ProjectFingerprint),
+                projectFingerprint: projectFingerprint),
             new DaemonProcessTerminationTarget(
                 ProcessId: 4123,
                 ProcessStartedAtUtc: new DateTimeOffset(2026, 07, 10, 0, 0, 0, TimeSpan.Zero)),
@@ -326,7 +326,7 @@ public sealed class DaemonArtifactCleanerTests
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: scope.FullPath,
-                projectFingerprint: "fingerprint-stopped-process-missing"),
+                projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-stopped-process-missing")),
             new DaemonProcessTerminationTarget(
                 ProcessId: 4123,
                 ProcessStartedAtUtc: new DateTimeOffset(2026, 07, 10, 0, 0, 0, TimeSpan.Zero)),
@@ -342,7 +342,7 @@ public sealed class DaemonArtifactCleanerTests
     public async Task CleanupIfSessionArtifactMatches_WhenSuccessorReplacesInvalidObservation_PreservesSuccessorArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "invalid-successor-session");
-        const string projectFingerprint = "fingerprint-invalid-successor";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-invalid-successor");
         const string invalidSessionJson = "{ invalid session json";
         var successorSession = DaemonSessionTestFactory.Create(
             sessionToken: "successor-session-token",
@@ -395,7 +395,7 @@ public sealed class DaemonArtifactCleanerTests
     public async Task CleanupIfSessionArtifactMatches_WhenObservedInvalidArtifactIsCurrent_DeletesSameArtifactArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "invalid-current-session");
-        const string projectFingerprint = "fingerprint-invalid-current";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-invalid-current");
         const string invalidSessionJson = "{ invalid session json";
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
@@ -429,7 +429,7 @@ public sealed class DaemonArtifactCleanerTests
     public async Task CleanupIfSessionArtifactMatches_WhenObservedArtifactIsAlreadyMissing_DeletesResidualArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "invalid-session-missing");
-        const string ProjectFingerprint = "fingerprint-invalid-missing";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-invalid-missing");
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
         var cleaner = new DaemonArtifactCleaner(
@@ -441,7 +441,7 @@ public sealed class DaemonArtifactCleanerTests
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: scope.FullPath,
-                projectFingerprint: ProjectFingerprint),
+                projectFingerprint: projectFingerprint),
             DaemonSessionArtifactIdentity.Create("{ invalid session json"),
             CancellationToken.None);
 
@@ -455,7 +455,7 @@ public sealed class DaemonArtifactCleanerTests
     public async Task CleanupIfSessionMatches_WhenSuccessorSessionIsCurrent_PreservesSuccessorArtifacts ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "successor-session");
-        const string projectFingerprint = "fingerprint-successor";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-successor");
         var expectedSession = DaemonSessionTestFactory.Create(
             sessionToken: "retired-session-token",
             projectFingerprint: projectFingerprint);
@@ -506,7 +506,7 @@ public sealed class DaemonArtifactCleanerTests
 
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "fallback-socket");
         var storageRoot = Path.Combine(scope.FullPath, new string('a', 160), new string('b', 160));
-        const string projectFingerprint = "fingerprint-cleanup";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-cleanup");
         var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);
 
@@ -550,7 +550,7 @@ public sealed class DaemonArtifactCleanerTests
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: scope.FullPath,
-                projectFingerprint: "fingerprint-cleanup"),
+                projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-cleanup")),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -575,7 +575,7 @@ public sealed class DaemonArtifactCleanerTests
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: scope.FullPath,
-                projectFingerprint: "fingerprint-cleanup"),
+                projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-cleanup")),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);

@@ -14,6 +14,7 @@ public sealed class DaemonStartCommandProgressTests
     [Trait("Size", "Medium")]
     public async Task Start_WithJsonFormat_WritesProgressEntriesToStandardErrorAndFinalCommandResultToStandardOutput ()
     {
+        var expectedProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString();
         var service = new RecordingDaemonStartService(
             DaemonStartExecutionResult.Success(CreateSuccessOutput(
                 lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
@@ -37,7 +38,7 @@ public sealed class DaemonStartCommandProgressTests
             .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started))
             .HasInt32("sequence", 1);
         JsonAssert.For(startedEntry.RootElement.GetProperty("payload"))
-            .HasString("projectFingerprint", "fingerprint")
+            .HasString("projectFingerprint", expectedProjectFingerprint)
             .HasInt32("timeoutMilliseconds", 1234)
             .HasString("editorMode", "batchmode")
             .HasString("onStartupBlocked", "auto")
@@ -61,6 +62,7 @@ public sealed class DaemonStartCommandProgressTests
     [Trait("Size", "Small")]
     public async Task Start_WithJsonFormat_WritesSupervisorProgressPayloadsToStandardErrorOnly ()
     {
+        var expectedProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString();
         var service = new RecordingDaemonStartService(
             DaemonStartExecutionResult.Success(CreateSuccessOutput(
                 lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
@@ -86,7 +88,7 @@ public sealed class DaemonStartCommandProgressTests
             .HasInt32("sequence", 1);
         JsonAssert.For(waitingEntry.RootElement.GetProperty("payload"))
             .HasString("payloadKind", "startupObservation")
-            .HasString("projectFingerprint", "fingerprint")
+            .HasString("projectFingerprint", expectedProjectFingerprint)
             .HasString("startupStatus", "waitingForEndpoint")
             .HasString("startupPhase", "endpointRegistration");
         Assert.False(waitingEntry.RootElement.GetProperty("payload").TryGetProperty("lifecycleState", out _));
@@ -105,7 +107,7 @@ public sealed class DaemonStartCommandProgressTests
             .HasInt32("sequence", 3);
         JsonAssert.For(endpointEntry.RootElement.GetProperty("payload"))
             .HasString("payloadKind", "startupObservation")
-            .HasString("projectFingerprint", "fingerprint")
+            .HasString("projectFingerprint", expectedProjectFingerprint)
             .HasInt32("processId", 1234);
         JsonAssert.For(lifecycleEntry.RootElement)
             .HasString("event", ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved))
@@ -127,6 +129,7 @@ public sealed class DaemonStartCommandProgressTests
     [Trait("Size", "Medium")]
     public async Task Start_WithDefaultOrTextFormat_WritesSingleLineProgressEntriesToStandardError ()
     {
+        var expectedProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString();
         foreach (var format in new string?[] { null, "text" })
         {
             var service = new RecordingDaemonStartService(
@@ -145,8 +148,8 @@ public sealed class DaemonStartCommandProgressTests
             Assert.Equal((int)CliExitCode.Success, result.ExitCode);
             var lines = result.StdErr.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
             Assert.Equal(2, lines.Length);
-            Assert.Equal("daemon start workflow project=fingerprint timeoutMs=1234 started", lines[0]);
-            Assert.Equal("daemon start workflow project=fingerprint timeoutMs=1234 result=succeeded startStatus=started daemonStatus=running completed", lines[1]);
+            Assert.Equal($"daemon start workflow project={expectedProjectFingerprint} timeoutMs=1234 started", lines[0]);
+            Assert.Equal($"daemon start workflow project={expectedProjectFingerprint} timeoutMs=1234 result=succeeded startStatus=started daemonStatus=running completed", lines[1]);
             JsonGoldenFileAssert.Matches(CliOutputGoldenFiles.GetPath("daemon", "start-compiling-success.json"), result.StdOut);
         }
     }
@@ -155,6 +158,7 @@ public sealed class DaemonStartCommandProgressTests
     [Trait("Size", "Small")]
     public async Task Start_WithTextFormat_WhenProgressEventHasUnknownStartedSuffix_RendersStartedStatus ()
     {
+        var expectedProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString();
         var service = new RecordingDaemonStartService(
             DaemonStartExecutionResult.Success(CreateSuccessOutput()),
             EmitUnknownStartedDaemonStartProgressAsync);
@@ -167,13 +171,14 @@ public sealed class DaemonStartCommandProgressTests
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var line = Assert.Single(result.StdErr.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries));
-        Assert.Equal("daemon start daemon.start.future.started project=fingerprint timeoutMs=1234 started", line);
+        Assert.Equal($"daemon start daemon.start.future.started project={expectedProjectFingerprint} timeoutMs=1234 started", line);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Start_WithTextFormat_WritesSupervisorProgressPayloadsToStandardError ()
     {
+        var expectedProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString();
         var service = new RecordingDaemonStartService(
             DaemonStartExecutionResult.Success(CreateSuccessOutput(
                 lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
@@ -191,16 +196,16 @@ public sealed class DaemonStartCommandProgressTests
         var lines = result.StdErr.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(4, lines.Length);
         Assert.Equal(
-            "daemon start endpoint project=fingerprint timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 startupStatus=waitingForEndpoint startupPhase=endpointRegistration waiting",
+            $"daemon start endpoint project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 startupStatus=waitingForEndpoint startupPhase=endpointRegistration waiting",
             lines[0]);
         Assert.Equal(
-            "daemon start blocker project=fingerprint timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 startupStatus=blocked startupBlockingReason=compile startupPhase=endpointRegistration retryDisposition=retryAfterFix errorCode=DAEMON_STARTUP_BLOCKED detected",
+            $"daemon start blocker project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 startupStatus=blocked startupBlockingReason=compile startupPhase=endpointRegistration retryDisposition=retryAfterFix errorCode=DAEMON_STARTUP_BLOCKED detected",
             lines[1]);
         Assert.Equal(
-            "daemon start endpoint project=fingerprint timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 registered",
+            $"daemon start endpoint project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 registered",
             lines[2]);
         Assert.Equal(
-            "daemon start lifecycle project=fingerprint timeoutMs=1234 editorMode=batchmode lifecycleState=compiling blockingReason=compile canAcceptExecutionRequests=false observed",
+            $"daemon start lifecycle project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode lifecycleState=compiling blockingReason=compile canAcceptExecutionRequests=false observed",
             lines[3]);
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.False(outputJson.RootElement.TryGetProperty("event", out _));

@@ -14,7 +14,7 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-can-shutdown-process");
         var store = DaemonSessionStorageTestSupport.CreateStore();
-        var projectFingerprint = "fingerprint-missing-can-shutdown-process";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-missing-can-shutdown-process");
         var sessionToken = IpcSessionTokenTestFactory.Create("missing-can-shutdown-process").GetEncodedValue();
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
             scope.FullPath,
@@ -51,7 +51,7 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
     public void Constructor_WhenBatchmodeCannotShutdownProcess_ThrowsArgumentException ()
     {
         Assert.Throws<ArgumentException>(() => DaemonSessionTestFactory.Create(
-            projectFingerprint: "fingerprint-can-shutdown-process-false",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-can-shutdown-process-false"),
             canShutdownProcess: false));
     }
 }

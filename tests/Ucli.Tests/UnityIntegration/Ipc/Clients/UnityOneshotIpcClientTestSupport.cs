@@ -120,7 +120,7 @@ internal static class UnityOneshotIpcClientTestSupport
         Guid requestId,
         string lifecycleState = IpcEditorLifecycleStateCodec.Ready,
         bool canAcceptExecutionRequests = true,
-        string projectFingerprint = "project-fingerprint")
+        ProjectFingerprint? projectFingerprint = null)
     {
         var payload = IpcPayloadCodec.SerializeToElement(IpcPingResponseTestFactory.Create(
             lifecycleState: lifecycleState,

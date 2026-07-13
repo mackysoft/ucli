@@ -18,7 +18,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenSessionPingSucceeds_ReturnsRunning ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-running");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-running"));
         var session = DaemonSessionTestFactory.Create(processId: 2001, projectFingerprint: context.ProjectFingerprint);
         var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested);
         var sessionStore = new RecordingDaemonSessionStore
@@ -55,7 +55,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenSessionTokenRotatesDuringProbe_RetriesOnceWithRefreshedSession ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-token-rotation");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-token-rotation"));
         var firstSession = DaemonSessionTestFactory.Create(
             processId: 2001,
             sessionToken: "first-token",
@@ -108,7 +108,7 @@ public sealed class DaemonStatusOperationTests
         bool probeTimesOut)
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            $"fingerprint-status-replacement-failure-{probeTimesOut}");
+            ProjectFingerprintTestFactory.Create($"fingerprint-status-replacement-failure-{probeTimesOut}"));
         var observedSession = DaemonSessionTestFactory.Create(
             processId: Environment.ProcessId,
             sessionToken: "observed-token",
@@ -161,7 +161,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenSessionPingTimesOut_ReturnsStale ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-timeout");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-timeout"));
         var session = DaemonSessionTestFactory.Create(processId: Environment.ProcessId, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
@@ -192,7 +192,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenSessionPingTimesOutWithMismatchedPersistedDiagnosis_DoesNotReturnStaleDiagnosis ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-timeout-mismatched-diagnosis");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-timeout-mismatched-diagnosis"));
         var session = DaemonSessionTestFactory.Create(processId: Environment.ProcessId, projectFingerprint: context.ProjectFingerprint);
         var oldSession = DaemonSessionTestFactory.Create(
             processId: Environment.ProcessId,
@@ -230,7 +230,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenSessionPingReturnsNotRunningException_ReturnsStale ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-stale");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-stale"));
         var session = DaemonSessionTestFactory.Create(processId: 2003, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
@@ -265,7 +265,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenSessionPingFailsUnexpectedly_ReturnsInternalError ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-ping-failure");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-ping-failure"));
         var session = DaemonSessionTestFactory.Create(processId: 2004, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
@@ -295,7 +295,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenStaleDiagnosisResolutionFailsUnexpectedly_ReturnsInternalError ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-diagnosis-failure");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-diagnosis-failure"));
         var session = DaemonSessionTestFactory.Create(processId: 2005, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
@@ -325,7 +325,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenSessionDoesNotExist_ReturnsPersistedDiagnosisWithNotRunning ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-not-running");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-not-running"));
         var diagnosis = CreateDiagnosis(DaemonSessionTestFactory.Create(processId: null, projectFingerprint: context.ProjectFingerprint), DaemonDiagnosisReasonValues.StartupFailed);
         var sessionStore = new RecordingDaemonSessionStore
         {
@@ -358,7 +358,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenSessionDoesNotExist_ReturnsLastLaunchAttempt ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-last-attempt");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-last-attempt"));
         var lastLaunchAttempt = CreateLaunchAttempt(context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
@@ -392,7 +392,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenStaleWithoutPersistedDiagnosis_DerivesExternalTerminationDiagnosis ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-external");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-external"));
         var session = DaemonSessionTestFactory.Create(processId: int.MaxValue, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
@@ -431,7 +431,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenExternalTerminationDiagnosisPersistenceFails_StillReturnsSynthesizedDiagnosis ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-external-write-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-external-write-fail"));
         var session = DaemonSessionTestFactory.Create(processId: int.MaxValue, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
@@ -468,7 +468,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenDiagnosisReadFails_StillReturnsRunningFromSessionAndPing ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-diagnosis-read-failure");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-diagnosis-read-failure"));
         var session = DaemonSessionTestFactory.Create(processId: 2004, projectFingerprint: context.ProjectFingerprint);
         var sessionStore = new RecordingDaemonSessionStore
         {
@@ -501,7 +501,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenDiagnosisReadStops_ReturnsTimeout ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-diagnosis-read-timeout");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-diagnosis-read-timeout"));
         var timeProvider = new ManualTimeProvider();
         var sessionStore = new RecordingDaemonSessionStore();
         var diagnosisStore = new BlockingDaemonDiagnosisReadStore();
@@ -529,7 +529,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenSessionReadStops_ReturnsTimeout ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-session-read-timeout");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-session-read-timeout"));
         var timeProvider = new ManualTimeProvider();
         var sessionReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var sessionStore = new RecordingDaemonSessionStore
@@ -566,7 +566,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenLaunchAttemptReadStops_ReturnsTimeout ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-launch-attempt-read-timeout");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-launch-attempt-read-timeout"));
         var timeProvider = new ManualTimeProvider();
         var launchAttemptStore = new BlockingDaemonLaunchAttemptStore();
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
@@ -598,7 +598,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenPingStops_ReturnsTimeout ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-ping-timeout");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-ping-timeout"));
         var session = DaemonSessionTestFactory.Create(processId: 2601, projectFingerprint: context.ProjectFingerprint);
         var timeProvider = new ManualTimeProvider();
         var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -638,7 +638,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_WhenDiagnosisWriteStopsAfterUnreachablePing_ReturnsTimeout ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-diagnosis-write-timeout");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-diagnosis-write-timeout"));
         var session = DaemonSessionTestFactory.Create(processId: int.MaxValue, projectFingerprint: context.ProjectFingerprint);
         var timeProvider = new ManualTimeProvider();
         var diagnosisStore = new BlockingDaemonDiagnosisWriteStore();
@@ -670,7 +670,7 @@ public sealed class DaemonStatusOperationTests
     [Trait("Size", "Small")]
     public async Task GetStatus_AfterMetadataReads_PassesRemainingTimeoutToPing ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-status-remaining-timeout");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-remaining-timeout"));
         var session = DaemonSessionTestFactory.Create(processId: 2602, projectFingerprint: context.ProjectFingerprint);
         var timeProvider = new ManualTimeProvider();
         var diagnosisStore = new RecordingDaemonDiagnosisStore
@@ -729,7 +729,7 @@ public sealed class DaemonStatusOperationTests
             SessionIssuedAtUtc: session.IssuedAtUtc);
     }
 
-    private static DaemonLaunchAttempt CreateLaunchAttempt (string projectFingerprint)
+    private static DaemonLaunchAttempt CreateLaunchAttempt (ProjectFingerprint projectFingerprint)
     {
         var diagnosis = CreateDiagnosis(DaemonSessionTestFactory.Create(processId: null, projectFingerprint: projectFingerprint), DaemonDiagnosisReasonValues.StartupFailed);
         return new DaemonLaunchAttempt(
@@ -784,7 +784,7 @@ public sealed class DaemonStatusOperationTests
 
         public async ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -795,7 +795,7 @@ public sealed class DaemonStatusOperationTests
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             DaemonDiagnosis diagnosis,
             CancellationToken cancellationToken = default)
         {
@@ -804,7 +804,7 @@ public sealed class DaemonStatusOperationTests
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
@@ -819,7 +819,7 @@ public sealed class DaemonStatusOperationTests
 
         public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -828,7 +828,7 @@ public sealed class DaemonStatusOperationTests
 
         public async ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             DaemonDiagnosis diagnosis,
             CancellationToken cancellationToken = default)
         {
@@ -840,7 +840,7 @@ public sealed class DaemonStatusOperationTests
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             throw new NotSupportedException();
@@ -855,7 +855,7 @@ public sealed class DaemonStatusOperationTests
 
         public ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteFailureAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             DaemonLaunchAttempt launchAttempt,
             CancellationToken cancellationToken = default)
         {
@@ -864,7 +864,7 @@ public sealed class DaemonStatusOperationTests
 
         public async ValueTask<DaemonLaunchAttemptReadResult> ReadLastFailureAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -875,7 +875,7 @@ public sealed class DaemonStatusOperationTests
 
         public ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
             string storageRoot,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             int keepCount,
             CancellationToken cancellationToken = default)
         {

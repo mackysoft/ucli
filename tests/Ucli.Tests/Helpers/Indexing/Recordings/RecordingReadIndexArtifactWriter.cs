@@ -56,7 +56,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
 
     public ValueTask WriteAssetLookupsAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
         IReadOnlyList<IndexGuidPathEntryJsonContract> guidPathEntries,
@@ -87,7 +87,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
 
     public ValueTask WriteOpsCatalogAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexOpEntryJsonContract> operations,
         string sourceInputsHash,
@@ -118,7 +118,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
 
     public ValueTask WriteSceneTreeLiteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         string scenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
@@ -149,7 +149,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
 
     internal readonly record struct AssetLookupInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         DateTimeOffset GeneratedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> AssetSearchEntries,
         IReadOnlyList<IndexGuidPathEntryJsonContract> GuidPathEntries,
@@ -158,7 +158,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
 
     internal readonly record struct OpsCatalogInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         DateTimeOffset GeneratedAtUtc,
         IReadOnlyList<IndexOpEntryJsonContract> Operations,
         string SourceInputsHash,
@@ -167,7 +167,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
 
     internal readonly record struct SceneTreeLiteInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         DateTimeOffset GeneratedAtUtc,
         string ScenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots,

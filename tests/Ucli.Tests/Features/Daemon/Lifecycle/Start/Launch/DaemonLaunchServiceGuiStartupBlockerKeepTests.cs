@@ -15,7 +15,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
     public async Task Launch_WhenEditorModeGuiStartupObserverFindsCompilerErrorWithKeepPolicy_WritesStartupBlockedDiagnosisAndPreservesGuiProcess (
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-compiler-error");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-compiler-error"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
@@ -109,7 +109,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
         var startupPhase = ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.UserAction);
         const string actionRequired = DaemonDiagnosisActionRequiredValues.ResolveUnityDialog;
 
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext($"fingerprint-gui-launch-{startupBlockingReason}");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create($"fingerprint-gui-launch-{startupBlockingReason}"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {

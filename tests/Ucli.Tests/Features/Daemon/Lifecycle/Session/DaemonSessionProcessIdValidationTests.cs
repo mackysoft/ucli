@@ -14,7 +14,7 @@ public sealed class DaemonSessionProcessIdValidationTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-process-id-read");
         var store = DaemonSessionStorageTestSupport.CreateStore();
-        var projectFingerprint = "fingerprint-invalid-process-id-read";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-invalid-process-id-read");
         var sessionToken = IpcSessionTokenTestFactory.Create("invalid-process-id-read").GetEncodedValue();
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
             scope.FullPath,
@@ -52,7 +52,7 @@ public sealed class DaemonSessionProcessIdValidationTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-process-started-at-read");
         var store = DaemonSessionStorageTestSupport.CreateStore();
-        var projectFingerprint = "fingerprint-missing-process-started-at-read";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-missing-process-started-at-read");
         var sessionToken = IpcSessionTokenTestFactory.Create("missing-process-started-at-read").GetEncodedValue();
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
             scope.FullPath,
@@ -91,7 +91,7 @@ public sealed class DaemonSessionProcessIdValidationTests
     public void Constructor_WhenProcessIdIsNotPositive_ThrowsArgumentOutOfRangeException (int processId)
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => DaemonSessionTestFactory.Create(
-            projectFingerprint: "fingerprint-invalid-process-id-write",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-invalid-process-id-write"),
             processId: processId));
     }
 
@@ -103,7 +103,7 @@ public sealed class DaemonSessionProcessIdValidationTests
 
         Assert.Throws<ArgumentException>(() => new DaemonSession(
             validSession.SessionToken,
-            "fingerprint-missing-process-started-at-write",
+            ProjectFingerprintTestFactory.Create("fingerprint-missing-process-started-at-write"),
             validSession.IssuedAtUtc,
             validSession.EditorMode,
             validSession.OwnerKind,

@@ -13,7 +13,7 @@ internal static class IpcDaemonPingClientTestSupport
 
     public static ResolvedUnityProjectContext CreateFingerprintMatchedProject ()
     {
-        return ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: "fingerprint");
+        return ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
     }
 
     public static StaticDaemonSessionConnectionProvider CreateResolvedSessionProvider (string sessionToken = "resolved-token")
@@ -28,7 +28,7 @@ internal static class IpcDaemonPingClientTestSupport
                 request,
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
-                IpcPingResponseTestFactory.Create(projectFingerprint: "fingerprint")));
+                IpcPingResponseTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"))));
     }
 
     public static IpcResponse CreateResponse (

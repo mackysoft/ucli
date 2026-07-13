@@ -15,7 +15,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
     public async Task Launch_WhenCanceledByWaitingProgressAfterGuiProcessStarts_RunsCompensationAndRethrows ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-gui-wait-progress-cancel");
+            ProjectFingerprintTestFactory.Create("fingerprint-gui-wait-progress-cancel"));
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 11, 0, 0, 1, TimeSpan.Zero);
         const int processId = 7641;
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
@@ -70,7 +70,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
     public async Task Launch_WhenEndpointReadyProgressFailsAfterGuiProcessStarts_RunsCompensationAndRethrows ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-gui-endpoint-progress-fail");
+            ProjectFingerprintTestFactory.Create("fingerprint-gui-endpoint-progress-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 11, 0, 0, 2, TimeSpan.Zero);
         const int processId = 7642;
         var registeredSession = DaemonSessionTestFactory.Create(
@@ -128,7 +128,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
     public async Task Launch_WhenProgressFailureCompensationThrows_PreservesProgressFailure ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-gui-progress-cleanup-fail");
+            ProjectFingerprintTestFactory.Create("fingerprint-gui-progress-cleanup-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 11, 0, 0, 3, TimeSpan.Zero);
         const int processId = 7643;
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
@@ -177,7 +177,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiStartupWaitIsCanceled_RunsCompensationAndRethrows ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-cancel");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-cancel"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
@@ -227,7 +227,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         var timeProvider = new ManualTimeProvider();
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-            "fingerprint-gui-launch-owned-cancel");
+            ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-owned-cancel"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 2, TimeSpan.Zero);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
@@ -316,7 +316,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiStartupObserverFails_RunsCompensationAndReturnsFailure ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-observer-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-observer-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
         var startupError = ExecutionError.InternalError("observer failed");
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher

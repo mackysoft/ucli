@@ -19,7 +19,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
     /// <inheritdoc />
     public async ValueTask<DaemonDiagnosisReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -111,7 +111,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
     /// <inheritdoc />
     public async ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DaemonDiagnosis diagnosis,
         CancellationToken cancellationToken = default)
     {
@@ -191,7 +191,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
     /// <inheritdoc />
     public async ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

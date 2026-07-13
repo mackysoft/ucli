@@ -21,7 +21,7 @@ public sealed class UnityIpcTransportClientTests
 
         var response = await client.SendAsync(
             "storage-root",
-            "project-fingerprint",
+            ProjectFingerprintTestFactory.Create("project-fingerprint"),
             request,
             DefaultTimeout,
             cancellationTokenSource.Token);
@@ -29,7 +29,7 @@ public sealed class UnityIpcTransportClientTests
         Assert.Same(sendResponse, response);
         UnityIpcTransportClientAssert.SendForwardedToResolvedEndpoint(
             transportClient,
-            UcliIpcEndpointResolver.ResolveDaemonEndpoint("storage-root", "project-fingerprint"),
+            UcliIpcEndpointResolver.ResolveDaemonEndpoint("storage-root", ProjectFingerprintTestFactory.Create("project-fingerprint")),
             request,
             DefaultTimeout,
             cancellationTokenSource.Token);
@@ -49,7 +49,7 @@ public sealed class UnityIpcTransportClientTests
 
         var response = await client.SendStreamingAsync(
             "storage-root",
-            "project-fingerprint",
+            ProjectFingerprintTestFactory.Create("project-fingerprint"),
             request,
             DefaultTimeout,
             (frame, _) =>
@@ -62,7 +62,7 @@ public sealed class UnityIpcTransportClientTests
         Assert.Same(streamingResponse, response);
         UnityIpcTransportClientAssert.StreamingSendForwardedToResolvedEndpoint(
             transportClient,
-            UcliIpcEndpointResolver.ResolveDaemonEndpoint("storage-root", "project-fingerprint"),
+            UcliIpcEndpointResolver.ResolveDaemonEndpoint("storage-root", ProjectFingerprintTestFactory.Create("project-fingerprint")),
             request,
             DefaultTimeout,
             cancellationTokenSource.Token);
@@ -82,7 +82,7 @@ public sealed class UnityIpcTransportClientTests
         {
             await client.SendAsync(
                     "storage-root",
-                    "project-fingerprint",
+                    ProjectFingerprintTestFactory.Create("project-fingerprint"),
                     IpcTransportTestHarness.CreateSingleRequest(),
                     TimeSpan.FromMilliseconds(timeoutMilliseconds))
                 .AsTask();
@@ -103,7 +103,7 @@ public sealed class UnityIpcTransportClientTests
         {
             await client.SendStreamingAsync(
                     "storage-root",
-                    "project-fingerprint",
+                    ProjectFingerprintTestFactory.Create("project-fingerprint"),
                     IpcTransportTestHarness.CreateStreamingRequest(),
                     TimeSpan.FromMilliseconds(timeoutMilliseconds),
                     (_, _) => ValueTask.CompletedTask)
@@ -125,7 +125,7 @@ public sealed class UnityIpcTransportClientTests
         {
             await client.SendAsync(
                     "storage-root",
-                    "project-fingerprint",
+                    ProjectFingerprintTestFactory.Create("project-fingerprint"),
                     IpcTransportTestHarness.CreateSingleRequest(),
                     DefaultTimeout,
                     cancellationTokenSource.Token)
@@ -147,7 +147,7 @@ public sealed class UnityIpcTransportClientTests
         {
             await client.SendStreamingAsync(
                     "storage-root",
-                    "project-fingerprint",
+                    ProjectFingerprintTestFactory.Create("project-fingerprint"),
                     IpcTransportTestHarness.CreateStreamingRequest(),
                     DefaultTimeout,
                     (_, _) => ValueTask.CompletedTask,

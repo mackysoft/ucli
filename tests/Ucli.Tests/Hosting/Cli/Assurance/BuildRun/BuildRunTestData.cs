@@ -8,7 +8,7 @@ internal static class BuildRunTestData
 {
     public const string RunId = "build-run-1";
 
-    public const string ProjectFingerprint = "project-fingerprint";
+    public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
     public static BuildExecutionOutput CreateOutput (
         string? verdict = null,

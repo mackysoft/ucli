@@ -8,7 +8,7 @@ internal interface IGuiSupervisorManifestStore
     /// <summary> Reads the manifest after any in-progress endpoint publication has completed. </summary>
     ValueTask<GuiSupervisorManifestJsonContract?> ReadAfterEndpointPublicationAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         TimeSpan timeout,
         CancellationToken cancellationToken);
 }

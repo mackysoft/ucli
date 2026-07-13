@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Tests;
 
 internal static class ResolvedUnityProjectContextTestFactory
 {
-    public const string ProjectFingerprint = "project-fingerprint";
+    public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
     public const string RepositoryRoot = "/repo";
 
@@ -17,7 +17,7 @@ internal static class ResolvedUnityProjectContextTestFactory
     public static ResolvedUnityProjectContext Create (
         string unityProjectRoot = UnityProjectRoot,
         string repositoryRoot = RepositoryRoot,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = null,
         string unityVersion = ProjectIdentityDefaults.UnknownUnityVersion)
@@ -25,7 +25,7 @@ internal static class ResolvedUnityProjectContextTestFactory
         return new ResolvedUnityProjectContext(
             UnityProjectRoot: unityProjectRoot,
             RepositoryRoot: repositoryRoot,
-            ProjectFingerprint: projectFingerprint,
+            ProjectFingerprint: projectFingerprint ?? ProjectFingerprint,
             PathSource: pathSource,
             PathSourceLabel: pathSourceLabel,
             UnityVersion: unityVersion);
@@ -33,7 +33,7 @@ internal static class ResolvedUnityProjectContextTestFactory
 
     public static ResolvedUnityProjectContext CreateForRepositoryRoot (
         string repositoryRoot,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = null,
         string unityVersion = ProjectIdentityDefaults.UnknownUnityVersion)
@@ -49,7 +49,7 @@ internal static class ResolvedUnityProjectContextTestFactory
 
     public static ResolvedUnityProjectContext CreateWithUnityProjectDirectory (
         TestDirectoryScope scope,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = null,
         string unityVersion = ProjectIdentityDefaults.UnknownUnityVersion)
@@ -64,7 +64,7 @@ internal static class ResolvedUnityProjectContextTestFactory
     }
 
     public static ResolvedUnityProjectContext CreateDaemonLifecycleContext (
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption)
     {
         return Create(

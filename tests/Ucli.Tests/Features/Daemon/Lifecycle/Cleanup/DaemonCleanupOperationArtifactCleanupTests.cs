@@ -11,7 +11,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
     [Trait("Size", "Small")]
     public async Task Cleanup_WhenSessionDoesNotExistAndProbeShowsNotRunning_CompletesCleanup ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-none");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-none"));
         var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
             NextResult = DaemonArtifactCleanupResult.Success(),
@@ -34,7 +34,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
     [Trait("Size", "Small")]
     public async Task Cleanup_WhenArtifactCleanerDeletesLaunchAttempts_PropagatesDeletedLaunchAttemptCount ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-deleted-attempts");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-deleted-attempts"));
         var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
             NextResult = DaemonArtifactCleanupResult.Success(deletedLaunchAttemptCount: 3),
@@ -61,7 +61,7 @@ public sealed class DaemonCleanupOperationArtifactCleanupTests
     [Trait("Size", "Small")]
     public async Task Cleanup_WhenSessionPingReturnsNotRunningException_CompletesCleanup ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-stale");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-stale"));
         var session = DaemonSessionTestFactory.Create(processId: 2002);
         var artifactCleaner = new RecordingDaemonArtifactCleaner
         {

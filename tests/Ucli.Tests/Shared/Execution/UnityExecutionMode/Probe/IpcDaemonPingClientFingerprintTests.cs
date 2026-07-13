@@ -18,7 +18,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
                 request,
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
-                IpcPingResponseTestFactory.Create(projectFingerprint: "different-fingerprint")));
+                IpcPingResponseTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
             CreateResolvedSessionProvider(),
@@ -44,7 +44,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
                 request,
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
-                IpcPingResponseTestFactory.Create(projectFingerprint: "different-fingerprint")));
+                IpcPingResponseTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
             CreateResolvedSessionProvider(),
@@ -56,7 +56,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
             validateProjectFingerprint: false,
             cancellationToken: CancellationToken.None);
 
-        Assert.Equal("different-fingerprint", result.ProjectFingerprint);
+        Assert.Equal(ProjectFingerprintTestFactory.Create("different-fingerprint"), result.ProjectFingerprint);
     }
 
     private static ValueTask InvokePingMethodAsync (

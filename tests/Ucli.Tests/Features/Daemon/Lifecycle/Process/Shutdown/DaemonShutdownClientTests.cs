@@ -16,7 +16,7 @@ public sealed class DaemonShutdownClientTests
         var client = new DaemonShutdownClient(transportClient);
 
         var result = await client.SendShutdownAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-shutdown-timeout"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-shutdown-timeout")),
             DaemonSessionTestFactory.Create(
                 sessionToken: "session-token",
                 endpointAddress: "ucli-daemon-test-endpoint"),
@@ -38,7 +38,7 @@ public sealed class DaemonShutdownClientTests
         var client = new DaemonShutdownClient(transportClient);
 
         var result = await client.SendShutdownAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-shutdown-not-running"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-shutdown-not-running")),
             DaemonSessionTestFactory.Create(
                 sessionToken: "session-token",
                 endpointAddress: "ucli-daemon-test-endpoint"),
@@ -59,7 +59,7 @@ public sealed class DaemonShutdownClientTests
         var client = new DaemonShutdownClient(transportClient);
 
         var result = await client.SendShutdownAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-shutdown-transport-error"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-shutdown-transport-error")),
             DaemonSessionTestFactory.Create(
                 sessionToken: "session-token",
                 endpointAddress: "ucli-daemon-test-endpoint"),
@@ -89,7 +89,7 @@ public sealed class DaemonShutdownClientTests
         var client = new DaemonShutdownClient(transportClient);
 
         var result = await client.SendShutdownAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-shutdown-auth-rejected"),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-shutdown-auth-rejected")),
             DaemonSessionTestFactory.Create(
                 sessionToken: "session-token",
                 endpointAddress: "ucli-daemon-test-endpoint"),

@@ -15,7 +15,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerLaunchAttemptTests
         using var scope = TestDirectories.CreateTempScope("daemon-launch-service", "launch-attempt-id-collision");
         var context = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             scope.FullPath,
-            "fingerprint-id-collision");
+            ProjectFingerprintTestFactory.Create("fingerprint-id-collision"));
         Directory.CreateDirectory(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(
             context.RepositoryRoot,
             context.ProjectFingerprint,
