@@ -17,6 +17,7 @@ internal static class Program
     private const string SchemaSet = "ucli";
     private const string SchemaSetVersion = "v1";
     private const string SchemaBaseId = "https://schemas.mackysoft.dev/ucli/v1/";
+    private const string NonEmptyUuidPattern = "^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$";
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -576,7 +577,7 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("runId", UuidStringSchema()),
+            Required("runId", NonEmptyUuidStringSchema()),
             Required("refresh", ObjectSchema(
                 additionalProperties: false,
                 Required("origin", EnumSchema("assetDatabaseRefresh", "diagnosticsRead")),
@@ -660,7 +661,7 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("runId", UuidStringSchema()),
+            Required("runId", NonEmptyUuidStringSchema()),
             Required("profile", ObjectSchema(
                 additionalProperties: false,
                 Required("path", StringSchema()),
@@ -1834,7 +1835,7 @@ internal static class Program
             additionalProperties: false,
             Required("result", NullableStringSchema()),
             Required("errorKind", NullableStringSchema()),
-            Required("runId", NullableUuidStringSchema()),
+            Required("runId", NullableNonEmptyUuidStringSchema()),
             Required("artifactsDir", NullableStringSchema()),
             Required("summaryJsonPath", NullableStringSchema()));
     }
@@ -1950,12 +1951,13 @@ internal static class Program
         };
     }
 
-    private static Dictionary<string, object?> UuidStringSchema ()
+    private static Dictionary<string, object?> NonEmptyUuidStringSchema ()
     {
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["type"] = "string",
             ["format"] = "uuid",
+            ["pattern"] = NonEmptyUuidPattern,
         };
     }
 
@@ -1966,7 +1968,7 @@ internal static class Program
 
     private static Dictionary<string, object?> CreateRequestIdSchema ()
     {
-        return PatternStringSchema("^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$");
+        return NonEmptyUuidStringSchema();
     }
 
     private static Dictionary<string, object?> NullableSha256LowerHexSchema ()
@@ -2003,12 +2005,13 @@ internal static class Program
         };
     }
 
-    private static Dictionary<string, object?> NullableUuidStringSchema ()
+    private static Dictionary<string, object?> NullableNonEmptyUuidStringSchema ()
     {
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["type"] = new[] { "string", "null" },
             ["format"] = "uuid",
+            ["pattern"] = NonEmptyUuidPattern,
         };
     }
 

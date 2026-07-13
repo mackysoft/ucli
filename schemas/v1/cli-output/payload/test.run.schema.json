@@ -21,7 +21,8 @@
         "string",
         "null"
       ],
-      "format": "uuid"
+      "format": "uuid",
+      "pattern": "^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     },
     "artifactsDir": {
       "type": [

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using MackySoft.Tests;
 
 namespace MackySoft.Ucli.Tests.Schemas;
@@ -62,6 +63,41 @@ public sealed class CliOutputSchemaArtifactTests
         {
             AssertGoldenFileMatchesEnvelopeAndCommandPayloadSchemas(schemaSet, golden);
         }
+    }
+
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData("build-run", "success.json", "build")]
+    [InlineData("compile", "pass-no-reload.json", "compile")]
+    [InlineData("test-run", "success.json", null)]
+    public void CliOutputPayloadSchema_RejectsEmptyRunId (
+        string goldenDirectory,
+        string goldenFileName,
+        string? runOwnerProperty)
+    {
+        var goldenPath = TestRepositoryPaths.GetFullPath(
+            "tests",
+            "Ucli.Tests",
+            "GoldenFiles",
+            "Json",
+            "CliOutput",
+            goldenDirectory,
+            goldenFileName);
+        var root = JsonNode.Parse(File.ReadAllText(goldenPath))!.AsObject();
+        var payload = root["payload"]!.AsObject();
+        var runOwner = runOwnerProperty == null
+            ? payload
+            : payload[runOwnerProperty]!.AsObject();
+        runOwner["runId"] = Guid.Empty.ToString("D");
+        using var document = JsonDocument.Parse(root.ToJsonString());
+        var command = document.RootElement.GetProperty("command").GetString()!;
+        var payloadSchemaPath = CliOutputSchemaTestSupport.SchemaSet.FindPayloadSchemaPath(command)!;
+
+        var errors = CliOutputSchemaTestSupport.SchemaSet.Validate(
+            payloadSchemaPath,
+            document.RootElement.GetProperty("payload"));
+
+        Assert.NotEmpty(errors);
     }
 
     private static void AssertGoldenFileMatchesEnvelopeAndCommandPayloadSchemas (
