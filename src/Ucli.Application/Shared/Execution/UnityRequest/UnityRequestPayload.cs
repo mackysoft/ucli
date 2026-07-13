@@ -10,10 +10,40 @@ internal abstract record UnityRequestPayload
     private static readonly IReadOnlyDictionary<string, string> EmptyStringMap =
         new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(StringComparer.Ordinal));
 
-    /// <summary> Represents a request whose method and payload are already owned by a host adapter. </summary>
-    internal sealed record Raw (
-        string Method,
-        JsonElement Payload) : UnityRequestPayload;
+    /// <summary> Represents an operation catalog read request prepared by application orchestration. </summary>
+    internal sealed record OpsRead (
+        bool FailFast = false,
+        bool RequireReadinessGate = false,
+        bool IncludeEditLoweringOnly = false) : UnityRequestPayload;
+
+    /// <summary> Represents an asset index read request prepared by application orchestration. </summary>
+    internal sealed record IndexAssetsRead (
+        bool FailFast = false) : UnityRequestPayload;
+
+    /// <summary> Represents a scene tree read request prepared by application orchestration. </summary>
+    internal sealed record IndexSceneTreeLiteRead : UnityRequestPayload
+    {
+        /// <summary> Initializes a scene tree read request. </summary>
+        public IndexSceneTreeLiteRead (
+            string scenePath,
+            bool failFast = false,
+            bool loadedSceneOnly = false)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(scenePath);
+            ScenePath = scenePath;
+            FailFast = failFast;
+            LoadedSceneOnly = loadedSceneOnly;
+        }
+
+        /// <summary> Gets the project-relative scene path to read. </summary>
+        public string ScenePath { get; }
+
+        /// <summary> Gets whether readiness gating fails immediately. </summary>
+        public bool FailFast { get; }
+
+        /// <summary> Gets whether only an already loaded scene may be read. </summary>
+        public bool LoadedSceneOnly { get; }
+    }
 
     /// <summary> Represents a lifecycle ping request prepared by application orchestration. </summary>
     internal sealed record Ping (

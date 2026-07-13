@@ -40,7 +40,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
         var request = DaemonIpcDispatchAssert.SingleDispatchSentToEndpoint(
             transportClient,
             "/tmp/ucli-session.sock",
-            IpcMethodNames.OpsRead,
+            UnityIpcMethod.OpsRead,
             "daemon-token");
         Assert.Equal(CreateDispatchPayload().GetRawText(), request.Payload.GetRawText());
     }
@@ -94,7 +94,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             recoveryWaiter: null,
             timeProvider);
         var dispatchRequest = new UnityIpcDispatchRequest(
-            IpcMethodNames.OpsRead,
+            UnityIpcMethod.OpsRead,
             CreateDispatchPayload(),
             responseMode: streaming ? IpcResponseMode.Stream : IpcResponseMode.Single);
 
@@ -168,7 +168,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             recoveryWaiter: null,
             timeProvider);
         var dispatchRequest = new UnityIpcDispatchRequest(
-            IpcMethodNames.OpsRead,
+            UnityIpcMethod.OpsRead,
             CreateDispatchPayload(),
             responseMode: streaming ? IpcResponseMode.Stream : IpcResponseMode.Single);
 
@@ -222,7 +222,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             recoveryWaiter: null,
             timeProvider);
         var dispatchRequest = new UnityIpcDispatchRequest(
-            IpcMethodNames.OpsRead,
+            UnityIpcMethod.OpsRead,
             CreateDispatchPayload(),
             isRecoverable: recoverable,
             responseMode: streaming ? IpcResponseMode.Stream : IpcResponseMode.Single);
@@ -503,7 +503,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             recoveryWaiter: null,
             timeProvider: timeProvider);
         var dispatchRequest = new UnityIpcDispatchRequest(
-            IpcMethodNames.OpsRead,
+            UnityIpcMethod.OpsRead,
             CreateDispatchPayload(),
             isRecoverable: recoverable,
             responseMode: streaming ? IpcResponseMode.Stream : IpcResponseMode.Single);
@@ -680,7 +680,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
-        DaemonIpcDispatchAssert.SingleDispatchAttempted(transportClient, IpcMethodNames.OpsRead);
+        DaemonIpcDispatchAssert.SingleDispatchAttempted(transportClient, UnityIpcMethod.OpsRead);
     }
 
     private sealed class TimeAdvancingDaemonSessionConnectionProvider : IDaemonSessionConnectionProvider

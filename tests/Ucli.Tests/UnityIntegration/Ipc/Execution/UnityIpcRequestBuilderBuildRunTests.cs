@@ -19,7 +19,7 @@ public sealed class UnityIpcRequestBuilderBuildRunTests
                 LocationPathName: "/tmp/ucli/output/player/Player"),
             development: true));
 
-        Assert.Equal(IpcMethodNames.BuildRun, request.Method);
+        Assert.Equal(UnityIpcMethod.BuildRun, request.Method);
         Assert.False(request.IsRecoverable);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest payload, out _));
         Assert.Equal("build-run-1", payload.RunId);
@@ -75,7 +75,7 @@ public sealed class UnityIpcRequestBuilderBuildRunTests
             UnityBuildProfile = new IpcUnityBuildProfileInput("Assets/BuildProfiles/LinuxPlayer.asset"),
         });
 
-        Assert.Equal(IpcMethodNames.BuildRun, request.Method);
+        Assert.Equal(UnityIpcMethod.BuildRun, request.Method);
         Assert.Equal("Assets/BuildProfiles/LinuxPlayer.asset", request.OneshotActiveBuildProfilePath);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest payload, out _));
         Assert.NotNull(payload.UnityBuildProfile);
@@ -124,7 +124,7 @@ public sealed class UnityIpcRequestBuilderBuildRunTests
 
         var request = builder.Build(requestPayload);
 
-        Assert.Equal(IpcMethodNames.BuildRun, request.Method);
+        Assert.Equal(UnityIpcMethod.BuildRun, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest payload, out _));
         Assert.Equal("executeMethod", payload.RunnerKind);
         Assert.Null(payload.OutputLayout);

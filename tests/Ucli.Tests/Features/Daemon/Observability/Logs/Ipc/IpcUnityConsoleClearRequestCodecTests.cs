@@ -12,7 +12,7 @@ public sealed class IpcUnityConsoleClearRequestCodecTests
 
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
         Assert.Equal("session-token", request.SessionToken);
-        Assert.Equal(IpcMethodNames.UnityConsoleClear, request.Method);
+        Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.UnityConsoleClear), request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcUnityConsoleClearRequest payload, out _));
         Assert.Equal(UcliCommandIds.LogsUnityClear.Name, payload.RequestedBy);
     }

@@ -48,11 +48,10 @@ public sealed class AssetLookupSnapshotReaderTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Response);
-        var execution = UnityRequestExecutorAssert.RawPayloadExecutedOnce<IpcIndexAssetsReadRequest>(
+        var execution = UnityRequestExecutorAssert.PayloadExecutedOnce<UnityRequestPayload.IndexAssetsRead>(
             executor,
             UcliCommandIds.Query,
-            UnityExecutionMode.Auto,
-            IpcMethodNames.IndexAssetsRead);
+            UnityExecutionMode.Auto);
         Assert.True(execution.Payload.FailFast);
         Assert.Single(result.Response!.AssetSearchEntries!);
         Assert.Single(result.Response.GuidPathEntries!);

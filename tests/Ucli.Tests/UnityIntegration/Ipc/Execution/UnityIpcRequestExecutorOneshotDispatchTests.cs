@@ -22,10 +22,10 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreateReadyPingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => response,
+                UnityIpcMethod.Ping => CreateReadyPingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => response,
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -59,8 +59,8 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
             daemonTransportClient,
             oneshotTransportClient,
             launcher,
-            IpcMethodNames.Ping,
-            IpcMethodNames.OpsRead);
+            UnityIpcMethod.Ping,
+            UnityIpcMethod.OpsRead);
     }
 
     [Fact]

@@ -53,22 +53,18 @@ internal static class UnityIpcRequestExecutorTestSupport
             timeProvider);
     }
 
-    public static UnityRequestPayload.Raw CreateOpsReadPayload ()
+    public static UnityRequestPayload.OpsRead CreateOpsReadPayload ()
     {
-        return new UnityRequestPayload.Raw(
-            IpcMethodNames.OpsRead,
-            EmptyPayload());
+        return new UnityRequestPayload.OpsRead();
     }
 
-    public static UnityRequestPayload.Raw CreateOpsReadPayload (
+    public static UnityRequestPayload.OpsRead CreateOpsReadPayload (
         bool failFast,
         bool requireReadinessGate)
     {
-        return new UnityRequestPayload.Raw(
-            IpcMethodNames.OpsRead,
-            IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
-                FailFast: failFast,
-                RequireReadinessGate: requireReadinessGate)));
+        return new UnityRequestPayload.OpsRead(
+            FailFast: failFast,
+            RequireReadinessGate: requireReadinessGate);
     }
 
     public static JsonElement EmptyPayload ()

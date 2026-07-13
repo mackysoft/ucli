@@ -6,26 +6,27 @@ internal static class IpcRequestAssert
 {
     public static IReadOnlyList<IpcRequest> Methods (
         RecordingIpcTransportClient transportClient,
-        params string[] expectedMethods)
+        params UnityIpcMethod[] expectedMethods)
     {
         return Methods(transportClient.Requests, expectedMethods);
     }
 
     public static IReadOnlyList<IpcRequest> Methods (
         RecordingUnityIpcTransportClient transportClient,
-        params string[] expectedMethods)
+        params UnityIpcMethod[] expectedMethods)
     {
         return Methods(transportClient.Requests, expectedMethods);
     }
 
     public static IReadOnlyList<IpcRequest> Methods (
         IReadOnlyList<IpcRequest> requests,
-        params string[] expectedMethods)
+        params UnityIpcMethod[] expectedMethods)
     {
         Assert.Collection(
             requests,
             expectedMethods
-                .Select<string, Action<IpcRequest>>(expectedMethod => request => Assert.Equal(expectedMethod, request.Method))
+                .Select<UnityIpcMethod, Action<IpcRequest>>(
+                    expectedMethod => request => Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method))
                 .ToArray());
         return requests;
     }
@@ -46,24 +47,25 @@ internal static class IpcRequestAssert
 
     public static IReadOnlyList<IpcRequest> WithMethod (
         RecordingIpcTransportClient transportClient,
-        string expectedMethod)
+        UnityIpcMethod expectedMethod)
     {
         return WithMethod(transportClient.Requests, expectedMethod);
     }
 
     public static IReadOnlyList<IpcRequest> WithMethod (
         RecordingUnityIpcTransportClient transportClient,
-        string expectedMethod)
+        UnityIpcMethod expectedMethod)
     {
         return WithMethod(transportClient.Requests, expectedMethod);
     }
 
     public static IReadOnlyList<IpcRequest> WithMethod (
         IReadOnlyList<IpcRequest> requests,
-        string expectedMethod)
+        UnityIpcMethod expectedMethod)
     {
+        var expectedMethodLiteral = ContractLiteralCodec.ToValue(expectedMethod);
         var matchingRequests = requests
-            .Where(request => string.Equals(request.Method, expectedMethod, StringComparison.Ordinal))
+            .Where(request => string.Equals(request.Method, expectedMethodLiteral, StringComparison.Ordinal))
             .ToArray();
         Assert.NotEmpty(matchingRequests);
         return matchingRequests;
@@ -71,21 +73,21 @@ internal static class IpcRequestAssert
 
     public static IpcRequest SingleWithMethod (
         IReadOnlyList<IpcRequest> requests,
-        string expectedMethod)
+        UnityIpcMethod expectedMethod)
     {
         return Assert.Single(WithMethod(requests, expectedMethod));
     }
 
     public static IpcRequest SingleWithMethod (
         RecordingIpcTransportClient transportClient,
-        string expectedMethod)
+        UnityIpcMethod expectedMethod)
     {
         return SingleWithMethod(transportClient.Requests, expectedMethod);
     }
 
     public static IpcRequest SingleWithMethod (
         RecordingUnityIpcTransportClient transportClient,
-        string expectedMethod)
+        UnityIpcMethod expectedMethod)
     {
         return SingleWithMethod(transportClient.Requests, expectedMethod);
     }
@@ -115,6 +117,14 @@ internal static class IpcRequestAssert
     public static Guid SingleRequestId (IReadOnlyList<IpcRequest> requests)
     {
         return Assert.Single(requests.Select(static request => request.RequestId).Distinct());
+    }
+
+    public static UnityIpcMethod ParseMethod (IpcRequest request)
+    {
+        Assert.True(
+            ContractLiteralCodec.TryParse(request.Method, out UnityIpcMethod method),
+            $"Expected a canonical Unity IPC method, but was '{request.Method ?? "<null>"}'.");
+        return method;
     }
 
     public static IReadOnlyList<IpcRequest> RetriedAtLeastOnce (

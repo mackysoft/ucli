@@ -45,10 +45,10 @@ internal static class UnityIpcTransportClientAssert
 
     public static IpcRequest SingleStreamingRequestSent (
         RecordingUnityIpcTransportClient transportClient,
-        string expectedMethod)
+        UnityIpcMethod expectedMethod)
     {
         var request = Assert.Single(transportClient.StreamingRequests);
-        Assert.Equal(expectedMethod, request.Method);
+        Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method);
         return request;
     }
 }

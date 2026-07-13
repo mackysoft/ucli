@@ -55,10 +55,10 @@ internal static class UnityIpcExecutionPathAssert
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
         RecordingUnityBatchmodeProcessLauncher launcher,
-        string expectedMethod)
+        UnityIpcMethod expectedMethod)
     {
         var request = Assert.Single(daemonTransportClient.Requests);
-        Assert.Equal(expectedMethod, request.Method);
+        Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method);
         OneshotExecutionWasNotStarted(oneshotTransportClient, launcher);
         return request;
     }
@@ -72,7 +72,7 @@ internal static class UnityIpcExecutionPathAssert
             daemonTransportClient,
             oneshotTransportClient,
             launcher,
-            IpcMethodNames.OpsRead);
+            UnityIpcMethod.OpsRead);
         AssertFailFastReadinessOpsReadRequest(request);
         return request;
     }
@@ -82,7 +82,7 @@ internal static class UnityIpcExecutionPathAssert
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
         RecordingUnityBatchmodeProcessLauncher launcher,
-        string expectedMethod)
+        UnityIpcMethod expectedMethod)
     {
         Assert.Empty(pluginLocator.Invocations);
         return DaemonRequestDispatchedOnly(
@@ -96,11 +96,11 @@ internal static class UnityIpcExecutionPathAssert
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
         RecordingUnityBatchmodeProcessLauncher launcher,
-        string expectedMethod)
+        UnityIpcMethod expectedMethod)
     {
         var request = Assert.Single(daemonTransportClient.StreamingRequests);
         Assert.Same(request, Assert.Single(daemonTransportClient.Requests));
-        Assert.Equal(expectedMethod, request.Method);
+        Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method);
         OneshotExecutionWasNotStarted(oneshotTransportClient, launcher);
         return request;
     }
@@ -109,7 +109,7 @@ internal static class UnityIpcExecutionPathAssert
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
         RecordingUnityBatchmodeProcessLauncher launcher,
-        params string[] expectedMethods)
+        params UnityIpcMethod[] expectedMethods)
     {
         var requests = IpcRequestAssert.Methods(daemonTransportClient, expectedMethods);
         OneshotExecutionWasNotStarted(oneshotTransportClient, launcher);
@@ -125,8 +125,8 @@ internal static class UnityIpcExecutionPathAssert
             daemonTransportClient,
             oneshotTransportClient,
             launcher,
-            IpcMethodNames.OpsRead,
-            IpcMethodNames.OpsRead);
+            UnityIpcMethod.OpsRead,
+            UnityIpcMethod.OpsRead);
         Assert.All(requests, AssertFailFastReadinessOpsReadRequest);
         return requests;
     }
@@ -135,7 +135,7 @@ internal static class UnityIpcExecutionPathAssert
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
         RecordingUnityBatchmodeProcessLauncher launcher,
-        params string[] expectedMethods)
+        params UnityIpcMethod[] expectedMethods)
     {
         Assert.Empty(daemonTransportClient.Requests);
         var requests = IpcRequestAssert.Methods(oneshotTransportClient, expectedMethods);

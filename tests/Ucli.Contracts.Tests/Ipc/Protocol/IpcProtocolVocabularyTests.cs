@@ -1,9 +1,41 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcProtocolVocabularyTests
 {
+    public static TheoryData<UnityIpcMethod, string> UnityIpcMethodCases => new()
+    {
+        { UnityIpcMethod.Ping, "ping" },
+        { UnityIpcMethod.Execute, "execute" },
+        { UnityIpcMethod.TestRun, "test.run" },
+        { UnityIpcMethod.Compile, "compile" },
+        { UnityIpcMethod.BuildRun, "build.run" },
+        { UnityIpcMethod.OpsRead, "ops.read" },
+        { UnityIpcMethod.IndexAssetsRead, "index.assets.read" },
+        { UnityIpcMethod.IndexSceneTreeLiteRead, "index.scene-tree-lite.read" },
+        { UnityIpcMethod.Shutdown, "shutdown" },
+        { UnityIpcMethod.DaemonLogsRead, "daemon.logs.read" },
+        { UnityIpcMethod.UnityLogsRead, "unity.logs.read" },
+        { UnityIpcMethod.UnityConsoleClear, "unity.console.clear" },
+        { UnityIpcMethod.PlayStatus, "play.status" },
+        { UnityIpcMethod.PlayEnter, "play.enter" },
+        { UnityIpcMethod.PlayExit, "play.exit" },
+        { UnityIpcMethod.GuiRebootstrap, "gui.rebootstrap" },
+    };
+
+    public static TheoryData<string?> InvalidUnityIpcMethodLiterals => new()
+    {
+        null,
+        "",
+        " ",
+        "unknown",
+        "PING",
+        " ping",
+        "ping ",
+    };
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcProtocol_ExposesStableLiterals ()
@@ -13,24 +45,50 @@ public sealed class IpcProtocolVocabularyTests
         Assert.Equal("error", IpcProtocol.StatusError);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(UnityIpcMethodCases))]
+    public void UnityIpcMethod_WhenMapped_RoundTripsCanonicalLiteral (
+        UnityIpcMethod method,
+        string expectedLiteral)
+    {
+        var result = ContractLiteralCodec.TryParse(expectedLiteral, out UnityIpcMethod parsedMethod);
+
+        Assert.True(result);
+        Assert.Equal(method, parsedMethod);
+        Assert.Equal(expectedLiteral, ContractLiteralCodec.ToValue(method));
+    }
+
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcMethodNames_ExposeExpectedMethodLiterals ()
+    public void UnityIpcMethod_WhenUnspecified_IsNotMapped ()
     {
-        Assert.Equal("ping", IpcMethodNames.Ping);
-        Assert.Equal("execute", IpcMethodNames.Execute);
-        Assert.Equal("ops.read", IpcMethodNames.OpsRead);
-        Assert.Equal("index.assets.read", IpcMethodNames.IndexAssetsRead);
-        Assert.Equal("index.scene-tree-lite.read", IpcMethodNames.IndexSceneTreeLiteRead);
-        Assert.Equal("test.run", IpcMethodNames.TestRun);
-        Assert.Equal("compile", IpcMethodNames.Compile);
-        Assert.Equal("shutdown", IpcMethodNames.Shutdown);
-        Assert.Equal("daemon.logs.read", IpcMethodNames.DaemonLogsRead);
-        Assert.Equal("unity.logs.read", IpcMethodNames.UnityLogsRead);
-        Assert.Equal("unity.console.clear", IpcMethodNames.UnityConsoleClear);
-        Assert.Equal("play.status", IpcMethodNames.PlayStatus);
-        Assert.Equal("play.enter", IpcMethodNames.PlayEnter);
-        Assert.Equal("play.exit", IpcMethodNames.PlayExit);
+        Assert.Equal(0, (int)UnityIpcMethod.Unspecified);
+        Assert.False(ContractLiteralCodec.IsDefined(UnityIpcMethod.Unspecified));
+        Assert.False(ContractLiteralCodec.TryToValue(UnityIpcMethod.Unspecified, out var literal));
+        Assert.Null(literal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityIpcMethod_WhenValueIsUndefined_IsNotMapped ()
+    {
+        var method = (UnityIpcMethod)999;
+
+        Assert.False(ContractLiteralCodec.IsDefined(method));
+        Assert.False(ContractLiteralCodec.TryToValue(method, out var literal));
+        Assert.Null(literal);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(InvalidUnityIpcMethodLiterals))]
+    public void UnityIpcMethod_WhenLiteralIsNotCanonical_IsRejected (string? literal)
+    {
+        var result = ContractLiteralCodec.TryParse(literal, out UnityIpcMethod method);
+
+        Assert.False(result);
+        Assert.Equal(UnityIpcMethod.Unspecified, method);
     }
 
     [Fact]

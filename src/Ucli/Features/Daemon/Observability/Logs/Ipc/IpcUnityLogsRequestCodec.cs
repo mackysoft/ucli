@@ -20,7 +20,7 @@ internal static class IpcUnityLogsRequestCodec
         var payload = IpcPayloadCodec.SerializeToElement(query);
         return UnityIpcRequestFactory.Create(
             sessionToken,
-            IpcMethodNames.UnityLogsRead,
+            UnityIpcMethod.UnityLogsRead,
             payload,
             Guid.NewGuid(),
             IpcResponseMode.Single);

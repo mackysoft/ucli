@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 internal sealed record UnityIpcDispatchRequest
 {
     /// <summary> Initializes a new instance of the <see cref="UnityIpcDispatchRequest" /> class. </summary>
-    /// <param name="method"> The IPC method name. </param>
+    /// <param name="method"> The defined Unity IPC method. </param>
     /// <param name="payload"> The IPC payload element. </param>
     /// <param name="allowedStartupLifecycleStates"> Lifecycle states where the request may be dispatched before normal readiness. </param>
     /// <param name="isRecoverable"> Whether daemon dispatch may replay this request with the same request id after endpoint recovery. </param>
@@ -17,7 +17,7 @@ internal sealed record UnityIpcDispatchRequest
     /// <param name="dispatchTimeoutPayloadTransformer"> Optional method-owned transformer that projects the final dispatch timeout into the payload. </param>
     /// <param name="oneshotActiveBuildProfilePath"> The optional project-relative Unity Build Profile path that oneshot launch should pass to Unity <c>-activeBuildProfile</c>. </param>
     public UnityIpcDispatchRequest (
-        string method,
+        UnityIpcMethod method,
         JsonElement payload,
         IReadOnlyList<string>? allowedStartupLifecycleStates = null,
         bool isRecoverable = false,
@@ -26,7 +26,11 @@ internal sealed record UnityIpcDispatchRequest
         Func<JsonElement, TimeSpan, JsonElement>? dispatchTimeoutPayloadTransformer = null,
         string? oneshotActiveBuildProfilePath = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(method);
+        if (!ContractLiteralCodec.IsDefined(method))
+        {
+            throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
+        }
+
         if (recoverableResponseAttemptTimeout.HasValue)
         {
             ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(recoverableResponseAttemptTimeout.Value, TimeSpan.Zero);
@@ -55,8 +59,8 @@ internal sealed record UnityIpcDispatchRequest
         OneshotActiveBuildProfilePath = oneshotActiveBuildProfilePath;
     }
 
-    /// <summary> Gets the IPC method name. </summary>
-    public string Method { get; }
+    /// <summary> Gets the defined Unity IPC method. </summary>
+    public UnityIpcMethod Method { get; }
 
     /// <summary> Gets the IPC payload element. </summary>
     public JsonElement Payload { get; }

@@ -294,7 +294,7 @@ public sealed class UnityDaemonReadinessGateTests
     private static UnityIpcDispatchRequest CreateOpsReadDispatchRequest (bool failFast)
     {
         return new UnityIpcDispatchRequest(
-            IpcMethodNames.OpsRead,
+            UnityIpcMethod.OpsRead,
             IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
                 FailFast: failFast,
                 RequireReadinessGate: true)));

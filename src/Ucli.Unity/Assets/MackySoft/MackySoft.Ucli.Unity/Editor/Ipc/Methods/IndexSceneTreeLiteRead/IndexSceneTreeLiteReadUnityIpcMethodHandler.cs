@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.IndexSceneTreeLiteRead;
+        public UnityIpcMethod Method => UnityIpcMethod.IndexSceneTreeLiteRead;
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (

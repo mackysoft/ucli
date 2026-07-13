@@ -46,7 +46,7 @@ internal sealed class SupervisorClient
             var request = CreateRequest(
                 manifest,
                 Guid.NewGuid(),
-                SupervisorIpcContracts.PingMethod,
+                SupervisorIpcMethod.Ping,
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion));
             var response = await SendAsync(manifest, request, timeout, cancellationToken).ConfigureAwait(false);
             if (IpcResponseFailureReader.TryRead(response, out var firstError, out _))
@@ -157,7 +157,7 @@ internal sealed class SupervisorClient
             var request = CreateRequest(
                 manifest,
                 requestId,
-                SupervisorIpcContracts.EnsureRunningMethod,
+                SupervisorIpcMethod.EnsureRunning,
                 ensureRunningPayload,
                 progressSink is null ? IpcResponseMode.Single : IpcResponseMode.Stream);
             var progressFrameForwarder = progressSink is null
@@ -281,7 +281,7 @@ internal sealed class SupervisorClient
             var request = CreateRequest(
                 manifest,
                 requestId,
-                SupervisorIpcContracts.StopProjectMethod,
+                SupervisorIpcMethod.StopProject,
                 new SupervisorIpcContracts.StopProjectRequest(
                     UnityProjectRoot: unityProject.UnityProjectRoot,
                     ProjectFingerprint: unityProject.ProjectFingerprint,
@@ -387,15 +387,20 @@ internal sealed class SupervisorClient
     private static IpcRequest CreateRequest<TPayload> (
         SupervisorInstanceManifest manifest,
         Guid requestId,
-        string method,
+        SupervisorIpcMethod method,
         TPayload payload,
         IpcResponseMode responseMode = IpcResponseMode.Single)
     {
+        if (!ContractLiteralCodec.TryToValue(method, out var methodLiteral))
+        {
+            throw new ArgumentOutOfRangeException(nameof(method), method, "Supervisor IPC method must be specified.");
+        }
+
         return new IpcRequest(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
             sessionToken: manifest.SessionToken,
-            method: method,
+            method: methodLiteral,
             payload: IpcPayloadCodec.SerializeToElement(payload),
             responseMode: ContractLiteralCodec.ToValue(responseMode));
     }

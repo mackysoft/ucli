@@ -1519,7 +1519,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "session-token",
-                method: IpcMethodNames.BuildRun,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.BuildRun),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: "single");
         }
@@ -1530,7 +1530,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "session-token",
-                method: IpcMethodNames.BuildRun,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.BuildRun),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: "stream");
         }

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -38,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             return request != null
                 && response != null
-                && string.Equals(request.Method, IpcMethodNames.Shutdown, System.StringComparison.Ordinal)
+                && ContractLiteralCodec.Matches(request.Method, UnityIpcMethod.Shutdown)
                 && string.Equals(response.Status, IpcProtocol.StatusOk, System.StringComparison.Ordinal)
                 && response.Errors.Count == 0;
         }

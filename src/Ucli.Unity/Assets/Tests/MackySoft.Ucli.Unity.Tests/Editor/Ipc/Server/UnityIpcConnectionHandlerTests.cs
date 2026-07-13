@@ -244,7 +244,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "token",
-                method: IpcMethodNames.Shutdown,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
                 responseMode: "single");
             var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
@@ -341,7 +341,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "token",
-                method: IpcMethodNames.Shutdown,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
                 responseMode: "stream");
             using var stream = new ThrowOnWriteStream();
@@ -392,7 +392,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "token",
-                method: IpcMethodNames.Shutdown,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
                 responseMode: "single");
 
@@ -407,7 +407,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await handler.HandleAsync(stream, CancellationToken.None);
 
             Assert.That(result.Request, Is.Not.Null);
-            Assert.That(result.Request.Method, Is.EqualTo(IpcMethodNames.Shutdown));
+            Assert.That(result.Request.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown)));
             Assert.That(result.Response, Is.Not.Null);
             Assert.That(result.Response.Status, Is.EqualTo(IpcProtocol.StatusOk));
             Assert.That(result.Response.Errors, Is.Empty);
@@ -645,7 +645,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "token",
-                method: IpcMethodNames.Shutdown,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
                 responseMode: "stream");
 
@@ -694,7 +694,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "token",
-                method: IpcMethodNames.Shutdown,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
                 responseMode: "stream");
             using var requestBytes = new MemoryStream();
@@ -772,7 +772,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "token",
-                method: IpcMethodNames.Shutdown,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
                 responseMode: responseMode);
         }

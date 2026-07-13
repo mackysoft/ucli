@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
@@ -21,14 +22,14 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenPingRequestHandled_DoesNotSignalCompletion () => UniTask.ToCoroutine(async () =>
         {
             var completionSignal = new OneshotRequestCompletionSignal();
-            var request = CreateRequest(IpcMethodNames.Ping, JsonSerializer.SerializeToElement(new IpcPingRequest("tests")));
+            var request = CreateRequest(UnityIpcMethod.Ping, JsonSerializer.SerializeToElement(new IpcPingRequest("tests")));
             var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal);
 
             using var stream = await CreateStreamAsync(request);
             var handledResult = await handler.HandleAsync(stream, CancellationToken.None);
 
             Assert.That(handledResult.Request, Is.Not.Null);
-            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.Ping));
+            Assert.That(handledResult.Request.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.Ping)));
             Assert.That(completionSignal.IsCompleted, Is.False);
         });
 
@@ -37,14 +38,14 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenReadyPingRequestHandled_DoesNotSignalCompletion () => UniTask.ToCoroutine(async () =>
         {
             var completionSignal = new OneshotRequestCompletionSignal();
-            var request = CreateRequest(IpcMethodNames.Ping, JsonSerializer.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.Ready)));
+            var request = CreateRequest(UnityIpcMethod.Ping, JsonSerializer.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.Ready)));
             var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal);
 
             using var stream = await CreateStreamAsync(request);
             var handledResult = await handler.HandleAsync(stream, CancellationToken.None);
 
             Assert.That(handledResult.Request, Is.Not.Null);
-            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.Ping));
+            Assert.That(handledResult.Request.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.Ping)));
             Assert.That(completionSignal.IsCompleted, Is.False);
         });
 
@@ -53,14 +54,14 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenSuccessfulNonPingRequestHandled_SignalsCompletion () => UniTask.ToCoroutine(async () =>
         {
             var completionSignal = new OneshotRequestCompletionSignal();
-            var request = CreateRequest(IpcMethodNames.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
+            var request = CreateRequest(UnityIpcMethod.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
             var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal);
 
             using var stream = await CreateStreamAsync(request);
             var handledResult = await handler.HandleAsync(stream, CancellationToken.None);
 
             Assert.That(handledResult.Request, Is.Not.Null);
-            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
+            Assert.That(handledResult.Request.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.OpsRead)));
             Assert.That(completionSignal.IsCompleted, Is.True);
         });
 
@@ -69,14 +70,14 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenShutdownRequestHandled_SignalsCompletion () => UniTask.ToCoroutine(async () =>
         {
             var completionSignal = new OneshotRequestCompletionSignal();
-            var request = CreateRequest(IpcMethodNames.Shutdown, JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")));
+            var request = CreateRequest(UnityIpcMethod.Shutdown, JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")));
             var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal);
 
             using var stream = await CreateStreamAsync(request);
             var handledResult = await handler.HandleAsync(stream, CancellationToken.None);
 
             Assert.That(handledResult.Request, Is.Not.Null);
-            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.Shutdown));
+            Assert.That(handledResult.Request.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown)));
             Assert.That(completionSignal.IsCompleted, Is.True);
         });
 
@@ -85,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenNonPingRequestReturnsError_SignalsCompletion () => UniTask.ToCoroutine(async () =>
         {
             var completionSignal = new OneshotRequestCompletionSignal();
-            var request = CreateRequest(IpcMethodNames.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
+            var request = CreateRequest(UnityIpcMethod.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
             var errorResponse = CreateErrorResponse(request.RequestId, UcliCoreErrorCodes.InvalidArgument);
             var handler = CreateHandler(request, errorResponse, completionSignal);
 
@@ -93,7 +94,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var handledResult = await handler.HandleAsync(stream, CancellationToken.None);
 
             Assert.That(handledResult.Request, Is.Not.Null);
-            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
+            Assert.That(handledResult.Request.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.OpsRead)));
             Assert.That(completionSignal.IsCompleted, Is.True);
         });
 
@@ -102,14 +103,14 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenSessionTokenFailureHandled_DoesNotSignalCompletion () => UniTask.ToCoroutine(async () =>
         {
             var completionSignal = new OneshotRequestCompletionSignal();
-            var request = CreateRequest(IpcMethodNames.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
+            var request = CreateRequest(UnityIpcMethod.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
             var handler = CreateHandler(request, CreateErrorResponse(request.RequestId, IpcSessionErrorCodes.SessionTokenInvalid), completionSignal);
 
             using var stream = await CreateStreamAsync(request);
             var handledResult = await handler.HandleAsync(stream, CancellationToken.None);
 
             Assert.That(handledResult.Request, Is.Not.Null);
-            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
+            Assert.That(handledResult.Request.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.OpsRead)));
             Assert.That(completionSignal.IsCompleted, Is.False);
         });
 
@@ -118,14 +119,14 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenProtocolMismatchHandled_DoesNotSignalCompletion () => UniTask.ToCoroutine(async () =>
         {
             var completionSignal = new OneshotRequestCompletionSignal();
-            var request = CreateRequest(IpcMethodNames.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
+            var request = CreateRequest(UnityIpcMethod.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
             var handler = CreateHandler(request, CreateErrorResponse(request.RequestId, IpcProtocolErrorCodes.ProtocolVersionMismatch), completionSignal);
 
             using var stream = await CreateStreamAsync(request);
             var handledResult = await handler.HandleAsync(stream, CancellationToken.None);
 
             Assert.That(handledResult.Request, Is.Not.Null);
-            Assert.That(handledResult.Request.Method, Is.EqualTo(IpcMethodNames.OpsRead));
+            Assert.That(handledResult.Request.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.OpsRead)));
             Assert.That(completionSignal.IsCompleted, Is.False);
         });
 
@@ -181,14 +182,14 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static IpcRequest CreateRequest (
-            string method,
+            UnityIpcMethod method,
             JsonElement payload)
         {
             return new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "oneshot",
-                method: method,
+                method: ContractLiteralCodec.ToValue(method),
                 payload: payload,
                 responseMode: "single");
         }

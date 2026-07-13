@@ -117,7 +117,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: Guid.NewGuid(),
                     sessionToken: manifest!.SessionToken,
-                    method: IpcMethodNames.GuiRebootstrap,
+                    method: ContractLiteralCodec.ToValue(UnityIpcMethod.GuiRebootstrap),
                     payload: IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(
                         ProjectFingerprint: unityProject.ProjectFingerprint,
                         ReplaceExistingSession: true)),

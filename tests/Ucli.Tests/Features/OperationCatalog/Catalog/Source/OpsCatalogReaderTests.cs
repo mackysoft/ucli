@@ -37,11 +37,10 @@ public sealed class OpsCatalogReaderTests
         Assert.NotNull(result.Snapshot);
         Assert.Single(result.Snapshot.Operations);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Snapshot.Operations[0].Name);
-        var execution = UnityRequestExecutorAssert.RawPayloadExecutedOnce<IpcOpsReadRequest>(
+        var execution = UnityRequestExecutorAssert.PayloadExecutedOnce<UnityRequestPayload.OpsRead>(
             executor,
             UcliCommandIds.Ops,
-            UnityExecutionMode.Daemon,
-            IpcMethodNames.OpsRead);
+            UnityExecutionMode.Daemon);
         Assert.True(execution.Payload.FailFast);
         Assert.False(execution.Payload.RequireReadinessGate);
         Assert.True(execution.Payload.IncludeEditLoweringOnly);

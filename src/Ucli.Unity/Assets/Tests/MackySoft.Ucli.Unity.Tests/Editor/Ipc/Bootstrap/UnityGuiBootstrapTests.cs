@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
@@ -436,7 +437,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: Guid.NewGuid(),
                     sessionToken: previousRegistration.SessionToken,
-                    method: IpcMethodNames.Ping,
+                    method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
                     payload: IpcPayloadCodec.SerializeToElement(new IpcPingRequest("tests")),
                     responseMode: "single");
 

@@ -28,18 +28,32 @@ internal sealed class UnityIpcRequestBuilder
 
         return request switch
         {
-            UnityRequestPayload.Raw raw => new UnityIpcDispatchRequest(raw.Method, raw.Payload),
+            UnityRequestPayload.OpsRead opsRead => new UnityIpcDispatchRequest(
+                UnityIpcMethod.OpsRead,
+                IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
+                    opsRead.FailFast,
+                    opsRead.RequireReadinessGate,
+                    opsRead.IncludeEditLoweringOnly))),
+            UnityRequestPayload.IndexAssetsRead indexAssetsRead => new UnityIpcDispatchRequest(
+                UnityIpcMethod.IndexAssetsRead,
+                IpcPayloadCodec.SerializeToElement(new IpcIndexAssetsReadRequest(indexAssetsRead.FailFast))),
+            UnityRequestPayload.IndexSceneTreeLiteRead indexSceneTreeLiteRead => new UnityIpcDispatchRequest(
+                UnityIpcMethod.IndexSceneTreeLiteRead,
+                IpcPayloadCodec.SerializeToElement(new IpcIndexSceneTreeLiteReadRequest(
+                    indexSceneTreeLiteRead.ScenePath,
+                    indexSceneTreeLiteRead.FailFast,
+                    indexSceneTreeLiteRead.LoadedSceneOnly))),
             UnityRequestPayload.Ping ping => new UnityIpcDispatchRequest(
-                IpcMethodNames.Ping,
+                UnityIpcMethod.Ping,
                 IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ping.ClientVersion, ping.FailFast))),
             UnityRequestPayload.Compile compile => new UnityIpcDispatchRequest(
-                IpcMethodNames.Compile,
+                UnityIpcMethod.Compile,
                 IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compile.RunId)),
                 CompileAllowedStartupLifecycleStates,
                 isRecoverable: true,
                 dispatchTimeoutPayloadTransformer: ApplyCompileDispatchTimeout),
             UnityRequestPayload.BuildRun buildRun => new UnityIpcDispatchRequest(
-                IpcMethodNames.BuildRun,
+                UnityIpcMethod.BuildRun,
                 IpcPayloadCodec.SerializeToElement(new IpcBuildRunRequest(
                     RunId: buildRun.RunId,
                     InputKind: buildRun.InputKind,
@@ -69,7 +83,7 @@ internal sealed class UnityIpcRequestBuilder
                 dispatchTimeoutPayloadTransformer: ApplyBuildRunDispatchTimeout,
                 oneshotActiveBuildProfilePath: ResolveOneshotActiveBuildProfilePath(buildRun)),
             UnityRequestPayload.TestRun testRun => new UnityIpcDispatchRequest(
-                IpcMethodNames.TestRun,
+                UnityIpcMethod.TestRun,
                 IpcPayloadCodec.SerializeToElement(new IpcTestRunRequest(
                     TestPlatform: testRun.TestPlatform,
                     TestFilter: testRun.TestFilter,
@@ -82,10 +96,10 @@ internal sealed class UnityIpcRequestBuilder
                     RunId: testRun.RunId)),
                 dispatchTimeoutPayloadTransformer: ApplyTestRunDispatchTimeout),
             UnityRequestPayload.PlayStatus => new UnityIpcDispatchRequest(
-                IpcMethodNames.PlayStatus,
+                UnityIpcMethod.PlayStatus,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayStatusRequest())),
             UnityRequestPayload.PlayEnter playEnter => new UnityIpcDispatchRequest(
-                IpcMethodNames.PlayEnter,
+                UnityIpcMethod.PlayEnter,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayEnterRequest
                 {
                     TimeoutMilliseconds = playEnter.TimeoutMilliseconds,
@@ -94,7 +108,7 @@ internal sealed class UnityIpcRequestBuilder
                 recoverableResponseAttemptTimeout: PlayTransitionRecoverableResponseAttemptTimeout,
                 dispatchTimeoutPayloadTransformer: ApplyPlayEnterDispatchTimeout),
             UnityRequestPayload.PlayExit playExit => new UnityIpcDispatchRequest(
-                IpcMethodNames.PlayExit,
+                UnityIpcMethod.PlayExit,
                 IpcPayloadCodec.SerializeToElement(new IpcPlayExitRequest
                 {
                     TimeoutMilliseconds = playExit.TimeoutMilliseconds,
@@ -103,7 +117,7 @@ internal sealed class UnityIpcRequestBuilder
                 recoverableResponseAttemptTimeout: PlayTransitionRecoverableResponseAttemptTimeout,
                 dispatchTimeoutPayloadTransformer: ApplyPlayExitDispatchTimeout),
             UnityRequestPayload.ExecuteJson executeJson => new UnityIpcDispatchRequest(
-                IpcMethodNames.Execute,
+                UnityIpcMethod.Execute,
                 CreateExecutePayload(
                     executeJson.Command,
                     executeJson.ExecuteArguments,
@@ -113,7 +127,7 @@ internal sealed class UnityIpcRequestBuilder
                     executeJson.AllowPlayMode),
                 dispatchTimeoutPayloadTransformer: ApplyExecuteDispatchTimeout),
             UnityRequestPayload.ExecuteOperation executeOperation => new UnityIpcDispatchRequest(
-                IpcMethodNames.Execute,
+                UnityIpcMethod.Execute,
                 CreateExecutePayload(
                     executeOperation.Command,
                     CreateSingleOperationArguments(

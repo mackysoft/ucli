@@ -25,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.IndexAssetsRead;
+        public UnityIpcMethod Method => UnityIpcMethod.IndexAssetsRead;
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (

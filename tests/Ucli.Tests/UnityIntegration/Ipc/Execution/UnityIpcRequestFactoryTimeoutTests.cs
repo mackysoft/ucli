@@ -8,6 +8,22 @@ using static MackySoft.Ucli.Tests.Ipc.UnityIpcRequestBuilderTestSupport;
 
 public sealed class UnityIpcRequestFactoryTimeoutTests
 {
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(0)]
+    [InlineData(999)]
+    public void UnityIpcRequestFactory_WhenMethodIsUndefined_ThrowsArgumentOutOfRangeException (int value)
+    {
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcRequestFactory.Create(
+            "session-token",
+            (UnityIpcMethod)value,
+            IpcPayloadCodec.SerializeToElement(new { }),
+            Guid.NewGuid(),
+            IpcResponseMode.Single));
+
+        Assert.Equal("method", exception.ParamName);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void UnityIpcRequestFactory_WithCompileDispatchTimeout_InjectsTimeoutPayload ()

@@ -135,7 +135,7 @@ internal static class IpcTransportTestHarness
             IpcProtocol.CurrentVersion,
             Guid.NewGuid(),
             "token",
-            IpcMethodNames.Ping,
+            ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
             Json("{}"),
             ContractLiteralCodec.ToValue(IpcResponseMode.Stream));
     }
@@ -146,7 +146,7 @@ internal static class IpcTransportTestHarness
             IpcProtocol.CurrentVersion,
             Guid.NewGuid(),
             "token",
-            IpcMethodNames.Ping,
+            ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
             Json("{}"),
             ContractLiteralCodec.ToValue(IpcResponseMode.Single));
     }

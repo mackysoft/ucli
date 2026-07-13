@@ -24,7 +24,7 @@ public sealed class IpcDaemonPingClientRequestTests
         var request = DaemonIpcDispatchAssert.SingleDispatchSentToEndpoint(
             unityIpcClient,
             expectedEndpointAddress: "/tmp/ucli-session.sock",
-            expectedMethod: IpcMethodNames.Ping,
+            expectedMethod: UnityIpcMethod.Ping,
             expectedSessionToken: "resolved-token");
         Assert.InRange(
             Assert.Single(unityIpcClient.Timeouts),
@@ -85,7 +85,7 @@ public sealed class IpcDaemonPingClientRequestTests
         DaemonIpcDispatchAssert.SingleDispatchSentToEndpoint(
             unityIpcClient,
             expectedEndpointAddress: expectedEndpoint.Address,
-            expectedMethod: IpcMethodNames.Ping,
+            expectedMethod: UnityIpcMethod.Ping,
             expectedSessionToken: "provided-token");
     }
 
@@ -257,7 +257,7 @@ public sealed class IpcDaemonPingClientRequestTests
         DaemonIpcDispatchAssert.SingleDispatchSentToEndpoint(
             unityIpcClient,
             expectedEndpointAddress: "/tmp/ucli-captured-session.sock",
-            expectedMethod: IpcMethodNames.Ping,
+            expectedMethod: UnityIpcMethod.Ping,
             expectedSessionToken: "captured-token");
     }
 

@@ -39,7 +39,7 @@ internal sealed class UnityDaemonReadinessGate
         ArgumentNullException.ThrowIfNull(dispatchRequest);
 
         opsReadRequest = null;
-        if (!string.Equals(dispatchRequest.Method, IpcMethodNames.OpsRead, StringComparison.Ordinal))
+        if (dispatchRequest.Method != UnityIpcMethod.OpsRead)
         {
             return false;
         }

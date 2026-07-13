@@ -26,7 +26,7 @@ internal static class UnityOneshotIpcClientTestSupport
         IpcResponseMode responseMode = IpcResponseMode.Single)
     {
         return new UnityIpcDispatchRequest(
-            IpcMethodNames.OpsRead,
+            UnityIpcMethod.OpsRead,
             CreateDispatchPayload(),
             responseMode: responseMode);
     }
@@ -36,21 +36,21 @@ internal static class UnityOneshotIpcClientTestSupport
         bool requireReadinessGate)
     {
         return new UnityIpcDispatchRequest(
-            IpcMethodNames.OpsRead,
+            UnityIpcMethod.OpsRead,
             IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(failFast, requireReadinessGate)));
     }
 
     public static UnityIpcDispatchRequest CreateReadyPingDispatchRequest (bool failFast)
     {
         return new UnityIpcDispatchRequest(
-            IpcMethodNames.Ping,
+            UnityIpcMethod.Ping,
             IpcPayloadCodec.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.Ready, failFast)));
     }
 
     public static UnityIpcDispatchRequest CreateCompileDispatchRequest ()
     {
         return new UnityIpcDispatchRequest(
-            IpcMethodNames.Compile,
+            UnityIpcMethod.Compile,
             IpcPayloadCodec.SerializeToElement(new IpcCompileRequest("compile-run-1")),
             [IpcEditorLifecycleStateCodec.CompileFailed, IpcEditorLifecycleStateCodec.SafeMode]);
     }
@@ -80,7 +80,7 @@ internal static class UnityOneshotIpcClientTestSupport
 
     public static void AssertTerminalPingAndCleanupShutdownRequests (RecordingUnityIpcTransportClient transportClient)
     {
-        var shutdownRequests = IpcRequestAssert.WithMethod(transportClient, IpcMethodNames.Shutdown);
+        var shutdownRequests = IpcRequestAssert.WithMethod(transportClient, UnityIpcMethod.Shutdown);
         Assert.Collection(
             shutdownRequests,
             AssertOneshotCleanupShutdownRequest,
@@ -98,7 +98,7 @@ internal static class UnityOneshotIpcClientTestSupport
         DateTimeOffset? exitDeadlineReferenceUtc = null)
     {
         var bootstrapArguments = UnityOneshotLaunchAssert.LaunchedOnce(launcher, unityProject, exitDeadlineReferenceUtc);
-        var shutdownRequest = IpcRequestAssert.SingleWithMethod(transportClient, IpcMethodNames.Shutdown);
+        var shutdownRequest = IpcRequestAssert.SingleWithMethod(transportClient, UnityIpcMethod.Shutdown);
         Assert.Equal(bootstrapArguments.SessionToken, shutdownRequest.SessionToken);
         return bootstrapArguments;
     }
@@ -111,7 +111,7 @@ internal static class UnityOneshotIpcClientTestSupport
     {
         var bootstrapArguments = UnityOneshotLaunchAssert.LaunchedOnce(launcher, unityProject, exitDeadlineReferenceUtc);
         Assert.All(
-            IpcRequestAssert.WithMethod(transportClient, IpcMethodNames.Shutdown),
+            IpcRequestAssert.WithMethod(transportClient, UnityIpcMethod.Shutdown),
             request => Assert.Equal(bootstrapArguments.SessionToken, request.SessionToken));
         return bootstrapArguments;
     }

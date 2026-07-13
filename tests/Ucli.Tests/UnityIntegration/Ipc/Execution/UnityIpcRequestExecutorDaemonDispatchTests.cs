@@ -99,7 +99,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             daemonTransportClient,
             oneshotTransportClient,
             launcher,
-            IpcMethodNames.OpsRead);
+            UnityIpcMethod.OpsRead);
         Assert.Equal("daemon-token", request.SessionToken);
     }
 
@@ -153,7 +153,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             daemonTransportClient,
             oneshotTransportClient,
             launcher,
-            IpcMethodNames.OpsRead);
+            UnityIpcMethod.OpsRead);
         Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), request.ResponseMode);
         var progressFrame = Assert.Single(progressFrames);
         Assert.Equal("ops.progress", progressFrame.Event);

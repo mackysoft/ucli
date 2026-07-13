@@ -22,7 +22,7 @@ public sealed class IpcDaemonLogsRequestCodecTests
 
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
         Assert.Equal("session-token", request.SessionToken);
-        Assert.Equal(IpcMethodNames.DaemonLogsRead, request.Method);
+        Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.DaemonLogsRead), request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcDaemonLogsReadRequest payload, out _));
         Assert.Equal(32, payload.Tail);
         Assert.Equal("stream-1:44", payload.After);

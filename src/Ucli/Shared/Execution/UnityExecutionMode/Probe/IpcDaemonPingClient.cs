@@ -338,7 +338,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
             sessionToken: sessionToken,
-            method: IpcMethodNames.Ping,
+            method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
             payload: payload,
             responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
     }

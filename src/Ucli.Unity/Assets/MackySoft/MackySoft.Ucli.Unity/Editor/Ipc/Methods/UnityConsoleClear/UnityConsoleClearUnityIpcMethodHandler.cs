@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.UnityConsoleClear;
+        public UnityIpcMethod Method => UnityIpcMethod.UnityConsoleClear;
 
         /// <inheritdoc />
         public ValueTask<IpcResponse> HandleAsync (

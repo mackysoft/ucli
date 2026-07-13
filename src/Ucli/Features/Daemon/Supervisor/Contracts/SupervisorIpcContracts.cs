@@ -5,18 +5,9 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Contracts;
 
-/// <summary> Defines internal IPC method names and payload models used by the supervisor runtime. </summary>
+/// <summary> Defines internal IPC payload models used by the supervisor runtime. </summary>
 internal static class SupervisorIpcContracts
 {
-    /// <summary> Gets the method name used for supervisor health probing. </summary>
-    public const string PingMethod = "supervisor.ping";
-
-    /// <summary> Gets the method name used for ensuring one Unity daemon is running. </summary>
-    public const string EnsureRunningMethod = "supervisor.ensureRunning";
-
-    /// <summary> Gets the method name used for stopping one Unity daemon. </summary>
-    public const string StopProjectMethod = "supervisor.stopProject";
-
     /// <summary> Represents the payload used by supervisor health probes. </summary>
     /// <param name="ClientVersion"> The caller client-version literal. </param>
     internal sealed record PingRequest (

@@ -22,11 +22,11 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -44,7 +44,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.OpsRead, IpcMethodNames.Shutdown);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead, UnityIpcMethod.Shutdown);
         AssertCleanupShutdownUsesLaunchSession(launcher, transportClient, unityProject);
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);
     }
@@ -60,13 +60,13 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var shutdownAttempt = 0;
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
-                IpcMethodNames.Shutdown when Interlocked.Increment(ref shutdownAttempt) == 1 =>
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown when Interlocked.Increment(ref shutdownAttempt) == 1 =>
                     throw new IpcResponseReadInterruptedException(new IOException("shutdown response was lost")),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -85,7 +85,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        var shutdownRequests = IpcRequestAssert.WithMethod(transportClient, IpcMethodNames.Shutdown);
+        var shutdownRequests = IpcRequestAssert.WithMethod(transportClient, UnityIpcMethod.Shutdown);
         Assert.Equal(2, shutdownRequests.Count);
         var requestId = shutdownRequests[0].RequestId;
         Assert.NotEqual(Guid.Empty, requestId);
@@ -105,10 +105,10 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => throw new TimeoutException("startup ping timed out"),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => throw new TimeoutException("startup ping timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -166,12 +166,12 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient((request, cancellationToken) =>
         {
-            if (string.Equals(request.Method, IpcMethodNames.Ping, StringComparison.Ordinal))
+            if (IpcRequestAssert.ParseMethod(request) == UnityIpcMethod.Ping)
             {
                 return ValueTask.FromResult(CreatePingResponse(request.RequestId));
             }
 
-            if (string.Equals(request.Method, IpcMethodNames.OpsRead, StringComparison.Ordinal))
+            if (IpcRequestAssert.ParseMethod(request) == UnityIpcMethod.OpsRead)
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(10));
                 cancellationToken.ThrowIfCancellationRequested();
@@ -209,11 +209,11 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -232,7 +232,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.OpsRead, IpcMethodNames.Shutdown);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead, UnityIpcMethod.Shutdown);
         UnityBatchmodeProcessHandleAssert.WaitedForExitAndTerminatedOnceWithMode(
             processHandle,
             ProcessTerminationMode.GracefulThenKill);
@@ -261,11 +261,11 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -321,11 +321,11 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -372,11 +372,11 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -410,10 +410,10 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => HandlePing(request),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => HandlePing(request),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -459,11 +459,11 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -483,7 +483,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.OpsRead, IpcMethodNames.Shutdown);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead, UnityIpcMethod.Shutdown);
         AssertCleanupShutdownUsesLaunchSession(launcher, transportClient, unityProject);
         UnityBatchmodeProcessHandleAssert.TerminatedOnceWithMode(processHandle, ProcessTerminationMode.GracefulThenKill);
     }
@@ -512,12 +512,12 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new IpcResponseReadInterruptedException(
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new IpcResponseReadInterruptedException(
                     new EndOfStreamException("IPC stream ended before a complete frame was read.")),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -573,11 +573,11 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new IpcResponseReadInterruptedException(new IOException("Pipe is broken.")),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new IpcResponseReadInterruptedException(new IOException("Pipe is broken.")),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -613,11 +613,11 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -656,11 +656,11 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -703,11 +703,11 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -744,11 +744,11 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -785,10 +785,10 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });

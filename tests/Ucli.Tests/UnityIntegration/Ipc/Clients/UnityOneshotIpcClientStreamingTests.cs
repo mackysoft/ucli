@@ -22,11 +22,11 @@ public sealed class UnityOneshotIpcClientStreamingTests
         var transportClient = new RecordingUnityIpcTransportClient(
             request =>
             {
-                return request.Method switch
+                return IpcRequestAssert.ParseMethod(request) switch
                 {
-                    IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                    IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
-                    IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                    UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                    UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
+                    UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                     _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
                 };
             },
@@ -56,10 +56,10 @@ public sealed class UnityOneshotIpcClientStreamingTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.OpsRead);
-        var dispatchRequest = IpcRequestAssert.SingleWithMethod(transportClient, IpcMethodNames.OpsRead);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead);
+        var dispatchRequest = IpcRequestAssert.SingleWithMethod(transportClient, UnityIpcMethod.OpsRead);
         Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), dispatchRequest.ResponseMode);
-        UnityIpcTransportClientAssert.SingleStreamingRequestSent(transportClient, IpcMethodNames.OpsRead);
+        UnityIpcTransportClientAssert.SingleStreamingRequestSent(transportClient, UnityIpcMethod.OpsRead);
         IpcStreamFrameAssert.SingleEvent(progressFrames, "test.progress");
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);
     }
@@ -75,11 +75,11 @@ public sealed class UnityOneshotIpcClientStreamingTests
         var handlerException = new InvalidOperationException("progress frame rejected");
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new IpcProgressFrameHandlerException(handlerException),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new IpcProgressFrameHandlerException(handlerException),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -101,6 +101,6 @@ public sealed class UnityOneshotIpcClientStreamingTests
         });
 
         Assert.Same(handlerException, exception);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.OpsRead, IpcMethodNames.Shutdown);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead, UnityIpcMethod.Shutdown);
     }
 }

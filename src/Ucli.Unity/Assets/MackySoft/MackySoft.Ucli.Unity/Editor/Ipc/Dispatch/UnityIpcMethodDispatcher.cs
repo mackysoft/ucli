@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -14,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private static readonly TimeSpan CompletedPersistenceFinalizationTimeout = TimeSpan.FromSeconds(1);
 
-        private readonly IReadOnlyDictionary<string, IUnityIpcMethodHandler> methodHandlers;
+        private readonly IReadOnlyDictionary<UnityIpcMethod, IUnityIpcMethodHandler> methodHandlers;
 
         private readonly IUnityMainThreadRequestExecutor mutationRequestExecutor;
 
@@ -73,7 +74,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                if (!methodHandlers.TryGetValue(request.Method, out var methodHandler))
+                if (!ContractLiteralCodec.TryParse<UnityIpcMethod>(request.Method, out var method)
+                    || !methodHandlers.TryGetValue(method, out var methodHandler))
                 {
                     return UnityIpcResponseFactory.CreateErrorResponse(
                         request,
@@ -133,7 +135,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                if (!methodHandlers.TryGetValue(request.Method, out var methodHandler))
+                if (!ContractLiteralCodec.TryParse<UnityIpcMethod>(request.Method, out var method)
+                    || !methodHandlers.TryGetValue(method, out var methodHandler))
                 {
                     return UnityIpcResponseFactory.CreateErrorResponse(
                         request,
@@ -308,7 +311,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 var readResult = await recoverableOperationStore.ReadAsync(
-                        request.Method,
+                        methodHandler.Method,
                         request.RequestId,
                         requestPayloadHash,
                         cancellationToken)
@@ -334,7 +337,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 var context = new RecoverableIpcOperationContext(
                     recoverableOperationStore,
-                    request.Method,
+                    methodHandler.Method,
                     request.RequestId,
                     requestPayloadHash,
                     record);
@@ -507,14 +510,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        /// <summary> Creates one immutable method-handler map keyed by IPC method name. </summary>
+        /// <summary> Creates one immutable method-handler map keyed by validated Unity IPC method. </summary>
         /// <param name="methodHandlers"> Registered method handlers resolved by DI. </param>
-        /// <returns> Method-handler map keyed by method name. </returns>
-        /// <exception cref="ArgumentException"> Thrown when handlers are empty, null, duplicated, or have invalid method names. </exception>
-        private static IReadOnlyDictionary<string, IUnityIpcMethodHandler> CreateMethodHandlers (
+        /// <returns> Method-handler map keyed by validated Unity IPC method. </returns>
+        /// <exception cref="ArgumentException"> Thrown when handlers are empty, null, duplicated, or expose undefined methods. </exception>
+        private static IReadOnlyDictionary<UnityIpcMethod, IUnityIpcMethodHandler> CreateMethodHandlers (
             IEnumerable<IUnityIpcMethodHandler> methodHandlers)
         {
-            var map = new Dictionary<string, IUnityIpcMethodHandler>(StringComparer.Ordinal);
+            var map = new Dictionary<UnityIpcMethod, IUnityIpcMethodHandler>();
             var i = 0;
             foreach (var methodHandler in methodHandlers)
             {
@@ -523,9 +526,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new ArgumentException($"methodHandlers[{i}] must not be null.", nameof(methodHandlers));
                 }
 
-                if (string.IsNullOrWhiteSpace(methodHandler.Method))
+                if (!ContractLiteralCodec.IsDefined(methodHandler.Method))
                 {
-                    throw new ArgumentException($"methodHandlers[{i}] returned an empty method name.", nameof(methodHandlers));
+                    throw new ArgumentException($"methodHandlers[{i}] returned an undefined Unity IPC method.", nameof(methodHandlers));
                 }
 
                 if (!map.TryAdd(methodHandler.Method, methodHandler))

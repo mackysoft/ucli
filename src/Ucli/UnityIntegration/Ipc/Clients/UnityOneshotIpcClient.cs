@@ -440,7 +440,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private static bool IsCommandResponseBoundary (UnityIpcDispatchRequest dispatchRequest)
     {
         // NOTE: A non-ping response is the command contract boundary; delayed Unity process exit is cleanup work.
-        return !string.Equals(dispatchRequest.Method, IpcMethodNames.Ping, StringComparison.Ordinal);
+        return dispatchRequest.Method != UnityIpcMethod.Ping;
     }
 
     private async ValueTask<ExecutionError?> RequestTerminalPingShutdownAsync (
@@ -449,7 +449,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         UnityIpcDispatchRequest dispatchRequest,
         IUnityBatchmodeProcessHandle processHandle)
     {
-        if (!string.Equals(dispatchRequest.Method, IpcMethodNames.Ping, StringComparison.Ordinal)
+        if (dispatchRequest.Method != UnityIpcMethod.Ping
             || processHandle.HasExited)
         {
             return null;
@@ -932,14 +932,14 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
         return dispatchRequest.Method switch
         {
-            IpcMethodNames.Execute => TryReadFailFast<IpcExecuteRequest>(dispatchRequest.Payload, static request => request.FailFast),
-            IpcMethodNames.TestRun => TryReadFailFast<IpcTestRunRequest>(dispatchRequest.Payload, static request => request.FailFast),
-            IpcMethodNames.OpsRead => TryReadFailFast<IpcOpsReadRequest>(
+            UnityIpcMethod.Execute => TryReadFailFast<IpcExecuteRequest>(dispatchRequest.Payload, static request => request.FailFast),
+            UnityIpcMethod.TestRun => TryReadFailFast<IpcTestRunRequest>(dispatchRequest.Payload, static request => request.FailFast),
+            UnityIpcMethod.OpsRead => TryReadFailFast<IpcOpsReadRequest>(
                 dispatchRequest.Payload,
                 static request => request.RequireReadinessGate && request.FailFast),
-            IpcMethodNames.IndexAssetsRead => TryReadFailFast<IpcIndexAssetsReadRequest>(dispatchRequest.Payload, static request => request.FailFast),
-            IpcMethodNames.IndexSceneTreeLiteRead => TryReadFailFast<IpcIndexSceneTreeLiteReadRequest>(dispatchRequest.Payload, static request => request.FailFast),
-            IpcMethodNames.Ping => TryReadFailFast<IpcPingRequest>(dispatchRequest.Payload, static request => request.FailFast),
+            UnityIpcMethod.IndexAssetsRead => TryReadFailFast<IpcIndexAssetsReadRequest>(dispatchRequest.Payload, static request => request.FailFast),
+            UnityIpcMethod.IndexSceneTreeLiteRead => TryReadFailFast<IpcIndexSceneTreeLiteReadRequest>(dispatchRequest.Payload, static request => request.FailFast),
+            UnityIpcMethod.Ping => TryReadFailFast<IpcPingRequest>(dispatchRequest.Payload, static request => request.FailFast),
             _ => false,
         };
     }
@@ -984,7 +984,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.OneshotStartup));
         return UnityIpcRequestFactory.Create(
             sessionToken,
-            IpcMethodNames.Ping,
+            UnityIpcMethod.Ping,
             payload,
             requestId,
             IpcResponseMode.Single);
@@ -1001,7 +1001,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         var payload = IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest(CleanupShutdownRequestedBy));
         return UnityIpcRequestFactory.Create(
             sessionToken,
-            IpcMethodNames.Shutdown,
+            UnityIpcMethod.Shutdown,
             payload,
             requestId,
             IpcResponseMode.Single);

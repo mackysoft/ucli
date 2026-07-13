@@ -12,6 +12,7 @@ using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Execution;
 using MackySoft.Ucli.Unity.Execution.Phases;
@@ -181,7 +182,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var falseResponse = await handler.HandleAsync(
                 CreateRequest(
                     Guid.NewGuid(),
-                    IpcMethodNames.GuiRebootstrap,
+                    UnityIpcMethod.GuiRebootstrap,
                     new IpcGuiRebootstrapRequest(
                         ProjectFingerprint: "project-fingerprint",
                         ReplaceExistingSession: false)),
@@ -189,7 +190,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var trueResponse = await handler.HandleAsync(
                 CreateRequest(
                     Guid.NewGuid(),
-                    IpcMethodNames.GuiRebootstrap,
+                    UnityIpcMethod.GuiRebootstrap,
                     new IpcGuiRebootstrapRequest(
                         ProjectFingerprint: "project-fingerprint",
                         ReplaceExistingSession: true)),
@@ -223,7 +224,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var responseTask = handler.HandleAsync(
                     CreateRequest(
                         Guid.NewGuid(),
-                        IpcMethodNames.GuiRebootstrap,
+                        UnityIpcMethod.GuiRebootstrap,
                         new IpcGuiRebootstrapRequest(
                             ProjectFingerprint: "project-fingerprint",
                             ReplaceExistingSession: true)),
@@ -1824,7 +1825,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Guid requestId,
             object payload)
         {
-            return CreateRequest(requestId, IpcMethodNames.Ping, payload);
+            return CreateRequest(requestId, UnityIpcMethod.Ping, payload);
         }
 
         private static UnityEditorReadinessGate CreateReadinessGate (
@@ -1856,42 +1857,42 @@ namespace MackySoft.Ucli.Unity.Tests
             Guid requestId,
             object payload)
         {
-            return CreateRequest(requestId, IpcMethodNames.Execute, payload);
+            return CreateRequest(requestId, UnityIpcMethod.Execute, payload);
         }
 
         private static IpcRequest CreatePlayStatusRequest (
             Guid requestId,
             object payload)
         {
-            return CreateRequest(requestId, IpcMethodNames.PlayStatus, payload);
+            return CreateRequest(requestId, UnityIpcMethod.PlayStatus, payload);
         }
 
         private static IpcRequest CreateOpsReadRequest (
             Guid requestId,
             object payload)
         {
-            return CreateRequest(requestId, IpcMethodNames.OpsRead, payload);
+            return CreateRequest(requestId, UnityIpcMethod.OpsRead, payload);
         }
 
         private static IpcRequest CreateTestRunRequest (
             Guid requestId,
             object payload)
         {
-            return CreateRequest(requestId, IpcMethodNames.TestRun, payload);
+            return CreateRequest(requestId, UnityIpcMethod.TestRun, payload);
         }
 
         private static IpcRequest CreateIndexAssetsReadRequest (
             Guid requestId,
             object payload)
         {
-            return CreateRequest(requestId, IpcMethodNames.IndexAssetsRead, payload);
+            return CreateRequest(requestId, UnityIpcMethod.IndexAssetsRead, payload);
         }
 
         private static IpcRequest CreateIndexSceneTreeLiteReadRequest (
             Guid requestId,
             object payload)
         {
-            return CreateRequest(requestId, IpcMethodNames.IndexSceneTreeLiteRead, payload);
+            return CreateRequest(requestId, UnityIpcMethod.IndexSceneTreeLiteRead, payload);
         }
 
         private static IpcIndexSceneTreeLiteReadResponse CreateIndexSceneTreeLiteReadResponse (
@@ -1912,28 +1913,28 @@ namespace MackySoft.Ucli.Unity.Tests
             Guid requestId,
             object payload)
         {
-            return CreateRequest(requestId, IpcMethodNames.Shutdown, payload);
+            return CreateRequest(requestId, UnityIpcMethod.Shutdown, payload);
         }
 
         private static IpcRequest CreateUnityConsoleClearRequest (
             Guid requestId,
             object payload)
         {
-            return CreateRequest(requestId, IpcMethodNames.UnityConsoleClear, payload);
+            return CreateRequest(requestId, UnityIpcMethod.UnityConsoleClear, payload);
         }
 
         private static IpcRequest CreateDaemonLogsReadRequest (
             Guid requestId,
             object payload)
         {
-            return CreateRequest(requestId, IpcMethodNames.DaemonLogsRead, payload);
+            return CreateRequest(requestId, UnityIpcMethod.DaemonLogsRead, payload);
         }
 
         private static IpcRequest CreateUnityLogsReadRequest (
             Guid requestId,
             object payload)
         {
-            return CreateRequest(requestId, IpcMethodNames.UnityLogsRead, payload);
+            return CreateRequest(requestId, UnityIpcMethod.UnityLogsRead, payload);
         }
 
         private static DaemonLogsReadUnityIpcMethodHandler CreateDaemonLogsReadHandler (IDaemonLogStream stream)
@@ -2021,14 +2022,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static IpcRequest CreateRequest (
             Guid requestId,
-            string method,
+            UnityIpcMethod method,
             object payload)
         {
             return new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "session-token",
-                method: method,
+                method: ContractLiteralCodec.ToValue(method),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: "single");
         }

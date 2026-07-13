@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -46,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            return !string.Equals(result.Request.Method, IpcMethodNames.Ping, StringComparison.Ordinal);
+            return !ContractLiteralCodec.Matches(result.Request.Method, UnityIpcMethod.Ping);
         }
 
         private static bool HasPreDispatchFailure (IpcResponse response)

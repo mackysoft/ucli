@@ -51,6 +51,18 @@ public sealed class IpcEnvelopeContractSerializationTests
             .HasValueKind("payload", JsonValueKind.Object);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","sessionToken":"token","payload":{},"responseMode":"single"}""")]
+    [InlineData("""{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","sessionToken":"token","method":null,"payload":{},"responseMode":"single"}""")]
+    public void IpcRequest_WhenMethodIsMissingOrNull_PreservesInvalidWireState (string json)
+    {
+        var request = JsonSerializer.Deserialize<IpcRequest>(json, IpcJsonSerializerOptions.Default);
+
+        Assert.NotNull(request);
+        Assert.Null(request.Method);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcResponse_RoundTripsWithErrors ()

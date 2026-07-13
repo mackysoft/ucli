@@ -139,7 +139,7 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
             sessionToken: runtimeContext.Manifest.SessionToken,
-            method: SupervisorIpcContracts.PingMethod,
+            method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
             payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
             responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
@@ -161,7 +161,7 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
             sessionToken: runtimeContext.Manifest.SessionToken,
-            method: SupervisorIpcContracts.PingMethod,
+            method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
             payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
             responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));

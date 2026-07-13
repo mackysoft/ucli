@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -10,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class RecoverableIpcOperationContext
     {
         private readonly IRecoverableIpcOperationStore store;
-        private readonly string method;
+        private readonly UnityIpcMethod method;
         private readonly Guid requestId;
         private readonly string requestPayloadHash;
 
@@ -24,15 +25,15 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Initializes a new instance of the <see cref="RecoverableIpcOperationContext" /> class. </summary>
         public RecoverableIpcOperationContext (
             IRecoverableIpcOperationStore store,
-            string method,
+            UnityIpcMethod method,
             Guid requestId,
             string requestPayloadHash,
             RecoverableIpcOperationRecord? record)
         {
             this.store = store ?? throw new ArgumentNullException(nameof(store));
-            if (string.IsNullOrWhiteSpace(method))
+            if (!ContractLiteralCodec.IsDefined(method))
             {
-                throw new ArgumentException("Method must not be empty.", nameof(method));
+                throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
 
             if (requestId == Guid.Empty)

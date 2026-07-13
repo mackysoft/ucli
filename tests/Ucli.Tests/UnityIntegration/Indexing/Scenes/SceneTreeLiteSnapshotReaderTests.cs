@@ -28,11 +28,10 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        var execution = UnityRequestExecutorAssert.RawPayloadExecutedOnce<IpcIndexSceneTreeLiteReadRequest>(
+        var execution = UnityRequestExecutorAssert.PayloadExecutedOnce<UnityRequestPayload.IndexSceneTreeLiteRead>(
             executor,
             UcliCommandIds.Query,
-            UnityExecutionMode.Auto,
-            IpcMethodNames.IndexSceneTreeLiteRead);
+            UnityExecutionMode.Auto);
         Assert.Equal("Assets/Scenes/Main.unity", execution.Payload.ScenePath);
         Assert.True(execution.Payload.FailFast);
         Assert.True(execution.Payload.LoadedSceneOnly);

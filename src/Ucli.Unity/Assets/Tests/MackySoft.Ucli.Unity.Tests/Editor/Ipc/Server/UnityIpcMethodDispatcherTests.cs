@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
@@ -56,9 +58,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = CreateDispatcher(
                     new IUnityIpcMethodHandler[]
                     {
-                        new StubMethodHandler(IpcMethodNames.Ping, static (_, _) =>
+                        new StubMethodHandler(UnityIpcMethod.Ping, static (_, _) =>
                             new ValueTask<IpcResponse>(CreateSuccessResponse(Guid.NewGuid()))),
-                        new StubMethodHandler(IpcMethodNames.Ping, static (_, _) =>
+                        new StubMethodHandler(UnityIpcMethod.Ping, static (_, _) =>
                             new ValueTask<IpcResponse>(CreateSuccessResponse(Guid.NewGuid()))),
                     });
             });
@@ -68,26 +70,101 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(exception.Message, Does.Contain("Duplicate IPC method handler"));
         }
 
+        [TestCase(UnityIpcMethod.Unspecified)]
+        [TestCase((UnityIpcMethod)999)]
+        [Category("Size.Small")]
+        public void Constructor_WhenHandlerMethodIsUndefined_ThrowsArgumentException (UnityIpcMethod method)
+        {
+            var exception = Assert.Throws<ArgumentException>(() =>
+            {
+                _ = CreateDispatcher(
+                    new IUnityIpcMethodHandler[]
+                    {
+                        new StubMethodHandler(method, static (_, _) =>
+                            new ValueTask<IpcResponse>(CreateSuccessResponse(Guid.NewGuid()))),
+                    });
+            });
+
+            Assert.That(exception, Is.Not.Null);
+            Assert.That(exception.ParamName, Is.EqualTo("methodHandlers"));
+            Assert.That(exception.Message, Does.Contain("undefined Unity IPC method"));
+        }
+
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Dispatch_WhenMethodIsNotRegistered_ReturnsMethodNotSupportedError () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Dispatch_WhenMethodIsMissingOrNotRegistered_ReturnsCorrelatedMethodNotSupportedError () => UniTask.ToCoroutine(async () =>
         {
             var dispatcher = CreateDispatcher(
                 new IUnityIpcMethodHandler[]
                 {
-                    new StubMethodHandler(IpcMethodNames.Ping, static (_, _) =>
+                    new StubMethodHandler(UnityIpcMethod.Ping, static (_, _) =>
                         new ValueTask<IpcResponse>(CreateSuccessResponse(Guid.NewGuid()))),
                 });
-            var request = CreateRequest(Guid.NewGuid(), method: "unknown.method", payload: 0);
+            var methods = new[] { null, string.Empty, " ", "unknown.method" };
+            foreach (var method in methods)
+            {
+                var requestId = Guid.NewGuid();
+                var request = new IpcRequest(
+                    protocolVersion: IpcProtocol.CurrentVersion,
+                    requestId: requestId,
+                    sessionToken: "session-token",
+                    method: method,
+                    payload: IpcPayloadCodec.SerializeToElement(0),
+                    responseMode: "single");
 
-            var response = await TestAwaiter.WaitAsync(
-                dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
-                "Unsupported IPC method dispatch",
-                AsyncWaitTimeout);
+                var response = await TestAwaiter.WaitAsync(
+                    dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
+                    "Unsupported IPC method dispatch",
+                    AsyncWaitTimeout);
 
-            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
-            Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcProtocolErrorCodes.IpcMethodNotSupported));
+                Assert.That(response.RequestId, Is.EqualTo(requestId), $"method={method ?? "<null>"}");
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError), $"method={method ?? "<null>"}");
+                Assert.That(response.Errors.Count, Is.EqualTo(1), $"method={method ?? "<null>"}");
+                Assert.That(
+                    response.Errors[0].Code,
+                    Is.EqualTo(IpcProtocolErrorCodes.IpcMethodNotSupported),
+                    $"method={method ?? "<null>"}");
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator DispatchStreaming_WhenMethodIsMissingOrNotRegistered_ReturnsCorrelatedMethodNotSupportedError () => UniTask.ToCoroutine(async () =>
+        {
+            var dispatcher = CreateDispatcher(
+                new IUnityIpcMethodHandler[]
+                {
+                    new StubMethodHandler(UnityIpcMethod.Ping, static (_, _) =>
+                        new ValueTask<IpcResponse>(CreateSuccessResponse(Guid.NewGuid()))),
+                });
+            var methods = new[] { null, string.Empty, " ", "unknown.method" };
+            foreach (var method in methods)
+            {
+                var requestId = Guid.NewGuid();
+                var request = new IpcRequest(
+                    protocolVersion: IpcProtocol.CurrentVersion,
+                    requestId: requestId,
+                    sessionToken: "session-token",
+                    method: method,
+                    payload: IpcPayloadCodec.SerializeToElement(0),
+                    responseMode: "stream");
+
+                var response = await TestAwaiter.WaitAsync(
+                    dispatcher.DispatchStreamingAsync(
+                        request,
+                        new UnexpectedStreamFrameWriter(),
+                        CancellationToken.None).AsUniTask(),
+                    "Unsupported streaming IPC method dispatch",
+                    AsyncWaitTimeout);
+
+                Assert.That(response.RequestId, Is.EqualTo(requestId), $"method={method ?? "<null>"}");
+                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError), $"method={method ?? "<null>"}");
+                Assert.That(response.Errors.Count, Is.EqualTo(1), $"method={method ?? "<null>"}");
+                Assert.That(
+                    response.Errors[0].Code,
+                    Is.EqualTo(IpcProtocolErrorCodes.IpcMethodNotSupported),
+                    $"method={method ?? "<null>"}");
+            }
         });
 
         [UnityTest]
@@ -97,10 +174,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var dispatcher = CreateDispatcher(
                 new IUnityIpcMethodHandler[]
                 {
-                    new StubMethodHandler(IpcMethodNames.Ping, static (_, _) =>
+                    new StubMethodHandler(UnityIpcMethod.Ping, static (_, _) =>
                         throw new InvalidOperationException("dispatcher-test")),
                 });
-            var request = CreateRequest(Guid.NewGuid(), IpcMethodNames.Ping, new IpcPingRequest("tests"));
+            var request = CreateRequest(Guid.NewGuid(), UnityIpcMethod.Ping, new IpcPingRequest("tests"));
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
@@ -126,10 +203,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             foreach (var invalidResponse in invalidResponses)
             {
-                var handler = new StubMethodHandler(IpcMethodNames.Ping, (_, _) =>
+                var handler = new StubMethodHandler(UnityIpcMethod.Ping, (_, _) =>
                     new ValueTask<IpcResponse>(invalidResponse));
                 var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler });
-                var request = CreateRequest(requestId, IpcMethodNames.Ping, new IpcPingRequest("tests"));
+                var request = CreateRequest(requestId, UnityIpcMethod.Ping, new IpcPingRequest("tests"));
 
                 var response = await TestAwaiter.WaitAsync(
                     dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
@@ -148,13 +225,13 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenMethodIsRegistered_DelegatesToHandler () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new StubMethodHandler(IpcMethodNames.Ping, static (request, cancellationToken) =>
+            var handler = new StubMethodHandler(UnityIpcMethod.Ping, static (request, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId));
             });
             var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler });
-            var request = CreateRequest(Guid.NewGuid(), IpcMethodNames.Ping, new IpcPingRequest("tests"));
+            var request = CreateRequest(Guid.NewGuid(), UnityIpcMethod.Ping, new IpcPingRequest("tests"));
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
@@ -174,7 +251,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var mutationExecutor = new RecordingMutationExecutor();
             var controlExecutor = new RecordingControlPlaneExecutor();
             var handler = new StubControlPlaneMethodHandler(
-                IpcMethodNames.Ping,
+                UnityIpcMethod.Ping,
                 static (request, _) => new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId)));
             var dispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[] { handler },
@@ -185,7 +262,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(
-                    CreateRequest(Guid.NewGuid(), IpcMethodNames.Ping, new IpcPingRequest("tests")),
+                    CreateRequest(Guid.NewGuid(), UnityIpcMethod.Ping, new IpcPingRequest("tests")),
                     CancellationToken.None).AsUniTask(),
                 "Control-plane IPC method dispatch",
                 AsyncWaitTimeout);
@@ -201,7 +278,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var mutationExecutor = new CancellationOnlyMutationExecutor();
             var handler = new StubMethodHandler(
-                IpcMethodNames.Compile,
+                UnityIpcMethod.Compile,
                 static (request, _) => new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId)));
             var dispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[] { handler },
@@ -211,7 +288,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 daemonLogger: NoOpDaemonLogger.Instance);
             var request = CreateRequest(
                 Guid.NewGuid(),
-                IpcMethodNames.Compile,
+                UnityIpcMethod.Compile,
                 new IpcCompileRequest("run-id") { TimeoutMilliseconds = 50 });
 
             var response = await TestAwaiter.WaitAsync(
@@ -240,10 +317,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     Response = completedResponse,
                 },
             };
-            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static (_, _, _) =>
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, static (_, _, _) =>
                 new ValueTask<IpcResponse>(CreateSuccessResponse(Guid.NewGuid())));
             var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
-            var request = CreateRequest(requestId, IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+            var request = CreateRequest(requestId, UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
@@ -268,10 +345,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     Response = CreateSuccessResponse(Guid.NewGuid()),
                 },
             };
-            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static (_, _, _) =>
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, static (_, _, _) =>
                 new ValueTask<IpcResponse>(CreateSuccessResponse(Guid.NewGuid())));
             var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
-            var request = CreateRequest(requestId, IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+            var request = CreateRequest(requestId, UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
@@ -294,10 +371,10 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 ExpectedReadRequestPayloadHash = "other-hash",
             };
-            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static (_, _, _) =>
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, static (_, _, _) =>
                 new ValueTask<IpcResponse>(CreateSuccessResponse(Guid.NewGuid())));
             var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
-            var request = CreateRequest(Guid.NewGuid(), IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+            var request = CreateRequest(Guid.NewGuid(), UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
@@ -315,13 +392,13 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Dispatch_WhenRecoverableStoreExistsAndHandlerDoesNotSupportRecovery_DelegatesNormally () => UniTask.ToCoroutine(async () =>
         {
             var store = new StubRecoverableIpcOperationStore();
-            var handler = new StubMethodHandler(IpcMethodNames.PlayEnter, static (request, cancellationToken) =>
+            var handler = new StubMethodHandler(UnityIpcMethod.PlayEnter, static (request, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId));
             });
             var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
-            var request = CreateRequest(Guid.NewGuid(), IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+            var request = CreateRequest(Guid.NewGuid(), UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
@@ -339,7 +416,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Dispatch_WhenRecoverableHandlerCreatesPendingRecord_WritesCompletedResponse () => UniTask.ToCoroutine(async () =>
         {
             var store = new StubRecoverableIpcOperationStore();
-            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static async (request, context, cancellationToken) =>
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, static async (request, context, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 var result = await context.MarkPendingAsync(
@@ -349,7 +426,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return CreateSuccessResponse(request.RequestId);
             });
             var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
-            var request = CreateRequest(Guid.NewGuid(), IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+            var request = CreateRequest(Guid.NewGuid(), UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
@@ -369,7 +446,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var store = new StubRecoverableIpcOperationStore();
             var requestId = Guid.NewGuid();
-            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static async (_, context, cancellationToken) =>
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, static async (_, context, cancellationToken) =>
             {
                 var pendingResult = await context.MarkPendingAsync(
                     new { checkpoint = "before" },
@@ -378,7 +455,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 return CreateSuccessResponse(Guid.NewGuid());
             });
             var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
-            var request = CreateRequest(requestId, IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+            var request = CreateRequest(requestId, UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
@@ -404,7 +481,7 @@ namespace MackySoft.Ucli.Unity.Tests
             };
             var mutationExecutor = new RecordingMutationExecutor();
             var handler = new StubRecoverableMethodHandler(
-                IpcMethodNames.PlayEnter,
+                UnityIpcMethod.PlayEnter,
                 static (request, _, _) => new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId)));
             var dispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[] { handler },
@@ -414,7 +491,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 NoOpDaemonLogger.Instance);
 
             var dispatchTask = dispatcher.DispatchAsync(
-                CreateRequest(Guid.NewGuid(), IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
+                CreateRequest(Guid.NewGuid(), UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
                 CancellationToken.None);
             await TestAwaiter.WaitAsync(
                 store.ReadEntered.Task.AsUniTask(),
@@ -443,7 +520,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ExpectedMaintenanceFailureLane = () => mutationExecutor.IsExecuting,
             };
             var handler = new StubRecoverableMethodHandler(
-                IpcMethodNames.PlayEnter,
+                UnityIpcMethod.PlayEnter,
                 static (request, _, _) => new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId)));
             var dispatcher = new UnityIpcMethodDispatcher(
                 new IUnityIpcMethodHandler[] { handler },
@@ -454,7 +531,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(
-                    CreateRequest(Guid.NewGuid(), IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
+                    CreateRequest(Guid.NewGuid(), UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
                     CancellationToken.None).AsUniTask(),
                 "Recoverable maintenance report",
                 AsyncWaitTimeout);
@@ -474,7 +551,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 PendingWritePermission = pendingWritePermission.Task,
             };
             var mutationPerformed = false;
-            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, async (request, context, cancellationToken) =>
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, async (request, context, cancellationToken) =>
             {
                 var pendingResult = await context.MarkPendingAsync(
                     new { checkpoint = "before" },
@@ -486,7 +563,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
 
             var dispatchTask = dispatcher.DispatchAsync(
-                CreateRequest(Guid.NewGuid(), IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
+                CreateRequest(Guid.NewGuid(), UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
                 CancellationToken.None);
             await TestAwaiter.WaitAsync(
                 store.PendingWriteEntered.Task.AsUniTask(),
@@ -513,7 +590,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 CompletedWritePermission = completedWritePermission.Task,
             };
-            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static async (request, context, cancellationToken) =>
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, static async (request, context, cancellationToken) =>
             {
                 var pendingResult = await context.MarkPendingAsync(
                     new { checkpoint = "before" },
@@ -524,7 +601,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
 
             var dispatchTask = dispatcher.DispatchAsync(
-                CreateRequest(Guid.NewGuid(), IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
+                CreateRequest(Guid.NewGuid(), UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
                 CancellationToken.None);
             await TestAwaiter.WaitAsync(
                 store.CompletedWriteEntered.Task.AsUniTask(),
@@ -550,7 +627,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 CompletedWritePermission = completedWritePermission.Task,
             };
-            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static async (request, context, cancellationToken) =>
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, static async (request, context, cancellationToken) =>
             {
                 var pendingResult = await context.MarkPendingAsync(
                     new { checkpoint = "before" },
@@ -562,7 +639,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(
-                    CreateRequest(Guid.NewGuid(), IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 5000 }),
+                    CreateRequest(Guid.NewGuid(), UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 5000 }),
                     CancellationToken.None).AsUniTask(),
                 "Completed persistence hard deadline",
                 AsyncWaitTimeout);
@@ -587,7 +664,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var store = new StubRecoverableIpcOperationStore();
             using var cancellationTokenSource = new CancellationTokenSource();
             var requestId = Guid.NewGuid();
-            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, async (request, context, cancellationToken) =>
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, async (request, context, cancellationToken) =>
             {
                 var pendingResult = await context.MarkPendingAsync(
                     new { checkpoint = "before" },
@@ -607,7 +684,7 @@ namespace MackySoft.Ucli.Unity.Tests
             await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
             {
                 await dispatcher.DispatchAsync(
-                    CreateRequest(requestId, IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
+                    CreateRequest(requestId, UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
                     cancellationTokenSource.Token).AsUniTask();
             }, "Recoverable terminal cancellation", AsyncWaitTimeout);
 
@@ -629,7 +706,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 status: IpcProtocol.StatusError,
                 payload: default,
                 errors: new[] { new IpcError(UcliCoreErrorCodes.InternalError, "terminal failure", null) });
-            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, async (_, context, cancellationToken) =>
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, async (_, context, cancellationToken) =>
             {
                 var pendingResult = await context.MarkPendingAsync(
                     new { checkpoint = "before" },
@@ -641,7 +718,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(
-                    CreateRequest(requestId, IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
+                    CreateRequest(requestId, UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 }),
                     CancellationToken.None).AsUniTask(),
                 "Recoverable terminal error persistence",
                 AsyncWaitTimeout);
@@ -659,10 +736,10 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 ReadErrorMessage = "invalid record",
             };
-            var handler = new StubRecoverableMethodHandler(IpcMethodNames.PlayEnter, static (_, _, _) =>
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, static (_, _, _) =>
                 new ValueTask<IpcResponse>(CreateSuccessResponse(Guid.NewGuid())));
             var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler }, store);
-            var request = CreateRequest(Guid.NewGuid(), IpcMethodNames.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
+            var request = CreateRequest(Guid.NewGuid(), UnityIpcMethod.PlayEnter, new IpcPlayEnterRequest { TimeoutMilliseconds = 1000 });
 
             var response = await TestAwaiter.WaitAsync(
                 dispatcher.DispatchAsync(request, CancellationToken.None).AsUniTask(),
@@ -680,10 +757,10 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenCancellationIsRequested_ThrowsOperationCanceledException () => UniTask.ToCoroutine(async () =>
         {
-            var handler = new StubMethodHandler(IpcMethodNames.Ping, static (_, _) =>
+            var handler = new StubMethodHandler(UnityIpcMethod.Ping, static (_, _) =>
                 new ValueTask<IpcResponse>(CreateSuccessResponse(Guid.NewGuid())));
             var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler });
-            var request = CreateRequest(Guid.NewGuid(), IpcMethodNames.Ping, new IpcPingRequest("tests"));
+            var request = CreateRequest(Guid.NewGuid(), UnityIpcMethod.Ping, new IpcPingRequest("tests"));
             using var cancellationTokenSource = new CancellationTokenSource();
             cancellationTokenSource.Cancel();
 
@@ -696,14 +773,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static IpcRequest CreateRequest (
             Guid requestId,
-            string method,
+            UnityIpcMethod method,
             object payload)
         {
             return new IpcRequest(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "session-token",
-                method: method,
+                method: ContractLiteralCodec.ToValue(method),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: "single");
         }
@@ -736,7 +813,7 @@ namespace MackySoft.Ucli.Unity.Tests
             private readonly Func<IpcRequest, CancellationToken, ValueTask<IpcResponse>> handle;
 
             public StubMethodHandler (
-                string method,
+                UnityIpcMethod method,
                 Func<IpcRequest, CancellationToken, ValueTask<IpcResponse>> handle)
             {
                 Method = method;
@@ -745,7 +822,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int CallCount { get; private set; }
 
-            public string Method { get; }
+            public UnityIpcMethod Method { get; }
 
             public ValueTask<IpcResponse> HandleAsync (
                 IpcRequest request,
@@ -761,20 +838,39 @@ namespace MackySoft.Ucli.Unity.Tests
             private readonly Func<IpcRequest, CancellationToken, ValueTask<IpcResponse>> handle;
 
             public StubControlPlaneMethodHandler (
-                string method,
+                UnityIpcMethod method,
                 Func<IpcRequest, CancellationToken, ValueTask<IpcResponse>> handle)
             {
                 Method = method;
                 this.handle = handle;
             }
 
-            public string Method { get; }
+            public UnityIpcMethod Method { get; }
 
             public ValueTask<IpcResponse> HandleAsync (
                 IpcRequest request,
                 CancellationToken cancellationToken)
             {
                 return handle(request, cancellationToken);
+            }
+        }
+
+        private sealed class UnexpectedStreamFrameWriter : IIpcStreamFrameWriter
+        {
+            public ValueTask WriteProgressAsync<TPayload> (
+                string eventName,
+                TPayload payload,
+                CancellationToken cancellationToken = default)
+                where TPayload : notnull
+            {
+                throw new InvalidOperationException("Unsupported method dispatch must not write a progress frame.");
+            }
+
+            public ValueTask WriteTerminalAsync (
+                IpcResponse response,
+                CancellationToken cancellationToken = default)
+            {
+                throw new InvalidOperationException("Unsupported method dispatch must not write a terminal frame.");
             }
         }
 
@@ -861,7 +957,7 @@ namespace MackySoft.Ucli.Unity.Tests
             private readonly Func<IpcRequest, RecoverableIpcOperationContext, CancellationToken, ValueTask<IpcResponse>> handle;
 
             public StubRecoverableMethodHandler (
-                string method,
+                UnityIpcMethod method,
                 Func<IpcRequest, RecoverableIpcOperationContext, CancellationToken, ValueTask<IpcResponse>> handle)
             {
                 Method = method;
@@ -872,7 +968,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int RecoverableCallCount { get; private set; }
 
-            public string Method { get; }
+            public UnityIpcMethod Method { get; }
 
             public string RecoverableRequestPayloadHash { get; set; } = "stub-recoverable-hash";
 
@@ -951,7 +1047,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
             public async ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
-                string method,
+                UnityIpcMethod method,
                 Guid requestId,
                 string requestPayloadHash,
                 CancellationToken cancellationToken)
@@ -980,7 +1076,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
-                string method,
+                UnityIpcMethod method,
                 Guid requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
@@ -1000,7 +1096,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
-                string method,
+                UnityIpcMethod method,
                 Guid requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,

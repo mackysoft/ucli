@@ -25,7 +25,7 @@ public sealed class UnityIpcRequestBuilderExecuteTests
             AllowPlayMode: true,
             PlanToken: "plan-token"));
 
-        Assert.Equal(IpcMethodNames.Execute, request.Method);
+        Assert.Equal(UnityIpcMethod.Execute, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcExecuteRequest payload, out _));
         Assert.Equal(UcliCommandIds.Plan.Name, payload.Command);
         Assert.True(payload.FailFast);
@@ -54,7 +54,7 @@ public sealed class UnityIpcRequestBuilderExecuteTests
             AllowDangerous: true,
             PlanToken: "plan-token"));
 
-        Assert.Equal(IpcMethodNames.Execute, request.Method);
+        Assert.Equal(UnityIpcMethod.Execute, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcExecuteRequest payload, out _));
         Assert.Equal(UcliCommandIds.Call.Name, payload.Command);
         Assert.False(payload.FailFast);

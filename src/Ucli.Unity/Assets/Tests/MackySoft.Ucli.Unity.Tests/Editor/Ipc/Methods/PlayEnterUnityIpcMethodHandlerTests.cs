@@ -6,6 +6,7 @@ using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
@@ -396,14 +397,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var requestId = Guid.NewGuid();
             return new RecoverableIpcOperationContext(
                 store,
-                IpcMethodNames.PlayEnter,
+                UnityIpcMethod.PlayEnter,
                 requestId,
                 RequestPayloadHash,
                 new RecoverableIpcOperationRecord
                 {
                     SchemaVersion = 1,
                     ProjectFingerprint = "project-fingerprint",
-                    Method = IpcMethodNames.PlayEnter,
+                    Method = ContractLiteralCodec.ToValue(UnityIpcMethod.PlayEnter),
                     RequestId = requestId,
                     State = RecoverableIpcOperationState.Pending,
                     StartedAtUtc = DateTimeOffset.UtcNow,
@@ -415,7 +416,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new RecoverableIpcOperationContext(
                 store,
-                IpcMethodNames.PlayEnter,
+                UnityIpcMethod.PlayEnter,
                 Guid.NewGuid(),
                 RequestPayloadHash,
                 null);
@@ -444,7 +445,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "session-token",
-                method: IpcMethodNames.PlayEnter,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.PlayEnter),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: "single");
         }
@@ -614,7 +615,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public PlayEnterRecoveryPayload? PendingPayload { get; private set; }
 
             public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
-                string method,
+                UnityIpcMethod method,
                 Guid requestId,
                 string requestPayloadHash,
                 CancellationToken cancellationToken)
@@ -625,7 +626,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
-                string method,
+                UnityIpcMethod method,
                 Guid requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,
@@ -649,7 +650,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
-                string method,
+                UnityIpcMethod method,
                 Guid requestId,
                 string requestPayloadHash,
                 DateTimeOffset startedAtUtc,

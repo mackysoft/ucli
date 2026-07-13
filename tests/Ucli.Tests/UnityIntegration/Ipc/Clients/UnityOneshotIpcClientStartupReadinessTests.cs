@@ -21,10 +21,10 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId, projectFingerprint: "other-project-fingerprint"),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId, projectFingerprint: "other-project-fingerprint"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -43,7 +43,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Contains("projectFingerprint mismatch", result.Message, StringComparison.Ordinal);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.Shutdown);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.Shutdown);
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);
     }
 
@@ -61,13 +61,13 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var pingAttempt = 0;
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(
+                UnityIpcMethod.Ping => CreatePingResponse(
                     request.RequestId,
                     lifecycleState: ++pingAttempt == 1 ? lifecycleState : IpcEditorLifecycleStateCodec.Ready,
                     canAcceptExecutionRequests: pingAttempt != 1),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -91,7 +91,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var result = await resultTask;
 
         Assert.True(result.IsSuccess);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.Ping, IpcMethodNames.OpsRead);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead);
     }
 
     [Theory]
@@ -107,13 +107,13 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(
+                UnityIpcMethod.Ping => CreatePingResponse(
                     request.RequestId,
                     lifecycleState: lifecycleState,
                     canAcceptExecutionRequests: false),
-                IpcMethodNames.Compile => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Compile => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -130,7 +130,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.Compile);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.Compile);
     }
 
     [Fact]
@@ -143,9 +143,9 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(
+                UnityIpcMethod.Ping => CreatePingResponse(
                     request.RequestId,
                     lifecycleState: IpcEditorLifecycleStateCodec.Starting,
                     canAcceptExecutionRequests: false),
@@ -166,7 +166,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(EditorLifecycleErrorCodes.EditorStarting, result.ErrorCode);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.Shutdown);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.Shutdown);
         UnityBatchmodeProcessHandleAssert.TerminatedOnce(processHandle);
     }
 
@@ -180,10 +180,10 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => HandlePing(request),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => HandlePing(request),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -200,7 +200,7 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.Ping, IpcMethodNames.Shutdown);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.Ping, UnityIpcMethod.Shutdown);
         AssertCleanupShutdownUsesLaunchSession(launcher, transportClient, unityProject);
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);
 
@@ -226,10 +226,10 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => HandleStartupPing(request),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => HandleStartupPing(request),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -247,8 +247,8 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
 
         Assert.False(result.IsSuccess);
         Assert.Equal(EditorLifecycleErrorCodes.EditorStarting, result.ErrorCode);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.Shutdown);
-        var startupPingRequest = IpcRequestAssert.SingleWithMethod(transportClient, IpcMethodNames.Ping);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.Shutdown);
+        var startupPingRequest = IpcRequestAssert.SingleWithMethod(transportClient, UnityIpcMethod.Ping);
         Assert.True(IpcPayloadCodec.TryDeserialize(startupPingRequest.Payload, out IpcPingRequest startupPing, out _));
         Assert.Equal(IpcPingClientVersions.OneshotStartup, startupPing.ClientVersion);
         UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
@@ -276,11 +276,11 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var pingAttempt = 0;
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping when ++pingAttempt == 1 => throw new TimeoutException("startup ping timed out"),
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Ping when ++pingAttempt == 1 => throw new TimeoutException("startup ping timed out"),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -306,10 +306,10 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         Assert.True(result.IsSuccess);
         var requests = IpcRequestAssert.Methods(
             transportClient,
-            IpcMethodNames.Ping,
-            IpcMethodNames.Ping,
-            IpcMethodNames.OpsRead);
-        var startupProbeRequests = IpcRequestAssert.WithMethod(requests, IpcMethodNames.Ping);
+            UnityIpcMethod.Ping,
+            UnityIpcMethod.Ping,
+            UnityIpcMethod.OpsRead);
+        var startupProbeRequests = IpcRequestAssert.WithMethod(requests, UnityIpcMethod.Ping);
         Assert.NotEqual(Guid.Empty, IpcRequestAssert.SingleRequestId(startupProbeRequests));
         UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
     }
@@ -326,12 +326,12 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         var pingAttempt = 0;
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping when ++pingAttempt == 1 => throw new IpcResponseReadInterruptedException(
+                UnityIpcMethod.Ping when ++pingAttempt == 1 => throw new IpcResponseReadInterruptedException(
                     new IOException("Pipe is broken.")),
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -357,10 +357,10 @@ public sealed class UnityOneshotIpcClientStartupReadinessTests
         Assert.True(result.IsSuccess);
         var requests = IpcRequestAssert.Methods(
             transportClient,
-            IpcMethodNames.Ping,
-            IpcMethodNames.Ping,
-            IpcMethodNames.OpsRead);
-        var startupProbeRequests = IpcRequestAssert.WithMethod(requests, IpcMethodNames.Ping);
+            UnityIpcMethod.Ping,
+            UnityIpcMethod.Ping,
+            UnityIpcMethod.OpsRead);
+        var startupProbeRequests = IpcRequestAssert.WithMethod(requests, UnityIpcMethod.Ping);
         Assert.NotEqual(Guid.Empty, IpcRequestAssert.SingleRequestId(startupProbeRequests));
         UnityBatchmodeProcessHandleAssert.WasNotTerminated(processHandle);
     }

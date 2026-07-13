@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.PlayEnter;
+        public UnityIpcMethod Method => UnityIpcMethod.PlayEnter;
 
         /// <inheritdoc />
         public bool TryCreateRecoverableRequestPayloadHash (

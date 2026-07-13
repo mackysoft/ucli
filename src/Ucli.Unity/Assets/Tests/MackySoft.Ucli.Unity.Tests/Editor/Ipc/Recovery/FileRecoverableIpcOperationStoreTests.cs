@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
@@ -43,14 +44,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 var requestId = new Guid("7b6d4c17-1b8e-4f28-a2e6-123456789abc");
 
                 var writeResult = await store.WritePendingAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     startedAtUtc,
                     payload,
                     CancellationToken.None);
                 var readResult = await store.ReadAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
@@ -71,7 +72,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Path.GetFileName(Path.GetDirectoryName(recordPath)),
                     Is.EqualTo("915924c362f3f70836b55eb1ab0c84c5bd107d4bbeb909a20ffc00d4622ec8e2"));
                 Assert.That(readResult.Record.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
-                Assert.That(readResult.Record.Method, Is.EqualTo(IpcMethodNames.PlayEnter));
+                Assert.That(readResult.Record.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.PlayEnter)));
                 Assert.That(readResult.Record.RequestId, Is.EqualTo(requestId));
                 Assert.That(readResult.Record.RequestPayloadHash, Is.EqualTo(RequestPayloadHash));
                 Assert.That(readResult.Record.HostEditorInstanceId, Is.EqualTo("editor-instance-pending"));
@@ -98,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var response = CreateSuccessResponse(Guid.NewGuid());
 
                 var exception = Assert.Throws<ArgumentException>(() => store.WriteCompletedAsync(
-                    IpcMethodNames.Compile,
+                    UnityIpcMethod.Compile,
                     requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -128,7 +129,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var response = CreateSuccessResponse(requestId);
 
                 var writeResult = await store.WriteCompletedAsync(
-                    IpcMethodNames.Compile,
+                    UnityIpcMethod.Compile,
                     requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -137,7 +138,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     response,
                     CancellationToken.None);
                 var readResult = await store.ReadAsync(
-                    IpcMethodNames.Compile,
+                    UnityIpcMethod.Compile,
                     requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
@@ -168,7 +169,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow,
@@ -178,7 +179,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 RewriteOperationRecord(projectPath, record => record.ProjectFingerprint = "other-project");
 
                 var readResult = await store.ReadAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
@@ -204,7 +205,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WriteCompletedAsync(
-                    IpcMethodNames.Compile,
+                    UnityIpcMethod.Compile,
                     requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -218,7 +219,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     record => record.Response = CreateSuccessResponse(Guid.NewGuid()));
 
                 var readResult = await store.ReadAsync(
-                    IpcMethodNames.Compile,
+                    UnityIpcMethod.Compile,
                     requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
@@ -244,7 +245,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow,
@@ -256,7 +257,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     text => text.Replace("\"state\":\"pending\"", "\"state\":\"unsupported\"", StringComparison.Ordinal));
 
                 var readResult = await store.ReadAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
@@ -282,7 +283,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow,
@@ -292,7 +293,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 RewriteOperationRecord(projectPath, record => record.HostProcessId++);
 
                 var readResult = await store.ReadAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
@@ -318,7 +319,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WriteCompletedAsync(
-                    IpcMethodNames.Compile,
+                    UnityIpcMethod.Compile,
                     requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -330,7 +331,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 RewriteOperationRecord(projectPath, record => record.HostEditorInstanceId = "editor-instance-host-2");
 
                 var readResult = await store.ReadAsync(
-                    IpcMethodNames.Compile,
+                    UnityIpcMethod.Compile,
                     requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
@@ -356,7 +357,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WriteCompletedAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -367,7 +368,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
 
                 var readResult = await store.ReadAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     "other-request-payload-hash",
                     CancellationToken.None);
@@ -394,7 +395,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var nowUtc = DateTimeOffset.UtcNow;
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WriteCompletedAsync(
-                    IpcMethodNames.Compile,
+                    UnityIpcMethod.Compile,
                     requestId,
                     RequestPayloadHash,
                     nowUtc.AddMinutes(-12),
@@ -406,7 +407,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var purgeResult = await store.PurgeExpiredRecordsAsync(nowUtc, CancellationToken.None);
                 var readResult = await store.ReadAsync(
-                    IpcMethodNames.Compile,
+                    UnityIpcMethod.Compile,
                     requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
@@ -433,7 +434,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var nowUtc = DateTimeOffset.UtcNow;
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     nowUtc.AddHours(-25),
@@ -443,7 +444,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var purgeResult = await store.PurgeExpiredRecordsAsync(nowUtc, CancellationToken.None);
                 var readResult = await store.ReadAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     CancellationToken.None);
@@ -470,7 +471,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var nowUtc = DateTimeOffset.UtcNow;
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     nowUtc,
@@ -550,7 +551,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         .PurgeExpiredRecordsAsync(DateTimeOffset.UtcNow, CancellationToken.None)
                         .AsTask();
                     var writeTask = store.WritePendingAsync(
-                            IpcMethodNames.PlayEnter,
+                            UnityIpcMethod.PlayEnter,
                             requestId,
                             RequestPayloadHash,
                             DateTimeOffset.UtcNow,
@@ -595,7 +596,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var existingRequestId = Guid.NewGuid();
                 var newRequestId = Guid.NewGuid();
                 var initialWriteResult = await store.WritePendingAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     existingRequestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow,
@@ -625,13 +626,13 @@ namespace MackySoft.Ucli.Unity.Tests
                         TimeSpan.FromSeconds(5));
 
                     var readTask = store.ReadAsync(
-                            IpcMethodNames.PlayEnter,
+                            UnityIpcMethod.PlayEnter,
                             existingRequestId,
                             RequestPayloadHash,
                             CancellationToken.None)
                         .AsTask();
                     var writeTask = store.WritePendingAsync(
-                            IpcMethodNames.PlayExit,
+                            UnityIpcMethod.PlayExit,
                             newRequestId,
                             RequestPayloadHash,
                             DateTimeOffset.UtcNow,
@@ -706,7 +707,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var store = CreateStore(projectPath);
                 var requestId = Guid.NewGuid();
                 var writeResult = await store.WritePendingAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     DateTimeOffset.UtcNow,
@@ -717,7 +718,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 File.WriteAllText(recordPath, new string(' ', (1024 * 1024) + 1));
 
                 var readResult = await store.ReadAsync(
-                    IpcMethodNames.PlayEnter,
+                    UnityIpcMethod.PlayEnter,
                     requestId,
                     RequestPayloadHash,
                     CancellationToken.None);

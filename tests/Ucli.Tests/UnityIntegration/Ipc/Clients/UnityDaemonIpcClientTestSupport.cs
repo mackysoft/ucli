@@ -16,7 +16,7 @@ internal static class UnityDaemonIpcClientTestSupport
 
     public static UnityIpcDispatchRequest CreateDispatchRequest ()
     {
-        return new UnityIpcDispatchRequest(IpcMethodNames.OpsRead, CreateDispatchPayload());
+        return new UnityIpcDispatchRequest(UnityIpcMethod.OpsRead, CreateDispatchPayload());
     }
 
     public static IpcResponse CreateResponse (Guid requestId)

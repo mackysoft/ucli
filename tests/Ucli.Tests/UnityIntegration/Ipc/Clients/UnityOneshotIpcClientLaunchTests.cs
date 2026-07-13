@@ -21,10 +21,10 @@ public sealed class UnityOneshotIpcClientLaunchTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -44,8 +44,8 @@ public sealed class UnityOneshotIpcClientLaunchTests
         Assert.True(result.IsSuccess);
         ProjectLifecycleLockProviderAssert.AcquiredOnceFor(lockProvider, unityProject);
         var bootstrapArguments = UnityOneshotLaunchAssert.LaunchedOnceWithDefaultOptions(launcher, unityProject);
-        var requests = IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.OpsRead);
-        var dispatchRequest = IpcRequestAssert.SingleWithMethod(requests, IpcMethodNames.OpsRead);
+        var requests = IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead);
+        var dispatchRequest = IpcRequestAssert.SingleWithMethod(requests, UnityIpcMethod.OpsRead);
         Assert.Equal(CreateDispatchPayload().GetRawText(), dispatchRequest.Payload.GetRawText());
         IpcRequestAssert.AllSessionToken(requests, bootstrapArguments.SessionToken);
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);
@@ -61,10 +61,10 @@ public sealed class UnityOneshotIpcClientLaunchTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -77,7 +77,7 @@ public sealed class UnityOneshotIpcClientLaunchTests
         var result = await client.SendAsync(
             unityProject,
             new UnityIpcDispatchRequest(
-                IpcMethodNames.OpsRead,
+                UnityIpcMethod.OpsRead,
                 CreateDispatchPayload(),
                 oneshotActiveBuildProfilePath: "Assets/BuildProfiles/LinuxPlayer.asset"),
             TimeSpan.FromSeconds(30),

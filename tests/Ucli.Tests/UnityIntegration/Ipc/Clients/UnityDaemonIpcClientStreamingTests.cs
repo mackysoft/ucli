@@ -48,7 +48,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
         Assert.True(result.IsSuccess);
         var requests = DaemonIpcDispatchAssert.RecoveredStreamingDispatchesWithReloadedSessionToken(
             transportClient,
-            IpcMethodNames.OpsRead,
+            UnityIpcMethod.OpsRead,
             "daemon-token-1",
             "daemon-token-2");
         _ = IpcRequestAssert.SingleRequestId(requests);
@@ -111,7 +111,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
         var result = await client.SendStreamingAsync(
             ResolvedUnityProjectContextTestFactory.Create(),
             new UnityIpcDispatchRequest(
-                IpcMethodNames.PlayEnter,
+                UnityIpcMethod.PlayEnter,
                 CreateDispatchPayload(),
                 isRecoverable: true,
                 responseMode: IpcResponseMode.Stream),
@@ -144,7 +144,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
             await client.SendStreamingAsync(
                     ResolvedUnityProjectContextTestFactory.Create(),
                     new UnityIpcDispatchRequest(
-                        IpcMethodNames.OpsRead,
+                        UnityIpcMethod.OpsRead,
                         CreateDispatchPayload(),
                         responseMode: IpcResponseMode.Stream),
                     TimeSpan.FromSeconds(30),
@@ -154,7 +154,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
         });
 
         Assert.Same(handlerException, exception);
-        DaemonIpcDispatchAssert.SingleStreamingDispatchAttempted(transportClient, IpcMethodNames.OpsRead);
+        DaemonIpcDispatchAssert.SingleStreamingDispatchAttempted(transportClient, UnityIpcMethod.OpsRead);
     }
 
     [Fact]
@@ -178,7 +178,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
         var sendTask = client.SendStreamingAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
                 new UnityIpcDispatchRequest(
-                    IpcMethodNames.TestRun,
+                    UnityIpcMethod.TestRun,
                     CreateDispatchPayload(),
                     responseMode: IpcResponseMode.Stream),
                 TimeSpan.FromSeconds(5),
@@ -195,7 +195,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
         Assert.True(result.IsSuccess);
         var request = DaemonIpcDispatchAssert.SingleStreamingDispatchSent(
             transportClient,
-            IpcMethodNames.TestRun,
+            UnityIpcMethod.TestRun,
             "daemon-token-2");
         Assert.NotEqual(Guid.Empty, request.RequestId);
     }
@@ -222,7 +222,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
         var sendTask = client.SendStreamingAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
                 new UnityIpcDispatchRequest(
-                    IpcMethodNames.TestRun,
+                    UnityIpcMethod.TestRun,
                     CreateDispatchPayload(),
                     responseMode: IpcResponseMode.Stream),
                 TimeSpan.FromSeconds(5),
@@ -239,7 +239,7 @@ public sealed class UnityDaemonIpcClientStreamingTests
         Assert.True(result.IsSuccess);
         var requests = DaemonIpcDispatchAssert.RecoveredStreamingDispatchesWithReloadedSessionToken(
             transportClient,
-            IpcMethodNames.TestRun,
+            UnityIpcMethod.TestRun,
             "daemon-token-1",
             "daemon-token-2");
         var requestId = IpcRequestAssert.SingleRequestId(requests);

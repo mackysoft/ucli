@@ -199,7 +199,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcRequest request,
             IpcResponse response)
         {
-            if (!string.Equals(request.Method, IpcMethodNames.Shutdown, StringComparison.Ordinal))
+            if (!ContractLiteralCodec.Matches(request.Method, UnityIpcMethod.Shutdown))
             {
                 return false;
             }
@@ -216,7 +216,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         private void AbortShutdownAdmission (IpcRequest request)
         {
             if (request != null
-                && string.Equals(request.Method, IpcMethodNames.Shutdown, StringComparison.Ordinal))
+                && ContractLiteralCodec.Matches(request.Method, UnityIpcMethod.Shutdown))
             {
                 shutdownAdmissionCoordinator.Abort(request);
             }

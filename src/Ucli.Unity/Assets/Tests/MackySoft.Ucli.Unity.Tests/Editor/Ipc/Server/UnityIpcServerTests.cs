@@ -14,6 +14,7 @@ using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Unity.Execution.Dispatch;
@@ -284,7 +285,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     SignalWaitTimeout);
 
                 Assert.That(result.Request, Is.Not.Null);
-                Assert.That(result.Request.Method, Is.EqualTo(IpcMethodNames.Shutdown));
+                Assert.That(result.Request.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown)));
                 Assert.That(result.Response, Is.Not.Null);
                 Assert.That(result.Response.Status, Is.EqualTo(IpcProtocol.StatusOk));
                 Assert.That(result.Response.Errors, Is.Empty);
@@ -1068,7 +1069,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "valid-token",
-                method: IpcMethodNames.TestRun,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.TestRun),
                 payload: invalidPayload,
                 responseMode: "single");
 
@@ -1144,7 +1145,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: sessionToken,
-                method: IpcMethodNames.Ping,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
                 payload: JsonSerializer.SerializeToElement(new IpcPingRequest("tests"), SerializerOptions),
                 responseMode: "single");
         }
@@ -1167,7 +1168,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: IpcMethodNames.Execute,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Execute),
                 payload: payload,
                 responseMode: "single");
         }
@@ -1183,7 +1184,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: IpcMethodNames.Shutdown,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: payload,
                 responseMode: "single");
         }
@@ -1209,7 +1210,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: IpcMethodNames.TestRun,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.TestRun),
                 payload: payload,
                 responseMode: "single");
         }
@@ -1233,7 +1234,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: IpcMethodNames.DaemonLogsRead,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.DaemonLogsRead),
                 payload: payload,
                 responseMode: "single");
         }
@@ -1260,7 +1261,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: IpcMethodNames.UnityLogsRead,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.UnityLogsRead),
                 payload: payload,
                 responseMode: "single");
         }
@@ -1276,7 +1277,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
-                method: IpcMethodNames.UnityConsoleClear,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.UnityConsoleClear),
                 payload: payload,
                 responseMode: "single");
         }

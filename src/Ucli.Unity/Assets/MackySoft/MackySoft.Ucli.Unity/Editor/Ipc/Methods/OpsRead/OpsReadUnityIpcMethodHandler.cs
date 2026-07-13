@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.OpsRead;
+        public UnityIpcMethod Method => UnityIpcMethod.OpsRead;
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (

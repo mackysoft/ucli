@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -86,11 +87,16 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public ValueTask<RecoverableIpcOperationReadResult> ReadAsync (
-            string method,
+            UnityIpcMethod method,
             Guid requestId,
             string requestPayloadHash,
             CancellationToken cancellationToken)
         {
+            if (!ContractLiteralCodec.IsDefined(method))
+            {
+                throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
+            }
+
             if (string.IsNullOrWhiteSpace(requestPayloadHash))
             {
                 return new ValueTask<RecoverableIpcOperationReadResult>(
@@ -109,13 +115,18 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public ValueTask<RecoverableIpcOperationStoreResult> WritePendingAsync (
-            string method,
+            UnityIpcMethod method,
             Guid requestId,
             string requestPayloadHash,
             DateTimeOffset startedAtUtc,
             JsonElement recoveryPayload,
             CancellationToken cancellationToken)
         {
+            if (!ContractLiteralCodec.IsDefined(method))
+            {
+                throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
+            }
+
             if (string.IsNullOrWhiteSpace(requestPayloadHash))
             {
                 return new ValueTask<RecoverableIpcOperationStoreResult>(
@@ -127,7 +138,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 SchemaVersion = SchemaVersion,
                 ProjectFingerprint = projectFingerprint,
-                Method = method,
+                Method = ContractLiteralCodec.ToValue(method),
                 RequestId = requestId,
                 RequestPayloadHash = requestPayloadHash,
                 HostProcessId = hostProcessId,
@@ -136,12 +147,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 StartedAtUtc = startedAtUtc,
                 RecoveryPayload = recoveryPayload.Clone(),
             };
-            return WriteRecordOffMainThreadAsync(record, cancellationToken);
+            return WriteRecordOffMainThreadAsync(method, record, cancellationToken);
         }
 
         /// <inheritdoc />
         public ValueTask<RecoverableIpcOperationStoreResult> WriteCompletedAsync (
-            string method,
+            UnityIpcMethod method,
             Guid requestId,
             string requestPayloadHash,
             DateTimeOffset startedAtUtc,
@@ -150,6 +161,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcResponse response,
             CancellationToken cancellationToken)
         {
+            if (!ContractLiteralCodec.IsDefined(method))
+            {
+                throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
+            }
+
             if (response == null)
             {
                 throw new ArgumentNullException(nameof(response));
@@ -173,7 +189,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 SchemaVersion = SchemaVersion,
                 ProjectFingerprint = projectFingerprint,
-                Method = method,
+                Method = ContractLiteralCodec.ToValue(method),
                 RequestId = requestId,
                 RequestPayloadHash = requestPayloadHash,
                 HostProcessId = hostProcessId,
@@ -184,7 +200,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 RecoveryPayload = recoveryPayload.Clone(),
                 Response = response,
             };
-            return WriteRecordOffMainThreadAsync(record, cancellationToken);
+            return WriteRecordOffMainThreadAsync(method, record, cancellationToken);
         }
 
         /// <summary> Runs one bounded maintenance pass. Production callers schedule this outside request execution. </summary>
@@ -205,7 +221,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private async Task<RecoverableIpcOperationReadResult> ReadSerializedAsync (
-            string method,
+            UnityIpcMethod method,
             Guid requestId,
             string requestPayloadHash,
             CancellationToken cancellationToken)
@@ -249,15 +265,17 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private ValueTask<RecoverableIpcOperationStoreResult> WriteRecordOffMainThreadAsync (
+            UnityIpcMethod method,
             RecoverableIpcOperationRecord record,
             CancellationToken cancellationToken)
         {
             return new ValueTask<RecoverableIpcOperationStoreResult>(Task.Run(
-                () => WriteRecordSerializedAsync(record, cancellationToken),
+                () => WriteRecordSerializedAsync(method, record, cancellationToken),
                 cancellationToken));
         }
 
         private async Task<RecoverableIpcOperationStoreResult> WriteRecordSerializedAsync (
+            UnityIpcMethod method,
             RecoverableIpcOperationRecord record,
             CancellationToken cancellationToken)
         {
@@ -266,7 +284,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 try
                 {
-                    var path = ResolveRecordPath(record.Method, record.RequestId);
+                    var path = ResolveRecordPath(method, record.RequestId);
                     var directoryPath = Path.GetDirectoryName(path);
                     if (string.IsNullOrWhiteSpace(directoryPath))
                     {
@@ -462,12 +480,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private string ResolveRecordPath (
-            string method,
+            UnityIpcMethod method,
             Guid requestId)
         {
-            if (string.IsNullOrWhiteSpace(method))
+            if (!ContractLiteralCodec.IsDefined(method))
             {
-                throw new ArgumentException("Method must not be empty.", nameof(method));
+                throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
 
             if (requestId == Guid.Empty)
@@ -475,14 +493,19 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Request id must not be empty.", nameof(requestId));
             }
 
-            var identity = string.Concat(projectFingerprint, "\n", method, "\n", requestId.ToString("D"));
+            var identity = string.Concat(
+                projectFingerprint,
+                "\n",
+                ContractLiteralCodec.ToValue(method),
+                "\n",
+                requestId.ToString("D"));
             var operationKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(identity));
             return Path.Combine(operationsDirectoryPath, operationKey, RecordFileName);
         }
 
         private bool IsValidRecord (
             RecoverableIpcOperationRecord record,
-            string method,
+            UnityIpcMethod method,
             Guid requestId,
             string requestPayloadHash,
             out string errorMessage)
@@ -492,7 +515,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (record == null
                 || record.SchemaVersion != SchemaVersion
                 || !string.Equals(record.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal)
-                || !string.Equals(record.Method, method, StringComparison.Ordinal)
+                || !string.Equals(record.Method, ContractLiteralCodec.ToValue(method), StringComparison.Ordinal)
                 || record.RequestId != requestId
                 || !string.Equals(record.RequestPayloadHash, requestPayloadHash, StringComparison.Ordinal)
                 || record.HostProcessId != hostProcessId

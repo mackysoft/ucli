@@ -35,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.GuiRebootstrap;
+        public UnityIpcMethod Method => UnityIpcMethod.GuiRebootstrap;
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (

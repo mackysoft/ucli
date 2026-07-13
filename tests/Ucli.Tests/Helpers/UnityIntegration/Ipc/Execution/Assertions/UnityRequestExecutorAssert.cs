@@ -1,27 +1,24 @@
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Helpers.Ipc;
 
 internal static class UnityRequestExecutorAssert
 {
-    public static RawPayloadInvocation<TPayload> RawPayloadExecutedOnce<TPayload> (
+    public static PayloadInvocation<TPayload> PayloadExecutedOnce<TPayload> (
         RecordingUnityRequestExecutor executor,
         UcliCommand expectedCommand,
-        UnityExecutionMode expectedMode,
-        string expectedMethod)
+        UnityExecutionMode expectedMode)
+        where TPayload : UnityRequestPayload
     {
         var invocation = Assert.Single(executor.Invocations);
         Assert.Equal(expectedCommand, invocation.Command);
         Assert.Equal(expectedMode, invocation.Mode);
-        var request = Assert.IsType<UnityRequestPayload.Raw>(invocation.Payload);
-        Assert.Equal(expectedMethod, request.Method);
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out TPayload payload, out _));
-        return new RawPayloadInvocation<TPayload>(invocation, request, payload);
+        var payload = Assert.IsType<TPayload>(invocation.Payload);
+        return new PayloadInvocation<TPayload>(invocation, payload);
     }
 
-    internal readonly record struct RawPayloadInvocation<TPayload> (
+    internal readonly record struct PayloadInvocation<TPayload> (
         RecordingUnityRequestExecutor.Invocation Invocation,
-        UnityRequestPayload.Raw Request,
-        TPayload Payload);
+        TPayload Payload)
+        where TPayload : UnityRequestPayload;
 }

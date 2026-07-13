@@ -32,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.PlayStatus;
+        public UnityIpcMethod Method => UnityIpcMethod.PlayStatus;
 
         /// <inheritdoc />
         public ValueTask<IpcResponse> HandleAsync (

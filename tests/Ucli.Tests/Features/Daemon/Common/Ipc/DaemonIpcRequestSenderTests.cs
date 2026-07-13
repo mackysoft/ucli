@@ -28,7 +28,7 @@ public sealed class DaemonIpcRequestSenderTests
 
         var result = await sender.SendAsync(
             ResolvedUnityProjectContextTestFactory.Create(),
-            sessionToken => CreateRequest("logs.unity.read", sessionToken),
+            sessionToken => CreateRequest(UnityIpcMethod.UnityLogsRead, sessionToken),
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
@@ -53,14 +53,14 @@ public sealed class DaemonIpcRequestSenderTests
 
         var result = await sender.SendAsync(
             ResolvedUnityProjectContextTestFactory.Create(),
-            sessionToken => CreateRequest("logs.unity.read", sessionToken),
+            sessionToken => CreateRequest(UnityIpcMethod.UnityLogsRead, sessionToken),
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         DaemonIpcDispatchAssert.SingleDispatchPreservedCallerTimeoutBudget(
             transportClient,
-            expectedMethod: "logs.unity.read",
+            expectedMethod: UnityIpcMethod.UnityLogsRead,
             expectedSessionToken: "daemon-token",
             minimumTimeout: TimeSpan.FromSeconds(4.9));
     }
@@ -84,7 +84,7 @@ public sealed class DaemonIpcRequestSenderTests
         var timeout = TimeSpan.FromSeconds(5);
         var sendTask = sender.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                sessionToken => CreateRequest(UnityIpcMethod.UnityLogsRead, sessionToken),
                 timeout,
                 CancellationToken.None)
             .AsTask();
@@ -133,7 +133,7 @@ public sealed class DaemonIpcRequestSenderTests
 
         var result = await sender.SendAsync(
             ResolvedUnityProjectContextTestFactory.Create(),
-            sessionToken => CreateRequest("logs.unity.read", sessionToken),
+            sessionToken => CreateRequest(UnityIpcMethod.UnityLogsRead, sessionToken),
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
@@ -174,7 +174,7 @@ public sealed class DaemonIpcRequestSenderTests
         var timeout = TimeSpan.FromSeconds(5);
         var sendTask = sender.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                sessionToken => CreateRequest(UnityIpcMethod.UnityLogsRead, sessionToken),
                 timeout,
                 CancellationToken.None)
             .AsTask();
@@ -235,7 +235,7 @@ public sealed class DaemonIpcRequestSenderTests
                 sessionToken =>
                 {
                     Interlocked.Increment(ref requestCreationCount);
-                    return CreateRequest("logs.unity.read", sessionToken);
+                    return CreateRequest(UnityIpcMethod.UnityLogsRead, sessionToken);
                 },
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
@@ -248,7 +248,7 @@ public sealed class DaemonIpcRequestSenderTests
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);
-        var requests = IpcRequestAssert.Methods(transportClient, "logs.unity.read", "logs.unity.read");
+        var requests = IpcRequestAssert.Methods(transportClient, UnityIpcMethod.UnityLogsRead, UnityIpcMethod.UnityLogsRead);
         IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
         Assert.Equal(1, requestCreationCount);
         _ = IpcRequestAssert.SingleRequestId(requests);
@@ -276,7 +276,7 @@ public sealed class DaemonIpcRequestSenderTests
                 sessionToken =>
                 {
                     Interlocked.Increment(ref requestCreationCount);
-                    return CreateRequest("logs.unity.read", sessionToken);
+                    return CreateRequest(UnityIpcMethod.UnityLogsRead, sessionToken);
                 },
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
@@ -290,7 +290,7 @@ public sealed class DaemonIpcRequestSenderTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(IpcProtocol.StatusOk, result.Response!.Status);
-        var requests = IpcRequestAssert.Methods(transportClient, "logs.unity.read", "logs.unity.read");
+        var requests = IpcRequestAssert.Methods(transportClient, UnityIpcMethod.UnityLogsRead, UnityIpcMethod.UnityLogsRead);
         IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
         Assert.Equal(1, requestCreationCount);
         _ = IpcRequestAssert.SingleRequestId(requests);
@@ -316,7 +316,7 @@ public sealed class DaemonIpcRequestSenderTests
 
         var resultTask = sender.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                sessionToken => CreateRequest(UnityIpcMethod.UnityLogsRead, sessionToken),
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
@@ -331,7 +331,7 @@ public sealed class DaemonIpcRequestSenderTests
         Assert.True(result.IsSuccess);
         Assert.Equal(IpcProtocol.StatusError, result.Response!.Status);
         Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, Assert.Single(result.Response.Errors).Code);
-        var requests = IpcRequestAssert.Methods(transportClient, "logs.unity.read", "logs.unity.read");
+        var requests = IpcRequestAssert.Methods(transportClient, UnityIpcMethod.UnityLogsRead, UnityIpcMethod.UnityLogsRead);
         IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
     }
 
@@ -361,7 +361,7 @@ public sealed class DaemonIpcRequestSenderTests
 
         var resultTask = sender.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                sessionToken => CreateRequest(UnityIpcMethod.UnityLogsRead, sessionToken),
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
@@ -377,7 +377,7 @@ public sealed class DaemonIpcRequestSenderTests
         Assert.Equal(
             DaemonErrorCodes.DaemonSessionNotAvailable,
             Assert.IsType<ExecutionError>(result.Error).Code);
-        var requests = IpcRequestAssert.Methods(transportClient, "logs.unity.read", "logs.unity.read");
+        var requests = IpcRequestAssert.Methods(transportClient, UnityIpcMethod.UnityLogsRead, UnityIpcMethod.UnityLogsRead);
         IpcRequestAssert.SessionTokens(requests, "daemon-token-1", "daemon-token-2");
     }
 
@@ -397,7 +397,7 @@ public sealed class DaemonIpcRequestSenderTests
 
         var resultTask = sender.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                sessionToken => CreateRequest(UnityIpcMethod.UnityLogsRead, sessionToken),
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
@@ -435,7 +435,7 @@ public sealed class DaemonIpcRequestSenderTests
 
         var sendTask = sender.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                sessionToken => CreateRequest("logs.unity.read", sessionToken),
+                sessionToken => CreateRequest(UnityIpcMethod.UnityLogsRead, sessionToken),
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
@@ -454,7 +454,9 @@ public sealed class DaemonIpcRequestSenderTests
 
         Assert.False(result.IsSuccess);
         var requests = IpcRequestAssert.RetriedAtLeastOnce(transportClient);
-        Assert.All(requests, request => Assert.Equal("logs.unity.read", request.Method));
+        Assert.All(
+            requests,
+            request => Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.UnityLogsRead), request.Method));
         var requestId = IpcRequestAssert.SingleRequestId(requests);
         Assert.NotEqual(Guid.Empty, requestId);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -464,14 +466,14 @@ public sealed class DaemonIpcRequestSenderTests
     }
 
     private static IpcRequest CreateRequest (
-        string method,
+        UnityIpcMethod method,
         string sessionToken)
     {
         return new IpcRequest(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
             sessionToken: sessionToken,
-            method: method,
+            method: ContractLiteralCodec.ToValue(method),
             payload: JsonDocument.Parse("{}").RootElement.Clone(),
             responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
     }

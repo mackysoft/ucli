@@ -47,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.Compile;
+        public UnityIpcMethod Method => UnityIpcMethod.Compile;
 
         /// <inheritdoc />
         public bool TryCreateRecoverableRequestPayloadHash (

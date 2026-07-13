@@ -730,5 +730,5 @@ public sealed class SupervisorTransportServerTests
             responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
     }
 
-    private sealed record TransportServerResponse (string Method);
+    private sealed record TransportServerResponse (string? Method);
 }

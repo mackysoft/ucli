@@ -53,7 +53,7 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: connection.SessionToken,
-                method: IpcMethodNames.Shutdown,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: payload,
                 responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
             var response = await transportClient.SendAsync(

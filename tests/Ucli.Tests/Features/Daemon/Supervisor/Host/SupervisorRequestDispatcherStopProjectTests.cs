@@ -26,7 +26,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken,
-                method: SupervisorIpcContracts.StopProjectMethod,
+                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new
                     {
@@ -66,7 +66,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken,
-                method: SupervisorIpcContracts.StopProjectMethod,
+                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
                         UnityProjectRoot: unityProjectRoot,
@@ -104,7 +104,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken,
-                method: SupervisorIpcContracts.StopProjectMethod,
+                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
                         UnityProjectRoot: unityProjectRoot,
@@ -141,7 +141,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken,
-                method: SupervisorIpcContracts.StopProjectMethod,
+                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
                         UnityProjectRoot: unityProjectRoot,

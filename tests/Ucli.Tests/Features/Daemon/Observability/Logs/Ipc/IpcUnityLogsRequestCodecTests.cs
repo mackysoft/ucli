@@ -25,7 +25,7 @@ public sealed class IpcUnityLogsRequestCodecTests
 
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
         Assert.Equal("session-token", request.SessionToken);
-        Assert.Equal(IpcMethodNames.UnityLogsRead, request.Method);
+        Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.UnityLogsRead), request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcUnityLogsReadRequest payload, out _));
         Assert.Equal(32, payload.Tail);
         Assert.Equal("stream-1:44", payload.After);

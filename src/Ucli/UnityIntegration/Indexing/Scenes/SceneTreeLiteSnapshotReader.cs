@@ -42,9 +42,7 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
                 timeout,
                 config,
                 project,
-                new UnityRequestPayload.Raw(
-                    IpcMethodNames.IndexSceneTreeLiteRead,
-                    IpcPayloadCodec.SerializeToElement(new IpcIndexSceneTreeLiteReadRequest(scenePath, failFast, loadedSceneOnly))),
+                new UnityRequestPayload.IndexSceneTreeLiteRead(scenePath, failFast, loadedSceneOnly),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)

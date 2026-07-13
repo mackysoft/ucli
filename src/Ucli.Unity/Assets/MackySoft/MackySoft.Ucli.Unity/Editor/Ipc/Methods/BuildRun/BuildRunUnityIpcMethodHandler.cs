@@ -81,7 +81,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.BuildRun;
+        public UnityIpcMethod Method => UnityIpcMethod.BuildRun;
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (

@@ -35,7 +35,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken,
-                method: SupervisorIpcContracts.EnsureRunningMethod,
+                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
@@ -82,7 +82,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken,
-                method: SupervisorIpcContracts.EnsureRunningMethod,
+                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
@@ -123,7 +123,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken,
-                method: SupervisorIpcContracts.EnsureRunningMethod,
+                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,

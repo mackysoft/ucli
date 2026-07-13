@@ -146,19 +146,28 @@ internal sealed class SupervisorRequestDispatcher
                 $"Protocol version mismatch. Requested={request.ProtocolVersion}, Supported={IpcProtocol.CurrentVersion}.");
         }
 
+        if (!ContractLiteralCodec.TryParse(request.Method, out SupervisorIpcMethod method))
+        {
+            var methodLiteral = request.Method ?? "<null>";
+            return SupervisorIpcResponseFactory.CreateErrorResponse(
+                request,
+                IpcProtocolErrorCodes.IpcMethodNotSupported,
+                $"Supervisor IPC method is not supported: {methodLiteral}.");
+        }
+
         if (streamWriter is not null
-            && !string.Equals(request.Method, SupervisorIpcContracts.EnsureRunningMethod, StringComparison.Ordinal))
+            && method != SupervisorIpcMethod.EnsureRunning)
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
                 UcliCoreErrorCodes.InvalidArgument,
-                $"Supervisor IPC responseMode 'stream' is only supported for {SupervisorIpcContracts.EnsureRunningMethod}.");
+                $"Supervisor IPC responseMode 'stream' is only supported for {ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning)}.");
         }
 
-        return request.Method switch
+        return method switch
         {
-            SupervisorIpcContracts.PingMethod => HandlePing(request, runtimeContext),
-            SupervisorIpcContracts.EnsureRunningMethod => await HandleEnsureRunningAsync(
+            SupervisorIpcMethod.Ping => HandlePing(request, runtimeContext),
+            SupervisorIpcMethod.EnsureRunning => await HandleEnsureRunningAsync(
                     stream,
                     request,
                     runtimeContext,
@@ -166,11 +175,8 @@ internal sealed class SupervisorRequestDispatcher
                     requestLifetimeStarted,
                     cancellationToken)
                 .ConfigureAwait(false),
-            SupervisorIpcContracts.StopProjectMethod => await HandleStopProjectAsync(stream, request, runtimeContext, cancellationToken).ConfigureAwait(false),
-            _ => SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                IpcProtocolErrorCodes.IpcMethodNotSupported,
-                $"Supervisor IPC method is not supported: {request.Method}."),
+            SupervisorIpcMethod.StopProject => await HandleStopProjectAsync(stream, request, runtimeContext, cancellationToken).ConfigureAwait(false),
+            _ => throw new InvalidOperationException($"Unsupported supervisor IPC method: {method}."),
         };
     }
 

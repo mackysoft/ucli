@@ -16,7 +16,7 @@ internal static class IpcUnityConsoleClearRequestCodec
         var payload = IpcPayloadCodec.SerializeToElement(new IpcUnityConsoleClearRequest(UcliCommandIds.LogsUnityClear.Name));
         return UnityIpcRequestFactory.Create(
             sessionToken,
-            IpcMethodNames.UnityConsoleClear,
+            UnityIpcMethod.UnityConsoleClear,
             payload,
             Guid.NewGuid(),
             IpcResponseMode.Single);

@@ -48,8 +48,8 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         Assert.True(result.IsSuccess);
         var requests = IpcRequestAssert.Methods(
             transportClient,
-            IpcMethodNames.PlayEnter,
-            IpcMethodNames.PlayEnter);
+            UnityIpcMethod.PlayEnter,
+            UnityIpcMethod.PlayEnter);
         _ = IpcRequestAssert.SingleRequestId(requests);
         Assert.True(IpcPayloadCodec.TryDeserialize(requests[0].Payload, out IpcPlayEnterRequest firstPayload, out _));
         Assert.True(IpcPayloadCodec.TryDeserialize(requests[1].Payload, out IpcPlayEnterRequest secondPayload, out _));
@@ -78,7 +78,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
 
         var sendTask = client.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                new UnityIpcDispatchRequest(IpcMethodNames.PlayEnter, CreateDispatchPayload(), isRecoverable: isRecoverable),
+                new UnityIpcDispatchRequest(UnityIpcMethod.PlayEnter, CreateDispatchPayload(), isRecoverable: isRecoverable),
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
@@ -91,7 +91,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         Assert.True(result.IsSuccess);
         var requests = DaemonIpcDispatchAssert.RecoveredDispatchesWithReloadedSessionToken(
             transportClient,
-            IpcMethodNames.PlayEnter,
+            UnityIpcMethod.PlayEnter,
             "daemon-token-1",
             "daemon-token-2");
         _ = IpcRequestAssert.SingleRequestId(requests);
@@ -116,14 +116,14 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
 
         var result = await client.SendAsync(
             ResolvedUnityProjectContextTestFactory.Create(),
-            new UnityIpcDispatchRequest(IpcMethodNames.PlayEnter, CreateDispatchPayload(), isRecoverable: true),
+            new UnityIpcDispatchRequest(UnityIpcMethod.PlayEnter, CreateDispatchPayload(), isRecoverable: true),
             TimeSpan.FromSeconds(5),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var requests = DaemonIpcDispatchAssert.RecoveredDispatchesWithReloadedSessionToken(
             transportClient,
-            IpcMethodNames.PlayEnter,
+            UnityIpcMethod.PlayEnter,
             "daemon-token-1",
             "daemon-token-2");
         var requestId = IpcRequestAssert.SingleRequestId(requests);
@@ -149,7 +149,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
 
         var sendTask = client.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                new UnityIpcDispatchRequest(IpcMethodNames.Compile, CreateDispatchPayload(), isRecoverable: true),
+                new UnityIpcDispatchRequest(UnityIpcMethod.Compile, CreateDispatchPayload(), isRecoverable: true),
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
@@ -163,7 +163,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         Assert.True(result.IsSuccess);
         var requests = DaemonIpcDispatchAssert.RecoveredDispatchesWithReloadedSessionToken(
             transportClient,
-            IpcMethodNames.Compile,
+            UnityIpcMethod.Compile,
             "daemon-token-1",
             "daemon-token-2");
         var requestId = IpcRequestAssert.SingleRequestId(requests);
@@ -186,7 +186,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
 
         var sendTask = client.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                new UnityIpcDispatchRequest(IpcMethodNames.Compile, CreateDispatchPayload(), isRecoverable: true),
+                new UnityIpcDispatchRequest(UnityIpcMethod.Compile, CreateDispatchPayload(), isRecoverable: true),
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
@@ -204,7 +204,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
         DaemonIpcDispatchAssert.RetriedDispatchesWithSameRequestId(
             transportClient,
-            IpcMethodNames.Compile,
+            UnityIpcMethod.Compile,
             maximumAttempts: 19);
     }
 
@@ -229,7 +229,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         var sendTask = client.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
                 new UnityIpcDispatchRequest(
-                    IpcMethodNames.PlayExit,
+                    UnityIpcMethod.PlayExit,
                     CreateDispatchPayload(),
                     isRecoverable: true,
                     recoverableResponseAttemptTimeout: attemptTimeout),
@@ -246,7 +246,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         Assert.True(result.IsSuccess);
         var requestId = DaemonIpcDispatchAssert.RecoverableDispatchRetriedWithReloadedSessionTokenAndAttemptTimeout(
             transportClient,
-            IpcMethodNames.PlayExit,
+            UnityIpcMethod.PlayExit,
             "daemon-token-1",
             "daemon-token-2",
             attemptTimeout);
@@ -273,7 +273,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
 
         var sendTask = client.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                new UnityIpcDispatchRequest(IpcMethodNames.PlayEnter, CreateDispatchPayload(), isRecoverable: true),
+                new UnityIpcDispatchRequest(UnityIpcMethod.PlayEnter, CreateDispatchPayload(), isRecoverable: true),
                 TimeSpan.FromSeconds(5),
                 CancellationToken.None)
             .AsTask();
@@ -287,7 +287,7 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         Assert.True(result.IsSuccess);
         var request = DaemonIpcDispatchAssert.SingleDispatchSent(
             transportClient,
-            IpcMethodNames.PlayEnter,
+            UnityIpcMethod.PlayEnter,
             "daemon-token-2");
         Assert.NotEqual(Guid.Empty, request.RequestId);
     }

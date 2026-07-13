@@ -1,25 +1,41 @@
 namespace MackySoft.Ucli.Tests.Ipc;
 
-using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 
 public sealed class UnityIpcRequestBuilderBasicPayloadTests
 {
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(0)]
+    [InlineData(999)]
+    public void UnityIpcDispatchRequest_WhenMethodIsUndefined_ThrowsArgumentOutOfRangeException (int value)
+    {
+        var method = (UnityIpcMethod)value;
+
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            new UnityIpcDispatchRequest(method, IpcPayloadCodec.SerializeToElement(new { })));
+
+        Assert.Equal("method", exception.ParamName);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
-    public void Build_WithRawPayload_PreservesMethodAndPayload ()
+    public void Build_WithOpsRead_CreatesOpsReadPayload ()
     {
-        var payload = JsonSerializer.SerializeToElement(new
-        {
-            value = 42,
-        });
         var builder = new UnityIpcRequestBuilder();
 
-        var request = builder.Build(new UnityRequestPayload.Raw("custom.method", payload));
+        var request = builder.Build(new UnityRequestPayload.OpsRead(
+            FailFast: true,
+            RequireReadinessGate: true,
+            IncludeEditLoweringOnly: true));
 
-        Assert.Equal("custom.method", request.Method);
-        Assert.Equal(payload.GetRawText(), request.Payload.GetRawText());
+        Assert.Equal(UnityIpcMethod.OpsRead, request.Method);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcOpsReadRequest payload, out _));
+        Assert.True(payload.FailFast);
+        Assert.True(payload.RequireReadinessGate);
+        Assert.True(payload.IncludeEditLoweringOnly);
     }
 
     [Fact]
@@ -32,7 +48,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
             "test-client",
             FailFast: true));
 
-        Assert.Equal(IpcMethodNames.Ping, request.Method);
+        Assert.Equal(UnityIpcMethod.Ping, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPingRequest payload, out _));
         Assert.Equal("test-client", payload.ClientVersion);
         Assert.True(payload.FailFast);
@@ -46,7 +62,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
 
         var request = builder.Build(new UnityRequestPayload.Compile("run-1"));
 
-        Assert.Equal(IpcMethodNames.Compile, request.Method);
+        Assert.Equal(UnityIpcMethod.Compile, request.Method);
         Assert.True(request.IsRecoverable);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest payload, out _));
         Assert.Equal("run-1", payload.RunId);
@@ -64,7 +80,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
 
         var request = builder.Build(new UnityRequestPayload.PlayStatus());
 
-        Assert.Equal(IpcMethodNames.PlayStatus, request.Method);
+        Assert.Equal(UnityIpcMethod.PlayStatus, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayStatusRequest _, out _));
         Assert.Empty(request.AllowedStartupLifecycleStates);
     }
@@ -77,7 +93,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
 
         var request = builder.Build(new UnityRequestPayload.PlayEnter(1500));
 
-        Assert.Equal(IpcMethodNames.PlayEnter, request.Method);
+        Assert.Equal(UnityIpcMethod.PlayEnter, request.Method);
         Assert.True(request.IsRecoverable);
         Assert.Equal(TimeSpan.FromMilliseconds(1000), request.RecoverableResponseAttemptTimeout);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayEnterRequest payload, out _));
@@ -93,7 +109,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
 
         var request = builder.Build(new UnityRequestPayload.PlayExit(2500));
 
-        Assert.Equal(IpcMethodNames.PlayExit, request.Method);
+        Assert.Equal(UnityIpcMethod.PlayExit, request.Method);
         Assert.True(request.IsRecoverable);
         Assert.Equal(TimeSpan.FromMilliseconds(1000), request.RecoverableResponseAttemptTimeout);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayExitRequest payload, out _));
