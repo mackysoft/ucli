@@ -23,13 +23,6 @@ public readonly record struct UcliCommand
         Name = name;
     }
 
-    private UcliCommand (
-        string name,
-        bool _)
-    {
-        Name = name;
-    }
-
     /// <summary> Converts one command identifier into its string form. </summary>
     /// <param name="command"> The command identifier to convert. </param>
     public static implicit operator string (UcliCommand command)
@@ -51,7 +44,7 @@ public readonly record struct UcliCommand
             return false;
         }
 
-        command = new UcliCommand(name!, true);
+        command = new UcliCommand(name!);
         return true;
     }
 
