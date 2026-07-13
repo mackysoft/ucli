@@ -9,7 +9,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -132,8 +131,7 @@ internal sealed class SupervisorRequestDispatcher
                 "Supervisor session token is required.");
         }
 
-        if (!IpcSessionToken.IsValidEncodedValue(request.SessionToken)
-            || !runtimeContext.Manifest.SessionToken.Matches(request.SessionToken))
+        if (!runtimeContext.Manifest.SessionToken.Matches(request.SessionToken))
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
