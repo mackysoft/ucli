@@ -14,7 +14,8 @@ internal interface IDaemonPingInfoClient
     /// <returns> A task that resolves to the decoded ping payload. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    ValueTask<IpcPingResponse> PingAndReadAsync (
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="sessionToken" /> is empty or whitespace. </exception>
+    ValueTask<IpcUnityEditorObservation> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         bool validateProjectFingerprint,
@@ -29,7 +30,7 @@ internal interface IDaemonPingInfoClient
     /// <returns> A task that resolves to the decoded ping payload. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="session" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
-    ValueTask<IpcPingResponse> PingSessionAndReadAsync (
+    ValueTask<IpcUnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,

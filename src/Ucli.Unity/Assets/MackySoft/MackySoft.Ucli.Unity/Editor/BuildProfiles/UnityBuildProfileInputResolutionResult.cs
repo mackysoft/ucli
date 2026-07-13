@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Unity.Build
         UnityBuildPreconditionInput? PreconditionInput,
         IpcBuildOutputLayout? OutputLayout,
         IpcUnityBuildProfileInput? UnityBuildProfile,
-        IpcBuildLifecycleSnapshot? LifecycleBefore,
+        IpcUnityEditorObservation? LifecycleBefore,
         IpcBuildDirtyState? DirtyState,
         IpcError? Error)
     {
@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Build
         public static UnityBuildProfileInputResolutionResult Failure (
             IpcError error,
             IpcUnityBuildProfileInput? unityBuildProfile = null,
-            IpcBuildLifecycleSnapshot? lifecycleBefore = null,
+            IpcUnityEditorObservation? lifecycleBefore = null,
             IpcBuildDirtyState? dirtyState = null)
         {
             return new UnityBuildProfileInputResolutionResult(

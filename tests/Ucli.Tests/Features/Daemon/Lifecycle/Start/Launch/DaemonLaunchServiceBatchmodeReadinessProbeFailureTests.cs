@@ -36,10 +36,10 @@ public sealed class DaemonLaunchServiceBatchmodeReadinessProbeFailureTests
             scenario.LaunchAttemptStore,
             scenario.Context,
             AssertStartupLaunchAttemptId(result.Startup),
-            ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout),
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), launchAttempt.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttempt.ProcessAction);
+            DaemonStartupStatus.Timeout,
+            DaemonStartupProcessAction.Terminated);
+        Assert.Equal(DaemonStartupStatus.Timeout, launchAttempt.StartupStatus);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, launchAttempt.ProcessAction);
         Assert.Equal(scenario.ProcessStartedAtUtc, launchAttempt.ProcessStartedAtUtc);
     }
 

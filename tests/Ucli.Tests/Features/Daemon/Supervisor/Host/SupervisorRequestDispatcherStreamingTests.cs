@@ -1,6 +1,7 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Supervisor.SupervisorRequestDispatcherTestSupport;
@@ -18,31 +19,33 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock",
             processId: 42,
             ownerProcessId: 24,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.Started(session),
+            StartResult = DaemonStartResult.Started(
+                session,
+                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
             OnStart = async (progressObserver, cancellationToken) =>
             {
                 Assert.NotNull(progressObserver);
                 await progressObserver!.EmitWaitingForEndpointAsync(
                         new DaemonStartStartupProgressObservation(
                             LaunchAttemptId: "attempt-1",
-                            EditorMode: "gui",
-                            OwnerKind: "user",
+                            EditorMode: DaemonEditorMode.Gui,
+                            OwnerKind: DaemonSessionOwnerKind.User,
                             CanShutdownProcess: false,
                             ProcessId: 42,
                             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
-                            StartupStatus: "waitingForEndpoint",
+                            StartupStatus: DaemonStartupStatus.WaitingForEndpoint,
                             StartupBlockingReason: null,
-                            StartupPhase: "endpointRegistration",
+                            StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
                             RetryDisposition: null,
                             Message: "Waiting for daemon endpoint.",
                             ErrorCode: null),
@@ -119,14 +122,14 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 await progressObserver!.EmitWaitingForEndpointAsync(
                         new DaemonStartStartupProgressObservation(
                             LaunchAttemptId: "attempt-1",
-                            EditorMode: "batchmode",
-                            OwnerKind: "cli",
+                            EditorMode: DaemonEditorMode.Batchmode,
+                            OwnerKind: DaemonSessionOwnerKind.Cli,
                             CanShutdownProcess: true,
                             ProcessId: 42,
                             ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-                            StartupStatus: "waitingForEndpoint",
+                            StartupStatus: DaemonStartupStatus.WaitingForEndpoint,
                             StartupBlockingReason: null,
-                            StartupPhase: "endpointRegistration",
+                            StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
                             RetryDisposition: null,
                             Message: null,
                             ErrorCode: null),
@@ -230,14 +233,14 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 await progressObserver!.EmitWaitingForEndpointAsync(
                         new DaemonStartStartupProgressObservation(
                             LaunchAttemptId: "attempt-blocking-cancellation",
-                            EditorMode: "batchmode",
-                            OwnerKind: "cli",
+                            EditorMode: DaemonEditorMode.Batchmode,
+                            OwnerKind: DaemonSessionOwnerKind.Cli,
                             CanShutdownProcess: true,
                             ProcessId: 42,
                             ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-                            StartupStatus: "waitingForEndpoint",
+                            StartupStatus: DaemonStartupStatus.WaitingForEndpoint,
                             StartupBlockingReason: null,
-                            StartupPhase: "endpointRegistration",
+                            StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
                             RetryDisposition: null,
                             Message: null,
                             ErrorCode: null),

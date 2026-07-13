@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using static MackySoft.Ucli.Tests.Supervisor.SupervisorProjectCoordinatorTestSupport;
@@ -15,7 +16,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var unityProject = CreateUnityProject(scope);
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.AlreadyRunning(CreateExitedProcessSession()),
+            StartResult = CreateAlreadyRunningResult(CreateExitedProcessSession()),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var coordinator = CreateCoordinator(
@@ -46,7 +47,8 @@ public sealed class SupervisorProjectCoordinatorTests
         var unityProject = CreateUnityProject();
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.AlreadyRunning(DaemonSessionTestFactory.Create(sessionToken: "session-token", processId: null)),
+            StartResult = CreateAlreadyRunningResult(
+                DaemonSessionTestFactory.Create(sessionToken: "session-token", processId: null)),
         };
         var coordinator = CreateCoordinator(
             startOperation,
@@ -82,7 +84,8 @@ public sealed class SupervisorProjectCoordinatorTests
         var releasePing = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.AlreadyRunning(DaemonSessionTestFactory.Create(sessionToken: "session-token", processId: null)),
+            StartResult = CreateAlreadyRunningResult(
+                DaemonSessionTestFactory.Create(sessionToken: "session-token", processId: null)),
         };
         var pingClient = new RecordingDaemonPingClient(async (_, _, _, cancellationToken) =>
         {
@@ -120,13 +123,13 @@ public sealed class SupervisorProjectCoordinatorTests
         var userOwnedSession = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             processId: 4242,
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.AlreadyRunning(userOwnedSession),
+            StartResult = CreateAlreadyRunningResult(userOwnedSession),
         };
         var coordinator = CreateCoordinator(
             startOperation,
@@ -156,13 +159,17 @@ public sealed class SupervisorProjectCoordinatorTests
         var userOwnedSession = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             processId: 4243,
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.Started(userOwnedSession),
+            StartResult = DaemonStartResult.Started(
+                userOwnedSession,
+                IpcUnityEditorObservationTestFactory.Create(
+                    editorMode: DaemonEditorMode.Gui,
+                    projectFingerprint: userOwnedSession.ProjectFingerprint)),
         };
         var coordinator = CreateCoordinator(
             startOperation,
@@ -183,5 +190,14 @@ public sealed class SupervisorProjectCoordinatorTests
         Assert.Same(userOwnedSession, result.Session);
         Assert.False(coordinator.HasManagedProjects);
         Assert.False(coordinator.HasActiveProjectWork);
+    }
+
+    private static DaemonStartResult CreateAlreadyRunningResult (DaemonSession session)
+    {
+        return DaemonStartResult.AlreadyRunning(
+            session,
+            IpcUnityEditorObservationTestFactory.Create(
+                editorMode: session.EditorMode,
+                projectFingerprint: session.ProjectFingerprint));
     }
 }

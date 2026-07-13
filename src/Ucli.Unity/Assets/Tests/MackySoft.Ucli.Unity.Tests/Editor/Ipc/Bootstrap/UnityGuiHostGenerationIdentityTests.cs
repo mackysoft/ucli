@@ -67,15 +67,18 @@ namespace MackySoft.Ucli.Unity.Tests
                     capturedEditorInstanceId,
                     "1.2.3-tests");
                 await lifecyclePersistence.WriteAsync(
-                    new UnityEditorLifecycleSnapshot(
-                        DaemonEditorMode.Gui,
-                        IpcEditorLifecycleStateCodec.Ready,
-                        null,
-                        IpcCompileStateCodec.Ready,
-                        "compile-generation",
-                        "domain-reload-generation",
-                        CanAcceptExecutionRequests: true,
-                        ObservedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero)),
+                    new UnityEditorObservation(
+                        state: new UnityEditorStateSnapshot(
+                            editorMode: DaemonEditorMode.Gui,
+                            lifecycleState: IpcEditorLifecycleState.Ready,
+                            compileState: IpcCompileState.Ready,
+                            generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
+                            playMode: new IpcPlayModeSnapshot(
+                                IpcPlayModeState.Stopped,
+                                IpcPlayModeTransition.None,
+                                IsPlaying: false,
+                                IsPlayingOrWillChangePlaymode: false)),
+                        observedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero)),
                     CancellationToken.None);
 
                 var operationStore = FileRecoverableIpcOperationStore.Create(
@@ -111,7 +114,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(lifecycleContract, Is.Not.Null);
                 Assert.That(operationReadResult.Record, Is.Not.Null);
                 Assert.That(sessionContract.EditorInstanceId, Is.EqualTo(expectedPersistedId));
-                Assert.That(lifecycleContract.EditorInstanceId, Is.EqualTo(expectedPersistedId));
+                Assert.That(lifecycleContract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
                 Assert.That(operationReadResult.Record.HostEditorInstanceId, Is.EqualTo(expectedPersistedId));
             }
             finally

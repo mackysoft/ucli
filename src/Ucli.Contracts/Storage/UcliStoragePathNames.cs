@@ -81,6 +81,15 @@ public static class UcliStoragePathNames
     /// <summary> Gets the build-artifacts directory name under one fingerprint artifacts directory. </summary>
     public const string BuildArtifactsDirectoryName = "build";
 
+    /// <summary> Gets the screenshot directory name under fingerprint artifact and work roots. </summary>
+    public const string ScreenshotDirectoryName = "screenshot";
+
+    /// <summary> Gets the final screenshot PNG file name. </summary>
+    public const string ScreenshotPngFileName = "screenshot.png";
+
+    /// <summary> Gets the normalized raw screenshot staging file name. </summary>
+    public const string ScreenshotRawStagingFileName = "capture.rgba";
+
     /// <summary> Gets the build-work directory name under one fingerprint work directory. </summary>
     public const string BuildWorkDirectoryName = "build";
 

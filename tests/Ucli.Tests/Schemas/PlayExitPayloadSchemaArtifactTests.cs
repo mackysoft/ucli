@@ -36,14 +36,14 @@ public sealed class PlayExitPayloadSchemaArtifactTests
             playModeTransition: "exiting",
             isPlaying: true,
             isPlayingOrWillChangePlaymode: true,
-            generation: "42"));
+            playModeGeneration: 42));
         using var blockedDocument = JsonDocument.Parse(CreatePlayExitPayloadJson(
             $$"""
             {
               "transition": "exit",
               "result": "blocked",
               "before": {{CreatePlayingPlayLifecycleSnapshotJson()}},
-              "observed": {{CreatePlayLifecycleSnapshotJson(lifecycleState: "safeMode", blockingReasonJson: "\"safeMode\"", canAcceptExecutionRequests: false, generation: "44")}},
+              "observed": {{CreatePlayLifecycleSnapshotJson(lifecycleState: "safeMode", blockingReasonJson: "\"safeMode\"", canAcceptExecutionRequests: false, playModeGeneration: 44)}},
               "applicationState": "applied"
             }
             """,
@@ -74,7 +74,7 @@ public sealed class PlayExitPayloadSchemaArtifactTests
             playModeTransition: "exiting",
             isPlaying: true,
             isPlayingOrWillChangePlaymode: true,
-            generation: "42"));
+            playModeGeneration: 42));
         using var successWithErrorFieldsDocument = JsonDocument.Parse(CreatePlayExitPayloadJson(
             $$"""
             {
@@ -104,7 +104,7 @@ public sealed class PlayExitPayloadSchemaArtifactTests
             playModeTransition: "exiting",
             isPlaying: true,
             isPlayingOrWillChangePlaymode: true,
-            generation: "42"));
+            playModeGeneration: 42));
         using var timeoutWithNotAppliedApplicationStateDocument = JsonDocument.Parse(CreatePlayExitPayloadJson(
             $$"""
             {
@@ -122,7 +122,7 @@ public sealed class PlayExitPayloadSchemaArtifactTests
             playModeTransition: "exiting",
             isPlaying: true,
             isPlayingOrWillChangePlaymode: true,
-            generation: "42"));
+            playModeGeneration: 42));
         using var successWithPlayingAfterDocument = JsonDocument.Parse(CreatePlayExitPayloadJson(
             $$"""
             {
@@ -156,7 +156,7 @@ public sealed class PlayExitPayloadSchemaArtifactTests
             playModeState: "playing",
             isPlaying: true,
             isPlayingOrWillChangePlaymode: true,
-            generation: "43"));
+            playModeGeneration: 43));
         using var exitWithOpResultsDocument = JsonDocument.Parse(
             $$"""
             {
@@ -170,9 +170,13 @@ public sealed class PlayExitPayloadSchemaArtifactTests
               "editorMode": "gui",
               "lifecycleState": "ready",
               "blockingReason": null,
-              "compileState": "idle",
-              "compileGeneration": "12",
-              "domainReloadGeneration": "7",
+              "compileState": "ready",
+              "generations": {
+                "compileGeneration": 12,
+                "domainReloadGeneration": 7,
+                "assetRefreshGeneration": 5,
+                "playModeGeneration": 44
+              },
               "canAcceptExecutionRequests": true,
               "observedAtUtc": "2026-05-21T00:00:00+00:00",
               "actionRequired": null,
@@ -181,8 +185,7 @@ public sealed class PlayExitPayloadSchemaArtifactTests
                 "state": "stopped",
                 "transition": "none",
                 "isPlaying": false,
-                "isPlayingOrWillChangePlaymode": false,
-                "generation": "44"
+                "isPlayingOrWillChangePlaymode": false
               },
               "transition": {
                 "transition": "exit",

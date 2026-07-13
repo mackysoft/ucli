@@ -63,7 +63,7 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(
             new SocketException((int)SocketError.ConnectionRefused),
-            CreatePingPayload(canAcceptExecutionRequests: true));
+            CreatePingPayload());
         var logReader = new RecordingUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(

@@ -3,7 +3,6 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
@@ -64,21 +63,24 @@ internal static class DaemonSessionContractMapper
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse<DaemonEditorMode>(contract.EditorMode, out var editorMode))
+        if (contract.EditorMode is not DaemonEditorMode editorMode
+            || !Enum.IsDefined(typeof(DaemonEditorMode), editorMode))
         {
-            error = Invalid($"editorMode is invalid. Actual: {contract.EditorMode ?? "null"}.", sourceDescription);
+            error = Invalid($"editorMode is invalid. Actual: {contract.EditorMode?.ToString() ?? "null"}.", sourceDescription);
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse<DaemonSessionOwnerKind>(contract.OwnerKind, out var ownerKind))
+        if (contract.OwnerKind is not DaemonSessionOwnerKind ownerKind
+            || !Enum.IsDefined(typeof(DaemonSessionOwnerKind), ownerKind))
         {
-            error = Invalid($"ownerKind is invalid. Actual: {contract.OwnerKind ?? "null"}.", sourceDescription);
+            error = Invalid($"ownerKind is invalid. Actual: {contract.OwnerKind?.ToString() ?? "null"}.", sourceDescription);
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(contract.EndpointTransportKind, out var transportKind))
+        if (contract.EndpointTransportKind is not IpcTransportKind transportKind
+            || !Enum.IsDefined(typeof(IpcTransportKind), transportKind))
         {
-            error = Invalid($"endpointTransportKind is invalid. Actual: {contract.EndpointTransportKind ?? "null"}.", sourceDescription);
+            error = Invalid($"endpointTransportKind is invalid. Actual: {contract.EndpointTransportKind?.ToString() ?? "null"}.", sourceDescription);
             return false;
         }
 
@@ -145,10 +147,10 @@ internal static class DaemonSessionContractMapper
             SessionToken: session.SessionToken.GetEncodedValue(),
             ProjectFingerprint: session.ProjectFingerprint,
             IssuedAtUtc: session.IssuedAtUtc,
-            EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-            OwnerKind: ContractLiteralCodec.ToValue(session.OwnerKind),
+            EditorMode: session.EditorMode,
+            OwnerKind: session.OwnerKind,
             CanShutdownProcess: session.CanShutdownProcess,
-            EndpointTransportKind: ContractLiteralCodec.ToValue(session.Endpoint.TransportKind),
+            EndpointTransportKind: session.Endpoint.TransportKind,
             EndpointAddress: session.Endpoint.Address,
             ProcessId: session.ProcessId,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,

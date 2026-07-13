@@ -18,14 +18,14 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerProjectionTests
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.Error!.Code);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked), result.Startup!.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile), result.Startup.StartupBlockingReason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix), result.Startup.RetryDisposition);
-        Assert.Equal("batchmode", result.Startup.EditorMode);
-        Assert.Equal("cli", result.Startup.OwnerKind);
+        Assert.Equal(DaemonStartupStatus.Blocked, result.Startup!.StartupStatus);
+        Assert.Equal(DaemonStartupBlockingReason.Compile, result.Startup.StartupBlockingReason);
+        Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, result.Startup.RetryDisposition);
+        Assert.Equal(DaemonEditorMode.Batchmode, result.Startup.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKind.Cli, result.Startup.OwnerKind);
         Assert.Equal(scenario.ProcessId, result.Startup.ProcessId);
         Assert.Equal(scenario.ProcessStartedAtUtc, result.Startup.StartedAtUtc);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup.ProcessAction);
         Assert.NotNull(result.Startup.ArtifactPath);
         Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
         DaemonLaunchInvocationAssert.LaunchCompensationAttempted(
@@ -34,10 +34,10 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerProjectionTests
             processId: scenario.ProcessId,
             processStartedAtUtc: scenario.ProcessStartedAtUtc);
         Assert.Equal(
-            ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
+            DaemonStartupStatus.Blocked,
             DaemonLaunchAttemptStoreAssert.LatestLaunchAttemptWrittenFor(scenario.LaunchAttemptStore, scenario.Context).StartupStatus);
         Assert.Equal(
-            ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
+            DaemonStartupBlockingReason.Compile,
             DaemonLaunchAttemptStoreAssert.LatestLaunchAttemptWrittenFor(scenario.LaunchAttemptStore, scenario.Context).StartupBlockingReason);
     }
 
@@ -55,7 +55,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerProjectionTests
             result,
             scenario.CompensationService);
         Assert.Equal(
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
+            DaemonStartupProcessAction.Kept,
             DaemonLaunchAttemptStoreAssert.LatestLaunchAttemptWrittenFor(scenario.LaunchAttemptStore, scenario.Context).ProcessAction);
     }
 }

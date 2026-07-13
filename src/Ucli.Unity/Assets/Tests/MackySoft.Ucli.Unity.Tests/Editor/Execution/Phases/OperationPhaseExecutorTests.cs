@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.Contracts;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -9,11 +7,14 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
+using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Project;
-using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -21,7 +22,6 @@ using NUnit.Framework;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.TestTools;
-using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -1716,8 +1716,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     repositoryRoot: RepositoryRoot,
                     projectFingerprint: ProjectFingerprint,
                     unityVersion: "6000.0.0f1",
-                    compileState: IpcCompileStateCodec.Ready,
-                    domainReloadGeneration: "na");
+                    compileState: IpcCompileState.Ready,
+                    domainReloadGeneration: 0);
                 return new MutablePlanTokenEnvironment(snapshot, DateTimeOffset.UtcNow);
             }
 

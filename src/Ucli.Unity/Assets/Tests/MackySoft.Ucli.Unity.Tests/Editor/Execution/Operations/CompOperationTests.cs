@@ -906,7 +906,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var shadowComponent = shadowState.Component as CompOperationTestComponent;
             if (shadowComponent == null)
             {
-                throw new InvalidOperationException("Component shadow did not contain the expected test component.");
+                throw new AssertionException($"Expected shadow component type {nameof(CompOperationTestComponent)}.");
             }
 
             Assert.That(shadowComponent.ObjectReferenceValue, Is.SameAs(previewOnly));

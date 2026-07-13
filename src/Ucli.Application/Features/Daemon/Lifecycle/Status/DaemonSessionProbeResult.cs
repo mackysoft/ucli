@@ -8,7 +8,7 @@ internal sealed record DaemonSessionProbeResult
 {
     private DaemonSessionProbeResult (
         DaemonSession session,
-        IpcPingResponse? pingResponse,
+        IpcUnityEditorObservation? pingResponse,
         DaemonSessionReadResult? sessionReadFailure,
         Exception? probeFailure)
     {
@@ -22,7 +22,7 @@ internal sealed record DaemonSessionProbeResult
     public DaemonSession Session { get; }
 
     /// <summary> Gets the decoded ping response on success. </summary>
-    public IpcPingResponse? PingResponse { get; }
+    public IpcUnityEditorObservation? PingResponse { get; }
 
     /// <summary> Gets the refreshed-session read failure after token rotation. </summary>
     public DaemonSessionReadResult? SessionReadFailure { get; }
@@ -36,7 +36,7 @@ internal sealed record DaemonSessionProbeResult
     /// <summary> Creates a successful exact-session probe result. </summary>
     public static DaemonSessionProbeResult Success (
         DaemonSession session,
-        IpcPingResponse pingResponse)
+        IpcUnityEditorObservation pingResponse)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(pingResponse);

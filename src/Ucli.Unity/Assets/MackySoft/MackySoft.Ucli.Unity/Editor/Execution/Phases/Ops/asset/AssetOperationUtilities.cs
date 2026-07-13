@@ -104,9 +104,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(executionContext));
             }
 
+            var alias = reference.Alias;
             if (allowTemporaryState
                 && reference.Kind == UnityObjectReferenceKind.Alias
-                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
+                && alias != null
+                && executionContext.TryGetTemporaryAliasState(alias, out var temporaryAliasState))
             {
                 assetPath = temporaryAliasState.Resource.Path;
                 temporaryAliasState.SourceTrackingKey?.TryGetStableGlobalObjectId(out sourceGlobalObjectId);
@@ -119,7 +121,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                if (!TryValidateTemporaryAssetTarget(temporaryAliasState.UnityObject, reference.Alias!, out errorMessage))
+                var temporaryObject = temporaryAliasState.UnityObject;
+                if (temporaryObject == null)
+                {
+                    errorMessage = $"Reference alias was not found: {alias}.";
+                    assetPath = string.Empty;
+                    sourceGlobalObjectId = null;
+                    return false;
+                }
+
+                if (!TryValidateTemporaryAssetTarget(temporaryObject, alias, out errorMessage))
                 {
                     unityObject = null;
                     assetPath = string.Empty;
@@ -127,16 +138,26 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                unityObject = temporaryAliasState.UnityObject;
+                unityObject = temporaryObject;
                 return true;
             }
 
+            var selectorAssetPath = reference.Selector.AssetPath;
             if (allowTemporaryState
                 && reference.Kind == UnityObjectReferenceKind.Selector
                 && reference.Selector.Kind == ResolveSelectorKind.AssetPath
-                && executionContext.TryGetPlannedAssetState(reference.Selector.AssetPath!, out var plannedAssetState))
+                && selectorAssetPath != null
+                && executionContext.TryGetPlannedAssetState(selectorAssetPath, out var plannedAssetState))
             {
-                unityObject = plannedAssetState.UnityObject;
+                var plannedObject = plannedAssetState.UnityObject;
+                if (plannedObject == null)
+                {
+                    errorMessage = $"Planned asset is no longer available: {plannedAssetState.AssetPath}.";
+                    assetPath = string.Empty;
+                    return false;
+                }
+
+                unityObject = plannedObject;
                 assetPath = plannedAssetState.AssetPath;
                 sourceGlobalObjectId = null;
                 errorMessage = string.Empty;
@@ -147,7 +168,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 reference,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
-                out var objectResolution,
+                out var resolvedObject,
                 out errorMessage))
             {
                 assetPath = string.Empty;
@@ -155,14 +176,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var liveUnityObject = objectResolution.UnityObject;
-            if (liveUnityObject == null)
-            {
-                assetPath = string.Empty;
-                sourceGlobalObjectId = null;
-                errorMessage = "Reference did not resolve to a live Unity object.";
-                return false;
-            }
+            var liveUnityObject = resolvedObject.UnityObject;
 
             if (!TryValidatePersistentMainAssetTarget(liveUnityObject, out assetPath, out errorMessage))
             {

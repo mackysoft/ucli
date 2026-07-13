@@ -19,18 +19,8 @@ internal static class DaemonStatusServiceTestSupport
             new DaemonDiagnosisOutputMapper());
     }
 
-    public static IpcPingResponse CreatePingResponse ()
+    public static IpcUnityEditorObservation CreatePingResponse ()
     {
-        return new IpcPingResponse(
-            ServerVersion: "0.0.1",
-            EditorMode: "batchmode",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-            BlockingReason: null,
-            CompileGeneration: "1",
-            DomainReloadGeneration: "1",
-            CanAcceptExecutionRequests: true);
+        return IpcUnityEditorObservationTestFactory.Create();
     }
 }

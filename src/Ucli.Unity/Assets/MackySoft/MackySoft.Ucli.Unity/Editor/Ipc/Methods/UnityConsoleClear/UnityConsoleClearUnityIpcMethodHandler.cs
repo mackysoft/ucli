@@ -72,8 +72,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null));
             }
 
-            var snapshot = readinessGate.CaptureSnapshot();
-            if (snapshot.EditorMode != DaemonEditorMode.Gui)
+            var snapshot = readinessGate.CaptureObservation();
+            if (snapshot.State.EditorMode != DaemonEditorMode.Gui)
             {
                 var message = "Unity Console clear requires a GUI Unity Editor daemon session.";
                 daemonLogger.Warning(

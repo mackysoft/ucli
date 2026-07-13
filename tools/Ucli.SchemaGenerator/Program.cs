@@ -119,6 +119,8 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.PlayStatus.Name, CreatePlayStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.PlayEnter.Name, CreatePlayEnterPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.PlayExit.Name, CreatePlayExitPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.ScreenshotGame.Name, CreateScreenshotGamePayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.ScreenshotScene.Name, CreateScreenshotScenePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.DaemonStart.Name, CreateDaemonStartPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.DaemonStatus.Name, CreateDaemonStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.TestProfileInit.Name, CreateTestProfileInitPayloadSchema()),
@@ -393,8 +395,7 @@ internal static class Program
             Optional("lifecycleState", NullableStringSchema()),
             Optional("blockingReason", NullableStringSchema()),
             Optional("compileState", NullableStringSchema()),
-            Optional("compileGeneration", NullableStringSchema()),
-            Optional("domainReloadGeneration", NullableStringSchema()),
+            Optional("generations", NullableUnityGenerationSnapshotSchema()),
             Optional("canAcceptExecutionRequests", BooleanSchema()),
             Optional("editorMode", NullableStringSchema()),
             Optional("observedAtUtc", NullableStringSchema()),
@@ -441,8 +442,7 @@ internal static class Program
                 ["lifecycleState"] = NullableStringSchema(),
                 ["blockingReason"] = NullableStringSchema(),
                 ["compileState"] = NullableStringSchema(),
-                ["compileGeneration"] = NullableStringSchema(),
-                ["domainReloadGeneration"] = NullableStringSchema(),
+                ["generations"] = NullableUnityGenerationSnapshotSchema(),
                 ["canAcceptExecutionRequests"] = BooleanSchema(),
                 ["observedAtUtc"] = NullableStringSchema(),
                 ["actionRequired"] = NullableStringSchema(),
@@ -588,8 +588,8 @@ internal static class Program
                 additionalProperties: false,
                 Required("started", BooleanSchema()),
                 Required("completed", BooleanSchema()),
-                Required("compileGenerationBefore", StringSchema()),
-                Required("compileGenerationAfter", StringSchema()),
+                Required("compileGenerationBefore", NullableNonNegativeIntegerSchema()),
+                Required("compileGenerationAfter", NullableNonNegativeIntegerSchema()),
                 Required("diagnostics", ObjectSchema(
                     additionalProperties: false,
                     Required("errorCount", IntegerSchema()),
@@ -599,8 +599,8 @@ internal static class Program
                 additionalProperties: false,
                 Required("reloadRequired", BooleanSchema()),
                 Required("reloadObserved", BooleanSchema()),
-                Required("generationBefore", StringSchema()),
-                Required("generationAfter", StringSchema()),
+                Required("generationBefore", NullableNonNegativeIntegerSchema()),
+                Required("generationAfter", NullableNonNegativeIntegerSchema()),
                 Required("settled", BooleanSchema()))),
             Required("lifecycle", ObjectSchema(
                 additionalProperties: false,
@@ -610,8 +610,7 @@ internal static class Program
                 Required("lifecycleState", NullableStringSchema()),
                 Required("blockingReason", NullableStringSchema()),
                 Required("compileState", NullableStringSchema()),
-                Required("compileGeneration", NullableStringSchema()),
-                Required("domainReloadGeneration", NullableStringSchema()),
+                Required("generations", NullableUnityGenerationSnapshotSchema()),
                 Required("canAcceptExecutionRequests", BooleanSchema()),
                 Required("observedAtUtc", NullableStringSchema()),
                 Required("actionRequired", NullableStringSchema()),
@@ -626,7 +625,7 @@ internal static class Program
 
         schema["$defs"] = new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["generation"] = CreateBuildRunGenerationSnapshotSchema(),
+            ["generation"] = CreateUnityGenerationSnapshotSchema(),
         };
 
         return schema;
@@ -858,15 +857,6 @@ internal static class Program
             additionalProperties: false,
             Required("path", StringSchema()),
             Required("digest", Sha256LowerHexSchema()));
-    }
-
-    private static Dictionary<string, object?> CreateBuildRunGenerationSnapshotSchema ()
-    {
-        return ObjectSchema(
-            additionalProperties: false,
-            Required("compileGeneration", StringSchema()),
-            Required("domainReloadGeneration", StringSchema()),
-            Required("assetRefreshGeneration", StringSchema()));
     }
 
     private static Dictionary<string, object?> CreateBuildRunDirtyStateSchema ()
@@ -1387,6 +1377,65 @@ internal static class Program
             CreatePlayLifecyclePayloadProperties(Required("timeoutMilliseconds", IntegerSchema())));
     }
 
+    private static Dictionary<string, object?> CreateScreenshotGamePayloadSchema ()
+    {
+        return OneOfSchema(
+            CreateScreenshotPayloadSchema(
+                ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
+                ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.CurrentSurface),
+                hasRequestedResolution: false),
+            CreateScreenshotPayloadSchema(
+                ContractLiteralCodec.ToValue(IpcScreenshotTarget.Game),
+                ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.RequestedResolution),
+                hasRequestedResolution: true));
+    }
+
+    private static Dictionary<string, object?> CreateScreenshotScenePayloadSchema ()
+    {
+        return CreateScreenshotPayloadSchema(
+            ContractLiteralCodec.ToValue(IpcScreenshotTarget.Scene),
+            ContractLiteralCodec.ToValue(IpcScreenshotSizeMode.CurrentSurface),
+            hasRequestedResolution: false);
+    }
+
+    private static Dictionary<string, object?> CreateScreenshotPayloadSchema (
+        string target,
+        string sizeMode,
+        bool hasRequestedResolution)
+    {
+        var requestedDimensionSchema = hasRequestedResolution
+            ? PositiveIntegerSchema()
+            : NullSchema();
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("project", ReferenceSchema("../defs/project.schema.json")),
+            Required("capture", ObjectSchema(
+                additionalProperties: false,
+                Required("target", ConstString(target)),
+                Required("sizeMode", ConstString(sizeMode)),
+                Required("requestedWidth", requestedDimensionSchema),
+                Required("requestedHeight", requestedDimensionSchema),
+                Required("width", PositiveIntegerSchema()),
+                Required("height", PositiveIntegerSchema()),
+                Required(
+                    "colorSpace",
+                    EnumSchema(ContractLiteralCodec.GetLiterals<IpcScreenshotColorSpace>().ToArray())),
+                Required("lifecycleStateAtCapture", StringSchema()),
+                Required("compileStateAtCapture", StringSchema()),
+                Required("domainReloadGeneration", NonNegativeIntegerSchema()),
+                Required("playModeState", StringSchema()))),
+            Required("artifact", ObjectSchema(
+                additionalProperties: false,
+                Required(
+                    "kind",
+                    ConstString(ContractLiteralCodec.ToValue(ScreenshotArtifactKind.Screenshot))),
+                Required("mediaType", ConstString(ScreenshotArtifactContract.MediaType)),
+                Required("path", StringSchema()),
+                Required("digest", Sha256LowerHexSchema()),
+                Required("sizeBytes", PositiveIntegerSchema()),
+                Required("createdAtUtc", StringSchema()))));
+    }
+
     private static Dictionary<string, object?> CreatePlayEnterPayloadSchema ()
     {
         return OneOfSchema(
@@ -1472,8 +1521,7 @@ internal static class Program
             Required("lifecycleState", CreateLifecycleStateSchema(payloadState)),
             Required("blockingReason", CreateBlockingReasonSchema(payloadState)),
             Required("compileState", NullableStringSchema()),
-            Required("compileGeneration", NullableStringSchema()),
-            Required("domainReloadGeneration", NullableStringSchema()),
+            Required("generations", NullableUnityGenerationSnapshotSchema()),
             Required("canAcceptExecutionRequests", CreateCanAcceptExecutionRequestsSchema(payloadState)),
             Required("observedAtUtc", NullableStringSchema()),
             Required("actionRequired", NullableStringSchema()),
@@ -1621,8 +1669,7 @@ internal static class Program
             Required("lifecycleState", CreateLifecycleStateSchema(payloadState)),
             Required("blockingReason", CreateBlockingReasonSchema(payloadState)),
             Required("compileState", NullableStringSchema()),
-            Required("compileGeneration", NullableStringSchema()),
-            Required("domainReloadGeneration", NullableStringSchema()),
+            Required("generations", NullableUnityGenerationSnapshotSchema()),
             Required("canAcceptExecutionRequests", CreateCanAcceptExecutionRequestsSchema(payloadState)),
             Required("observedAtUtc", NullableStringSchema()),
             Required("actionRequired", NullableStringSchema()),
@@ -1668,16 +1715,15 @@ internal static class Program
                         Literal(IpcPlayModeTransition.Exiting))
                     : ConstString(Literal(IpcPlayModeTransition.None))),
             Required("isPlaying", CreateIsPlayingSchema(payloadState)),
-            Required("isPlayingOrWillChangePlaymode", CreateIsPlayingOrWillChangePlaymodeSchema(payloadState)),
-            Required("generation", NullableStringSchema()));
+            Required("isPlayingOrWillChangePlaymode", CreateIsPlayingOrWillChangePlaymodeSchema(payloadState)));
     }
 
     private static Dictionary<string, object?> CreateLifecycleStateSchema (PlayLifecyclePayloadState payloadState)
     {
         return payloadState switch
         {
-            PlayLifecyclePayloadState.Entered => ConstString(IpcEditorLifecycleStateCodec.Playmode),
-            PlayLifecyclePayloadState.ReadyStopped => ConstString(IpcEditorLifecycleStateCodec.Ready),
+            PlayLifecyclePayloadState.Entered => ConstString(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode)),
+            PlayLifecyclePayloadState.ReadyStopped => ConstString(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready)),
             _ => NullableStringSchema(),
         };
     }
@@ -1686,7 +1732,7 @@ internal static class Program
     {
         return payloadState switch
         {
-            PlayLifecyclePayloadState.Entered => ConstString(IpcEditorBlockingReasonCodec.PlayMode),
+            PlayLifecyclePayloadState.Entered => ConstString(ContractLiteralCodec.ToValue(IpcEditorBlockingReason.PlayMode)),
             PlayLifecyclePayloadState.ReadyStopped => NullSchema(),
             _ => NullableStringSchema(),
         };
@@ -1763,8 +1809,7 @@ internal static class Program
             Optional("lifecycleState", NullableStringSchema()),
             Optional("blockingReason", NullableStringSchema()),
             Optional("compileState", NullableStringSchema()),
-            Optional("compileGeneration", NullableStringSchema()),
-            Optional("domainReloadGeneration", NullableStringSchema()),
+            Optional("generations", NullableUnityGenerationSnapshotSchema()),
             Optional("canAcceptExecutionRequests", BooleanSchema()),
             Optional("observedAtUtc", NullableStringSchema()),
             Optional("actionRequired", NullableStringSchema()),
@@ -1964,6 +2009,32 @@ internal static class Program
             ["type"] = "integer",
             ["minimum"] = 0,
         };
+    }
+
+    private static Dictionary<string, object?> NullableNonNegativeIntegerSchema ()
+    {
+        return new Dictionary<string, object?>(StringComparer.Ordinal)
+        {
+            ["type"] = new[] { "integer", "null" },
+            ["minimum"] = 0,
+        };
+    }
+
+    private static Dictionary<string, object?> CreateUnityGenerationSnapshotSchema ()
+    {
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("compileGeneration", NonNegativeIntegerSchema()),
+            Required("domainReloadGeneration", NonNegativeIntegerSchema()),
+            Required("assetRefreshGeneration", NonNegativeIntegerSchema()),
+            Required("playModeGeneration", NonNegativeIntegerSchema()));
+    }
+
+    private static Dictionary<string, object?> NullableUnityGenerationSnapshotSchema ()
+    {
+        return OneOfSchema(
+            CreateUnityGenerationSnapshotSchema(),
+            NullSchema());
     }
 
     private static Dictionary<string, object?> PositiveIntegerSchema ()

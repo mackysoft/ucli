@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Context.Project;
-
 namespace MackySoft.Ucli.Application.Tests.Shared.Context.Project;
 
 public sealed class ResolvedUnityProjectContextTests

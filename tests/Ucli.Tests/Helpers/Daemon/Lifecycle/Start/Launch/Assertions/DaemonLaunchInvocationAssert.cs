@@ -130,7 +130,7 @@ internal static class DaemonLaunchInvocationAssert
     {
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Kept, result.Startup!.ProcessAction);
         Assert.Empty(compensationService.Invocations);
         return result.Startup;
     }

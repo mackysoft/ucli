@@ -13,7 +13,7 @@ internal sealed class UnexpectedDaemonPingInfoClient : IDaemonPingInfoClient
         this.reason = reason;
     }
 
-    public ValueTask<IpcPingResponse> PingAndReadAsync (
+    public ValueTask<IpcUnityEditorObservation> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         bool validateProjectFingerprint,
@@ -22,7 +22,7 @@ internal sealed class UnexpectedDaemonPingInfoClient : IDaemonPingInfoClient
         throw new InvalidOperationException(reason);
     }
 
-    public ValueTask<IpcPingResponse> PingSessionAndReadAsync (
+    public ValueTask<IpcUnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,

@@ -64,8 +64,8 @@ public sealed record IpcCompileSummary
     public sealed record ScriptCompilationEvidence (
         bool Started,
         bool Completed,
-        string CompileGenerationBefore,
-        string CompileGenerationAfter,
+        long? CompileGenerationBefore,
+        long? CompileGenerationAfter,
         DiagnosticsEvidence Diagnostics);
 
     /// <summary> Represents compiler diagnostic counts and the primary diagnostic. </summary>
@@ -78,21 +78,16 @@ public sealed record IpcCompileSummary
     public sealed record DomainReloadEvidence (
         bool ReloadRequired,
         bool ReloadObserved,
-        string GenerationBefore,
-        string GenerationAfter,
+        long? GenerationBefore,
+        long? GenerationAfter,
         bool Settled);
 
     /// <summary> Represents the final lifecycle snapshot after compile observation. </summary>
     public sealed record LifecycleEvidence (
         string? ServerVersion,
         string? UnityVersion,
-        string? EditorMode,
-        string? LifecycleState,
-        string? BlockingReason,
-        string? CompileState,
-        string? CompileGeneration,
-        string? DomainReloadGeneration,
-        bool CanAcceptExecutionRequests,
+        [property: JsonRequired]
+        UnityEditorStateSnapshot? State,
         DateTimeOffset? ObservedAtUtc,
         string? ActionRequired,
         IpcPrimaryDiagnostic? PrimaryDiagnostic);

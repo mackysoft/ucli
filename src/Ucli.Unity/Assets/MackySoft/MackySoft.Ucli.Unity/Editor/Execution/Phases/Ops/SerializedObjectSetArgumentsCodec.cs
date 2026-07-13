@@ -162,15 +162,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 var path = sourceAssignment.Path?.Value;
-                if (path == null || string.IsNullOrWhiteSpace(path))
+                if (path == null)
                 {
-                    errorMessage = $"Operation 'args.sets[{i}].path' must not be empty or whitespace.";
-                    return false;
-                }
-
-                if (StringValueValidator.HasOuterWhitespace(path))
-                {
-                    errorMessage = $"Operation 'args.sets[{i}].path' must not contain leading or trailing whitespace.";
+                    errorMessage = $"Operation 'args.sets[{i}]' requires property '{PathPropertyName}'.";
                     return false;
                 }
 

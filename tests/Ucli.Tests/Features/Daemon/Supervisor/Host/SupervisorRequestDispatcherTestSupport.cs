@@ -55,19 +55,21 @@ internal static class SupervisorRequestDispatcherTestSupport
             StorageRoot: ResolvedUnityProjectContextTestFactory.RepositoryRoot,
             Manifest: new SupervisorInstanceManifest(
                 processId: 1234,
-                sessionToken: IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
-                endpoint: new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-supervisor-test.sock"),
+                sessionToken: IpcSessionTokenTestFactory.Create("supervisor-session-token"),
+                endpoint: new IpcEndpoint(
+                    IpcTransportKind.UnixDomainSocket,
+                    "/tmp/ucli-supervisor-test.sock"),
                 issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero)));
     }
 
     public static DaemonStartupObservation CreateStartupObservation ()
     {
         return new DaemonStartupObservation(
-            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
+            StartupStatus: DaemonStartupStatus.Blocked,
+            StartupBlockingReason: DaemonStartupBlockingReason.Compile,
             LaunchAttemptId: null,
-            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix));
+            ProcessAction: DaemonStartupProcessAction.Kept,
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix);
     }
 
     public static async Task<IpcResponse> SendRequestAsync (

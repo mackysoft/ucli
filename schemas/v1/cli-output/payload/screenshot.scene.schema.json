@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/screenshot.scene.schema.json",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "project": {
+      "$ref": "../defs/project.schema.json"
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "target": {
+          "type": "string",
+          "const": "scene"
+        },
+        "sizeMode": {
+          "type": "string",
+          "const": "currentSurface"
+        },
+        "requestedWidth": {
+          "type": "null"
+        },
+        "requestedHeight": {
+          "type": "null"
+        },
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "colorSpace": {
+          "type": "string",
+          "enum": [
+            "gamma",
+            "linear"
+          ]
+        },
+        "lifecycleStateAtCapture": {
+          "type": "string"
+        },
+        "compileStateAtCapture": {
+          "type": "string"
+        },
+        "domainReloadGeneration": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "playModeState": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "target",
+        "sizeMode",
+        "requestedWidth",
+        "requestedHeight",
+        "width",
+        "height",
+        "colorSpace",
+        "lifecycleStateAtCapture",
+        "compileStateAtCapture",
+        "domainReloadGeneration",
+        "playModeState"
+      ]
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "kind": {
+          "type": "string",
+          "const": "screenshot"
+        },
+        "mediaType": {
+          "type": "string",
+          "const": "image/png"
+        },
+        "path": {
+          "type": "string"
+        },
+        "digest": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "sizeBytes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "createdAtUtc": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "mediaType",
+        "path",
+        "digest",
+        "sizeBytes",
+        "createdAtUtc"
+      ]
+    }
+  },
+  "required": [
+    "project",
+    "capture",
+    "artifact"
+  ]
+}

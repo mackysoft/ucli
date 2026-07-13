@@ -63,9 +63,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             ReadResult = DaemonLifecycleObservationReadResult.Success(
                 DaemonExistingSessionGateServiceTestSupport.CreateLifecycleObservation(
                     session,
-                    IpcEditorLifecycleStateCodec.Ready,
-                    blockingReason: null,
-                    canAcceptExecutionRequests: true)),
+                    IpcEditorLifecycleState.Ready)),
         };
         var pingClient = new RecordingDaemonPingInfoClient(new TimeoutException("endpoint occupied"));
         var cleanupService = new RecordingDaemonSessionCleanupService();
@@ -104,9 +102,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             ReadResult = DaemonLifecycleObservationReadResult.Success(
                 DaemonExistingSessionGateServiceTestSupport.CreateLifecycleObservation(
                     session,
-                    IpcEditorLifecycleStateCodec.Recovering,
-                    IpcEditorBlockingReasonCodec.Recovery,
-                    canAcceptExecutionRequests: false,
+                    IpcEditorLifecycleState.Recovering,
                     observedAtUtc: now - DaemonLifecycleObservationTimings.FreshnessWindow - TimeSpan.FromMilliseconds(1))),
         };
         var pingClient = new RecordingDaemonPingInfoClient(new TimeoutException("endpoint unavailable"));
@@ -371,20 +367,23 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task TryHandleExistingSession_WhenRecoveringSidecarHasInvalidEditorInstanceId_ReturnsTimeoutFailure ()
+    public async Task TryHandleExistingSession_WhenRecoveringSidecarHasDifferentEditorInstanceId_ReturnsTimeoutFailure ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-timeout-recovery-missing-editor-instance"));
         var session = DaemonSessionTestFactory.Create(
             processId: 4011,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
+            editorInstanceId: Guid.Parse("11111111-1111-1111-1111-111111111111"));
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
-            ReadResult = DaemonLifecycleObservationReadResult.Failure(
-                ExecutionError.InvalidArgument("Daemon lifecycle editorInstanceId is invalid.")),
+            ReadResult = DaemonLifecycleObservationReadResult.Success(
+                DaemonExistingSessionGateServiceTestSupport.CreateLifecycleObservation(
+                    session,
+                    IpcEditorLifecycleState.Recovering,
+                    editorInstanceId: Guid.Parse("22222222-2222-2222-2222-222222222222"))),
         };
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(new TimeoutException("recovering")),

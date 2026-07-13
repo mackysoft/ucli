@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Application.Shared.CommandContracts;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 
@@ -10,8 +10,7 @@ namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 /// <param name="LifecycleState"> The daemon-side lifecycle-state when reachable. </param>
 /// <param name="BlockingReason"> The daemon-side blocking-reason when reachable. </param>
 /// <param name="CompileState"> The daemon compile-state value when reachable. </param>
-/// <param name="CompileGeneration"> The daemon compile generation when reachable. </param>
-/// <param name="DomainReloadGeneration"> The daemon domain-reload generation when reachable. </param>
+/// <param name="Generations"> The Unity lifecycle generation snapshot when reachable. </param>
 /// <param name="CanAcceptExecutionRequests"> Whether the daemon can currently accept execution requests. </param>
 /// <param name="EditorMode"> The daemon Editor mode when reachable. </param>
 /// <param name="ObservedAtUtc"> The daemon lifecycle observation timestamp when available. </param>
@@ -21,14 +20,13 @@ namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 internal sealed record StatusDaemonObservation (
     DaemonStatusKind DaemonStatus,
     string? ServerVersion,
-    string? LifecycleState,
-    string? BlockingReason,
-    string? CompileState,
-    string? CompileGeneration,
-    string? DomainReloadGeneration,
+    IpcEditorLifecycleState? LifecycleState,
+    IpcEditorBlockingReason? BlockingReason,
+    IpcCompileState? CompileState,
+    IpcUnityGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
-    string? EditorMode,
+    DaemonEditorMode? EditorMode,
     DateTimeOffset? ObservedAtUtc = null,
     string? ActionRequired = null,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null,
-    PlayModeSnapshotOutput? PlayMode = null);
+    IpcPlayModeSnapshot? PlayMode = null);

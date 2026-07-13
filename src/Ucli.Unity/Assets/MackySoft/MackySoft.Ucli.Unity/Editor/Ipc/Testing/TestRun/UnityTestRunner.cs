@@ -7,6 +7,8 @@ using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
 
+#nullable enable annotations
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Executes Unity Test Framework API runs for daemon test-run requests. </summary>

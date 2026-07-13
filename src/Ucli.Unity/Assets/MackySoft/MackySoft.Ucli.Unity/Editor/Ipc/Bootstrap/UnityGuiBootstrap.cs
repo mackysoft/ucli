@@ -293,12 +293,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 using var publicationFence = startResult.PublicationFence;
                 preparedSession = null;
                 EnsureStartingGenerationOwnership(state);
-                var initialSnapshot = readinessGate.CaptureSnapshot();
-                var initialSnapshotObservedAtUtc = initialSnapshot.ObservedAtUtc ?? DateTimeOffset.UtcNow;
-                initialSnapshot = initialSnapshot with
-                {
-                    ObservedAtUtc = initialSnapshotObservedAtUtc,
-                };
+                var initialSnapshot = readinessGate.CaptureObservation();
                 var lifecycleSidecarWriter = new UnityLifecycleSidecarWriter(
                     new UnityLifecycleSidecarPersistence(
                         storageRoot,
@@ -313,7 +308,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 await lifecycleSidecarWriter.InitializeAsync(
                     initialSnapshot,
-                    initialSnapshotObservedAtUtc,
+                    initialSnapshot.ObservedAtUtc,
                     state.CancellationToken);
                 EnsureStartingGenerationOwnership(state);
                 nextState = new ActiveGuiBootstrapState(
@@ -1204,10 +1199,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 // CLI status commands may time out while Unity is in Play Mode or recovering, but Unity main-thread
                 // callbacks still own the authoritative lifecycle snapshot. Keep the sidecar fresh enough to serve as
                 // the read-only observation path without moving Unity API access off the main thread.
-                var snapshot = capturedState.ReadinessGate.CaptureSnapshot() with
-                {
-                    ObservedAtUtc = now,
-                };
+                var snapshot = capturedState.ReadinessGate
+                    .CaptureObservation()
+                    .WithObservedAtUtc(now);
                 _ = capturedState.LifecycleSidecarWriter.TryEnqueue(
                     snapshot,
                     now,
@@ -1370,13 +1364,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             try
             {
                 var observedAtUtc = DateTimeOffset.UtcNow;
-                var snapshot = state.ReadinessGate.CaptureSnapshot() with
-                {
-                    LifecycleState = IpcEditorLifecycleStateCodec.Recovering,
-                    BlockingReason = UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(IpcEditorLifecycleStateCodec.Recovering),
-                    CanAcceptExecutionRequests = false,
-                    ObservedAtUtc = observedAtUtc,
-                };
+                var snapshot = state.ReadinessGate
+                    .CaptureObservation()
+                    .WithLifecycleState(IpcEditorLifecycleState.Recovering)
+                    .WithObservedAtUtc(observedAtUtc);
                 if (!state.LifecycleSidecarWriter.TryEnqueue(snapshot, observedAtUtc, out version))
                 {
                     return false;

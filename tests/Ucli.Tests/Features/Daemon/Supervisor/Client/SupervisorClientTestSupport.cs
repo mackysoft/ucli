@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
@@ -49,38 +50,32 @@ internal static class SupervisorClientTestSupport
         return DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            editorMode: "gui",
-            endpointTransportKind: "unixDomainSocket",
+            editorMode: DaemonEditorMode.Gui,
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock",
             processId: 42,
             processStartedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero),
             ownerProcessId: Environment.ProcessId);
     }
 
-    public static DaemonStartLifecycleSnapshot CreateReadyLifecycleSnapshot ()
+    public static IpcUnityEditorObservation CreateReadyLifecycleObservation ()
     {
-        return new DaemonStartLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
-            null,
-            CanAcceptExecutionRequests: true);
+        return IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Ready);
     }
 
-    public static DaemonStartLifecycleSnapshot CreateCompilingLifecycleSnapshot ()
+    public static IpcUnityEditorObservation CreateCompilingLifecycleObservation ()
     {
-        return new DaemonStartLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
-            CanAcceptExecutionRequests: false);
+        return IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Compiling);
     }
 
     public static DaemonStartupObservation CreateStartupObservation ()
     {
         return new DaemonStartupObservation(
-            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
+            StartupStatus: DaemonStartupStatus.Blocked,
+            StartupBlockingReason: DaemonStartupBlockingReason.Compile,
             LaunchAttemptId: null,
-            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept),
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix));
+            ProcessAction: DaemonStartupProcessAction.Kept,
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix);
     }
 
     public static IpcResponse CreateEnsureRunningResponse (
@@ -88,7 +83,7 @@ internal static class SupervisorClientTestSupport
         string startStatus = "started",
         string daemonStatus = "running",
         DaemonSession? session = null,
-        DaemonStartLifecycleSnapshot? lifecycleSnapshot = null)
+        IpcUnityEditorObservation? lifecycleObservation = null)
     {
         return new IpcResponse(
             protocolVersion: request.ProtocolVersion,
@@ -99,7 +94,7 @@ internal static class SupervisorClientTestSupport
                     StartStatus: startStatus,
                     DaemonStatus: daemonStatus,
                     Session: DaemonSessionContractMapper.ToContract(session ?? CreateGuiDaemonSession()),
-                    LifecycleSnapshot: lifecycleSnapshot ?? CreateReadyLifecycleSnapshot())),
+                    LifecycleObservation: lifecycleObservation ?? CreateReadyLifecycleObservation())),
             errors: []);
     }
 
@@ -147,17 +142,17 @@ internal static class SupervisorClientTestSupport
 
     public static IpcStreamFrame CreateWaitingForEndpointProgressFrame (
         IpcRequest request,
-        string onStartupBlocked = "auto",
+        DaemonStartupBlockedProcessPolicy onStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto,
         string? message = null)
     {
         var progressPayload = DaemonStartProgressEntryTestFactory.CreateStartupObservation(
-            timeoutMilliseconds: 4000,
-            editorMode: "gui",
+            timeoutMilliseconds: 5000,
+            editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: onStartupBlocked,
             processId: 42,
             startedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero),
-            startupStatus: "waitingForEndpoint",
-            startupPhase: "endpointRegistration",
+            startupStatus: DaemonStartupStatus.WaitingForEndpoint,
+            startupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
             message: message);
 
         return CreateProgressFrame(
@@ -166,17 +161,22 @@ internal static class SupervisorClientTestSupport
             progressPayload);
     }
 
-    public static IpcStreamFrame CreateLifecycleSnapshotProgressFrame (IpcRequest request)
+    public static IpcStreamFrame CreateLifecycleSnapshotProgressFrame (
+        IpcRequest request,
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Compiling,
+        IpcEditorBlockingReason? blockingReason = IpcEditorBlockingReason.Compile,
+        bool canAcceptExecutionRequests = false)
     {
         var progressPayload = new DaemonStartLifecycleSnapshotProgressEntry(
-            ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
+            DaemonStartProgressPayloadKind.LifecycleSnapshot,
             DefaultProjectFingerprint,
-            4000,
-            "gui",
-            "auto",
-            IpcEditorLifecycleStateCodec.Compiling,
-            IpcEditorBlockingReasonCodec.Compile,
-            CanAcceptExecutionRequests: false);
+            5000,
+            DaemonEditorMode.Gui,
+            DaemonStartupBlockedProcessPolicy.Auto,
+            lifecycleState,
+            blockingReason,
+            new IpcUnityGenerationSnapshot(0, 0, 0, 0),
+            canAcceptExecutionRequests);
 
         return CreateProgressFrame(
             request,

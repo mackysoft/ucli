@@ -109,18 +109,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out OperationPhaseStepResult? failure)
         {
             failure = null;
-            scenePath = string.Empty;
-            queryArguments = new SceneQuerySelectionEngine.QueryArguments(args.PathPrefix?.Value, args.ComponentType?.Value);
+            scenePath = args.Scene?.Value ?? string.Empty;
+            queryArguments = new SceneQuerySelectionEngine.QueryArguments(
+                args.PathPrefix?.Value,
+                args.ComponentType?.Value);
 
-            var requestedScenePath = args.Scene.Value;
-
-            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(requestedScenePath, out var errorMessage))
+            if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
-
-            scenePath = requestedScenePath;
 
             if (queryArguments.ComponentType != null
                 && !ComponentTypeResolver.TryResolveComponentType(queryArguments.ComponentType, out _, out errorMessage))
@@ -138,12 +136,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var payloadMatches = new SceneQueryMatch[matches.Count];
             for (var i = 0; i < matches.Count; i++)
             {
+                var match = matches[i];
+                var componentType = match.ComponentType;
                 payloadMatches[i] = new SceneQueryMatch(
-                    kind: matches[i].TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component ? "component" : "gameObject",
-                    hierarchyPath: new UnityHierarchyPath(matches[i].HierarchyPath),
-                    componentType: matches[i].ComponentType == null
+                    kind: match.TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component ? "component" : "gameObject",
+                    hierarchyPath: new UnityHierarchyPath(match.HierarchyPath),
+                    componentType: componentType == null
                         ? null
-                        : new UnityComponentTypeId(matches[i].ComponentType));
+                        : new UnityComponentTypeId(componentType));
             }
 
             return payloadMatches;

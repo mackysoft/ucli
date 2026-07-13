@@ -18,7 +18,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             processId: 4321,
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: "gui",
+            editorMode: DaemonEditorMode.Gui,
             endpointAddress: LaunchEndpointAddress);
         var launchSessionService = new RecordingDaemonLaunchSessionService();
         var batchmodeLauncher = new RecordingUnityDaemonProcessLauncher();
@@ -28,7 +28,12 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         };
         var guiStartupObserver = new RecordingDaemonGuiStartupObserver
         {
-            NextResult = DaemonGuiStartupObservationResult.Success(registeredSession),
+            NextResult = DaemonGuiStartupObservationResult.Success(
+                registeredSession,
+                IpcUnityEditorObservationTestFactory.Create(
+                    IpcEditorLifecycleState.Ready,
+                    DaemonEditorMode.Gui,
+                    projectFingerprint: context.ProjectFingerprint)),
         };
         var readinessProbe = new RecordingDaemonStartupReadinessProbe();
         var compensationService = new RecordingDaemonLaunchCompensationService();
@@ -72,7 +77,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             processId: 4321,
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: "gui",
+            editorMode: DaemonEditorMode.Gui,
             endpointAddress: LaunchEndpointAddress,
             processStartedAtUtc: processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
@@ -83,10 +88,10 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         {
             NextResult = DaemonGuiStartupObservationResult.Success(
                 registeredSession,
-                new DaemonStartLifecycleSnapshot(
-                    IpcEditorLifecycleStateCodec.Ready,
-                    null,
-                    CanAcceptExecutionRequests: true)),
+                IpcUnityEditorObservationTestFactory.Create(
+                    IpcEditorLifecycleState.Ready,
+                    DaemonEditorMode.Gui,
+                    projectFingerprint: context.ProjectFingerprint)),
         };
         var progressObserver = new CollectingDaemonStartProgressObserver();
         var service = CreateService(
@@ -114,12 +119,12 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             DaemonStartProgressEvent.EndpointRegistered,
             DaemonStartProgressEvent.LifecycleObserved);
         var launchingObservation = progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(0);
-        Assert.Equal("gui", launchingObservation.EditorMode);
+        Assert.Equal(DaemonEditorMode.Gui, launchingObservation.EditorMode);
         Assert.Null(launchingObservation.ProcessId);
         var waitingObservation = progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(1);
         Assert.Equal(4321, waitingObservation.ProcessId);
-        var lifecycleSnapshot = progressObserver.PayloadAt<DaemonStartLifecycleSnapshot>(^1);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, lifecycleSnapshot.LifecycleState);
+        var lifecycleObservation = progressObserver.PayloadAt<IpcUnityEditorObservation>(^1);
+        Assert.Equal(IpcEditorLifecycleState.Ready, lifecycleObservation.State.LifecycleState);
     }
 
     [Fact]
@@ -171,7 +176,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         Assert.Equal(
             Path.GetFullPath(Path.Combine("/tmp/repo-root", ".ucli", "local", "fingerprints", context.ProjectFingerprint.ToString(), "unity.log")),
             diagnosis.UnityLogPath);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration), diagnosis.StartupPhase);
+        Assert.Equal(DaemonDiagnosisStartupPhase.EndpointRegistration, diagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, diagnosis.ActionRequired);
         Assert.Equal(
             Path.Combine("/tmp/unity-project", "Library", "EditorInstance.json"),
@@ -180,8 +185,8 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             result,
             compensationService);
         var launchAttempt = DaemonLaunchAttemptStoreAssert.LatestLaunchAttemptWrittenFor(launchAttemptStore, context);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), launchAttempt.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept), launchAttempt.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Timeout, launchAttempt.StartupStatus);
+        Assert.Equal(DaemonStartupProcessAction.Kept, launchAttempt.ProcessAction);
     }
 
     [Fact]
@@ -220,15 +225,15 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup!.ProcessAction);
         DaemonLaunchInvocationAssert.LaunchCompensationAttempted(
             compensationService,
             context,
             processId: 5434,
             processStartedAtUtc: processStartedAtUtc);
         var launchAttempt = DaemonLaunchAttemptStoreAssert.LatestLaunchAttemptWrittenFor(launchAttemptStore, context);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), launchAttempt.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttempt.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Timeout, launchAttempt.StartupStatus);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, launchAttempt.ProcessAction);
     }
 
     [Fact]
@@ -270,14 +275,14 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Unknown, result.Startup!.ProcessAction);
         DaemonLaunchInvocationAssert.LaunchCompensationAttempted(
             compensationService,
             context,
             processId: 5433,
             processStartedAtUtc: processStartedAtUtc);
         var launchAttempt = DaemonLaunchAttemptStoreAssert.LatestLaunchAttemptWrittenFor(launchAttemptStore, context);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout), launchAttempt.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), launchAttempt.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Timeout, launchAttempt.StartupStatus);
+        Assert.Equal(DaemonStartupProcessAction.Unknown, launchAttempt.ProcessAction);
     }
 }

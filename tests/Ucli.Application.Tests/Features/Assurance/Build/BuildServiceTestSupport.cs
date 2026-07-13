@@ -257,8 +257,8 @@ internal static class BuildServiceTestSupport
         string? buildTarget = null,
         string? unityBuildTarget = null,
         string? buildOptions = null,
-        IpcBuildLifecycleSnapshot? lifecycleBefore = null,
-        IpcBuildLifecycleSnapshot? lifecycleAfter = null,
+        IpcUnityEditorObservation? lifecycleBefore = null,
+        IpcUnityEditorObservation? lifecycleAfter = null,
         string? reportOutputPath = null,
         IpcBuildProjectMutationAudit? projectMutation = null,
         IpcBuildRunnerResultArtifact? runnerResult = null,
@@ -342,8 +342,8 @@ internal static class BuildServiceTestSupport
         string? buildTarget = null,
         string? unityBuildTarget = null,
         string? buildOptions = null,
-        IpcBuildLifecycleSnapshot? lifecycleBefore = null,
-        IpcBuildLifecycleSnapshot? lifecycleAfter = null,
+        IpcUnityEditorObservation? lifecycleBefore = null,
+        IpcUnityEditorObservation? lifecycleAfter = null,
         string? reportOutputPath = null,
         IpcBuildOutputLayout? outputLayout = null,
         bool useDefaultOutputLayout = true,
@@ -356,8 +356,8 @@ internal static class BuildServiceTestSupport
             IpcPayloadCodec.SerializeToElement(new IpcBuildRunResponse(
                 RunId: RunId,
                 ProjectFingerprint: DefaultProjectFingerprint,
-                LifecycleBefore: lifecycleBefore ?? CreateLifecycleSnapshot("before", canAcceptExecutionRequests: true),
-                LifecycleAfter: lifecycleAfter ?? CreateLifecycleSnapshot("after", canAcceptExecutionRequests: true),
+                LifecycleBefore: lifecycleBefore ?? CreateLifecycleSnapshot(10),
+                LifecycleAfter: lifecycleAfter ?? CreateLifecycleSnapshot(11),
                 DirtyState: new IpcBuildDirtyState(
                     Checked: true,
                     Dirty: false,
@@ -398,20 +398,12 @@ internal static class BuildServiceTestSupport
         string digest,
         Func<IpcUnityBuildProfileApplyAudit, IpcUnityBuildProfileApplyAudit>? configureApplyAudit = null)
     {
-        var lifecycleBefore = CreateLifecycleSnapshot("profile-before", canAcceptExecutionRequests: true);
-        var lifecycleAfter = CreateLifecycleSnapshot("profile-after", canAcceptExecutionRequests: true);
+        var lifecycleBefore = CreateLifecycleSnapshot(20);
+        var lifecycleAfter = CreateLifecycleSnapshot(21);
         var applyAudit = new IpcUnityBuildProfileApplyAudit(
             Applied: true,
             LifecycleBefore: lifecycleBefore,
             LifecycleAfter: lifecycleAfter,
-            GenerationsBefore: new IpcBuildGenerationSnapshot(
-                lifecycleBefore.CompileGeneration,
-                lifecycleBefore.DomainReloadGeneration,
-                lifecycleBefore.AssetRefreshGeneration),
-            GenerationsAfter: new IpcBuildGenerationSnapshot(
-                lifecycleAfter.CompileGeneration,
-                lifecycleAfter.DomainReloadGeneration,
-                lifecycleAfter.AssetRefreshGeneration),
             DirtyStateAfter: new IpcBuildDirtyState(
                 Checked: true,
                 Dirty: false,
@@ -495,32 +487,29 @@ internal static class BuildServiceTestSupport
             ]);
     }
 
-    public static IpcBuildLifecycleSnapshot CreateLifecycleSnapshot (
-        string generationSuffix,
-        bool canAcceptExecutionRequests,
-        bool omitAssetRefreshGeneration = false)
+    public static IpcUnityEditorObservation CreateLifecycleSnapshot (long generation)
     {
-        return new IpcBuildLifecycleSnapshot(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: DefaultProjectFingerprint,
-            LifecycleState: "ready",
-            BlockingReason: null,
-            CompileState: "idle",
-            CompileGeneration: $"compile-{generationSuffix}",
-            DomainReloadGeneration: $"domain-{generationSuffix}",
-            CanAcceptExecutionRequests: canAcceptExecutionRequests,
-            ObservedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-            ActionRequired: null,
-            PrimaryDiagnostic: null,
-            PlayMode: new IpcPlayModeSnapshot(
-                State: "stopped",
-                Transition: "none",
-                IsPlaying: false,
-                IsPlayingOrWillChangePlaymode: false,
-                Generation: $"play-{generationSuffix}"),
-            AssetRefreshGeneration: omitAssetRefreshGeneration ? null : $"asset-{generationSuffix}");
+        return new IpcUnityEditorObservation(
+            serverVersion: "0.5.0",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: DefaultProjectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Batchmode,
+                lifecycleState: IpcEditorLifecycleState.Ready,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(
+                    generation,
+                    generation,
+                    generation,
+                    generation),
+                playMode: new IpcPlayModeSnapshot(
+                    State: IpcPlayModeState.Stopped,
+                    Transition: IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
+            observedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
+            actionRequired: null,
+            primaryDiagnostic: null);
     }
 
     public static IpcBuildProjectMutationAudit CreateProjectMutation (

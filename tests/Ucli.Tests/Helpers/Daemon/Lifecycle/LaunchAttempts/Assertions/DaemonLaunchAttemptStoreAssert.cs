@@ -17,8 +17,8 @@ internal static class DaemonLaunchAttemptStoreAssert
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
         string expectedLaunchAttemptId,
-        string expectedStartupStatus,
-        string expectedProcessAction)
+        DaemonStartupStatus expectedStartupStatus,
+        DaemonStartupProcessAction expectedProcessAction)
     {
         var launchAttempt = LaunchAttemptRecordedFor(
             launchAttemptStore,
@@ -34,8 +34,8 @@ internal static class DaemonLaunchAttemptStoreAssert
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
         string expectedLaunchAttemptId,
-        string expectedStartupStatus,
-        string expectedProcessAction)
+        DaemonStartupStatus expectedStartupStatus,
+        DaemonStartupProcessAction expectedProcessAction)
     {
         var launchAttempt = LaunchAttemptRecordedFor(
             launchAttemptStore,
@@ -51,8 +51,8 @@ internal static class DaemonLaunchAttemptStoreAssert
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
         string expectedLaunchAttemptId,
-        string expectedStartupStatus,
-        string expectedProcessAction)
+        DaemonStartupStatus expectedStartupStatus,
+        DaemonStartupProcessAction expectedProcessAction)
     {
         var launchAttempt = LaunchAttemptRecordedAndPrunedFor(
             launchAttemptStore,
@@ -68,8 +68,8 @@ internal static class DaemonLaunchAttemptStoreAssert
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
         string expectedLaunchAttemptId,
-        string expectedStartupStatus,
-        string expectedProcessAction)
+        DaemonStartupStatus expectedStartupStatus,
+        DaemonStartupProcessAction expectedProcessAction)
     {
         var launchAttempt = LaunchAttemptRecordedWithoutPruneFor(
             launchAttemptStore,
@@ -95,8 +95,8 @@ internal static class DaemonLaunchAttemptStoreAssert
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
         string expectedLaunchAttemptId,
-        string expectedStartupStatus,
-        string expectedProcessAction)
+        DaemonStartupStatus expectedStartupStatus,
+        DaemonStartupProcessAction expectedProcessAction)
     {
         var launchAttempt = LatestLaunchAttemptWrittenFor(launchAttemptStore, expectedUnityProject);
         Assert.Equal(expectedLaunchAttemptId, launchAttempt.LaunchAttemptId);

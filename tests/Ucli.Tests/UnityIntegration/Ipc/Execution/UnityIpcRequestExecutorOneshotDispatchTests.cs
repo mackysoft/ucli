@@ -18,13 +18,14 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
     public async Task Execute_WhenTargetIsOneshot_UsesOneshotClient ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "oneshot");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var response = CreateSuccessResponse(Guid.NewGuid());
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(request =>
         {
             return IpcRequestAssert.ParseMethod(request) switch
             {
-                UnityIpcMethod.Ping => CreateReadyPingResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreateReadyPingResponse(request.RequestId, unityProject.ProjectFingerprint),
                 UnityIpcMethod.OpsRead => response,
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
@@ -50,7 +51,7 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
             UnityExecutionMode.Auto,
             DefaultTimeout,
             UcliConfig.CreateDefault(),
-            ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath),
+            unityProject,
             CreateOpsReadPayload());
 
         Assert.True(result.IsSuccess);

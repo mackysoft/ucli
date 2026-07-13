@@ -135,9 +135,9 @@ public sealed class DaemonStopOperationProcessShutdownTests
         var issuedAtUtc = processStartedAtUtc.AddMinutes(2);
         var session = DaemonSessionTestFactory.Create(
             processId: 654,
-            ownerKind: "cli",
+            ownerKind: DaemonSessionOwnerKind.Cli,
             canShutdownProcess: true,
-            editorMode: "gui",
+            editorMode: DaemonEditorMode.Gui,
             issuedAtUtc: issuedAtUtc,
             processStartedAtUtc: processStartedAtUtc);
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-cli-gui"));

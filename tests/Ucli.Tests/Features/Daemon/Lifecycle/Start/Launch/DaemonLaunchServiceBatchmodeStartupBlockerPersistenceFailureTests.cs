@@ -5,6 +5,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceBatchmodeStartupBlockerTestSupport;
+using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
 
 public sealed class DaemonLaunchServiceBatchmodeStartupBlockerPersistenceFailureTests
 {
@@ -31,13 +32,13 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerPersistenceFailure
             processId: scenario.ProcessId,
             processStartedAtUtc: scenario.ProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup!.ProcessAction);
         DaemonLaunchAttemptStoreAssert.SingleLaunchAttemptRecordedAndPrunedFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
-            result.Startup.LaunchAttemptId!,
-            ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
+            AssertStartupLaunchAttemptId(result.Startup),
+            DaemonStartupStatus.Blocked,
+            DaemonStartupProcessAction.Terminated);
     }
 
     [Fact]
@@ -63,12 +64,12 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerPersistenceFailure
             processId: scenario.ProcessId,
             processStartedAtUtc: scenario.ProcessStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup!.ProcessAction);
         DaemonLaunchAttemptStoreAssert.SingleLaunchAttemptRecordedWithoutPruneFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
-            result.Startup.LaunchAttemptId!,
-            ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
+            AssertStartupLaunchAttemptId(result.Startup),
+            DaemonStartupStatus.Blocked,
+            DaemonStartupProcessAction.Terminated);
     }
 }

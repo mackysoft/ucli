@@ -23,7 +23,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.Started(daemonProcess.CreateSession()),
+            StartResult = CreateStartedResult(daemonProcess),
         };
         var pingClient = new RecordingDaemonPingClient(async (_, _, _, cancellationToken) =>
         {
@@ -97,7 +97,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.Started(daemonProcess.CreateSession()),
+            StartResult = CreateStartedResult(daemonProcess),
         };
         var pingClient = new RecordingDaemonPingClient((_, _, _, cancellationToken) =>
         {
@@ -157,7 +157,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.Started(daemonProcess.CreateSession()),
+            StartResult = CreateStartedResult(daemonProcess),
         };
         var pingClient = new RecordingDaemonPingClient(static (_, _, _, _) => ValueTask.FromException(new InvalidOperationException("ping failed")));
         var stopOperation = new RecordingDaemonStopOperation
@@ -208,7 +208,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         var unityProject = CreateUnityProject(scope);
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.Started(daemonProcess.CreateSession()),
+            StartResult = CreateStartedResult(daemonProcess),
         };
         var pingClient = new RecordingDaemonPingClient(static (_, _, _, _) =>
             ValueTask.FromException(new InvalidOperationException("ping failed")));
@@ -294,7 +294,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.Started(daemonProcess.CreateSession()),
+            StartResult = CreateStartedResult(daemonProcess),
         };
         var pingClient = new RecordingDaemonPingClient((_, _, _, cancellationToken) =>
         {
@@ -351,6 +351,14 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         }
 
         Assert.False(coordinator.HasActiveProjectWork);
+    }
+
+    private static DaemonStartResult CreateStartedResult (SupervisorOwnedDaemonProcess daemonProcess)
+    {
+        var session = daemonProcess.CreateSession();
+        return DaemonStartResult.Started(
+            session,
+            IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint));
     }
 
     private static SemaphoreSlim GetRuntimeLogWriteGate (SupervisorRuntimeLogger runtimeLogger)

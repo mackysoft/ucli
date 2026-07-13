@@ -16,12 +16,6 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
     /// <summary> Dispatches execute requests to operation-phase execution pipelines. </summary>
     internal sealed class ExecuteRequestDispatcher : IExecuteRequestDispatcher
     {
-        private static readonly JsonSerializerOptions SerializerOptions = new()
-        {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-            WriteIndented = false,
-        };
-
         private readonly IExecuteRequestNormalizer requestNormalizer;
         private readonly IOperationPhaseExecutor operationPhaseExecutor;
         private readonly IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator;
@@ -31,6 +25,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
         /// <param name="operationPhaseExecutor"> The operation-phase executor dependency. </param>
         /// <param name="requestIdempotencyCoordinator"> The request-id idempotency coordinator dependency. </param>
+        /// <param name="readinessGate"> The Unity lifecycle readiness dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
         public ExecuteRequestDispatcher (
             IExecuteRequestNormalizer requestNormalizer,
@@ -74,8 +69,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     context,
                     UcliCoreErrorCodes.InvalidArgument,
                     "Request arguments must be a JSON object.",
-                    null,
-                    SerializerOptions);
+                    null);
             }
 
             var requestFingerprint = ExecuteRequestFingerprintCalculator.Create(request);
@@ -86,10 +80,10 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     () => ExecuteResponseBuilder.CreateErrorResponse(
                         context,
                         ExecuteRequestErrorCodes.RequestIdConflict,
-                        "IPC request id conflict. The same outer request envelope id was already used for different request content.",
-                        null,
-                        SerializerOptions),
-                    cancellationToken);
+                        "Request id conflict. The same requestId was already used for a different request content.",
+                        null),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         /// <summary> Executes one dispatch flow without idempotency coordination. </summary>
@@ -109,8 +103,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     context,
                     UcliCoreErrorCodes.CommandNotImplemented,
                     $"Execute command '{request.Command}' is not implemented.",
-                    null,
-                    SerializerOptions);
+                    null);
             }
 
             if (request.AllowPlayMode
@@ -120,8 +113,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     context,
                     UcliCoreErrorCodes.InvalidArgument,
                     "allowPlayMode is supported only for plan and call execute commands.",
-                    null,
-                    SerializerOptions);
+                    null);
             }
 
             var normalizationResult = requestNormalizer.Normalize(request, cancellationToken);
@@ -132,8 +124,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     context,
                     normalizationError.Code,
                     normalizationError.Message,
-                    normalizationError.OpId,
-                    SerializerOptions);
+                    normalizationError.OpId);
             }
 
             var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken, request.AllowPlayMode);
@@ -144,8 +135,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     context,
                     lifecycleError.Code,
                     lifecycleError.Message,
-                    lifecycleError.OpId,
-                    SerializerOptions);
+                    lifecycleError.OpId);
             }
 
             try
@@ -154,7 +144,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     executionCommand,
                     normalizationResult.Request!,
                     cancellationToken);
-                return ExecuteResponseBuilder.CreateExecutionResponse(context, trace, SerializerOptions);
+                return ExecuteResponseBuilder.CreateExecutionResponse(context, trace);
             }
             catch (OperationCanceledException)
             {
@@ -166,8 +156,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     context,
                     UcliCoreErrorCodes.InternalError,
                     $"Unexpected error occurred while dispatching execute request. {exception.Message}",
-                    null,
-                    SerializerOptions);
+                    null);
             }
         }
 

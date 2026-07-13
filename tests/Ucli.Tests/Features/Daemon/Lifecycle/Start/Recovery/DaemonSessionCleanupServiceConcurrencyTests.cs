@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -27,10 +28,10 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
             SessionToken: "tampered-invalid-token",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: processStartedAtUtc,
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
+            EditorMode: DaemonEditorMode.Batchmode,
+            OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
+            EndpointTransportKind: IpcTransportKind.NamedPipe,
             EndpointAddress: "tampered-endpoint",
             ProcessId: 3131,
             ProcessStartedAtUtc: processStartedAtUtc,

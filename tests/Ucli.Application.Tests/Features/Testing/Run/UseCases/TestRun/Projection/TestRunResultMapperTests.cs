@@ -41,7 +41,7 @@ public sealed class TestRunResultMapperTests
         var startupFailure = new StartupFailureDetail(
             Startup: null,
             Diagnosis: null,
-            RetryDisposition: "unknown",
+            RetryDisposition: DaemonStartupRetryDisposition.Unknown,
             SafeToRetryImmediately: false);
         var mapper = new TestRunResultMapper();
 

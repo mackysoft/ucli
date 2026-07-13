@@ -26,6 +26,8 @@
       "logs.daemon.read",
       "logs.unity.read",
       "logs.unity.clear",
+      "screenshot.game",
+      "screenshot.scene",
       "test",
       "test.run",
       "plan",

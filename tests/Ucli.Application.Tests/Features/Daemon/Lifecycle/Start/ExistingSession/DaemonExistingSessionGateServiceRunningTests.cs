@@ -24,8 +24,8 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         Assert.NotNull(result);
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
         Assert.Equal(session, result.Session);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, result.LifecycleSnapshot!.LifecycleState);
-        Assert.True(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+        var lifecycleObservation = Assert.IsType<IpcUnityEditorObservation>(result.LifecycleObservation);
+        Assert.Equal(IpcEditorLifecycleState.Ready, lifecycleObservation.State.LifecycleState);
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
     {
         var session = DaemonSessionTestFactory.Create(
             processId: 4006,
-            editorMode: "gui");
+            editorMode: DaemonEditorMode.Gui);
         var pingClient = new RecordingDaemonPingInfoClient(
             DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
@@ -60,10 +60,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         var session = DaemonSessionTestFactory.Create(processId: 4010);
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(
-                DaemonExistingSessionGateServiceTestSupport.CreatePingResponse(
-                    IpcEditorLifecycleStateCodec.Compiling,
-                    IpcEditorBlockingReasonCodec.Compile,
-                    canAcceptExecutionRequests: false)));
+                DaemonExistingSessionGateServiceTestSupport.CreatePingResponse(IpcEditorLifecycleState.Compiling)));
 
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-compiling")),
@@ -75,9 +72,8 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         Assert.NotNull(result);
         Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
         Assert.Equal(session, result.Session);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, result.LifecycleSnapshot!.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.Compile, result.LifecycleSnapshot.BlockingReason);
-        Assert.False(result.LifecycleSnapshot.CanAcceptExecutionRequests);
+        var lifecycleObservation = Assert.IsType<IpcUnityEditorObservation>(result.LifecycleObservation);
+        Assert.Equal(IpcEditorLifecycleState.Compiling, lifecycleObservation.State.LifecycleState);
     }
 
     [Fact]

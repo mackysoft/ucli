@@ -381,7 +381,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         return DaemonSessionTestFactory.Create(
             projectFingerprint: projectFingerprint,
             processId: processId,
-            editorMode: "gui",
+            editorMode: DaemonEditorMode.Gui,
             editorInstanceId: Guid.NewGuid());
     }
 
@@ -394,20 +394,22 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             ReadResult = DaemonLifecycleObservationReadResult.Success(new DaemonLifecycleObservation(
                 processId: session.ProcessId!.Value,
                 processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-                editorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-                lifecycleState: IpcEditorLifecycleStateCodec.Recovering,
-                blockingReason: IpcEditorBlockingReasonCodec.Recovery,
-                compileState: IpcCompileStateCodec.Ready,
-                compileGeneration: "1",
-                domainReloadGeneration: "2",
+                state: new UnityEditorStateSnapshot(
+                    editorMode: session.EditorMode,
+                    lifecycleState: IpcEditorLifecycleState.Recovering,
+                    compileState: IpcCompileState.Ready,
+                    generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
+                    playMode: new IpcPlayModeSnapshot(
+                        IpcPlayModeState.Stopped,
+                        IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc: observedAtUtc,
                 actionRequired: null,
                 primaryDiagnostic: null,
                 serverVersion: null,
-                canAcceptExecutionRequests: true,
                 editorInstanceId: session.EditorInstanceId
-                    ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
-                playMode: null)),
+                    ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)))),
         };
     }
 
@@ -416,8 +418,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         Assert.Null(item.LifecycleState);
         Assert.Null(item.BlockingReason);
         Assert.Null(item.CompileState);
-        Assert.Null(item.CompileGeneration);
-        Assert.Null(item.DomainReloadGeneration);
+        Assert.Null(item.Generations);
         Assert.False(item.CanAcceptExecutionRequests);
         Assert.Null(item.ObservedAtUtc);
         Assert.Null(item.ActionRequired);

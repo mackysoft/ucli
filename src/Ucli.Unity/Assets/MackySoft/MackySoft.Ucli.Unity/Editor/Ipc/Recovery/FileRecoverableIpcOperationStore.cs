@@ -13,6 +13,8 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 
+#nullable enable annotations
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Stores recoverable IPC operation records under the project-local uCLI state directory. </summary>

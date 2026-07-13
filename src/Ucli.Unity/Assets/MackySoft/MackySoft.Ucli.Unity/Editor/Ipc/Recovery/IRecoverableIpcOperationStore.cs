@@ -5,6 +5,8 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
+#nullable enable annotations
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Persists recoverable IPC operation state across Unity domain reload. </summary>
@@ -44,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Represents one recoverable operation store mutation outcome. </summary>
     internal sealed class RecoverableIpcOperationStoreResult
     {
-        private RecoverableIpcOperationStoreResult (string errorMessage)
+        private RecoverableIpcOperationStoreResult (string? errorMessage)
         {
             ErrorMessage = errorMessage;
         }
@@ -53,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         public bool IsSuccess => string.IsNullOrWhiteSpace(ErrorMessage);
 
         /// <summary> Gets the persistence failure message when the operation failed. </summary>
-        public string ErrorMessage { get; }
+        public string? ErrorMessage { get; }
 
         /// <summary> Creates a successful store result. </summary>
         public static RecoverableIpcOperationStoreResult Success ()
@@ -77,8 +79,8 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class RecoverableIpcOperationReadResult
     {
         private RecoverableIpcOperationReadResult (
-            RecoverableIpcOperationRecord record,
-            string errorMessage)
+            RecoverableIpcOperationRecord? record,
+            string? errorMessage)
         {
             Record = record;
             ErrorMessage = errorMessage;
@@ -88,10 +90,10 @@ namespace MackySoft.Ucli.Unity.Ipc
         public bool IsSuccess => string.IsNullOrWhiteSpace(ErrorMessage);
 
         /// <summary> Gets the matching record, or <see langword="null" /> when no record exists. </summary>
-        public RecoverableIpcOperationRecord Record { get; }
+        public RecoverableIpcOperationRecord? Record { get; }
 
         /// <summary> Gets the read failure message. </summary>
-        public string ErrorMessage { get; }
+        public string? ErrorMessage { get; }
 
         /// <summary> Creates a successful missing-record result. </summary>
         public static RecoverableIpcOperationReadResult Missing ()

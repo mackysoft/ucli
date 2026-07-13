@@ -14,12 +14,14 @@ public sealed class DaemonLifecycleObservationMatcherTests
     public void MatchesSession_WhenUserOwnedEditorInstanceIdsMatch_UsesEditorInstanceId ()
     {
         var session = DaemonSessionTestFactory.Create(
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
             editorInstanceId: EditorInstanceId);
-        var observation = CreateObservation(processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(20));
+        var observation = CreateObservation(
+            processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(20),
+            editorInstanceId: EditorInstanceId);
 
         var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
 
@@ -32,12 +34,14 @@ public sealed class DaemonLifecycleObservationMatcherTests
     {
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             processStartedAtUtc: startedAtUtc,
             editorInstanceId: EditorInstanceId);
-        var observation = CreateObservation(startedAtUtc, OtherEditorInstanceId);
+        var observation = CreateObservation(
+            processStartedAtUtc: startedAtUtc,
+            editorInstanceId: OtherEditorInstanceId);
 
         var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
 
@@ -50,10 +54,11 @@ public sealed class DaemonLifecycleObservationMatcherTests
     {
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
+            editorMode: DaemonEditorMode.Gui,
             processStartedAtUtc: startedAtUtc);
         var observation = CreateObservation(
-            startedAtUtc.AddSeconds(1),
-            editorMode: "batchmode");
+            processStartedAtUtc: startedAtUtc.AddSeconds(1),
+            editorInstanceId: EditorInstanceId);
 
         var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
 
@@ -65,10 +70,11 @@ public sealed class DaemonLifecycleObservationMatcherTests
     public void MatchesSession_WhenCliOwnedProcessStartDiffersBeyondTolerance_ReturnsFalse ()
     {
         var session = DaemonSessionTestFactory.Create(
+            editorMode: DaemonEditorMode.Gui,
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10));
         var observation = CreateObservation(
-            DateTimeOffset.UnixEpoch.AddSeconds(13),
-            editorMode: "batchmode");
+            processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(13),
+            editorInstanceId: EditorInstanceId);
 
         var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
 
@@ -81,37 +87,74 @@ public sealed class DaemonLifecycleObservationMatcherTests
     {
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
+            editorMode: DaemonEditorMode.Gui,
             processStartedAtUtc: startedAtUtc,
-            editorInstanceId: OtherEditorInstanceId);
+            editorInstanceId: EditorInstanceId);
         var observation = CreateObservation(
-            startedAtUtc,
-            editorMode: "batchmode");
+            processStartedAtUtc: startedAtUtc.AddSeconds(1),
+            editorInstanceId: OtherEditorInstanceId);
 
         var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
 
         Assert.True(result);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void MatchesSessionByEditorInstance_WhenSessionEditorInstanceIdIsMissing_ReturnsFalseWithoutProcessStartFallback ()
+    {
+        var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
+        var session = DaemonSessionTestFactory.Create(
+            editorMode: DaemonEditorMode.Gui,
+            processStartedAtUtc: startedAtUtc);
+        var observation = CreateObservation(
+            processStartedAtUtc: startedAtUtc,
+            editorInstanceId: EditorInstanceId);
+
+        var result = DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(observation, session);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void MatchesSessionByEditorInstance_WhenEditorInstanceIdsMatch_ReturnsTrue ()
+    {
+        var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
+        var session = DaemonSessionTestFactory.Create(
+            editorMode: DaemonEditorMode.Gui,
+            processStartedAtUtc: startedAtUtc,
+            editorInstanceId: EditorInstanceId);
+        var observation = CreateObservation(
+            processStartedAtUtc: startedAtUtc.AddSeconds(20),
+            editorInstanceId: EditorInstanceId);
+
+        var result = DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(observation, session);
+
+        Assert.True(result);
+    }
+
     private static DaemonLifecycleObservation CreateObservation (
         DateTimeOffset processStartedAtUtc,
-        Guid? editorInstanceId = null,
-        string editorMode = "gui")
+        Guid editorInstanceId)
     {
         return new DaemonLifecycleObservation(
             processId: 1234,
             processStartedAtUtc: processStartedAtUtc,
-            editorMode: editorMode,
-            lifecycleState: IpcEditorLifecycleStateCodec.Recovering,
-            blockingReason: null,
-            compileState: IpcCompileStateCodec.Ready,
-            compileGeneration: "compile-generation-1",
-            domainReloadGeneration: "domain-reload-generation-1",
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Gui,
+                lifecycleState: IpcEditorLifecycleState.Recovering,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(1, 1, 0, 0),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Stopped,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(1),
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
-            canAcceptExecutionRequests: false,
-            editorInstanceId: editorInstanceId ?? EditorInstanceId,
-            playMode: null);
+            editorInstanceId: editorInstanceId);
     }
 }

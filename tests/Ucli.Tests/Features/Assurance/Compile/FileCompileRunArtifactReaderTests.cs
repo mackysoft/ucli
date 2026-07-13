@@ -150,8 +150,8 @@ public sealed class FileCompileRunArtifactReaderTests
             ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
                 Started: true,
                 Completed: true,
-                CompileGenerationBefore: "12",
-                CompileGenerationAfter: "14",
+                CompileGenerationBefore: 12,
+                CompileGenerationAfter: 14,
                 Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
                     ErrorCount: errorCount,
                     WarningCount: 0,
@@ -159,19 +159,26 @@ public sealed class FileCompileRunArtifactReaderTests
             DomainReload: new IpcCompileSummary.DomainReloadEvidence(
                 ReloadRequired: false,
                 ReloadObserved: false,
-                GenerationBefore: "7",
-                GenerationAfter: "7",
+                GenerationBefore: 7,
+                GenerationAfter: 7,
                 Settled: true),
             Lifecycle: new IpcCompileSummary.LifecycleEvidence(
                 ServerVersion: "0.5.0",
                 UnityVersion: "6000.1.4f1",
-                EditorMode: "batchmode",
-                LifecycleState: canAcceptExecutionRequests ? "ready" : "compileFailed",
-                BlockingReason: canAcceptExecutionRequests ? null : "compileFailed",
-                CompileState: canAcceptExecutionRequests ? "ready" : "failed",
-                CompileGeneration: "14",
-                DomainReloadGeneration: "7",
-                CanAcceptExecutionRequests: canAcceptExecutionRequests,
+                State: new UnityEditorStateSnapshot(
+                    editorMode: DaemonEditorMode.Batchmode,
+                    lifecycleState: canAcceptExecutionRequests
+                        ? IpcEditorLifecycleState.Ready
+                        : IpcEditorLifecycleState.CompileFailed,
+                    compileState: canAcceptExecutionRequests
+                        ? IpcCompileState.Ready
+                        : IpcCompileState.Failed,
+                    generations: new IpcUnityGenerationSnapshot(14, 7, 0, 0),
+                    playMode: new IpcPlayModeSnapshot(
+                        State: IpcPlayModeState.Stopped,
+                        Transition: IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
                 ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:03Z"),
                 ActionRequired: canAcceptExecutionRequests ? null : "fixCompileErrors",
                 PrimaryDiagnostic: primaryDiagnostic));

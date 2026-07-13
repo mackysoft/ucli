@@ -1,12 +1,15 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcPlayContractSerializationTests
 {
     private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private static readonly ProjectFingerprint ProjectFingerprint = new(ProjectFingerprintText);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -27,8 +30,8 @@ public sealed class IpcPlayContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcPlayResponseContracts_SerializeWithCamelCaseFields ()
     {
-        var before = CreatePlayLifecycleSnapshot("stopped", "none");
-        var after = CreatePlayLifecycleSnapshot("playing", "none");
+        var before = CreateObservation(IpcPlayModeState.Stopped, IpcPlayModeTransition.None);
+        var after = CreateObservation(IpcPlayModeState.Playing, IpcPlayModeTransition.None);
         var statusResponse = new IpcPlayStatusResponse(before);
         var transitionResponse = new IpcPlayTransitionResponse(
             new IpcPlayTransitionResult(
@@ -46,20 +49,23 @@ public sealed class IpcPlayContractSerializationTests
         JsonAssert.For(status)
             .HasProperty("snapshot", snapshot => snapshot
                 .HasString("serverVersion", "0.5.0")
-                .HasString("editorMode", "gui")
                 .HasString("unityVersion", "6000.1.4f1")
                 .HasString("projectFingerprint", ProjectFingerprintText)
-                .HasString("lifecycleState", "ready")
-                .HasString("blockingReason", "none")
-                .HasString("compileState", "idle")
-                .HasBoolean("canAcceptExecutionRequests", true)
                 .HasString("observedAtUtc", "2026-05-21T00:00:00+00:00")
-                .HasProperty("playMode", playMode => playMode
-                    .HasString("state", "stopped")
-                    .HasString("transition", "none")
-                    .HasBoolean("isPlaying", false)
-                    .HasBoolean("isPlayingOrWillChangePlaymode", false)
-                    .HasString("generation", "42")));
+                .HasProperty("state", state => state
+                    .HasString("editorMode", "gui")
+                    .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready))
+                    .HasString("compileState", ContractLiteralCodec.ToValue(IpcCompileState.Ready))
+                    .HasProperty("generations", generations => generations
+                        .HasInt32("compileGeneration", 12)
+                        .HasInt32("domainReloadGeneration", 7)
+                        .HasInt32("assetRefreshGeneration", 8)
+                        .HasInt32("playModeGeneration", 42))
+                    .HasProperty("playMode", playMode => playMode
+                        .HasString("state", "stopped")
+                        .HasString("transition", "none")
+                        .HasBoolean("isPlaying", false)
+                        .HasBoolean("isPlayingOrWillChangePlaymode", false))));
 
         JsonAssert.For(transition)
             .HasProperty("transition", transition => transition
@@ -67,11 +73,13 @@ public sealed class IpcPlayContractSerializationTests
                 .HasString("result", IpcPlayTransitionResultNames.Entered)
                 .HasString("applicationState", IpcPlayApplicationStateNames.Applied)
                 .HasProperty("before", beforeSnapshot => beforeSnapshot
-                    .HasProperty("playMode", playMode => playMode
-                        .HasString("state", "stopped")))
+                    .HasProperty("state", state => state
+                        .HasProperty("playMode", playMode => playMode
+                            .HasString("state", "stopped"))))
                 .HasProperty("after", afterSnapshot => afterSnapshot
-                    .HasProperty("playMode", playMode => playMode
-                        .HasString("state", "playing"))));
+                    .HasProperty("state", state => state
+                        .HasProperty("playMode", playMode => playMode
+                            .HasString("state", "playing")))));
 
         var roundTrip = JsonSerializer.Deserialize<IpcPlayTransitionResponse>(
             transition.GetRawText(),
@@ -82,30 +90,31 @@ public sealed class IpcPlayContractSerializationTests
         Assert.Equal(IpcPlayApplicationStateNames.Applied, roundTrip.Transition.ApplicationState);
     }
 
-    private static IpcPlayLifecycleSnapshot CreatePlayLifecycleSnapshot (
-        string playModeState,
-        string transition)
+    private static IpcUnityEditorObservation CreateObservation (
+        IpcPlayModeState playModeState,
+        IpcPlayModeTransition transition)
     {
-        return new IpcPlayLifecycleSnapshot(
-            ServerVersion: "0.5.0",
-            EditorMode: "gui",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
-            LifecycleState: "ready",
-            BlockingReason: "none",
-            CompileState: "idle",
-            CompileGeneration: "12",
-            DomainReloadGeneration: "7",
-            CanAcceptExecutionRequests: true,
-            ObservedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
-            ActionRequired: null,
-            PrimaryDiagnostic: null,
-            PlayMode: new IpcPlayModeSnapshot(
-                State: playModeState,
-                Transition: transition,
-                IsPlaying: string.Equals(playModeState, "playing", StringComparison.Ordinal),
-                IsPlayingOrWillChangePlaymode: string.Equals(playModeState, "playing", StringComparison.Ordinal)
-                    || string.Equals(transition, "entering", StringComparison.Ordinal),
-                Generation: "42"));
+        return new IpcUnityEditorObservation(
+            serverVersion: "0.5.0",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: ProjectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Gui,
+                lifecycleState: IpcEditorLifecycleState.Ready,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(
+                    CompileGeneration: 12,
+                    DomainReloadGeneration: 7,
+                    AssetRefreshGeneration: 8,
+                    PlayModeGeneration: 42),
+                playMode: new IpcPlayModeSnapshot(
+                    State: playModeState,
+                    Transition: transition,
+                    IsPlaying: playModeState == IpcPlayModeState.Playing,
+                    IsPlayingOrWillChangePlaymode: playModeState == IpcPlayModeState.Playing
+                        || transition == IpcPlayModeTransition.Entering)),
+            observedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
+            actionRequired: null,
+            primaryDiagnostic: null);
     }
 }

@@ -4,6 +4,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 internal sealed record CompileDomainReloadOutput (
     bool ReloadRequired,
     bool ReloadObserved,
-    string GenerationBefore,
-    string GenerationAfter,
+    long? GenerationBefore,
+    long? GenerationAfter,
     bool Settled);

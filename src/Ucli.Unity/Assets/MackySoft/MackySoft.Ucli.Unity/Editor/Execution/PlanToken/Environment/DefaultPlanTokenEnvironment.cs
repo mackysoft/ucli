@@ -1,8 +1,6 @@
-using MackySoft.Ucli.Infrastructure.Storage;
 using System;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
-using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
@@ -29,7 +27,9 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             var unityVersion = string.IsNullOrWhiteSpace(Application.unityVersion)
                 ? "na"
                 : Application.unityVersion;
-            var compileState = IpcCompileStateCodec.ToValue(EditorApplication.isCompiling);
+            var compileState = UnityEditorCompileStateResolver.Resolve(
+                EditorApplication.isCompiling,
+                hasCompileFailure: false);
 
             return new PlanTokenEnvironmentSnapshot(
                 projectRoot: projectRoot,

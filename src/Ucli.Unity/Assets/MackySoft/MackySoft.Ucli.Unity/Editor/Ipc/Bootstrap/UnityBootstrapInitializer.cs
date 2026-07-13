@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
+using MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution;
 using UnityEditor;
 using UnityEngine;
 
@@ -133,6 +134,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     break;
 
                 case BootstrapStartupKind.Gui:
+                    CleanupScreenshotResolutionOrphansBestEffort();
                     _ = UnityGuiSupervisorBootstrap.StartAsync();
                     _ = UnityGuiBootstrap.StartAsync(
                         bootstrapArguments: guiBootstrapArguments,
@@ -142,6 +144,16 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(startupKind), startupKind, null);
+            }
+        }
+
+        private static void CleanupScreenshotResolutionOrphansBestEffort ()
+        {
+            var cleaner = new UnityScreenshotResolutionOrphanCleaner();
+            if (!cleaner.TryCleanup(out var cleanupError))
+            {
+                Debug.LogWarning(
+                    $"uCLI deferred temporary GameView resolution cleanup. {cleanupError}");
             }
         }
 

@@ -4,7 +4,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -77,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public async Task WriteAsync (
-            UnityEditorLifecycleSnapshot snapshot,
+            UnityEditorObservation snapshot,
             CancellationToken cancellationToken)
         {
             if (snapshot == null)
@@ -87,23 +86,14 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             cancellationToken.ThrowIfCancellationRequested();
             var contract = new DaemonLifecycleJsonContract(
-                ProcessId: processId,
-                ProcessStartedAtUtc: processStartedAtUtc,
-                EditorMode: ContractLiteralCodec.ToValue(snapshot.EditorMode),
-                LifecycleState: snapshot.LifecycleState,
-                BlockingReason: snapshot.BlockingReason,
-                CompileState: snapshot.CompileState,
-                CompileGeneration: snapshot.CompileGeneration,
-                DomainReloadGeneration: snapshot.DomainReloadGeneration,
-                ObservedAtUtc: snapshot.ObservedAtUtc ?? DateTimeOffset.UtcNow,
-                ActionRequired: snapshot.ActionRequired,
-                PrimaryDiagnostic: snapshot.PrimaryDiagnostic)
-            {
-                ServerVersion = serverVersion,
-                CanAcceptExecutionRequests = snapshot.CanAcceptExecutionRequests,
-                EditorInstanceId = editorInstanceId.ToString("N"),
-                PlayMode = snapshot.PlayMode,
-            };
+                processId: processId,
+                processStartedAtUtc: processStartedAtUtc,
+                state: snapshot.State,
+                observedAtUtc: snapshot.ObservedAtUtc,
+                actionRequired: snapshot.ActionRequired,
+                primaryDiagnostic: snapshot.PrimaryDiagnostic,
+                serverVersion: serverVersion,
+                editorInstanceId: editorInstanceId);
             var contents = DaemonLifecycleJsonContractSerializer.Serialize(contract);
             lock (ownershipSyncRoot)
             {

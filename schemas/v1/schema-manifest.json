@@ -231,6 +231,18 @@
       "command": "play.exit"
     },
     {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/screenshot.game.schema.json",
+      "path": "cli-output/payload/screenshot.game.schema.json",
+      "kind": "cli-output-payload",
+      "command": "screenshot.game"
+    },
+    {
+      "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/screenshot.scene.schema.json",
+      "path": "cli-output/payload/screenshot.scene.schema.json",
+      "kind": "cli-output-payload",
+      "command": "screenshot.scene"
+    },
+    {
       "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/payload/daemon.start.schema.json",
       "path": "cli-output/payload/daemon.start.schema.json",
       "kind": "cli-output-payload",

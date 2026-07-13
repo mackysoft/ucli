@@ -299,6 +299,27 @@ public sealed class UcliErrorDescriptorTests
         Assert.DoesNotContain(codes, static code => code.Value.StartsWith("PLAY_MODE_", StringComparison.Ordinal));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ScreenshotDescriptors_ApplyToOwningCommands ()
+    {
+        foreach (var code in ScreenshotErrorCodes.All)
+        {
+            var descriptor = FindDescriptor(code);
+
+            Assert.Equal("screenshot", descriptor.Category);
+            Assert.Contains(UcliCommandIds.ScreenshotGame, descriptor.AppliesTo);
+            if (code == ScreenshotErrorCodes.ScreenshotRequestedSizeUnsupported)
+            {
+                Assert.DoesNotContain(UcliCommandIds.ScreenshotScene, descriptor.AppliesTo);
+            }
+            else
+            {
+                Assert.Contains(UcliCommandIds.ScreenshotScene, descriptor.AppliesTo);
+            }
+        }
+    }
+
     private static UcliErrorDescriptor FindDescriptor (UcliCode code)
     {
         return UcliKnownErrorDescriptors.All.Single(descriptor => descriptor.Code == code);

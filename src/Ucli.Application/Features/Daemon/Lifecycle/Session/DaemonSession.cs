@@ -153,5 +153,4 @@ internal sealed record DaemonSession
 
     /// <summary> Gets the Unity Editor instance identifier when known. </summary>
     public Guid? EditorInstanceId { get; }
-
 }

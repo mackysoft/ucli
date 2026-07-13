@@ -20,19 +20,19 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerEvidenceTests
         var result = await scenario.LaunchAsync();
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup!.ProcessAction);
         var cleanupIndex = sequence.IndexOf("cleanup");
         Assert.Equal(0, cleanupIndex);
         Assert.Contains(
             sequence.Skip(1),
             value => string.Equals(
                 value,
-                $"launchAttempt:{ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated)}",
+                $"launchAttempt:{DaemonStartupProcessAction.Terminated}",
                 StringComparison.Ordinal));
         Assert.Contains("diagnosis", sequence.Skip(1));
         Assert.Single(scenario.LaunchAttemptStore.WriteInvocations);
         Assert.Equal(
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated),
+            DaemonStartupProcessAction.Terminated,
             DaemonLaunchAttemptStoreAssert.LatestLaunchAttemptWrittenFor(scenario.LaunchAttemptStore, scenario.Context).ProcessAction);
     }
 }

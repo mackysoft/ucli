@@ -9,7 +9,6 @@ using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -72,7 +71,7 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
             {
                 return DaemonGuiStartupObservationResult.Success(
                     sessionResult.Session!,
-                    sessionResult.LifecycleSnapshot);
+                    sessionResult.LifecycleObservation);
             }
 
             if (sessionResult.Error!.Kind != ExecutionErrorKind.Timeout)
@@ -134,7 +133,7 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
             ExecutionErrorCodes.IpcTimeout));
     }
 
-    private async ValueTask<(DaemonGuiStartupBlocker? Blocker, bool DeadlineExpired)> TryClassifyLogAsync (
+    private async ValueTask<(DaemonGuiStartupBlockerObservation? Blocker, bool DeadlineExpired)> TryClassifyLogAsync (
         ResolvedUnityProjectContext unityProject,
         int processId,
         DateTimeOffset processStartedAtUtc,
@@ -172,17 +171,11 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
             return (null, false);
         }
 
-        return (new DaemonGuiStartupBlocker(
-            StartupBlockingReason: classification!.StartupBlockingReason,
-            Reason: classification!.Reason,
-            RetryDisposition: classification.RetryDisposition,
-            Message: classification.Message,
-            StartupPhase: classification.StartupPhase,
-            ActionRequired: classification.ActionRequired,
-            ProcessId: processId,
-            ProcessStartedAtUtc: processStartedAtUtc,
-            UnityLogPath: string.IsNullOrWhiteSpace(logReadResult.Path) ? unityLogPath : logReadResult.Path,
-            PrimaryDiagnostic: classification.PrimaryDiagnostic), false);
+        return (new DaemonGuiStartupBlockerObservation(
+            classification,
+            processId,
+            processStartedAtUtc,
+            string.IsNullOrWhiteSpace(logReadResult.Path) ? unityLogPath : logReadResult.Path), false);
     }
 
     private static TimeSpan GetObservationAttemptTimeout (TimeSpan remainingTimeout)
@@ -192,28 +185,29 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
             : DaemonTimeouts.ProbeAttemptTimeoutCap;
     }
 
-    private static DaemonGuiStartupBlocker CreateProcessExitedBlocker (
+    private static DaemonGuiStartupBlockerObservation CreateProcessExitedBlocker (
         int processId,
         DateTimeOffset processStartedAtUtc,
         string unityLogPath)
     {
         var message = $"Unity Editor process exited before GUI daemon session registration. ProcessId={processId}.";
-        return new DaemonGuiStartupBlocker(
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.ProcessExit),
-            Reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
-            Message: message,
-            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ProcessExit),
-            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
-            ProcessId: processId,
-            ProcessStartedAtUtc: processStartedAtUtc,
-            UnityLogPath: unityLogPath,
-            PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit,
-                Code: null,
-                File: null,
-                Line: null,
-                Column: null,
-                Message: message));
+        return new DaemonGuiStartupBlockerObservation(
+            new DaemonStartupFailureClassification(
+                startupBlockingReason: DaemonStartupBlockingReason.ProcessExit,
+                reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
+                retryDisposition: DaemonStartupRetryDisposition.Unknown,
+                message: message,
+                startupPhase: DaemonDiagnosisStartupPhase.ProcessExit,
+                actionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+                primaryDiagnostic: new DaemonPrimaryDiagnostic(
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit,
+                    Code: null,
+                    File: null,
+                    Line: null,
+                    Column: null,
+                    Message: message)),
+            processId,
+            processStartedAtUtc,
+            unityLogPath);
     }
 }

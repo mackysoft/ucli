@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Application.Shared.Execution;
-
 namespace MackySoft.Ucli.Application.Tests;
 
 internal sealed class StubRunIdGenerator : IRunIdGenerator

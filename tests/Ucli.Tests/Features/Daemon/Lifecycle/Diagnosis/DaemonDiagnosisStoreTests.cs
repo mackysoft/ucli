@@ -81,7 +81,7 @@ public sealed class DaemonDiagnosisStoreTests
         var store = new DaemonDiagnosisStore();
         var diagnosis = CreateDiagnosis(processId: 1234) with
         {
-            StartupPhase = "unknownPhase",
+            StartupPhase = (DaemonDiagnosisStartupPhase)int.MaxValue,
         };
 
         var writeResult = await store.WriteAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), diagnosis, CancellationToken.None);
@@ -146,7 +146,7 @@ public sealed class DaemonDiagnosisStoreTests
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
             UnityLogPath: "/repo/.ucli/local/fingerprints/fingerprint-roundtrip/unity.log",
-            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
+            StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
             ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
                 Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,

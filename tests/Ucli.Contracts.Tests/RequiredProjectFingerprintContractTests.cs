@@ -17,7 +17,7 @@ public sealed class RequiredProjectFingerprintContractTests
     [InlineData(ContractKind.CompileStarted)]
     [InlineData(ContractKind.CompileSummary)]
     [InlineData(ContractKind.DaemonLifecycleSnapshot)]
-    [InlineData(ContractKind.PingResponse)]
+    [InlineData(ContractKind.UnityEditorObservation)]
     [InlineData(ContractKind.DaemonStartupObservation)]
     [InlineData(ContractKind.DaemonStartProgress)]
     [InlineData(ContractKind.GuiSupervisorManifest)]
@@ -30,7 +30,11 @@ public sealed class RequiredProjectFingerprintContractTests
     {
         var exception = Assert.Throws<ArgumentNullException>(() => CreateWithNullProjectFingerprint(contractKind));
 
-        Assert.Equal("ProjectFingerprint", exception.ParamName);
+        Assert.Equal(
+            contractKind == ContractKind.UnityEditorObservation
+                ? "projectFingerprint"
+                : "ProjectFingerprint",
+            exception.ParamName);
     }
 
     private static object CreateWithNullProjectFingerprint (ContractKind contractKind)
@@ -69,26 +73,36 @@ public sealed class RequiredProjectFingerprintContractTests
                 DomainReload: null!,
                 Lifecycle: null!),
             ContractKind.DaemonLifecycleSnapshot => new DaemonStartLifecycleSnapshotProgressEntry(
-                PayloadKind: "lifecycleSnapshot",
+                PayloadKind: DaemonStartProgressPayloadKind.LifecycleSnapshot,
                 ProjectFingerprint: null!,
                 TimeoutMilliseconds: 1000,
                 EditorMode: null,
-                OnStartupBlocked: "auto",
-                LifecycleState: "ready",
+                OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                LifecycleState: IpcEditorLifecycleState.Ready,
                 BlockingReason: null,
+                Generations: new IpcUnityGenerationSnapshot(0, 0, 0, 0),
                 CanAcceptExecutionRequests: true),
-            ContractKind.PingResponse => new IpcPingResponse(
-                ServerVersion: "1.0.0",
-                EditorMode: "batchmode",
-                UnityVersion: "6000.1.4f1",
-                ProjectFingerprint: null!,
-                CompileState: "ready"),
+            ContractKind.UnityEditorObservation => new IpcUnityEditorObservation(
+                serverVersion: "1.0.0",
+                unityVersion: "6000.1.4f1",
+                projectFingerprint: null!,
+                state: new UnityEditorStateSnapshot(
+                    editorMode: DaemonEditorMode.Batchmode,
+                    lifecycleState: IpcEditorLifecycleState.Ready,
+                    compileState: IpcCompileState.Ready,
+                    generations: new IpcUnityGenerationSnapshot(0, 0, 0, 0),
+                    playMode: new IpcPlayModeSnapshot(
+                        IpcPlayModeState.Stopped,
+                        IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
+                observedAtUtc: Timestamp),
             ContractKind.DaemonStartupObservation => new DaemonStartStartupObservationProgressEntry(
-                PayloadKind: "startupObservation",
+                PayloadKind: DaemonStartProgressPayloadKind.StartupObservation,
                 ProjectFingerprint: null!,
                 TimeoutMilliseconds: 1000,
                 EditorMode: null,
-                OnStartupBlocked: "auto",
+                OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 LaunchAttemptId: null,
                 OwnerKind: null,
                 CanShutdownProcess: null,
@@ -104,7 +118,7 @@ public sealed class RequiredProjectFingerprintContractTests
                 ProjectFingerprint: null!,
                 TimeoutMilliseconds: 1000,
                 EditorMode: null,
-                OnStartupBlocked: "auto",
+                OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 Result: null,
                 StartStatus: null,
                 DaemonStatus: null,
@@ -148,7 +162,7 @@ public sealed class RequiredProjectFingerprintContractTests
         CompileStarted,
         CompileSummary,
         DaemonLifecycleSnapshot,
-        PingResponse,
+        UnityEditorObservation,
         DaemonStartupObservation,
         DaemonStartProgress,
         GuiSupervisorManifest,

@@ -98,11 +98,13 @@ internal static class UnityIpcRequestExecutorTestSupport
             ]);
     }
 
-    public static IpcResponse CreateReadyPingResponse (Guid requestId)
+    public static IpcResponse CreateReadyPingResponse (
+        Guid requestId,
+        ProjectFingerprint projectFingerprint)
     {
         var payload = IpcPayloadCodec.SerializeToElement(CreatePingPayload(
-            IpcEditorLifecycleStateCodec.Ready,
-            canAcceptExecutionRequests: true));
+            IpcEditorLifecycleState.Ready,
+            projectFingerprint));
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
@@ -111,13 +113,13 @@ internal static class UnityIpcRequestExecutorTestSupport
             errors: Array.Empty<IpcError>());
     }
 
-    public static IpcPingResponse CreatePingPayload (
-        string lifecycleState,
-        bool canAcceptExecutionRequests)
+    public static IpcUnityEditorObservation CreatePingPayload (
+        IpcEditorLifecycleState lifecycleState,
+        ProjectFingerprint? projectFingerprint = null)
     {
-        return IpcPingResponseTestFactory.Create(
-            lifecycleState: lifecycleState,
-            canAcceptExecutionRequests: canAcceptExecutionRequests);
+        return IpcUnityEditorObservationTestFactory.Create(
+            lifecycleState,
+            projectFingerprint: projectFingerprint);
     }
 
     public static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)

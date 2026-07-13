@@ -75,7 +75,7 @@ internal sealed class PlayCommandExecutionContextResolver : IPlayCommandExecutio
         }
 
         var session = sessionResult.Session!;
-        if (!IsGuiSession(session))
+        if (session.EditorMode != DaemonEditorMode.Gui)
         {
             return PlayCommandExecutionContextResolutionResult.Failure(ExecutionError.InternalError(
                 requiresGuiEditorMessage,
@@ -89,10 +89,5 @@ internal sealed class PlayCommandExecutionContextResolver : IPlayCommandExecutio
             Session: session,
             Timeout: timeout,
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds)));
-    }
-
-    private static bool IsGuiSession (DaemonSession session)
-    {
-        return session.EditorMode == DaemonEditorMode.Gui;
     }
 }

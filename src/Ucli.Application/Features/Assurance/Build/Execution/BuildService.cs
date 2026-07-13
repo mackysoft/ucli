@@ -24,7 +24,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Execution;
 internal sealed class BuildService : IBuildService
 {
     private const int BuildMetadataSchemaVersion = 1;
-    private const string UnknownGeneration = "unknown";
 
     private static readonly IReadOnlyList<BuildResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<BuildResidualRiskOutput>();
@@ -977,6 +976,12 @@ internal sealed class BuildService : IBuildService
                 $"Unity build response projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={response.ProjectFingerprint}.");
         }
 
+        if (response.LifecycleBefore is null
+            || response.LifecycleAfter is null)
+        {
+            return ApplicationFailure.InternalError("Unity build response contains a missing or invalid Unity Editor state snapshot.");
+        }
+
         if (!ContractLiteralCodec.TryParse<BuildProfileInputsKind>(response.Input.InputKind, out var inputKind))
         {
             return ApplicationFailure.InternalError($"Unity build response contains unsupported input kind: {response.Input.InputKind}.");
@@ -1277,56 +1282,12 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.lifecycleAfter is missing.");
         }
 
-        if (applyAudit.GenerationsBefore == null)
-        {
-            return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.generationsBefore is missing.");
-        }
-
-        if (applyAudit.GenerationsAfter == null)
-        {
-            return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.generationsAfter is missing.");
-        }
-
         if (applyAudit.DirtyStateAfter == null)
         {
             return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.dirtyStateAfter is missing.");
         }
 
-        var beforeFailure = ValidateUnityBuildProfileGenerationSnapshot(
-            applyAudit.GenerationsBefore,
-            applyAudit.LifecycleBefore,
-            "generationsBefore");
-        if (beforeFailure != null)
-        {
-            return beforeFailure;
-        }
-
-        var afterFailure = ValidateUnityBuildProfileGenerationSnapshot(
-            applyAudit.GenerationsAfter,
-            applyAudit.LifecycleAfter,
-            "generationsAfter");
-        if (afterFailure != null)
-        {
-            return afterFailure;
-        }
-
         return ValidateUnityBuildProfileDirtyStateAfter(applyAudit.DirtyStateAfter);
-    }
-
-    private static ApplicationFailure? ValidateUnityBuildProfileGenerationSnapshot (
-        IpcBuildGenerationSnapshot generations,
-        IpcBuildLifecycleSnapshot lifecycle,
-        string propertyName)
-    {
-        if (!string.Equals(generations.CompileGeneration, lifecycle.CompileGeneration, StringComparison.Ordinal)
-            || !string.Equals(generations.DomainReloadGeneration, lifecycle.DomainReloadGeneration, StringComparison.Ordinal)
-            || !string.Equals(generations.AssetRefreshGeneration, lifecycle.AssetRefreshGeneration, StringComparison.Ordinal))
-        {
-            return ApplicationFailure.InternalError(
-                $"Unity build response unityBuildProfile applyAudit.{propertyName} must match its lifecycle snapshot generations.");
-        }
-
-        return null;
     }
 
     private static ApplicationFailure? ValidateUnityBuildProfileDirtyStateAfter (IpcBuildDirtyState dirtyState)
@@ -2221,28 +2182,15 @@ internal sealed class BuildService : IBuildService
     }
 
     private static BuildGenerationsOutput CreateGenerations (
-        IpcBuildLifecycleSnapshot before,
-        IpcBuildLifecycleSnapshot after)
+        IpcUnityEditorObservation before,
+        IpcUnityEditorObservation after)
     {
-        var beforeSnapshot = CreateGenerationSnapshot(before);
-        var afterSnapshot = CreateGenerationSnapshot(after);
+        var beforeSnapshot = before.State.Generations;
+        var afterSnapshot = after.State.Generations;
         return new BuildGenerationsOutput(
             Before: beforeSnapshot,
             After: afterSnapshot,
             ValidFor: afterSnapshot);
-    }
-
-    private static BuildGenerationSnapshotOutput CreateGenerationSnapshot (IpcBuildLifecycleSnapshot snapshot)
-    {
-        return new BuildGenerationSnapshotOutput(
-            CompileGeneration: NormalizeGeneration(snapshot.CompileGeneration),
-            DomainReloadGeneration: NormalizeGeneration(snapshot.DomainReloadGeneration),
-            AssetRefreshGeneration: NormalizeGeneration(snapshot.AssetRefreshGeneration));
-    }
-
-    private static string NormalizeGeneration (string? generation)
-    {
-        return string.IsNullOrWhiteSpace(generation) ? UnknownGeneration : generation;
     }
 
     private static IReadOnlyList<BuildClaimOutput> CreateClaims (
@@ -2274,11 +2222,13 @@ internal sealed class BuildService : IBuildService
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEvidenceKind.BuildProfile), EvidenceRef: BuildReportRefs.Build, Data: build.Profile)]),
             CreateClaim(
                 BuildClaimCodes.UnityReadyForBuild,
-                response.LifecycleBefore.CanAcceptExecutionRequests ? BuildClaimStatus.Passed : BuildClaimStatus.Failed,
+                IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(response.LifecycleBefore.State.LifecycleState)
+                    ? BuildClaimStatus.Passed
+                    : BuildClaimStatus.Failed,
                 "Unity lifecycle was ready before BuildPipeline execution.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["lifecycleState"] = response.LifecycleBefore.LifecycleState,
+                    ["lifecycleState"] = response.LifecycleBefore.State.LifecycleState,
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.UnityLifecycleRead), Data: response.LifecycleBefore)]),
             CreateClaim(
@@ -2377,9 +2327,10 @@ internal sealed class BuildService : IBuildService
                 "Build artifacts declare the Unity lifecycle generations they are valid for.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
-                    ["compileGeneration"] = build.Generations.ValidFor.CompileGeneration,
-                    ["domainReloadGeneration"] = build.Generations.ValidFor.DomainReloadGeneration,
-                    ["assetRefreshGeneration"] = build.Generations.ValidFor.AssetRefreshGeneration,
+                    ["compileGeneration"] = build.Generations.ValidFor?.CompileGeneration,
+                    ["domainReloadGeneration"] = build.Generations.ValidFor?.DomainReloadGeneration,
+                    ["assetRefreshGeneration"] = build.Generations.ValidFor?.AssetRefreshGeneration,
+                    ["playModeGeneration"] = build.Generations.ValidFor?.PlayModeGeneration,
                 },
                 [new BuildEvidenceOutput(Kind: ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot), EvidenceRef: BuildReportRefs.Build, Data: build.Generations)]),
         };
@@ -2495,21 +2446,9 @@ internal sealed class BuildService : IBuildService
 
     private static bool HasCompleteGenerationSnapshot (BuildGenerationsOutput generations)
     {
-        return IsKnownGeneration(generations.Before.CompileGeneration)
-            && IsKnownGeneration(generations.Before.DomainReloadGeneration)
-            && IsKnownGeneration(generations.Before.AssetRefreshGeneration)
-            && IsKnownGeneration(generations.After.CompileGeneration)
-            && IsKnownGeneration(generations.After.DomainReloadGeneration)
-            && IsKnownGeneration(generations.After.AssetRefreshGeneration)
-            && IsKnownGeneration(generations.ValidFor.CompileGeneration)
-            && IsKnownGeneration(generations.ValidFor.DomainReloadGeneration)
-            && IsKnownGeneration(generations.ValidFor.AssetRefreshGeneration);
-    }
-
-    private static bool IsKnownGeneration (string generation)
-    {
-        return !string.IsNullOrWhiteSpace(generation)
-            && !string.Equals(generation, UnknownGeneration, StringComparison.Ordinal);
+        return generations.Before is not null
+            && generations.After is not null
+            && generations.ValidFor is not null;
     }
 
     private static BuildClaimOutput CreateClaim (

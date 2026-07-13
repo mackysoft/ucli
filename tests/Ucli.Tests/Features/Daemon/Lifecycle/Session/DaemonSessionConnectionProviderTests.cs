@@ -22,7 +22,7 @@ public sealed class DaemonSessionConnectionProviderTests
         var session = DaemonSessionTestFactory.Create(
             projectFingerprint: context.ProjectFingerprint,
             sessionToken: "resolved-token",
-            endpointTransportKind: "namedPipe",
+            endpointTransportKind: IpcTransportKind.NamedPipe,
             endpointAddress: "ucli-daemon-test");
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
         Assert.True(writeResult.IsSuccess);

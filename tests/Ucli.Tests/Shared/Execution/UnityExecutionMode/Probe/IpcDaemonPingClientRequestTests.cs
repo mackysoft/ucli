@@ -251,7 +251,7 @@ public sealed class IpcDaemonPingClientRequestTests
             TimeProvider.System);
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "captured-token",
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli-captured-session.sock");
 
         _ = await pingClient.PingSessionAndReadAsync(

@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 
@@ -18,10 +17,10 @@ internal sealed class DaemonSessionOutputMapper : IDaemonSessionOutputMapper
         return new DaemonSessionOutput(
             ProjectFingerprint: session.ProjectFingerprint,
             IssuedAtUtc: session.IssuedAtUtc,
-            EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-            OwnerKind: ContractLiteralCodec.ToValue(session.OwnerKind),
+            EditorMode: session.EditorMode,
+            OwnerKind: session.OwnerKind,
             CanShutdownProcess: session.CanShutdownProcess,
-            EndpointTransportKind: ContractLiteralCodec.ToValue(session.Endpoint.TransportKind),
+            EndpointTransportKind: session.Endpoint.TransportKind,
             EndpointAddress: session.Endpoint.Address,
             ProcessId: session.ProcessId,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,

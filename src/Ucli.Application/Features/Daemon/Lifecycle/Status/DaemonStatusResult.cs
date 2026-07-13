@@ -18,7 +18,7 @@ internal sealed record DaemonStatusResult (
     DaemonSession? Session,
     DaemonDiagnosis? Diagnosis,
     ExecutionError? Error,
-    IpcPingResponse? PingResponse,
+    IpcUnityEditorObservation? PingResponse,
     DaemonLaunchAttempt? LastLaunchAttempt = null)
 {
     /// <summary> Gets a value indicating whether daemon status query succeeded. </summary>
@@ -32,7 +32,7 @@ internal sealed record DaemonStatusResult (
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> or <paramref name="pingResponse" /> is <see langword="null" />. </exception>
     public static DaemonStatusResult Running (
         DaemonSession session,
-        IpcPingResponse pingResponse,
+        IpcUnityEditorObservation pingResponse,
         DaemonDiagnosis? diagnosis = null)
     {
         ArgumentNullException.ThrowIfNull(session);

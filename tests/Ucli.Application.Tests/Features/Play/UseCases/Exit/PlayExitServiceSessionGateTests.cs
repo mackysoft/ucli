@@ -29,7 +29,7 @@ public sealed class PlayExitServiceSessionGateTests
     {
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(
             DaemonSessionTestFactory.Create(
-                editorMode: "batchmode",
+                editorMode: DaemonEditorMode.Batchmode,
                 endpointAddress: PlaySessionEndpointAddress)));
         var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);

@@ -7,7 +7,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 
 internal static class DaemonExistingSessionGateServiceTestSupport
 {
@@ -39,28 +38,35 @@ internal static class DaemonExistingSessionGateServiceTestSupport
 
     public static DaemonLifecycleObservation CreateLifecycleObservation (
         DaemonSession session,
-        string lifecycleState,
-        string? blockingReason,
-        bool canAcceptExecutionRequests,
-        DateTimeOffset? observedAtUtc = null)
+        IpcEditorLifecycleState lifecycleState,
+        DateTimeOffset? observedAtUtc = null,
+        Guid? editorInstanceId = null)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
             processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            editorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-            lifecycleState: lifecycleState,
-            blockingReason: blockingReason,
-            compileState: IpcCompileStateCodec.Ready,
-            compileGeneration: "1",
-            domainReloadGeneration: "2",
+            state: new UnityEditorStateSnapshot(
+                editorMode: session.EditorMode,
+                lifecycleState: lifecycleState,
+                compileState: lifecycleState switch
+                {
+                    IpcEditorLifecycleState.Compiling => IpcCompileState.Compiling,
+                    IpcEditorLifecycleState.CompileFailed => IpcCompileState.Failed,
+                    _ => IpcCompileState.Ready,
+                },
+                generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Stopped,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: observedAtUtc ?? DefaultUtcNow,
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
-            canAcceptExecutionRequests: canAcceptExecutionRequests,
-            editorInstanceId: session.EditorInstanceId
-                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
-            playMode: null);
+            editorInstanceId: editorInstanceId
+                ?? session.EditorInstanceId
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)));
     }
 
     public static DaemonSession CreateRecoveringGuiSession (
@@ -71,8 +77,8 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         return DaemonSessionTestFactory.Create(
             processId: processId,
             projectFingerprint: projectFingerprint,
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: editorInstanceId);
     }
@@ -85,9 +91,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
                 session,
-                IpcEditorLifecycleStateCodec.Recovering,
-                IpcEditorBlockingReasonCodec.Recovery,
-                canAcceptExecutionRequests: false,
+                IpcEditorLifecycleState.Recovering,
                 observedAtUtc: observedAtUtc)),
         };
     }
@@ -103,29 +107,15 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         };
     }
 
-    public static IpcPingResponse CreatePingResponse (
-        string lifecycleState,
-        string? blockingReason,
-        bool canAcceptExecutionRequests)
+    public static IpcUnityEditorObservation CreatePingResponse (IpcEditorLifecycleState lifecycleState)
     {
-        return new IpcPingResponse(
-            ServerVersion: "1.0.0",
-            EditorMode: "batchmode",
-            UnityVersion: "2022.3.0f1",
-            ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: lifecycleState,
-            BlockingReason: blockingReason,
-            CompileGeneration: "1",
-            DomainReloadGeneration: "2",
-            CanAcceptExecutionRequests: canAcceptExecutionRequests);
+        return IpcUnityEditorObservationTestFactory.Create(
+            lifecycleState,
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
     }
 
-    public static IpcPingResponse CreateReadyPingResponse ()
+    public static IpcUnityEditorObservation CreateReadyPingResponse ()
     {
-        return CreatePingResponse(
-            IpcEditorLifecycleStateCodec.Ready,
-            null,
-            true);
+        return CreatePingResponse(IpcEditorLifecycleState.Ready);
     }
 }

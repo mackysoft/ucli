@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Contracts.Tests.Storage;
@@ -5,6 +7,7 @@ namespace MackySoft.Ucli.Contracts.Tests.Storage;
 public sealed class SensitiveStorageContractTextRepresentationTests
 {
     private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private static readonly ProjectFingerprint ProjectFingerprint = new(ProjectFingerprintText);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -14,12 +17,12 @@ public sealed class SensitiveStorageContractTextRepresentationTests
         var contract = new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
             SessionToken: SessionToken,
-            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
+            ProjectFingerprint: ProjectFingerprint,
             IssuedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
+            EditorMode: DaemonEditorMode.Batchmode,
+            OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
+            EndpointTransportKind: IpcTransportKind.NamedPipe,
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
@@ -45,7 +48,7 @@ public sealed class SensitiveStorageContractTextRepresentationTests
         var contract = new GuiSupervisorManifestJsonContract(
             SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             SessionToken: SessionToken,
-            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
+            ProjectFingerprint: ProjectFingerprint,
             EndpointTransportKind: "namedPipe",
             EndpointAddress: "ucli-gui-supervisor-endpoint",
             ProcessId: 1234,

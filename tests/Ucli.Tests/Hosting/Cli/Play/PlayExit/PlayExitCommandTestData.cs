@@ -12,15 +12,13 @@ internal static class PlayExitCommandTestData
         string applicationState = IpcPlayApplicationStateNames.Indeterminate)
     {
         var before = PlayCommandOutputTestData.CreateLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Playmode,
-            IpcEditorBlockingReasonCodec.PlayMode,
-            false,
-            PlayCommandOutputTestData.CreatePlayMode("playing", "none", true, true, "2"));
+            IpcEditorLifecycleState.PlayMode,
+            PlayCommandOutputTestData.CreatePlayMode(IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true),
+            playModeGeneration: 2);
         var current = PlayCommandOutputTestData.CreateLifecycleSnapshot(
-            IpcEditorLifecycleStateCodec.Ready,
-            null,
-            true,
-            PlayCommandOutputTestData.CreatePlayMode("stopped", "none", false, false, "3"));
+            IpcEditorLifecycleState.Ready,
+            PlayCommandOutputTestData.CreatePlayMode(IpcPlayModeState.Stopped, IpcPlayModeTransition.None, false, false),
+            playModeGeneration: 3);
         var transition = new PlayExitTransitionOutput(
             Transition: IpcPlayTransitionCommandNames.Exit,
             Result: result,
@@ -49,17 +47,16 @@ internal static class PlayExitCommandTestData
             Project: PlayCommandOutputTestData.CreateProject(),
             DaemonStatus: DaemonStatusKind.Running,
             ServerVersion: PlayCommandOutputTestData.ServerVersion,
-            EditorMode: "gui",
-            LifecycleState: IpcEditorLifecycleStateCodec.Ready,
+            EditorMode: DaemonEditorMode.Gui,
+            LifecycleState: IpcEditorLifecycleState.Ready,
             BlockingReason: null,
             CompileState: PlayCommandOutputTestData.CompileState,
-            CompileGeneration: PlayCommandOutputTestData.CompileGeneration,
-            DomainReloadGeneration: PlayCommandOutputTestData.DomainReloadGeneration,
+            Generations: current.State.Generations,
             CanAcceptExecutionRequests: true,
             ObservedAtUtc: PlayCommandOutputTestData.ObservedAtUtc,
             ActionRequired: null,
             PrimaryDiagnostic: null,
-            PlayMode: PlayCommandOutputTestData.CreatePlayModeOutput(PlayCommandOutputTestData.CreatePlayMode("stopped", "none", false, false, "3")),
+            PlayMode: current.State.PlayMode,
             Transition: transition,
             TimeoutMilliseconds: 1000);
     }

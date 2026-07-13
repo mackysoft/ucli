@@ -109,8 +109,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SchemaVersion, Is.EqualTo(DaemonSessionStorageContract.CurrentSchemaVersion));
-                Assert.That(contract.EditorMode, Is.EqualTo("gui"));
-                Assert.That(contract.OwnerKind, Is.EqualTo("user"));
+                Assert.That(contract.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
+                Assert.That(contract.OwnerKind, Is.EqualTo(DaemonSessionOwnerKind.User));
                 Assert.That(contract.CanShutdownProcess, Is.False);
                 Assert.That(contract.ProcessId, Is.EqualTo(Process.GetCurrentProcess().Id));
                 Assert.That(contract.ProcessStartedAtUtc, Is.Not.Null);
@@ -119,7 +119,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Is.LessThanOrEqualTo(2));
                 Assert.That(contract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
                 Assert.That(contract.OwnerProcessId, Is.EqualTo(Process.GetCurrentProcess().Id));
-                Assert.That(contract.EndpointTransportKind, Is.EqualTo("namedPipe"));
+                Assert.That(contract.EndpointTransportKind, Is.EqualTo(IpcTransportKind.NamedPipe));
                 Assert.That(contract.EndpointAddress, Is.EqualTo("ucli-gui-session-tests"));
                 Assert.That(contract.SessionToken, Is.Not.Null.And.Not.Empty);
                 Assert.That(IpcSessionToken.IsValidEncodedValue(contract.SessionToken), Is.True);
@@ -148,8 +148,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
 
                 var contract = ReadSessionContract(storageRoot);
-                Assert.That(contract.EditorMode, Is.EqualTo("gui"));
-                Assert.That(contract.OwnerKind, Is.EqualTo("cli"));
+                Assert.That(contract.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
+                Assert.That(contract.OwnerKind, Is.EqualTo(DaemonSessionOwnerKind.Cli));
                 Assert.That(contract.CanShutdownProcess, Is.True);
                 Assert.That(contract.OwnerProcessId, Is.EqualTo(123));
             }
@@ -178,10 +178,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         SessionToken: "existing-cli-owned-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
-                        EditorMode: "gui",
-                        OwnerKind: "cli",
+                        EditorMode: DaemonEditorMode.Gui,
+                        OwnerKind: DaemonSessionOwnerKind.Cli,
                         CanShutdownProcess: true,
-                        EndpointTransportKind: "namedPipe",
+                        EndpointTransportKind: IpcTransportKind.NamedPipe,
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
@@ -198,7 +198,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SessionToken, Is.Not.EqualTo("existing-cli-owned-token"));
-                Assert.That(contract.OwnerKind, Is.EqualTo("user"));
+                Assert.That(contract.OwnerKind, Is.EqualTo(DaemonSessionOwnerKind.User));
                 Assert.That(contract.CanShutdownProcess, Is.False);
                 Assert.That(contract.OwnerProcessId, Is.EqualTo(currentProcess.Id));
                 Assert.That(contract.ProcessId, Is.EqualTo(currentProcess.Id));
@@ -229,10 +229,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         SessionToken: "existing-cli-owned-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
-                        EditorMode: "gui",
-                        OwnerKind: "cli",
+                        EditorMode: DaemonEditorMode.Gui,
+                        OwnerKind: DaemonSessionOwnerKind.Cli,
                         CanShutdownProcess: true,
-                        EndpointTransportKind: "namedPipe",
+                        EndpointTransportKind: IpcTransportKind.NamedPipe,
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
@@ -259,7 +259,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(exception.Message, Does.Contain("GUI session already exists"));
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SessionToken, Is.EqualTo("existing-cli-owned-token"));
-                Assert.That(contract.OwnerKind, Is.EqualTo("cli"));
+                Assert.That(contract.OwnerKind, Is.EqualTo(DaemonSessionOwnerKind.Cli));
             }
             finally
             {
@@ -286,10 +286,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         SessionToken: "existing-other-editor-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
-                        EditorMode: "gui",
-                        OwnerKind: "cli",
+                        EditorMode: DaemonEditorMode.Gui,
+                        OwnerKind: DaemonSessionOwnerKind.Cli,
                         CanShutdownProcess: true,
-                        EndpointTransportKind: "namedPipe",
+                        EndpointTransportKind: IpcTransportKind.NamedPipe,
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
@@ -378,10 +378,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         SessionToken: "existing-current-process-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
-                        EditorMode: "gui",
-                        OwnerKind: "user",
+                        EditorMode: DaemonEditorMode.Gui,
+                        OwnerKind: DaemonSessionOwnerKind.User,
                         CanShutdownProcess: false,
-                        EndpointTransportKind: "namedPipe",
+                        EndpointTransportKind: IpcTransportKind.NamedPipe,
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime().AddSeconds(30),
@@ -398,8 +398,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SessionToken, Is.Not.EqualTo("existing-current-process-token"));
-                Assert.That(contract.EditorMode, Is.EqualTo("gui"));
-                Assert.That(contract.OwnerKind, Is.EqualTo("user"));
+                Assert.That(contract.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
+                Assert.That(contract.OwnerKind, Is.EqualTo(DaemonSessionOwnerKind.User));
                 Assert.That(contract.ProcessId, Is.EqualTo(currentProcess.Id));
                 Assert.That(contract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
                 Assert.That(contract.EndpointAddress, Is.EqualTo("ucli-gui-session-tests"));
@@ -434,10 +434,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         SessionToken: "existing-open-session-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
-                        EditorMode: "gui",
-                        OwnerKind: "user",
+                        EditorMode: DaemonEditorMode.Gui,
+                        OwnerKind: DaemonSessionOwnerKind.User,
                         CanShutdownProcess: false,
-                        EndpointTransportKind: "namedPipe",
+                        EndpointTransportKind: IpcTransportKind.NamedPipe,
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
@@ -489,10 +489,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         SessionToken: "existing-current-process-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
-                        EditorMode: "gui",
-                        OwnerKind: "user",
+                        EditorMode: DaemonEditorMode.Gui,
+                        OwnerKind: DaemonSessionOwnerKind.User,
                         CanShutdownProcess: false,
-                        EndpointTransportKind: "namedPipe",
+                        EndpointTransportKind: IpcTransportKind.NamedPipe,
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
@@ -543,10 +543,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         SessionToken: "existing-malformed-editor-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
-                        EditorMode: "gui",
-                        OwnerKind: "user",
+                        EditorMode: DaemonEditorMode.Gui,
+                        OwnerKind: DaemonSessionOwnerKind.User,
                         CanShutdownProcess: false,
-                        EndpointTransportKind: "namedPipe",
+                        EndpointTransportKind: IpcTransportKind.NamedPipe,
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
@@ -603,10 +603,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         SessionToken: "existing-current-process-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
-                        EditorMode: "gui",
-                        OwnerKind: "user",
+                        EditorMode: DaemonEditorMode.Gui,
+                        OwnerKind: DaemonSessionOwnerKind.User,
                         CanShutdownProcess: false,
-                        EndpointTransportKind: "unixDomainSocket",
+                        EndpointTransportKind: IpcTransportKind.UnixDomainSocket,
                         EndpointAddress: unexpectedEndpointPath,
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
@@ -661,10 +661,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         SessionToken: "existing-session-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow,
-                        EditorMode: "batchmode",
-                        OwnerKind: "cli",
+                        EditorMode: DaemonEditorMode.Batchmode,
+                        OwnerKind: DaemonSessionOwnerKind.Cli,
                         CanShutdownProcess: true,
-                        EndpointTransportKind: "namedPipe",
+                        EndpointTransportKind: IpcTransportKind.NamedPipe,
                         EndpointAddress: "ucli-existing-session",
                         ProcessId: 123,
                         ProcessStartedAtUtc: DateTimeOffset.UtcNow,
@@ -688,7 +688,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(exception.Message, Does.Contain("GUI session already exists"));
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SessionToken, Is.EqualTo("existing-session-token"));
-                Assert.That(contract.EditorMode, Is.EqualTo("batchmode"));
+                Assert.That(contract.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
                 Assert.That(contract.EndpointAddress, Is.EqualTo("ucli-existing-session"));
             }
             finally
@@ -716,8 +716,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     SessionToken = "replacement-session-token",
                     IssuedAtUtc = originalContract.IssuedAtUtc.AddSeconds(1),
-                    EditorMode = "batchmode",
-                    OwnerKind = "cli",
+                    EditorMode = DaemonEditorMode.Batchmode,
+                    OwnerKind = DaemonSessionOwnerKind.Cli,
                     CanShutdownProcess = true,
                     ProcessId = 456,
                     OwnerProcessId = 456,
@@ -730,7 +730,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(File.Exists(endpointResiduePath), Is.True);
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SessionToken, Is.EqualTo("replacement-session-token"));
-                Assert.That(contract.EditorMode, Is.EqualTo("batchmode"));
+                Assert.That(contract.EditorMode, Is.EqualTo(DaemonEditorMode.Batchmode));
                 Assert.That(contract.ProcessId, Is.EqualTo(456));
             }
             finally

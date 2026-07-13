@@ -1,7 +1,7 @@
+using System.Globalization;
 using MackySoft.Ucli.Contracts.Ipc;
-using UnityEditor;
-
 using MackySoft.Ucli.Contracts.Text;
+using UnityEditor;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -12,10 +12,13 @@ namespace MackySoft.Ucli.Unity.Runtime
         // Keeping all keys and direct access here prevents recovery identity and
         // lifecycle counters from drifting through duplicate persistence rules.
         private const string AssetRefreshGenerationKey = "MackySoft.Ucli.Unity.Ipc.AssetRefreshGeneration";
+        private const string CompileGenerationKey = "MackySoft.Ucli.Unity.Ipc.CompileGeneration";
         private const string DomainReloadGenerationKey = "MackySoft.Ucli.Unity.Ipc.DomainReloadGeneration";
         private const string PlayModeGenerationKey = "MackySoft.Ucli.Unity.Ipc.PlayModeGeneration";
         private const string PlayModeStableStateKey = "MackySoft.Ucli.Unity.Ipc.PlayModeStableState";
         private const string EditorInstanceIdKey = "MackySoft.Ucli.Unity.Runtime.EditorInstanceId";
+        private const string ScreenshotResolutionLeaseRegistryKey =
+            "MackySoft.Ucli.ScreenshotCapture.TemporaryGameViewResolutions";
 
         /// <summary> Gets the current Unity Editor process instance identifier. </summary>
         /// <returns> A non-empty identifier that remains stable until the Editor process exits. </returns>
@@ -41,55 +44,77 @@ namespace MackySoft.Ucli.Unity.Runtime
             SessionState.SetString(EditorInstanceIdKey, editorInstanceId ?? string.Empty);
         }
 
+        /// <summary> Restores the last persisted compile generation. </summary>
+        /// <returns> The persisted compile generation, or <c>0</c> when none is stored. </returns>
+        public static long RestoreCompileGeneration ()
+        {
+            return RestoreGeneration(CompileGenerationKey);
+        }
+
+        /// <summary> Advances the persisted compile generation and returns the new value. </summary>
+        /// <param name="minimumValue"> The minimum in-memory generation value that the next persisted generation must exceed. </param>
+        /// <returns> The incremented persisted generation value. </returns>
+        public static long AdvanceCompileGeneration (long minimumValue = 0)
+        {
+            return AdvanceGeneration(CompileGenerationKey, RestoreCompileGeneration(), minimumValue);
+        }
+
+        /// <summary> Stores one persisted compile generation value for tests. </summary>
+        /// <param name="value"> The persisted compile generation value to store. </param>
+        internal static void SetCompileGenerationForTests (long value)
+        {
+            PersistGeneration(CompileGenerationKey, value);
+        }
+
         /// <summary> Restores the last persisted domain-reload generation. </summary>
         /// <returns> The persisted domain-reload generation, or <c>0</c> when none is stored. </returns>
-        public static int RestoreDomainReloadGeneration ()
+        public static long RestoreDomainReloadGeneration ()
         {
-            return SessionState.GetInt(DomainReloadGenerationKey, 0);
+            return RestoreGeneration(DomainReloadGenerationKey);
         }
 
         /// <summary> Advances the persisted domain-reload generation and returns the new value. </summary>
         /// <param name="minimumValue"> The minimum in-memory generation value that the next persisted generation must exceed. </param>
         /// <returns> The incremented persisted generation value. </returns>
-        public static int AdvanceDomainReloadGeneration (int minimumValue = 0)
+        public static long AdvanceDomainReloadGeneration (long minimumValue = 0)
         {
             return AdvanceGeneration(DomainReloadGenerationKey, RestoreDomainReloadGeneration(), minimumValue);
         }
 
         /// <summary> Stores one persisted domain-reload generation value for tests. </summary>
         /// <param name="value"> The persisted generation value to store. </param>
-        internal static void SetDomainReloadGenerationForTests (int value)
+        internal static void SetDomainReloadGenerationForTests (long value)
         {
-            SessionState.SetInt(DomainReloadGenerationKey, value);
+            PersistGeneration(DomainReloadGenerationKey, value);
         }
 
         /// <summary> Restores the last persisted asset-refresh generation. </summary>
         /// <returns> The persisted asset-refresh generation, or <c>0</c> when none is stored. </returns>
-        public static int RestoreAssetRefreshGeneration ()
+        public static long RestoreAssetRefreshGeneration ()
         {
-            return SessionState.GetInt(AssetRefreshGenerationKey, 0);
+            return RestoreGeneration(AssetRefreshGenerationKey);
         }
 
         /// <summary> Advances the persisted asset-refresh generation and returns the new value. </summary>
         /// <param name="minimumValue"> The minimum in-memory generation value that the next persisted generation must exceed. </param>
         /// <returns> The incremented persisted generation value. </returns>
-        public static int AdvanceAssetRefreshGeneration (int minimumValue = 0)
+        public static long AdvanceAssetRefreshGeneration (long minimumValue = 0)
         {
             return AdvanceGeneration(AssetRefreshGenerationKey, RestoreAssetRefreshGeneration(), minimumValue);
         }
 
         /// <summary> Stores one persisted asset-refresh generation value for tests. </summary>
         /// <param name="value"> The persisted generation value to store. </param>
-        internal static void SetAssetRefreshGenerationForTests (int value)
+        internal static void SetAssetRefreshGenerationForTests (long value)
         {
-            SessionState.SetInt(AssetRefreshGenerationKey, value);
+            PersistGeneration(AssetRefreshGenerationKey, value);
         }
 
         /// <summary> Restores the last persisted Play Mode generation. </summary>
         /// <returns> The persisted Play Mode generation, or <c>0</c> when none is stored. </returns>
-        public static int RestorePlayModeGeneration ()
+        public static long RestorePlayModeGeneration ()
         {
-            return SessionState.GetInt(PlayModeGenerationKey, 0);
+            return RestoreGeneration(PlayModeGenerationKey);
         }
 
         /// <summary> Restores the last observed stable Play Mode state. </summary>
@@ -108,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <summary> Advances the persisted Play Mode generation and returns the new value. </summary>
         /// <param name="minimumValue"> The minimum in-memory generation value that the next persisted generation must exceed. </param>
         /// <returns> The incremented persisted generation value. </returns>
-        public static int AdvancePlayModeGeneration (int minimumValue)
+        public static long AdvancePlayModeGeneration (long minimumValue)
         {
             return AdvanceGeneration(PlayModeGenerationKey, RestorePlayModeGeneration(), minimumValue);
         }
@@ -127,9 +152,9 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         /// <summary> Stores one persisted Play Mode generation value. </summary>
         /// <param name="value"> The persisted generation value to store. </param>
-        internal static void SetPlayModeGenerationForTests (int value)
+        internal static void SetPlayModeGenerationForTests (long value)
         {
-            SessionState.SetInt(PlayModeGenerationKey, value);
+            PersistGeneration(PlayModeGenerationKey, value);
             SetPlayModeStableStateForTests(null);
         }
 
@@ -146,14 +171,55 @@ namespace MackySoft.Ucli.Unity.Runtime
             SetPlayModeStableState(state.Value);
         }
 
-        private static int AdvanceGeneration (
-            string key,
-            int persistedValue,
-            int minimumValue)
+        /// <summary> Restores the serialized screenshot resolution lease registry. </summary>
+        public static string RestoreScreenshotResolutionLeaseRegistry ()
         {
-            var nextValue = System.Math.Max(persistedValue, minimumValue) + 1;
-            SessionState.SetInt(key, nextValue);
+            return SessionState.GetString(ScreenshotResolutionLeaseRegistryKey, string.Empty);
+        }
+
+        /// <summary> Persists the serialized screenshot resolution lease registry. </summary>
+        public static void PersistScreenshotResolutionLeaseRegistry (string serializedRegistry)
+        {
+            SessionState.SetString(ScreenshotResolutionLeaseRegistryKey, serializedRegistry ?? string.Empty);
+        }
+
+        /// <summary> Clears the screenshot resolution lease registry for tests. </summary>
+        internal static void ClearScreenshotResolutionLeaseRegistryForTests ()
+        {
+            SessionState.EraseString(ScreenshotResolutionLeaseRegistryKey);
+        }
+
+        private static long AdvanceGeneration (
+            string key,
+            long persistedValue,
+            long minimumValue)
+        {
+            var nextValue = checked(System.Math.Max(persistedValue, minimumValue) + 1L);
+            PersistGeneration(key, nextValue);
             return nextValue;
+        }
+
+        private static long RestoreGeneration (string key)
+        {
+            var persistedValue = SessionState.GetString(key, string.Empty);
+            return long.TryParse(
+                    persistedValue,
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out var generation)
+                && generation >= 0
+                    ? generation
+                    : 0L;
+        }
+
+        private static void PersistGeneration (string key, long value)
+        {
+            if (value < 0)
+            {
+                throw new System.ArgumentOutOfRangeException(nameof(value), value, "Generation must not be negative.");
+            }
+
+            SessionState.SetString(key, value.ToString(CultureInfo.InvariantCulture));
         }
 
         private static bool IsStableState (IpcPlayModeState state)

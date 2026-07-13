@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var unityThreadId = Thread.CurrentThread.ManagedThreadId;
 
             var initializeTask = writer.InitializeAsync(
-                CreateSnapshot("initial"),
+                CreateObservation(IpcEditorLifecycleState.Ready),
                 CreateObservedAtUtc(0),
                 CancellationToken.None);
             await WaitUntilAsync(() => persistence.WriteCount == 1, "initial sidecar write start");
@@ -54,14 +54,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var writer = await CreateInitializedWriterAsync(persistence);
 
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("first"), CreateObservedAtUtc(1), out _),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.Compiling), CreateObservedAtUtc(1), out _),
                 Is.True);
             await WaitUntilAsync(() => persistence.WriteCount == 2, "first refresh write start");
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("superseded"), CreateObservedAtUtc(2), out _),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.Reimporting), CreateObservedAtUtc(2), out _),
                 Is.True);
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("latest"), CreateObservedAtUtc(3), out var latestVersion),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.DomainReloading), CreateObservedAtUtc(3), out var latestVersion),
                 Is.True);
 
             inFlightWriteReleaseSource.SetResult(true);
@@ -72,7 +72,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(
                 persistence.GetWrittenLifecycleStates(),
-                Is.EqualTo(new[] { "initial", "first", "latest" }));
+                Is.EqualTo(new[]
+                {
+                    IpcEditorLifecycleState.Ready,
+                    IpcEditorLifecycleState.Compiling,
+                    IpcEditorLifecycleState.DomainReloading,
+                }));
 
             await TestAwaiter.WaitAsync(
                 writer.StopAsync(CancellationToken.None),
@@ -93,7 +98,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Volatile.Write(ref shouldFail, 1);
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("failing"), CreateObservedAtUtc(1), out _),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.CompileFailed), CreateObservedAtUtc(1), out _),
                 Is.True);
             var firstFailure = await WaitForFailureAsync(writer);
 
@@ -102,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Volatile.Write(ref shouldFail, 0);
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("recovered"), CreateObservedAtUtc(2), out var recoveredVersion),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.Ready), CreateObservedAtUtc(2), out var recoveredVersion),
                 Is.True);
             await TestAwaiter.WaitAsync(
                 writer.FlushAsync(recoveredVersion, CancellationToken.None),
@@ -111,7 +116,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Volatile.Write(ref shouldFail, 1);
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("failing-again"), CreateObservedAtUtc(3), out _),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.ShuttingDown), CreateObservedAtUtc(3), out _),
                 Is.True);
             var secondFailure = await WaitForFailureAsync(writer);
 
@@ -152,7 +157,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var unityThreadId = Thread.CurrentThread.ManagedThreadId;
 
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("in-flight"), CreateObservedAtUtc(1), out _),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.Busy), CreateObservedAtUtc(1), out _),
                 Is.True);
             await WaitUntilAsync(() => persistence.WriteCount == 2, "in-flight sidecar write start");
 
@@ -172,7 +177,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 TestTimeout);
 
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("successor"), CreateObservedAtUtc(2), out _),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.Starting), CreateObservedAtUtc(2), out _),
                 Is.False);
             Assert.That(persistence.WriteCount, Is.EqualTo(2));
         }
@@ -204,7 +209,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     : inFlightWriteReleaseSource.Task);
             var writer = await CreateInitializedWriterAsync(persistence);
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("non-cooperative"), CreateObservedAtUtc(1), out _),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.Busy), CreateObservedAtUtc(1), out _),
                 Is.True);
             await WaitUntilAsync(() => persistence.WriteCount == 2, "non-cooperative sidecar write start");
             using var cleanupCancellationSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
@@ -228,7 +233,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 "late owned sidecar invalidation");
 
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("successor"), CreateObservedAtUtc(2), out _),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.Starting), CreateObservedAtUtc(2), out _),
                 Is.False);
         }
 
@@ -245,13 +250,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Volatile.Write(ref shouldFail, 1);
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("transient-failure"), CreateObservedAtUtc(1), out _),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.CompileFailed), CreateObservedAtUtc(1), out _),
                 Is.True);
             await WaitUntilAsync(() => persistence.WriteCount >= 2, "transient sidecar failure");
 
             Volatile.Write(ref shouldFail, 0);
             Assert.That(
-                writer.TryEnqueue(CreateSnapshot("recovered"), CreateObservedAtUtc(2), out var recoveredVersion),
+                writer.TryEnqueue(CreateObservation(IpcEditorLifecycleState.Ready), CreateObservedAtUtc(2), out var recoveredVersion),
                 Is.True);
             await TestAwaiter.WaitAsync(
                 writer.FlushAsync(recoveredVersion, CancellationToken.None),
@@ -272,7 +277,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var writer = new UnityLifecycleSidecarWriter(persistence);
             await TestAwaiter.WaitAsync(
                 writer.InitializeAsync(
-                    CreateSnapshot("initial"),
+                    CreateObservation(IpcEditorLifecycleState.Ready),
                     CreateObservedAtUtc(0),
                     CancellationToken.None),
                 "sidecar writer initialization",
@@ -280,17 +285,26 @@ namespace MackySoft.Ucli.Unity.Tests
             return writer;
         }
 
-        private static UnityEditorLifecycleSnapshot CreateSnapshot (string lifecycleState)
+        private static UnityEditorObservation CreateObservation (IpcEditorLifecycleState lifecycleState)
         {
-            return new UnityEditorLifecycleSnapshot(
-                DaemonEditorMode.Gui,
-                lifecycleState,
-                null,
-                IpcCompileStateCodec.Ready,
-                CompileGeneration: "compile-generation",
-                DomainReloadGeneration: "reload-generation",
-                CanAcceptExecutionRequests: true,
-                ObservedAtUtc: null);
+            var compileState = lifecycleState switch
+            {
+                IpcEditorLifecycleState.Compiling => IpcCompileState.Compiling,
+                IpcEditorLifecycleState.CompileFailed => IpcCompileState.Failed,
+                _ => IpcCompileState.Ready,
+            };
+            return new UnityEditorObservation(
+                state: new UnityEditorStateSnapshot(
+                    editorMode: DaemonEditorMode.Gui,
+                    lifecycleState: lifecycleState,
+                    compileState: compileState,
+                    generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
+                    playMode: new IpcPlayModeSnapshot(
+                        IpcPlayModeState.Stopped,
+                        IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
+                observedAtUtc: CreateObservedAtUtc(0));
         }
 
         private static DateTimeOffset CreateObservedAtUtc (int offsetSeconds)
@@ -324,17 +338,17 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private readonly object syncRoot = new object();
 
-            private readonly Func<int, UnityEditorLifecycleSnapshot, CancellationToken, Task> write;
+            private readonly Func<int, UnityEditorObservation, CancellationToken, Task> write;
 
-            private readonly List<UnityEditorLifecycleSnapshot> writtenSnapshots =
-                new List<UnityEditorLifecycleSnapshot>();
+            private readonly List<UnityEditorObservation> writtenSnapshots =
+                new List<UnityEditorObservation>();
 
             private int deleteCount;
 
             private int lastWriteThreadId;
 
             public RecordingLifecycleSidecarPersistence (
-                Func<int, UnityEditorLifecycleSnapshot, CancellationToken, Task> write)
+                Func<int, UnityEditorObservation, CancellationToken, Task> write)
             {
                 this.write = write ?? throw new ArgumentNullException(nameof(write));
             }
@@ -355,7 +369,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public int LastWriteThreadId => Volatile.Read(ref lastWriteThreadId);
 
             public Task WriteAsync (
-                UnityEditorLifecycleSnapshot snapshot,
+                UnityEditorObservation snapshot,
                 CancellationToken cancellationToken)
             {
                 int writeCount;
@@ -376,14 +390,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.CompletedTask;
             }
 
-            public IReadOnlyList<string> GetWrittenLifecycleStates ()
+            public IReadOnlyList<IpcEditorLifecycleState> GetWrittenLifecycleStates ()
             {
                 lock (syncRoot)
                 {
-                    var states = new string[writtenSnapshots.Count];
+                    var states = new IpcEditorLifecycleState[writtenSnapshots.Count];
                     for (var index = 0; index < writtenSnapshots.Count; index++)
                     {
-                        states[index] = writtenSnapshots[index].LifecycleState;
+                        states[index] = writtenSnapshots[index].State.LifecycleState;
                     }
 
                     return states;

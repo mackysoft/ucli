@@ -37,16 +37,39 @@
             "null"
           ]
         },
-        "compileGeneration": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "domainReloadGeneration": {
-          "type": [
-            "string",
-            "null"
+        "generations": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "compileGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "domainReloadGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "assetRefreshGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "playModeGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "compileGeneration",
+                "domainReloadGeneration",
+                "assetRefreshGeneration",
+                "playModeGeneration"
+              ]
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "canAcceptExecutionRequests": {
@@ -128,20 +151,13 @@
             },
             "isPlayingOrWillChangePlaymode": {
               "type": "boolean"
-            },
-            "generation": {
-              "type": [
-                "string",
-                "null"
-              ]
             }
           },
           "required": [
             "state",
             "transition",
             "isPlaying",
-            "isPlayingOrWillChangePlaymode",
-            "generation"
+            "isPlayingOrWillChangePlaymode"
           ]
         },
         "transition": {
@@ -202,16 +218,39 @@
                     "null"
                   ]
                 },
-                "compileGeneration": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "domainReloadGeneration": {
-                  "type": [
-                    "string",
-                    "null"
+                "generations": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "compileGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "domainReloadGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "assetRefreshGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "playModeGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "compileGeneration",
+                        "domainReloadGeneration",
+                        "assetRefreshGeneration",
+                        "playModeGeneration"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "canAcceptExecutionRequests": {
@@ -303,20 +342,13 @@
                         },
                         "isPlayingOrWillChangePlaymode": {
                           "type": "boolean"
-                        },
-                        "generation": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
                         }
                       },
                       "required": [
                         "state",
                         "transition",
                         "isPlaying",
-                        "isPlayingOrWillChangePlaymode",
-                        "generation"
+                        "isPlayingOrWillChangePlaymode"
                       ]
                     },
                     {
@@ -333,8 +365,7 @@
                 "lifecycleState",
                 "blockingReason",
                 "compileState",
-                "compileGeneration",
-                "domainReloadGeneration",
+                "generations",
                 "canAcceptExecutionRequests",
                 "observedAtUtc",
                 "actionRequired",
@@ -384,16 +415,39 @@
                     "null"
                   ]
                 },
-                "compileGeneration": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "domainReloadGeneration": {
-                  "type": [
-                    "string",
-                    "null"
+                "generations": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "compileGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "domainReloadGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "assetRefreshGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "playModeGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "compileGeneration",
+                        "domainReloadGeneration",
+                        "assetRefreshGeneration",
+                        "playModeGeneration"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "canAcceptExecutionRequests": {
@@ -475,20 +529,13 @@
                     },
                     "isPlayingOrWillChangePlaymode": {
                       "type": "boolean"
-                    },
-                    "generation": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
                     }
                   },
                   "required": [
                     "state",
                     "transition",
                     "isPlaying",
-                    "isPlayingOrWillChangePlaymode",
-                    "generation"
+                    "isPlayingOrWillChangePlaymode"
                   ]
                 }
               },
@@ -500,8 +547,7 @@
                 "lifecycleState",
                 "blockingReason",
                 "compileState",
-                "compileGeneration",
-                "domainReloadGeneration",
+                "generations",
                 "canAcceptExecutionRequests",
                 "observedAtUtc",
                 "actionRequired",
@@ -529,8 +575,7 @@
         "lifecycleState",
         "blockingReason",
         "compileState",
-        "compileGeneration",
-        "domainReloadGeneration",
+        "generations",
         "canAcceptExecutionRequests",
         "observedAtUtc",
         "actionRequired",
@@ -575,16 +620,39 @@
             "null"
           ]
         },
-        "compileGeneration": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "domainReloadGeneration": {
-          "type": [
-            "string",
-            "null"
+        "generations": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "compileGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "domainReloadGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "assetRefreshGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "playModeGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "compileGeneration",
+                "domainReloadGeneration",
+                "assetRefreshGeneration",
+                "playModeGeneration"
+              ]
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "canAcceptExecutionRequests": {
@@ -666,20 +734,13 @@
             },
             "isPlayingOrWillChangePlaymode": {
               "type": "boolean"
-            },
-            "generation": {
-              "type": [
-                "string",
-                "null"
-              ]
             }
           },
           "required": [
             "state",
             "transition",
             "isPlaying",
-            "isPlayingOrWillChangePlaymode",
-            "generation"
+            "isPlayingOrWillChangePlaymode"
           ]
         },
         "transition": {
@@ -736,16 +797,39 @@
                     "null"
                   ]
                 },
-                "compileGeneration": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "domainReloadGeneration": {
-                  "type": [
-                    "string",
-                    "null"
+                "generations": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "compileGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "domainReloadGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "assetRefreshGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "playModeGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "compileGeneration",
+                        "domainReloadGeneration",
+                        "assetRefreshGeneration",
+                        "playModeGeneration"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "canAcceptExecutionRequests": {
@@ -827,20 +911,13 @@
                     },
                     "isPlayingOrWillChangePlaymode": {
                       "type": "boolean"
-                    },
-                    "generation": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
                     }
                   },
                   "required": [
                     "state",
                     "transition",
                     "isPlaying",
-                    "isPlayingOrWillChangePlaymode",
-                    "generation"
+                    "isPlayingOrWillChangePlaymode"
                   ]
                 }
               },
@@ -852,8 +929,7 @@
                 "lifecycleState",
                 "blockingReason",
                 "compileState",
-                "compileGeneration",
-                "domainReloadGeneration",
+                "generations",
                 "canAcceptExecutionRequests",
                 "observedAtUtc",
                 "actionRequired",
@@ -903,16 +979,39 @@
                     "null"
                   ]
                 },
-                "compileGeneration": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "domainReloadGeneration": {
-                  "type": [
-                    "string",
-                    "null"
+                "generations": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "compileGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "domainReloadGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "assetRefreshGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "playModeGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "compileGeneration",
+                        "domainReloadGeneration",
+                        "assetRefreshGeneration",
+                        "playModeGeneration"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "canAcceptExecutionRequests": {
@@ -994,20 +1093,13 @@
                     },
                     "isPlayingOrWillChangePlaymode": {
                       "type": "boolean"
-                    },
-                    "generation": {
-                      "type": [
-                        "string",
-                        "null"
-                      ]
                     }
                   },
                   "required": [
                     "state",
                     "transition",
                     "isPlaying",
-                    "isPlayingOrWillChangePlaymode",
-                    "generation"
+                    "isPlayingOrWillChangePlaymode"
                   ]
                 }
               },
@@ -1019,8 +1111,7 @@
                 "lifecycleState",
                 "blockingReason",
                 "compileState",
-                "compileGeneration",
-                "domainReloadGeneration",
+                "generations",
                 "canAcceptExecutionRequests",
                 "observedAtUtc",
                 "actionRequired",
@@ -1048,8 +1139,7 @@
         "lifecycleState",
         "blockingReason",
         "compileState",
-        "compileGeneration",
-        "domainReloadGeneration",
+        "generations",
         "canAcceptExecutionRequests",
         "observedAtUtc",
         "actionRequired",
@@ -1098,16 +1188,39 @@
             "null"
           ]
         },
-        "compileGeneration": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "domainReloadGeneration": {
-          "type": [
-            "string",
-            "null"
+        "generations": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "compileGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "domainReloadGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "assetRefreshGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "playModeGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "compileGeneration",
+                "domainReloadGeneration",
+                "assetRefreshGeneration",
+                "playModeGeneration"
+              ]
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "canAcceptExecutionRequests": {
@@ -1197,20 +1310,13 @@
             },
             "isPlayingOrWillChangePlaymode": {
               "type": "boolean"
-            },
-            "generation": {
-              "type": [
-                "string",
-                "null"
-              ]
             }
           },
           "required": [
             "state",
             "transition",
             "isPlaying",
-            "isPlayingOrWillChangePlaymode",
-            "generation"
+            "isPlayingOrWillChangePlaymode"
           ]
         },
         "transition": {
@@ -1271,16 +1377,39 @@
                     "null"
                   ]
                 },
-                "compileGeneration": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "domainReloadGeneration": {
-                  "type": [
-                    "string",
-                    "null"
+                "generations": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "compileGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "domainReloadGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "assetRefreshGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "playModeGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "compileGeneration",
+                        "domainReloadGeneration",
+                        "assetRefreshGeneration",
+                        "playModeGeneration"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "canAcceptExecutionRequests": {
@@ -1372,20 +1501,13 @@
                         },
                         "isPlayingOrWillChangePlaymode": {
                           "type": "boolean"
-                        },
-                        "generation": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
                         }
                       },
                       "required": [
                         "state",
                         "transition",
                         "isPlaying",
-                        "isPlayingOrWillChangePlaymode",
-                        "generation"
+                        "isPlayingOrWillChangePlaymode"
                       ]
                     },
                     {
@@ -1402,8 +1524,7 @@
                 "lifecycleState",
                 "blockingReason",
                 "compileState",
-                "compileGeneration",
-                "domainReloadGeneration",
+                "generations",
                 "canAcceptExecutionRequests",
                 "observedAtUtc",
                 "actionRequired",
@@ -1457,16 +1578,39 @@
                     "null"
                   ]
                 },
-                "compileGeneration": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "domainReloadGeneration": {
-                  "type": [
-                    "string",
-                    "null"
+                "generations": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "compileGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "domainReloadGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "assetRefreshGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "playModeGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "compileGeneration",
+                        "domainReloadGeneration",
+                        "assetRefreshGeneration",
+                        "playModeGeneration"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "canAcceptExecutionRequests": {
@@ -1558,20 +1702,13 @@
                         },
                         "isPlayingOrWillChangePlaymode": {
                           "type": "boolean"
-                        },
-                        "generation": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
                         }
                       },
                       "required": [
                         "state",
                         "transition",
                         "isPlaying",
-                        "isPlayingOrWillChangePlaymode",
-                        "generation"
+                        "isPlayingOrWillChangePlaymode"
                       ]
                     },
                     {
@@ -1588,8 +1725,7 @@
                 "lifecycleState",
                 "blockingReason",
                 "compileState",
-                "compileGeneration",
-                "domainReloadGeneration",
+                "generations",
                 "canAcceptExecutionRequests",
                 "observedAtUtc",
                 "actionRequired",
@@ -1622,8 +1758,7 @@
         "lifecycleState",
         "blockingReason",
         "compileState",
-        "compileGeneration",
-        "domainReloadGeneration",
+        "generations",
         "canAcceptExecutionRequests",
         "observedAtUtc",
         "actionRequired",
@@ -1672,16 +1807,39 @@
             "null"
           ]
         },
-        "compileGeneration": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "domainReloadGeneration": {
-          "type": [
-            "string",
-            "null"
+        "generations": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "compileGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "domainReloadGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "assetRefreshGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "playModeGeneration": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "compileGeneration",
+                "domainReloadGeneration",
+                "assetRefreshGeneration",
+                "playModeGeneration"
+              ]
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "canAcceptExecutionRequests": {
@@ -1771,20 +1929,13 @@
             },
             "isPlayingOrWillChangePlaymode": {
               "type": "boolean"
-            },
-            "generation": {
-              "type": [
-                "string",
-                "null"
-              ]
             }
           },
           "required": [
             "state",
             "transition",
             "isPlaying",
-            "isPlayingOrWillChangePlaymode",
-            "generation"
+            "isPlayingOrWillChangePlaymode"
           ]
         },
         "transition": {
@@ -1845,16 +1996,39 @@
                     "null"
                   ]
                 },
-                "compileGeneration": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "domainReloadGeneration": {
-                  "type": [
-                    "string",
-                    "null"
+                "generations": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "compileGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "domainReloadGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "assetRefreshGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "playModeGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "compileGeneration",
+                        "domainReloadGeneration",
+                        "assetRefreshGeneration",
+                        "playModeGeneration"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "canAcceptExecutionRequests": {
@@ -1946,20 +2120,13 @@
                         },
                         "isPlayingOrWillChangePlaymode": {
                           "type": "boolean"
-                        },
-                        "generation": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
                         }
                       },
                       "required": [
                         "state",
                         "transition",
                         "isPlaying",
-                        "isPlayingOrWillChangePlaymode",
-                        "generation"
+                        "isPlayingOrWillChangePlaymode"
                       ]
                     },
                     {
@@ -1976,8 +2143,7 @@
                 "lifecycleState",
                 "blockingReason",
                 "compileState",
-                "compileGeneration",
-                "domainReloadGeneration",
+                "generations",
                 "canAcceptExecutionRequests",
                 "observedAtUtc",
                 "actionRequired",
@@ -2031,16 +2197,39 @@
                     "null"
                   ]
                 },
-                "compileGeneration": {
-                  "type": [
-                    "string",
-                    "null"
-                  ]
-                },
-                "domainReloadGeneration": {
-                  "type": [
-                    "string",
-                    "null"
+                "generations": {
+                  "oneOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "properties": {
+                        "compileGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "domainReloadGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "assetRefreshGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "playModeGeneration": {
+                          "type": "integer",
+                          "minimum": 0
+                        }
+                      },
+                      "required": [
+                        "compileGeneration",
+                        "domainReloadGeneration",
+                        "assetRefreshGeneration",
+                        "playModeGeneration"
+                      ]
+                    },
+                    {
+                      "type": "null"
+                    }
                   ]
                 },
                 "canAcceptExecutionRequests": {
@@ -2132,20 +2321,13 @@
                         },
                         "isPlayingOrWillChangePlaymode": {
                           "type": "boolean"
-                        },
-                        "generation": {
-                          "type": [
-                            "string",
-                            "null"
-                          ]
                         }
                       },
                       "required": [
                         "state",
                         "transition",
                         "isPlaying",
-                        "isPlayingOrWillChangePlaymode",
-                        "generation"
+                        "isPlayingOrWillChangePlaymode"
                       ]
                     },
                     {
@@ -2162,8 +2344,7 @@
                 "lifecycleState",
                 "blockingReason",
                 "compileState",
-                "compileGeneration",
-                "domainReloadGeneration",
+                "generations",
                 "canAcceptExecutionRequests",
                 "observedAtUtc",
                 "actionRequired",
@@ -2201,8 +2382,7 @@
         "lifecycleState",
         "blockingReason",
         "compileState",
-        "compileGeneration",
-        "domainReloadGeneration",
+        "generations",
         "canAcceptExecutionRequests",
         "observedAtUtc",
         "actionRequired",

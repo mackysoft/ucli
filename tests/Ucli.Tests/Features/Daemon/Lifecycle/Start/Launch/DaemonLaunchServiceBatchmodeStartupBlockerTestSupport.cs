@@ -73,13 +73,13 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
         DaemonPrimaryDiagnostic? primaryDiagnostic = null)
     {
         return new DaemonStartupFailureClassification(
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
-            Reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
-            Message: CompileBlockerMessage,
-            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
-            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
-            PrimaryDiagnostic: primaryDiagnostic);
+            startupBlockingReason: DaemonStartupBlockingReason.Compile,
+            reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            retryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
+            message: CompileBlockerMessage,
+            startupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
+            actionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            primaryDiagnostic: primaryDiagnostic);
     }
 
     internal sealed class ClassifiedBlockerScenario

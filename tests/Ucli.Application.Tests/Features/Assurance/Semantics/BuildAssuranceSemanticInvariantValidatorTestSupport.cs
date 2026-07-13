@@ -55,7 +55,7 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
         bool includeBuildLogDigest = true,
         string? buildSucceededEvidenceRef = null,
         bool buildGenerationEvidenceDataOnly = false,
-        string? buildGenerationEvidenceDataValidForAssetRefreshGeneration = null,
+        long? buildGenerationEvidenceDataValidForAssetRefreshGeneration = null,
         bool includeBuildProfile = true,
         string buildManifestRef = "buildOutputManifest",
         string summaryReportRef = "buildReport",
@@ -63,7 +63,7 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
         string logsReportRef = "buildLog",
         IReadOnlyList<object>? verifierEffects = null,
         bool includeBuildGenerations = true,
-        string validForAssetRefreshGeneration = "asset-after",
+        long? validForAssetRefreshGeneration = 2,
         bool includeBuildLogPath = true,
         bool includeBuildClaims = true,
         string? buildLogPath = null,
@@ -297,28 +297,34 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
             [new BuildAssuranceSemanticInvariantRule()]);
     }
 
-    private static object CreateBuildGenerations (string validForAssetRefreshGeneration)
+    private static object CreateBuildGenerations (long? validForAssetRefreshGeneration)
     {
+        object? validFor = validForAssetRefreshGeneration.HasValue
+            ? new
+            {
+                compileGeneration = 2L,
+                domainReloadGeneration = 1L,
+                assetRefreshGeneration = validForAssetRefreshGeneration.Value,
+                playModeGeneration = 1L,
+            }
+            : null;
         return new
         {
             before = new
             {
-                compileGeneration = "compile-before",
-                domainReloadGeneration = "domain-before",
-                assetRefreshGeneration = "asset-before",
+                compileGeneration = 1L,
+                domainReloadGeneration = 1L,
+                assetRefreshGeneration = 1L,
+                playModeGeneration = 1L,
             },
             after = new
             {
-                compileGeneration = "compile-after",
-                domainReloadGeneration = "domain-after",
-                assetRefreshGeneration = "asset-after",
+                compileGeneration = 2L,
+                domainReloadGeneration = 1L,
+                assetRefreshGeneration = 2L,
+                playModeGeneration = 1L,
             },
-            validFor = new
-            {
-                compileGeneration = "compile-after",
-                domainReloadGeneration = "domain-after",
-                assetRefreshGeneration = validForAssetRefreshGeneration,
-            },
+            validFor,
         };
     }
 

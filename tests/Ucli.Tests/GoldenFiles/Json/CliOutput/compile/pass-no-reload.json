@@ -49,8 +49,8 @@
             "data": {
               "started": true,
               "completed": true,
-              "compileGenerationBefore": "12",
-              "compileGenerationAfter": "14",
+              "compileGenerationBefore": 12,
+              "compileGenerationAfter": 14,
               "diagnostics": {
                 "errorCount": 0,
                 "warningCount": 0,
@@ -78,8 +78,8 @@
             "data": {
               "reloadRequired": false,
               "reloadObserved": false,
-              "generationBefore": "7",
-              "generationAfter": "7",
+              "generationBefore": 7,
+              "generationAfter": 7,
               "settled": true
             }
           }
@@ -107,8 +107,12 @@
               "lifecycleState": "ready",
               "blockingReason": null,
               "compileState": "ready",
-              "compileGeneration": "14",
-              "domainReloadGeneration": "7",
+              "generations": {
+                "compileGeneration": 14,
+                "domainReloadGeneration": 7,
+                "assetRefreshGeneration": 0,
+                "playModeGeneration": 0
+              },
               "canAcceptExecutionRequests": true,
               "observedAtUtc": "2026-05-17T00:00:03+00:00",
               "actionRequired": null,
@@ -144,8 +148,8 @@
       "scriptCompilation": {
         "started": true,
         "completed": true,
-        "compileGenerationBefore": "12",
-        "compileGenerationAfter": "14",
+        "compileGenerationBefore": 12,
+        "compileGenerationAfter": 14,
         "diagnostics": {
           "errorCount": 0,
           "warningCount": 0,
@@ -155,8 +159,8 @@
       "domainReload": {
         "reloadRequired": false,
         "reloadObserved": false,
-        "generationBefore": "7",
-        "generationAfter": "7",
+        "generationBefore": 7,
+        "generationAfter": 7,
         "settled": true
       },
       "lifecycle": {
@@ -166,8 +170,12 @@
         "lifecycleState": "ready",
         "blockingReason": null,
         "compileState": "ready",
-        "compileGeneration": "14",
-        "domainReloadGeneration": "7",
+        "generations": {
+          "compileGeneration": 14,
+          "domainReloadGeneration": 7,
+          "assetRefreshGeneration": 0,
+          "playModeGeneration": 0
+        },
         "canAcceptExecutionRequests": true,
         "observedAtUtc": "2026-05-17T00:00:03+00:00",
         "actionRequired": null,

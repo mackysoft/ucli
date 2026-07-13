@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 
@@ -25,7 +26,7 @@ public sealed class SupervisorExitHandlerTests
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock",
             processId: 1234,
             ownerProcessId: 24);
@@ -84,7 +85,7 @@ public sealed class SupervisorExitHandlerTests
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock",
             processId: 1234,
             ownerProcessId: 24);
@@ -279,10 +280,10 @@ public sealed class SupervisorExitHandlerTests
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
             issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock",
             processId: 1234,
             ownerProcessId: 24,

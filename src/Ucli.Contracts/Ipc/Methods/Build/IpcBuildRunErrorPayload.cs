@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="UnityBuildProfile"> The Unity Build Profile input evidence when available. </param>
 public sealed record IpcBuildRunErrorPayload (
     IpcProjectIdentity? Project,
-    IpcBuildLifecycleSnapshot? LifecycleBefore,
+    IpcUnityEditorObservation? LifecycleBefore,
     IpcBuildDirtyState? DirtyState,
     IpcBuildInputProbe? Input,
     IpcUnityBuildProfileInput? UnityBuildProfile = null);

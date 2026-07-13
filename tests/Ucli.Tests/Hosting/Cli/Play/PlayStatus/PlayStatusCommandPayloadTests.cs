@@ -9,7 +9,7 @@ public sealed class PlayStatusCommandPayloadTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Status_WhenServiceSucceeds_EmitsFlatPlayStatusPayload ()
+    public async Task Status_WhenServiceSucceeds_EmitsPlayStatusPayload ()
     {
         var service = new RecordingPlayStatusService((_, _) => ValueTask.FromResult(PlayStatusExecutionResult.Success(
             PlayStatusCommandTestData.CreateOutput())));
@@ -35,15 +35,17 @@ public sealed class PlayStatusCommandPayloadTests
             .HasString("lifecycleState", "ready")
             .IsNull("blockingReason")
             .HasString("compileState", "ready")
-            .HasString("compileGeneration", "12")
-            .HasString("domainReloadGeneration", "7")
+            .HasProperty("generations", generations => generations
+                .HasInt32("compileGeneration", 12)
+                .HasInt32("domainReloadGeneration", 7)
+                .HasInt32("assetRefreshGeneration", 0)
+                .HasInt32("playModeGeneration", 2))
             .HasBoolean("canAcceptExecutionRequests", true)
             .HasProperty("playMode", playMode => playMode
                 .HasString("state", "stopped")
                 .HasString("transition", "none")
                 .HasBoolean("isPlaying", false)
-                .HasBoolean("isPlayingOrWillChangePlaymode", false)
-                .HasString("generation", "2"))
+                .HasBoolean("isPlayingOrWillChangePlaymode", false))
             .HasInt32("timeoutMilliseconds", 1000);
     }
 }

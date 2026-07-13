@@ -2,6 +2,7 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using static MackySoft.Ucli.Tests.Ipc.UnityIpcRequestBuilderTestSupport;
@@ -40,6 +41,62 @@ public sealed class UnityIpcRequestFactoryTimeoutTests
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest compileRequest, out _));
         Assert.Equal(RunIdTestValues.Compile, compileRequest.RunId);
         Assert.Equal(1234, compileRequest.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityIpcRequestFactory_WithScreenshotDispatchTimeout_InjectsTimeoutPayload ()
+    {
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.ScreenshotCapture(
+            Target: IpcScreenshotTarget.Game,
+            RequestedWidth: null,
+            RequestedHeight: null,
+            StagingPath: "/tmp/ucli-screenshot.raw",
+            TimeoutMilliseconds: 30000));
+
+        var request = UnityIpcRequestFactory.Create(
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
+            dispatchRequest.Method,
+            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
+            Guid.NewGuid(),
+            dispatchRequest.ResponseMode);
+
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcScreenshotCaptureRequest screenshotRequest, out _));
+        Assert.Equal(1234, screenshotRequest.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityIpcRequestFactory_WithPlayEnterDispatchTimeout_InjectsTimeoutPayload ()
+    {
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.PlayEnter(30000));
+
+        var request = UnityIpcRequestFactory.Create(
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
+            dispatchRequest.Method,
+            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
+            Guid.NewGuid(),
+            dispatchRequest.ResponseMode);
+
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayEnterRequest playEnterRequest, out _));
+        Assert.Equal(1234, playEnterRequest.TimeoutMilliseconds);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityIpcRequestFactory_WithPlayExitDispatchTimeout_InjectsTimeoutPayload ()
+    {
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.PlayExit(30000));
+
+        var request = UnityIpcRequestFactory.Create(
+            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
+            dispatchRequest.Method,
+            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
+            Guid.NewGuid(),
+            dispatchRequest.ResponseMode);
+
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayExitRequest playExitRequest, out _));
+        Assert.Equal(1234, playExitRequest.TimeoutMilliseconds);
     }
 
     [Fact]

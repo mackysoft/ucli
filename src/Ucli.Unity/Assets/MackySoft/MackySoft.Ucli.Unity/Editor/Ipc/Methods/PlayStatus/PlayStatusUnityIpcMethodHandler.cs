@@ -17,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Initializes a new instance of the <see cref="PlayStatusUnityIpcMethodHandler" /> class. </summary>
         /// <param name="serverVersionProvider"> The server-version provider dependency. </param>
-        /// <param name="readinessGate"> The lifecycle snapshot provider dependency. </param>
+        /// <param name="readinessGate"> The Unity Editor observation provider dependency. </param>
         /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
         /// <param name="daemonLogger"> The daemon logger dependency. </param>
         public PlayStatusUnityIpcMethodHandler (
@@ -57,11 +57,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return new ValueTask<IpcResponse>(errorResponse!);
             }
 
-            var payload = new IpcPlayStatusResponse(UnityLifecycleResponseCodec.CreatePlayLifecycleSnapshot(
-                projectIdentity.UnityVersion,
+            var payload = new IpcPlayStatusResponse(UnityLifecycleResponseFactory.Create(
+                projectIdentity,
                 serverVersionProvider.GetVersion(),
-                projectIdentity.ProjectFingerprint,
-                readinessGate.CaptureSnapshot()));
+                readinessGate.CaptureObservation()));
             return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
         }
     }

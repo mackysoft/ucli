@@ -16,20 +16,24 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create(
-            editorMode: "gui",
-            editorInstanceId: Guid.NewGuid());
+            editorMode: DaemonEditorMode.Gui,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var persistedDiagnosis = DaemonDiagnosisTestFactory.Create();
-        var pingResponse = new IpcPingResponse(
-            ServerVersion: "9.9.9",
-            EditorMode: "batchmode",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-            CompileState: IpcCompileStateCodec.Compiling,
-            LifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
-            BlockingReason: IpcEditorBlockingReasonCodec.DomainReload,
-            CompileGeneration: "7",
-            DomainReloadGeneration: "11",
-            CanAcceptExecutionRequests: false);
+        var pingResponse = new IpcUnityEditorObservation(
+            serverVersion: "9.9.9",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: context.Context.UnityProject.ProjectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Batchmode,
+                lifecycleState: IpcEditorLifecycleState.DomainReloading,
+                compileState: IpcCompileState.Compiling,
+                generations: new IpcUnityGenerationSnapshot(7, 11, 0, 0),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Stopped,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
+            observedAtUtc: DateTimeOffset.UnixEpoch);
         var daemonStatusOperation = new RecordingDaemonStatusOperation(
             DaemonStatusResult.Running(session, pingResponse, persistedDiagnosis));
         var service = CreateService(resolver, daemonStatusOperation);
@@ -40,12 +44,12 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal("9.9.9", output.ServerVersion);
-        Assert.Equal("batchmode", output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleStateCodec.DomainReloading, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.DomainReload, output.BlockingReason);
-        Assert.Equal(IpcCompileStateCodec.Compiling, output.CompileState);
-        Assert.Equal("7", output.CompileGeneration);
-        Assert.Equal("11", output.DomainReloadGeneration);
+        Assert.Equal(DaemonEditorMode.Batchmode, output.EditorMode);
+        Assert.Equal(IpcEditorLifecycleState.DomainReloading, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.DomainReload, output.BlockingReason);
+        Assert.Equal(IpcCompileState.Compiling, output.CompileState);
+        Assert.Equal(7, output.Generations!.CompileGeneration);
+        Assert.Equal(11, output.Generations.DomainReloadGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
         DaemonServiceOutputAssert.SessionMatches(session, output.Session);
         Assert.Null(output.Diagnosis);
@@ -59,21 +63,25 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create(
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
-        var pingResponse = new IpcPingResponse(
-            ServerVersion: "9.9.10",
-            EditorMode: "gui",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
-            BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
-            CompileGeneration: "8",
-            DomainReloadGeneration: "12",
-            CanAcceptExecutionRequests: true);
+        var pingResponse = new IpcUnityEditorObservation(
+            serverVersion: "9.9.10",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: context.Context.UnityProject.ProjectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Gui,
+                lifecycleState: IpcEditorLifecycleState.PlayMode,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(8, 12, 0, 1),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Playing,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: true,
+                    IsPlayingOrWillChangePlaymode: true)),
+            observedAtUtc: DateTimeOffset.UnixEpoch);
         var daemonStatusOperation = new RecordingDaemonStatusOperation(
             DaemonStatusResult.Running(session, pingResponse));
         var service = CreateService(resolver, daemonStatusOperation);
@@ -83,13 +91,14 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
-        Assert.Equal("gui", output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, output.BlockingReason);
+        Assert.Equal(DaemonEditorMode.Gui, output.EditorMode);
+        Assert.Equal(IpcEditorLifecycleState.PlayMode, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.PlayMode, output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.NotNull(output.Session);
-        Assert.Equal("gui", output.Session.EditorMode);
-        Assert.Equal("user", output.Session.OwnerKind);
+        Assert.Equal(DaemonEditorMode.Gui, output.Session.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKind.User, output.Session.OwnerKind);
         Assert.False(output.Session.CanShutdownProcess);
     }
+
 }

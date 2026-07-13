@@ -7,6 +7,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceBatchmodeStartupBlockerTestSupport;
+using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
 
 public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTests
 {
@@ -31,13 +32,13 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
         Assert.Contains("ArtifactError=artifact failed", error.Message, StringComparison.Ordinal);
         Assert.Contains("CleanupError=cleanup failed", error.Message, StringComparison.Ordinal);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Unknown, result.Startup!.ProcessAction);
         DaemonLaunchAttemptStoreAssert.SingleLaunchAttemptRecordedWithoutPruneFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
-            result.Startup.LaunchAttemptId!,
-            ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown));
+            AssertStartupLaunchAttemptId(result.Startup),
+            DaemonStartupStatus.Blocked,
+            DaemonStartupProcessAction.Unknown);
     }
 
     [Fact]
@@ -72,17 +73,17 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
             processStartedAtUtc: scenario.ProcessStartedAtUtc);
         Assert.NotNull(result.Diagnosis);
         Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation), result.Diagnosis.StartupPhase);
+        Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, result.Diagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, result.Diagnosis.ActionRequired);
         Assert.Equal(primaryDiagnostic, result.Diagnosis.PrimaryDiagnostic);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Unknown, result.Startup!.ProcessAction);
         var finalLaunchAttempt = DaemonLaunchAttemptStoreAssert.SingleLaunchAttemptRecordedAndPrunedFor(
             scenario.LaunchAttemptStore,
             scenario.Context,
-            result.Startup.LaunchAttemptId!,
-            ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown));
+            AssertStartupLaunchAttemptId(result.Startup),
+            DaemonStartupStatus.Blocked,
+            DaemonStartupProcessAction.Unknown);
         Assert.Equal(result.Diagnosis, finalLaunchAttempt.Diagnosis);
     }
 }

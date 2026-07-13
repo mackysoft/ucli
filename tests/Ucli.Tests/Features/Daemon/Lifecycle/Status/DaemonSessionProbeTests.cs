@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
-using MackySoft.Ucli.Tests.Helpers.Ipc;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -16,7 +15,7 @@ public sealed class DaemonSessionProbeTests
         var session = DaemonSessionTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint,
             sessionToken: "current-token");
-        var pingResponse = IpcPingResponseTestFactory.Create(
+        var pingResponse = IpcUnityEditorObservationTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint);
         var pingInfoClient = new RecordingDaemonPingInfoClient(pingResponse);
         var probe = new DaemonSessionProbe(
@@ -52,7 +51,7 @@ public sealed class DaemonSessionProbeTests
             issuedAtUtc: observedSession.IssuedAtUtc.AddSeconds(1));
         var sessionStore = new RecordingDaemonSessionStore(
             DaemonSessionReadResultTestFactory.Found(replacementSession));
-        var replacementPing = IpcPingResponseTestFactory.Create(
+        var replacementPing = IpcUnityEditorObservationTestFactory.Create(
             projectFingerprint: unityProject.ProjectFingerprint);
         var pingInfoClient = new RecordingDaemonPingInfoClient(
             new DaemonPingResponseException(

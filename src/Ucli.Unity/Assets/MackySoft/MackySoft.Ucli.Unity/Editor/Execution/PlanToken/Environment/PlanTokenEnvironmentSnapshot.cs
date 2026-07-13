@@ -2,50 +2,47 @@
 
 using System;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Execution.PlanToken
 {
-    /// <summary> Represents one validated runtime snapshot used by plan-token workflows. </summary>
+    /// <summary> Represents one captured runtime snapshot used by plan-token workflows. </summary>
     internal sealed record PlanTokenEnvironmentSnapshot
     {
+        /// <summary> Initializes one plan-token environment snapshot. </summary>
+        /// <exception cref="ArgumentNullException"> <paramref name="projectFingerprint" /> is <see langword="null" />. </exception>
         public PlanTokenEnvironmentSnapshot (
             string projectRoot,
             string repositoryRoot,
             ProjectFingerprint projectFingerprint,
             string unityVersion,
-            string compileState,
-            string domainReloadGeneration)
+            IpcCompileState compileState,
+            long domainReloadGeneration)
         {
-            ProjectRoot = RequireValue(projectRoot, nameof(projectRoot));
-            RepositoryRoot = RequireValue(repositoryRoot, nameof(repositoryRoot));
+            ProjectRoot = projectRoot;
+            RepositoryRoot = repositoryRoot;
             ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
-            UnityVersion = RequireValue(unityVersion, nameof(unityVersion));
-            CompileState = RequireValue(compileState, nameof(compileState));
-            DomainReloadGeneration = RequireValue(domainReloadGeneration, nameof(domainReloadGeneration));
+            UnityVersion = unityVersion;
+            CompileState = compileState;
+            DomainReloadGeneration = domainReloadGeneration;
         }
 
-        public string ProjectRoot { get; }
+        /// <summary> Gets the Unity project root path. </summary>
+        public string ProjectRoot { get; init; }
 
-        public string RepositoryRoot { get; }
+        /// <summary> Gets the repository root path. </summary>
+        public string RepositoryRoot { get; init; }
 
-        public ProjectFingerprint ProjectFingerprint { get; }
+        /// <summary> Gets the deterministic project fingerprint. </summary>
+        public ProjectFingerprint ProjectFingerprint { get; init; }
 
-        public string UnityVersion { get; }
+        /// <summary> Gets the current Unity version. </summary>
+        public string UnityVersion { get; init; }
 
-        public string CompileState { get; }
+        /// <summary> Gets the current compile state. </summary>
+        public IpcCompileState CompileState { get; init; }
 
-        public string DomainReloadGeneration { get; }
-
-        private static string RequireValue (
-            string value,
-            string parameterName)
-        {
-            if (string.IsNullOrWhiteSpace(value))
-            {
-                throw new ArgumentException($"{parameterName} must not be empty.", parameterName);
-            }
-
-            return value;
-        }
+        /// <summary> Gets the current domain-reload generation marker. </summary>
+        public long DomainReloadGeneration { get; init; }
     }
 }

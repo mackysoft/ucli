@@ -1,11 +1,15 @@
+using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcPingContractSerializationTests
 {
     private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private static readonly ProjectFingerprint ProjectFingerprint = new(ProjectFingerprintText);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -26,37 +30,63 @@ public sealed class IpcPingContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcPingResponse_SerializesPlayModeSnapshotWithCamelCaseFields ()
+    public void IpcUnityEditorObservation_SerializesEstablishedLifecycleWireShape ()
     {
-        var response = new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
-            BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
-            CompileGeneration: "12",
-            DomainReloadGeneration: "7",
-            CanAcceptExecutionRequests: false,
-            PlayMode: new IpcPlayModeSnapshot(
-                State: "playing",
-                Transition: "none",
-                IsPlaying: true,
-                IsPlayingOrWillChangePlaymode: true,
-                Generation: "42"));
+        var response = new IpcUnityEditorObservation(
+            serverVersion: "0.5.0",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: ProjectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Batchmode,
+                lifecycleState: IpcEditorLifecycleState.PlayMode,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(
+                    CompileGeneration: 12,
+                    DomainReloadGeneration: 7,
+                    AssetRefreshGeneration: 8,
+                    PlayModeGeneration: 42),
+                playMode: new IpcPlayModeSnapshot(
+                    State: IpcPlayModeState.Playing,
+                    Transition: IpcPlayModeTransition.None,
+                    IsPlaying: true,
+                    IsPlayingOrWillChangePlaymode: true)),
+            observedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"));
 
         var json = IpcPayloadCodec.SerializeToElement(response);
 
+        Assert.Equal(
+            [
+                "serverVersion",
+                "unityVersion",
+                "projectFingerprint",
+                "state",
+                "observedAtUtc",
+                "actionRequired",
+                "primaryDiagnostic",
+            ],
+            json.EnumerateObject().Select(static property => property.Name).ToArray());
+
         JsonAssert.For(json)
+            .HasString("serverVersion", "0.5.0")
+            .HasString("unityVersion", "6000.1.4f1")
             .HasString("projectFingerprint", ProjectFingerprintText)
-            .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Playmode)
-            .HasBoolean("canAcceptExecutionRequests", false)
-            .HasProperty("playMode", playMode => playMode
-                .HasString("state", "playing")
-                .HasString("transition", "none")
-                .HasBoolean("isPlaying", true)
-                .HasBoolean("isPlayingOrWillChangePlaymode", true)
-                .HasString("generation", "42"));
+            .HasString("observedAtUtc", "2026-05-21T00:00:00+00:00")
+            .HasProperty("state", state => state
+                .HasString("editorMode", "batchmode")
+                .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode))
+                .HasString("compileState", "ready")
+                .HasProperty("generations", generations => generations
+                    .HasInt32("compileGeneration", 12)
+                    .HasInt32("domainReloadGeneration", 7)
+                    .HasInt32("assetRefreshGeneration", 8)
+                    .HasInt32("playModeGeneration", 42))
+                .HasProperty("playMode", playMode => playMode
+                    .HasString("state", "playing")
+                    .HasString("transition", "none")
+                    .HasBoolean("isPlaying", true)
+                    .HasBoolean("isPlayingOrWillChangePlaymode", true)));
+
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("actionRequired").ValueKind);
+        Assert.Equal(JsonValueKind.Null, json.GetProperty("primaryDiagnostic").ValueKind);
     }
 }

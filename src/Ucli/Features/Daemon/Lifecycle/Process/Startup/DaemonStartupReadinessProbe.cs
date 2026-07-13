@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Logs;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
@@ -120,12 +119,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                         validateProjectFingerprint: true,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
-                if (!DaemonStartLifecycleSnapshot.TryCreate(pingResponse, out var lifecycleSnapshot, out var lifecycleError))
-                {
-                    return DaemonStartupReadinessProbeResult.Failure(lifecycleError!);
-                }
-
-                return DaemonStartupReadinessProbeResult.Ready(lifecycleSnapshot!);
+                return DaemonStartupReadinessProbeResult.Ready(pingResponse);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -256,7 +250,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
         }
 
         return new StartupFailureClassificationResult(
-            ExecutionError.InternalError(classification!.Message, DaemonErrorCodes.DaemonStartupBlocked),
+            ExecutionError.InternalError(classification.Message, DaemonErrorCodes.DaemonStartupBlocked),
             classification,
             DeadlineExpired: false);
     }

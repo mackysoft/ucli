@@ -10,9 +10,9 @@ public sealed record DaemonStartProgressEntry
     public DaemonStartProgressEntry (
         ProjectFingerprint ProjectFingerprint,
         int TimeoutMilliseconds,
-        string? EditorMode,
-        string OnStartupBlocked,
-        string? Result,
+        DaemonEditorMode? EditorMode,
+        DaemonStartupBlockedProcessPolicy OnStartupBlocked,
+        CommandProgressResult? Result,
         string? StartStatus,
         string? DaemonStatus,
         string? ErrorCode)
@@ -20,7 +20,7 @@ public sealed record DaemonStartProgressEntry
         this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
         this.TimeoutMilliseconds = ContractArgumentGuard.RequireNonNegative(TimeoutMilliseconds, nameof(TimeoutMilliseconds));
         this.EditorMode = EditorMode;
-        this.OnStartupBlocked = ContractArgumentGuard.RequireValue(OnStartupBlocked, nameof(OnStartupBlocked));
+        this.OnStartupBlocked = OnStartupBlocked;
         this.Result = Result;
         this.StartStatus = StartStatus;
         this.DaemonStatus = DaemonStatus;
@@ -31,11 +31,11 @@ public sealed record DaemonStartProgressEntry
 
     public int TimeoutMilliseconds { get; }
 
-    public string? EditorMode { get; }
+    public DaemonEditorMode? EditorMode { get; }
 
-    public string OnStartupBlocked { get; }
+    public DaemonStartupBlockedProcessPolicy OnStartupBlocked { get; }
 
-    public string? Result { get; }
+    public CommandProgressResult? Result { get; }
 
     public string? StartStatus { get; }
 

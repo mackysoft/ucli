@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
@@ -23,10 +24,10 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
             Result = UnityGuiEditorProcessProbeResult.Matching(DaemonGuiEditorAttachServiceTestSupport.ProbeProcessStartedAtUtc),
         };
         var session = DaemonGuiEditorAttachServiceTestSupport.CreateGuiSession();
-        var lifecycleSnapshot = DaemonGuiEditorAttachServiceTestSupport.CreateReadyLifecycleSnapshot();
+        var lifecycleObservation = DaemonGuiEditorAttachServiceTestSupport.CreateReadyLifecycleObservation();
         var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter
         {
-            Result = DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleSnapshot),
+            Result = DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleObservation),
         };
         var diagnosisStore = new UnexpectedDaemonDiagnosisStore("Initial GUI attach success should not write diagnosis.");
         var rebootstrapClient = new UnexpectedDaemonGuiRebootstrapClient("Initial GUI attach success should not request rebootstrap.");
@@ -52,7 +53,7 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
         Assert.True(result!.IsSuccess);
         Assert.Equal(DaemonStartStatus.Attached, result.Status);
         Assert.Equal(session, result.Session);
-        Assert.Equal(lifecycleSnapshot, result.LifecycleSnapshot);
+        Assert.Equal(lifecycleObservation, result.LifecycleObservation);
         progressObserver.AssertEvents(
             DaemonStartProgressEvent.WaitingForEndpoint,
             DaemonStartProgressEvent.SessionRegistered,
@@ -61,7 +62,7 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
         Assert.Equal(marker.ProcessId, progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(0).ProcessId);
         Assert.Equal(session, progressObserver.PayloadAt<DaemonSession>(1));
         Assert.Equal(session, progressObserver.PayloadAt<DaemonSession>(2));
-        Assert.Equal(lifecycleSnapshot, progressObserver.PayloadAt<DaemonStartLifecycleSnapshot>(3));
+        Assert.Equal(lifecycleObservation, progressObserver.PayloadAt<IpcUnityEditorObservation>(3));
         DaemonGuiAttachInvocationAssert.EndpointWaitAttemptedFor(
             awaiter,
             context,
@@ -85,10 +86,10 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
             Result = UnityGuiEditorProcessProbeResult.Matching(DaemonGuiEditorAttachServiceTestSupport.ProbeProcessStartedAtUtc),
         };
         var session = DaemonGuiEditorAttachServiceTestSupport.CreateGuiSession();
-        var lifecycleSnapshot = DaemonGuiEditorAttachServiceTestSupport.CreateReadyLifecycleSnapshot();
+        var lifecycleObservation = DaemonGuiEditorAttachServiceTestSupport.CreateReadyLifecycleObservation();
         var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter();
         awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.Timeout("session missing")));
-        awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleSnapshot));
+        awaiter.Results.Enqueue(DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleObservation));
         var diagnosisStore = new UnexpectedDaemonDiagnosisStore("Successful GUI rebootstrap attach should not write diagnosis.");
         var rebootstrapClient = new RecordingDaemonGuiRebootstrapClient();
         var service = new DaemonGuiEditorAttachService(
@@ -117,7 +118,7 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
         Assert.Equal(DaemonSessionOwnerKind.User, result.Session.OwnerKind);
         Assert.False(result.Session.CanShutdownProcess);
         Assert.Equal(marker.ProcessId, result.Session.ProcessId);
-        Assert.Equal(lifecycleSnapshot, result.LifecycleSnapshot);
+        Assert.Equal(lifecycleObservation, result.LifecycleObservation);
         progressObserver.AssertEvents(
             DaemonStartProgressEvent.WaitingForEndpoint,
             DaemonStartProgressEvent.SessionRegistered,
@@ -126,7 +127,7 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
         Assert.Equal(marker.ProcessId, progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(0).ProcessId);
         Assert.Equal(session, progressObserver.PayloadAt<DaemonSession>(1));
         Assert.Equal(session, progressObserver.PayloadAt<DaemonSession>(2));
-        Assert.Equal(lifecycleSnapshot, progressObserver.PayloadAt<DaemonStartLifecycleSnapshot>(3));
+        Assert.Equal(lifecycleObservation, progressObserver.PayloadAt<IpcUnityEditorObservation>(3));
         DaemonGuiAttachInvocationAssert.RebootstrapRequestedFor(
             rebootstrapClient,
             context,

@@ -9,6 +9,10 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class UnityDaemonRecoveryWaiterTests
 {
+    private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+    private static readonly Guid OtherEditorInstanceId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task DelayIfRecoveringAsync_WhenMatchingGuiSessionIsRecovering_DelaysAndReturnsTrue ()
@@ -17,7 +21,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var waiter = CreateWaiter(
             session,
-            CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading),
+            CreateObservation(session, IpcEditorLifecycleState.DomainReloading),
             DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
@@ -55,7 +59,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var observation = CreateObservation(
             session,
-            IpcEditorLifecycleStateCodec.DomainReloading,
+            IpcEditorLifecycleState.DomainReloading,
             processStartedAtUtc: session.ProcessStartedAtUtc!.Value.AddMilliseconds(1));
         var waiter = CreateWaiter(
             session,
@@ -81,8 +85,29 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var observation = CreateObservation(
             session,
-            IpcEditorLifecycleStateCodec.DomainReloading,
-            Guid.NewGuid());
+            IpcEditorLifecycleState.DomainReloading,
+            editorInstanceId: OtherEditorInstanceId);
+        var waiter = CreateWaiter(
+            session,
+            observation,
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
+
+        var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DelayIfRecoveringAsync_WhenSessionEditorInstanceIdIsMissing_ReturnsFalseWithoutDelay ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var session = DaemonSessionTestFactory.Create(editorMode: DaemonEditorMode.Gui);
+        var observation = CreateObservation(
+            session,
+            IpcEditorLifecycleState.DomainReloading,
+            editorInstanceId: EditorInstanceId);
         var waiter = CreateWaiter(
             session,
             observation,
@@ -102,7 +127,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var waiter = CreateWaiter(
             session,
-            CreateObservation(session, IpcEditorLifecycleStateCodec.Recovering),
+            CreateObservation(session, IpcEditorLifecycleState.Recovering),
             DaemonProcessIdentityAssessmentStatus.DifferentProcess);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
@@ -116,11 +141,15 @@ public sealed class UnityDaemonRecoveryWaiterTests
     public async Task DelayIfRecoveringAsync_WhenSessionIsBatchmode_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
-        var session = DaemonSessionTestFactory.Create(editorMode: "batchmode");
+        var session = DaemonSessionTestFactory.Create(
+            projectFingerprint: ProjectIdentityInfoTestFactory.ProjectFingerprint,
+            editorMode: DaemonEditorMode.Batchmode,
+            ownerKind: DaemonSessionOwnerKind.Cli,
+            canShutdownProcess: true);
         var waiter = CreateWaiter(
             session,
-            CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading),
-            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
+            observation: null,
+            processStatus: DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
         var result = await waiter.DelayIfRecoveringAsync(ResolvedUnityProjectContextTestFactory.Create(), deadline, CancellationToken.None);
@@ -147,7 +176,7 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var lifecycleStore = new RecordingDaemonLifecycleStore
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(
-                CreateObservation(session, IpcEditorLifecycleStateCodec.DomainReloading)),
+                CreateObservation(session, IpcEditorLifecycleState.DomainReloading)),
         };
         IBlockingReadOperation blockingReadOperation;
         if (blockLifecycleRead)
@@ -224,26 +253,30 @@ public sealed class UnityDaemonRecoveryWaiterTests
 
     private static DaemonLifecycleObservation CreateObservation (
         DaemonSession session,
-        string lifecycleState,
-        Guid? editorInstanceId = null,
-        DateTimeOffset? processStartedAtUtc = null)
+        IpcEditorLifecycleState lifecycleState,
+        DateTimeOffset? processStartedAtUtc = null,
+        Guid? editorInstanceId = null)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
             processStartedAtUtc: processStartedAtUtc ?? session.ProcessStartedAtUtc!.Value,
-            editorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-            lifecycleState: lifecycleState,
-            blockingReason: IpcEditorBlockingReasonCodec.DomainReload,
-            compileState: IpcCompileStateCodec.Ready,
-            compileGeneration: "1",
-            domainReloadGeneration: "2",
+            state: new UnityEditorStateSnapshot(
+                editorMode: session.EditorMode,
+                lifecycleState: lifecycleState,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Stopped,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: DateTimeOffset.UtcNow,
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
-            canAcceptExecutionRequests: false,
-            editorInstanceId: editorInstanceId ?? session.EditorInstanceId ?? Guid.NewGuid(),
-            playMode: null);
+            editorInstanceId: editorInstanceId
+                ?? session.EditorInstanceId
+                ?? throw new InvalidOperationException("A valid Editor instance identifier is required by the test observation."));
     }
 
     private interface IBlockingReadOperation

@@ -194,14 +194,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(args.Path.Value, out var normalizedPrefabPath, out errorMessage))
+            var requestedPrefabPath = args.Path?.Value ?? string.Empty;
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(requestedPrefabPath, out var normalizedPrefabPath, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
+            var target = targetResolution.GameObject;
+            if (target == null)
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    "Reference did not resolve to a GameObject.");
+                return false;
+            }
+
             validationState = new ValidationState(
-                targetResolution.GameObject,
+                target,
                 targetResolution.Resource,
                 normalizedPrefabPath);
             return true;

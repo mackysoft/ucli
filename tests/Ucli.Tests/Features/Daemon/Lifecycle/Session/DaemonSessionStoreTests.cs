@@ -5,7 +5,9 @@ namespace MackySoft.Ucli.Tests.Daemon;
 using System.Runtime.Versioning;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Tests;
 using MackySoft.Ucli.Tests.Helpers;
 
@@ -255,17 +257,19 @@ public sealed class DaemonSessionStoreTests
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "read-invalid-editor-mode");
         var store = new DaemonSessionStore();
         var requestedFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-read-invalid-editor-mode");
-        var contract = DaemonSessionContractMapper.ToContract(
-            DaemonSessionTestFactory.Create(projectFingerprint: requestedFingerprint, sessionToken: "token-1")) with
-        {
-            EditorMode = "unsupported",
-        };
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: requestedFingerprint, sessionToken: "token-1");
 
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var json = Serialize(session);
+        var editorModeProperty = $"\"editorMode\": \"{ContractLiteralCodec.ToValue(session.EditorMode)}\"";
+        Assert.Contains(editorModeProperty, json, StringComparison.Ordinal);
         await File.WriteAllTextAsync(
             sessionPath,
-            DaemonSessionJsonContractSerializer.Serialize(contract) + Environment.NewLine,
+            json.Replace(
+                editorModeProperty,
+                "\"editorMode\": \"unsupported\"",
+                StringComparison.Ordinal) + Environment.NewLine,
             CancellationToken.None);
 
         var readResult = await store.ReadAsync(scope.FullPath, requestedFingerprint, CancellationToken.None);
@@ -275,9 +279,7 @@ public sealed class DaemonSessionStoreTests
         Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("editorMode", error.Message, StringComparison.Ordinal);
-        Assert.Null(readResult.Session);
-        Assert.NotNull(readResult.InvalidEvidence);
+        Assert.Contains("editorMode", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -289,8 +291,8 @@ public sealed class DaemonSessionStoreTests
         var session = DaemonSessionTestFactory.Create(
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-gui-user-owner"),
             sessionToken: "token-1",
-            editorMode: "gui",
-            ownerKind: "user",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
 

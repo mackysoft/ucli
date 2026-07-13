@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
@@ -44,7 +45,7 @@ internal sealed class ConfigurableDaemonStartProgressObserver : IDaemonStartProg
     }
 
     public ValueTask EmitLifecycleObservedAsync (
-        DaemonStartLifecycleSnapshot lifecycleSnapshot,
+        IpcUnityEditorObservation lifecycleObservation,
         CancellationToken cancellationToken)
     {
         return EmitAsync(DaemonStartProgressEvent.LifecycleObserved, cancellationToken);

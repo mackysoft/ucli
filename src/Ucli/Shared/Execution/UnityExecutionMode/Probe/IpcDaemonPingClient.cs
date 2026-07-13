@@ -123,7 +123,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     }
 
     /// <inheritdoc />
-    public async ValueTask<IpcPingResponse> PingAndReadAsync (
+    public async ValueTask<IpcUnityEditorObservation> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         bool validateProjectFingerprint,
@@ -139,7 +139,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     }
 
     /// <inheritdoc />
-    public async ValueTask<IpcPingResponse> PingSessionAndReadAsync (
+    public async ValueTask<IpcUnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,
@@ -157,7 +157,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         return DecodeResponse(unityProject, response, validateProjectFingerprint);
     }
 
-    private async ValueTask<IpcPingResponse> PingCurrentSessionAndReadAsync (
+    private async ValueTask<IpcUnityEditorObservation> PingCurrentSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         bool validateProjectFingerprint,
@@ -215,7 +215,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         }
     }
 
-    private async ValueTask<IpcPingResponse> SendPingAndDecodeWithinDeadlineAsync (
+    private async ValueTask<IpcUnityEditorObservation> SendPingAndDecodeWithinDeadlineAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionConnection sessionConnection,
         Guid requestId,
@@ -320,12 +320,12 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         return new DaemonSessionConnection(session.SessionToken, session.Endpoint);
     }
 
-    private static IpcPingResponse DecodeResponse (
+    private static IpcUnityEditorObservation DecodeResponse (
         ResolvedUnityProjectContext unityProject,
         IpcResponse response,
         bool validateProjectFingerprint)
     {
-        IpcPingResponse? payload;
+        IpcUnityEditorObservation? payload;
         DaemonPingResponseException? error;
         var isDecoded = validateProjectFingerprint
             ? DaemonPingResponseCodec.TryDecodePayloadForProject(

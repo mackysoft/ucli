@@ -23,7 +23,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService();
         var launchService = new RecordingDaemonLaunchService
         {
-            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2222, projectFingerprint: context.ProjectFingerprint)),
+            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2222, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
@@ -63,7 +63,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService();
         var launchService = new RecordingDaemonLaunchService
         {
-            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 3333, projectFingerprint: context.ProjectFingerprint)),
+            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 3333, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
@@ -116,7 +116,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
             timeProvider);
         var launchService = new RecordingDaemonLaunchService
         {
-            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 3333, projectFingerprint: context.ProjectFingerprint)),
+            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 3333, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
@@ -154,7 +154,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService();
         var launchService = new RecordingDaemonLaunchService
         {
-            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 3333)),
+            NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 3333), IpcUnityEditorObservationTestFactory.Create()),
         };
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,

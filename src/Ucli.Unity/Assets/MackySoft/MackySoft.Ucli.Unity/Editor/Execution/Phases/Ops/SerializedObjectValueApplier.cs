@@ -1353,7 +1353,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (value.ValueKind == JsonValueKind.String)
             {
                 var text = value.GetString();
-                if (text == null || text.Length != 1)
+                if (text == null || string.IsNullOrEmpty(text) || text.Length != 1)
                 {
                     errorMessage = $"SerializedProperty '{logicalPath}' must be a single-character string.";
                     return false;

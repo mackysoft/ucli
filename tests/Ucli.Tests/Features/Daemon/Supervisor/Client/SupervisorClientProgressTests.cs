@@ -19,8 +19,8 @@ public sealed class SupervisorClientProgressTests
                 request,
                 onProgressFrame,
                 SupervisorClientTestSupport.CreateWaitingForEndpointProgressFrame(
-                    request,
-                    onStartupBlocked: "terminate",
+                request,
+                    onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
                     message: "Waiting for daemon endpoint."),
                 cancellationToken);
         });

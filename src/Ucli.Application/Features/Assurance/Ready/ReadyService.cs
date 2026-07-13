@@ -328,7 +328,7 @@ internal sealed class ReadyService : IReadyService
                 firstError?.Message ?? $"Unity ping failed with status '{response.FailureStatus}'."));
         }
 
-        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPingResponse pingResponse, out var payloadError))
+        if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation pingResponse, out var payloadError))
         {
             return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.InternalError(
                 $"Unity ping payload is invalid. {payloadError.Message}"));

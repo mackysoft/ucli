@@ -77,7 +77,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             processId,
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
-            editorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
+            editorMode: DaemonEditorMode.Gui,
             endpointAddress: LaunchEndpointAddress,
             processStartedAtUtc: processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
@@ -86,7 +86,11 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         };
         var guiStartupObserver = new RecordingDaemonGuiStartupObserver
         {
-            NextResult = DaemonGuiStartupObservationResult.Success(registeredSession),
+            NextResult = DaemonGuiStartupObservationResult.Success(
+                registeredSession,
+                IpcUnityEditorObservationTestFactory.Create(
+                    editorMode: DaemonEditorMode.Gui,
+                    projectFingerprint: context.ProjectFingerprint)),
         };
         var progressFailure = new InvalidOperationException("endpoint-ready progress failed");
         var progressObserver = new ConfigurableDaemonStartProgressObserver
@@ -354,9 +358,9 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             processId: 8765,
             processStartedAtUtc: processStartedAtUtc);
         Assert.NotNull(result.Startup);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), result.Startup!.ProcessAction);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup!.ProcessAction);
         var launchAttempt = DaemonLaunchAttemptStoreAssert.LatestLaunchAttemptWrittenFor(launchAttemptStore, context);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), launchAttempt.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttempt.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Failed, launchAttempt.StartupStatus);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, launchAttempt.ProcessAction);
     }
 }

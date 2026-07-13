@@ -49,15 +49,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 ProjectFingerprint,
                 EditorInstanceId,
                 "1.2.3-tests");
-            var snapshot = new UnityEditorLifecycleSnapshot(
-                DaemonEditorMode.Gui,
-                IpcEditorLifecycleStateCodec.Recovering,
-                IpcEditorBlockingReasonCodec.Recovery,
-                IpcCompileStateCodec.Ready,
-                "compile-generation",
-                "reload-generation",
-                CanAcceptExecutionRequests: false,
-                ObservedAtUtc: observedAtUtc);
+            var snapshot = CreateObservation(
+                IpcEditorLifecycleState.Recovering,
+                observedAtUtc);
 
             try
             {
@@ -70,12 +64,16 @@ namespace MackySoft.Ucli.Unity.Tests
                     File.ReadAllText(sidecarPath));
 
                 Assert.That(contract, Is.Not.Null);
-                Assert.That(contract.LifecycleState, Is.EqualTo(IpcEditorLifecycleStateCodec.Recovering));
-                Assert.That(contract.BlockingReason, Is.EqualTo(IpcEditorBlockingReasonCodec.Recovery));
-                Assert.That(contract.CanAcceptExecutionRequests, Is.False);
+                Assert.That(contract.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Recovering));
+                Assert.That(
+                    IpcEditorLifecycleSemantics.ResolveBlockingReason(contract.State.LifecycleState),
+                    Is.EqualTo(IpcEditorBlockingReason.Recovery));
+                Assert.That(
+                    IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(contract.State.LifecycleState),
+                    Is.False);
                 Assert.That(contract.ObservedAtUtc, Is.EqualTo(observedAtUtc));
                 Assert.That(contract.ServerVersion, Is.EqualTo("1.2.3-tests"));
-                Assert.That(contract.EditorInstanceId, Is.EqualTo(EditorInstanceId.ToString("N")));
+                Assert.That(contract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
 
                 await persistence.DeleteIfOwnedAsync(CancellationToken.None);
 
@@ -114,10 +112,10 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 await predecessor.WriteAsync(
-                    CreateSnapshot("predecessor", 0),
+                    CreateObservation(IpcEditorLifecycleState.Ready, CreateObservedAtUtc(0)),
                     CancellationToken.None);
                 await successor.WriteAsync(
-                    CreateSnapshot("successor", 1),
+                    CreateObservation(IpcEditorLifecycleState.Ready, CreateObservedAtUtc(1)),
                     CancellationToken.None);
 
                 await predecessor.DeleteIfOwnedAsync(CancellationToken.None);
@@ -140,26 +138,27 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private static UnityEditorLifecycleSnapshot CreateSnapshot (
-            string lifecycleState,
-            int observedAtOffsetSeconds)
+        private static UnityEditorObservation CreateObservation (
+            IpcEditorLifecycleState lifecycleState,
+            DateTimeOffset observedAtUtc)
         {
-            return new UnityEditorLifecycleSnapshot(
-                DaemonEditorMode.Gui,
-                lifecycleState,
-                null,
-                IpcCompileStateCodec.Ready,
-                "compile-generation",
-                "reload-generation",
-                CanAcceptExecutionRequests: true,
-                ObservedAtUtc: new DateTimeOffset(
-                    2026,
-                    7,
-                    11,
-                    0,
-                    0,
-                    observedAtOffsetSeconds,
-                    TimeSpan.Zero));
+            return new UnityEditorObservation(
+                state: new UnityEditorStateSnapshot(
+                    editorMode: DaemonEditorMode.Gui,
+                    lifecycleState: lifecycleState,
+                    compileState: IpcCompileState.Ready,
+                    generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
+                    playMode: new IpcPlayModeSnapshot(
+                        IpcPlayModeState.Stopped,
+                        IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
+                observedAtUtc: observedAtUtc);
+        }
+
+        private static DateTimeOffset CreateObservedAtUtc (int offsetSeconds)
+        {
+            return new DateTimeOffset(2026, 7, 11, 0, 0, offsetSeconds, TimeSpan.Zero);
         }
     }
 }

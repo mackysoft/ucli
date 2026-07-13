@@ -27,15 +27,19 @@ public sealed class PlayExitCommandPayloadTests
                 .HasString("unityVersion", PlayCommandOutputTestData.UnityVersion))
             .HasString("daemonStatus", "running")
             .HasString("editorMode", "gui")
-            .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Ready)
+            .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready))
             .HasValueKind("blockingReason", JsonValueKind.Null)
+            .HasProperty("generations", generations => generations
+                .HasInt32("compileGeneration", 12)
+                .HasInt32("domainReloadGeneration", 7)
+                .HasInt32("assetRefreshGeneration", 0)
+                .HasInt32("playModeGeneration", 3))
             .HasBoolean("canAcceptExecutionRequests", true)
             .HasProperty("playMode", playMode => playMode
                 .HasString("state", "stopped")
                 .HasString("transition", "none")
                 .HasBoolean("isPlaying", false)
-                .HasBoolean("isPlayingOrWillChangePlaymode", false)
-                .HasString("generation", "3"))
+                .HasBoolean("isPlayingOrWillChangePlaymode", false))
             .HasProperty("transition", transition => transition
                 .HasString("transition", IpcPlayTransitionCommandNames.Exit)
                 .HasString("result", IpcPlayTransitionResultNames.Exited)

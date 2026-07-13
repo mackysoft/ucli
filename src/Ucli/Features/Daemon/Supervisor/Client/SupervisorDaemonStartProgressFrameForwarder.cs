@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Client;
@@ -110,11 +109,11 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
     private bool IsValidStartupObservation (DaemonStartStartupObservationProgressEntry entry)
     {
         return HasExpectedEnvelope(entry.PayloadKind, DaemonStartProgressPayloadKind.StartupObservation, entry.ProjectFingerprint, entry.TimeoutMilliseconds, entry.EditorMode, entry.OnStartupBlocked)
-            && IsOptionalContractLiteral<DaemonSessionOwnerKind>(entry.OwnerKind)
-            && IsOptionalContractLiteral<DaemonStartupStatus>(entry.StartupStatus)
-            && IsOptionalContractLiteral<DaemonStartupBlockingReason>(entry.StartupBlockingReason)
-            && IsOptionalContractLiteral<DaemonDiagnosisStartupPhase>(entry.StartupPhase)
-            && IsOptionalContractLiteral<DaemonStartupRetryDisposition>(entry.RetryDisposition)
+            && IsOptionalDefined(entry.OwnerKind)
+            && IsOptionalDefined(entry.StartupStatus)
+            && IsOptionalDefined(entry.StartupBlockingReason)
+            && IsOptionalDefined(entry.StartupPhase)
+            && IsOptionalDefined(entry.RetryDisposition)
             && !IsBlankWhenPresent(entry.LaunchAttemptId)
             && !IsBlankWhenPresent(entry.Message)
             && !IsBlankWhenPresent(entry.ErrorCode);
@@ -123,43 +122,33 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
     private bool IsValidLifecycleSnapshot (DaemonStartLifecycleSnapshotProgressEntry entry)
     {
         return HasExpectedEnvelope(entry.PayloadKind, DaemonStartProgressPayloadKind.LifecycleSnapshot, entry.ProjectFingerprint, entry.TimeoutMilliseconds, entry.EditorMode, entry.OnStartupBlocked)
-            && IpcEditorLifecycleStateCodec.TryParse(entry.LifecycleState, out var lifecycleState)
-            && string.Equals(entry.LifecycleState, lifecycleState, StringComparison.Ordinal)
-            && IsOptionalBlockingReason(entry.BlockingReason);
+            && IpcEditorLifecycleSemantics.IsConsistent(
+                entry.LifecycleState,
+                entry.BlockingReason,
+                entry.CanAcceptExecutionRequests);
     }
 
     private bool HasExpectedEnvelope (
-        string payloadKind,
+        DaemonStartProgressPayloadKind payloadKind,
         DaemonStartProgressPayloadKind expectedPayloadKind,
         ProjectFingerprint entryProjectFingerprint,
         int entryTimeoutMilliseconds,
-        string? entryEditorMode,
-        string entryOnStartupBlocked)
+        DaemonEditorMode? entryEditorMode,
+        DaemonStartupBlockedProcessPolicy entryOnStartupBlocked)
     {
-        return ContractLiteralCodec.Matches(payloadKind, expectedPayloadKind)
+        return payloadKind == expectedPayloadKind
             && entryProjectFingerprint == projectFingerprint
-            && entryTimeoutMilliseconds > 0
-            && entryTimeoutMilliseconds <= timeoutMilliseconds
-            && ContractLiteralCodec.Matches(entryOnStartupBlocked, onStartupBlocked)
-            && IsOptionalContractLiteral<DaemonEditorMode>(entryEditorMode)
-            && (!editorMode.HasValue || ContractLiteralCodec.Matches(entryEditorMode, editorMode.Value));
+            && entryTimeoutMilliseconds == timeoutMilliseconds
+            && ContractLiteralCodec.IsDefined(entryOnStartupBlocked)
+            && entryOnStartupBlocked == onStartupBlocked
+            && IsOptionalDefined(entryEditorMode)
+            && (!editorMode.HasValue || entryEditorMode == editorMode);
     }
 
-    private static bool IsOptionalContractLiteral<TEnum> (string? value)
+    private static bool IsOptionalDefined<TEnum> (TEnum? value)
         where TEnum : struct, Enum
     {
-        return value is null || ContractLiteralCodec.IsDefined<TEnum>(value);
-    }
-
-    private static bool IsOptionalBlockingReason (string? value)
-    {
-        if (value is null)
-        {
-            return true;
-        }
-
-        return IpcEditorBlockingReasonCodec.TryParse(value, out var blockingReason)
-            && string.Equals(value, blockingReason, StringComparison.Ordinal);
+        return !value.HasValue || ContractLiteralCodec.IsDefined(value.Value);
     }
 
     private static bool IsBlankWhenPresent (string? value)

@@ -142,9 +142,13 @@ public sealed class PlayEnterPayloadSchemaArtifactTests
               "editorMode": "gui",
               "lifecycleState": "playmode",
               "blockingReason": "playMode",
-              "compileState": "idle",
-              "compileGeneration": "12",
-              "domainReloadGeneration": "7",
+              "compileState": "ready",
+              "generations": {
+                "compileGeneration": 12,
+                "domainReloadGeneration": 7,
+                "assetRefreshGeneration": 5,
+                "playModeGeneration": 43
+              },
               "canAcceptExecutionRequests": false,
               "observedAtUtc": "2026-05-21T00:00:00+00:00",
               "actionRequired": null,
@@ -153,8 +157,7 @@ public sealed class PlayEnterPayloadSchemaArtifactTests
                 "state": "playing",
                 "transition": "none",
                 "isPlaying": true,
-                "isPlayingOrWillChangePlaymode": true,
-                "generation": "43"
+                "isPlayingOrWillChangePlaymode": true
               },
               "transition": {
                 "transition": "enter",

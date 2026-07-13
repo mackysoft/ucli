@@ -22,25 +22,15 @@ public sealed class StatusServiceTests
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
-            projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
+            projectFingerprint: StatusProjectContext.UnityProject.ProjectFingerprint,
             endpointAddress: "ucli-daemon-status");
-        var pingResponse = new IpcPingResponse(
-            ServerVersion: "0.5.0",
-            EditorMode: "batchmode",
-            UnityVersion: "2022.3.5f1",
-            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-            CompileState: "ready",
-            LifecycleState: "busy",
-            BlockingReason: "busy",
-            CompileGeneration: "12",
-            DomainReloadGeneration: "7",
-            CanAcceptExecutionRequests: false,
-            PlayMode: new IpcPlayModeSnapshot(
-                State: "stopped",
-                Transition: "none",
-                IsPlaying: false,
-                IsPlayingOrWillChangePlaymode: false,
-                Generation: "2"));
+        var pingResponse = CreatePingResponse(
+            lifecycleState: IpcEditorLifecycleState.Busy,
+            generations: new IpcUnityGenerationSnapshot(
+                CompileGeneration: 12,
+                DomainReloadGeneration: 7,
+                AssetRefreshGeneration: 3,
+                PlayModeGeneration: 2));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(
             DaemonStatusResult.Running(session, pingResponse));
         var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
@@ -52,19 +42,21 @@ public sealed class StatusServiceTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal("6000.1.4f1", output.UnityVersion);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal("busy", output.LifecycleState);
-        Assert.Equal("busy", output.BlockingReason);
-        Assert.Equal("ready", output.CompileState);
-        Assert.Equal("12", output.CompileGeneration);
-        Assert.Equal("7", output.DomainReloadGeneration);
+        Assert.Equal(IpcEditorLifecycleState.Busy, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.Busy, output.BlockingReason);
+        Assert.Equal(IpcCompileState.Ready, output.CompileState);
+        Assert.NotNull(output.Generations);
+        Assert.Equal(12, output.Generations.CompileGeneration);
+        Assert.Equal(7, output.Generations.DomainReloadGeneration);
+        Assert.Equal(3, output.Generations.AssetRefreshGeneration);
+        Assert.Equal(2, output.Generations.PlayModeGeneration);
         Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Equal("batchmode", output.EditorMode);
+        Assert.Equal(DaemonEditorMode.Batchmode, output.EditorMode);
         Assert.NotNull(output.PlayMode);
-        Assert.Equal("stopped", output.PlayMode.State);
-        Assert.Equal("none", output.PlayMode.Transition);
+        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
+        Assert.Equal(IpcPlayModeTransition.None, output.PlayMode.Transition);
         Assert.False(output.PlayMode.IsPlaying);
         Assert.False(output.PlayMode.IsPlayingOrWillChangePlaymode);
-        Assert.Equal("2", output.PlayMode.Generation);
         var expectedTimeoutMilliseconds = UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand[UcliCommandIds.Status.Name];
         Assert.NotNull(expectedTimeoutMilliseconds);
         Assert.Equal(expectedTimeoutMilliseconds, output.TimeoutMilliseconds);
@@ -99,7 +91,7 @@ public sealed class StatusServiceTests
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Stale(DaemonSessionTestFactory.Create(
             sessionToken: "stale-session-token",
-            projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
+            projectFingerprint: StatusProjectContext.UnityProject.ProjectFingerprint,
             endpointAddress: "ucli-daemon-status")));
         var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
@@ -168,7 +160,8 @@ public sealed class StatusServiceTests
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(new DaemonStatusResult(
             DaemonStatusKind.Running,
-            DaemonSessionTestFactory.Create(),
+            DaemonSessionTestFactory.Create(
+                projectFingerprint: StatusProjectContext.UnityProject.ProjectFingerprint),
             Diagnosis: null,
             Error: null,
             PingResponse: null));
@@ -191,5 +184,26 @@ public sealed class StatusServiceTests
         return new StatusService(
             new StatusExecutionContextResolver(contextResolver, unityVersionResolver),
             new StatusDaemonObservationService(daemonStatusOperation));
+    }
+
+    private static IpcUnityEditorObservation CreatePingResponse (
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Ready,
+        IpcUnityGenerationSnapshot? generations = null)
+    {
+        return new IpcUnityEditorObservation(
+            serverVersion: "0.5.0",
+            unityVersion: "2022.3.5f1",
+            projectFingerprint: StatusProjectContext.UnityProject.ProjectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Batchmode,
+                lifecycleState: lifecycleState,
+                compileState: IpcCompileState.Ready,
+                generations: generations ?? new IpcUnityGenerationSnapshot(0, 0, 0, 0),
+                playMode: new IpcPlayModeSnapshot(
+                    State: IpcPlayModeState.Stopped,
+                    Transition: IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
+            observedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero));
     }
 }

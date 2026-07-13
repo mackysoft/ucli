@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         /// <summary> Persists one immutable lifecycle snapshot. </summary>
         Task WriteAsync (
-            UnityEditorLifecycleSnapshot snapshot,
+            UnityEditorObservation snapshot,
             CancellationToken cancellationToken);
 
         /// <summary>

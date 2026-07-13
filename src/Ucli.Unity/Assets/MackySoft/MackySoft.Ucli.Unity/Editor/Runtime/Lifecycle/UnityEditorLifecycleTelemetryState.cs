@@ -1,23 +1,20 @@
-using System.Globalization;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor;
 using UnityEditor.Compilation;
-
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
     /// <summary> Stores mutable lifecycle telemetry that is shared across readiness snapshots and Unity callbacks. </summary>
     internal sealed class UnityEditorLifecycleTelemetryState
     {
-        private int compileGeneration;
+        private long compileGeneration;
 
-        private int domainReloadGeneration;
+        private long domainReloadGeneration;
 
-        private int assetRefreshGeneration;
+        private long assetRefreshGeneration;
 
-        private int playModeGeneration;
+        private long playModeGeneration;
 
         private IpcPlayModeTransition playModeTransition;
 
@@ -38,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <summary> Initializes a new instance of the <see cref="UnityEditorLifecycleTelemetryState" /> class. </summary>
         public UnityEditorLifecycleTelemetryState ()
             : this(
-                compileGeneration: 0,
+                compileGeneration: UnityEditorSessionStateStore.RestoreCompileGeneration(),
                 domainReloadGeneration: UnityEditorSessionStateStore.RestoreDomainReloadGeneration(),
                 playModeGeneration: UnityEditorSessionStateStore.RestorePlayModeGeneration(),
                 isDomainReloading: false,
@@ -56,16 +53,16 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="playModeGeneration"> The initial Play Mode generation counter. </param>
         /// <param name="assetRefreshGeneration"> The initial asset-refresh generation counter. </param>
         internal UnityEditorLifecycleTelemetryState (
-            int compileGeneration,
-            int domainReloadGeneration,
+            long compileGeneration,
+            long domainReloadGeneration,
             bool isDomainReloading,
             bool isShuttingDown,
             bool isStartupPending,
             bool isRecoveringPending = false,
             bool hasCompileFailure = false,
             IpcPrimaryDiagnostic primaryDiagnostic = null,
-            int? playModeGeneration = null,
-            int? assetRefreshGeneration = null)
+            long? playModeGeneration = null,
+            long? assetRefreshGeneration = null)
         {
             this.compileGeneration = compileGeneration;
             this.domainReloadGeneration = domainReloadGeneration;
@@ -82,16 +79,16 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <summary> Gets the current compile-generation counter. </summary>
-        public string CompileGeneration => Volatile.Read(ref compileGeneration).ToString(CultureInfo.InvariantCulture);
+        public long CompileGeneration => Volatile.Read(ref compileGeneration);
 
         /// <summary> Gets the current domain-reload generation counter. </summary>
-        public string DomainReloadGeneration => Volatile.Read(ref domainReloadGeneration).ToString(CultureInfo.InvariantCulture);
+        public long DomainReloadGeneration => Volatile.Read(ref domainReloadGeneration);
 
         /// <summary> Gets the current asset-refresh generation counter. </summary>
-        public string AssetRefreshGeneration => Volatile.Read(ref assetRefreshGeneration).ToString(CultureInfo.InvariantCulture);
+        public long AssetRefreshGeneration => Volatile.Read(ref assetRefreshGeneration);
 
         /// <summary> Gets the current Play Mode generation counter. </summary>
-        public string PlayModeGeneration => Volatile.Read(ref playModeGeneration).ToString(CultureInfo.InvariantCulture);
+        public long PlayModeGeneration => Volatile.Read(ref playModeGeneration);
 
         /// <summary> Gets a value indicating whether the latest completed script compilation failed. </summary>
         public bool HasCompileFailure => hasCompileFailure;
@@ -103,8 +100,8 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <param name="isPlaymodeActive"> Whether Play Mode is active or about to activate. </param>
         /// <param name="isCompiling"> Whether script compilation is in progress. </param>
         /// <param name="isUpdating"> Whether editor import/update work is in progress. </param>
-        /// <returns> The canonical lifecycle-state literal. </returns>
-        public string ResolveLifecycleState (
+        /// <returns> The lifecycle state. </returns>
+        public IpcEditorLifecycleState ResolveLifecycleState (
             bool isPlaymodeActive,
             bool isCompiling,
             bool isUpdating)
@@ -136,11 +133,20 @@ namespace MackySoft.Ucli.Unity.Runtime
             }
 
             return new IpcPlayModeSnapshot(
-                State: ContractLiteralCodec.ToValue(state),
-                Transition: ContractLiteralCodec.ToValue(transition),
+                State: state,
+                Transition: transition,
                 IsPlaying: isPlaying,
-                IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode,
-                Generation: PlayModeGeneration);
+                IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode);
+        }
+
+        /// <summary> Captures all lifecycle generations as one observation. </summary>
+        public IpcUnityGenerationSnapshot CaptureGenerationSnapshot ()
+        {
+            return new IpcUnityGenerationSnapshot(
+                CompileGeneration: CompileGeneration,
+                DomainReloadGeneration: DomainReloadGeneration,
+                AssetRefreshGeneration: AssetRefreshGeneration,
+                PlayModeGeneration: PlayModeGeneration);
         }
 
         /// <summary> Advances startup tracking after one editor update confirms no higher-priority blocking state remains. </summary>
@@ -164,7 +170,9 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <summary> Records the start of one compilation cycle. </summary>
         public void OnCompilationStarted ()
         {
-            Interlocked.Increment(ref compileGeneration);
+            Interlocked.Exchange(
+                ref compileGeneration,
+                UnityEditorSessionStateStore.AdvanceCompileGeneration(Volatile.Read(ref compileGeneration)));
             hasCompileFailure = false;
             primaryDiagnostic = null;
             isStartupPending = true;
@@ -194,7 +202,9 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <summary> Records the end of one compilation cycle. </summary>
         public void OnCompilationFinished ()
         {
-            Interlocked.Increment(ref compileGeneration);
+            Interlocked.Exchange(
+                ref compileGeneration,
+                UnityEditorSessionStateStore.AdvanceCompileGeneration(Volatile.Read(ref compileGeneration)));
         }
 
         /// <summary> Records that Unity completed an asset refresh pass. </summary>

@@ -10,7 +10,6 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
-using MackySoft.Ucli.Tests.Helpers.Ipc;
 
 public sealed class DaemonStatusOperationTests
 {
@@ -29,7 +28,7 @@ public sealed class DaemonStatusOperationTests
         {
             ReadResult = DaemonDiagnosisReadResult.Success(diagnosis),
         };
-        var pingResponse = IpcPingResponseTestFactory.Create(projectFingerprint: context.ProjectFingerprint);
+        var pingResponse = IpcUnityEditorObservationTestFactory.Create(projectFingerprint: context.ProjectFingerprint);
         var pingInfoClient = new RecordingDaemonPingInfoClient(pingResponse);
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
@@ -71,7 +70,7 @@ public sealed class DaemonStatusOperationTests
                 ? DaemonSessionReadResultTestFactory.Found(firstSession)
                 : DaemonSessionReadResultTestFactory.Found(refreshedSession),
         };
-        var pingResponse = IpcPingResponseTestFactory.Create(projectFingerprint: context.ProjectFingerprint);
+        var pingResponse = IpcUnityEditorObservationTestFactory.Create(projectFingerprint: context.ProjectFingerprint);
         var pingInfoClient = new RecordingDaemonPingInfoClient(
             new DaemonPingResponseException(
                 "The first session token was replaced.",
@@ -484,7 +483,7 @@ public sealed class DaemonStatusOperationTests
             launchAttemptStore: new RecordingDaemonLaunchAttemptStore(),
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
-                new RecordingDaemonPingInfoClient(IpcPingResponseTestFactory.Create(projectFingerprint: context.ProjectFingerprint))),
+                new RecordingDaemonPingInfoClient(IpcUnityEditorObservationTestFactory.Create(projectFingerprint: context.ProjectFingerprint))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
             timeProvider: new ManualTimeProvider());
@@ -687,7 +686,7 @@ public sealed class DaemonStatusOperationTests
             OnRead = () => timeProvider.Advance(TimeSpan.FromMilliseconds(25)),
         };
         var pingInfoClient = new RecordingDaemonPingInfoClient(
-            IpcPingResponseTestFactory.Create(projectFingerprint: context.ProjectFingerprint));
+            IpcUnityEditorObservationTestFactory.Create(projectFingerprint: context.ProjectFingerprint));
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
@@ -736,11 +735,11 @@ public sealed class DaemonStatusOperationTests
             LaunchAttemptId: "20260312_000000Z_00000001",
             StartedAtUtc: diagnosis.UpdatedAtUtc,
             UpdatedAtUtc: diagnosis.UpdatedAtUtc,
-            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed),
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Unknown),
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
-            ProcessAction: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None),
-            EditorMode: "gui",
+            StartupStatus: DaemonStartupStatus.Failed,
+            StartupBlockingReason: DaemonStartupBlockingReason.Unknown,
+            RetryDisposition: DaemonStartupRetryDisposition.Unknown,
+            ProcessAction: DaemonStartupProcessAction.None,
+            EditorMode: DaemonEditorMode.Gui,
             ProcessId: null,
             ProcessStartedAtUtc: null,
             UnityLogPath: "/tmp/unity.log",

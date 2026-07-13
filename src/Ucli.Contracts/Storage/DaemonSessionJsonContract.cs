@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Storage;
 
@@ -20,10 +22,10 @@ internal sealed record DaemonSessionJsonContract (
     string? SessionToken,
     ProjectFingerprint? ProjectFingerprint,
     DateTimeOffset IssuedAtUtc,
-    string? EditorMode,
-    string? OwnerKind,
+    DaemonEditorMode? EditorMode,
+    DaemonSessionOwnerKind? OwnerKind,
     [property: JsonRequired] bool CanShutdownProcess,
-    string? EndpointTransportKind,
+    IpcTransportKind? EndpointTransportKind,
     string? EndpointAddress,
     int? ProcessId,
     DateTimeOffset? ProcessStartedAtUtc,

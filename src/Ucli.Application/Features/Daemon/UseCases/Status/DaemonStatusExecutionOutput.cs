@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Application.Shared.CommandContracts;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 
@@ -11,8 +11,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 /// <param name="LifecycleState"> The daemon lifecycle-state value when available; otherwise <see langword="null" />. </param>
 /// <param name="BlockingReason"> The daemon blocking-reason value when available; otherwise <see langword="null" />. </param>
 /// <param name="CompileState"> The daemon compile-state value when available; otherwise <see langword="null" />. </param>
-/// <param name="CompileGeneration"> The daemon compile generation when available; otherwise <see langword="null" />. </param>
-/// <param name="DomainReloadGeneration"> The daemon domain-reload generation when available; otherwise <see langword="null" />. </param>
+/// <param name="Generations"> The Unity lifecycle generation snapshot when available; otherwise <see langword="null" />. </param>
 /// <param name="CanAcceptExecutionRequests"> Whether execution requests can currently be accepted. </param>
 /// <param name="ObservedAtUtc"> The daemon lifecycle observation timestamp when available. </param>
 /// <param name="ActionRequired"> The normalized user action required by the lifecycle blocker when available. </param>
@@ -25,12 +24,11 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 internal sealed record DaemonStatusExecutionOutput (
     DaemonStatusKind DaemonStatus,
     string? ServerVersion,
-    string? EditorMode,
-    string? LifecycleState,
-    string? BlockingReason,
-    string? CompileState,
-    string? CompileGeneration,
-    string? DomainReloadGeneration,
+    DaemonEditorMode? EditorMode,
+    IpcEditorLifecycleState? LifecycleState,
+    IpcEditorBlockingReason? BlockingReason,
+    IpcCompileState? CompileState,
+    IpcUnityGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
     int TimeoutMilliseconds,
     DaemonSessionOutput? Session,
@@ -39,4 +37,4 @@ internal sealed record DaemonStatusExecutionOutput (
     DateTimeOffset? ObservedAtUtc = null,
     string? ActionRequired = null,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null,
-    PlayModeSnapshotOutput? PlayMode = null);
+    IpcPlayModeSnapshot? PlayMode = null);

@@ -586,7 +586,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
             if (temporaryRoot == null)
             {
-                throw new InvalidOperationException("Prefab preview did not expose its temporary root.");
+                throw new AssertionException("Expected the temporary prefab contents root to be available.");
             }
 
             Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(temporaryRoot, out var temporaryRootReference), Is.True);

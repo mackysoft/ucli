@@ -536,20 +536,22 @@ public sealed class DaemonIpcRequestSenderTests
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
             processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            editorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-            lifecycleState: IpcEditorLifecycleStateCodec.DomainReloading,
-            blockingReason: IpcEditorBlockingReasonCodec.DomainReload,
-            compileState: IpcCompileStateCodec.Ready,
-            compileGeneration: "1",
-            domainReloadGeneration: "2",
+            state: new UnityEditorStateSnapshot(
+                editorMode: session.EditorMode,
+                lifecycleState: IpcEditorLifecycleState.DomainReloading,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Stopped,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: DateTimeOffset.UtcNow,
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
-            canAcceptExecutionRequests: false,
             editorInstanceId: session.EditorInstanceId
-                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
-            playMode: null);
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)));
     }
 
     private static async Task ObserveCompletionAsync (Task task)

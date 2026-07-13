@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 
 /// <summary> Represents normalized payload values for one daemon-start command execution. </summary>
@@ -10,12 +11,16 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 /// <param name="Session"> The daemon session values associated with started or already-running daemon process. </param>
 /// <param name="LifecycleState"> The lifecycle-state snapshot observed after endpoint registration. </param>
 /// <param name="BlockingReason"> The blocking-reason snapshot observed after endpoint registration. </param>
+/// <param name="Generations"> The complete generation snapshot observed after endpoint registration. </param>
+/// <param name="PlayMode"> The Play Mode snapshot observed after endpoint registration. </param>
 /// <param name="CanAcceptExecutionRequests"> Whether the endpoint can accept ordinary execution requests. </param>
 internal sealed record DaemonStartExecutionOutput (
     DaemonStartStatus StartStatus,
     DaemonStatusKind DaemonStatus,
     int TimeoutMilliseconds,
     DaemonSessionOutput Session,
-    string LifecycleState = IpcEditorLifecycleStateCodec.Ready,
-    string? BlockingReason = null,
-    bool CanAcceptExecutionRequests = true);
+    IpcEditorLifecycleState LifecycleState,
+    IpcEditorBlockingReason? BlockingReason,
+    IpcUnityGenerationSnapshot Generations,
+    IpcPlayModeSnapshot PlayMode,
+    bool CanAcceptExecutionRequests);

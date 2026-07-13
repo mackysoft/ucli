@@ -16,8 +16,7 @@ internal static class StatusServiceAssert
         Assert.Null(output.LifecycleState);
         Assert.Null(output.BlockingReason);
         Assert.Null(output.CompileState);
-        Assert.Null(output.CompileGeneration);
-        Assert.Null(output.DomainReloadGeneration);
+        Assert.Null(output.Generations);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.EditorMode);
         Assert.Null(output.PlayMode);
@@ -34,8 +33,7 @@ internal static class StatusServiceAssert
         Assert.Null(output.LifecycleState);
         Assert.Null(output.BlockingReason);
         Assert.Null(output.CompileState);
-        Assert.Null(output.CompileGeneration);
-        Assert.Null(output.DomainReloadGeneration);
+        Assert.Null(output.Generations);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.EditorMode);
         Assert.Null(output.PlayMode);

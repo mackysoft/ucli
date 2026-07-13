@@ -91,7 +91,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Persists the initial snapshot before endpoint publication commits. </summary>
         public Task InitializeAsync (
-            UnityEditorLifecycleSnapshot snapshot,
+            UnityEditorObservation snapshot,
             DateTimeOffset scheduledAtUtc,
             CancellationToken cancellationToken)
         {
@@ -121,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// Schedules one snapshot and replaces any older snapshot that has not begun writing.
         /// </summary>
         public bool TryEnqueue (
-            UnityEditorLifecycleSnapshot snapshot,
+            UnityEditorObservation snapshot,
             DateTimeOffset scheduledAtUtc,
             out long version)
         {
@@ -271,7 +271,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private async Task InitializeCoreAsync (
-            UnityEditorLifecycleSnapshot snapshot,
+            UnityEditorObservation snapshot,
             CancellationToken callerCancellationToken)
         {
             using var initializationCancellationSource = CancellationTokenSource.CreateLinkedTokenSource(
@@ -607,7 +607,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             public WriteRequest (
                 long version,
-                UnityEditorLifecycleSnapshot snapshot)
+                UnityEditorObservation snapshot)
             {
                 Version = version;
                 Snapshot = snapshot;
@@ -615,7 +615,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public long Version { get; }
 
-            public UnityEditorLifecycleSnapshot Snapshot { get; }
+            public UnityEditorObservation Snapshot { get; }
         }
     }
 }

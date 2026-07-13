@@ -230,10 +230,10 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
                         ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
                         DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                             projectFingerprint: payload.ProjectFingerprint,
-                            timeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
-                            onStartupBlocked: payload.OnStartupBlocked,
-                            startupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.WaitingForEndpoint),
-                            startupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration))),
+                            timeoutMilliseconds: payload.AttemptTimeoutMilliseconds,
+                            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                            startupStatus: DaemonStartupStatus.WaitingForEndpoint,
+                            startupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration)),
                     cancellationToken)
                 .ConfigureAwait(false);
             return SupervisorProjectGatewayTestSupport.CreateStartedEnsureRunningResponse(request);

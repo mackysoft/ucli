@@ -12,7 +12,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
 /// <summary> Validates build-specific semantic invariants inside the common assurance payload shape. </summary>
 internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticInvariantRule
 {
-    private const string UnknownGeneration = "unknown";
     private const string UnverifiedClaimStatus = "unverified";
 
     private static readonly IReadOnlyList<string> RequiredReportKeys =
@@ -633,10 +632,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         JsonElement generationsElement,
         string propertyName)
     {
-        return TryReadGenerationSnapshot(generationsElement, propertyName, out var snapshot)
-            && IsKnownGeneration(snapshot.CompileGeneration)
-            && IsKnownGeneration(snapshot.DomainReloadGeneration)
-            && IsKnownGeneration(snapshot.AssetRefreshGeneration);
+        return TryReadGenerationSnapshot(generationsElement, propertyName, out _);
     }
 
     private static bool TryReadGenerations (
@@ -653,15 +649,27 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         string propertyPath,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        if (!generationsElement.TryGetProperty(propertyName, out var snapshotElement) || snapshotElement.ValueKind != JsonValueKind.Object)
+        if (!generationsElement.TryGetProperty(propertyName, out var snapshotElement))
         {
             AddViolation(violations, propertyPath, $"Build generations must declare {propertyName}.");
+            return;
+        }
+
+        if (snapshotElement.ValueKind == JsonValueKind.Null)
+        {
+            return;
+        }
+
+        if (snapshotElement.ValueKind != JsonValueKind.Object)
+        {
+            AddViolation(violations, propertyPath, $"Build generations {propertyName} must be an object or null.");
             return;
         }
 
         ValidateGenerationValue(snapshotElement, "compileGeneration", propertyPath, violations);
         ValidateGenerationValue(snapshotElement, "domainReloadGeneration", propertyPath, violations);
         ValidateGenerationValue(snapshotElement, "assetRefreshGeneration", propertyPath, violations);
+        ValidateGenerationValue(snapshotElement, "playModeGeneration", propertyPath, violations);
     }
 
     private static void ValidateValidForGenerationSnapshot (
@@ -689,15 +697,10 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         string ownerPath,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        if (!TryReadString(snapshotElement, propertyName, out _))
+        if (!TryReadGeneration(snapshotElement, propertyName, out _))
         {
-            AddViolation(violations, BuildPropertyPath(ownerPath, propertyName), "Build generation value must be a non-empty string.");
+            AddViolation(violations, BuildPropertyPath(ownerPath, propertyName), "Build generation value must be a non-negative integer.");
         }
-    }
-
-    private static bool IsKnownGeneration (string generation)
-    {
-        return !string.Equals(generation, UnknownGeneration, StringComparison.Ordinal);
     }
 
     private static bool GenerationSnapshotsMatch (
@@ -711,18 +714,16 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
     }
 
     private static bool GenerationSnapshotsMatch (
-        (string CompileGeneration, string DomainReloadGeneration, string AssetRefreshGeneration) left,
-        (string CompileGeneration, string DomainReloadGeneration, string AssetRefreshGeneration) right)
+        (long CompileGeneration, long DomainReloadGeneration, long AssetRefreshGeneration, long PlayModeGeneration) left,
+        (long CompileGeneration, long DomainReloadGeneration, long AssetRefreshGeneration, long PlayModeGeneration) right)
     {
-        return string.Equals(left.CompileGeneration, right.CompileGeneration, StringComparison.Ordinal)
-            && string.Equals(left.DomainReloadGeneration, right.DomainReloadGeneration, StringComparison.Ordinal)
-            && string.Equals(left.AssetRefreshGeneration, right.AssetRefreshGeneration, StringComparison.Ordinal);
+        return left == right;
     }
 
     private static bool TryReadGenerationSnapshot (
         JsonElement generationsElement,
         string propertyName,
-        out (string CompileGeneration, string DomainReloadGeneration, string AssetRefreshGeneration) snapshot)
+        out (long CompileGeneration, long DomainReloadGeneration, long AssetRefreshGeneration, long PlayModeGeneration) snapshot)
     {
         snapshot = default;
         if (!generationsElement.TryGetProperty(propertyName, out var snapshotElement) || snapshotElement.ValueKind != JsonValueKind.Object)
@@ -730,14 +731,37 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return false;
         }
 
-        if (!TryReadString(snapshotElement, "compileGeneration", out var compileGeneration)
-            || !TryReadString(snapshotElement, "domainReloadGeneration", out var domainReloadGeneration)
-            || !TryReadString(snapshotElement, "assetRefreshGeneration", out var assetRefreshGeneration))
+        if (!TryReadGeneration(snapshotElement, "compileGeneration", out var compileGeneration)
+            || !TryReadGeneration(snapshotElement, "domainReloadGeneration", out var domainReloadGeneration)
+            || !TryReadGeneration(snapshotElement, "assetRefreshGeneration", out var assetRefreshGeneration)
+            || !TryReadGeneration(snapshotElement, "playModeGeneration", out var playModeGeneration))
         {
             return false;
         }
 
-        snapshot = (compileGeneration, domainReloadGeneration, assetRefreshGeneration);
+        snapshot = (compileGeneration, domainReloadGeneration, assetRefreshGeneration, playModeGeneration);
+        return true;
+    }
+
+    private static bool TryReadGeneration (
+        JsonElement owner,
+        string propertyName,
+        out long generation)
+    {
+        generation = default;
+        if (!owner.TryGetProperty(propertyName, out var element))
+        {
+            return false;
+        }
+
+        if (element.ValueKind != JsonValueKind.Number
+            || !element.TryGetInt64(out var parsedGeneration)
+            || parsedGeneration < 0)
+        {
+            return false;
+        }
+
+        generation = parsedGeneration;
         return true;
     }
 

@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
@@ -59,12 +60,23 @@ public sealed class IpcCompileContractSerializationTests
                 .HasString("projectFingerprint", ProjectFingerprintText)
                 .HasBoolean("completed", true)
                 .HasProperty("scriptCompilation", scriptCompilation => scriptCompilation
+                    .HasInt32("compileGenerationBefore", 12)
+                    .HasInt32("compileGenerationAfter", 14)
                     .HasProperty("diagnostics", diagnostics => diagnostics
                         .HasInt32("errorCount", 1)
                         .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
                             .HasString("kind", "compiler")
-                            .HasString("code", "CS1002")))));
-        Assert.False(response.TryGetProperty("runId", out _));
+                            .HasString("code", "CS1002"))))
+                .HasProperty("domainReload", domainReload => domainReload
+                    .HasInt32("generationBefore", 7)
+                    .HasInt32("generationAfter", 7))
+                .HasProperty("lifecycle", lifecycle => lifecycle
+                    .HasProperty("state", state => state
+                        .HasProperty("generations", generations => generations
+                            .HasInt32("compileGeneration", 14)
+                            .HasInt32("domainReloadGeneration", 7)
+                            .HasInt32("assetRefreshGeneration", 8)
+                            .HasInt32("playModeGeneration", 9)))));
         Assert.False(response.TryGetProperty("summaryJsonPath", out _));
         Assert.False(response.TryGetProperty("diagnosticsJsonPath", out _));
     }
@@ -173,8 +185,8 @@ public sealed class IpcCompileContractSerializationTests
             ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
                 Started: true,
                 Completed: true,
-                CompileGenerationBefore: "12",
-                CompileGenerationAfter: "14",
+                CompileGenerationBefore: 12,
+                CompileGenerationAfter: 14,
                 Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
                     ErrorCount: 1,
                     WarningCount: 0,
@@ -182,19 +194,26 @@ public sealed class IpcCompileContractSerializationTests
             DomainReload: new IpcCompileSummary.DomainReloadEvidence(
                 ReloadRequired: false,
                 ReloadObserved: false,
-                GenerationBefore: "7",
-                GenerationAfter: "7",
+                GenerationBefore: 7,
+                GenerationAfter: 7,
                 Settled: true),
             Lifecycle: new IpcCompileSummary.LifecycleEvidence(
                 ServerVersion: "0.5.0",
                 UnityVersion: "6000.1.4f1",
-                EditorMode: "batchmode",
-                LifecycleState: "compileFailed",
-                BlockingReason: "compileFailed",
-                CompileState: "failed",
-                CompileGeneration: "14",
-                DomainReloadGeneration: "7",
-                CanAcceptExecutionRequests: false,
+                State: new UnityEditorStateSnapshot(
+                    editorMode: DaemonEditorMode.Batchmode,
+                    lifecycleState: IpcEditorLifecycleState.CompileFailed,
+                    compileState: IpcCompileState.Failed,
+                    generations: new IpcUnityGenerationSnapshot(
+                        CompileGeneration: 14,
+                        DomainReloadGeneration: 7,
+                        AssetRefreshGeneration: 8,
+                        PlayModeGeneration: 9),
+                    playMode: new IpcPlayModeSnapshot(
+                        State: IpcPlayModeState.Stopped,
+                        Transition: IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
                 ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02+00:00"),
                 ActionRequired: "fixCompileErrors",
                 PrimaryDiagnostic: primaryDiagnostic));

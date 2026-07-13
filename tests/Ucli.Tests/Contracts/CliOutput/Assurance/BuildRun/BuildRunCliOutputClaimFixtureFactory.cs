@@ -236,11 +236,14 @@ internal static class BuildRunCliOutputClaimFixtureFactory
             };
         }
 
+        var validFor = build.Generations.ValidFor
+            ?? throw new InvalidOperationException("Build generation validity must be present in the CLI output fixture.");
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
-            ["compileGeneration"] = build.Generations.ValidFor.CompileGeneration,
-            ["domainReloadGeneration"] = build.Generations.ValidFor.DomainReloadGeneration,
-            ["assetRefreshGeneration"] = build.Generations.ValidFor.AssetRefreshGeneration,
+            ["compileGeneration"] = validFor.CompileGeneration,
+            ["domainReloadGeneration"] = validFor.DomainReloadGeneration,
+            ["assetRefreshGeneration"] = validFor.AssetRefreshGeneration,
+            ["playModeGeneration"] = validFor.PlayModeGeneration,
         };
     }
 
@@ -268,7 +271,7 @@ internal static class BuildRunCliOutputClaimFixtureFactory
                     Data: new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
                         ["lifecycleState"] = "ready",
-                        ["compileGeneration"] = "compile-before",
+                        ["compileGeneration"] = 1L,
                     }),
             ];
         }

@@ -57,19 +57,22 @@
       },
       "generations": {
         "before": {
-          "compileGeneration": "compile-before",
-          "domainReloadGeneration": "domain-before",
-          "assetRefreshGeneration": "asset-before"
+          "compileGeneration": 1,
+          "domainReloadGeneration": 1,
+          "assetRefreshGeneration": 1,
+          "playModeGeneration": 1
         },
         "after": {
-          "compileGeneration": "compile-after",
-          "domainReloadGeneration": "domain-after",
-          "assetRefreshGeneration": "asset-after"
+          "compileGeneration": 2,
+          "domainReloadGeneration": 1,
+          "assetRefreshGeneration": 1,
+          "playModeGeneration": 1
         },
         "validFor": {
-          "compileGeneration": "compile-after",
-          "domainReloadGeneration": "domain-after",
-          "assetRefreshGeneration": "asset-after"
+          "compileGeneration": 2,
+          "domainReloadGeneration": 1,
+          "assetRefreshGeneration": 1,
+          "playModeGeneration": 1
         }
       },
       "summary": {
@@ -166,7 +169,7 @@
             "kind": "unityLifecycleRead",
             "data": {
               "lifecycleState": "ready",
-              "compileGeneration": "compile-before"
+              "compileGeneration": 1
             }
           }
         ],
@@ -424,9 +427,10 @@
         "verifierRef": "build",
         "statement": "Build artifacts declare the Unity lifecycle generations they are valid for.",
         "subject": {
-          "compileGeneration": "compile-after",
-          "domainReloadGeneration": "domain-after",
-          "assetRefreshGeneration": "asset-after"
+          "compileGeneration": 2,
+          "domainReloadGeneration": 1,
+          "assetRefreshGeneration": 1,
+          "playModeGeneration": 1
         },
         "evidence": [
           {
@@ -434,19 +438,22 @@
             "evidenceRef": "build",
             "data": {
               "before": {
-                "compileGeneration": "compile-before",
-                "domainReloadGeneration": "domain-before",
-                "assetRefreshGeneration": "asset-before"
+                "compileGeneration": 1,
+                "domainReloadGeneration": 1,
+                "assetRefreshGeneration": 1,
+                "playModeGeneration": 1
               },
               "after": {
-                "compileGeneration": "compile-after",
-                "domainReloadGeneration": "domain-after",
-                "assetRefreshGeneration": "asset-after"
+                "compileGeneration": 2,
+                "domainReloadGeneration": 1,
+                "assetRefreshGeneration": 1,
+                "playModeGeneration": 1
               },
               "validFor": {
-                "compileGeneration": "compile-after",
-                "domainReloadGeneration": "domain-after",
-                "assetRefreshGeneration": "asset-after"
+                "compileGeneration": 2,
+                "domainReloadGeneration": 1,
+                "assetRefreshGeneration": 1,
+                "playModeGeneration": 1
               }
             }
           }

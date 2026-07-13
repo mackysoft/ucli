@@ -689,19 +689,27 @@
       "additionalProperties": false,
       "properties": {
         "compileGeneration": {
-          "type": "string"
+          "type": "integer",
+          "minimum": 0
         },
         "domainReloadGeneration": {
-          "type": "string"
+          "type": "integer",
+          "minimum": 0
         },
         "assetRefreshGeneration": {
-          "type": "string"
+          "type": "integer",
+          "minimum": 0
+        },
+        "playModeGeneration": {
+          "type": "integer",
+          "minimum": 0
         }
       },
       "required": [
         "compileGeneration",
         "domainReloadGeneration",
-        "assetRefreshGeneration"
+        "assetRefreshGeneration",
+        "playModeGeneration"
       ]
     }
   }

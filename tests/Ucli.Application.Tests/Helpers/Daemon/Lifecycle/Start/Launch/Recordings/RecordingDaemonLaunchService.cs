@@ -7,7 +7,7 @@ internal sealed class RecordingDaemonLaunchService : IDaemonLaunchService
     private readonly List<Invocation> invocations = [];
 
     public DaemonStartResult NextResult { get; set; } =
-        DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 9090));
+        DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 9090), IpcUnityEditorObservationTestFactory.Create());
 
     public Func<ResolvedUnityProjectContext, TimeSpan, DaemonEditorMode, DaemonStartupBlockedProcessPolicy, IDaemonStartProgressObserver?, CancellationToken, ValueTask<DaemonStartResult>>? Handler { get; set; }
 

@@ -57,6 +57,10 @@ public enum UnityIpcMethod
     [UcliContractLiteral("unity.console.clear")]
     UnityConsoleClear,
 
+    /// <summary> Captures one Unity Editor screenshot. </summary>
+    [UcliContractLiteral("screenshot.capture")]
+    ScreenshotCapture,
+
     /// <summary> Reads the current Unity Play Mode status. </summary>
     [UcliContractLiteral("play.status")]
     PlayStatus,

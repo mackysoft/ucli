@@ -3,13 +3,13 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcDaemonContractSerializationTests
 {
     private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private static readonly ProjectFingerprint ProjectFingerprint = new(ProjectFingerprintText);
 
     [Fact]
     [Trait("Size", "Small")]
@@ -27,31 +27,32 @@ public sealed class IpcDaemonContractSerializationTests
 
         var startupObservation = IpcPayloadCodec.SerializeToElement(
             new DaemonStartStartupObservationProgressEntry(
-                ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.StartupObservation),
-                new ProjectFingerprint(ProjectFingerprintText),
+                DaemonStartProgressPayloadKind.StartupObservation,
+                ProjectFingerprint,
                 120000,
-                ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
-                ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Terminate),
+                DaemonEditorMode.Batchmode,
+                DaemonStartupBlockedProcessPolicy.Terminate,
                 "attempt-1",
-                ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.Cli),
+                DaemonSessionOwnerKind.Cli,
                 true,
                 1234,
                 DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
-                ContractLiteralCodec.ToValue(DaemonStartupStatus.Blocked),
-                ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.Compile),
-                ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
-                ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix),
+                DaemonStartupStatus.Blocked,
+                DaemonStartupBlockingReason.Compile,
+                DaemonDiagnosisStartupPhase.ScriptCompilation,
+                DaemonStartupRetryDisposition.RetryAfterFix,
                 "Unity scripts failed to compile.",
                 "UNITY_SCRIPT_COMPILATION_FAILED"));
         var lifecycleSnapshot = IpcPayloadCodec.SerializeToElement(
             new DaemonStartLifecycleSnapshotProgressEntry(
-                ContractLiteralCodec.ToValue(DaemonStartProgressPayloadKind.LifecycleSnapshot),
-                new ProjectFingerprint(ProjectFingerprintText),
+                DaemonStartProgressPayloadKind.LifecycleSnapshot,
+                ProjectFingerprint,
                 120000,
-                ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
-                ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Terminate),
-                IpcEditorLifecycleStateCodec.Ready,
+                DaemonEditorMode.Batchmode,
+                DaemonStartupBlockedProcessPolicy.Terminate,
+                IpcEditorLifecycleState.Ready,
                 null,
+                new IpcUnityGenerationSnapshot(1, 2, 3, 4),
                 true));
 
         JsonAssert.For(startupObservation)
@@ -108,11 +109,11 @@ public sealed class IpcDaemonContractSerializationTests
     public void DaemonStartProgressContracts_SerializeWithCamelCaseFields ()
     {
         var payload = new DaemonStartProgressEntry(
-            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
+            ProjectFingerprint: ProjectFingerprint,
             TimeoutMilliseconds: 10000,
-            EditorMode: "batchmode",
-            OnStartupBlocked: "auto",
-            Result: ContractLiteralCodec.ToValue(CommandProgressResult.Failed),
+            EditorMode: DaemonEditorMode.Batchmode,
+            OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            Result: CommandProgressResult.Failed,
             StartStatus: "failed",
             DaemonStatus: "notRunning",
             ErrorCode: "IPC_TIMEOUT");

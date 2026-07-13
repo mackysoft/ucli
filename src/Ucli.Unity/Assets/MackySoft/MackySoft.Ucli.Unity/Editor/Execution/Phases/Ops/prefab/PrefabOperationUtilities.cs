@@ -200,7 +200,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(executionContext));
             }
 
-            if (executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out prefabContentsRoot))
+            if (executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out prefabContentsRoot)
+                && prefabContentsRoot != null)
             {
                 errorMessage = string.Empty;
                 return true;

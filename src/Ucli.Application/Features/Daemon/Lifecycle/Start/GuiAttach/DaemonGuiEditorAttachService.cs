@@ -4,8 +4,8 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiAttach;
 
@@ -131,8 +131,8 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             .ConfigureAwait(false);
         if (initialWaitResult.IsSuccess)
         {
-            await EmitEndpointReadyAsync(progressObserver, initialWaitResult.Session!, initialWaitResult.LifecycleSnapshot, cancellationToken).ConfigureAwait(false);
-            return DaemonStartResult.Attached(initialWaitResult.Session!, initialWaitResult.LifecycleSnapshot);
+            await EmitEndpointReadyAsync(progressObserver, initialWaitResult.Session!, initialWaitResult.LifecycleObservation, cancellationToken).ConfigureAwait(false);
+            return DaemonStartResult.Attached(initialWaitResult.Session!, initialWaitResult.LifecycleObservation);
         }
 
         if (initialWaitResult.Error!.Kind != ExecutionErrorKind.Timeout)
@@ -195,8 +195,8 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             .ConfigureAwait(false);
         if (waitResult.IsSuccess)
         {
-            await EmitEndpointReadyAsync(progressObserver, waitResult.Session!, waitResult.LifecycleSnapshot, cancellationToken).ConfigureAwait(false);
-            return DaemonStartResult.Attached(waitResult.Session!, waitResult.LifecycleSnapshot);
+            await EmitEndpointReadyAsync(progressObserver, waitResult.Session!, waitResult.LifecycleObservation, cancellationToken).ConfigureAwait(false);
+            return DaemonStartResult.Attached(waitResult.Session!, waitResult.LifecycleObservation);
         }
 
         if (waitResult.Error!.Kind != ExecutionErrorKind.Timeout)
@@ -280,18 +280,18 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             .ConfigureAwait(false);
         var policyResolution = DaemonStartupBlockedProcessPolicyResolver.Resolve(
             onStartupBlocked,
-            ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
-            ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
+            DaemonEditorMode.Gui,
+            DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             marker.ProcessId);
         var startup = new DaemonStartupObservation(
-            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Timeout),
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered),
+            StartupStatus: DaemonStartupStatus.Timeout,
+            StartupBlockingReason: DaemonStartupBlockingReason.EndpointNotRegistered,
             LaunchAttemptId: null,
             ProcessAction: policyResolution.ProcessActionWhenNotTerminated,
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.WaitThenRetry),
-            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
-            OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
+            RetryDisposition: DaemonStartupRetryDisposition.WaitThenRetry,
+            EditorMode: DaemonEditorMode.Gui,
+            OwnerKind: DaemonSessionOwnerKind.User,
             CanShutdownProcess: false,
             ProcessId: marker.ProcessId,
             StartedAtUtc: processStartedAtUtc,
@@ -328,8 +328,8 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         await progressObserver.EmitWaitingForEndpointAsync(
                 new DaemonStartStartupProgressObservation(
                     LaunchAttemptId: null,
-                    EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
-                    OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
+                    EditorMode: DaemonEditorMode.Gui,
+                    OwnerKind: DaemonSessionOwnerKind.User,
                     CanShutdownProcess: false,
                     ProcessId: marker.ProcessId,
                     ProcessStartedAtUtc: processStartedAtUtc,
@@ -346,7 +346,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
     private static async ValueTask EmitEndpointReadyAsync (
         IDaemonStartProgressObserver? progressObserver,
         DaemonSession session,
-        DaemonStartLifecycleSnapshot? lifecycleSnapshot,
+        IpcUnityEditorObservation? lifecycleObservation,
         CancellationToken cancellationToken)
     {
         if (progressObserver is null)
@@ -356,9 +356,9 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
 
         await progressObserver.EmitSessionRegisteredAsync(session, launchAttemptId: null, cancellationToken).ConfigureAwait(false);
         await progressObserver.EmitEndpointRegisteredAsync(session, launchAttemptId: null, cancellationToken).ConfigureAwait(false);
-        if (lifecycleSnapshot is not null)
+        if (lifecycleObservation is not null)
         {
-            await progressObserver.EmitLifecycleObservedAsync(lifecycleSnapshot, cancellationToken).ConfigureAwait(false);
+            await progressObserver.EmitLifecycleObservedAsync(lifecycleObservation, cancellationToken).ConfigureAwait(false);
         }
     }
 
@@ -386,7 +386,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                     ProcessStartedAtUtc: startup.StartedAtUtc ?? processStartedAtUtc,
                     StartupStatus: startup.StartupStatus,
                     StartupBlockingReason: startup.StartupBlockingReason,
-                    StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
+                    StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
                     RetryDisposition: startup.RetryDisposition,
                     Message: error?.Message,
                     ErrorCode: error is null ? null : ExecutionErrorCodeMapper.ToCode(error).Value),

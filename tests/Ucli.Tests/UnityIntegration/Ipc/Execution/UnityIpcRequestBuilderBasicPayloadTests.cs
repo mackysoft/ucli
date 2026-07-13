@@ -68,7 +68,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         Assert.Equal(RunIdTestValues.Compile, payload.RunId);
         Assert.Null(payload.TimeoutMilliseconds);
         Assert.Equal(
-            [IpcEditorLifecycleStateCodec.CompileFailed, IpcEditorLifecycleStateCodec.SafeMode],
+            [IpcEditorLifecycleState.CompileFailed, IpcEditorLifecycleState.SafeMode],
             request.AllowedStartupLifecycleStates);
     }
 
@@ -82,6 +82,33 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
 
         Assert.Equal(UnityIpcMethod.PlayStatus, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayStatusRequest _, out _));
+        Assert.Empty(request.AllowedStartupLifecycleStates);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Build_WithScreenshotCapture_CreatesScreenshotCapturePayload ()
+    {
+        var builder = new UnityIpcRequestBuilder();
+
+        var request = builder.Build(new UnityRequestPayload.ScreenshotCapture(
+            Target: IpcScreenshotTarget.Game,
+            RequestedWidth: 1920,
+            RequestedHeight: 1080,
+            StagingPath: "/tmp/ucli-screenshot.raw",
+            TimeoutMilliseconds: 30000));
+
+        Assert.Equal(UnityIpcMethod.ScreenshotCapture, request.Method);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcScreenshotCaptureRequest payload, out _));
+        Assert.Equal(IpcScreenshotTarget.Game, payload.Target);
+        Assert.Equal(1920, payload.RequestedWidth);
+        Assert.Equal(1080, payload.RequestedHeight);
+        Assert.Equal("/tmp/ucli-screenshot.raw", payload.StagingPath);
+        Assert.Equal(30000, payload.TimeoutMilliseconds);
+        var dispatchPayload = request.CreatePayload(TimeSpan.FromMilliseconds(1250));
+        Assert.True(IpcPayloadCodec.TryDeserialize(dispatchPayload, out IpcScreenshotCaptureRequest dispatchRequest, out _));
+        Assert.Equal(1250, dispatchRequest.TimeoutMilliseconds);
+        Assert.False(request.IsRecoverable);
         Assert.Empty(request.AllowedStartupLifecycleStates);
     }
 

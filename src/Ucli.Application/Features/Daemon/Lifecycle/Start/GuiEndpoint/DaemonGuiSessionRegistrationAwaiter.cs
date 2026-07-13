@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
 /// <summary> Implements polling for GUI daemon session registration from an existing Unity Editor process. </summary>
@@ -128,14 +126,11 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                     validateProjectFingerprint: false,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
-            if (!DaemonStartLifecycleSnapshot.TryCreate(pingResponse, out var lifecycleSnapshot, out var lifecycleError))
-            {
-                return DaemonGuiSessionRegistrationWaitResult.Failure(lifecycleError!);
-            }
+            var lifecycleObservation = pingResponse;
 
             return pingResponse.ProjectFingerprint == unityProject.ProjectFingerprint
-                   && ContractLiteralCodec.Matches(pingResponse.EditorMode, DaemonEditorMode.Gui)
-                ? DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleSnapshot)
+                   && pingResponse.State.EditorMode == DaemonEditorMode.Gui
+                ? DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleObservation)
                 : null;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)

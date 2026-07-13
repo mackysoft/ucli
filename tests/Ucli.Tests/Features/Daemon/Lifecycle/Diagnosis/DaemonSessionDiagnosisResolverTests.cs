@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
 public sealed class DaemonSessionDiagnosisResolverTests
@@ -19,7 +20,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var session = DaemonSessionTestFactory.Create(
             processId: 1234,
             projectFingerprint: unityProject.ProjectFingerprint,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock");
         var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested);
         var diagnosisStore = new UnexpectedDaemonDiagnosisStore("Matching persisted diagnosis should be returned without writing diagnosis.");
@@ -41,7 +42,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var session = DaemonSessionTestFactory.Create(
             processId: Environment.ProcessId,
             projectFingerprint: unityProject.ProjectFingerprint,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock");
         var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested) with
         {
@@ -66,7 +67,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var session = DaemonSessionTestFactory.Create(
             processId: int.MaxValue,
             projectFingerprint: unityProject.ProjectFingerprint,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock");
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var resolver = new DaemonSessionDiagnosisResolver(diagnosisStore);
@@ -74,7 +75,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
             processId: int.MaxValue,
             projectFingerprint: unityProject.ProjectFingerprint,
             issuedAtUtc: session.IssuedAtUtc.AddMinutes(-1),
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock");
         var mismatchedDiagnosis = CreateDiagnosis(
             mismatchedSession,
@@ -104,7 +105,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var session = DaemonSessionTestFactory.Create(
             processId: Environment.ProcessId,
             projectFingerprint: unityProject.ProjectFingerprint,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock");
         var diagnosisStore = new UnexpectedDaemonDiagnosisStore("Live process without persisted diagnosis should not write diagnosis.");
         var resolver = new DaemonSessionDiagnosisResolver(diagnosisStore);
@@ -125,7 +126,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var session = DaemonSessionTestFactory.Create(
             processId: int.MaxValue,
             projectFingerprint: unityProject.ProjectFingerprint,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock");
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
@@ -153,7 +154,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var session = DaemonSessionTestFactory.Create(
             processId: int.MaxValue,
             projectFingerprint: unityProject.ProjectFingerprint,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock");
         using var cancellationTokenSource = new CancellationTokenSource();
         var diagnosisStore = new CancelingDaemonDiagnosisStore(cancellationTokenSource);

@@ -164,8 +164,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            var scenePath = args.Path.Value;
-
+            var scenePath = args.Path?.Value ?? string.Empty;
             if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);

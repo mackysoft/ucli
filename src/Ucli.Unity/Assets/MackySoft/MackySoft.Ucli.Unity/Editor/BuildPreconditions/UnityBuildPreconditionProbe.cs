@@ -63,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Build
                 allowPlayMode: false);
             cancellationToken.ThrowIfCancellationRequested();
 
-            var lifecycleBefore = CreateLifecycleSnapshot(readiness.Snapshot);
+            var lifecycleBefore = CreateObservation(readiness.Observation);
             if (!readiness.IsReady)
             {
                 return UnityBuildPreconditionProbeResult.Failure(
@@ -74,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Build
                     readiness.Error ?? CreateInternalPreconditionError("Unity editor readiness probe failed without an error."));
             }
 
-            if (!IsEditorModeAllowed(lifecycleBefore.EditorMode, input.AllowedEditorModes))
+            if (!IsEditorModeAllowed(lifecycleBefore.State.EditorMode, input.AllowedEditorModes))
             {
                 return UnityBuildPreconditionProbeResult.Failure(
                     projectIdentity,
@@ -83,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Build
                     null,
                     new IpcError(
                         BuildErrorCodes.BuildRuntimePolicyViolation,
-                        $"Build runtime policy does not allow Unity editor mode '{lifecycleBefore.EditorMode}'.",
+                        $"Build runtime policy does not allow Unity editor mode '{lifecycleBefore.State.EditorMode}'.",
                         null));
             }
 
@@ -169,9 +169,9 @@ namespace MackySoft.Ucli.Unity.Build
 
         /// <summary> Captures lifecycle state after BuildPipeline completion, failure, or cancellation. </summary>
         /// <returns> The lifecycle snapshot for <c>build.json.lifecycle.after</c>. </returns>
-        public IpcBuildLifecycleSnapshot CaptureAfterBuild ()
+        public IpcUnityEditorObservation CaptureAfterBuild ()
         {
-            return CreateLifecycleSnapshot(readinessGate.CaptureSnapshot());
+            return CreateObservation(readinessGate.CaptureObservation());
         }
 
         private static BuildOptions CreateBuildOptions (UnityBuildPreconditionInput input)
@@ -337,7 +337,7 @@ namespace MackySoft.Ucli.Unity.Build
         }
 
         private static bool IsEditorModeAllowed (
-            string? editorMode,
+            DaemonEditorMode editorMode,
             IReadOnlyList<string> allowedEditorModes)
         {
             if (allowedEditorModes == null || allowedEditorModes.Count == 0)
@@ -345,19 +345,14 @@ namespace MackySoft.Ucli.Unity.Build
                 return false;
             }
 
-            if (string.IsNullOrWhiteSpace(editorMode))
-            {
-                return false;
-            }
-
-            if (!ContractLiteralCodec.TryParse<DaemonEditorMode>(editorMode, out var resolvedEditorMode))
+            if (!ContractLiteralCodec.IsDefined(editorMode))
             {
                 return false;
             }
 
             for (var i = 0; i < allowedEditorModes.Count; i++)
             {
-                if (ContractLiteralCodec.Matches(allowedEditorModes[i], resolvedEditorMode))
+                if (ContractLiteralCodec.Matches(allowedEditorModes[i], editorMode))
                 {
                     return true;
                 }
@@ -529,12 +524,11 @@ namespace MackySoft.Ucli.Unity.Build
                 BuildOptions: buildOptions.ToString());
         }
 
-        private IpcBuildLifecycleSnapshot CreateLifecycleSnapshot (UnityEditorLifecycleSnapshot snapshot)
+        private IpcUnityEditorObservation CreateObservation (UnityEditorObservation snapshot)
         {
-            return UnityLifecycleResponseCodec.CreateBuildLifecycleSnapshot(
-                projectIdentity.UnityVersion,
+            return UnityLifecycleResponseFactory.Create(
+                projectIdentity,
                 serverVersionProvider.GetVersion(),
-                projectIdentity.ProjectFingerprint,
                 snapshot);
         }
 

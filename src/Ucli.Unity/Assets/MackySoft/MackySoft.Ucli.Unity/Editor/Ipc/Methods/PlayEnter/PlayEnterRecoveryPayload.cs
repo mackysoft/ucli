@@ -12,12 +12,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <summary> Initializes a new instance of the <see cref="PlayEnterRecoveryPayload" /> class. </summary>
-        public PlayEnterRecoveryPayload (IpcPlayLifecycleSnapshot before)
+        public PlayEnterRecoveryPayload (IpcUnityEditorObservation before)
         {
             Before = before ?? throw new ArgumentNullException(nameof(before));
         }
 
         /// <summary> Gets or sets the lifecycle snapshot captured before requesting Play Mode. </summary>
-        public IpcPlayLifecycleSnapshot Before { get; set; }
+        public IpcUnityEditorObservation Before { get; set; }
     }
 }

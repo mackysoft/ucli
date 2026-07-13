@@ -24,7 +24,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
 
     public Action? OnPingAndRead { get; set; }
 
-    public Func<ResolvedUnityProjectContext, TimeSpan, string?, bool, CancellationToken, ValueTask<IpcPingResponse>>? PingAndReadHandler { get; set; }
+    public Func<ResolvedUnityProjectContext, TimeSpan, string?, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>>? PingAndReadHandler { get; set; }
 
     public Task WaitForFirstInvocationAsync (
         string description,
@@ -33,7 +33,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
         return TestAwaiter.WaitAsync(firstInvocationObserved.Task, description, timeout);
     }
 
-    public ValueTask<IpcPingResponse> PingAndReadAsync (
+    public ValueTask<IpcUnityEditorObservation> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         bool validateProjectFingerprint,
@@ -47,7 +47,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             cancellationToken);
     }
 
-    public ValueTask<IpcPingResponse> PingSessionAndReadAsync (
+    public ValueTask<IpcUnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         TimeSpan timeout,
@@ -63,7 +63,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             cancellationToken);
     }
 
-    private ValueTask<IpcPingResponse> RecordPingAndRead (
+    private ValueTask<IpcUnityEditorObservation> RecordPingAndRead (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
         DaemonSession? session,
@@ -103,7 +103,7 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
             throw exception;
         }
 
-        return ValueTask.FromResult((IpcPingResponse)response);
+        return ValueTask.FromResult((IpcUnityEditorObservation)response);
     }
 
     internal readonly record struct Invocation (

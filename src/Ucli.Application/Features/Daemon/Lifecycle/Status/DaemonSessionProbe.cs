@@ -42,7 +42,7 @@ internal sealed class DaemonSessionProbe
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(observedSession);
 
-        IpcPingResponse pingResponse;
+        IpcUnityEditorObservation pingResponse;
         try
         {
             pingResponse = await PingWithinDeadlineAsync(
@@ -140,7 +140,7 @@ internal sealed class DaemonSessionProbe
         return refreshedSessionRead.Value!;
     }
 
-    private async ValueTask<IpcPingResponse> PingWithinDeadlineAsync (
+    private async ValueTask<IpcUnityEditorObservation> PingWithinDeadlineAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
         ExecutionDeadline deadline,

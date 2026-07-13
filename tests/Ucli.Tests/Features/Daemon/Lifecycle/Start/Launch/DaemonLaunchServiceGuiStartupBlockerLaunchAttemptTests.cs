@@ -25,17 +25,16 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerLaunchAttemptTests
         {
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
         };
-        var blocker = new DaemonGuiStartupBlocker(
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.ProcessExit),
-            Reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
-            Message: "Unity Editor exited before bootstrap completed.",
-            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ProcessExit),
-            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
-            ProcessId: 6543,
-            ProcessStartedAtUtc: processStartedAtUtc,
-            UnityLogPath: "/tmp/repo-root/.ucli/local/fingerprints/fingerprint-id-collision/unity.log",
-            PrimaryDiagnostic: null);
+        var blocker = DaemonGuiStartupBlockerObservationTestFactory.Create(
+            processId: 6543,
+            processStartedAtUtc,
+            unityLogPath: "/tmp/repo-root/.ucli/local/fingerprints/fingerprint-id-collision/unity.log",
+            startupBlockingReason: DaemonStartupBlockingReason.ProcessExit,
+            reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
+            retryDisposition: DaemonStartupRetryDisposition.Unknown,
+            message: "Unity Editor exited before bootstrap completed.",
+            startupPhase: DaemonDiagnosisStartupPhase.ProcessExit,
+            actionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog);
         var guiStartupObserver = new RecordingDaemonGuiStartupObserver
         {
             NextResult = DaemonGuiStartupObservationResult.Blocked(blocker),

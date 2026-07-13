@@ -359,7 +359,7 @@ internal sealed class SupervisorRequestDispatcher
                     StartStatus: startStatus!,
                     DaemonStatus: ContractLiteralCodec.ToValue(DaemonStatusKind.Running),
                     Session: DaemonSessionContractMapper.ToContract(startResult.Session!),
-                    LifecycleSnapshot: startResult.LifecycleSnapshot));
+                    LifecycleObservation: startResult.LifecycleObservation));
         }
         finally
         {

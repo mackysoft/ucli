@@ -18,7 +18,8 @@ public sealed class IpcDaemonPingClientFingerprintTests
                 request,
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
-                IpcPingResponseTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
+                IpcUnityEditorObservationTestFactory.Create(
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
             CreateResolvedSessionProvider(),
@@ -44,7 +45,8 @@ public sealed class IpcDaemonPingClientFingerprintTests
                 request,
                 IpcProtocol.StatusOk,
                 Array.Empty<IpcError>(),
-                IpcPingResponseTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
+                IpcUnityEditorObservationTestFactory.Create(
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
             CreateResolvedSessionProvider(),

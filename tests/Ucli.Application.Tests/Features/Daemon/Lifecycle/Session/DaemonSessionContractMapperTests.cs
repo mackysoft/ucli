@@ -15,11 +15,11 @@ public sealed class DaemonSessionContractMapperTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryCreate_WhenEditorModeContainsOuterWhitespace_ReturnsInvalidArgumentWithoutNormalizing ()
+    public void TryCreate_WhenEditorModeIsMissing_ReturnsInvalidArgument ()
     {
         var contract = CreateContract() with
         {
-            EditorMode = " batchmode ",
+            EditorMode = null,
         };
 
         var isValid = DaemonSessionContractMapper.TryCreate(
@@ -83,9 +83,9 @@ public sealed class DaemonSessionContractMapperTests
 
         Assert.Equal(DaemonSessionStorageContract.CurrentSchemaVersion, contract.SchemaVersion);
         Assert.Equal(SessionToken, contract.SessionToken);
-        Assert.Equal("gui", contract.EditorMode);
-        Assert.Equal("user", contract.OwnerKind);
-        Assert.Equal("unixDomainSocket", contract.EndpointTransportKind);
+        Assert.Equal(DaemonEditorMode.Gui, contract.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKind.User, contract.OwnerKind);
+        Assert.Equal(IpcTransportKind.UnixDomainSocket, contract.EndpointTransportKind);
         Assert.Equal("/tmp/ucli.sock", contract.EndpointAddress);
         Assert.Equal(EditorInstanceId.ToString("N"), contract.EditorInstanceId);
     }
@@ -143,8 +143,8 @@ public sealed class DaemonSessionContractMapperTests
     {
         var contract = CreateContract() with
         {
-            EditorMode = "gui",
-            OwnerKind = "user",
+            EditorMode = DaemonEditorMode.Gui,
+            OwnerKind = DaemonSessionOwnerKind.User,
             CanShutdownProcess = false,
             EditorInstanceId = null,
         };
@@ -168,10 +168,10 @@ public sealed class DaemonSessionContractMapperTests
             SessionToken: SessionToken,
             ProjectFingerprint: Fingerprint,
             IssuedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
+            EditorMode: DaemonEditorMode.Batchmode,
+            OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
+            EndpointTransportKind: IpcTransportKind.NamedPipe,
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),

@@ -3,20 +3,19 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using UnityEditor;
 using UnityEditor.Compilation;
-
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
     /// <summary> Captures Unity editor lifecycle telemetry and gates execution requests. </summary>
     internal sealed class UnityEditorReadinessGate : IUnityEditorReadinessGate
     {
-        private static readonly UnityEditorLifecycleTelemetryState sharedLifecycleTelemetryState = new UnityEditorLifecycleTelemetryState();
+        private static readonly UnityEditorLifecycleTelemetryState SharedLifecycleTelemetryState = new UnityEditorLifecycleTelemetryState();
 
-        private static readonly UnityEditorLifecycleMonitor sharedLifecycleMonitor = new UnityEditorLifecycleMonitor(
-            sharedLifecycleTelemetryState,
+        private static readonly UnityEditorLifecycleMonitor SharedLifecycleMonitor = new UnityEditorLifecycleMonitor(
+            SharedLifecycleTelemetryState,
             static () => EditorApplication.isCompiling,
             static () => EditorApplication.isUpdating,
             static () => EditorApplication.isPlaying,
@@ -46,14 +45,14 @@ namespace MackySoft.Ucli.Unity.Runtime
         internal static bool IsReadyForBootstrapStartup => !EditorApplication.isCompiling;
 
         /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
-        /// <param name="editorMode"> The daemon Editor mode reported by lifecycle snapshots. </param>
+        /// <param name="editorMode"> The daemon Editor mode reported by Unity Editor observations. </param>
         /// <param name="mutationExecutionState"> The exclusive mutation-lane state exposed to lifecycle telemetry. </param>
         public UnityEditorReadinessGate (
             DaemonEditorMode editorMode,
             IUnityMutationExecutionState mutationExecutionState)
             : this(
                 editorMode,
-                sharedLifecycleMonitor,
+                SharedLifecycleMonitor,
                 static () => EditorApplication.isPlaying,
                 mutationExecutionState,
                 static handler => AssemblyReloadEvents.beforeAssemblyReload += handler,
@@ -67,7 +66,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <summary> Initializes a new instance of the <see cref="UnityEditorReadinessGate" /> class. </summary>
-        /// <param name="editorMode"> The daemon Editor mode reported by lifecycle snapshots. </param>
+        /// <param name="editorMode"> The daemon Editor mode reported by Unity Editor observations. </param>
         /// <param name="lifecycleMonitor"> The lifecycle monitor dependency. </param>
         /// <param name="isPlayModeMutationActiveProvider"> The active Play Mode observer used by Play Mode mutation readiness. </param>
         /// <param name="mutationExecutionState"> The exclusive mutation-lane state exposed to lifecycle telemetry. </param>
@@ -129,20 +128,15 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <inheritdoc />
-        public UnityEditorLifecycleSnapshot CaptureSnapshot ()
+        public UnityEditorObservation CaptureObservation ()
         {
-            var snapshot = CaptureEditorSnapshot();
-            if (!snapshot.CanAcceptExecutionRequests || !mutationExecutionState.IsBusy)
+            var observation = CaptureEditorObservation();
+            if (!observation.CanAcceptExecutionRequests || !mutationExecutionState.IsBusy)
             {
-                return snapshot;
+                return observation;
             }
 
-            return snapshot with
-            {
-                LifecycleState = IpcEditorLifecycleStateCodec.Busy,
-                BlockingReason = IpcEditorBlockingReasonCodec.Busy,
-                CanAcceptExecutionRequests = false,
-            };
+            return observation.WithLifecycleState(IpcEditorLifecycleState.Busy);
         }
 
         /// <inheritdoc />
@@ -153,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var snapshot = CaptureEditorSnapshot();
+            var snapshot = CaptureEditorObservation();
             if (allowPlayMode)
             {
                 return Task.FromResult(UnityEditorExecutionReadinessPolicy.CreatePlayModeAllowedResult(
@@ -166,7 +160,7 @@ namespace MackySoft.Ucli.Unity.Runtime
                 return Task.FromResult(UnityEditorExecutionReadinessResult.Ready(snapshot));
             }
 
-            if (failFast || !UnityEditorExecutionReadinessPolicy.IsWaitableState(snapshot.LifecycleState))
+            if (failFast || !UnityEditorExecutionReadinessPolicy.IsWaitableState(snapshot.State.LifecycleState))
             {
                 return Task.FromResult(UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot));
             }
@@ -176,17 +170,17 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <summary> Gets the current domain-reload generation used by plan-token environment snapshots. </summary>
-        internal static string CurrentDomainReloadGeneration => sharedLifecycleTelemetryState.DomainReloadGeneration;
+        internal static long CurrentDomainReloadGeneration => SharedLifecycleTelemetryState.DomainReloadGeneration;
 
         /// <summary> Records completion of one asset refresh cycle. </summary>
         internal static void ObserveAssetRefreshCompleted ()
         {
-            sharedLifecycleMonitor.OnAssetRefreshCompleted();
+            SharedLifecycleMonitor.OnAssetRefreshCompleted();
         }
 
-        private UnityEditorLifecycleSnapshot CaptureEditorSnapshot ()
+        private UnityEditorObservation CaptureEditorObservation ()
         {
-            return lifecycleMonitor.CaptureSnapshot(editorMode);
+            return lifecycleMonitor.CaptureObservation(editorMode);
         }
 
         private static bool OnWantsToQuit ()
@@ -199,44 +193,44 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private static void OnQuitting ()
         {
-            sharedLifecycleMonitor.OnShutdownStarted();
+            SharedLifecycleMonitor.OnShutdownStarted();
         }
 
         private static void OnPlayModeStateChanged (PlayModeStateChange stateChange)
         {
-            sharedLifecycleMonitor.OnPlayModeStateChanged(stateChange);
+            SharedLifecycleMonitor.OnPlayModeStateChanged(stateChange);
         }
 
         private static void OnCompilationStarted (object _)
         {
-            sharedLifecycleMonitor.OnCompilationStarted();
+            SharedLifecycleMonitor.OnCompilationStarted();
         }
 
         private static void OnAssemblyCompilationFinished (
             string _,
             CompilerMessage[] messages)
         {
-            sharedLifecycleMonitor.OnAssemblyCompilationFinished(messages);
+            SharedLifecycleMonitor.OnAssemblyCompilationFinished(messages);
         }
 
         private static void OnCompilationFinished (object _)
         {
-            sharedLifecycleMonitor.OnCompilationFinished();
+            SharedLifecycleMonitor.OnCompilationFinished();
         }
 
         private static void OnBeforeAssemblyReload ()
         {
-            sharedLifecycleMonitor.OnBeforeAssemblyReload();
+            SharedLifecycleMonitor.OnBeforeAssemblyReload();
         }
 
         private static void OnAfterAssemblyReload ()
         {
-            sharedLifecycleMonitor.OnAfterAssemblyReload();
+            SharedLifecycleMonitor.OnAfterAssemblyReload();
         }
 
         private static void OnEditorUpdate ()
         {
-            sharedLifecycleMonitor.ObserveEditorUpdate();
+            SharedLifecycleMonitor.ObserveEditorUpdate();
         }
 
         private sealed class ReadinessWaitState
@@ -316,14 +310,14 @@ namespace MackySoft.Ucli.Unity.Runtime
             private void OnEditorUpdate ()
             {
                 readinessGate.lifecycleMonitor.ObserveEditorUpdate();
-                var snapshot = readinessGate.CaptureEditorSnapshot();
+                var snapshot = readinessGate.CaptureEditorObservation();
                 if (snapshot.CanAcceptExecutionRequests)
                 {
                     Complete(UnityEditorExecutionReadinessResult.Ready(snapshot));
                     return;
                 }
 
-                if (!UnityEditorExecutionReadinessPolicy.IsWaitableState(snapshot.LifecycleState))
+                if (!UnityEditorExecutionReadinessPolicy.IsWaitableState(snapshot.State.LifecycleState))
                 {
                     Complete(UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot));
                 }
@@ -331,14 +325,14 @@ namespace MackySoft.Ucli.Unity.Runtime
 
             private void TryCompleteFromCurrentSnapshot ()
             {
-                var snapshot = readinessGate.CaptureEditorSnapshot();
+                var snapshot = readinessGate.CaptureEditorObservation();
                 if (snapshot.CanAcceptExecutionRequests)
                 {
                     Complete(UnityEditorExecutionReadinessResult.Ready(snapshot));
                     return;
                 }
 
-                if (!UnityEditorExecutionReadinessPolicy.IsWaitableState(snapshot.LifecycleState))
+                if (!UnityEditorExecutionReadinessPolicy.IsWaitableState(snapshot.State.LifecycleState))
                 {
                     Complete(UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot));
                 }
@@ -349,35 +343,29 @@ namespace MackySoft.Ucli.Unity.Runtime
                 // NOTE:
                 // Pending readiness requests are not persisted across AppDomain reloads, so the gate must
                 // complete with a blocked result before Unity tears down the current domain.
-                CompleteBlocked(IpcEditorLifecycleStateCodec.DomainReloading);
+                CompleteBlocked(IpcEditorLifecycleState.DomainReloading);
             }
 
             private void OnQuitting ()
             {
-                CompleteBlocked(IpcEditorLifecycleStateCodec.ShuttingDown);
+                CompleteBlocked(IpcEditorLifecycleState.ShuttingDown);
             }
 
-            private void CompleteBlocked (string lifecycleState)
+            private void Cancel ()
+            {
+                Detach();
+                completionSource.TrySetCanceled(cancellationToken);
+            }
+
+            private void CompleteBlocked (IpcEditorLifecycleState lifecycleState)
             {
                 Complete(CreateBlockedResult(lifecycleState));
             }
 
-            private UnityEditorExecutionReadinessResult CreateBlockedResult (string lifecycleState)
+            private UnityEditorExecutionReadinessResult CreateBlockedResult (IpcEditorLifecycleState lifecycleState)
             {
-                var snapshot = readinessGate.CaptureEditorSnapshot();
-                var blockedSnapshot = new UnityEditorLifecycleSnapshot(
-                    EditorMode: snapshot.EditorMode,
-                    LifecycleState: lifecycleState,
-                    BlockingReason: UnityEditorExecutionReadinessPolicy.ResolveBlockingReason(lifecycleState),
-                    CompileState: snapshot.CompileState,
-                    CompileGeneration: snapshot.CompileGeneration,
-                    DomainReloadGeneration: snapshot.DomainReloadGeneration,
-                    CanAcceptExecutionRequests: false,
-                    ObservedAtUtc: snapshot.ObservedAtUtc,
-                    ActionRequired: snapshot.ActionRequired,
-                    PrimaryDiagnostic: snapshot.PrimaryDiagnostic,
-                    PlayMode: snapshot.PlayMode,
-                    AssetRefreshGeneration: snapshot.AssetRefreshGeneration);
+                var snapshot = readinessGate.CaptureEditorObservation();
+                var blockedSnapshot = snapshot.WithLifecycleState(lifecycleState);
                 return UnityEditorExecutionReadinessPolicy.CreateBlockedResult(blockedSnapshot);
             }
 

@@ -4,7 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
-
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
@@ -105,10 +105,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                     validateProjectFingerprint: true,
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
-            if (!DaemonStartLifecycleSnapshot.TryCreate(pingResponse, out var lifecycleSnapshot, out var lifecycleError))
-            {
-                return DaemonStartResult.Failure(lifecycleError!);
-            }
+            var lifecycleObservation = pingResponse;
 
             var editorModeMismatchResult = CreateEditorModeMismatchResult(session, editorMode);
             if (editorModeMismatchResult is not null)
@@ -116,8 +113,8 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                 return editorModeMismatchResult;
             }
 
-            await EmitEndpointReadyAsync(progressObserver, session, lifecycleSnapshot!, cancellationToken).ConfigureAwait(false);
-            return DaemonStartResult.AlreadyRunning(session, lifecycleSnapshot);
+            await EmitEndpointReadyAsync(progressObserver, session, lifecycleObservation, cancellationToken).ConfigureAwait(false);
+            return DaemonStartResult.AlreadyRunning(session, lifecycleObservation);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -272,10 +269,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                         validateProjectFingerprint: true,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
-                if (!DaemonStartLifecycleSnapshot.TryCreate(pingResponse, out var lifecycleSnapshot, out var lifecycleError))
-                {
-                    return RecoveringSessionGateResult.Complete(DaemonStartResult.Failure(lifecycleError!));
-                }
+                var pingObservation = pingResponse;
 
                 editorModeMismatchResult = CreateEditorModeMismatchResult(session, editorMode);
                 if (editorModeMismatchResult is not null)
@@ -283,8 +277,8 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
                     return RecoveringSessionGateResult.Complete(editorModeMismatchResult);
                 }
 
-                await EmitEndpointReadyAsync(progressObserver, session, lifecycleSnapshot!, cancellationToken).ConfigureAwait(false);
-                return RecoveringSessionGateResult.Complete(DaemonStartResult.AlreadyRunning(session, lifecycleSnapshot));
+                await EmitEndpointReadyAsync(progressObserver, session, pingObservation, cancellationToken).ConfigureAwait(false);
+                return RecoveringSessionGateResult.Complete(DaemonStartResult.AlreadyRunning(session, pingObservation));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -370,8 +364,9 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         }
 
         var requestedEditorMode = ContractLiteralCodec.ToValue(editorMode.Value);
+        var runningEditorMode = ContractLiteralCodec.ToValue(session.EditorMode);
         return DaemonStartResult.Failure(ExecutionError.InvalidArgument(
-            $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{ContractLiteralCodec.ToValue(session.EditorMode)}'.",
+            $"Requested daemon editorMode '{requestedEditorMode}' does not match running daemon editorMode '{runningEditorMode}'.",
             DaemonErrorCodes.DaemonEditorModeMismatch));
     }
 
@@ -418,8 +413,8 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         await progressObserver.EmitWaitingForEndpointAsync(
                 new DaemonStartStartupProgressObservation(
                     LaunchAttemptId: null,
-                    EditorMode: ContractLiteralCodec.ToValue(session.EditorMode),
-                    OwnerKind: ContractLiteralCodec.ToValue(session.OwnerKind),
+                    EditorMode: session.EditorMode,
+                    OwnerKind: session.OwnerKind,
                     CanShutdownProcess: session.CanShutdownProcess,
                     ProcessId: session.ProcessId,
                     ProcessStartedAtUtc: session.ProcessStartedAtUtc,
@@ -436,7 +431,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
     private static async ValueTask EmitEndpointReadyAsync (
         IDaemonStartProgressObserver? progressObserver,
         DaemonSession session,
-        DaemonStartLifecycleSnapshot lifecycleSnapshot,
+        IpcUnityEditorObservation lifecycleObservation,
         CancellationToken cancellationToken)
     {
         if (progressObserver is null)
@@ -445,7 +440,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         }
 
         await progressObserver.EmitEndpointRegisteredAsync(session, launchAttemptId: null, cancellationToken).ConfigureAwait(false);
-        await progressObserver.EmitLifecycleObservedAsync(lifecycleSnapshot, cancellationToken).ConfigureAwait(false);
+        await progressObserver.EmitLifecycleObservedAsync(lifecycleObservation, cancellationToken).ConfigureAwait(false);
     }
 
     private enum RecoveringSessionGateDisposition

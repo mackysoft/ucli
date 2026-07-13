@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Contracts.Daemon;
 
@@ -8,28 +9,28 @@ public sealed record DaemonStartStartupObservationProgressEntry
     /// <summary> Initializes one validated startup-observation progress payload. </summary>
     [JsonConstructor]
     public DaemonStartStartupObservationProgressEntry (
-        string PayloadKind,
+        DaemonStartProgressPayloadKind PayloadKind,
         ProjectFingerprint ProjectFingerprint,
         int TimeoutMilliseconds,
-        string? EditorMode,
-        string OnStartupBlocked,
+        DaemonEditorMode? EditorMode,
+        DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         string? LaunchAttemptId,
-        string? OwnerKind,
+        DaemonSessionOwnerKind? OwnerKind,
         bool? CanShutdownProcess,
         int? ProcessId,
         DateTimeOffset? ProcessStartedAtUtc,
-        string? StartupStatus,
-        string? StartupBlockingReason,
-        string? StartupPhase,
-        string? RetryDisposition,
+        DaemonStartupStatus? StartupStatus,
+        DaemonStartupBlockingReason? StartupBlockingReason,
+        DaemonDiagnosisStartupPhase? StartupPhase,
+        DaemonStartupRetryDisposition? RetryDisposition,
         string? Message,
         string? ErrorCode)
     {
-        this.PayloadKind = ContractArgumentGuard.RequireValue(PayloadKind, nameof(PayloadKind));
+        this.PayloadKind = PayloadKind;
         this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
         this.TimeoutMilliseconds = ContractArgumentGuard.RequireNonNegative(TimeoutMilliseconds, nameof(TimeoutMilliseconds));
         this.EditorMode = EditorMode;
-        this.OnStartupBlocked = ContractArgumentGuard.RequireValue(OnStartupBlocked, nameof(OnStartupBlocked));
+        this.OnStartupBlocked = OnStartupBlocked;
         this.LaunchAttemptId = LaunchAttemptId;
         this.OwnerKind = OwnerKind;
         this.CanShutdownProcess = CanShutdownProcess;
@@ -43,19 +44,19 @@ public sealed record DaemonStartStartupObservationProgressEntry
         this.ErrorCode = ErrorCode;
     }
 
-    public string PayloadKind { get; }
+    public DaemonStartProgressPayloadKind PayloadKind { get; }
 
     public ProjectFingerprint ProjectFingerprint { get; }
 
     public int TimeoutMilliseconds { get; }
 
-    public string? EditorMode { get; }
+    public DaemonEditorMode? EditorMode { get; }
 
-    public string OnStartupBlocked { get; }
+    public DaemonStartupBlockedProcessPolicy OnStartupBlocked { get; }
 
     public string? LaunchAttemptId { get; }
 
-    public string? OwnerKind { get; }
+    public DaemonSessionOwnerKind? OwnerKind { get; }
 
     public bool? CanShutdownProcess { get; }
 
@@ -63,13 +64,13 @@ public sealed record DaemonStartStartupObservationProgressEntry
 
     public DateTimeOffset? ProcessStartedAtUtc { get; }
 
-    public string? StartupStatus { get; }
+    public DaemonStartupStatus? StartupStatus { get; }
 
-    public string? StartupBlockingReason { get; }
+    public DaemonStartupBlockingReason? StartupBlockingReason { get; }
 
-    public string? StartupPhase { get; }
+    public DaemonDiagnosisStartupPhase? StartupPhase { get; }
 
-    public string? RetryDisposition { get; }
+    public DaemonStartupRetryDisposition? RetryDisposition { get; }
 
     public string? Message { get; }
 

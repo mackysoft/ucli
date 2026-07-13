@@ -17,8 +17,8 @@ public sealed class DaemonStartCommandProgressTests
         var expectedProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString();
         var service = new RecordingDaemonStartService(
             DaemonStartExecutionResult.Success(CreateSuccessOutput(
-                lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
-                blockingReason: IpcEditorBlockingReasonCodec.Compile,
+                lifecycleState: IpcEditorLifecycleState.Compiling,
+                blockingReason: IpcEditorBlockingReason.Compile,
                 canAcceptExecutionRequests: false)),
             EmitSampleDaemonStartProgressAsync);
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
@@ -65,8 +65,8 @@ public sealed class DaemonStartCommandProgressTests
         var expectedProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString();
         var service = new RecordingDaemonStartService(
             DaemonStartExecutionResult.Success(CreateSuccessOutput(
-                lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
-                blockingReason: IpcEditorBlockingReasonCodec.Compile,
+                lifecycleState: IpcEditorLifecycleState.Compiling,
+                blockingReason: IpcEditorBlockingReason.Compile,
                 canAcceptExecutionRequests: false)),
             EmitSampleSupervisorProgressAsync);
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
@@ -114,8 +114,8 @@ public sealed class DaemonStartCommandProgressTests
             .HasInt32("sequence", 4);
         JsonAssert.For(lifecycleEntry.RootElement.GetProperty("payload"))
             .HasString("payloadKind", "lifecycleSnapshot")
-            .HasString("lifecycleState", IpcEditorLifecycleStateCodec.Compiling)
-            .HasString("blockingReason", IpcEditorBlockingReasonCodec.Compile)
+            .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Compiling))
+            .HasString("blockingReason", ContractLiteralCodec.ToValue(IpcEditorBlockingReason.Compile))
             .HasBoolean("canAcceptExecutionRequests", false);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
@@ -134,8 +134,8 @@ public sealed class DaemonStartCommandProgressTests
         {
             var service = new RecordingDaemonStartService(
                 DaemonStartExecutionResult.Success(CreateSuccessOutput(
-                    lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
-                    blockingReason: IpcEditorBlockingReasonCodec.Compile,
+                    lifecycleState: IpcEditorLifecycleState.Compiling,
+                    blockingReason: IpcEditorBlockingReason.Compile,
                     canAcceptExecutionRequests: false)),
                 EmitSampleDaemonStartProgressAsync);
             var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
@@ -181,8 +181,8 @@ public sealed class DaemonStartCommandProgressTests
         var expectedProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString();
         var service = new RecordingDaemonStartService(
             DaemonStartExecutionResult.Success(CreateSuccessOutput(
-                lifecycleState: IpcEditorLifecycleStateCodec.Compiling,
-                blockingReason: IpcEditorBlockingReasonCodec.Compile,
+                lifecycleState: IpcEditorLifecycleState.Compiling,
+                blockingReason: IpcEditorBlockingReason.Compile,
                 canAcceptExecutionRequests: false)),
             EmitSampleSupervisorProgressAsync);
         var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());

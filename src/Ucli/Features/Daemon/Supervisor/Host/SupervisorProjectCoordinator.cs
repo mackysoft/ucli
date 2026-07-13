@@ -141,12 +141,12 @@ internal sealed class SupervisorProjectCoordinator
             if (startResult.Status == DaemonStartStatus.AlreadyRunning)
             {
                 _ = TryRegisterManagedProcess(slot, unityProject, startResult.Session!);
-                return DaemonStartResult.AlreadyRunning(startResult.Session!, startResult.LifecycleSnapshot);
+                return DaemonStartResult.AlreadyRunning(startResult.Session!, startResult.LifecycleObservation);
             }
 
             if (startResult.Status == DaemonStartStatus.Attached)
             {
-                return DaemonStartResult.Attached(startResult.Session!, startResult.LifecycleSnapshot);
+                return DaemonStartResult.Attached(startResult.Session!, startResult.LifecycleObservation);
             }
 
             // NOTE:
@@ -154,7 +154,7 @@ internal sealed class SupervisorProjectCoordinator
             // verification failure cannot leave a supervisor-owned process outside supervisor ownership.
             if (!TryRegisterManagedProcess(slot, unityProject, startResult.Session!))
             {
-                return DaemonStartResult.Started(startResult.Session!, startResult.LifecycleSnapshot);
+                return DaemonStartResult.Started(startResult.Session!, startResult.LifecycleObservation);
             }
 
             if (!deadline.TryGetRemainingTimeout(out var stabilityTimeout))
@@ -186,7 +186,7 @@ internal sealed class SupervisorProjectCoordinator
                 return DaemonStartResult.Failure(stabilityResult.Error!);
             }
 
-            return DaemonStartResult.Started(startResult.Session!, startResult.LifecycleSnapshot);
+            return DaemonStartResult.Started(startResult.Session!, startResult.LifecycleObservation);
         }
         finally
         {

@@ -182,13 +182,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             assetPath = null;
             failure = null;
 
-            if (!AssetTypeResolver.TryResolveCreateAssetType(args.Type.Value, out assetType, out var errorMessage))
+            var typeId = args.Type?.Value ?? string.Empty;
+            if (!AssetTypeResolver.TryResolveCreateAssetType(typeId, out assetType, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            if (!AssetOperationUtilities.TryValidateCreateAssetPath(args.Path.Value, out assetPath, out errorMessage))
+            var requestedAssetPath = args.Path?.Value ?? string.Empty;
+            if (!AssetOperationUtilities.TryValidateCreateAssetPath(requestedAssetPath, out assetPath, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;

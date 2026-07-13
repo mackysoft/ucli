@@ -1,11 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 
 #nullable enable
@@ -40,8 +41,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             cancellationToken.ThrowIfCancellationRequested();
 
             var unityVersion = StringValueNormalizer.TrimOrFallback(snapshot.UnityVersion, NaLiteral);
-            var compileState = StringValueNormalizer.TrimOrFallback(snapshot.CompileState, NaLiteral);
-            var domainReloadGeneration = StringValueNormalizer.TrimOrFallback(snapshot.DomainReloadGeneration, NaLiteral);
+            var compileState = ContractLiteralCodec.ToValue(snapshot.CompileState);
+            var domainReloadGeneration = snapshot.DomainReloadGeneration.ToString(CultureInfo.InvariantCulture);
             var configDigest = ComputeConfigDigest(snapshot.RepositoryRoot, cancellationToken);
             var touchedDigest = ComputeTouchedDigest(snapshot.ProjectRoot, operationTraces, cancellationToken);
 

@@ -41,9 +41,12 @@ public sealed class BuildServiceSuccessPayloadTests
         Assert.Equal(BuildReportRefs.BuildReport, output.Build.Summary.ReportRef);
         Assert.Equal(BuildReportRefs.BuildLog, output.Build.Logs.ReportRef);
         Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed), output.Build.Logs.CompletionReason);
-        Assert.Equal("asset-before", output.Build.Generations.Before.AssetRefreshGeneration);
-        Assert.Equal("asset-after", output.Build.Generations.After.AssetRefreshGeneration);
-        Assert.Equal("asset-after", output.Build.Generations.ValidFor.AssetRefreshGeneration);
+        var generationsBefore = Assert.IsType<IpcUnityGenerationSnapshot>(output.Build.Generations.Before);
+        var generationsAfter = Assert.IsType<IpcUnityGenerationSnapshot>(output.Build.Generations.After);
+        var generationsValidFor = Assert.IsType<IpcUnityGenerationSnapshot>(output.Build.Generations.ValidFor);
+        Assert.Equal(10, generationsBefore.AssetRefreshGeneration);
+        Assert.Equal(11, generationsAfter.AssetRefreshGeneration);
+        Assert.Equal(11, generationsValidFor.AssetRefreshGeneration);
         var expectedProfileDigest = BuildProfileResolver.ResolveJson(ProfileJson).Profile!.Digest;
         Assert.Equal(expectedProfileDigest, output.Build.Profile.Digest);
         Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit), output.Build.Inputs.InputKind);
@@ -120,11 +123,11 @@ public sealed class BuildServiceSuccessPayloadTests
         Assert.Equal(output.Build.Logs.ReportRef, artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
         Assert.False(artifactStore.WrittenMetadata.ProjectMutation.GetProperty("mutated").GetBoolean());
         Assert.Equal("full", artifactStore.WrittenMetadata.ProjectMutation.GetProperty("coverage").GetString());
-        Assert.Equal(output.Build.Generations.Before.CompileGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("before").GetProperty("compileGeneration").GetString());
-        Assert.Equal(output.Build.Generations.After.DomainReloadGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("after").GetProperty("domainReloadGeneration").GetString());
-        Assert.Equal(output.Build.Generations.ValidFor.AssetRefreshGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("validFor").GetProperty("assetRefreshGeneration").GetString());
-        Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.GetProperty("before").GetProperty("lifecycleState").GetString());
-        Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.GetProperty("after").GetProperty("lifecycleState").GetString());
+        Assert.Equal(output.Build.Generations.Before.CompileGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("before").GetProperty("compileGeneration").GetInt64());
+        Assert.Equal(output.Build.Generations.After.DomainReloadGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("after").GetProperty("domainReloadGeneration").GetInt64());
+        Assert.Equal(output.Build.Generations.ValidFor.AssetRefreshGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("validFor").GetProperty("assetRefreshGeneration").GetInt64());
+        Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.GetProperty("before").GetProperty("state").GetProperty("lifecycleState").GetString());
+        Assert.Equal("ready", artifactStore.WrittenMetadata.Lifecycle.GetProperty("after").GetProperty("state").GetProperty("lifecycleState").GetString());
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
             BuildRunProgressEventNames.Started,

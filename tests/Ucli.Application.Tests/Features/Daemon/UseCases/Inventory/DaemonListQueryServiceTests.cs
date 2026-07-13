@@ -72,8 +72,8 @@ public sealed class DaemonListQueryServiceTests
                 ProjectPath: worktreeA.UnityProjectRoot,
                 ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-a"),
                 ProcessId: 1001,
-                EditorMode: "batchmode",
-                OwnerKind: "cli",
+                EditorMode: DaemonEditorMode.Batchmode,
+                OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 EndpointAddress: "endpoint-a"),
             new DaemonListExecutionOutputAssert.RunningWorktreeItem(
@@ -83,8 +83,8 @@ public sealed class DaemonListQueryServiceTests
                 ProjectPath: worktreeB.UnityProjectRoot,
                 ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-b"),
                 ProcessId: 1002,
-                EditorMode: "batchmode",
-                OwnerKind: "cli",
+                EditorMode: DaemonEditorMode.Batchmode,
+                OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 EndpointAddress: "endpoint-b"));
 
@@ -100,21 +100,24 @@ public sealed class DaemonListQueryServiceTests
             projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-gui",
             processId: 3101,
-            editorMode: "gui",
-            ownerKind: "user",
-            canShutdownProcess: false,
-            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
-        var pingResponse = new IpcPingResponse(
-            ServerVersion: "0.0.2",
-            EditorMode: "gui",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: currentProject.ProjectFingerprint,
-            CompileState: IpcCompileStateCodec.Ready,
-            LifecycleState: IpcEditorLifecycleStateCodec.Playmode,
-            BlockingReason: IpcEditorBlockingReasonCodec.PlayMode,
-            CompileGeneration: "3",
-            DomainReloadGeneration: "5",
-            CanAcceptExecutionRequests: true);
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
+            canShutdownProcess: false);
+        var pingResponse = new IpcUnityEditorObservation(
+            serverVersion: "0.0.2",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: currentProject.ProjectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Gui,
+                lifecycleState: IpcEditorLifecycleState.PlayMode,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(3, 5, 0, 1),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Playing,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: true,
+                    IsPlayingOrWillChangePlaymode: true)),
+            observedAtUtc: DateTimeOffset.UnixEpoch);
         var service = CreateSingleWorktreeService(
             currentProject,
             DaemonSessionReadResultTestFactory.Found(session),
@@ -128,11 +131,11 @@ public sealed class DaemonListQueryServiceTests
         var output = Assert.IsType<DaemonListExecutionOutput>(result.Output);
         var item = Assert.Single(output.Items);
         Assert.Equal(DaemonListItemState.Running, item.State);
-        Assert.Equal("gui", item.EditorMode);
-        Assert.Equal("user", item.OwnerKind);
+        Assert.Equal(DaemonEditorMode.Gui, item.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKind.User, item.OwnerKind);
         Assert.False(item.CanShutdownProcess);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, item.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, item.BlockingReason);
+        Assert.Equal(IpcEditorLifecycleState.PlayMode, item.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.PlayMode, item.BlockingReason);
         Assert.False(item.CanAcceptExecutionRequests);
         Assert.Null(item.Diagnosis);
     }

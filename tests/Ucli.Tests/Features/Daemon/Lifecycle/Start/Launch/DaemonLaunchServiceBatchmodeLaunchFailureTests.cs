@@ -67,8 +67,8 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             launchAttemptStore,
             context,
             AssertStartupLaunchAttemptId(result.Startup),
-            ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed),
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None));
+            DaemonStartupStatus.Failed,
+            DaemonStartupProcessAction.None);
         Assert.Equal(diagnosis, launchAttempt.Diagnosis);
     }
 

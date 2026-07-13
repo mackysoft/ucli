@@ -135,14 +135,14 @@ public sealed class DaemonSessionTests
             SessionDifference.IssuedAtUtc => (CreateComparableSession(), CreateComparableSession(
                 issuedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 2, TimeSpan.Zero))),
             SessionDifference.EditorMode => (
-                CreateComparableSession(editorMode: "batchmode", ownerKind: "cli", canShutdownProcess: true),
-                CreateComparableSession(editorMode: "gui", ownerKind: "cli", canShutdownProcess: true)),
+                CreateComparableSession(editorMode: DaemonEditorMode.Batchmode, ownerKind: DaemonSessionOwnerKind.Cli, canShutdownProcess: true),
+                CreateComparableSession(editorMode: DaemonEditorMode.Gui, ownerKind: DaemonSessionOwnerKind.Cli, canShutdownProcess: true)),
             SessionDifference.OwnerKind => (
-                CreateComparableSession(ownerKind: "user"),
-                CreateComparableSession(ownerKind: "cli")),
+                CreateComparableSession(ownerKind: DaemonSessionOwnerKind.User),
+                CreateComparableSession(ownerKind: DaemonSessionOwnerKind.Cli)),
             SessionDifference.CanShutdownProcess => (
-                CreateComparableSession(ownerKind: "cli", canShutdownProcess: false),
-                CreateComparableSession(ownerKind: "cli", canShutdownProcess: true)),
+                CreateComparableSession(ownerKind: DaemonSessionOwnerKind.Cli, canShutdownProcess: false),
+                CreateComparableSession(ownerKind: DaemonSessionOwnerKind.Cli, canShutdownProcess: true)),
             SessionDifference.Endpoint => (CreateComparableSession(), CreateComparableSession(endpointAddress: "/tmp/other-ucli.sock")),
             SessionDifference.ProcessId => (CreateComparableSession(), CreateComparableSession(processId: 4321)),
             SessionDifference.ProcessStartedAtUtc => (CreateComparableSession(), CreateComparableSession(
@@ -160,8 +160,8 @@ public sealed class DaemonSessionTests
         string sessionToken = "same-session-token",
         ProjectFingerprint? projectFingerprint = null,
         DateTimeOffset? issuedAtUtc = null,
-        string editorMode = "gui",
-        string ownerKind = "user",
+        DaemonEditorMode editorMode = DaemonEditorMode.Gui,
+        DaemonSessionOwnerKind ownerKind = DaemonSessionOwnerKind.User,
         bool canShutdownProcess = false,
         string endpointAddress = "/tmp/ucli.sock",
         int processId = 1234,
@@ -177,7 +177,7 @@ public sealed class DaemonSessionTests
             editorMode: editorMode,
             ownerKind: ownerKind,
             canShutdownProcess: canShutdownProcess,
-            endpointTransportKind: "unixDomainSocket",
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: endpointAddress,
             processStartedAtUtc: processStartedAtUtc ?? new DateTimeOffset(2026, 7, 12, 23, 59, 59, TimeSpan.Zero),
             ownerProcessId: ownerProcessId,

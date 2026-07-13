@@ -6,18 +6,18 @@ public sealed class DaemonStartupBlockedProcessPolicyResolverTests
 {
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(DaemonStartupBlockedProcessPolicy.Terminate, "gui", "user", false, 1234, false, DaemonStartupProcessAction.Kept)]
-    [InlineData(DaemonStartupBlockedProcessPolicy.Auto, "gui", "cli", true, 1234, false, DaemonStartupProcessAction.Kept)]
-    [InlineData(DaemonStartupBlockedProcessPolicy.Keep, "gui", "cli", true, 1234, false, DaemonStartupProcessAction.Kept)]
-    [InlineData(DaemonStartupBlockedProcessPolicy.Terminate, "gui", "cli", true, 1234, true, DaemonStartupProcessAction.Unknown)]
-    [InlineData(DaemonStartupBlockedProcessPolicy.Terminate, "gui", "cli", false, 1234, false, DaemonStartupProcessAction.Kept)]
-    [InlineData(DaemonStartupBlockedProcessPolicy.Auto, "batchmode", "cli", true, 1234, true, DaemonStartupProcessAction.Unknown)]
-    [InlineData(DaemonStartupBlockedProcessPolicy.Terminate, "batchmode", "cli", true, 1234, true, DaemonStartupProcessAction.Unknown)]
-    [InlineData(DaemonStartupBlockedProcessPolicy.Auto, "batchmode", "cli", true, null, false, DaemonStartupProcessAction.None)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Terminate, DaemonEditorMode.Gui, DaemonSessionOwnerKind.User, false, 1234, false, DaemonStartupProcessAction.Kept)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Auto, DaemonEditorMode.Gui, DaemonSessionOwnerKind.Cli, true, 1234, false, DaemonStartupProcessAction.Kept)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Keep, DaemonEditorMode.Gui, DaemonSessionOwnerKind.Cli, true, 1234, false, DaemonStartupProcessAction.Kept)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Terminate, DaemonEditorMode.Gui, DaemonSessionOwnerKind.Cli, true, 1234, true, DaemonStartupProcessAction.Unknown)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Terminate, DaemonEditorMode.Gui, DaemonSessionOwnerKind.Cli, false, 1234, false, DaemonStartupProcessAction.Kept)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Auto, DaemonEditorMode.Batchmode, DaemonSessionOwnerKind.Cli, true, 1234, true, DaemonStartupProcessAction.Unknown)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Terminate, DaemonEditorMode.Batchmode, DaemonSessionOwnerKind.Cli, true, 1234, true, DaemonStartupProcessAction.Unknown)]
+    [InlineData(DaemonStartupBlockedProcessPolicy.Auto, DaemonEditorMode.Batchmode, DaemonSessionOwnerKind.Cli, true, null, false, DaemonStartupProcessAction.None)]
     public void Resolve_ReturnsExpectedProcessPolicy (
         DaemonStartupBlockedProcessPolicy policy,
-        string editorMode,
-        string ownerKind,
+        DaemonEditorMode editorMode,
+        DaemonSessionOwnerKind ownerKind,
         bool canShutdownProcess,
         int? processId,
         bool expectedShouldTerminate,
@@ -32,7 +32,7 @@ public sealed class DaemonStartupBlockedProcessPolicyResolverTests
 
         Assert.Equal(expectedShouldTerminate, result.ShouldTerminateProcess);
         Assert.Equal(
-            ContractLiteralCodec.ToValue(expectedProcessActionWhenNotTerminated),
+            expectedProcessActionWhenNotTerminated,
             result.ProcessActionWhenNotTerminated);
     }
 }

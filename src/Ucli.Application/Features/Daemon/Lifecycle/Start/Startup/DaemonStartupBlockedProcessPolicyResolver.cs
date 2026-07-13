@@ -1,5 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 
 /// <summary> Resolves process handling for endpoint-registration startup blockers. </summary>
@@ -14,37 +12,34 @@ internal static class DaemonStartupBlockedProcessPolicyResolver
     /// <returns> The resolved process policy. </returns>
     public static DaemonStartupBlockedProcessPolicyResolution Resolve (
         DaemonStartupBlockedProcessPolicy policy,
-        string editorMode,
-        string ownerKind,
+        DaemonEditorMode editorMode,
+        DaemonSessionOwnerKind ownerKind,
         bool canShutdownProcess,
         int? processId)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(editorMode);
-        ArgumentException.ThrowIfNullOrWhiteSpace(ownerKind);
-
         if (processId is null)
         {
             return new DaemonStartupBlockedProcessPolicyResolution(
                 ShouldTerminateProcess: false,
-                ProcessActionWhenNotTerminated: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None));
+                ProcessActionWhenNotTerminated: DaemonStartupProcessAction.None);
         }
 
-        if (!canShutdownProcess || ContractLiteralCodec.Matches(ownerKind, DaemonSessionOwnerKind.User))
+        if (!canShutdownProcess || ownerKind == DaemonSessionOwnerKind.User)
         {
             return Keep();
         }
 
-        if (!ContractLiteralCodec.Matches(ownerKind, DaemonSessionOwnerKind.Cli))
+        if (ownerKind != DaemonSessionOwnerKind.Cli)
         {
             return Keep();
         }
 
-        if (ContractLiteralCodec.Matches(editorMode, DaemonEditorMode.Batchmode))
+        if (editorMode == DaemonEditorMode.Batchmode)
         {
             return ResolveCliOwnedBatchmode(policy);
         }
 
-        if (ContractLiteralCodec.Matches(editorMode, DaemonEditorMode.Gui))
+        if (editorMode == DaemonEditorMode.Gui)
         {
             return ResolveCliOwnedGui(policy);
         }
@@ -68,13 +63,13 @@ internal static class DaemonStartupBlockedProcessPolicyResolver
     {
         return new DaemonStartupBlockedProcessPolicyResolution(
             ShouldTerminateProcess: false,
-            ProcessActionWhenNotTerminated: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept));
+            ProcessActionWhenNotTerminated: DaemonStartupProcessAction.Kept);
     }
 
     private static DaemonStartupBlockedProcessPolicyResolution Terminate ()
     {
         return new DaemonStartupBlockedProcessPolicyResolution(
             ShouldTerminateProcess: true,
-            ProcessActionWhenNotTerminated: ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown));
+            ProcessActionWhenNotTerminated: DaemonStartupProcessAction.Unknown);
     }
 }

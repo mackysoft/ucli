@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -40,7 +39,7 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
             SessionIssuedAtUtc: timeProvider.GetUtcNow(),
             ProcessStartedAtUtc: processStartedAtUtc,
             UnityLogPath: null,
-            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration),
+            StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
             ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog);
         var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
                 unityProject.RepositoryRoot,
@@ -57,18 +56,18 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
 
         var policyResolution = DaemonStartupBlockedProcessPolicyResolver.Resolve(
             onStartupBlocked,
-            ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
-            ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
+            DaemonEditorMode.Gui,
+            DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             processId);
         var startup = new DaemonStartupObservation(
-            StartupStatus: ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed),
-            StartupBlockingReason: ContractLiteralCodec.ToValue(DaemonStartupBlockingReason.EndpointNotRegistered),
+            StartupStatus: DaemonStartupStatus.Failed,
+            StartupBlockingReason: DaemonStartupBlockingReason.EndpointNotRegistered,
             LaunchAttemptId: null,
             ProcessAction: policyResolution.ProcessActionWhenNotTerminated,
-            RetryDisposition: ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.Unknown),
-            EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Gui),
-            OwnerKind: ContractLiteralCodec.ToValue(DaemonSessionOwnerKind.User),
+            RetryDisposition: DaemonStartupRetryDisposition.Unknown,
+            EditorMode: DaemonEditorMode.Gui,
+            OwnerKind: DaemonSessionOwnerKind.User,
             CanShutdownProcess: false,
             ProcessId: processId,
             StartedAtUtc: processStartedAtUtc,

@@ -52,10 +52,10 @@ internal static class PlayStatusServiceTestSupport
             new ManualTimeProvider(ObservedAtUtc));
     }
 
-    public static DaemonSession CreatePlaySession (string editorMode = "gui")
+    public static DaemonSession CreatePlaySession ()
     {
         return DaemonSessionTestFactory.CreateUserOwned(
-            editorMode,
+            DaemonEditorMode.Gui,
             PlaySessionEndpointAddress,
             editorInstanceId: PlaySessionEditorInstanceId);
     }
@@ -74,61 +74,67 @@ internal static class PlayStatusServiceTestSupport
 
     public static DaemonLifecycleObservation CreateLifecycleObservation (
         DaemonSession session,
-        string lifecycleState = IpcEditorLifecycleStateCodec.Playmode,
-        string? blockingReason = IpcEditorBlockingReasonCodec.PlayMode,
-        bool canAcceptExecutionRequests = false,
-        string playModeState = "playing",
+        IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.PlayMode,
+        IpcPlayModeState playModeState = IpcPlayModeState.Playing,
         bool isPlaying = true,
-        bool isPlayingOrWillChangePlaymode = true)
+        bool isPlayingOrWillChangePlaymode = true,
+        long playModeGeneration = 9,
+        Guid? editorInstanceId = null)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
             processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
-            editorMode: "gui",
-            lifecycleState: lifecycleState,
-            blockingReason: blockingReason,
-            compileState: IpcCompileStateCodec.Ready,
-            compileGeneration: "12",
-            domainReloadGeneration: "7",
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Gui,
+                lifecycleState: lifecycleState,
+                compileState: lifecycleState == IpcEditorLifecycleState.Compiling
+                    ? IpcCompileState.Compiling
+                    : IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(
+                    CompileGeneration: 12,
+                    DomainReloadGeneration: 7,
+                    AssetRefreshGeneration: 4,
+                    PlayModeGeneration: playModeGeneration),
+                playMode: new IpcPlayModeSnapshot(
+                    State: playModeState,
+                    Transition: IpcPlayModeTransition.None,
+                    IsPlaying: isPlaying,
+                    IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode)),
             observedAtUtc: ObservedAtUtc,
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: "0.5.0",
-            canAcceptExecutionRequests: canAcceptExecutionRequests,
-            editorInstanceId: session.EditorInstanceId
-                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
-            playMode: new IpcPlayModeSnapshot(
-                State: playModeState,
-                Transition: "none",
-                IsPlaying: isPlaying,
-                IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode,
-                Generation: "9"));
+            editorInstanceId: editorInstanceId
+                ?? session.EditorInstanceId
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)));
     }
 
     public static IpcPlayStatusResponse CreateStatusResponse (
         IpcPlayModeSnapshot? playMode = null,
+        long playModeGeneration = 2,
         ProjectFingerprint? projectFingerprint = null)
     {
-        return new IpcPlayStatusResponse(new IpcPlayLifecycleSnapshot(
-            ServerVersion: "0.5.0",
-            EditorMode: "gui",
-            UnityVersion: "6000.1.4f1",
-            ProjectFingerprint: projectFingerprint ?? ProjectContextTestFactory.ProjectFingerprint,
-            LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-            BlockingReason: "none",
-            CompileState: IpcCompileStateCodec.Ready,
-            CompileGeneration: "12",
-            DomainReloadGeneration: "7",
-            CanAcceptExecutionRequests: true,
-            ObservedAtUtc: ObservedAtUtc,
-            ActionRequired: null,
-            PrimaryDiagnostic: null,
-            PlayMode: playMode ?? new IpcPlayModeSnapshot(
-                State: "stopped",
-                Transition: "none",
-                IsPlaying: false,
-                IsPlayingOrWillChangePlaymode: false,
-                Generation: "2")));
+        return new IpcPlayStatusResponse(new IpcUnityEditorObservation(
+            serverVersion: "0.5.0",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: projectFingerprint ?? PlayProjectContext.UnityProject.ProjectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Gui,
+                lifecycleState: IpcEditorLifecycleState.Ready,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(
+                    CompileGeneration: 12,
+                    DomainReloadGeneration: 7,
+                    AssetRefreshGeneration: 4,
+                    PlayModeGeneration: playModeGeneration),
+                playMode: playMode ?? new IpcPlayModeSnapshot(
+                    State: IpcPlayModeState.Stopped,
+                    Transition: IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
+            observedAtUtc: ObservedAtUtc,
+            actionRequired: null,
+            primaryDiagnostic: null));
     }
 
     public static UnityRequestResponse CreateResponse (IpcPlayStatusResponse payload)

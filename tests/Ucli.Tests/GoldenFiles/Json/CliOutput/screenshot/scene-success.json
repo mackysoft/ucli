@@ -1,0 +1,36 @@
+{
+  "protocolVersion": 1,
+  "command": "screenshot.scene",
+  "status": "ok",
+  "exitCode": 0,
+  "message": "Screenshot capture completed.",
+  "payload": {
+    "project": {
+      "projectPath": "<projectPath>",
+      "projectFingerprint": "<projectFingerprint>",
+      "unityVersion": "6000.0.77f1"
+    },
+    "capture": {
+      "target": "scene",
+      "sizeMode": "currentSurface",
+      "requestedWidth": null,
+      "requestedHeight": null,
+      "width": 1280,
+      "height": 720,
+      "colorSpace": "gamma",
+      "lifecycleStateAtCapture": "ready",
+      "compileStateAtCapture": "ready",
+      "domainReloadGeneration": 8,
+      "playModeState": "stopped"
+    },
+    "artifact": {
+      "kind": "screenshot",
+      "mediaType": "image/png",
+      "path": ".ucli/local/fingerprints/<projectFingerprint>/artifacts/screenshot/20260711_010204Z_89abcdef/screenshot.png",
+      "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "sizeBytes": 35219,
+      "createdAtUtc": "2026-07-11T01:02:04+00:00"
+    }
+  },
+  "errors": []
+}

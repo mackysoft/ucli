@@ -201,14 +201,24 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!ComponentTypeResolver.TryResolveComponentType(args.Type.Value, out var resolvedComponentType, out errorMessage))
+            var target = targetResolution.GameObject;
+            if (target == null)
+            {
+                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
+                    operation.Id,
+                    "Reference did not resolve to a GameObject.");
+                return false;
+            }
+
+            var componentTypeId = args.Type?.Value ?? string.Empty;
+            if (!ComponentTypeResolver.TryResolveComponentType(componentTypeId, out var resolvedComponentType, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
             validationState = new ValidationState(
-                targetResolution.GameObject,
+                target,
                 targetResolution.Resource,
                 resolvedComponentType);
             return true;

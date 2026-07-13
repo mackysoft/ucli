@@ -9,7 +9,6 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
-using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -224,7 +223,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var request = CreateRequest(scope.ProjectPath, identity);
-                var outputLayout = GetRequiredOutputLayout(request);
+                var outputLayout = RequireOutputLayout(request);
                 request = scenario switch
                 {
                     "missing" => request with
@@ -374,7 +373,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(response.Errors.Count, Is.EqualTo(1));
                 Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
                 Assert.That(readinessGate.EnsureExecutionReadyCallCount, Is.EqualTo(0));
-                Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(0));
+                Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(0));
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
                 Assert.That(timeoutScopeFactory.CallCount, Is.EqualTo(0));
@@ -419,7 +418,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(response.Errors.Count, Is.EqualTo(1));
                 Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
                 Assert.That(readinessGate.EnsureExecutionReadyCallCount, Is.EqualTo(0));
-                Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(0));
+                Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(0));
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
                 Assert.That(timeoutScopeFactory.CallCount, Is.EqualTo(0));
@@ -465,7 +464,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(response.Errors.Count, Is.EqualTo(1));
                 Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
                 Assert.That(readinessGate.EnsureExecutionReadyCallCount, Is.EqualTo(0));
-                Assert.That(readinessGate.CaptureSnapshotCallCount, Is.EqualTo(0));
+                Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(0));
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
                 Assert.That(timeoutScopeFactory.CallCount, Is.EqualTo(0));
@@ -500,10 +499,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     new UnityLogRedactionScopeProvider(),
                     new UnityLogRingBuffer());
                 var payload = CreateRequest(scope.ProjectPath, identity);
-                var outputLayout = GetRequiredOutputLayout(payload);
-                var outputDirectory = Path.GetDirectoryName(outputLayout.LocationPathName)
-                    ?? throw new InvalidOperationException("Build output location did not contain a parent directory.");
-                Directory.CreateDirectory(outputDirectory);
+                var outputLayout = RequireOutputLayout(payload);
+                var outputDirectoryPath = Path.GetDirectoryName(outputLayout.LocationPathName);
+                if (string.IsNullOrEmpty(outputDirectoryPath))
+                {
+                    throw new AssertionException("Expected the build output layout to have a parent directory.");
+                }
+
+                Directory.CreateDirectory(outputDirectoryPath);
                 File.WriteAllText(outputLayout.LocationPathName, "existing player");
 
                 var response = await handler.HandleAsync(CreateIpcRequest(payload), CancellationToken.None);
@@ -657,7 +660,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(payload.UnityBuildProfile!.Path, Is.EqualTo("Assets/BuildProfiles/Linux.asset"));
                 Assert.That(payload.UnityBuildProfile.ApplyAudit, Is.Not.Null);
                 Assert.That(payload.LifecycleBefore, Is.Not.Null);
-                Assert.That(payload.LifecycleBefore!.CompileGeneration, Is.EqualTo(payload.UnityBuildProfile.ApplyAudit!.LifecycleAfter.CompileGeneration));
+                Assert.That(
+                    payload.LifecycleBefore!.State.Generations.CompileGeneration,
+                    Is.EqualTo(payload.UnityBuildProfile.ApplyAudit!.LifecycleAfter.State.Generations.CompileGeneration));
                 Assert.That(payload.DirtyState, Is.Not.Null);
                 Assert.That(payload.DirtyState!.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
                 Assert.That(buildProfileInputResolver.CallCount, Is.EqualTo(1));
@@ -685,7 +690,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var requestPayload = CreateRequest(scope.ProjectPath, identity);
-                var outputLayout = GetRequiredOutputLayout(requestPayload);
+                var outputLayout = RequireOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var reportArtifact = CreateReportArtifact(
                     ContractLiteralCodec.ToValue(reportResult),
@@ -721,18 +726,20 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
-                var responsePayload = payload
-                    ?? throw new InvalidOperationException("Successful build response did not contain a payload.");
-                var buildReport = responsePayload.Report
-                    ?? throw new InvalidOperationException("Successful BuildPipeline response did not contain a build report.");
-                Assert.That(responsePayload.RunId, Is.EqualTo(RunId));
-                Assert.That(buildReport.Result, Is.EqualTo(ContractLiteralCodec.ToValue(reportResult)));
-                Assert.That(buildReport.ErrorCount, Is.EqualTo(reportErrorCount));
-                Assert.That(buildReport.WarningCount, Is.EqualTo(reportWarningCount));
-                Assert.That(responsePayload.Logs.CompletionReason, Is.EqualTo(ContractLiteralCodec.ToValue(completionReason)));
-                Assert.That(responsePayload.Logs.EntryCount, Is.EqualTo(3));
-                Assert.That(responsePayload.Logs.ErrorCount, Is.EqualTo(1));
-                Assert.That(responsePayload.Logs.WarningCount, Is.EqualTo(1));
+                var report = payload.Report;
+                if (report is null)
+                {
+                    throw new AssertionException("Expected a normalized BuildReport artifact in the terminal response.");
+                }
+
+                Assert.That(payload.RunId, Is.EqualTo(RunId));
+                Assert.That(report.Result, Is.EqualTo(ContractLiteralCodec.ToValue(reportResult)));
+                Assert.That(report.ErrorCount, Is.EqualTo(reportErrorCount));
+                Assert.That(report.WarningCount, Is.EqualTo(reportWarningCount));
+                Assert.That(payload.Logs.CompletionReason, Is.EqualTo(ContractLiteralCodec.ToValue(completionReason)));
+                Assert.That(payload.Logs.EntryCount, Is.EqualTo(3));
+                Assert.That(payload.Logs.ErrorCount, Is.EqualTo(1));
+                Assert.That(payload.Logs.WarningCount, Is.EqualTo(1));
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(1));
                 Assert.That(buildPipelineRunner.LastOptions.locationPathName, Is.EqualTo(outputLayout.LocationPathName));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(1));
@@ -763,7 +770,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var requestPayload = CreateRequest(scope.ProjectPath, identity);
-                var outputLayout = GetRequiredOutputLayout(requestPayload);
+                var outputLayout = RequireOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var unityLogStream = new UnityLogRingBuffer();
                 var reportArtifact = CreateReportArtifact(
@@ -945,7 +952,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var requestPayload = CreateRequest(scope.ProjectPath, identity);
-                var outputLayout = GetRequiredOutputLayout(requestPayload);
+                var outputLayout = RequireOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var unityLogStream = new UnityLogRingBuffer();
                 var oversizedMessage = new string('x', 70 * 1024);
@@ -1357,6 +1364,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 unityVersion: "6000.1.4f1");
         }
 
+        private static IpcBuildOutputLayout RequireOutputLayout (IpcBuildRunRequest request)
+        {
+            return request.OutputLayout
+                ?? throw new AssertionException("Expected the build request to contain a resolved output layout.");
+        }
+
         private static IpcBuildRunRequest CreateRequest (
             string projectPath,
             IpcProjectIdentity identity)
@@ -1371,7 +1384,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 identity.ProjectFingerprint,
                 RunId);
             if (!IpcBuildOutputLayoutResolver.TryResolve(outputPath, "standaloneLinux64", out var outputLayout)
-                || outputLayout == null)
+                || outputLayout is null)
             {
                 throw new InvalidOperationException("Test build target must resolve a BuildPipeline output layout.");
             }
@@ -1492,7 +1505,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static IpcUnityBuildProfileInput CreateAppliedUnityBuildProfileInput (string path)
         {
-            var lifecycle = CreateBuildLifecycleSnapshot();
+            var lifecycle = Create();
             return new IpcUnityBuildProfileInput(
                 Path: path,
                 Digest: new string('f', 64),
@@ -1500,14 +1513,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     Applied: true,
                     LifecycleBefore: lifecycle,
                     LifecycleAfter: lifecycle,
-                    GenerationsBefore: new IpcBuildGenerationSnapshot(
-                        lifecycle.CompileGeneration,
-                        lifecycle.DomainReloadGeneration,
-                        lifecycle.AssetRefreshGeneration),
-                    GenerationsAfter: new IpcBuildGenerationSnapshot(
-                        lifecycle.CompileGeneration,
-                        lifecycle.DomainReloadGeneration,
-                        lifecycle.AssetRefreshGeneration),
                     DirtyStateAfter: new IpcBuildDirtyState(
                         Checked: true,
                         Dirty: false,
@@ -1564,36 +1569,32 @@ namespace MackySoft.Ucli.Unity.Tests
             };
         }
 
-        private static UnityEditorLifecycleSnapshot CreateLifecycleSnapshot ()
+        private static UnityEditorObservation CreateObservation ()
         {
-            return new UnityEditorLifecycleSnapshot(
-                EditorMode: DaemonEditorMode.Batchmode,
-                LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-                BlockingReason: null,
-                CompileState: IpcCompileStateCodec.Ready,
-                CompileGeneration: "compile-1",
-                DomainReloadGeneration: "domain-1",
-                CanAcceptExecutionRequests: true,
-                ObservedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                PlayMode: new IpcPlayModeSnapshot(
-                    State: "stopped",
-                    Transition: "none",
-                    IsPlaying: false,
-                    IsPlayingOrWillChangePlaymode: false,
-                    Generation: "play-1"),
-                AssetRefreshGeneration: "asset-1");
+            return new UnityEditorObservation(
+                state: new UnityEditorStateSnapshot(
+                    editorMode: DaemonEditorMode.Batchmode,
+                    lifecycleState: IpcEditorLifecycleState.Ready,
+                    compileState: IpcCompileState.Ready,
+                    generations: new IpcUnityGenerationSnapshot(1, 1, 1, 1),
+                    playMode: new IpcPlayModeSnapshot(
+                        State: IpcPlayModeState.Stopped,
+                        Transition: IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
+                observedAtUtc: new DateTimeOffset(2026, 6, 12, 0, 0, 0, TimeSpan.Zero));
         }
 
         private sealed class CountingReadinessGate : IUnityEditorReadinessGate
         {
-            public int CaptureSnapshotCallCount { get; private set; }
+            public int CaptureObservationCallCount { get; private set; }
 
             public int EnsureExecutionReadyCallCount { get; private set; }
 
-            public UnityEditorLifecycleSnapshot CaptureSnapshot ()
+            public UnityEditorObservation CaptureObservation ()
             {
-                CaptureSnapshotCallCount++;
-                return CreateLifecycleSnapshot();
+                CaptureObservationCallCount++;
+                return CreateObservation();
             }
 
             public Task<UnityEditorExecutionReadinessResult> EnsureExecutionReadyAsync (
@@ -1603,7 +1604,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 EnsureExecutionReadyCallCount++;
-                return Task.FromResult(UnityEditorExecutionReadinessResult.Ready(CreateLifecycleSnapshot()));
+                return Task.FromResult(UnityEditorExecutionReadinessResult.Ready(CreateObservation()));
             }
         }
 
@@ -1795,29 +1796,25 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private static IpcBuildLifecycleSnapshot CreateBuildLifecycleSnapshot ()
+        private static IpcUnityEditorObservation Create ()
         {
-            return new IpcBuildLifecycleSnapshot(
-                ServerVersion: "1.2.3",
-                EditorMode: ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode),
-                UnityVersion: "6000.1.4f1",
-                ProjectFingerprint: ProjectFingerprint,
-                LifecycleState: IpcEditorLifecycleStateCodec.Ready,
-                BlockingReason: null,
-                CompileState: IpcCompileStateCodec.Ready,
-                CompileGeneration: "compile-1",
-                DomainReloadGeneration: "domain-1",
-                CanAcceptExecutionRequests: true,
-                ObservedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                ActionRequired: null,
-                PrimaryDiagnostic: null,
-                PlayMode: new IpcPlayModeSnapshot(
-                    State: "stopped",
-                    Transition: "none",
-                    IsPlaying: false,
-                    IsPlayingOrWillChangePlaymode: false,
-                    Generation: "play-1"),
-                AssetRefreshGeneration: "asset-1");
+            return new IpcUnityEditorObservation(
+                serverVersion: "1.2.3",
+                unityVersion: "6000.1.4f1",
+                projectFingerprint: ProjectFingerprint,
+                state: new UnityEditorStateSnapshot(
+                    editorMode: DaemonEditorMode.Batchmode,
+                    lifecycleState: IpcEditorLifecycleState.Ready,
+                    compileState: IpcCompileState.Ready,
+                    generations: new IpcUnityGenerationSnapshot(11, 12, 13, 14),
+                    playMode: new IpcPlayModeSnapshot(
+                        State: IpcPlayModeState.Stopped,
+                        Transition: IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
+                observedAtUtc: new DateTimeOffset(2026, 6, 12, 0, 0, 0, TimeSpan.Zero),
+                actionRequired: null,
+                primaryDiagnostic: null);
         }
 
         private sealed class CountingEditorLogRangeExporter : IEditorLogRangeExporter

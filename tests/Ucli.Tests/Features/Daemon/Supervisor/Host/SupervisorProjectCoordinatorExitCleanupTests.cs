@@ -26,7 +26,9 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
         };
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.AlreadyRunning(session),
+            StartResult = DaemonStartResult.AlreadyRunning(
+                session,
+                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
         };
         var pingClient = new RecordingDaemonPingClient();
         var stopOperation = new RecordingDaemonStopOperation
@@ -76,7 +78,9 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
         };
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.AlreadyRunning(session),
+            StartResult = DaemonStartResult.AlreadyRunning(
+                session,
+                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
         };
         var coordinator = CreateCoordinator(
             startOperation,
@@ -130,7 +134,9 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
         };
         var startOperation = new RecordingDaemonStartOperation
         {
-            StartResult = DaemonStartResult.AlreadyRunning(session),
+            StartResult = DaemonStartResult.AlreadyRunning(
+                session,
+                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint)),
         };
         var coordinator = CreateCoordinator(
             startOperation,

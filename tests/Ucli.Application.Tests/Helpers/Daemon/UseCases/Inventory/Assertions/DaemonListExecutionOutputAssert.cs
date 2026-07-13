@@ -52,8 +52,8 @@ internal static class DaemonListExecutionOutputAssert
         string ProjectPath,
         ProjectFingerprint ProjectFingerprint,
         int ProcessId,
-        string EditorMode,
-        string OwnerKind,
+        DaemonEditorMode EditorMode,
+        DaemonSessionOwnerKind OwnerKind,
         bool CanShutdownProcess,
         string EndpointAddress);
 }

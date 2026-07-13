@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
+using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 
 /// <summary> Represents one daemon registration observation returned by <c>daemon list</c>. </summary>
@@ -20,8 +21,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 /// <param name="LifecycleState"> The daemon lifecycle-state value when observed; otherwise <see langword="null" />. </param>
 /// <param name="BlockingReason"> The daemon blocking-reason value when observed; otherwise <see langword="null" />. </param>
 /// <param name="CompileState"> The daemon compile-state value when observed; otherwise <see langword="null" />. </param>
-/// <param name="CompileGeneration"> The daemon compile generation when observed; otherwise <see langword="null" />. </param>
-/// <param name="DomainReloadGeneration"> The daemon domain-reload generation when observed; otherwise <see langword="null" />. </param>
+/// <param name="Generations"> The Unity lifecycle generation snapshot when observed; otherwise <see langword="null" />. </param>
 /// <param name="CanAcceptExecutionRequests"> Whether execution requests can currently be accepted when observed; otherwise <see langword="null" />. </param>
 /// <param name="ObservedAtUtc"> The daemon lifecycle observation timestamp when available. </param>
 /// <param name="ActionRequired"> The normalized user action required by the lifecycle blocker when available. </param>
@@ -38,16 +38,15 @@ internal sealed record DaemonListItemOutput (
     DateTimeOffset? IssuedAtUtc,
     int? ProcessId,
     DateTimeOffset? ProcessStartedAtUtc,
-    string? EditorMode,
-    string? OwnerKind,
+    DaemonEditorMode? EditorMode,
+    DaemonSessionOwnerKind? OwnerKind,
     bool? CanShutdownProcess,
-    string? EndpointTransportKind,
+    IpcTransportKind? EndpointTransportKind,
     string? EndpointAddress,
-    string? LifecycleState,
-    string? BlockingReason,
-    string? CompileState,
-    string? CompileGeneration,
-    string? DomainReloadGeneration,
+    IpcEditorLifecycleState? LifecycleState,
+    IpcEditorBlockingReason? BlockingReason,
+    IpcCompileState? CompileState,
+    IpcUnityGenerationSnapshot? Generations,
     bool? CanAcceptExecutionRequests,
     DateTimeOffset? ObservedAtUtc,
     string? ActionRequired,

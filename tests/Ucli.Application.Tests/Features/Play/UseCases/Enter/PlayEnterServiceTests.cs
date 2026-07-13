@@ -49,7 +49,7 @@ public sealed class PlayEnterServiceTests
     {
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(
             DaemonSessionTestFactory.Create(
-                editorMode: "batchmode",
+                editorMode: DaemonEditorMode.Batchmode,
                 endpointAddress: PlaySessionEndpointAddress)));
         var requestExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
@@ -66,10 +66,11 @@ public sealed class PlayEnterServiceTests
     public async Task Execute_WhenEnterSucceeds_ReturnsFlatPayloadAndTransition ()
     {
         var context = PlayProjectContext;
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.CreateUserOwned(
-            "gui",
-            PlaySessionEndpointAddress,
-            DaemonSessionTestFactory.DefaultEditorInstanceId)));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(
+            DaemonSessionTestFactory.CreateUserOwned(
+                DaemonEditorMode.Gui,
+                PlaySessionEndpointAddress,
+                DaemonSessionTestFactory.DefaultEditorInstanceId)));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateEnteredResponse())));
         var service = CreateService(context, sessionStore, requestExecutor);
 
@@ -80,12 +81,12 @@ public sealed class PlayEnterServiceTests
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
         Assert.Equal(context.UnityProject.UnityProjectRoot, output.Project.ProjectPath);
         Assert.Equal("0.5.0", output.ServerVersion);
-        Assert.Equal("gui", output.EditorMode);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Playmode, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReasonCodec.PlayMode, output.BlockingReason);
+        Assert.Equal(DaemonEditorMode.Gui, output.EditorMode);
+        Assert.Equal(IpcEditorLifecycleState.PlayMode, output.LifecycleState);
+        Assert.Equal(IpcEditorBlockingReason.PlayMode, output.BlockingReason);
         Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Equal("playing", output.PlayMode.State);
-        Assert.Equal("3", output.PlayMode.Generation);
+        Assert.Equal(IpcPlayModeState.Playing, output.PlayMode.State);
+        Assert.Equal(3, output.Generations!.PlayModeGeneration);
         Assert.Equal(1500, output.TimeoutMilliseconds);
         Assert.Equal(IpcPlayTransitionCommandNames.Enter, output.Transition.Transition);
         Assert.Equal(IpcPlayTransitionResultNames.Entered, output.Transition.Result);
@@ -123,12 +124,12 @@ public sealed class PlayEnterServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenAlreadyPlaying_ReturnsAlreadyEnteredWithoutGenerationChange ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayMode(
-            "playing",
-            "none",
+        var before = CreateSnapshot(IpcEditorLifecycleState.PlayMode, CreatePlayMode(
+            IpcPlayModeState.Playing,
+            IpcPlayModeTransition.None,
             isPlaying: true,
-            isPlayingOrWillChangePlaymode: true,
-            generation: "9"));
+            isPlayingOrWillChangePlaymode: true),
+            playModeGeneration: 9);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.AlreadyEntered,
@@ -136,10 +137,11 @@ public sealed class PlayEnterServiceTests
         {
             After = before,
         });
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.CreateUserOwned(
-            "gui",
-            PlaySessionEndpointAddress,
-            DaemonSessionTestFactory.DefaultEditorInstanceId)));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(
+            DaemonSessionTestFactory.CreateUserOwned(
+                DaemonEditorMode.Gui,
+                PlaySessionEndpointAddress,
+                DaemonSessionTestFactory.DefaultEditorInstanceId)));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 
@@ -148,21 +150,24 @@ public sealed class PlayEnterServiceTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayEnterExecutionOutput>(result.Output);
         Assert.Equal(IpcPlayTransitionResultNames.AlreadyEntered, output.Transition.Result);
-        Assert.Equal("9", output.Transition.Before.PlayMode!.Generation);
-        Assert.Equal("9", output.Transition.After!.PlayMode!.Generation);
+        Assert.Equal(9, output.Transition.Before.Generations!.PlayModeGeneration);
+        Assert.Equal(9, output.Transition.After!.Generations!.PlayModeGeneration);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenUnityReturnsTransitionTimeout_ReturnsFailureWithObservedPayload ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Ready, null, true, CreateStoppedPlayMode("2"));
-        var observed = CreateSnapshot(IpcEditorLifecycleStateCodec.Playmode, IpcEditorBlockingReasonCodec.PlayMode, false, CreatePlayMode(
-            "entering",
-            "entering",
+        var before = CreateSnapshot(
+            IpcEditorLifecycleState.Ready,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 2);
+        var observed = CreateSnapshot(IpcEditorLifecycleState.PlayMode, CreatePlayMode(
+            IpcPlayModeState.Entering,
+            IpcPlayModeTransition.Entering,
             isPlaying: false,
-            isPlayingOrWillChangePlaymode: true,
-            generation: "2"));
+            isPlayingOrWillChangePlaymode: true),
+            playModeGeneration: 2);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.Timeout,
@@ -184,9 +189,11 @@ public sealed class PlayEnterServiceTests
         Assert.NotNull(result.Output);
         Assert.Equal(IpcPlayTransitionResultNames.Timeout, result.Output!.Transition.Result);
         Assert.Equal(IpcPlayApplicationStateNames.Indeterminate, result.Output.Transition.ApplicationState);
-        Assert.Equal(observed.PlayMode!.State, result.Output.Transition.Observed!.PlayMode!.State);
-        Assert.Equal(observed.PlayMode.Transition, result.Output.Transition.Observed.PlayMode.Transition);
-        Assert.Equal(observed.PlayMode.Generation, result.Output.Transition.Observed.PlayMode.Generation);
+        Assert.Equal(observed.State.PlayMode.State, result.Output.Transition.Observed!.PlayMode.State);
+        Assert.Equal(observed.State.PlayMode.Transition, result.Output.Transition.Observed.PlayMode.Transition);
+        Assert.Equal(
+            observed.State.Generations.PlayModeGeneration,
+            result.Output.Transition.Observed.Generations!.PlayModeGeneration);
         Assert.Null(result.Output.Transition.After);
     }
 
@@ -194,7 +201,10 @@ public sealed class PlayEnterServiceTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenUnityReturnsBlockedTransition_ReturnsFailureWithObservedPayload ()
     {
-        var before = CreateSnapshot(IpcEditorLifecycleStateCodec.Compiling, IpcEditorBlockingReasonCodec.Compile, false, CreateStoppedPlayMode("2"));
+        var before = CreateSnapshot(
+            IpcEditorLifecycleState.Compiling,
+            CreateStoppedPlayMode(),
+            playModeGeneration: 2);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
             IpcPlayTransitionCommandNames.Enter,
             IpcPlayTransitionResultNames.Blocked,
@@ -216,7 +226,7 @@ public sealed class PlayEnterServiceTests
         Assert.NotNull(result.Output);
         Assert.Equal(IpcPlayTransitionResultNames.Blocked, result.Output!.Transition.Result);
         Assert.Equal(IpcPlayApplicationStateNames.NotApplied, result.Output.Transition.ApplicationState);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Compiling, result.Output.LifecycleState);
+        Assert.Equal(IpcEditorLifecycleState.Compiling, result.Output.LifecycleState);
     }
 
     [Fact]

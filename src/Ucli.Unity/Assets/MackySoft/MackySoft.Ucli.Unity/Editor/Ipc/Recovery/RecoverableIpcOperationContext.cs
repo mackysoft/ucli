@@ -6,6 +6,8 @@ using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
+#nullable enable annotations
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Provides one recoverable IPC operation's persisted state to a method handler. </summary>

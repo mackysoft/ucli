@@ -10,8 +10,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
 #pragma warning disable CS0414 // Unity reads this serialized test field through reflection.
         [SerializeField]
-        private int integerValue = 1;
-#pragma warning restore CS0414
+        private int integerValue;
 
         [SerializeField]
         private List<IndexCatalogNestedValue> items = new();

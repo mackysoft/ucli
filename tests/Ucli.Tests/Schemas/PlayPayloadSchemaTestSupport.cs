@@ -15,7 +15,7 @@ internal static class PlayPayloadSchemaTestSupport
         bool canAcceptExecutionRequests = true,
         bool isPlaying = false,
         bool isPlayingOrWillChangePlaymode = false,
-        string generation = "42")
+        long playModeGeneration = 42)
     {
         return $$"""
             {
@@ -25,9 +25,8 @@ internal static class PlayPayloadSchemaTestSupport
               "projectFingerprint": "{{SampleProjectFingerprint.ToString()}}",
               "lifecycleState": "{{lifecycleState}}",
               "blockingReason": {{blockingReasonJson}},
-              "compileState": "idle",
-              "compileGeneration": "12",
-              "domainReloadGeneration": "7",
+              "compileState": "ready",
+              "generations": {{CreateUnityGenerationSnapshotJson(playModeGeneration)}},
               "canAcceptExecutionRequests": {{JsonSerializer.Serialize(canAcceptExecutionRequests)}},
               "observedAtUtc": "2026-05-21T00:00:00+00:00",
               "actionRequired": null,
@@ -36,8 +35,7 @@ internal static class PlayPayloadSchemaTestSupport
                 "state": "{{playModeState}}",
                 "transition": "{{playModeTransition}}",
                 "isPlaying": {{JsonSerializer.Serialize(isPlaying)}},
-                "isPlayingOrWillChangePlaymode": {{JsonSerializer.Serialize(isPlayingOrWillChangePlaymode)}},
-                "generation": "{{generation}}"
+                "isPlayingOrWillChangePlaymode": {{JsonSerializer.Serialize(isPlayingOrWillChangePlaymode)}}
               }
             }
             """;
@@ -53,12 +51,12 @@ internal static class PlayPayloadSchemaTestSupport
             canAcceptExecutionRequests: false,
             isPlaying: true,
             isPlayingOrWillChangePlaymode: true,
-            generation: "43");
+            playModeGeneration: 43);
     }
 
     public static string CreateReadyStoppedPlayLifecycleSnapshotJson ()
     {
-        return CreatePlayLifecycleSnapshotJson(generation: "44");
+        return CreatePlayLifecycleSnapshotJson(playModeGeneration: 44);
     }
 
     public static string CreateCompilingStoppedPlayLifecycleSnapshotJson ()
@@ -67,7 +65,7 @@ internal static class PlayPayloadSchemaTestSupport
             lifecycleState: "compiling",
             blockingReasonJson: "\"compile\"",
             canAcceptExecutionRequests: false,
-            generation: "44");
+            playModeGeneration: 44);
     }
 
     public static string CreatePlayEnterPayloadJson (
@@ -92,9 +90,8 @@ internal static class PlayPayloadSchemaTestSupport
               "editorMode": "gui",
               "lifecycleState": "{{lifecycleState}}",
               "blockingReason": {{blockingReasonJson}},
-              "compileState": "idle",
-              "compileGeneration": "12",
-              "domainReloadGeneration": "7",
+              "compileState": "ready",
+              "generations": {{CreateUnityGenerationSnapshotJson(playModeGeneration: 43)}},
               "canAcceptExecutionRequests": {{JsonSerializer.Serialize(canAcceptExecutionRequests)}},
               "observedAtUtc": "2026-05-21T00:00:00+00:00",
               "actionRequired": null,
@@ -103,8 +100,7 @@ internal static class PlayPayloadSchemaTestSupport
                 "state": "{{playModeState}}",
                 "transition": "{{playModeTransition}}",
                 "isPlaying": {{JsonSerializer.Serialize(isPlaying)}},
-                "isPlayingOrWillChangePlaymode": {{JsonSerializer.Serialize(isPlayingOrWillChangePlaymode)}},
-                "generation": "43"
+                "isPlayingOrWillChangePlaymode": {{JsonSerializer.Serialize(isPlayingOrWillChangePlaymode)}}
               },
               "transition": {{transitionJson}},
               "timeoutMilliseconds": 1000
@@ -121,7 +117,7 @@ internal static class PlayPayloadSchemaTestSupport
         string playModeTransition = "none",
         bool isPlaying = false,
         bool isPlayingOrWillChangePlaymode = false,
-        string generation = "44")
+        long playModeGeneration = 44)
     {
         return $$"""
             {
@@ -135,9 +131,8 @@ internal static class PlayPayloadSchemaTestSupport
               "editorMode": "gui",
               "lifecycleState": "{{lifecycleState}}",
               "blockingReason": {{blockingReasonJson}},
-              "compileState": "idle",
-              "compileGeneration": "12",
-              "domainReloadGeneration": "7",
+              "compileState": "ready",
+              "generations": {{CreateUnityGenerationSnapshotJson(playModeGeneration)}},
               "canAcceptExecutionRequests": {{JsonSerializer.Serialize(canAcceptExecutionRequests)}},
               "observedAtUtc": "2026-05-21T00:00:00+00:00",
               "actionRequired": null,
@@ -146,8 +141,7 @@ internal static class PlayPayloadSchemaTestSupport
                 "state": "{{playModeState}}",
                 "transition": "{{playModeTransition}}",
                 "isPlaying": {{JsonSerializer.Serialize(isPlaying)}},
-                "isPlayingOrWillChangePlaymode": {{JsonSerializer.Serialize(isPlayingOrWillChangePlaymode)}},
-                "generation": "{{generation}}"
+                "isPlayingOrWillChangePlaymode": {{JsonSerializer.Serialize(isPlayingOrWillChangePlaymode)}}
               },
               "transition": {{transitionJson}},
               "timeoutMilliseconds": 1000
@@ -172,9 +166,8 @@ internal static class PlayPayloadSchemaTestSupport
               "editorMode": "gui",
               "lifecycleState": "ready",
               "blockingReason": null,
-              "compileState": "idle",
-              "compileGeneration": "12",
-              "domainReloadGeneration": "7",
+              "compileState": "ready",
+              "generations": {{CreateUnityGenerationSnapshotJson(playModeGeneration: 42)}},
               "canAcceptExecutionRequests": true,
               "observedAtUtc": "2026-05-21T00:00:00+00:00",
               "actionRequired": null,
@@ -183,10 +176,21 @@ internal static class PlayPayloadSchemaTestSupport
                 "state": "{{playModeState}}",
                 "transition": "{{playModeTransition}}",
                 "isPlaying": false,
-                "isPlayingOrWillChangePlaymode": false,
-                "generation": "42"
+                "isPlayingOrWillChangePlaymode": false
               },
               "timeoutMilliseconds": 1000
+            }
+            """;
+    }
+
+    private static string CreateUnityGenerationSnapshotJson (long playModeGeneration)
+    {
+        return $$"""
+            {
+              "compileGeneration": 12,
+              "domainReloadGeneration": 7,
+              "assetRefreshGeneration": 5,
+              "playModeGeneration": {{playModeGeneration}}
             }
             """;
     }

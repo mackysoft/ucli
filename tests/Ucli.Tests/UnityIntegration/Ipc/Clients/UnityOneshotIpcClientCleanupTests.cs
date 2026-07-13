@@ -143,9 +143,9 @@ public sealed class UnityOneshotIpcClientCleanupTests
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.NotNull(result.FailureInfo!.StartupFailure);
         var startupFailure = result.FailureInfo.StartupFailure!;
-        Assert.Equal("timeout", startupFailure.Startup!.StartupStatus);
-        Assert.Equal("endpointNotRegistered", startupFailure.Startup.StartupBlockingReason);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Unknown), startupFailure.Startup.ProcessAction);
+        Assert.Equal(DaemonStartupStatus.Timeout, startupFailure.Startup!.StartupStatus);
+        Assert.Equal(DaemonStartupBlockingReason.EndpointNotRegistered, startupFailure.Startup.StartupBlockingReason);
+        Assert.Equal(DaemonStartupProcessAction.Unknown, startupFailure.Startup.ProcessAction);
         Assert.Equal("startupFailed", startupFailure.Diagnosis!.Reason);
         AssertCleanupShutdownsUseLaunchSession(launcher, transportClient, unityProject, launchDeadlineReferenceUtc);
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);

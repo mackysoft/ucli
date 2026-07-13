@@ -9,6 +9,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [SetUp]
         public void SetUp ()
         {
+            UnityEditorSessionStateStore.SetCompileGenerationForTests(0);
             UnityEditorSessionStateStore.SetDomainReloadGenerationForTests(0);
             UnityEditorSessionStateStore.SetPlayModeGenerationForTests(0);
             UnityEditorSessionStateStore.SetAssetRefreshGenerationForTests(0);
@@ -18,10 +19,29 @@ namespace MackySoft.Ucli.Unity.Tests
         [TearDown]
         public void TearDown ()
         {
+            UnityEditorSessionStateStore.SetCompileGenerationForTests(0);
             UnityEditorSessionStateStore.SetDomainReloadGenerationForTests(0);
             UnityEditorSessionStateStore.SetPlayModeGenerationForTests(0);
             UnityEditorSessionStateStore.SetAssetRefreshGenerationForTests(0);
             UnityEditorSessionStateStore.SetEditorInstanceIdForTests(null);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void UnityEditorLifecycleTelemetryState_WhenRecreatedAfterCompilation_PreservesCompileGeneration ()
+        {
+            var beforeReload = new UnityEditorLifecycleTelemetryState();
+            beforeReload.OnCompilationStarted();
+            beforeReload.OnCompilationFinished();
+            var compileGenerationBeforeReload = beforeReload.CaptureGenerationSnapshot().CompileGeneration;
+            beforeReload.OnBeforeAssemblyReload();
+
+            var afterReload = new UnityEditorLifecycleTelemetryState();
+            afterReload.OnAfterAssemblyReload();
+
+            Assert.That(
+                afterReload.CaptureGenerationSnapshot().CompileGeneration,
+                Is.EqualTo(compileGenerationBeforeReload));
         }
 
         [Test]
@@ -54,6 +74,21 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(actual, Is.EqualTo(4));
             Assert.That(UnityEditorSessionStateStore.RestoreDomainReloadGeneration(), Is.EqualTo(4));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void AdvanceDomainReloadGeneration_WhenValueExceedsInt32Range_PreservesInt64Value ()
+        {
+            var persisted = (long)int.MaxValue + 1L;
+            UnityEditorSessionStateStore.SetDomainReloadGenerationForTests(persisted);
+
+            var actual = UnityEditorSessionStateStore.AdvanceDomainReloadGeneration();
+
+            Assert.That(actual, Is.EqualTo(persisted + 1L));
+            Assert.That(
+                UnityEditorSessionStateStore.RestoreDomainReloadGeneration(),
+                Is.EqualTo(persisted + 1L));
         }
 
         [Test]

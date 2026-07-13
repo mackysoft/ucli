@@ -38,7 +38,8 @@ public sealed class DaemonLaunchServiceTests
         };
         var readinessProbe = new RecordingDaemonStartupReadinessProbe
         {
-            NextResult = DaemonStartupReadinessProbeResult.Ready(DaemonStartLifecycleSnapshot.Ready()),
+            NextResult = DaemonStartupReadinessProbeResult.Ready(
+                IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Ready)),
         };
         var compensationService = new RecordingDaemonLaunchCompensationService();
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
@@ -98,10 +99,8 @@ public sealed class DaemonLaunchServiceTests
         };
         var readinessProbe = new RecordingDaemonStartupReadinessProbe
         {
-            NextResult = DaemonStartupReadinessProbeResult.Ready(new DaemonStartLifecycleSnapshot(
-                IpcEditorLifecycleStateCodec.Ready,
-                null,
-                CanAcceptExecutionRequests: true)),
+            NextResult = DaemonStartupReadinessProbeResult.Ready(
+                IpcUnityEditorObservationTestFactory.Create(IpcEditorLifecycleState.Ready)),
         };
         var progressObserver = new CollectingDaemonStartProgressObserver();
         var service = CreateService(
@@ -127,11 +126,11 @@ public sealed class DaemonLaunchServiceTests
             DaemonStartProgressEvent.EndpointRegistered,
             DaemonStartProgressEvent.LifecycleObserved);
         var waitingObservation = progressObserver.PayloadAt<DaemonStartStartupProgressObservation>(2);
-        Assert.Equal("batchmode", waitingObservation.EditorMode);
+        Assert.Equal(DaemonEditorMode.Batchmode, waitingObservation.EditorMode);
         Assert.Equal(999, waitingObservation.ProcessId);
-        var lifecycleSnapshot = progressObserver.PayloadAt<DaemonStartLifecycleSnapshot>(^1);
-        Assert.Equal(IpcEditorLifecycleStateCodec.Ready, lifecycleSnapshot.LifecycleState);
-        Assert.True(lifecycleSnapshot.CanAcceptExecutionRequests);
+        var lifecycleObservation = progressObserver.PayloadAt<IpcUnityEditorObservation>(^1);
+        Assert.Equal(IpcEditorLifecycleState.Ready, lifecycleObservation.State.LifecycleState);
+        Assert.True(IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(lifecycleObservation.State.LifecycleState));
     }
 
     [Fact]
@@ -164,7 +163,8 @@ public sealed class DaemonLaunchServiceTests
         };
         var readinessProbe = new RecordingDaemonStartupReadinessProbe
         {
-            NextResult = DaemonStartupReadinessProbeResult.Ready(DaemonStartLifecycleSnapshot.Ready()),
+            NextResult = DaemonStartupReadinessProbeResult.Ready(
+                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: context.ProjectFingerprint)),
         };
         var progressFailure = new InvalidOperationException("batchmode endpoint-ready progress failed");
         var progressObserver = new ConfigurableDaemonStartProgressObserver
@@ -292,8 +292,8 @@ public sealed class DaemonLaunchServiceTests
             launchAttemptStore,
             context,
             AssertStartupLaunchAttemptId(result.Startup),
-            ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed),
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.None));
+            DaemonStartupStatus.Failed,
+            DaemonStartupProcessAction.None);
     }
 
     [Fact]
@@ -359,10 +359,10 @@ public sealed class DaemonLaunchServiceTests
             launchAttemptStore,
             context,
             AssertStartupLaunchAttemptId(result.Startup),
-            ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed),
-            ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated));
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupStatus.Failed), launchAttempt.StartupStatus);
-        Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Terminated), launchAttempt.ProcessAction);
+            DaemonStartupStatus.Failed,
+            DaemonStartupProcessAction.Terminated);
+        Assert.Equal(DaemonStartupStatus.Failed, launchAttempt.StartupStatus);
+        Assert.Equal(DaemonStartupProcessAction.Terminated, launchAttempt.ProcessAction);
         Assert.Equal(processStartedAtUtc, launchAttempt.ProcessStartedAtUtc);
     }
 

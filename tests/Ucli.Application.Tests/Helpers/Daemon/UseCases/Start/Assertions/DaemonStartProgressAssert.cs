@@ -10,11 +10,11 @@ internal static class DaemonStartProgressAssert
         var startedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[0].Payload);
         Assert.Equal(expectedProjectFingerprint, startedEntry.ProjectFingerprint);
         Assert.Equal(expectedTimeoutMilliseconds, startedEntry.TimeoutMilliseconds);
-        Assert.Equal("batchmode", startedEntry.EditorMode);
-        Assert.Equal("auto", startedEntry.OnStartupBlocked);
+        Assert.Equal(DaemonEditorMode.Batchmode, startedEntry.EditorMode);
+        Assert.Equal(DaemonStartupBlockedProcessPolicy.Auto, startedEntry.OnStartupBlocked);
         Assert.Null(startedEntry.Result);
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
-        Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Succeeded), completedEntry.Result);
+        Assert.Equal(CommandProgressResult.Succeeded, completedEntry.Result);
         Assert.Equal("started", completedEntry.StartStatus);
         Assert.Equal("running", completedEntry.DaemonStatus);
         Assert.Null(completedEntry.ErrorCode);
@@ -28,7 +28,7 @@ internal static class DaemonStartProgressAssert
         string expectedErrorCode)
     {
         var completedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[^1].Payload);
-        Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), completedEntry.Result);
+        Assert.Equal(CommandProgressResult.Failed, completedEntry.Result);
         Assert.Equal("failed", completedEntry.StartStatus);
         Assert.Equal("notRunning", completedEntry.DaemonStatus);
         Assert.Equal(expectedErrorCode, completedEntry.ErrorCode);
@@ -39,7 +39,7 @@ internal static class DaemonStartProgressAssert
         string expectedErrorCode)
     {
         var pluginCompletedEntry = Assert.IsType<DaemonStartProgressEntry>(progressSink.Entries[2].Payload);
-        Assert.Equal(ContractLiteralCodec.ToValue(CommandProgressResult.Failed), pluginCompletedEntry.Result);
+        Assert.Equal(CommandProgressResult.Failed, pluginCompletedEntry.Result);
         Assert.Equal(expectedErrorCode, pluginCompletedEntry.ErrorCode);
         CompletedWithStartupFailure(progressSink, expectedErrorCode);
     }

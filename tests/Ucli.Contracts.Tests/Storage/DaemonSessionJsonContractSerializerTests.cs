@@ -1,5 +1,7 @@
 using System.Text.Json;
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Contracts.Tests.Storage;
@@ -36,10 +38,10 @@ public sealed class DaemonSessionJsonContractSerializerTests
         Assert.Equal("token-123", contract.SessionToken);
         Assert.Equal(new ProjectFingerprint(ProjectFingerprintText), contract.ProjectFingerprint);
         Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"), contract.IssuedAtUtc);
-        Assert.Equal("batchmode", contract.EditorMode);
-        Assert.Equal("cli", contract.OwnerKind);
+        Assert.Equal(DaemonEditorMode.Batchmode, contract.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKind.Cli, contract.OwnerKind);
         Assert.True(contract.CanShutdownProcess);
-        Assert.Equal("namedPipe", contract.EndpointTransportKind);
+        Assert.Equal(IpcTransportKind.NamedPipe, contract.EndpointTransportKind);
         Assert.Equal("ucli-daemon-endpoint", contract.EndpointAddress);
         Assert.Equal(1234, contract.ProcessId);
         Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"), contract.ProcessStartedAtUtc);
@@ -121,10 +123,10 @@ public sealed class DaemonSessionJsonContractSerializerTests
             SessionToken: "token-123",
             ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
+            EditorMode: DaemonEditorMode.Batchmode,
+            OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
+            EndpointTransportKind: IpcTransportKind.NamedPipe,
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"),
@@ -180,10 +182,10 @@ public sealed class DaemonSessionJsonContractSerializerTests
             SessionToken: "token-123",
             ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),
-            EditorMode: "batchmode",
-            OwnerKind: "cli",
+            EditorMode: DaemonEditorMode.Batchmode,
+            OwnerKind: DaemonSessionOwnerKind.Cli,
             CanShutdownProcess: true,
-            EndpointTransportKind: "namedPipe",
+            EndpointTransportKind: IpcTransportKind.NamedPipe,
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"),

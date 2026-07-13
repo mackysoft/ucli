@@ -253,13 +253,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ? targetReference.Alias
                 : null;
 
-            if (validatedTargetState.SourceGlobalObjectId != null
-                && executionContext.TryGetAssetShadow(validatedTargetState.SourceGlobalObjectId, out var shadowAsset, out var shadowAssetPath))
+            var sourceGlobalObjectId = validatedTargetState.SourceGlobalObjectId;
+            if (sourceGlobalObjectId != null
+                && executionContext.TryGetAssetShadow(sourceGlobalObjectId, out var shadowAsset, out var shadowAssetPath))
             {
                 binding = new TargetBinding(
                     shadowAsset,
                     shadowAssetPath,
-                    validatedTargetState.SourceGlobalObjectId,
+                    sourceGlobalObjectId,
                     alias,
                     plannedOwnerExecutionKey: null);
             }

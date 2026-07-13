@@ -7,7 +7,9 @@ using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Ops;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 
@@ -15,10 +17,7 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class CommandResultFactoryStartupFailureTests
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
+    private static readonly CommandResultJsonContractWriter ResultWriter = new();
 
     private static StartupFailureCommandResultCase[] StartupFailureCommandResults ()
     {
@@ -77,7 +76,7 @@ public sealed class CommandResultFactoryStartupFailureTests
     {
         foreach (StartupFailureCommandResultCase testCase in StartupFailureCommandResults())
         {
-            using var json = JsonDocument.Parse(JsonSerializer.Serialize(testCase.Result, SerializerOptions));
+            using var json = JsonDocument.Parse(ResultWriter.Write(testCase.Result));
             var root = json.RootElement;
             JsonAssert.For(root)
                 .HasString("command", testCase.CommandName)
@@ -112,19 +111,19 @@ public sealed class CommandResultFactoryStartupFailureTests
     {
         return new StartupFailureDetail(
             Startup: new DaemonStartupObservationOutput(
-                StartupStatus: "blocked",
-                StartupBlockingReason: "compile",
+                StartupStatus: DaemonStartupStatus.Blocked,
+                StartupBlockingReason: DaemonStartupBlockingReason.Compile,
                 LaunchAttemptId: null,
-                EditorMode: "batchmode",
-                OwnerKind: "cli",
+                EditorMode: DaemonEditorMode.Batchmode,
+                OwnerKind: DaemonSessionOwnerKind.Cli,
                 CanShutdownProcess: true,
                 ProcessId: 1234,
                 StartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 ElapsedMilliseconds: null,
-                ProcessAction: "terminated",
+                ProcessAction: DaemonStartupProcessAction.Terminated,
                 ProcessTermination: null,
                 ArtifactPath: null,
-                RetryDisposition: "retryAfterFix"),
+                RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
             Diagnosis: new DaemonDiagnosisOutput(
                 Reason: "unityScriptCompilationFailed",
                 Message: "Unity startup is blocked.",
@@ -135,7 +134,7 @@ public sealed class CommandResultFactoryStartupFailureTests
                 EditorInstancePath: null,
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
-                StartupPhase: "scriptCompilation",
+                StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
                 ActionRequired: "fixCompileErrors",
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
                     Kind: "compiler",
@@ -144,7 +143,7 @@ public sealed class CommandResultFactoryStartupFailureTests
                     Line: 10,
                     Column: 5,
                     Message: "error CS0246")),
-            RetryDisposition: "retryAfterFix",
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
             SafeToRetryImmediately: false);
     }
 

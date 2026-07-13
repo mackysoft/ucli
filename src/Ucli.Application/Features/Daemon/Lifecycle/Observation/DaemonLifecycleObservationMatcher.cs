@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 
@@ -15,7 +14,7 @@ internal static class DaemonLifecycleObservationMatcher
         ArgumentNullException.ThrowIfNull(session);
 
         if (session.ProcessId != observation.ProcessId
-            || !ContractLiteralCodec.Matches(observation.EditorMode, session.EditorMode))
+            || session.EditorMode != observation.State.EditorMode)
         {
             return false;
         }
@@ -29,5 +28,21 @@ internal static class DaemonLifecycleObservationMatcher
                     session.ProcessStartedAtUtc.Value),
             _ => false,
         };
+    }
+
+    /// <summary> Determines whether one lifecycle observation belongs to the specified daemon session editor instance. </summary>
+    public static bool MatchesSessionByEditorInstance (
+        DaemonLifecycleObservation observation,
+        DaemonSession session)
+    {
+        ArgumentNullException.ThrowIfNull(observation);
+        ArgumentNullException.ThrowIfNull(session);
+
+        // NOTE:
+        // Domain-reload recovery must use deterministic editor-instance identity. Process start time remains a
+        // live-process guard elsewhere, but it must not prove ownership of a recovering lifecycle sidecar.
+        return session.ProcessId == observation.ProcessId
+            && session.EditorMode == observation.State.EditorMode
+            && session.EditorInstanceId == observation.EditorInstanceId;
     }
 }

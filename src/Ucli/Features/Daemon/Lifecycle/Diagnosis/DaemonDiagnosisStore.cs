@@ -78,7 +78,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
                 $"Failed to deserialize daemon diagnosis JSON: {diagnosisPath}. {exception.Message}"));
         }
 
-        if (!TryValidate(contract, diagnosisPath, out var validationError))
+        if (!TryValidate(contract, diagnosisPath, out var startupPhase, out var validationError))
         {
             return DaemonDiagnosisReadResult.Failure(validationError!);
         }
@@ -94,7 +94,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             SessionIssuedAtUtc: contract.SessionIssuedAtUtc,
             ProcessStartedAtUtc: contract.ProcessStartedAtUtc,
             UnityLogPath: StringValueNormalizer.TrimToNull(contract.UnityLogPath),
-            StartupPhase: StringValueNormalizer.TrimToNull(contract.StartupPhase),
+            StartupPhase: startupPhase,
             ActionRequired: StringValueNormalizer.TrimToNull(contract.ActionRequired),
             PrimaryDiagnostic: contract.PrimaryDiagnostic is null
                 ? null
@@ -145,7 +145,9 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             SessionIssuedAtUtc: diagnosis.SessionIssuedAtUtc,
             ProcessStartedAtUtc: diagnosis.ProcessStartedAtUtc,
             UnityLogPath: diagnosis.UnityLogPath,
-            StartupPhase: diagnosis.StartupPhase,
+            StartupPhase: diagnosis.StartupPhase.HasValue
+                ? ContractLiteralCodec.ToValue(diagnosis.StartupPhase.Value)
+                : null,
             ActionRequired: diagnosis.ActionRequired,
             PrimaryDiagnostic: diagnosis.PrimaryDiagnostic is null
                 ? null
@@ -228,8 +230,10 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
     private static bool TryValidate (
         DaemonDiagnosisJsonContract contract,
         string diagnosisPath,
+        out DaemonDiagnosisStartupPhase? startupPhase,
         out ExecutionError? error)
     {
+        startupPhase = null;
         if (!StringValueNormalizer.TryTrimToNonEmpty(contract.Reason, out _))
         {
             error = ExecutionError.InvalidArgument($"Daemon diagnosis reason is invalid: {diagnosisPath}");
@@ -267,7 +271,7 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             return false;
         }
 
-        if (!TryValidateOptionalStartupPhase(contract.StartupPhase, diagnosisPath, out error))
+        if (!TryParseOptionalStartupPhase(contract.StartupPhase, diagnosisPath, out startupPhase, out error))
         {
             return false;
         }
@@ -322,8 +326,10 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
             return false;
         }
 
-        if (!TryValidateOptionalStartupPhase(diagnosis.StartupPhase, diagnosisPath, out error))
+        if (diagnosis.StartupPhase.HasValue
+            && !ContractLiteralCodec.IsDefined(diagnosis.StartupPhase.Value))
         {
+            error = ExecutionError.InvalidArgument($"Daemon diagnosis startupPhase is invalid: {diagnosisPath}");
             return false;
         }
 
@@ -341,23 +347,27 @@ internal sealed class DaemonDiagnosisStore : IDaemonDiagnosisStore
         return true;
     }
 
-    private static bool TryValidateOptionalStartupPhase (
+    private static bool TryParseOptionalStartupPhase (
         string? startupPhase,
         string diagnosisPath,
+        out DaemonDiagnosisStartupPhase? parsedStartupPhase,
         out ExecutionError? error)
     {
         if (StringValueNormalizer.TrimToNull(startupPhase) is not string normalizedStartupPhase)
         {
+            parsedStartupPhase = null;
             error = null;
             return true;
         }
 
-        if (!ContractLiteralCodec.IsDefined<DaemonDiagnosisStartupPhase>(normalizedStartupPhase))
+        if (!ContractLiteralCodec.TryParse<DaemonDiagnosisStartupPhase>(normalizedStartupPhase, out var parsed))
         {
+            parsedStartupPhase = null;
             error = ExecutionError.InvalidArgument($"Daemon diagnosis startupPhase is invalid: {diagnosisPath}");
             return false;
         }
 
+        parsedStartupPhase = parsed;
         error = null;
         return true;
     }

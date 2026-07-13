@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using NUnit.Framework;
@@ -30,8 +31,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 repositoryRoot: "/repo",
                 projectFingerprint: null!,
                 unityVersion: "6000.0.0f1",
-                compileState: "ready",
-                domainReloadGeneration: "generation-1"));
+                compileState: IpcCompileState.Ready,
+                domainReloadGeneration: 1));
 
             Assert.That(exception!.ParamName, Is.EqualTo("projectFingerprint"));
         }
