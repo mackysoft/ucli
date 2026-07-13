@@ -105,30 +105,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
         private static bool IsCanonical ([NotNullWhen(true)] string? value)
         {
-            if (value == null || value.Length != EncodedLength)
-            {
-                return false;
-            }
-
-            for (var index = 0; index < value.Length; index++)
-            {
-                if (!IsBase64UrlCharacter(value[index]))
-                {
-                    return false;
-                }
-            }
-
-            // Sixteen bytes leave two data bits in the final base64 digit. The four unused bits must be zero.
-            return value[EncodedLength - 1] is 'A' or 'Q' or 'g' or 'w';
-        }
-
-        private static bool IsBase64UrlCharacter (char character)
-        {
-            return (character >= 'A' && character <= 'Z')
-                || (character >= 'a' && character <= 'z')
-                || (character >= '0' && character <= '9')
-                || character == '-'
-                || character == '_';
+            return value is { Length: EncodedLength }
+                && Base64UrlCodec.IsCanonical(value);
         }
     }
 }

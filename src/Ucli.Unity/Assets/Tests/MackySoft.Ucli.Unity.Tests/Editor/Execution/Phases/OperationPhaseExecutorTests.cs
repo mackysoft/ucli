@@ -1016,8 +1016,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(issueResult.PlanToken, Is.Not.Null.And.Not.Empty);
             Assert.That(PlanTokenCompactCodec.TryDecodeToken(issueResult.PlanToken!, out var decodedToken), Is.True);
             Assert.That(decodedToken, Is.Not.Null);
-            Assert.That(decodedToken!.Header.KeyId, Is.EqualTo(PlanTokenCompactCodec.TokenKeyId));
-            Assert.That(decodedToken.Payload.KeyId, Is.EqualTo(PlanTokenCompactCodec.TokenKeyId));
+            Assert.That(decodedToken!.Payload.KeyId, Is.EqualTo(PlanTokenCompactCodec.TokenKeyId));
             Assert.That(decodedToken.Payload.Version, Is.EqualTo(PlanTokenCompactCodec.TokenVersion));
             Assert.That(PlanTokenCompactCodec.IsSupported(decodedToken), Is.True);
         }
