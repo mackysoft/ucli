@@ -37,7 +37,10 @@ public sealed class QueryServiceAssetsFindTests
                     CommandName: "query.assets.find",
                     OperationId: "assets.find",
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
-                    Filter: new QueryAssetsFindFilter("UnityEngine.Material, UnityEngine.CoreModule", null, null),
+                    Query: new AssetSearchLookupQuery(
+                        new UnityTypeId("UnityEngine.Material, UnityEngine.CoreModule"),
+                        null,
+                        null),
                     WindowOptions: new BoundedWindowOptions(
                         All: true,
                         Limit: 100,
@@ -79,7 +82,10 @@ public sealed class QueryServiceAssetsFindTests
                     CommandName: "query.assets.find",
                     OperationId: "assets.find",
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
-                    Filter: new QueryAssetsFindFilter("UnityEngine.Material, UnityEngine.CoreModule", null, null),
+                    Query: new AssetSearchLookupQuery(
+                        new UnityTypeId("UnityEngine.Material, UnityEngine.CoreModule"),
+                        null,
+                        null),
                     WindowOptions: new BoundedWindowOptions(
                         All: false,
                         Limit: 1,
@@ -141,7 +147,10 @@ public sealed class QueryServiceAssetsFindTests
                     CommandName: "query.assets.find",
                     OperationId: "assets.find",
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
-                    Filter: new QueryAssetsFindFilter("UnityEngine.Material, UnityEngine.CoreModule", null, null),
+                    Query: new AssetSearchLookupQuery(
+                        new UnityTypeId("UnityEngine.Material, UnityEngine.CoreModule"),
+                        null,
+                        null),
                     WindowOptions: new BoundedWindowOptions(
                         All: false,
                         Limit: 1,

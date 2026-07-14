@@ -75,7 +75,7 @@ internal static class RequestReadIndexAccessInvocationAssert
         bool expectedFailFast)
     {
         var invocation = Assert.Single(accessService.Invocations);
-        Assert.Equal(expectedTypeId, invocation.Query.TypeId);
+        Assert.Equal(expectedTypeId, invocation.Query.TypeId!.Value);
         Assert.Equal(expectedFailFast, invocation.FailFast);
         return invocation;
     }

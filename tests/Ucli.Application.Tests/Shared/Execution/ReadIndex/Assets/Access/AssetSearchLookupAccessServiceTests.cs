@@ -40,8 +40,8 @@ public sealed class AssetSearchLookupAccessServiceTests
             timeout: TimeSpan.FromMilliseconds(1200),
             readIndexMode: ReadIndexMode.AllowStale,
             query: new AssetSearchLookupQuery(
-                TypeId: "UnityEngine.Object, UnityEngine.CoreModule",
-                PathPrefix: "Assets/Data",
+                TypeId: new UnityTypeId("UnityEngine.Object, UnityEngine.CoreModule"),
+                PathPrefix: new UnityAssetPathPrefix("Assets/Data"),
                 NameContains: "spawn"));
 
         Assert.True(result.IsSuccess);
@@ -100,7 +100,10 @@ public sealed class AssetSearchLookupAccessServiceTests
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1200),
             readIndexMode: ReadIndexMode.RequireFresh,
-            query: new AssetSearchLookupQuery(TypeId: null, PathPrefix: "Assets/Data", NameContains: "Fresh"),
+            query: new AssetSearchLookupQuery(
+                TypeId: null,
+                PathPrefix: new UnityAssetPathPrefix("Assets/Data"),
+                NameContains: "Fresh"),
             failFast: true);
 
         Assert.True(result.IsSuccess);
@@ -168,7 +171,10 @@ public sealed class AssetSearchLookupAccessServiceTests
             mode: UnityExecutionMode.Auto,
             timeout: TimeSpan.FromMilliseconds(1200),
             readIndexMode: ReadIndexMode.AllowStale,
-            query: new AssetSearchLookupQuery(TypeId: null, PathPrefix: "Assets/Data", NameContains: "Fresh"));
+            query: new AssetSearchLookupQuery(
+                TypeId: null,
+                PathPrefix: new UnityAssetPathPrefix("Assets/Data"),
+                NameContains: "Fresh"));
 
         Assert.True(result.IsSuccess);
         Assert.Equal(AssetLookupSource.Source, result.Output!.AccessInfo.Source);
@@ -179,24 +185,39 @@ public sealed class AssetSearchLookupAccessServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Search_WhenQueryIsEmpty_ReturnsInvalidArgument ()
+    public void AssetSearchLookupQuery_WhenNoFilterIsSpecified_ThrowsArgumentException ()
     {
-        var service = new AssetSearchLookupAccessService(
-            new RecordingReadIndexArtifactReader(),
-            new RecordingReadIndexFreshnessEvaluator(),
-            new TestMutationReadPostconditionStore(),
-            new UnexpectedAssetLookupSourceRefreshService());
+        Assert.Throws<ArgumentException>(() => new AssetSearchLookupQuery(null, null, null));
+    }
 
-        var result = await service.SearchAsync(
-            ProjectContextTestFactory.CreateUnknownVersionUnityProject(),
-            UcliConfig.CreateDefault(),
-            mode: UnityExecutionMode.Auto,
-            timeout: TimeSpan.FromMilliseconds(1200),
-            readIndexMode: ReadIndexMode.RequireFresh,
-            query: new AssetSearchLookupQuery(null, null, null));
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData(" Player")]
+    [InlineData("Player ")]
+    public void AssetSearchLookupQuery_WhenNameFilterIsInvalid_ThrowsArgumentException (string nameContains)
+    {
+        var exception = Assert.Throws<ArgumentException>(
+            () => new AssetSearchLookupQuery(
+                new UnityTypeId("UnityEngine.Object, UnityEngine.CoreModule"),
+                null,
+                nameContains));
 
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.ErrorCode);
+        Assert.Equal("NameContains", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void AssetSearchLookupQuery_WhenNameFilterContainsMalformedUtf16_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(
+            () => new AssetSearchLookupQuery(
+                new UnityTypeId("UnityEngine.Object, UnityEngine.CoreModule"),
+                null,
+                new string('\uD800', 1)));
+
+        Assert.Equal("NameContains", exception.ParamName);
     }
 
     private static IndexAssetSearchEntryJsonContract CreateAssetSearchEntry (

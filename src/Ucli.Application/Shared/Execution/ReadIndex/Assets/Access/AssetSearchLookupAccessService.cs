@@ -42,11 +42,6 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         ArgumentNullException.ThrowIfNull(query);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!AssetLookupAccessUtilities.TryNormalizeSearchQuery(query, out var normalizedQuery, out var errorMessage))
-        {
-            return AssetSearchLookupReadResult.Failure(errorMessage, UcliCoreErrorCodes.InvalidArgument);
-        }
-
         if (readIndexMode == ReadIndexMode.Disabled)
         {
             return await SearchFromSourceAsync(
@@ -54,7 +49,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     config,
                     mode,
                     timeout,
-                    normalizedQuery,
+                    query,
                     "readIndex disabled by mode.",
                     failFast,
                     cancellationToken)
@@ -79,7 +74,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     config,
                     mode,
                     timeout,
-                    normalizedQuery,
+                    query,
                     lookupResult.Error.Message,
                     failFast,
                     cancellationToken)
@@ -99,7 +94,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     config,
                     mode,
                     timeout,
-                    normalizedQuery,
+                    query,
                     readPostconditionEvaluation.FallbackReason!,
                     failFast,
                     cancellationToken)
@@ -123,7 +118,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         {
             return AssetSearchLookupReadResult.Success(
                 new AssetSearchLookupReadOutput(
-                    FilterEntries(lookupResult.Value!.Entries!, normalizedQuery),
+                    FilterEntries(lookupResult.Value!.Entries!, query),
                     new AssetLookupAccessInfo(
                         Used: true,
                         Hit: true,
@@ -139,7 +134,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 config,
                 mode,
                 timeout,
-                normalizedQuery,
+                query,
                 $"Existing asset-search index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.",
                 failFast,
                 cancellationToken)
@@ -151,7 +146,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         UcliConfig config,
         UnityExecutionModeValue mode,
         TimeSpan timeout,
-        AssetSearchLookupQuery normalizedQuery,
+        AssetSearchLookupQuery query,
         string fallbackReason,
         bool failFast,
         CancellationToken cancellationToken)
@@ -174,7 +169,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         var response = refreshResult.Response!;
         return AssetSearchLookupReadResult.Success(
             new AssetSearchLookupReadOutput(
-                FilterEntries(response.AssetSearchEntries!, normalizedQuery),
+                FilterEntries(response.AssetSearchEntries!, query),
                 new AssetLookupAccessInfo(
                     Used: false,
                     Hit: true,
@@ -194,13 +189,13 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         {
             var entry = entries[i];
             if (query.TypeId != null
-                && !ContainsTypeId(entry.SearchTypeIds!, query.TypeId))
+                && !ContainsTypeId(entry.SearchTypeIds!, query.TypeId.Value))
             {
                 continue;
             }
 
             if (query.PathPrefix != null
-                && !entry.AssetPath!.StartsWith(query.PathPrefix, StringComparison.Ordinal))
+                && !entry.AssetPath!.StartsWith(query.PathPrefix.Value, StringComparison.Ordinal))
             {
                 continue;
             }

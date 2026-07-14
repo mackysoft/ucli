@@ -32,7 +32,7 @@ internal static class QueryCommandAssert
         Assert.Equal(UcliCommandNames.QueryAssetsFind, operation.CommandName);
         Assert.Equal("assets.find", operation.OperationId);
         Assert.Equal(UcliPrimitiveOperationNames.AssetsFind, operation.OperationName);
-        Assert.Equal(expectedTypeId, operation.Filter.TypeId);
+        Assert.Equal(expectedTypeId, operation.Query.TypeId!.Value);
         Assert.Equal(expectedLimit, operation.WindowOptions.Limit);
     }
 
