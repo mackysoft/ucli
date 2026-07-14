@@ -22,6 +22,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private const string ValidNonce = "AAAAAAAAAAAAAAAAAAAAAA";
 
+        private static readonly PlanTokenNonce ValidNonceValue = ParseNonce(ValidNonce);
+
         [Test]
         [Category("Size.Small")]
         public void EnvironmentSnapshot_WithNullProjectFingerprint_ThrowsArgumentNullException ()
@@ -52,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 stateFingerprint: StateFingerprint,
                 issuedAtUtc: issuedAtUtc,
                 expiresAtUtc: issuedAtUtc.AddMinutes(15),
-                nonce: new PlanTokenNonce(ValidNonce)));
+                nonce: ValidNonceValue));
 
             Assert.That(exception!.ParamName, Is.EqualTo("projectFingerprint"));
         }
@@ -89,11 +91,12 @@ namespace MackySoft.Ucli.Unity.Tests
         [TestCase("AAAAAAAAAAAAAAAAAAAAA+")]
         [TestCase("AAAAAAAAAAAAAAAAAAAAAB")]
         [Category("Size.Small")]
-        public void Nonce_WhenTextIsNotCanonical_ThrowsArgumentException (string nonce)
+        public void NonceTryParse_WhenTextIsNotCanonical_ReturnsFalse (string nonce)
         {
-            var exception = Assert.Throws<ArgumentException>(() => new PlanTokenNonce(nonce));
+            var result = PlanTokenNonce.TryParse(nonce, out var parsedNonce);
 
-            Assert.That(exception!.ParamName, Is.EqualTo("value"));
+            Assert.That(result, Is.False);
+            Assert.That(parsedNonce, Is.Null);
         }
 
         [Test]
@@ -297,7 +300,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(decodedToken!.Payload.RequestDigest, Is.EqualTo(RequestDigest));
             Assert.That(decodedToken.Payload.CompiledExecutionDigest, Is.EqualTo(CompiledExecutionDigest));
             Assert.That(decodedToken.Payload.StateFingerprint, Is.EqualTo(StateFingerprint));
-            Assert.That(decodedToken.Payload.Nonce, Is.EqualTo(new PlanTokenNonce(ValidNonce)));
+            Assert.That(decodedToken.Payload.Nonce, Is.EqualTo(ValidNonceValue));
         }
 
         [TestCase(0)]
@@ -379,7 +382,17 @@ namespace MackySoft.Ucli.Unity.Tests
                 stateFingerprint: StateFingerprint,
                 issuedAtUtc: issuedAtUtc,
                 expiresAtUtc: issuedAtUtc.AddMinutes(15),
-                nonce: new PlanTokenNonce(ValidNonce));
+                nonce: ValidNonceValue);
+        }
+
+        private static PlanTokenNonce ParseNonce (string value)
+        {
+            if (!PlanTokenNonce.TryParse(value, out var nonce))
+            {
+                throw new InvalidOperationException("Test nonce is invalid.");
+            }
+
+            return nonce;
         }
     }
 }

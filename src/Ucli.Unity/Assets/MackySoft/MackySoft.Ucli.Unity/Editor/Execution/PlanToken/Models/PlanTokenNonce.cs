@@ -16,24 +16,8 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
         private readonly string value;
 
-        /// <summary> Initializes a nonce from canonical unpadded base64url text. </summary>
-        /// <param name="value"> The canonical 22-character nonce text. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="value" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> is not the canonical encoding of 16 bytes. </exception>
-        internal PlanTokenNonce (string value)
+        private PlanTokenNonce (string value)
         {
-            if (value == null)
-            {
-                throw new ArgumentNullException(nameof(value));
-            }
-
-            if (!IsCanonical(value))
-            {
-                throw new ArgumentException(
-                    "Plan-token nonce must be the canonical unpadded base64url encoding of exactly 16 bytes.",
-                    nameof(value));
-            }
-
             this.value = value;
         }
 
@@ -41,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <returns> The generated nonce. </returns>
         internal static PlanTokenNonce Create ()
         {
-            var bytes = new byte[ByteLength];
+            Span<byte> bytes = stackalloc byte[ByteLength];
             RandomNumberGenerator.Fill(bytes);
             return new PlanTokenNonce(Base64UrlCodec.Encode(bytes));
         }
