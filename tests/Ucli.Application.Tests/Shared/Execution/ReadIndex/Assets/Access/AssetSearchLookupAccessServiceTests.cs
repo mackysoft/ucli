@@ -22,6 +22,7 @@ public sealed class AssetSearchLookupAccessServiceTests
                     Entries:
                     [
                         CreateAssetSearchEntry("Assets/Data/Spawner.asset", "11111111111111111111111111111111", "Spawner", "Game.Spawner, Assembly-CSharp"),
+                        CreateAssetSearchEntry("Assets/DataExtra/Spawner.asset", "33333333333333333333333333333333", "Spawner", "Game.Spawner, Assembly-CSharp"),
                         CreateAssetSearchEntry("Assets/Data/Other.asset", "22222222222222222222222222222222", "Other", "Game.Other, Assembly-CSharp"),
                     ])),
         };

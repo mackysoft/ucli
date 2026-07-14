@@ -185,6 +185,8 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         AssetSearchLookupQuery query)
     {
         var matches = new List<IndexAssetSearchEntryJsonContract>(entries.Count);
+        var pathPrefix = query.PathPrefix?.Value;
+        var descendantPathPrefix = pathPrefix is null ? null : pathPrefix + "/";
         for (var i = 0; i < entries.Count; i++)
         {
             var entry = entries[i];
@@ -194,8 +196,9 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 continue;
             }
 
-            if (query.PathPrefix != null
-                && !entry.AssetPath!.StartsWith(query.PathPrefix.Value, StringComparison.Ordinal))
+            if (pathPrefix != null
+                && !string.Equals(entry.AssetPath, pathPrefix, StringComparison.Ordinal)
+                && !entry.AssetPath!.StartsWith(descendantPathPrefix!, StringComparison.Ordinal))
             {
                 continue;
             }
