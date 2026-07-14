@@ -20,14 +20,12 @@ internal static class QueryOperationArgsFactory
     /// <summary> Creates <c>ucli.comp.schema</c> args. </summary>
     public static JsonElement CreateCompSchema (string typeId)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(typeId);
         return IpcPayloadCodec.SerializeToElement(new ComponentTypeArgs(new UnityComponentTypeId(typeId)));
     }
 
     /// <summary> Creates <c>ucli.asset.schema</c> args for a type selector. </summary>
     public static JsonElement CreateAssetSchemaType (string typeId)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(typeId);
         return IpcPayloadCodec.SerializeToElement(new AssetSchemaArgs(
             type: new UnityTypeId(typeId),
             target: null));
