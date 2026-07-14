@@ -331,13 +331,6 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        if (string.IsNullOrWhiteSpace(unityProject.RepositoryRoot))
-        {
-            return ReadIndexArtifactReadResult<TContract>.Failure(
-                UcliCoreErrorCodes.InvalidArgument,
-                "Storage root path must not be empty.");
-        }
-
         string contractPath;
         try
         {
