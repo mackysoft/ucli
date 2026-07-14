@@ -1,14 +1,59 @@
+using System.Text.Json.Serialization;
+
 namespace MackySoft.Ucli.Contracts.Testing;
 
 /// <summary> Represents the <c>test.case.finished</c> stream payload. </summary>
-public readonly record struct TestCaseFinishedEntry (
-    Guid RunId,
-    string TestId,
-    string TestName,
-    string? AssemblyName,
-    string TestPlatform,
-    string[] Categories,
-    string Result,
-    long DurationMilliseconds,
-    string? Message,
-    string? StackTrace);
+public sealed record TestCaseFinishedEntry
+{
+    /// <summary> Initializes one test-case completion entry for a non-empty run identifier. </summary>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="RunId" /> is empty. </exception>
+    [JsonConstructor]
+    public TestCaseFinishedEntry (
+        Guid RunId,
+        string TestId,
+        string TestName,
+        string? AssemblyName,
+        string TestPlatform,
+        string[] Categories,
+        string Result,
+        long DurationMilliseconds,
+        string? Message,
+        string? StackTrace)
+    {
+        if (RunId == Guid.Empty)
+        {
+            throw new ArgumentException("Run id must not be empty.", nameof(RunId));
+        }
+
+        this.RunId = RunId;
+        this.TestId = TestId;
+        this.TestName = TestName;
+        this.AssemblyName = AssemblyName;
+        this.TestPlatform = TestPlatform;
+        this.Categories = Categories;
+        this.Result = Result;
+        this.DurationMilliseconds = DurationMilliseconds;
+        this.Message = Message;
+        this.StackTrace = StackTrace;
+    }
+
+    public Guid RunId { get; }
+
+    public string TestId { get; }
+
+    public string TestName { get; }
+
+    public string? AssemblyName { get; }
+
+    public string TestPlatform { get; }
+
+    public string[] Categories { get; }
+
+    public string Result { get; }
+
+    public long DurationMilliseconds { get; }
+
+    public string? Message { get; }
+
+    public string? StackTrace { get; }
+}
