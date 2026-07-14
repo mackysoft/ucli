@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
@@ -60,8 +60,8 @@ internal static class IndexCatalogContractValidator
                 || !ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationKind>(entry.Kind)
                 || !ContractLiteralInputParser.IsDefinedIgnoreCase<OperationPolicy>(entry.Policy)
                 || string.IsNullOrWhiteSpace(entry.Description)
-                || !IsSha256LowerHex(entry.DescribeKey)
-                || !IsSha256LowerHex(entry.DescribeHash))
+                || !Sha256Digest.TryParse(entry.DescribeKey, out _)
+                || !Sha256Digest.TryParse(entry.DescribeHash, out _))
             {
                 error = $"Operation catalog entry at index {i} is invalid.";
                 return false;
@@ -284,25 +284,6 @@ internal static class IndexCatalogContractValidator
         }
 
         error = null;
-        return true;
-    }
-
-    private static bool IsSha256LowerHex (string? value)
-    {
-        if (value == null || value.Length != 64)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < value.Length; i++)
-        {
-            var c = value[i];
-            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')))
-            {
-                return false;
-            }
-        }
-
         return true;
     }
 
