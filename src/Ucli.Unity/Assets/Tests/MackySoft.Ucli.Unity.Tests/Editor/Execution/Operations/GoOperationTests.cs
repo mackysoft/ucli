@@ -491,7 +491,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: false, changed: false, expectedTouchKind: null);
             Assert.That(result.Result.HasValue, Is.True);
-            Assert.That(result.Result!.Value.GetProperty("globalObjectId").GetString(), Is.EqualTo(string.Empty));
+            Assert.That(result.Result!.Value.GetProperty("globalObjectId").ValueKind, Is.EqualTo(JsonValueKind.Null));
         });
 
         [UnityTest]
@@ -541,7 +541,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             else
             {
-                Assert.That(describedGlobalObjectId, Is.EqualTo(string.Empty));
+                Assert.That(describedGlobalObjectId, Is.Null);
             }
         });
 
@@ -588,7 +588,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: false, changed: false, expectedTouchKind: null);
             Assert.That(result.Result.HasValue, Is.True);
-            Assert.That(result.Result!.Value.GetProperty("globalObjectId").GetString(), Is.EqualTo(string.Empty));
+            Assert.That(result.Result!.Value.GetProperty("globalObjectId").ValueKind, Is.EqualTo(JsonValueKind.Null));
         });
 
         [UnityTest]

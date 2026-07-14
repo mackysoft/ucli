@@ -9,7 +9,7 @@ public sealed record GameObjectDescriptionResult
     [JsonConstructor]
     public GameObjectDescriptionResult (
         string name,
-        string globalObjectId,
+        UnityGlobalObjectId? globalObjectId,
         IReadOnlyList<GameObjectComponentDescriptionResult> components,
         IReadOnlyList<GameObjectDescriptionResult> children)
     {
@@ -23,9 +23,8 @@ public sealed record GameObjectDescriptionResult
     [UcliDescription("GameObject name.")]
     public string Name { get; init; }
 
-    [UcliRequired]
-    [UcliDescription("GameObject GlobalObjectId.")]
-    public string GlobalObjectId { get; init; }
+    [UcliDescription("Stable GameObject GlobalObjectId when available.")]
+    public UnityGlobalObjectId? GlobalObjectId { get; init; }
 
     [UcliRequired]
     [UcliDescription("Components attached to this GameObject.")]
