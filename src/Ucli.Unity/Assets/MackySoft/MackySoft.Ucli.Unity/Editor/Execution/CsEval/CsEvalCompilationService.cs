@@ -47,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var sourceDigest = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(source));
+            var sourceDigest = Sha256Digest.Compute(Encoding.UTF8.GetBytes(source));
             var references = referenceResolver.Resolve();
 
             var sourceByteCount = Encoding.UTF8.GetByteCount(source);
@@ -87,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         }
 
         private CsEvalCompilationResult CompilePreparedSource (
-            string sourceDigest,
+            Sha256Digest sourceDigest,
             CsEvalReferenceSet references,
             CsEvalPreparedSource preparedSource,
             CancellationToken cancellationToken)
@@ -157,7 +157,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 path: "ucli.cs.eval.cs",
                 cancellationToken: cancellationToken);
             return CSharpCompilation.Create(
-                "UcliCsEval_" + Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(preparedSource.CompilationSource)).Substring(0, 12),
+                "UcliCsEval_" + Sha256Digest.Compute(Encoding.UTF8.GetBytes(preparedSource.CompilationSource)).ToString().Substring(0, 12),
                 new[] { syntaxTree },
                 references.References,
                 CompilationOptions);
@@ -189,11 +189,11 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         }
 
         private static CsEvalCompilationResult CreateFailure (
-            string sourceDigest,
+            Sha256Digest sourceDigest,
             string? sourceKind,
             string? resolvedEntryPoint,
             CsEvalEntryPointName? entryPointName,
-            string executionDigest,
+            Sha256Digest executionDigest,
             CSharpCompilation compilation,
             IReadOnlyList<CsEvalDiagnostic> diagnostics,
             string failureMessage)

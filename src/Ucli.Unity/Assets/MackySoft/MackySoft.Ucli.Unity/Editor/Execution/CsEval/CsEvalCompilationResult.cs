@@ -1,4 +1,6 @@
+using System;
 using Microsoft.CodeAnalysis.CSharp;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
@@ -9,28 +11,28 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     internal sealed class CsEvalCompilationResult
     {
         public CsEvalCompilationResult (
-            string sourceDigest,
+            Sha256Digest sourceDigest,
             string? sourceKind,
             string? resolvedEntryPoint,
             CsEvalEntryPointName? entryPointName,
-            string executionDigest,
+            Sha256Digest executionDigest,
             CsEvalCompileResult compile,
             CSharpCompilation compilation,
             bool isSuccess,
             string? failureMessage)
         {
-            SourceDigest = sourceDigest;
+            SourceDigest = sourceDigest ?? throw new ArgumentNullException(nameof(sourceDigest));
             SourceKind = sourceKind;
             ResolvedEntryPoint = resolvedEntryPoint;
             EntryPointName = entryPointName;
-            ExecutionDigest = executionDigest;
+            ExecutionDigest = executionDigest ?? throw new ArgumentNullException(nameof(executionDigest));
             Compile = compile;
             Compilation = compilation;
             IsSuccess = isSuccess;
             FailureMessage = failureMessage;
         }
 
-        public string SourceDigest { get; }
+        public Sha256Digest SourceDigest { get; }
 
         public string? SourceKind { get; }
 
@@ -38,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         public CsEvalEntryPointName? EntryPointName { get; }
 
-        public string ExecutionDigest { get; }
+        public Sha256Digest ExecutionDigest { get; }
 
         public CsEvalCompileResult Compile { get; }
 

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
@@ -8,20 +9,20 @@ public sealed record CsEvalResult
 {
     [JsonConstructor]
     public CsEvalResult (
-        string sourceDigest,
+        Sha256Digest sourceDigest,
         string? sourceKind,
         string? resolvedEntryPoint,
-        string executionDigest,
+        Sha256Digest executionDigest,
         CsEvalCompileResult compile,
         long? durationMilliseconds,
         IReadOnlyList<CsEvalLogEntry>? logs,
         CsEvalReturnValue? returnValue,
         CsEvalTouchedResources? touchedResources)
     {
-        SourceDigest = sourceDigest;
+        SourceDigest = sourceDigest ?? throw new ArgumentNullException(nameof(sourceDigest));
         SourceKind = sourceKind;
         ResolvedEntryPoint = resolvedEntryPoint;
-        ExecutionDigest = executionDigest;
+        ExecutionDigest = executionDigest ?? throw new ArgumentNullException(nameof(executionDigest));
         Compile = compile;
         DurationMilliseconds = durationMilliseconds;
         Logs = logs;
@@ -31,7 +32,7 @@ public sealed record CsEvalResult
 
     [UcliRequired]
     [UcliDescription("SHA-256 digest of the UTF-8 source text.")]
-    public string SourceDigest { get; init; }
+    public Sha256Digest SourceDigest { get; init; }
 
     [UcliDescription("Eval source form used for compilation; omitted when the source form could not be classified.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -43,7 +44,7 @@ public sealed record CsEvalResult
 
     [UcliRequired]
     [UcliDescription("SHA-256 digest of normalized eval execution inputs.")]
-    public string ExecutionDigest { get; init; }
+    public Sha256Digest ExecutionDigest { get; init; }
 
     [UcliRequired]
     [UcliDescription("Compile and entry point validation result.")]

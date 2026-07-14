@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests;
@@ -11,6 +12,12 @@ internal static class EvalCommandTestData
     public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
 
     private static readonly Guid RequestGuid = Guid.Parse(RequestId);
+
+    private static readonly Sha256Digest SourceDigest = Sha256Digest.Parse(
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+
+    private static readonly Sha256Digest ExecutionDigest = Sha256Digest.Parse(
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
 
     public static CallServiceResult CreateSuccessfulServiceResult ()
     {
@@ -56,10 +63,10 @@ internal static class EvalCommandTestData
         {
             Result = IpcPayloadCodec.SerializeToElement(
                 new CsEvalResult(
-                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    SourceDigest,
                     CsEvalSourceKindValues.Snippet,
                     "Snippet.Run",
-                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    ExecutionDigest,
                     CreateSuccessfulCompileResult(),
                     7,
                     [],
@@ -89,10 +96,10 @@ internal static class EvalCommandTestData
         {
             Result = IpcPayloadCodec.SerializeToElement(
                 new CsEvalResult(
-                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                    SourceDigest,
                     CsEvalSourceKindValues.Snippet,
                     "Snippet.Run",
-                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    ExecutionDigest,
                     CreateSuccessfulCompileResult(),
                     durationMilliseconds: null,
                     logs: null,

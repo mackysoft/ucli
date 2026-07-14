@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.CsEval;
 using MackySoft.Ucli.Unity.Execution.Phases;
@@ -179,7 +180,7 @@ return 1;",
         [Category("Size.Small")]
         public void ExecutionDigest_WhenSourceKindOrWrapperDiffers_ChangesDigest ()
         {
-            var sourceDigest = new string('a', 64);
+            var sourceDigest = Sha256Digest.Parse(new string('a', 64));
             const string referencesIdentity = "refs";
 
             var compilationUnitDigest = CsEvalExecutionDigestCalculator.Compute(
@@ -201,9 +202,9 @@ return 1;",
             Assert.That(compilationUnitDigest, Is.Not.EqualTo(snippetDigest));
             Assert.That(asyncSnippetDigest, Is.Not.EqualTo(snippetDigest));
             Assert.That(asyncSnippetDigest, Is.Not.EqualTo(compilationUnitDigest));
-            Assert.That(compilationUnitDigest, Has.Length.EqualTo(64));
-            Assert.That(snippetDigest, Has.Length.EqualTo(64));
-            Assert.That(asyncSnippetDigest, Has.Length.EqualTo(64));
+            Assert.That(compilationUnitDigest.ToString(), Has.Length.EqualTo(64));
+            Assert.That(snippetDigest.ToString(), Has.Length.EqualTo(64));
+            Assert.That(asyncSnippetDigest.ToString(), Has.Length.EqualTo(64));
         }
 
         [UnityTest]
