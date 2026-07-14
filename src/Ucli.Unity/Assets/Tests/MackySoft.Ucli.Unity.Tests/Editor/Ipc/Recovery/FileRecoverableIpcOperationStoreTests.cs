@@ -88,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Is.EqualTo(EditorInstanceId));
                 Assert.That(
                     Path.GetFileName(Path.GetDirectoryName(recordPath)),
-                    Is.EqualTo("14fb8047edc50c557a2f91c0c5570982c268705dc819642f2055bcc2defaf8ce"));
+                    Is.EqualTo(requestId.ToString("N")));
                 Assert.That(readResult.Record.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
                 Assert.That(readResult.Record.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.PlayEnter)));
                 Assert.That(readResult.Record.RequestId, Is.EqualTo(requestId));
@@ -97,6 +97,40 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(readResult.Record.StartedAtUtc, Is.EqualTo(startedAtUtc));
                 Assert.That(readResult.Record.RecoveryPayload.GetRawText(), Is.EqualTo(payload.GetRawText()));
                 Assert.That(FindOperationRecordPath(projectPath), Does.Contain(UcliStoragePathNames.IpcOperationsDirectoryName));
+            }
+            finally
+            {
+                DeleteDirectoryIfExists(projectPath);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ReadAsync_WhenMethodDiffersForSameRequestId_RejectsRecordIdentity () => UniTask.ToCoroutine(async () =>
+        {
+            var projectPath = CreateTemporaryProjectPath();
+            try
+            {
+                var store = CreateStore(projectPath);
+                var requestId = Guid.NewGuid();
+                var writeResult = await store.WritePendingAsync(
+                    UnityIpcMethod.PlayEnter,
+                    requestId,
+                    RequestPayloadHash,
+                    DateTimeOffset.UtcNow,
+                    IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
+                    CancellationToken.None);
+                Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
+
+                var readResult = await store.ReadAsync(
+                    UnityIpcMethod.PlayExit,
+                    requestId,
+                    RequestPayloadHash,
+                    CancellationToken.None);
+
+                Assert.That(readResult.IsSuccess, Is.False);
+                Assert.That(readResult.Record, Is.Null);
+                Assert.That(readResult.ErrorMessage, Does.Contain("identity"));
             }
             finally
             {
