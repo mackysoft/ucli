@@ -9,7 +9,7 @@ public sealed record AssetsFindArgs
     [JsonConstructor]
     public AssetsFindArgs (
         UnityTypeId? type,
-        ProjectRelativePathPrefix? pathPrefix,
+        UnityAssetPathPrefix? pathPrefix,
         string? nameContains,
         int? limit,
         string? cursor)
@@ -27,7 +27,7 @@ public sealed record AssetsFindArgs
 
     [UcliDescription("Optional project-relative Assets path prefix filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public ProjectRelativePathPrefix? PathPrefix { get; init; }
+    public UnityAssetPathPrefix? PathPrefix { get; init; }
 
     [UcliDescription("Optional case-insensitive asset name substring filter.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]

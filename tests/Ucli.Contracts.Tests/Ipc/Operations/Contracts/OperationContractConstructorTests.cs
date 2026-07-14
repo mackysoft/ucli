@@ -36,4 +36,34 @@ public sealed class OperationContractConstructorTests
 
         Assert.NotNull(constructor.GetCustomAttribute<JsonConstructorAttribute>());
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void SceneQueryArgs_PathPrefix_UsesUnityHierarchyPathContract ()
+    {
+        var pathPrefix = new UnityHierarchyPath("Root/Child");
+
+        var args = new SceneQueryArgs(
+            new SceneAssetPath("Assets/Scenes/Main.unity"),
+            pathPrefix,
+            componentType: null);
+
+        Assert.Same(pathPrefix, args.PathPrefix);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void AssetsFindArgs_PathPrefix_UsesUnityAssetPathPrefixContract ()
+    {
+        var pathPrefix = new UnityAssetPathPrefix("Assets/Prefabs");
+
+        var args = new AssetsFindArgs(
+            type: null,
+            pathPrefix,
+            nameContains: null,
+            limit: null,
+            cursor: null);
+
+        Assert.Same(pathPrefix, args.PathPrefix);
+    }
 }

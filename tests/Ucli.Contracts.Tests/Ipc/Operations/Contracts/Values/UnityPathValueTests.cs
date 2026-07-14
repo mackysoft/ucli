@@ -11,6 +11,7 @@ public sealed class UnityPathValueTests
         typeof(SceneAssetPath),
         typeof(PrefabAssetPath),
         typeof(ProjectSettingsAssetPath),
+        typeof(UnityAssetPathPrefix),
     };
 
     public static TheoryData<Type, string, string> NormalizedPathCases => new()
@@ -19,7 +20,8 @@ public sealed class UnityPathValueTests
         { typeof(SceneAssetPath), @"Assets\Scenes\Main.unity", "Assets/Scenes/Main.unity" },
         { typeof(PrefabAssetPath), @"Assets\Prefabs\Player.prefab", "Assets/Prefabs/Player.prefab" },
         { typeof(ProjectSettingsAssetPath), @"ProjectSettings\TagManager.asset", "ProjectSettings/TagManager.asset" },
-        { typeof(ProjectRelativePathPrefix), @"Assets\Data", "Assets/Data" },
+        { typeof(UnityAssetPathPrefix), "Assets", "Assets" },
+        { typeof(UnityAssetPathPrefix), @"Assets\Data", "Assets/Data" },
     };
 
     public static TheoryData<Type, string> InvalidPathCases => new()
@@ -33,14 +35,11 @@ public sealed class UnityPathValueTests
         { typeof(ProjectSettingsAssetPath), "ProjectSettings" },
         { typeof(ProjectSettingsAssetPath), "Assets/TagManager.asset" },
         { typeof(ProjectSettingsAssetPath), "ProjectSettings/../TagManager.asset" },
-        { typeof(ProjectRelativePathPrefix), "Packages/com.example" },
-        { typeof(ProjectRelativePathPrefix), "Assets//Data" },
+        { typeof(UnityAssetPathPrefix), "Packages/com.example" },
+        { typeof(UnityAssetPathPrefix), "Assets//Data" },
         { typeof(UnityHierarchyPath), "/Root" },
         { typeof(UnityHierarchyPath), "Root/" },
         { typeof(UnityHierarchyPath), "Root//Child" },
-        { typeof(UnityHierarchyPathPrefix), "/Root" },
-        { typeof(UnityHierarchyPathPrefix), "Root/" },
-        { typeof(UnityHierarchyPathPrefix), "Root//Child" },
     };
 
     [Theory]

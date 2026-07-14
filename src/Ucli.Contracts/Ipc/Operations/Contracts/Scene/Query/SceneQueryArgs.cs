@@ -9,7 +9,7 @@ public sealed record SceneQueryArgs
     [JsonConstructor]
     public SceneQueryArgs (
         SceneAssetPath scene,
-        UnityHierarchyPathPrefix? pathPrefix,
+        UnityHierarchyPath? pathPrefix,
         UnityComponentTypeId? componentType)
     {
         Scene = scene;
@@ -24,7 +24,7 @@ public sealed record SceneQueryArgs
 
     [UcliDescription("Optional hierarchy path prefix filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityHierarchyPathPrefix? PathPrefix { get; init; }
+    public UnityHierarchyPath? PathPrefix { get; init; }
 
     [UcliDescription("Optional component type identifier filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

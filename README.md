@@ -816,9 +816,8 @@ Use existing semantic value types before adding new plain strings:
 - `PrefabAssetPath`
 - `UnityAssetPath`
 - `ProjectSettingsAssetPath`
-- `ProjectRelativePathPrefix`
+- `UnityAssetPathPrefix`
 - `UnityHierarchyPath`
-- `UnityHierarchyPathPrefix`
 - `UnityGlobalObjectId`
 - `UnityAssetGuid`
 - `UnityTypeId`
