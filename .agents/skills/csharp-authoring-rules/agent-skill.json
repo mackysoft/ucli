@@ -5,24 +5,24 @@
   "tier": "development",
   "skillName": "csharp-authoring-rules",
   "displayName": "C# Authoring Rules",
-  "description": "C# のコードを実装、修正、レビューするときに、設計と実装の判断規則を適用する。責務境界、公開契約、依存性注入、非同期 API、CancellationToken、例外、リソースとイベントの寿命、現在の C# の書き方、テスト容易性、割り当ての判断で使う。",
+  "description": "C# のコードを実装、修正、レビューするときに、責務と契約の境界、既存実装への収束、依存関係、例外、非同期処理、リソースの寿命、言語機能、テスト容易性、性能の判断規則を適用する。",
   "dependencies": [],
-  "contentDigest": "8cc1ba1e7994c9401f2f9a6d75742d26eac49064f4d9fa042426165752b9d9e6",
-  "manifestDigest": "382b62d32ef9f9246dc0d83e3f531158aa8a835c3d214394d280b007b6d7360a",
+  "contentDigest": "f6938d112fb11560f4d466638cac24ba3782af3892fbcce35d5bebc1a44045a9",
+  "manifestDigest": "247f2599f3ead8dc86492ec457d30651d65575ae2f6341a3180787767463590f",
   "hostArtifacts": [
     {
       "host": "claude",
-      "materializedFrontmatterDigest": "0f5e71e6de5518e976e533450b4f8ba01c5e906aebe77dd275d9999660c26c80"
+      "materializedFrontmatterDigest": "fe81f77441dadb34ae0a29d8e88b1b66d42776e8e2b74fcd1ba2443602ec5cf3"
     },
     {
       "host": "copilot",
-      "materializedFrontmatterDigest": "27f527f3db2c1f7cf6337395d1be0f26e3c6c3eb127ec8ab25ce6a128d92b7ed"
+      "materializedFrontmatterDigest": "8397ec8e7e98bcc7142e084b72f9fa7afa81ab5ecf19557988199be92e9bd542"
     },
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "874195f4d0fce66dd99dbdc3bade701150d5a9cffb9bc610af7c36f4b5e89034",
-      "materializedFrontmatterDigest": "f50a18dfd2700d538ae79fb66d5d3448ab114002fa4154220086d4cb74342b96"
+      "digest": "27a5464d27bee5e3f40185dcd2d002b24ff38fd9a85358f96cb50540f14d14f2",
+      "materializedFrontmatterDigest": "5bfad140567ba9f910fcf125bb6423881c3d00ed38c72049ced90019b61165ce"
     }
   ]
 }
