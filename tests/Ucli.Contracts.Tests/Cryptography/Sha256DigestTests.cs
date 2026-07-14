@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json;
 using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Contracts.Tests.Cryptography;
@@ -49,5 +50,28 @@ public sealed class Sha256DigestTests
     public void Parse_ThrowsFormatException_ForNonCanonicalText ()
     {
         Assert.Throws<FormatException>(() => Sha256Digest.Parse("not-a-digest"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void JsonSerialization_RoundTripsAsCanonicalString ()
+    {
+        var digest = Sha256Digest.Parse(AbcDigest);
+
+        var json = JsonSerializer.Serialize(digest);
+        var roundTrip = JsonSerializer.Deserialize<Sha256Digest>(json);
+
+        Assert.Equal($"\"{AbcDigest}\"", json);
+        Assert.Equal(digest, roundTrip);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("null")]
+    [InlineData("123")]
+    [InlineData("\"not-a-digest\"")]
+    public void JsonDeserialization_WhenValueIsInvalid_ThrowsJsonException (string json)
+    {
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<Sha256Digest>(json));
     }
 }

@@ -1,9 +1,11 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
 
 namespace MackySoft.Ucli.Contracts.Cryptography;
 
 /// <summary> Represents one canonical lowercase hexadecimal SHA-256 digest. </summary>
-internal sealed class Sha256Digest : IEquatable<Sha256Digest>
+[JsonConverter(typeof(Sha256DigestJsonConverter))]
+public sealed class Sha256Digest : IEquatable<Sha256Digest>
 {
     private readonly string value;
 
@@ -15,7 +17,7 @@ internal sealed class Sha256Digest : IEquatable<Sha256Digest>
     /// <summary> Computes a digest from source bytes. </summary>
     /// <param name="bytes"> The source bytes. </param>
     /// <returns> The computed digest. </returns>
-    internal static Sha256Digest Compute (ReadOnlySpan<byte> bytes)
+    public static Sha256Digest Compute (ReadOnlySpan<byte> bytes)
     {
         return new Sha256Digest(Sha256LowerHex.Compute(bytes));
     }
@@ -25,7 +27,7 @@ internal sealed class Sha256Digest : IEquatable<Sha256Digest>
     /// <returns> The parsed digest. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="value" /> is <see langword="null" />. </exception>
     /// <exception cref="FormatException"> Thrown when <paramref name="value" /> is not canonical digest text. </exception>
-    internal static Sha256Digest Parse (string value)
+    public static Sha256Digest Parse (string value)
     {
         if (value == null)
         {
@@ -44,7 +46,7 @@ internal sealed class Sha256Digest : IEquatable<Sha256Digest>
     /// <param name="value"> The candidate digest text. </param>
     /// <param name="digest"> The parsed digest when successful; otherwise <see langword="null" />. </param>
     /// <returns> <see langword="true" /> when <paramref name="value" /> is canonical digest text; otherwise <see langword="false" />. </returns>
-    internal static bool TryParse (
+    public static bool TryParse (
         string? value,
         [NotNullWhen(true)] out Sha256Digest? digest)
     {
