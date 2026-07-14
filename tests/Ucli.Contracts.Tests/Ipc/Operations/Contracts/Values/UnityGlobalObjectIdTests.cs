@@ -30,16 +30,6 @@ public sealed class UnityGlobalObjectIdTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Constructor_WhenValueIdentifiesBuiltInAsset_StoresTypedKind ()
-    {
-        var value = new UnityGlobalObjectId(
-            "GlobalObjectId_V1-4-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-0");
-
-        Assert.Equal(UnityGlobalObjectIdKind.BuiltInAsset, value.Kind);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void Constructor_WhenValueUsesEquivalentNonCanonicalText_StoresCanonicalValue ()
     {
         var value = new UnityGlobalObjectId(
@@ -48,10 +38,6 @@ public sealed class UnityGlobalObjectIdTests
         Assert.Equal(
             "GlobalObjectId_V1-2-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-902906726-0",
             value.Value);
-        Assert.Equal(UnityGlobalObjectIdKind.SceneObject, value.Kind);
-        Assert.Equal(Guid.ParseExact("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "N"), value.AssetGuid.Guid);
-        Assert.Equal(902906726UL, value.TargetObjectId);
-        Assert.Equal(0UL, value.TargetPrefabId);
     }
 
     [Fact]
@@ -64,8 +50,6 @@ public sealed class UnityGlobalObjectIdTests
         var value = new UnityGlobalObjectId(canonicalValue);
 
         Assert.Equal(canonicalValue, value.Value);
-        Assert.Equal(ulong.MaxValue, value.TargetObjectId);
-        Assert.Equal(ulong.MaxValue, value.TargetPrefabId);
     }
 
     [Fact]

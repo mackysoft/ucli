@@ -23,11 +23,7 @@ public sealed record UnityAssetGuid : UcliStringValue
     private UnityAssetGuid (Guid guid)
         : base(guid.ToString("N"))
     {
-        Guid = guid;
     }
-
-    /// <summary> Gets the non-empty native GUID value. </summary>
-    public Guid Guid { get; }
 
     /// <summary> Attempts to parse and canonicalize one Unity asset GUID. </summary>
     /// <param name="value"> The candidate 32-character hexadecimal <c>N</c>-format value. </param>

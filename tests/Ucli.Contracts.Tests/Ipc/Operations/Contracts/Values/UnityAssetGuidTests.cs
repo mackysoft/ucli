@@ -34,7 +34,6 @@ public sealed class UnityAssetGuidTests
         Assert.True(result);
         Assert.NotNull(assetGuid);
         Assert.Equal(Value, assetGuid.Value);
-        Assert.Equal(Guid.ParseExact(Value, "N"), assetGuid.Guid);
     }
 
     [Fact]

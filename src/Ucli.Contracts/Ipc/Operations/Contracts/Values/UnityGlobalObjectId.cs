@@ -12,6 +12,10 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record UnityGlobalObjectId : UcliStringValue
 {
     private const int AssetGuidTextLength = 32;
+    private const int ImportedAssetIdentifierType = 1;
+    private const int SceneObjectIdentifierType = 2;
+    private const int SourceAssetIdentifierType = 3;
+    private const int BuiltInAssetIdentifierType = 4;
     private const string Prefix = "GlobalObjectId_V1-";
 
     /// <summary> Initializes a new instance of the <see cref="UnityGlobalObjectId" /> class. </summary>
@@ -20,30 +24,9 @@ public sealed record UnityGlobalObjectId : UcliStringValue
     /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> is not a supported non-null V1 GlobalObjectId. </exception>
     [JsonConstructor]
     public UnityGlobalObjectId (string value)
-        : this(Parse(value))
+        : base(Parse(value))
     {
     }
-
-    private UnityGlobalObjectId (ParsedValue parsedValue)
-        : base(parsedValue.CanonicalValue)
-    {
-        Kind = parsedValue.Kind;
-        AssetGuid = parsedValue.AssetGuid;
-        TargetObjectId = parsedValue.TargetObjectId;
-        TargetPrefabId = parsedValue.TargetPrefabId;
-    }
-
-    /// <summary> Gets the object category encoded by this identifier. </summary>
-    public UnityGlobalObjectIdKind Kind { get; }
-
-    /// <summary> Gets the non-empty Unity asset GUID encoded by this identifier. </summary>
-    public UnityAssetGuid AssetGuid { get; }
-
-    /// <summary> Gets the object identifier within the asset or scene. </summary>
-    public ulong TargetObjectId { get; }
-
-    /// <summary> Gets the corresponding prefab object identifier, or zero when no prefab object is encoded. </summary>
-    public ulong TargetPrefabId { get; }
 
     /// <summary> Attempts to parse and canonicalize one non-null Unity GlobalObjectId. </summary>
     /// <param name="value"> The candidate Unity GlobalObjectId text. </param>
@@ -70,7 +53,7 @@ public sealed record UnityGlobalObjectId : UcliStringValue
         }
     }
 
-    private static ParsedValue Parse (string value)
+    private static string Parse (string value)
     {
         if (value == null)
         {
@@ -98,13 +81,14 @@ public sealed record UnityGlobalObjectId : UcliStringValue
                 NumberStyles.None,
                 CultureInfo.InvariantCulture,
                 out var identifierType)
-            || !TryGetKind(identifierType, out var kind))
+            || !IsSupportedIdentifierType(identifierType))
         {
             throw CreateInvalidValueException();
         }
 
-        var assetGuidText = value.Substring(identifierTypeEnd + 1, assetGuidEnd - identifierTypeEnd - 1);
-        if (!UnityAssetGuid.TryParse(assetGuidText, out var assetGuid)
+        var assetGuidText = value.AsSpan(identifierTypeEnd + 1, assetGuidEnd - identifierTypeEnd - 1);
+        if (!Guid.TryParseExact(assetGuidText, "N", out var assetGuid)
+            || assetGuid == Guid.Empty
             || !ulong.TryParse(
                 value.AsSpan(assetGuidEnd + 1, targetObjectIdEnd - assetGuidEnd - 1),
                 NumberStyles.None,
@@ -130,7 +114,7 @@ public sealed record UnityGlobalObjectId : UcliStringValue
             + GetInvariantDecimalLength(targetPrefabId));
         var canonicalValue = string.Create(
             canonicalValueLength,
-            (IdentifierType: identifierType, AssetGuid: assetGuid.Value, TargetObjectId: targetObjectId, TargetPrefabId: targetPrefabId),
+            (IdentifierType: identifierType, AssetGuid: assetGuid, TargetObjectId: targetObjectId, TargetPrefabId: targetPrefabId),
             static (destination, state) =>
             {
                 Prefix.AsSpan().CopyTo(destination);
@@ -146,8 +130,16 @@ public sealed record UnityGlobalObjectId : UcliStringValue
 
                 offset += identifierTypeCharsWritten;
                 destination[offset++] = '-';
-                state.AssetGuid.AsSpan().CopyTo(destination[offset..]);
-                offset += AssetGuidTextLength;
+                if (!state.AssetGuid.TryFormat(
+                        destination[offset..],
+                        out var assetGuidCharsWritten,
+                        "N")
+                    || assetGuidCharsWritten != AssetGuidTextLength)
+                {
+                    throw new InvalidOperationException("GlobalObjectId buffer is too small for asset GUID formatting.");
+                }
+
+                offset += assetGuidCharsWritten;
                 destination[offset++] = '-';
 
                 if (!state.TargetObjectId.TryFormat(
@@ -176,36 +168,19 @@ public sealed record UnityGlobalObjectId : UcliStringValue
                 }
             });
 
-        return new ParsedValue(
-            canonicalValue,
-            kind,
-            assetGuid,
-            targetObjectId,
-            targetPrefabId);
+        return canonicalValue;
     }
 
-    private static bool TryGetKind (
-        int value,
-        out UnityGlobalObjectIdKind kind)
+    private static bool IsSupportedIdentifierType (int value)
     {
-        switch (value)
+        return value switch
         {
-            case (int)UnityGlobalObjectIdKind.ImportedAsset:
-                kind = UnityGlobalObjectIdKind.ImportedAsset;
-                return true;
-            case (int)UnityGlobalObjectIdKind.SceneObject:
-                kind = UnityGlobalObjectIdKind.SceneObject;
-                return true;
-            case (int)UnityGlobalObjectIdKind.SourceAsset:
-                kind = UnityGlobalObjectIdKind.SourceAsset;
-                return true;
-            case (int)UnityGlobalObjectIdKind.BuiltInAsset:
-                kind = UnityGlobalObjectIdKind.BuiltInAsset;
-                return true;
-            default:
-                kind = default;
-                return false;
-        }
+            ImportedAssetIdentifierType
+                or SceneObjectIdentifierType
+                or SourceAssetIdentifierType
+                or BuiltInAssetIdentifierType => true,
+            _ => false,
+        };
     }
 
     private static int GetInvariantDecimalLength (ulong value)
@@ -227,10 +202,4 @@ public sealed record UnityGlobalObjectId : UcliStringValue
             "value");
     }
 
-    private readonly record struct ParsedValue (
-        string CanonicalValue,
-        UnityGlobalObjectIdKind Kind,
-        UnityAssetGuid AssetGuid,
-        ulong TargetObjectId,
-        ulong TargetPrefabId);
 }
