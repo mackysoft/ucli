@@ -107,7 +107,6 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
         services.AddSingleton<IReadIndexFreshnessEvaluator, ReadIndexFreshnessEvaluator>();
         services.AddSingleton<IAssetSearchLookupAccessService, AssetSearchLookupAccessService>();
-        services.AddSingleton<IGuidPathLookupAccessService, GuidPathLookupAccessService>();
         services.AddSingleton<ISceneTreeLiteAccessService, SceneTreeLiteAccessService>();
         return services;
     }
