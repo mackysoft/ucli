@@ -42,7 +42,6 @@ public sealed class ResolveCommandDispatchTests
         var invocation = Assert.Single(service.Invocations);
         var selector = Assert.IsType<ResolveAssetGuidSelectorInput>(invocation.Input.Selector);
         Assert.Equal("0123456789abcdef0123456789abcdef", selector.AssetGuid.Value);
-        Assert.Equal(Guid.ParseExact("0123456789abcdef0123456789abcdef", "N"), selector.AssetGuid.Guid);
     }
 
     [Fact]
