@@ -9,18 +9,6 @@ internal sealed class Sha256Digest : IEquatable<Sha256Digest>
 
     private Sha256Digest (string value)
     {
-        if (value == null)
-        {
-            throw new ArgumentNullException(nameof(value));
-        }
-
-        if (!Sha256LowerHex.IsLowerHexDigest(value))
-        {
-            throw new ArgumentException(
-                "SHA-256 digest must be exactly 64 lowercase hexadecimal characters.",
-                nameof(value));
-        }
-
         this.value = value;
     }
 
