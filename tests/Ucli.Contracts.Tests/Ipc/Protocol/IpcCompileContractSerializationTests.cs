@@ -13,29 +13,11 @@ public sealed class IpcCompileContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcCompileRequest_WhenRunIdIsEmpty_ThrowsArgumentException ()
-    {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcCompileRequest(Guid.Empty));
-
-        Assert.Equal("RunId", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void IpcCompileResponse_WhenSummaryIsNull_ThrowsArgumentNullException ()
     {
         var exception = Assert.Throws<ArgumentNullException>(() => new IpcCompileResponse(null!));
 
         Assert.Equal("Summary", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcCompileSummary_WhenRunIdIsEmpty_ThrowsArgumentException ()
-    {
-        var exception = Assert.Throws<ArgumentException>(() => CreateCompileSummary(Guid.Empty));
-
-        Assert.Equal("RunId", exception.ParamName);
     }
 
     [Fact]

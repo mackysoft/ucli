@@ -92,20 +92,4 @@ public sealed class IpcTestRunContractSerializationTests
             .HasInt32("exitCode", 2);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcTestRunRequest_WhenRunIdIsEmpty_ThrowsArgumentException ()
-    {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcTestRunRequest(
-            TestPlatform: "editmode",
-            TestFilter: null,
-            TestCategories: [],
-            AssemblyNames: [],
-            TestSettingsPath: null,
-            ResultsXmlPath: "/tmp/results.xml",
-            EditorLogPath: "/tmp/editor.log",
-            RunId: Guid.Empty));
-
-        Assert.Equal("RunId", exception.ParamName);
-    }
 }

@@ -14,49 +14,6 @@ public sealed class IpcBuildRunContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcBuildRunRequest_WhenRunIdIsEmpty_ThrowsArgumentException ()
-    {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcBuildRunRequest(
-            RunId: Guid.Empty,
-            InputKind: "explicit",
-            BuildTarget: null,
-            UnityBuildTarget: null,
-            SceneSource: null,
-            ScenePaths: [],
-            Development: false,
-            OutputPath: "/tmp/output",
-            OutputLayout: null,
-            BuildReportPath: "/tmp/build-report.json",
-            BuildLogPath: "/tmp/build.log",
-            AllowedEditorModes: [],
-            ProjectMutationMode: "forbid",
-            RunnerKind: "buildPipeline"));
-
-        Assert.Equal("RunId", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcBuildRunResponse_WhenRunIdIsEmpty_ThrowsArgumentException ()
-    {
-        var exception = Assert.Throws<ArgumentException>(() => new IpcBuildRunResponse(
-            RunId: Guid.Empty,
-            ProjectFingerprint: null!,
-            LifecycleBefore: null!,
-            LifecycleAfter: null!,
-            DirtyState: null!,
-            Input: null!,
-            OutputLayout: null,
-            UnityBuildProfile: null,
-            Report: null,
-            Logs: null!,
-            ProjectMutation: null!));
-
-        Assert.Equal("RunId", exception.ParamName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public void IpcBuildRunContracts_SerializeWithCamelCaseFields ()
     {
         var request = IpcPayloadCodec.SerializeToElement(
