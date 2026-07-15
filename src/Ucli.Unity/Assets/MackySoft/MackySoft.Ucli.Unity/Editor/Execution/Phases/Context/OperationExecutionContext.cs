@@ -676,16 +676,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="targetKey"> The Prefab override target key created from the current target reference and request-local component state. </param>
         /// <param name="propertyPath"> The exact <c>SerializedProperty.propertyPath</c> changed by a preceding set. </param>
         /// <param name="wasPrefabOverrideBeforeRequest"> Whether the property was already a Prefab override before this request changed it. </param>
-        /// <param name="valueHashBeforeSet"> The normalized property value hash observed before the set that is being recorded. </param>
-        /// <param name="valueHashAfterSet"> The normalized property value hash observed after the set that is being recorded. </param>
+        /// <param name="valueSignatureBeforeSet"> The normalized property value signature observed before the set that is being recorded. </param>
+        /// <param name="valueSignatureAfterSet"> The normalized property value signature observed after the set that is being recorded. </param>
         /// <param name="requiresExplicitPrefabAssetMutation"> Whether apply/revert must use the explicit target Prefab asset because Unity Prefab instance linkage is unavailable for this request-attributed change. </param>
         internal void RecordPrefabOverridePropertyChange (
             IpcExecuteStepId editStepId,
             RequestLocalObjectIdentity targetKey,
             string propertyPath,
             bool wasPrefabOverrideBeforeRequest,
-            string valueHashBeforeSet,
-            string valueHashAfterSet,
+            string valueSignatureBeforeSet,
+            string valueSignatureAfterSet,
             bool requiresExplicitPrefabAssetMutation)
         {
             ValidateTrackingKey(targetKey, nameof(targetKey));
@@ -702,19 +702,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changesByTarget.Add(targetKey, changesByPath);
             }
 
-            var initialValueHash = valueHashBeforeSet;
+            var initialValueSignature = valueSignatureBeforeSet;
             if (changesByPath.TryGetValue(propertyPath, out var existingChange))
             {
                 wasPrefabOverrideBeforeRequest = existingChange.WasPrefabOverrideBeforeRequest;
-                initialValueHash = existingChange.ValueHashBeforeRequest;
+                initialValueSignature = existingChange.ValueSignatureBeforeRequest;
                 requiresExplicitPrefabAssetMutation |= existingChange.RequiresExplicitPrefabAssetMutation;
             }
 
             changesByPath[propertyPath] = new PrefabOverridePropertyChange(
                 propertyPath,
                 wasPrefabOverrideBeforeRequest,
-                initialValueHash,
-                isEffective: !string.Equals(valueHashAfterSet, initialValueHash, StringComparison.Ordinal),
+                initialValueSignature,
+                isEffective: !string.Equals(valueSignatureAfterSet, initialValueSignature, StringComparison.Ordinal),
                 requiresExplicitPrefabAssetMutation);
         }
 
@@ -1211,19 +1211,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             /// <summary> Initializes a new instance of the <see cref="PrefabOverridePropertyChange" /> struct. </summary>
             /// <param name="propertyPath"> The exact <c>SerializedProperty.propertyPath</c> changed by a preceding set. </param>
             /// <param name="wasPrefabOverrideBeforeRequest"> Whether the property was already a Prefab override before this request changed it. </param>
-            /// <param name="valueHashBeforeRequest"> The normalized property value hash captured before the first request-attributed set for this path. </param>
-            /// <param name="isEffective"> Whether the latest request-attributed value differs from <paramref name="valueHashBeforeRequest" />. </param>
+            /// <param name="valueSignatureBeforeRequest"> The normalized property value signature captured before the first request-attributed set for this path. </param>
+            /// <param name="isEffective"> Whether the latest request-attributed value differs from <paramref name="valueSignatureBeforeRequest" />. </param>
             /// <param name="requiresExplicitPrefabAssetMutation"> Whether apply/revert must mutate the explicit Prefab asset because Unity Prefab instance linkage is unavailable for this request-attributed change. </param>
             public PrefabOverridePropertyChange (
                 string propertyPath,
                 bool wasPrefabOverrideBeforeRequest,
-                string valueHashBeforeRequest,
+                string valueSignatureBeforeRequest,
                 bool isEffective,
                 bool requiresExplicitPrefabAssetMutation)
             {
                 PropertyPath = propertyPath;
                 WasPrefabOverrideBeforeRequest = wasPrefabOverrideBeforeRequest;
-                ValueHashBeforeRequest = valueHashBeforeRequest;
+                ValueSignatureBeforeRequest = valueSignatureBeforeRequest;
                 IsEffective = isEffective;
                 RequiresExplicitPrefabAssetMutation = requiresExplicitPrefabAssetMutation;
             }
@@ -1234,8 +1234,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             /// <summary> Gets a value indicating whether the property was already a Prefab override before this request changed it. </summary>
             public bool WasPrefabOverrideBeforeRequest { get; }
 
-            /// <summary> Gets the normalized property value hash captured before the first request-attributed set for this path. </summary>
-            public string ValueHashBeforeRequest { get; }
+            /// <summary> Gets the normalized property value signature captured before the first request-attributed set for this path. </summary>
+            public string ValueSignatureBeforeRequest { get; }
 
             /// <summary> Gets a value indicating whether the latest request-attributed value differs from the pre-request value. </summary>
             public bool IsEffective { get; }

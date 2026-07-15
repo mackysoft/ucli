@@ -7,11 +7,11 @@ using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
-    /// <summary> Creates stable comparison hashes for serialized property values in one request context. </summary>
-    internal static class SerializedPropertyValueHasher
+    /// <summary> Creates stable comparison signatures for serialized property values in one request context. </summary>
+    internal static class SerializedPropertyValueSignatureFactory
     {
-        /// <summary> Creates a stable comparison hash for one serialized property value. </summary>
-        /// <param name="property"> The serialized property to hash. </param>
+        /// <summary> Creates a stable comparison signature for one serialized property value. </summary>
+        /// <param name="property"> The serialized property to represent. </param>
         /// <param name="executionContext"> The request execution context used to normalize request-local preview object references. </param>
         /// <param name="resource"> The logical resource that owns <paramref name="property" />. </param>
         /// <returns> A stable string that changes when the serialized property value changes. </returns>
@@ -47,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 case SerializedPropertyType.ObjectReference:
                 case SerializedPropertyType.ExposedReference:
-                    return CreateObjectReferenceValueHash(property, executionContext, resource);
+                    return CreateObjectReferenceValueSignature(property, executionContext, resource);
 
                 case SerializedPropertyType.Enum:
                     return $"enum:{property.enumValueIndex}";
@@ -90,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
         }
 
-        private static string CreateObjectReferenceValueHash (
+        private static string CreateObjectReferenceValueSignature (
             SerializedProperty property,
             OperationExecutionContext executionContext,
             OperationResource resource)
@@ -105,7 +105,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (executionContext.TryResolvePreviewSourceTrackingKey(unityObject, resource, out var previewSourceTrackingKey))
             {
-                return CreateObjectIdentityHash(previewSourceTrackingKey);
+                return CreateObjectIdentitySignature(previewSourceTrackingKey);
             }
 
             if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(unityObject, out var globalObjectId))
@@ -116,7 +116,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return $"object:transient:{unityObject.GetInstanceID()}";
         }
 
-        private static string CreateObjectIdentityHash (RequestLocalObjectIdentity identity)
+        private static string CreateObjectIdentitySignature (RequestLocalObjectIdentity identity)
         {
             if (identity.TryGetStableGlobalObjectId(out var globalObjectId))
             {
@@ -126,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!identity.TryGetTransientUnityObject(out var unityObject)
                 || unityObject == null)
             {
-                throw new InvalidOperationException("Object-reference hashing requires a stable GlobalObjectId or live transient Unity object.");
+                throw new InvalidOperationException("Object-reference signature creation requires a stable GlobalObjectId or live transient Unity object.");
             }
 
             return $"object:transient:{unityObject.GetInstanceID()}";

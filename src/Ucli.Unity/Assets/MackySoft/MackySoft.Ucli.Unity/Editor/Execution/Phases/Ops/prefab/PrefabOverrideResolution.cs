@@ -747,8 +747,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                var assetValueHash = SerializedPropertyValueHasher.Create(property, executionContext, assetResource);
-                if (!string.Equals(assetValueHash, changes[i].ValueHashBeforeRequest, StringComparison.Ordinal))
+                var assetValueSignature = SerializedPropertyValueSignatureFactory.Create(property, executionContext, assetResource);
+                if (!string.Equals(assetValueSignature, changes[i].ValueSignatureBeforeRequest, StringComparison.Ordinal))
                 {
                     errorMessage = $"Prefab override property already existed before the request: {propertyPath}.";
                     return false;

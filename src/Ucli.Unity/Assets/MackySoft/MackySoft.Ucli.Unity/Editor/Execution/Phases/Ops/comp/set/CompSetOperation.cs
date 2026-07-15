@@ -458,8 +458,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     binding.PrefabOverrideTargetKey,
                     changedPropertyPaths[i],
                     stateBeforeApply.WasPrefabOverrideBeforeRequest,
-                    stateBeforeApply.ValueHash,
-                    SerializedPropertyValueHasher.Create(property, executionContext, binding.Resource),
+                    stateBeforeApply.ValueSignature,
+                    SerializedPropertyValueSignatureFactory.Create(property, executionContext, binding.Resource),
                     stateBeforeApply.RequiresExplicitPrefabAssetMutation);
             }
         }
@@ -486,7 +486,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             stateBeforeRequest = new PrefabOverridePropertyStateSnapshot(
                 existingChange.WasPrefabOverrideBeforeRequest,
-                existingChange.ValueHashBeforeRequest,
+                existingChange.ValueSignatureBeforeRequest,
                 existingChange.RequiresExplicitPrefabAssetMutation);
             return true;
         }
@@ -530,7 +530,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     propertyPath,
                     new PrefabOverridePropertyStateSnapshot(
                         isPrefabInstance && property.prefabOverride,
-                        SerializedPropertyValueHasher.Create(property, executionContext, binding.Resource),
+                        SerializedPropertyValueSignatureFactory.Create(property, executionContext, binding.Resource),
                         requiresExplicitPrefabAssetMutation));
             }
 
@@ -636,17 +636,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public PrefabOverridePropertyStateSnapshot (
                 bool wasPrefabOverrideBeforeRequest,
-                string valueHash,
+                string valueSignature,
                 bool requiresExplicitPrefabAssetMutation)
             {
                 WasPrefabOverrideBeforeRequest = wasPrefabOverrideBeforeRequest;
-                ValueHash = valueHash;
+                ValueSignature = valueSignature;
                 RequiresExplicitPrefabAssetMutation = requiresExplicitPrefabAssetMutation;
             }
 
             public bool WasPrefabOverrideBeforeRequest { get; }
 
-            public string ValueHash { get; }
+            public string ValueSignature { get; }
 
             public bool RequiresExplicitPrefabAssetMutation { get; }
         }
