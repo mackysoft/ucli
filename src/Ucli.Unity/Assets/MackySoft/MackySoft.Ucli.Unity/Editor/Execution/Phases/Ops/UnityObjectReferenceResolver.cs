@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 #nullable enable
@@ -120,6 +121,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (unityObject == null)
             {
                 throw new ArgumentNullException(nameof(unityObject));
+            }
+
+            var gameObject = unityObject switch
+            {
+                GameObject value => value,
+                Component value => value.gameObject,
+                _ => null,
+            };
+            // Prefab Stage GlobalObjectIds can be syntactically valid but cannot be resolved after the stage closes.
+            if (gameObject != null
+                && PrefabStageUtility.GetPrefabStage(gameObject) != null)
+            {
+                globalObjectId = null;
+                return false;
             }
 
             var candidate = GlobalObjectId.GetGlobalObjectIdSlow(unityObject).ToString();

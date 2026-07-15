@@ -1153,6 +1153,7 @@ namespace MackySoft.Ucli.Unity.Tests
             stageChild!.name = "Renamed";
             EditorSceneManager.MarkSceneDirty(prefabStage.scene);
             Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(stageChild.gameObject, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(stageChild, out _), Is.False);
 
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
