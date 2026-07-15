@@ -177,21 +177,24 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var pingClient = new RecordingDaemonPingInfoClient(
             new SessionTokenInvalidTestException(),
             DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
+        var lifecycleStore = new RecordingDaemonLifecycleStore();
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
             daemonPingInfoClient: pingClient,
             reachabilityClassifier: RecoverableProbeFailureClassifier,
+            lifecycleStore: lifecycleStore,
             daemonSessionStore: new RecordingDaemonSessionStore(
                 DaemonSessionReadResultTestFactory.Found(mismatchedSuccessor)));
 
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
         Assert.Null(result);
         Assert.Equal(2, pingClient.Invocations.Count);
+        Assert.Empty(lifecycleStore.ReadInvocations);
     }
 
     [Fact]
