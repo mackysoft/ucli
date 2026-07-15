@@ -104,9 +104,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                         out var resolutionError))
                     {
                         captureResult = UnityScreenshotBackendResult.Failure(
-                            resolutionErrorCode.HasValue
-                                ? resolutionErrorCode.Value
-                                : UcliCoreErrorCodes.InternalError,
+                            resolutionErrorCode ?? UcliCoreErrorCodes.InternalError,
                             resolutionError);
                     }
 

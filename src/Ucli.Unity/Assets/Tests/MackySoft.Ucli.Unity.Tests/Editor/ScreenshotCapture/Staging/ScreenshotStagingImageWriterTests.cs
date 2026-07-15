@@ -15,16 +15,25 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class ScreenshotStagingImageWriterTests
     {
+        private static readonly Guid FirstCaptureId =
+            Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+        private static readonly Guid SecondCaptureId =
+            Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        private static readonly Guid SymlinkCaptureId =
+            Guid.Parse("33333333-3333-3333-3333-333333333333");
+
         [Test]
         [Category("Size.Small")]
         public async Task WriteAtomicAsync_WithPreparedCapturePath_PublishesExactBytes ()
         {
             using var scope = new TemporaryScreenshotDirectory();
             var writer = scope.CreateWriter();
-            var path = scope.PrepareCapturePath("capture-1");
+            var path = scope.PrepareCapturePath(FirstCaptureId);
             var bytes = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8 };
 
-            var sizeBytes = await writer.WriteAtomicAsync(path, bytes, CancellationToken.None);
+            var sizeBytes = await writer.WriteAtomicAsync(FirstCaptureId, bytes, CancellationToken.None);
 
             Assert.That(sizeBytes, Is.EqualTo(bytes.LongLength));
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(bytes));
@@ -43,17 +52,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void WriteAtomicAsync_WithPathOutsideFingerprintWork_RejectsWrite ()
+        public void WriteAtomicAsync_WithEmptyCaptureId_RejectsWrite ()
         {
             using var scope = new TemporaryScreenshotDirectory();
             var writer = scope.CreateWriter();
-            var outsideDirectory = Path.Combine(scope.RootPath, "outside");
-            Directory.CreateDirectory(outsideDirectory);
-            var path = Path.Combine(outsideDirectory, "capture.rgba");
 
-            Assert.ThrowsAsync<IOException>(async () =>
-                await writer.WriteAtomicAsync(path, new byte[] { 1, 2, 3, 4 }, CancellationToken.None));
-            Assert.That(File.Exists(path), Is.False);
+            Assert.ThrowsAsync<ArgumentException>(() =>
+                writer.WriteAtomicAsync(Guid.Empty, new byte[] { 1, 2, 3, 4 }, CancellationToken.None));
         }
 
         [Test]
@@ -62,12 +67,12 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             using var scope = new TemporaryScreenshotDirectory();
             var writer = scope.CreateWriter();
-            var path = scope.PrepareCapturePath("capture-2");
+            var path = scope.PrepareCapturePath(SecondCaptureId);
             var original = new byte[] { 9, 8, 7, 6 };
             File.WriteAllBytes(path, original);
 
-            Assert.ThrowsAsync<IOException>(async () =>
-                await writer.WriteAtomicAsync(path, new byte[] { 1, 2, 3, 4 }, CancellationToken.None));
+            Assert.ThrowsAsync<IOException>(() =>
+                writer.WriteAtomicAsync(SecondCaptureId, new byte[] { 1, 2, 3, 4 }, CancellationToken.None));
             Assert.That(File.ReadAllBytes(path), Is.EqualTo(original));
         }
 
@@ -91,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var captureDirectory = UcliStoragePathResolver.ResolveScreenshotCaptureStagingDirectory(
                 scope.ProjectPath,
                 TemporaryScreenshotDirectory.ProjectFingerprint,
-                "capture-link");
+                SymlinkCaptureId);
             using (var process = Process.Start(new ProcessStartInfo
             {
                 FileName = "/bin/ln",
@@ -112,8 +117,8 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             var path = Path.Combine(captureDirectory, "capture.rgba");
-            Assert.ThrowsAsync<IOException>(async () =>
-                await writer.WriteAtomicAsync(path, new byte[] { 1, 2, 3, 4 }, CancellationToken.None));
+            Assert.ThrowsAsync<IOException>(() =>
+                writer.WriteAtomicAsync(SymlinkCaptureId, new byte[] { 1, 2, 3, 4 }, CancellationToken.None));
             Assert.That(File.Exists(Path.Combine(outsideDirectory, "capture.rgba")), Is.False);
         }
 
@@ -143,7 +148,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     "2023.2.22f1"));
             }
 
-            public string PrepareCapturePath (string captureId)
+            public string PrepareCapturePath (Guid captureId)
             {
                 var captureDirectory = UcliStoragePathResolver.ResolveScreenshotCaptureStagingDirectory(
                     ProjectPath,

@@ -49,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Constructor_WithRasterLargerThanContract_Throws ()
         {
-            Assert.Throws<ArgumentException>(() =>
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new UnityScreenshotFrame(
                     width: IpcScreenshotCaptureLimits.MaximumDimension,
                     height: IpcScreenshotCaptureLimits.MaximumDimension,

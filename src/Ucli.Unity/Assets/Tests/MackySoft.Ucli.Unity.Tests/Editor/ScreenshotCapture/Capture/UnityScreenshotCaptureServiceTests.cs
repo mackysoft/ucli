@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 using MackySoft.Ucli.Unity.ScreenshotCapture;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Capture;
@@ -15,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityScreenshotCaptureServiceTests
     {
-        private const string StagingPath = "/tmp/ucli-screenshot-test/capture.rgba";
+        private static readonly Guid CaptureId = Guid.Parse("ab66cdfa-d4bd-49bd-b727-a1201d4426f4");
 
         [Test]
         [Category("Size.Small")]
@@ -56,7 +57,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(writer.WriteCallCount, Is.EqualTo(1));
-            Assert.That(writer.LastPath, Is.EqualTo(StagingPath));
+            Assert.That(writer.LastCaptureId, Is.EqualTo(CaptureId));
             Assert.That(writer.LastBytes.ToArray(), Is.EqualTo(CreateFrameBytes()));
             Assert.That(
                 result.Response.Capture.Target,
@@ -66,6 +67,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Is.EqualTo(IpcScreenshotSizeMode.CurrentSurface));
             Assert.That(result.Response.Capture.Width, Is.EqualTo(2));
             Assert.That(result.Response.Capture.Height, Is.EqualTo(1));
+            Assert.That(result.Response.CaptureId, Is.EqualTo(CaptureId));
             Assert.That(
                 result.Response.Capture.State.LifecycleState,
                 Is.EqualTo(IpcEditorLifecycleState.Ready));
@@ -84,6 +86,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 result.Response.Staging.RowOrder,
                 Is.EqualTo(IpcScreenshotRowOrder.TopDown));
+            Assert.That(result.Response.Staging.Width, Is.EqualTo(2));
+            Assert.That(result.Response.Staging.Height, Is.EqualTo(1));
             Assert.That(result.Response.Staging.RowStrideBytes, Is.EqualTo(8));
             Assert.That(result.Response.Staging.SizeBytes, Is.EqualTo(8));
         }
@@ -168,7 +172,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 before.State,
                 new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
                 new IpcPrimaryDiagnostic(
-                    Kind: "compiler",
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                     Code: "CS0000",
                     File: null,
                     Line: null,
@@ -232,7 +236,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 service.CaptureAsync(CreateRequest(), cancellationTokenSource.Token)
                     .GetAwaiter()
                     .GetResult());
-            Assert.That(writer.DeletedPaths, Is.EqualTo(new[] { StagingPath }));
+            Assert.That(writer.DeletedCaptureIds, Is.EqualTo(new[] { CaptureId }));
         }
 
         [Test]
@@ -252,7 +256,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error.Code, Is.EqualTo(UcliCoreErrorCodes.InternalError));
-            Assert.That(writer.DeletedPaths, Is.EqualTo(new[] { StagingPath }));
+            Assert.That(writer.DeletedCaptureIds, Is.EqualTo(new[] { CaptureId }));
         }
 
         [Test]
@@ -281,11 +285,10 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcScreenshotCaptureRequest CreateRequest ()
         {
             return new IpcScreenshotCaptureRequest(
+                CaptureId,
                 IpcScreenshotTarget.Game,
                 RequestedWidth: null,
-                RequestedHeight: null,
-                StagingPath,
-                TimeoutMilliseconds: 5000);
+                RequestedHeight: null);
         }
 
         private static UnityScreenshotBackendResult CreateBackendSuccess ()
@@ -368,28 +371,28 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int WriteCallCount { get; private set; }
 
-            public string LastPath { get; private set; }
+            public Guid LastCaptureId { get; private set; }
 
             public ReadOnlyMemory<byte> LastBytes { get; private set; }
 
-            public List<string> DeletedPaths { get; } = new List<string>();
+            public List<Guid> DeletedCaptureIds { get; } = new List<Guid>();
 
             public Task<long> WriteAtomicAsync (
-                string path,
+                Guid captureId,
                 ReadOnlyMemory<byte> bytes,
                 CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 WriteCallCount++;
-                LastPath = path;
+                LastCaptureId = captureId;
                 LastBytes = bytes;
                 afterWrite?.Invoke();
                 return Task.FromResult(reportedSizeBytes ?? bytes.Length);
             }
 
-            public void DeleteIfExists (string path)
+            public void DeleteIfExists (Guid captureId)
             {
-                DeletedPaths.Add(path);
+                DeletedCaptureIds.Add(captureId);
             }
         }
 
@@ -427,6 +430,8 @@ namespace MackySoft.Ucli.Unity.Tests
         private sealed class BusyMutationExecutionState : IUnityMutationExecutionState
         {
             public bool IsBusy => true;
+
+            public bool HasUnfinishedWork => true;
         }
     }
 }

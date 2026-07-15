@@ -1,5 +1,4 @@
 using System.Globalization;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -11,7 +10,11 @@ namespace MackySoft.Ucli.Tests.Features.Screenshot.Artifacts;
 
 public sealed class FileScreenshotArtifactStoreTests
 {
-    private const string CaptureId = "20260711_120000Z_deadbeef";
+    private static readonly Guid CaptureId =
+        Guid.Parse("01234567-89ab-cdef-0123-456789abcdef");
+
+    private const string CaptureIdPathSegment = "0123456789abcdef0123456789abcdef";
+
     private static readonly DateTimeOffset CreatedAtUtc = DateTimeOffset.Parse(
         "2026-07-11T12:00:00Z",
         CultureInfo.InvariantCulture);
@@ -26,14 +29,14 @@ public sealed class FileScreenshotArtifactStoreTests
         var rawBytes = CreateTwoByTwoRawBytes();
         await File.WriteAllBytesAsync(paths.RawStagingPath, rawBytes, CancellationToken.None);
 
-        var result = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(CreateStagingImage(), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var artifact = Assert.IsType<ScreenshotArtifact>(result.Artifact);
         Assert.Equal(CreatedAtUtc, artifact.CreatedAtUtc);
         Assert.False(Path.IsPathRooted(artifact.Path));
         Assert.DoesNotContain('\\', artifact.Path);
-        Assert.EndsWith("/artifacts/screenshot/20260711_120000Z_deadbeef/screenshot.png", artifact.Path, StringComparison.Ordinal);
+        Assert.EndsWith($"/artifacts/screenshot/{CaptureIdPathSegment}/screenshot.png", artifact.Path, StringComparison.Ordinal);
         Assert.True(File.Exists(paths.PngPath));
         Assert.False(File.Exists(paths.RawStagingPath));
         Assert.False(Directory.Exists(paths.StagingDirectory));
@@ -44,7 +47,7 @@ public sealed class FileScreenshotArtifactStoreTests
 
         var pngBytes = await File.ReadAllBytesAsync(paths.PngPath, CancellationToken.None);
         Assert.Equal(pngBytes.LongLength, artifact.SizeBytes);
-        Assert.Equal(Sha256LowerHex.Compute(pngBytes), artifact.Digest);
+        Assert.Equal(Sha256Digest.Parse(Sha256LowerHex.Compute(pngBytes)), artifact.Digest);
         Assert.Equal(new byte[] { 137, 80, 78, 71, 13, 10, 26, 10 }, pngBytes[..8]);
     }
 
@@ -55,7 +58,7 @@ public sealed class FileScreenshotArtifactStoreTests
         using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "discard-committed");
         var paths = Prepare(CreateStore(), scope);
         await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
-        var commitResult = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        var commitResult = await paths.Lease.CommitAsync(CreateStagingImage(), CancellationToken.None);
         Assert.True(commitResult.IsSuccess);
 
         var firstDiscard = paths.Lease.Discard();
@@ -96,6 +99,27 @@ public sealed class FileScreenshotArtifactStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public void Prepare_WithEmptyCaptureId_ThrowsBeforeCreatingCaptureDirectories ()
+    {
+        using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "empty-capture-id");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(
+            scope,
+            ProjectFingerprintTestFactory.Create("fingerprint"));
+        var store = CreateStore();
+
+        var exception = Assert.Throws<ArgumentException>(() => store.Prepare(project, Guid.Empty));
+
+        Assert.Equal("captureId", exception.ParamName);
+        Assert.False(Directory.Exists(UcliStoragePathResolver.ResolveScreenshotArtifactsDirectory(
+            project.RepositoryRoot,
+            project.ProjectFingerprint)));
+        Assert.False(Directory.Exists(UcliStoragePathResolver.ResolveScreenshotWorkDirectory(
+            project.RepositoryRoot,
+            project.ProjectFingerprint)));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public void Prepare_WhenSecureDirectoryCreationAndRollbackFail_ReturnsBothDiagnostics ()
     {
         using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "prepare-rollback-failure");
@@ -123,50 +147,20 @@ public sealed class FileScreenshotArtifactStoreTests
         Assert.False(Directory.Exists(expectedPaths.ArtifactDirectory));
     }
 
-    [Theory]
-    [InlineData("returned-path")]
-    [InlineData("pixel-format")]
-    [InlineData("row-order")]
-    [InlineData("row-stride")]
-    [InlineData("reported-size")]
-    [InlineData("actual-size")]
+    [Fact]
     [Trait("Size", "Medium")]
-    public async Task CommitAsync_WithInvalidRawContract_ReturnsCaptureUnsupportedWithoutFinalArtifact (string caseName)
+    public async Task CommitAsync_WhenRawFileSizeDiffersFromTypedMetadata_ReturnsCaptureUnsupportedWithoutFinalArtifact ()
     {
-        using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", $"invalid-{caseName}");
+        using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "invalid-actual-size");
         var store = CreateStore();
         var paths = Prepare(store, scope);
         var rawBytes = CreateTwoByTwoRawBytes();
-        if (caseName == "actual-size")
-        {
-            Array.Resize(ref rawBytes, rawBytes.Length - 1);
-        }
+        Array.Resize(ref rawBytes, rawBytes.Length - 1);
 
         await File.WriteAllBytesAsync(paths.RawStagingPath, rawBytes, CancellationToken.None);
-        var request = CreateCommitRequest(paths);
-        var staging = request.Staging;
-        request = caseName switch
-        {
-            "returned-path" => CreateCommitRequest(
-                paths,
-                staging: staging with { Path = Path.Combine(scope.FullPath, "outside.rgba") }),
-            "pixel-format" => CreateCommitRequest(
-                paths,
-                staging: staging with { PixelFormat = (IpcScreenshotPixelFormat)int.MaxValue }),
-            "row-order" => CreateCommitRequest(
-                paths,
-                staging: staging with { RowOrder = (IpcScreenshotRowOrder)int.MaxValue }),
-            "row-stride" => CreateCommitRequest(
-                paths,
-                staging: staging with { RowStrideBytes = staging.RowStrideBytes + 1 }),
-            "reported-size" => CreateCommitRequest(
-                paths,
-                staging: staging with { SizeBytes = staging.SizeBytes - 1 }),
-            "actual-size" => request,
-            _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown raw contract case."),
-        };
+        var staging = CreateStagingImage();
 
-        var result = await paths.Lease.CommitAsync(request, CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(staging, CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ScreenshotErrorCodes.ScreenshotCaptureUnsupported, result.Error!.Code);
@@ -195,41 +189,11 @@ public sealed class FileScreenshotArtifactStoreTests
             return;
         }
 
-        var result = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(CreateStagingImage(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(File.Exists(paths.PngPath));
         Assert.Equal(rawBytes, await File.ReadAllBytesAsync(targetPath, CancellationToken.None));
-        Assert.False(File.Exists(paths.RawStagingPath));
-        Assert.False(Directory.Exists(paths.StagingDirectory));
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task CommitAsync_WhenDimensionsExceedHostLimit_RejectsBeforeEncodingAndRemovesStaging ()
-    {
-        using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "oversized");
-        var store = CreateStore();
-        var paths = Prepare(store, scope);
-        var width = IpcScreenshotCaptureLimits.MaximumDimension + 1;
-        var rawBytes = new byte[checked(width * 4)];
-        await File.WriteAllBytesAsync(paths.RawStagingPath, rawBytes, CancellationToken.None);
-        var request = CreateCommitRequest(
-            paths,
-            width,
-            height: 1,
-            new IpcScreenshotStagingImage(
-                paths.RawStagingPath,
-                IpcScreenshotPixelFormat.Rgba8Srgb,
-                IpcScreenshotRowOrder.TopDown,
-                RowStrideBytes: rawBytes.Length,
-                SizeBytes: rawBytes.LongLength));
-
-        var result = await paths.Lease.CommitAsync(request, CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ScreenshotErrorCodes.ScreenshotCaptureUnsupported, result.Error!.Code);
-        Assert.False(File.Exists(paths.PngPath));
         Assert.False(File.Exists(paths.RawStagingPath));
         Assert.False(Directory.Exists(paths.StagingDirectory));
     }
@@ -255,7 +219,7 @@ public sealed class FileScreenshotArtifactStoreTests
             return;
         }
 
-        var result = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(CreateStagingImage(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.False(File.Exists(paths.PngPath));
@@ -295,7 +259,7 @@ public sealed class FileScreenshotArtifactStoreTests
         cancellationTokenSource.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            paths.Lease.CommitAsync(CreateCommitRequest(paths), cancellationTokenSource.Token).AsTask());
+            paths.Lease.CommitAsync(CreateStagingImage(), cancellationTokenSource.Token).AsTask());
 
         Assert.False(File.Exists(paths.RawStagingPath));
         Assert.False(Directory.Exists(paths.StagingDirectory));
@@ -325,7 +289,7 @@ public sealed class FileScreenshotArtifactStoreTests
         var paths = Prepare(store, scope);
         await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
 
-        var result = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(CreateStagingImage(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Contains("Expected final PNG deletion failure.", result.Error!.Message, StringComparison.Ordinal);
@@ -356,7 +320,7 @@ public sealed class FileScreenshotArtifactStoreTests
         var paths = Prepare(store, scope);
         await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
 
-        var result = await paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None);
+        var result = await paths.Lease.CommitAsync(CreateStagingImage(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Contains("Expected temporary PNG deletion failure.", result.Error!.Message, StringComparison.Ordinal);
@@ -378,7 +342,7 @@ public sealed class FileScreenshotArtifactStoreTests
         await File.WriteAllBytesAsync(paths.RawStagingPath, CreateTwoByTwoRawBytes(), CancellationToken.None);
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() =>
-            paths.Lease.CommitAsync(CreateCommitRequest(paths), CancellationToken.None).AsTask());
+            paths.Lease.CommitAsync(CreateStagingImage(), CancellationToken.None).AsTask());
 
         Assert.False(File.Exists(paths.RawStagingPath));
         Assert.False(Directory.Exists(paths.StagingDirectory));
@@ -421,28 +385,22 @@ public sealed class FileScreenshotArtifactStoreTests
 
         Assert.True(result.IsSuccess);
         var lease = Assert.IsAssignableFrom<IScreenshotArtifactLease>(result.Lease);
-        Assert.Equal(expectedPaths.RawStagingPath, lease.RawStagingPath);
-        Assert.True(Path.IsPathRooted(lease.RawStagingPath));
         Assert.True(Directory.Exists(expectedPaths.StagingDirectory));
         Assert.False(Directory.Exists(expectedPaths.ArtifactDirectory));
         return new PreparedCapture(lease, expectedPaths);
     }
 
-    private static ScreenshotArtifactCommitRequest CreateCommitRequest (
-        PreparedCapture capture,
+    private static IpcScreenshotStagingImage CreateStagingImage (
         int width = 2,
-        int height = 2,
-        IpcScreenshotStagingImage? staging = null)
+        int height = 2)
     {
-        return new ScreenshotArtifactCommitRequest(
+        return new IpcScreenshotStagingImage(
             width,
             height,
-            staging ?? new IpcScreenshotStagingImage(
-                capture.RawStagingPath,
-                IpcScreenshotPixelFormat.Rgba8Srgb,
-                IpcScreenshotRowOrder.TopDown,
-                RowStrideBytes: checked(width * 4),
-                SizeBytes: checked((long)width * height * 4)));
+            IpcScreenshotPixelFormat.Rgba8Srgb,
+            IpcScreenshotRowOrder.TopDown,
+            RowStrideBytes: checked(width * 4),
+            SizeBytes: checked((long)width * height * 4));
     }
 
     private static ExpectedCapturePaths ResolveExpectedPaths (TestDirectoryScope scope)
@@ -510,7 +468,7 @@ public sealed class FileScreenshotArtifactStoreTests
 
         public string StagingDirectory => Paths.StagingDirectory;
 
-        public string RawStagingPath => Lease.RawStagingPath;
+        public string RawStagingPath => Paths.RawStagingPath;
     }
 
     private sealed record ExpectedCapturePaths (

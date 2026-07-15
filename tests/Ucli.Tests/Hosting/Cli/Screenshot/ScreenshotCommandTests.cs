@@ -1,6 +1,6 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Screenshot;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -139,10 +139,10 @@ public sealed class ScreenshotCommandTests
         int? requestedHeight)
     {
         return new ScreenshotCaptureOutput(
-            new ProjectIdentityInfo(
-                "/repo/UnityProject",
-                ProjectFingerprintTestFactory.Create("screenshot-command"),
-                "6000.0.77f1"),
+            ProjectIdentityInfoTestFactory.Create(
+                projectPath: "/repo/UnityProject",
+                projectFingerprint: ProjectFingerprintTestFactory.Create("screenshot-command"),
+                unityVersion: "6000.0.77f1"),
             new IpcScreenshotCapture(
                 target,
                 requestedWidth.HasValue
@@ -165,7 +165,7 @@ public sealed class ScreenshotCommandTests
                         IsPlayingOrWillChangePlaymode: true))),
             new ScreenshotArtifact(
                 ".ucli/local/fingerprints/pf_test/artifacts/screenshot/capture/screenshot.png",
-                new string('a', 64),
+                Sha256Digest.Parse(new string('a', 64)),
                 4096,
                 new DateTimeOffset(2026, 7, 11, 1, 2, 3, TimeSpan.Zero)));
     }
