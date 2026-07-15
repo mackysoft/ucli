@@ -1,5 +1,3 @@
-using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.ResolveCommandTestData;
@@ -42,7 +40,7 @@ public sealed class ResolveCommandPayloadTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Resolve,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         JsonAssert.For(outputJson.RootElement)
             .HasString("message", "Unity execution failed.")

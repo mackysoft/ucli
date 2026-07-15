@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.Results;
 
@@ -6,7 +7,7 @@ namespace MackySoft.Ucli.Application.Shared.Execution.Results;
 /// <param name="Surface"> The affected read surface. </param>
 /// <param name="MinSafeGeneratedAtUtc"> The inclusive minimum read-index generation time considered safe. </param>
 internal sealed record OperationExecutionReadPostconditionRequirement (
-    string Surface,
+    IpcExecuteReadPostconditionSurface Surface,
     DateTimeOffset MinSafeGeneratedAtUtc)
 {
     /// <summary> Gets the optional normalized scene path for scene-scoped requirements. </summary>

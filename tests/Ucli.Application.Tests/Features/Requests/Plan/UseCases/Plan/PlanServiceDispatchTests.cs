@@ -15,9 +15,9 @@ public sealed class PlanServiceDispatchTests
             "plan-token-1",
             [
                 new IpcExecuteOperationResult(
-                    OpId: "step-1",
+                    OpId: new IpcExecuteStepId("step-1"),
                     Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                    Phase: IpcExecuteOperationPhaseNames.Plan,
+                    Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,
                     Changed: false,
                     Touched: []),

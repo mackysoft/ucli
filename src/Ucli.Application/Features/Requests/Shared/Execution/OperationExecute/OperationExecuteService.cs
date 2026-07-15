@@ -33,13 +33,13 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         IOperationAuthorizationService operationAuthorizationService,
         IUnityRequestExecutor unityIpcRequestExecutor,
         IMutationReadPostconditionStore mutationReadPostconditionStore,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.operationAuthorizationService = operationAuthorizationService ?? throw new ArgumentNullException(nameof(operationAuthorizationService));
         this.unityIpcRequestExecutor = unityIpcRequestExecutor ?? throw new ArgumentNullException(nameof(unityIpcRequestExecutor));
         this.mutationReadPostconditionStore = mutationReadPostconditionStore ?? throw new ArgumentNullException(nameof(mutationReadPostconditionStore));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -169,7 +169,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         var postprocessedResponse = await ExecuteResponseReadPostconditionProcessor.PersistAsync(
                 ExecuteResponseConverter.Convert(
                     executionResult.Response!,
-                    projectContext.UnityProject.ProjectFingerprint),
+                    projectContext.UnityProject),
                 mutationReadPostconditionStore,
                 projectContext.UnityProject.RepositoryRoot,
                 projectContext.UnityProject.ProjectFingerprint,
@@ -193,7 +193,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         return OperationExecuteResultFactory.Failure(
             requestId,
             convertedResponse.OpResults,
-            RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
+            RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors),
             definition.FailureMessage,
             contractViolations: convertedResponse.ContractViolations,
             readPostcondition: convertedResponse.ReadPostcondition,
@@ -258,7 +258,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
 
         var convertedResponse = ExecuteResponseConverter.Convert(
             executionResult.Response!,
-            unityProject.ProjectFingerprint);
+            unityProject);
         if (!convertedResponse.IsSuccess)
         {
             return (
@@ -266,13 +266,13 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 OperationExecuteResultFactory.Failure(
                     requestId,
                     convertedResponse.OpResults,
-                    RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
+                    RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors),
                     definition.FailureMessage,
                     contractViolations: convertedResponse.ContractViolations,
                     project: project));
         }
 
-        if (string.IsNullOrWhiteSpace(convertedResponse.PlanToken))
+        if (convertedResponse.PlanToken == null)
         {
             return (
                 null,

@@ -9,57 +9,60 @@ public sealed class ExecuteResponseConverterErrorTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenErrorsAreMissing_ReturnsInternalError ()
+    public void UnityRequestResponse_WhenErrorsAreMissing_ThrowsArgumentNullException ()
     {
-        var response = new UnityRequestResponse(
+        var exception = Assert.Throws<ArgumentNullException>(() => new UnityRequestResponse(
             Payload: CreatePayload(),
-            Errors: null!,
-            HasFailureStatus: false);
+            Errors: null!));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("'errors' field", error.Message, StringComparison.Ordinal);
+        Assert.Equal("Errors", exception.ParamName);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenErrorRequiredTextIsMissing_ReturnsInternalError ()
+    public void UnityRequestResponse_WhenPayloadIsUndefined_ThrowsArgumentException ()
     {
-        var response = new UnityRequestResponse(
-            Payload: CreatePayload(),
-            Errors:
-            [
-                new OperationExecutionError(default, "Unity execution failed.", null),
-            ],
-            HasFailureStatus: true);
+        var exception = Assert.Throws<ArgumentException>(() => new UnityRequestResponse(
+            Payload: default,
+            Errors: []));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("errors[0].code", error.Message, StringComparison.Ordinal);
+        Assert.Equal("Payload", exception.ParamName);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenFailureStatusHasNoErrors_ReturnsStatusMessage ()
+    public void UnityRequestResponse_WhenErrorsContainNull_ThrowsArgumentException ()
     {
-        var response = new UnityRequestResponse(
+        var exception = Assert.Throws<ArgumentException>(() => new UnityRequestResponse(
             Payload: CreatePayload(),
-            Errors: [],
-            HasFailureStatus: true,
-            FailureStatus: "busy");
+            Errors: [null!]));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        Assert.Equal("Errors", exception.ParamName);
+    }
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Equal("Execute response failed with status 'busy'.", error.Message);
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OperationExecutionError_WhenCodeIsNull_ThrowsArgumentNullException ()
+    {
+        Assert.Throws<ArgumentNullException>(() => new OperationExecutionError(
+            null!,
+            "Unity execution failed.",
+            null));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    [Trait("Size", "Small")]
+    public void OperationExecutionError_WhenMessageIsMissing_ThrowsArgumentException (string? message)
+    {
+        var exception = Assert.ThrowsAny<ArgumentException>(() => new OperationExecutionError(
+            UcliCoreErrorCodes.InternalError,
+            message!,
+            null));
+
+        Assert.Equal("Message", exception.ParamName);
     }
 
     [Fact]
@@ -71,10 +74,9 @@ public sealed class ExecuteResponseConverterErrorTests
             Errors:
             [
                 new OperationExecutionError(PlanTokenErrorCodes.PlanTokenInvalid, "Plan token is invalid.", null),
-            ],
-            HasFailureStatus: true);
+            ]);
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, Assert.Single(result.Errors).Code);

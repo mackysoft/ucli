@@ -130,10 +130,11 @@ internal static class ResolveSelectorInputFactory
         }
         if (normalizedAssetGuid is not null)
         {
-            if (!UnityAssetGuid.TryParse(normalizedAssetGuid, out var typedAssetGuid))
+            if (!Guid.TryParse(normalizedAssetGuid, out var typedAssetGuid)
+                || typedAssetGuid == Guid.Empty)
             {
                 return ResolveSelectorInputCreationResult.Failure(ExecutionError.InvalidArgument(
-                    "Selector '--assetGuid' must be a non-zero 32-character hexadecimal Unity asset GUID."));
+                    "Selector '--assetGuid' must be a non-empty GUID."));
             }
 
             return ResolveSelectorInputCreationResult.Success(new ResolveAssetGuidSelectorInput(typedAssetGuid));

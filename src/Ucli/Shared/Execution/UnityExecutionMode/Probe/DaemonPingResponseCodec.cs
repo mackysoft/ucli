@@ -16,17 +16,11 @@ internal static class DaemonPingResponseCodec
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
+        if (IpcResponseFailureReader.TryRead(response, out var firstError))
         {
-            if (firstError is not null)
-            {
-                error = new DaemonPingResponseException(
-                    $"Daemon ping failed with error code '{firstError.Code}'.",
-                    firstError.Code);
-                return false;
-            }
-
-            error = new DaemonPingResponseException($"Daemon ping failed with status '{status}'.");
+            error = new DaemonPingResponseException(
+                $"Daemon ping failed with error code '{firstError.Code}'.",
+                firstError.Code);
             return false;
         }
 

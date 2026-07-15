@@ -25,7 +25,7 @@ internal static class ExecutionErrorCodeDescriptors
             possiblePhases: ["preflight", "execution", "ipcDispatch", "unityExecution"],
             impliesNotApplied: null,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["status", "errors[].code", "errors[].message", "payload.requestId", "payload.opResults", "payload.readPostcondition", UcliErrorInspectTargets.DaemonStatusCommand],
             nextActions:
             [

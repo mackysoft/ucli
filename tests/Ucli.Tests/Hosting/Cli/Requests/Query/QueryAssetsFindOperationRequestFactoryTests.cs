@@ -9,7 +9,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 {
     private const string CommandName = "query assets find";
 
-    private const string OperationId = "query.assets.find";
+    private static readonly IpcExecuteStepId OperationId = new("query.assets.find");
 
     private const string OperationName = "ucli.assets.find";
 
@@ -72,7 +72,6 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
         Assert.Equal("Texture2D", operation.Query.TypeId!.Value);
         Assert.Equal("Assets/UI", operation.Query.PathPrefix!.Value);
         Assert.Equal("Button", operation.Query.NameContains);
-        Assert.False(operation.WindowOptions.All);
         Assert.Equal(BoundedWindowConstants.DefaultLimit, operation.WindowOptions.Limit);
         Assert.Null(operation.WindowOptions.Cursor);
         Assert.Equal(0, operation.WindowOptions.Offset);
@@ -88,8 +87,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 
         Assert.True(result.IsSuccess);
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(result.Operation);
-        Assert.True(operation.WindowOptions.All);
-        Assert.Equal(0, operation.WindowOptions.Limit);
+        Assert.Null(operation.WindowOptions.Limit);
         Assert.Null(operation.WindowOptions.Cursor);
         Assert.Equal(0, operation.WindowOptions.Offset);
     }
@@ -102,7 +100,6 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 
         Assert.True(result.IsSuccess);
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(result.Operation);
-        Assert.False(operation.WindowOptions.All);
         Assert.Equal(42, operation.WindowOptions.Limit);
     }
 

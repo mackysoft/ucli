@@ -11,7 +11,7 @@ internal sealed class RefreshService : IRefreshService
 {
     private static readonly OperationExecuteDefinition RefreshOperation = new(
         Command: UcliCommandIds.Refresh,
-        OperationId: "refresh",
+        OperationId: new IpcExecuteStepId("refresh"),
         Descriptor: new UcliOperationDescriptor(
             Name: UcliPrimitiveOperationNames.ProjectRefresh,
             Kind: UcliOperationKind.Command,

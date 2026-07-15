@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -11,7 +12,7 @@ internal sealed class QuerySceneTreeCommand
 {
     private const int DefaultDepth = 1;
 
-    private const string OperationId = "scene.tree";
+    private static readonly IpcExecuteStepId OperationId = new("scene.tree");
 
     private readonly IQueryService queryService;
 
@@ -72,6 +73,15 @@ internal sealed class QuerySceneTreeCommand
             return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QuerySceneTree, error!);
         }
 
+        if (!UnityScenePath.TryParse(normalizedPath, out var scenePath))
+        {
+            return QueryCommandExecutionHelper.WriteExecutionError(
+                requestId,
+                commandResultWriter,
+                UcliCommandNames.QuerySceneTree,
+                ExecutionError.InvalidArgument("Option '--path' must identify a .unity scene below 'Assets/' or 'Packages/'."));
+        }
+
         var depthResult = QueryDepthOptionNormalizer.Normalize(depth, fullDepth, DefaultDepth);
         if (!depthResult.IsSuccess)
         {
@@ -92,7 +102,7 @@ internal sealed class QuerySceneTreeCommand
                     CommandName: UcliCommandNames.QuerySceneTree,
                     OperationId: OperationId,
                     OperationName: UcliPrimitiveOperationNames.SceneTree,
-                    ScenePath: normalizedPath,
+                    ScenePath: scenePath,
                     Depth: depthResult.Depth,
                     WindowOptions: windowResult.Options!),
                 commandResultWriter,

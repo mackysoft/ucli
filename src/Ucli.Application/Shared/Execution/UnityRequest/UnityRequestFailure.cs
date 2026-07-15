@@ -19,15 +19,10 @@ internal sealed record UnityRequestFailure
             throw new ArgumentOutOfRangeException(nameof(failureKind), failureKind, "Failure kind is invalid.");
         }
 
-        if (!code.IsValid)
-        {
-            throw new ArgumentException("Failure code must not be empty.", nameof(code));
-        }
-
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
         FailureKind = failureKind;
-        Code = code;
+        Code = code ?? throw new ArgumentNullException(nameof(code));
         Message = message;
         StartupFailure = startupFailure;
     }

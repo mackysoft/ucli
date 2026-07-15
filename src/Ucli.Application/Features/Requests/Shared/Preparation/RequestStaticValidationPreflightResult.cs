@@ -4,23 +4,56 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 
 /// <summary> Represents the result of executing shared static-validation preflight for one request. </summary>
-/// <param name="PreparedRequest"> The prepared request context when available. </param>
-/// <param name="ReadIndex"> The emitted read-index payload when available. </param>
-/// <param name="ValidationErrors"> The static validation errors when validation failed; otherwise an empty collection. </param>
-/// <param name="Error"> The infrastructure error when preflight failed; otherwise <see langword="null" />. </param>
-/// <param name="ErrorCode"> The machine-readable error code associated with <paramref name="Error" />; otherwise <see langword="null" />. </param>
-internal sealed record RequestStaticValidationPreflightResult (
-    PreparedRequestContext? PreparedRequest,
-    ReadIndexInfo? ReadIndex,
-    IReadOnlyList<ValidationError> ValidationErrors,
-    ExecutionError? Error,
-    UcliCode? ErrorCode)
+internal sealed record RequestStaticValidationPreflightResult
 {
+    private RequestStaticValidationPreflightResult (
+        PreparedRequestContext? preparedRequest,
+        ReadIndexInfo? readIndex,
+        IReadOnlyList<ValidationError> validationErrors,
+        ExecutionError? error,
+        UcliCode? errorCode)
+    {
+        ArgumentNullException.ThrowIfNull(validationErrors);
+        if (error is null)
+        {
+            ArgumentNullException.ThrowIfNull(preparedRequest);
+            ArgumentNullException.ThrowIfNull(readIndex);
+            if (errorCode is not null)
+            {
+                throw new ArgumentException("Successful or validation-failure preflight must not contain an error code.", nameof(errorCode));
+            }
+        }
+        else
+        {
+            ArgumentNullException.ThrowIfNull(errorCode);
+            if (validationErrors.Count != 0)
+            {
+                throw new ArgumentException("Infrastructure-failure preflight must not contain validation errors.", nameof(validationErrors));
+            }
+        }
+
+        PreparedRequest = preparedRequest;
+        ReadIndex = readIndex;
+        ValidationErrors = validationErrors;
+        Error = error;
+        ErrorCode = errorCode;
+    }
+
+    public PreparedRequestContext? PreparedRequest { get; }
+
+    public ReadIndexInfo? ReadIndex { get; }
+
+    public IReadOnlyList<ValidationError> ValidationErrors { get; }
+
+    public ExecutionError? Error { get; }
+
+    public UcliCode? ErrorCode { get; }
+
     /// <summary> Gets a value indicating whether static-validation preflight succeeded. </summary>
-    public bool IsSuccess => PreparedRequest is not null && ReadIndex is not null && ValidationErrors.Count == 0 && Error is null && ErrorCode is null;
+    public bool IsSuccess => ValidationErrors.Count == 0 && Error is null;
 
     /// <summary> Gets a value indicating whether static-validation preflight failed due to validation errors. </summary>
-    public bool HasValidationErrors => PreparedRequest is not null && ReadIndex is not null && ValidationErrors.Count > 0 && Error is null && ErrorCode is null;
+    public bool HasValidationErrors => ValidationErrors.Count > 0;
 
     /// <summary> Creates a successful static-validation preflight result. </summary>
     /// <param name="preparedRequest"> The prepared request context. </param>
@@ -33,11 +66,11 @@ internal sealed record RequestStaticValidationPreflightResult (
         ArgumentNullException.ThrowIfNull(preparedRequest);
         ArgumentNullException.ThrowIfNull(readIndex);
         return new RequestStaticValidationPreflightResult(
-            PreparedRequest: preparedRequest,
-            ReadIndex: readIndex,
-            ValidationErrors: Array.Empty<ValidationError>(),
-            Error: null,
-            ErrorCode: null);
+            preparedRequest,
+            readIndex,
+            Array.Empty<ValidationError>(),
+            error: null,
+            errorCode: null);
     }
 
     /// <summary> Creates a validation-failure result. </summary>
@@ -59,11 +92,11 @@ internal sealed record RequestStaticValidationPreflightResult (
         }
 
         return new RequestStaticValidationPreflightResult(
-            PreparedRequest: preparedRequest,
-            ReadIndex: readIndex,
-            ValidationErrors: validationErrors,
-            Error: null,
-            ErrorCode: null);
+            preparedRequest,
+            readIndex,
+            validationErrors,
+            error: null,
+            errorCode: null);
     }
 
     /// <summary> Creates an infrastructure failure result. </summary>
@@ -80,12 +113,10 @@ internal sealed record RequestStaticValidationPreflightResult (
     {
         ArgumentNullException.ThrowIfNull(error);
         return new RequestStaticValidationPreflightResult(
-            PreparedRequest: preparedRequest,
-            ReadIndex: readIndex,
-            ValidationErrors: Array.Empty<ValidationError>(),
-            Error: error,
-            ErrorCode: errorCode.HasValue && errorCode.Value.IsValid
-                ? errorCode.Value
-                : ExecutionErrorCodeMapper.ToCode(error));
+            preparedRequest,
+            readIndex,
+            Array.Empty<ValidationError>(),
+            error,
+            errorCode ?? ExecutionErrorCodeMapper.ToCode(error));
     }
 }

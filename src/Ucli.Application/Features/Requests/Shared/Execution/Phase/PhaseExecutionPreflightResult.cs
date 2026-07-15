@@ -4,21 +4,51 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 
 /// <summary> Represents the result of executing request preflight before phase execution. </summary>
-/// <param name="PreparedRequest"> The prepared request model on success; otherwise <see langword="null" />. </param>
-/// <param name="ValidationErrors"> The static validation errors when validation failed; otherwise an empty collection. </param>
-/// <param name="Error"> The infrastructure error when preflight failed before static validation; otherwise <see langword="null" />. </param>
-/// <param name="ErrorCode"> The machine-readable error code associated with <paramref name="Error" />; otherwise <see langword="null" />. </param>
-internal sealed record PhaseExecutionPreflightResult (
-    PhaseExecutionPreparedRequest? PreparedRequest,
-    IReadOnlyList<ValidationError> ValidationErrors,
-    ExecutionError? Error,
-    UcliCode? ErrorCode)
+internal sealed record PhaseExecutionPreflightResult
 {
+    private PhaseExecutionPreflightResult (
+        PhaseExecutionPreparedRequest? preparedRequest,
+        IReadOnlyList<ValidationError> validationErrors,
+        ExecutionError? error,
+        UcliCode? errorCode)
+    {
+        ArgumentNullException.ThrowIfNull(validationErrors);
+        if (error is null)
+        {
+            ArgumentNullException.ThrowIfNull(preparedRequest);
+            if (errorCode is not null)
+            {
+                throw new ArgumentException("Successful or validation-failure preflight must not contain an error code.", nameof(errorCode));
+            }
+        }
+        else
+        {
+            ArgumentNullException.ThrowIfNull(errorCode);
+            if (validationErrors.Count != 0)
+            {
+                throw new ArgumentException("Infrastructure-failure preflight must not contain validation errors.", nameof(validationErrors));
+            }
+        }
+
+        PreparedRequest = preparedRequest;
+        ValidationErrors = validationErrors;
+        Error = error;
+        ErrorCode = errorCode;
+    }
+
+    public PhaseExecutionPreparedRequest? PreparedRequest { get; }
+
+    public IReadOnlyList<ValidationError> ValidationErrors { get; }
+
+    public ExecutionError? Error { get; }
+
+    public UcliCode? ErrorCode { get; }
+
     /// <summary> Gets a value indicating whether preflight succeeded. </summary>
-    public bool IsSuccess => PreparedRequest is not null && ValidationErrors.Count == 0 && Error is null && ErrorCode is null;
+    public bool IsSuccess => ValidationErrors.Count == 0 && Error is null;
 
     /// <summary> Gets a value indicating whether preflight failed due to static validation errors. </summary>
-    public bool HasValidationErrors => ValidationErrors.Count > 0 && Error is null && ErrorCode is null;
+    public bool HasValidationErrors => ValidationErrors.Count > 0;
 
     /// <summary> Creates a successful preflight result. </summary>
     /// <param name="preparedRequest"> The prepared request model. </param>
@@ -28,10 +58,10 @@ internal sealed record PhaseExecutionPreflightResult (
     {
         ArgumentNullException.ThrowIfNull(preparedRequest);
         return new PhaseExecutionPreflightResult(
-            PreparedRequest: preparedRequest,
-            ValidationErrors: Array.Empty<ValidationError>(),
-            Error: null,
-            ErrorCode: null);
+            preparedRequest,
+            Array.Empty<ValidationError>(),
+            error: null,
+            errorCode: null);
     }
 
     /// <summary> Creates a preflight result that failed due to static validation errors. </summary>
@@ -51,10 +81,10 @@ internal sealed record PhaseExecutionPreflightResult (
         }
 
         return new PhaseExecutionPreflightResult(
-            PreparedRequest: preparedRequest,
-            ValidationErrors: validationErrors,
-            Error: null,
-            ErrorCode: null);
+            preparedRequest,
+            validationErrors,
+            error: null,
+            errorCode: null);
     }
 
     /// <summary> Creates a failed preflight result with an infrastructure error. </summary>
@@ -69,11 +99,9 @@ internal sealed record PhaseExecutionPreflightResult (
     {
         ArgumentNullException.ThrowIfNull(error);
         return new PhaseExecutionPreflightResult(
-            PreparedRequest: preparedRequest,
-            ValidationErrors: Array.Empty<ValidationError>(),
-            Error: error,
-            ErrorCode: errorCode.HasValue && errorCode.Value.IsValid
-                ? errorCode.Value
-                : ExecutionErrorCodeMapper.ToCode(error));
+            preparedRequest,
+            Array.Empty<ValidationError>(),
+            error,
+            errorCode ?? ExecutionErrorCodeMapper.ToCode(error));
     }
 }

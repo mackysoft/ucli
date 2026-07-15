@@ -30,7 +30,7 @@ public sealed class QueryServiceUnityExecutionTests
             CreateInput(
                 new QueryUnityOperationRequest(
                     CommandName: "query.comp.schema",
-                    OperationId: "comp.schema",
+                    OperationId: new IpcExecuteStepId("comp.schema"),
                     OperationName: UcliPrimitiveOperationNames.CompSchema,
                     Args: args),
                 readIndexMode: ReadIndexMode.AllowStale,
@@ -43,9 +43,9 @@ public sealed class QueryServiceUnityExecutionTests
             sceneTreeLiteAccessService);
         Assert.NotNull(result.Project);
         var project = result.Project!;
-        Assert.Equal("/unity/ResponseProject", project.ProjectPath);
+        Assert.Equal(QueryProjectContext.UnityProject.UnityProjectRoot, project.ProjectPath);
         Assert.Equal(ProjectContextTestFactory.ProjectFingerprint, project.ProjectFingerprint);
-        Assert.Equal("7000.0.1f1", project.UnityVersion);
+        Assert.Equal(QueryProjectContext.UnityProject.UnityVersion, project.UnityVersion);
         Assert.Equal(RequestId, result.RequestId);
 
         var execution = RequestReadIndexAccessInvocationAssert.UnityOperationRequestedOnce(
@@ -63,13 +63,13 @@ public sealed class QueryServiceUnityExecutionTests
     private static UnityRequestResponse CreateUnityResponse ()
     {
         return ExecuteUnityRequestResponseTestFactory.Create(
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             opResults:
             [
                 new IpcExecuteOperationResult(
-                    OpId: "comp.schema",
+                    OpId: new IpcExecuteStepId("comp.schema"),
                     Op: UcliPrimitiveOperationNames.CompSchema,
-                    Phase: IpcExecuteOperationPhaseNames.Plan,
+                    Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,
                     Changed: false,
                     Touched: [])
@@ -87,8 +87,8 @@ public sealed class QueryServiceUnityExecutionTests
     private static IpcProjectIdentity CreateUnityResponseProjectIdentity ()
     {
         return new IpcProjectIdentity(
-            projectPath: "/unity/ResponseProject",
+            projectPath: QueryProjectContext.UnityProject.UnityProjectRoot,
             projectFingerprint: ProjectContextTestFactory.ProjectFingerprint,
-            unityVersion: "7000.0.1f1");
+            unityVersion: QueryProjectContext.UnityProject.UnityVersion);
     }
 }

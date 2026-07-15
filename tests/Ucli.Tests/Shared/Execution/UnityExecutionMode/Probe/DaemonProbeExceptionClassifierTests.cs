@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Execution.Mode;
 
@@ -32,20 +33,34 @@ public sealed class DaemonProbeExceptionClassifierTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IsNotRunning_WhenConnectionIsRefused_ReturnsTrue ()
+    public void IsNotRunning_WhenTypedConnectionIsRefused_ReturnsTrue ()
     {
         var result = DaemonProbeExceptionClassifier.IsNotRunning(
-            new SocketException((int)SocketError.ConnectionRefused));
+            new IpcConnectException(
+                "IPC connection was refused before the request was sent.",
+                new SocketException((int)SocketError.ConnectionRefused)));
 
         Assert.True(result);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IsNotRunning_WhenSocketFailureDoesNotProveEndpointAbsence_ReturnsFalse ()
+    public void IsNotRunning_WhenTypedSocketFailureDoesNotProveEndpointAbsence_ReturnsFalse ()
     {
         var result = DaemonProbeExceptionClassifier.IsNotRunning(
-            new SocketException((int)SocketError.ConnectionReset));
+            new IpcConnectException(
+                "IPC connection failed before the request was sent.",
+                new SocketException((int)SocketError.ConnectionReset)));
+
+        Assert.False(result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IsNotRunning_WhenSocketExceptionLacksConnectionPhaseGuarantee_ReturnsFalse ()
+    {
+        var result = DaemonProbeExceptionClassifier.IsNotRunning(
+            new SocketException((int)SocketError.ConnectionRefused));
 
         Assert.False(result);
     }

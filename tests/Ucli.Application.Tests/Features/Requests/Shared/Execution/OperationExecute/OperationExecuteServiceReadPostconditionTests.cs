@@ -40,7 +40,7 @@ public sealed class OperationExecuteServiceReadPostconditionTests
             expectedMinSafeGeneratedAtUtc: readPostcondition.Requirements[0].MinSafeGeneratedAtUtc);
         Assert.NotNull(result.ReadPostcondition);
         var requirement = Assert.Single(result.ReadPostcondition!.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.AssetSearch, requirement.Surface);
+        Assert.Equal(IpcExecuteReadPostconditionSurface.AssetSearch, requirement.Surface);
         Assert.Equal(readPostcondition.Requirements[0].MinSafeGeneratedAtUtc, requirement.MinSafeGeneratedAtUtc);
     }
 

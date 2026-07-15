@@ -28,7 +28,8 @@ public sealed class ValidateServicePreparationTests
             {
                 Result = ValidationResult.Success(),
             },
-            preflightService);
+            preflightService,
+            TimeProvider.System);
 
         var result = await service.ExecuteAsync(
             new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
@@ -67,7 +68,8 @@ public sealed class ValidateServicePreparationTests
             {
                 Result = ValidationResult.Success(),
             },
-            preflightService);
+            preflightService,
+            TimeProvider.System);
 
         var result = await service.ExecuteAsync(
             new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),

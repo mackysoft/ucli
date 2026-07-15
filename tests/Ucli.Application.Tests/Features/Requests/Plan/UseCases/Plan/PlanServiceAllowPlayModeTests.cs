@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -84,13 +85,13 @@ public sealed class PlanServiceAllowPlayModeTests
             new ValidationError(
                 OperationAuthorizationErrorCodes.OperationNotAllowed,
                 "Edit step 'step-1' requires operation 'ucli.comp.set'. Operation is blocked.",
-                "step-1"),
+                new IpcExecuteStepId("step-1")),
         ];
         var service = CreateService(
             staticPreflightService: CreateSuccessfulPreflightService(),
             staticValidationService: new RecordingRequestStaticValidationService
             {
-                Result = new ValidationResult(validationErrors),
+                Result = ValidationResult.Invalid(validationErrors),
             },
             unityRequestExecutor: new UnexpectedUnityRequestExecutor());
 

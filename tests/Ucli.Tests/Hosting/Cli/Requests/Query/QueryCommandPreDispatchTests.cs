@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -25,15 +24,17 @@ public sealed class QueryCommandPreDispatchTests
             UcliCommandNames.QueryGoDescribe);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("not-an-asset-guid")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
     [Trait("Size", "Small")]
-    public async Task AssetSchema_WhenAssetGuidIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    public async Task AssetSchema_WhenAssetGuidIsInvalid_ReturnsInvalidArgumentWithoutCallingService (string assetGuid)
     {
         var service = new RecordingQueryService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new QueryAssetSchemaCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.SchemaAsync(
-            assetGuid: "not-an-asset-guid",
+            assetGuid: assetGuid,
             cancellationToken: CancellationToken.None));
 
         QueryCommandAssert.InvalidQueryInputRejectedBeforeExecution(
@@ -136,6 +137,26 @@ public sealed class QueryCommandPreDispatchTests
             path: "Assets/Scenes/Main.unity",
             limit: 10,
             all: true,
+            cancellationToken: CancellationToken.None));
+
+        QueryCommandAssert.InvalidQueryInputRejectedBeforeExecution(
+            result,
+            service,
+            UcliCommandNames.QuerySceneTree);
+    }
+
+    [Theory]
+    [InlineData("Assets/Scenes/Main.prefab")]
+    [InlineData("Packages/com.example/../Main.unity")]
+    [InlineData("ProjectSettings/Main.unity")]
+    [Trait("Size", "Small")]
+    public async Task SceneTree_WhenPathViolatesSceneContract_ReturnsInvalidArgumentWithoutCallingService (string path)
+    {
+        var service = new RecordingQueryService((_, _) => throw new InvalidOperationException("Service should not be called."));
+        var command = new QuerySceneTreeCommand(service, CommandResultTestWriter.Create());
+
+        var result = await CommandResultCapture.ExecuteAsync(() => command.TreeAsync(
+            path: path,
             cancellationToken: CancellationToken.None));
 
         QueryCommandAssert.InvalidQueryInputRejectedBeforeExecution(

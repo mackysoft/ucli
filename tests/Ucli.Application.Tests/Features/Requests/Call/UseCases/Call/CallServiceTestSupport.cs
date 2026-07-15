@@ -66,7 +66,7 @@ internal static class CallServiceTestSupport
             },
             new CallDangerousOperationGuard(),
             new CallUnityExecutionService(ipcRequestExecutor, mutationReadPostconditionStore ?? new TestMutationReadPostconditionStore()),
-            timeProvider);
+            timeProvider ?? TimeProvider.System);
     }
 
     public static IReadOnlyDictionary<string, UcliOperationDescriptor> CreateOperationsByName (params UcliOperationDescriptor[] operations)
@@ -99,7 +99,7 @@ internal static class CallServiceTestSupport
             [
                 new ValidateRequestStep(
                     Kind: IpcExecuteStepKind.Op,
-                    StepId: "step-1",
+                    StepId: new IpcExecuteStepId("step-1"),
                     Op: operationName,
                     Element: JsonSerializer.SerializeToElement(new
                     {
@@ -139,7 +139,7 @@ internal static class CallServiceTestSupport
             [
                 new ValidateRequestStep(
                     Kind: IpcExecuteStepKind.Edit,
-                    StepId: "edit-1",
+                    StepId: new IpcExecuteStepId("edit-1"),
                     Op: null,
                     Element: document.RootElement.GetProperty("steps")[0].Clone()),
             ]);

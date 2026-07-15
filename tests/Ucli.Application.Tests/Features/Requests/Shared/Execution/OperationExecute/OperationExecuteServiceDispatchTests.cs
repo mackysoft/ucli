@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -25,9 +24,9 @@ public sealed class OperationExecuteServiceDispatchTests
                 touched:
                 [
                     new IpcExecuteTouchedResource(
-                        Kind: UcliTouchedResourceKindNames.Asset,
-                        Path: "Assets/Example.txt",
-                        Guid: "11111111111111111111111111111111"),
+                        kind: UcliTouchedResourceKind.Asset,
+                        path: "Assets/Example.txt",
+                        assetGuid: Guid.ParseExact("11111111111111111111111111111111", "N")),
                 ]));
         var service = OperationExecuteServiceTestSupport.CreateService(
             projectContextResolver,
@@ -49,16 +48,16 @@ public sealed class OperationExecuteServiceDispatchTests
         Assert.Equal(ApplicationOutcome.Success, result.Outcome);
         Assert.Empty(result.Errors);
         var opResult = Assert.Single(result.OpResults);
-        Assert.Equal("refresh", opResult.OpId);
+        Assert.Equal("refresh", opResult.OpId.Value);
         Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, opResult.Op);
-        Assert.Equal(IpcExecuteOperationPhaseNames.Call, opResult.Phase);
+        Assert.Equal(IpcExecuteOperationPhase.Call, opResult.Phase);
         Assert.True(opResult.Applied);
         Assert.True(opResult.Changed);
         Assert.Equal(JsonValueKind.Object, opResult.Result!.Value.ValueKind);
         var touchedResource = Assert.Single(opResult.Touched);
-        Assert.Equal(UcliTouchedResourceKindNames.Asset, touchedResource.Kind);
+        Assert.Equal(UcliTouchedResourceKind.Asset, touchedResource.Kind);
         Assert.Equal("Assets/Example.txt", touchedResource.Path);
-        Assert.Equal("11111111111111111111111111111111", touchedResource.Guid);
+        Assert.Equal(Guid.ParseExact("11111111111111111111111111111111", "N"), touchedResource.AssetGuid);
 
         OperationExecuteInvocationAssert.AuthorizationCheckedOnce(
             authorizationService,

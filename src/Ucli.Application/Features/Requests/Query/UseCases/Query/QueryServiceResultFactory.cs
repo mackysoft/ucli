@@ -62,7 +62,7 @@ internal static class QueryServiceResultFactory
         ProjectIdentityInfo? project = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        var normalizedError = RequestFailureNormalizer.FromOperationError(error, FailureMessage);
+        var normalizedError = RequestFailureNormalizer.FromOperationError(error);
         return Failure(
             commandName,
             requestId,

@@ -43,7 +43,7 @@ public sealed class OperationExecuteServiceFailureTests
         Assert.Empty(result.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
-        Assert.Equal("refresh", error.OpId);
+        Assert.Equal("refresh", error.OpId?.Value);
     }
 
     [Theory]
@@ -124,14 +124,17 @@ public sealed class OperationExecuteServiceFailureTests
         var authorizationService = OperationExecuteServiceTestSupport.CreateAllowedAuthorizationService();
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(
             ExecuteUnityRequestResponseTestFactory.Create(
-                status: IpcProtocol.StatusError,
+                status: IpcResponseStatus.Error,
                 opResults:
                 [
                     OperationExecuteServiceTestSupport.CreateCallOperationResult(changed: false),
                 ],
                 errors:
                 [
-                    new IpcError(UcliCoreErrorCodes.InvalidArgument, "refresh failed", "refresh"),
+                    new IpcError(
+                        UcliCoreErrorCodes.InvalidArgument,
+                        "refresh failed",
+                        new IpcExecuteStepId("refresh")),
                 ])));
         var service = OperationExecuteServiceTestSupport.CreateService(
             projectContextResolver,
@@ -152,7 +155,7 @@ public sealed class OperationExecuteServiceFailureTests
         Assert.Single(result.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
-        Assert.Equal("refresh", error.OpId);
+        Assert.Equal("refresh", error.OpId?.Value);
     }
 
     [Fact]
@@ -165,7 +168,7 @@ public sealed class OperationExecuteServiceFailureTests
             UnityRequestResponseTestFactory.Create(new IpcResponse(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                status: IpcProtocol.StatusOk,
+                status: IpcResponseStatus.Ok,
                 payload: JsonSerializer.SerializeToElement(new { invalid = true }),
                 errors: []))));
         var service = OperationExecuteServiceTestSupport.CreateService(

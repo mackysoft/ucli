@@ -28,13 +28,13 @@ internal sealed class CallService : ICallService
         IPhaseExecutionPreflightService phaseExecutionPreflightService,
         ICallDangerousOperationGuard dangerousOperationGuard,
         ICallUnityExecutionService callUnityExecutionService,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.requestPreparationService = requestPreparationService ?? throw new ArgumentNullException(nameof(requestPreparationService));
         this.phaseExecutionPreflightService = phaseExecutionPreflightService ?? throw new ArgumentNullException(nameof(phaseExecutionPreflightService));
         this.dangerousOperationGuard = dangerousOperationGuard ?? throw new ArgumentNullException(nameof(dangerousOperationGuard));
         this.callUnityExecutionService = callUnityExecutionService ?? throw new ArgumentNullException(nameof(callUnityExecutionService));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />

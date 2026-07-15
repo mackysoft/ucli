@@ -1,11 +1,10 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -60,7 +59,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             new ValidationError(
                 ValidationErrorCodes.OperationArgsInvalid,
                 "Operation args are invalid.",
-                "step-1"),
+                new IpcExecuteStepId("step-1")),
         ];
         var service = new PhaseExecutionPreflightService(
             new RecordingOperationCatalog
@@ -69,7 +68,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             },
             new RecordingRequestStaticValidator
             {
-                Result = new ValidationResult(validationErrors),
+                Result = ValidationResult.Invalid(validationErrors),
             });
 
         var result = await service.PrepareAsync(
@@ -301,7 +300,7 @@ public sealed class PhaseExecutionPreflightServiceTests
                 [
                     new ValidateRequestStep(
                         Kind: MackySoft.Ucli.Contracts.Ipc.ContractReading.IpcExecuteStepKind.Op,
-                        StepId: "step-1",
+                        StepId: new IpcExecuteStepId("step-1"),
                         Op: "ucli.scene.open",
                         Element: System.Text.Json.JsonSerializer.SerializeToElement(new
                         {

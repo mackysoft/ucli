@@ -9,14 +9,21 @@ internal static class ExecuteResponseConverterTestSupport
     public static ProjectFingerprint ExpectedProjectFingerprint { get; } =
         ProjectFingerprintTestFactory.Create("project-fingerprint");
 
+    public static ResolvedUnityProjectContext ExpectedProject { get; } = ResolvedUnityProjectContext.Create(
+        unityProjectRoot: "/repo/UnityProject",
+        repositoryRoot: "/repo",
+        projectFingerprint: ExpectedProjectFingerprint,
+        pathSource: UnityProjectPathSource.CommandOption,
+        pathSourceLabel: null,
+        unityVersion: "6000.1.4f1");
+
     public static UnityRequestResponse CreateResponse (IpcExecuteResponse payload)
     {
         ArgumentNullException.ThrowIfNull(payload);
 
         return new UnityRequestResponse(
             Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: [],
-            HasFailureStatus: false);
+            Errors: []);
     }
 
     public static UnityRequestResponse CreateResponse (string payloadJson)
@@ -24,15 +31,22 @@ internal static class ExecuteResponseConverterTestSupport
         using var document = JsonDocument.Parse(payloadJson);
         return new UnityRequestResponse(
             Payload: document.RootElement.Clone(),
-            Errors: [],
-            HasFailureStatus: false);
+            Errors: []);
     }
 
     public static IpcExecuteResponse CreateExecuteResponse (
-        IReadOnlyList<IpcExecuteOperationResult> opResults)
+        IReadOnlyList<IpcExecuteOperationResult> opResults,
+        IpcExecutePostReadSource? postReadSource = null,
+        IReadOnlyList<IpcExecuteContractViolation>? contractViolations = null)
     {
         ArgumentNullException.ThrowIfNull(opResults);
-        return new IpcExecuteResponse(opResults, CreateProjectIdentity());
+        return new IpcExecuteResponse(
+            opResults,
+            CreateProjectIdentity(),
+            planToken: null,
+            readPostcondition: null,
+            postReadSource: postReadSource,
+            contractViolations: contractViolations);
     }
 
     public static IpcProjectIdentity CreateProjectIdentity ()

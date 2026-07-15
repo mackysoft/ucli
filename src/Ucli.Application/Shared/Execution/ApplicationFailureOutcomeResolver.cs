@@ -15,10 +15,10 @@ internal static class ApplicationFailureOutcomeResolver
             return ApplicationOutcome.Success;
         }
 
-        var hasInvalidArgument = false;
-        var hasInfrastructureError = false;
-        var hasToolError = false;
-        for (var i = 0; i < failures.Count; i++)
+        var firstFailure = failures[0]
+            ?? throw new ArgumentException("Failure collection must not contain null entries.", nameof(failures));
+        var outcome = firstFailure.Outcome;
+        for (var i = 1; i < failures.Count; i++)
         {
             var failure = failures[i];
             if (failure == null)
@@ -26,45 +26,12 @@ internal static class ApplicationFailureOutcomeResolver
                 throw new ArgumentException("Failure collection must not contain null entries.", nameof(failures));
             }
 
-            switch (failure.Outcome)
+            if (failure.Outcome != outcome)
             {
-                case ApplicationOutcome.InvalidArgument:
-                    hasInvalidArgument = true;
-                    break;
-                case ApplicationOutcome.InfrastructureError:
-                    hasInfrastructureError = true;
-                    break;
-                case ApplicationOutcome.ToolError:
-                    hasToolError = true;
-                    break;
-                default:
-                    throw new ArgumentException("Failure outcome must not be success.", nameof(failures));
+                return ApplicationOutcome.ToolError;
             }
         }
 
-        if (hasToolError || (hasInvalidArgument && hasInfrastructureError))
-        {
-            return ApplicationOutcome.ToolError;
-        }
-
-        if (hasInvalidArgument)
-        {
-            return ApplicationOutcome.InvalidArgument;
-        }
-
-        if (hasInfrastructureError)
-        {
-            return ApplicationOutcome.InfrastructureError;
-        }
-
-        return ApplicationOutcome.ToolError;
-    }
-
-    /// <summary> Returns whether the failure code represents a caller-correctable invalid argument. </summary>
-    /// <param name="errorCode"> The machine-readable failure code. </param>
-    /// <returns> <see langword="true" /> when the code maps to <see cref="ApplicationOutcome.InvalidArgument" />; otherwise <see langword="false" />. </returns>
-    public static bool IsInvalidArgumentCode (UcliCode errorCode)
-    {
-        return InvalidArgumentErrorCodeSet.Contains(errorCode);
+        return outcome;
     }
 }

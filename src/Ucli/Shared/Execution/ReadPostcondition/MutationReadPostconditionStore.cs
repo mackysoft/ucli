@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -18,6 +19,10 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
         WriteIndented = true,
+        Converters =
+        {
+            new ContractLiteralJsonConverterFactory(),
+        },
     };
 
     /// <inheritdoc />
@@ -157,7 +162,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
     {
         ArgumentNullException.ThrowIfNull(requirements);
 
-        var merged = new SortedDictionary<string, IpcExecuteReadPostconditionRequirement>(StringComparer.Ordinal);
+        var merged = new Dictionary<(IpcExecuteReadPostconditionSurface Surface, string? ScenePath), IpcExecuteReadPostconditionRequirement>();
         for (var i = 0; i < requirements.Count; i++)
         {
             var requirement = NormalizeAndValidateRequirement(requirements[i]);
@@ -171,14 +176,17 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
             merged[key] = requirement;
         }
 
-        return merged.Values.ToArray();
+        return merged
+            .OrderBy(static pair => pair.Key.Surface)
+            .ThenBy(static pair => pair.Key.ScenePath, StringComparer.Ordinal)
+            .Select(static pair => pair.Value)
+            .ToArray();
     }
 
     private static IpcExecuteReadPostconditionRequirement NormalizeAndValidateRequirement (
         IpcExecuteReadPostconditionRequirement requirement)
     {
         ArgumentNullException.ThrowIfNull(requirement);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requirement.Surface);
         if (requirement.MinSafeGeneratedAtUtc == default)
         {
             throw new ArgumentException("minSafeGeneratedAtUtc must not be default.", nameof(requirement));
@@ -186,8 +194,8 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 
         switch (requirement.Surface)
         {
-            case IpcExecuteReadPostconditionSurfaceNames.AssetSearch:
-            case IpcExecuteReadPostconditionSurfaceNames.GuidPath:
+            case IpcExecuteReadPostconditionSurface.AssetSearch:
+            case IpcExecuteReadPostconditionSurface.GuidPath:
                 if (requirement.ScenePath != null)
                 {
                     throw new ArgumentException("scenePath must be omitted for project-scoped read postconditions.", nameof(requirement));
@@ -195,7 +203,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 
                 return requirement with { ScenePath = null };
 
-            case IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite:
+            case IpcExecuteReadPostconditionSurface.SceneTreeLite:
                 if (requirement.ScenePath == null)
                 {
                     return requirement;
@@ -234,9 +242,10 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         }
     }
 
-    private static string GetRequirementKey (IpcExecuteReadPostconditionRequirement requirement)
+    private static (IpcExecuteReadPostconditionSurface Surface, string? ScenePath) GetRequirementKey (
+        IpcExecuteReadPostconditionRequirement requirement)
     {
-        return requirement.Surface + "\u001f" + requirement.ScenePath;
+        return (requirement.Surface, requirement.ScenePath);
     }
 
     private static OperationExecutionReadPostcondition MapToApplicationReadPostcondition (

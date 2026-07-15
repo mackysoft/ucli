@@ -5,9 +5,6 @@ namespace MackySoft.Ucli.Application.Shared.Execution.Timeout;
 /// <summary> Executes one independently safe asynchronous operation within an existing execution deadline. </summary>
 internal static class ExecutionDeadlineOperation
 {
-    private static readonly Task NeverCompletingTask = new TaskCompletionSource(
-        TaskCreationOptions.RunContinuationsAsynchronously).Task;
-
     /// <summary> Executes an operation with the remaining deadline budget. </summary>
     /// <typeparam name="T"> The operation result type. </typeparam>
     /// <param name="deadline"> The shared execution deadline. </param>
@@ -27,6 +24,7 @@ internal static class ExecutionDeadlineOperation
         string operationTimeoutMessage,
         Func<CancellationToken, ValueTask<T>> operation)
     {
+        ArgumentNullException.ThrowIfNull(deadline);
         ArgumentException.ThrowIfNullOrWhiteSpace(beforeTimeoutMessage);
         ArgumentException.ThrowIfNullOrWhiteSpace(operationTimeoutMessage);
         ArgumentNullException.ThrowIfNull(operation);
@@ -43,30 +41,47 @@ internal static class ExecutionDeadlineOperation
 
         try
         {
+            var completionSource = new TaskCompletionSource<CompletionKind>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            using var callerCancellationRegistration = cancellationToken.CanBeCanceled
+                ? cancellationToken.UnsafeRegister(
+                    static state => ((TaskCompletionSource<CompletionKind>)state!).TrySetResult(CompletionKind.CallerCancellation),
+                    completionSource)
+                : default;
             var deadlineTask = Task.Delay(
                 operationTimeout,
                 deadline.Clock,
                 deadlineDelayCancellationTokenSource.Token);
+            _ = deadlineTask.ContinueWith(
+                static (completedTask, state) =>
+                {
+                    if (completedTask.Status == TaskStatus.RanToCompletion)
+                    {
+                        ((TaskCompletionSource<CompletionKind>)state!).TrySetResult(CompletionKind.Deadline);
+                    }
+                },
+                completionSource,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
             var operationTask = Task.Run(
-                async () => await operation(operationCancellationTokenSource.Token).ConfigureAwait(false),
+                async () =>
+                {
+                    try
+                    {
+                        return await operation(operationCancellationTokenSource.Token).ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        completionSource.TrySetResult(CompletionKind.Operation);
+                    }
+                },
                 CancellationToken.None);
-            var callerCancellationSource = new TaskCompletionSource(
-                TaskCreationOptions.RunContinuationsAsynchronously);
-            using var callerCancellationRegistration = cancellationToken.CanBeCanceled
-                ? cancellationToken.UnsafeRegister(
-                    static state => ((TaskCompletionSource)state!).TrySetResult(),
-                    callerCancellationSource)
-                : default;
-            var callerCancellationTask = cancellationToken.CanBeCanceled
-                ? callerCancellationSource.Task
-                : NeverCompletingTask;
-            var completedTask = await Task.WhenAny(
-                    operationTask,
-                    deadlineTask,
-                    callerCancellationTask)
-                .ConfigureAwait(false);
-            if (!ReferenceEquals(completedTask, operationTask)
-                || cancellationToken.IsCancellationRequested)
+
+            // Each contender records its completion at the source. Await scheduling cannot reorder a
+            // caller cancellation, deadline, or operation that completed while this continuation was delayed.
+            var completionKind = await completionSource.Task.ConfigureAwait(false);
+            if (completionKind == CompletionKind.CallerCancellation)
             {
                 var cancellationRequestTask = operationCancellationTokenSource.CancelAsync();
                 disposeOperationCancellationTokenSource = false;
@@ -74,49 +89,39 @@ internal static class ExecutionDeadlineOperation
                     operationTask,
                     cancellationRequestTask,
                     operationCancellationTokenSource);
-                cancellationToken.ThrowIfCancellationRequested();
+                throw new OperationCanceledException(cancellationToken);
+            }
+
+            if (completionKind == CompletionKind.Deadline)
+            {
+                var cancellationRequestTask = operationCancellationTokenSource.CancelAsync();
+                disposeOperationCancellationTokenSource = false;
+                ObserveAndDisposeAfterCompletion(
+                    operationTask,
+                    cancellationRequestTask,
+                    operationCancellationTokenSource);
                 return ExecutionDeadlineOperationResult<T>.Failure(ExecutionError.Timeout(operationTimeoutMessage));
             }
 
-            T value;
-            try
-            {
-                value = await operationTask.ConfigureAwait(false);
-            }
-            catch (Exception) when (cancellationToken.IsCancellationRequested)
-            {
-                var cancellationRequestTask = operationCancellationTokenSource.CancelAsync();
-                disposeOperationCancellationTokenSource = false;
-                ObserveAndDisposeAfterCompletion(
-                    operationTask,
-                    cancellationRequestTask,
-                    operationCancellationTokenSource);
-                cancellationToken.ThrowIfCancellationRequested();
-                throw;
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
+            var value = await operationTask.ConfigureAwait(false);
             return ExecutionDeadlineOperationResult<T>.Success(value);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            throw;
         }
         finally
         {
-            try
-            {
-                deadlineDelayCancellationTokenSource.Cancel();
-            }
-            catch (ObjectDisposedException)
-            {
-            }
+            deadlineDelayCancellationTokenSource.Cancel();
 
             if (disposeOperationCancellationTokenSource)
             {
                 operationCancellationTokenSource.Dispose();
             }
         }
+    }
+
+    private enum CompletionKind
+    {
+        Operation,
+        Deadline,
+        CallerCancellation,
     }
 
     private static void ObserveAndDisposeAfterCompletion<T> (

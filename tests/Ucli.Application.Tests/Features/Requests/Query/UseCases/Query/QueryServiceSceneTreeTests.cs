@@ -27,15 +27,11 @@ public sealed class QueryServiceSceneTreeTests
             CreateInput(
                 new QuerySceneTreeOperationRequest(
                     CommandName: "query.scene.tree",
-                    OperationId: "scene.tree",
+                    OperationId: new IpcExecuteStepId("scene.tree"),
                     OperationName: UcliPrimitiveOperationNames.SceneTree,
-                    ScenePath: "Assets/Scenes/Main.unity",
+                    ScenePath: new UnityScenePath("Assets/Scenes/Main.unity"),
                     Depth: 1,
-                    WindowOptions: new BoundedWindowOptions(
-                        All: false,
-                        Limit: 2,
-                        Cursor: null,
-                        Offset: 0)),
+                    WindowOptions: BoundedWindowOptions.CreateBounded(limit: 2, cursor: null)),
                 failFast: true),
             CancellationToken.None);
 
@@ -81,15 +77,11 @@ public sealed class QueryServiceSceneTreeTests
             CreateInput(
                 new QuerySceneTreeOperationRequest(
                     CommandName: "query.scene.tree",
-                    OperationId: "scene.tree",
+                    OperationId: new IpcExecuteStepId("scene.tree"),
                     OperationName: UcliPrimitiveOperationNames.SceneTree,
-                    ScenePath: "Assets/Scenes/Main.unity",
+                    ScenePath: new UnityScenePath("Assets/Scenes/Main.unity"),
                     Depth: 1,
-                    WindowOptions: new BoundedWindowOptions(
-                        All: false,
-                        Limit: 1,
-                        Cursor: cursor,
-                        Offset: 1)),
+                    WindowOptions: BoundedWindowOptions.CreateBounded(limit: 1, cursor)),
                 failFast: true),
             CancellationToken.None);
 
@@ -102,27 +94,75 @@ public sealed class QueryServiceSceneTreeTests
         Assert.Equal(3, payload.GetProperty("window").GetProperty("totalCount").GetInt32());
     }
 
-    private static SceneTreeLiteReadResult CreateSceneTreeLiteReadResult ()
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenPackageSceneUsesLiveSource_ReturnsPackageScenePath ()
     {
+        var scenePath = new UnityScenePath("Packages/com.example/Scenes/Main.unity");
+        var sceneTreeLiteAccessService = new RecordingSceneTreeLiteAccessService
+        {
+            Result = CreateSceneTreeLiteReadResult(scenePath, SceneTreeLiteSource.Source),
+        };
+        var service = new QueryService(
+            new StaticProjectContextResolver(ProjectContextResolutionResult.Success(QueryProjectContext)),
+            new RecordingAssetSearchLookupAccessService(),
+            sceneTreeLiteAccessService,
+            new UnexpectedUnityRequestExecutor());
+
+        var result = await service.ExecuteAsync(
+            RequestId,
+            CreateInput(
+                new QuerySceneTreeOperationRequest(
+                    CommandName: "query.scene.tree",
+                    OperationId: new IpcExecuteStepId("scene.tree"),
+                    OperationName: UcliPrimitiveOperationNames.SceneTree,
+                    ScenePath: scenePath,
+                    Depth: 1,
+                    WindowOptions: BoundedWindowOptions.CreateBounded(limit: 2, cursor: null)),
+                failFast: true),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var payload = Assert.Single(result.OpResults).Result!.Value;
+        Assert.Equal(scenePath.Value, payload.GetProperty("path").GetString());
+    }
+
+    private static SceneTreeLiteReadResult CreateSceneTreeLiteReadResult (
+        UnityScenePath? scenePath = null,
+        SceneTreeLiteSource source = SceneTreeLiteSource.Index)
+    {
+        var resolvedScenePath = scenePath ?? new UnityScenePath("Assets/Scenes/Main.unity");
         return SceneTreeLiteReadResult.Success(
             new SceneTreeLiteReadOutput(
-                ScenePath: "Assets/Scenes/Main.unity",
+                ScenePath: resolvedScenePath,
                 Roots:
                 [
-                    new IndexSceneTreeLiteNodeJsonContract(
+                    new SceneTreeLiteNode(
                         "Root",
-                        "GlobalObjectId_V1-1-2-3-4-5-6",
+                        new UnityGlobalObjectId("GlobalObjectId_V1-2-11111111111111111111111111111111-1-0"),
                         [
-                            new IndexSceneTreeLiteNodeJsonContract("First", "GlobalObjectId_V1-1-2-3-4-5-7", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
-                            new IndexSceneTreeLiteNodeJsonContract("Second", "GlobalObjectId_V1-1-2-3-4-5-8", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                            new SceneTreeLiteNode(
+                                "First",
+                                new UnityGlobalObjectId("GlobalObjectId_V1-2-11111111111111111111111111111111-2-0"),
+                                [],
+                                IndexSceneTreeLiteNodeChildrenState.Complete),
+                            new SceneTreeLiteNode(
+                                "Second",
+                                new UnityGlobalObjectId("GlobalObjectId_V1-2-11111111111111111111111111111111-3-0"),
+                                [],
+                                IndexSceneTreeLiteNodeChildrenState.Complete),
                         ],
-                        IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        IndexSceneTreeLiteNodeChildrenState.Complete),
                 ],
-                SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
+                SourceState: new SceneTreeSourceState(
+                    source == SceneTreeLiteSource.Index
+                        ? SceneTreeSourceStateKind.ReadIndex
+                        : SceneTreeSourceStateKind.PersistedPreview,
+                    isDirty: false),
                 AccessInfo: new SceneTreeLiteAccessInfo(
-                    Used: true,
+                    Used: source == SceneTreeLiteSource.Index,
                     Hit: true,
-                    Source: SceneTreeLiteSource.Index,
+                    Source: source,
                     Freshness: IndexFreshness.Fresh,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-25T00:00:00+00:00"),
                     FallbackReason: null)),

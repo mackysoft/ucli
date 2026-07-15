@@ -35,17 +35,13 @@ public sealed class QueryServiceAssetsFindTests
             CreateInput(
                 new QueryAssetsFindOperationRequest(
                     CommandName: "query.assets.find",
-                    OperationId: "assets.find",
+                    OperationId: new IpcExecuteStepId("assets.find"),
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
                     Query: new AssetSearchLookupQuery(
                         new UnityTypeId("UnityEngine.Material, UnityEngine.CoreModule"),
                         null,
                         null),
-                    WindowOptions: new BoundedWindowOptions(
-                        All: true,
-                        Limit: 100,
-                        Cursor: null,
-                        Offset: 0)),
+                    WindowOptions: BoundedWindowOptions.Unbounded),
                 failFast: true),
             CancellationToken.None);
 
@@ -80,17 +76,13 @@ public sealed class QueryServiceAssetsFindTests
             CreateInput(
                 new QueryAssetsFindOperationRequest(
                     CommandName: "query.assets.find",
-                    OperationId: "assets.find",
+                    OperationId: new IpcExecuteStepId("assets.find"),
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
                     Query: new AssetSearchLookupQuery(
                         new UnityTypeId("UnityEngine.Material, UnityEngine.CoreModule"),
                         null,
                         null),
-                    WindowOptions: new BoundedWindowOptions(
-                        All: false,
-                        Limit: 1,
-                        Cursor: null,
-                        Offset: 0)),
+                    WindowOptions: BoundedWindowOptions.CreateBounded(limit: 1, cursor: null)),
                 failFast: true),
             CancellationToken.None);
 
@@ -103,11 +95,14 @@ public sealed class QueryServiceAssetsFindTests
             expectedFailFast: true);
 
         var opResult = Assert.Single(result.OpResults);
-        Assert.Equal("assets.find", opResult.OpId);
+        Assert.Equal("assets.find", opResult.OpId.Value);
         Assert.Equal(UcliPrimitiveOperationNames.AssetsFind, opResult.Op);
         Assert.True(opResult.Result.HasValue);
         var payload = opResult.Result!.Value;
         Assert.Equal(1, payload.GetProperty("matches").GetArrayLength());
+        Assert.Equal(
+            "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+            payload.GetProperty("matches")[0].GetProperty("assetGuid").GetString());
         Assert.Equal(2, payload.GetProperty("window").GetProperty("totalCount").GetInt32());
         Assert.False(payload.GetProperty("window").GetProperty("isComplete").GetBoolean());
         Assert.True(payload.GetProperty("window").TryGetProperty("nextCursor", out var nextCursor));
@@ -145,17 +140,13 @@ public sealed class QueryServiceAssetsFindTests
             CreateInput(
                 new QueryAssetsFindOperationRequest(
                     CommandName: "query.assets.find",
-                    OperationId: "assets.find",
+                    OperationId: new IpcExecuteStepId("assets.find"),
                     OperationName: UcliPrimitiveOperationNames.AssetsFind,
                     Query: new AssetSearchLookupQuery(
                         new UnityTypeId("UnityEngine.Material, UnityEngine.CoreModule"),
                         null,
                         null),
-                    WindowOptions: new BoundedWindowOptions(
-                        All: false,
-                        Limit: 1,
-                        Cursor: cursor,
-                        Offset: 1)),
+                    WindowOptions: BoundedWindowOptions.CreateBounded(limit: 1, cursor)),
                 failFast: true),
             CancellationToken.None);
 
@@ -167,17 +158,17 @@ public sealed class QueryServiceAssetsFindTests
         Assert.Equal(3, payload.GetProperty("window").GetProperty("totalCount").GetInt32());
     }
 
-    private static IndexAssetSearchEntryJsonContract CreateMaterialAssetEntry (
+    private static AssetSearchLookupEntry CreateMaterialAssetEntry (
         string assetPath,
         string assetGuid,
         string name)
     {
-        return new IndexAssetSearchEntryJsonContract(
-            AssetPath: assetPath,
-            AssetGuid: assetGuid,
-            Name: name,
-            TypeId: "UnityEngine.Material, UnityEngine.CoreModule",
-            SearchTypeIds: ["UnityEngine.Material, UnityEngine.CoreModule"]);
+        return new AssetSearchLookupEntry(
+            new UnityAssetPath(assetPath),
+            assetGuid.Length == 0 ? null : Guid.ParseExact(assetGuid, "N"),
+            name,
+            new UnityTypeId("UnityEngine.Material, UnityEngine.CoreModule"),
+            [new UnityTypeId("UnityEngine.Material, UnityEngine.CoreModule")]);
     }
 
     private static AssetLookupAccessInfo CreateAssetLookupAccessInfo ()

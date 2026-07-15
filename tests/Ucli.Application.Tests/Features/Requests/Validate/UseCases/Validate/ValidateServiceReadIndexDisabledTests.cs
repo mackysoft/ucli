@@ -30,7 +30,8 @@ public sealed class ValidateServiceReadIndexDisabledTests
         var service = new ValidateService(
             requestPreparationService,
             validator,
-            preflightService);
+            preflightService,
+            TimeProvider.System);
 
         var result = await service.ExecuteAsync(
             new ValidateCommandInput(null, ReadIndexMode.Disabled, """{"steps":[]}"""),

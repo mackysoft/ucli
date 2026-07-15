@@ -26,15 +26,15 @@ internal static class IpcDaemonPingClientTestSupport
         return new RecordingIpcTransportClient(request =>
             CreateResponse(
                 request,
-                IpcProtocol.StatusOk,
+                IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
                 IpcUnityEditorObservationTestFactory.Create(
                     projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"))));
     }
 
     public static IpcResponse CreateResponse (
-        IpcRequest request,
-        string status,
+        IpcRequestEnvelope request,
+        IpcResponseStatus status,
         IReadOnlyList<IpcError> errors,
         object? payload = null)
     {

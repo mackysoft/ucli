@@ -38,7 +38,7 @@ internal static class ValidationErrorCodes
     /// <summary> Returns whether the specified code belongs to static request validation. </summary>
     public static bool Contains (UcliCode code)
     {
-        return code.IsValid && AllCodes.Contains(code);
+        return code is not null && AllCodes.Contains(code);
     }
 
     private static IReadOnlySet<UcliCode> CreateAllCodes ()

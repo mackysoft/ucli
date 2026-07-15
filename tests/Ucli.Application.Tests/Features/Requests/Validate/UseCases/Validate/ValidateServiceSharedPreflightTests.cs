@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Features.Requests.Validate.UseCases.Validate;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.ValidateServiceTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -29,7 +30,8 @@ public sealed class ValidateServiceSharedPreflightTests
             {
                 Result = ValidationResult.Success(),
             },
-            preflightService);
+            preflightService,
+            TimeProvider.System);
 
         var result = await service.ExecuteAsync(
             new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
@@ -51,7 +53,7 @@ public sealed class ValidateServiceSharedPreflightTests
             new ValidationError(
                 ValidationErrorCodes.OperationArgsInvalid,
                 "Operation args are invalid.",
-                "step-1"),
+                new IpcExecuteStepId("step-1")),
         ];
         var preflightService = new RecordingRequestStaticValidationPreflightService
         {
@@ -69,7 +71,8 @@ public sealed class ValidateServiceSharedPreflightTests
             {
                 Result = ValidationResult.Success(),
             },
-            preflightService);
+            preflightService,
+            TimeProvider.System);
 
         var result = await service.ExecuteAsync(
             new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),
@@ -100,7 +103,8 @@ public sealed class ValidateServiceSharedPreflightTests
             {
                 Result = ValidationResult.Success(),
             },
-            preflightService);
+            preflightService,
+            TimeProvider.System);
 
         var result = await service.ExecuteAsync(
             new ValidateCommandInput("/tmp/project", null, """{"steps":[]}"""),

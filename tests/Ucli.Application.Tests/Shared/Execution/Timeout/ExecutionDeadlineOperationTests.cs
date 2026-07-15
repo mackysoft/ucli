@@ -1,6 +1,4 @@
 using System.Threading.Tasks.Sources;
-using MackySoft.Tests;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.Timeout;
@@ -8,6 +6,25 @@ namespace MackySoft.Ucli.Application.Tests.Execution.Timeout;
 public sealed class ExecutionDeadlineOperationTests
 {
     private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResultSuccess_WhenNullableValueIsNull_PreservesSuccessfulNullValue ()
+    {
+        var result = ExecutionDeadlineOperationResult<string?>.Success(null);
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Value);
+        Assert.Null(result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResultFailure_WhenErrorIsNull_ThrowsArgumentNullException ()
+    {
+        Assert.Throws<ArgumentNullException>(
+            static () => ExecutionDeadlineOperationResult<string>.Failure(null!));
+    }
 
     [Fact]
     [Trait("Size", "Small")]
@@ -264,6 +281,125 @@ public sealed class ExecutionDeadlineOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task ExecuteAsync_WhenOperationWinsBeforeCallerCancellationSignal_DoesNotReverseToCancellation ()
+    {
+        using var callerCancellationTokenSource = new CancellationTokenSource();
+        using var allowOperationToReturn = new ManualResetEventSlim();
+        using var allowCallerCancellationCallbackToReturn = new ManualResetEventSlim();
+        var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callerCancellationCallbackEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), new ManualTimeProvider());
+        var executionTask = ExecutionDeadlineOperation.ExecuteAsync(
+                deadline,
+                callerCancellationTokenSource.Token,
+                "Deadline elapsed before operation.",
+                "Deadline elapsed during operation.",
+                _operationCancellationToken =>
+                {
+                    _ = callerCancellationTokenSource.Token.Register(() =>
+                    {
+                        callerCancellationCallbackEntered.TrySetResult();
+                        allowCallerCancellationCallbackToReturn.Wait();
+                    });
+                    operationEntered.TrySetResult();
+                    allowOperationToReturn.Wait();
+                    return ValueTask.FromResult("operation value");
+                })
+            .AsTask();
+
+        await operationEntered.Task.WaitAsync(SignalWaitTimeout);
+        var callerCancellationTask = Task.Run(callerCancellationTokenSource.Cancel);
+        await callerCancellationCallbackEntered.Task.WaitAsync(SignalWaitTimeout);
+
+        allowOperationToReturn.Set();
+        ExecutionDeadlineOperationResult<string>? result = null;
+        Exception? exception = null;
+        try
+        {
+            result = await executionTask.WaitAsync(SignalWaitTimeout);
+        }
+        catch (Exception caughtException)
+        {
+            exception = caughtException;
+        }
+        finally
+        {
+            allowCallerCancellationCallbackToReturn.Set();
+            await callerCancellationTask.WaitAsync(SignalWaitTimeout);
+        }
+
+        Assert.Null(exception);
+        Assert.True(result?.IsSuccess);
+        Assert.Equal("operation value", result?.Value);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ExecuteAsync_WhenDeadlineWinsBeforeCallerCancellationSignal_DoesNotReverseToCancellation ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        using var callerCancellationTokenSource = new CancellationTokenSource();
+        using var allowOperationToReturn = new ManualResetEventSlim();
+        using var allowCallerCancellationCallbackToReturn = new ManualResetEventSlim();
+        var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var operationExited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var callerCancellationCallbackEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
+        var executionTask = ExecutionDeadlineOperation.ExecuteAsync(
+                deadline,
+                callerCancellationTokenSource.Token,
+                "Deadline elapsed before operation.",
+                "Deadline elapsed during operation.",
+                _operationCancellationToken =>
+                {
+                    _ = callerCancellationTokenSource.Token.Register(() =>
+                    {
+                        callerCancellationCallbackEntered.TrySetResult();
+                        allowCallerCancellationCallbackToReturn.Wait();
+                    });
+                    operationEntered.TrySetResult();
+                    try
+                    {
+                        allowOperationToReturn.Wait();
+                        return ValueTask.FromResult("late value");
+                    }
+                    finally
+                    {
+                        operationExited.TrySetResult();
+                    }
+                })
+            .AsTask();
+
+        await operationEntered.Task.WaitAsync(SignalWaitTimeout);
+        var callerCancellationTask = Task.Run(callerCancellationTokenSource.Cancel);
+        await callerCancellationCallbackEntered.Task.WaitAsync(SignalWaitTimeout);
+
+        timeProvider.Advance(TimeSpan.FromSeconds(1));
+        ExecutionDeadlineOperationResult<string>? result = null;
+        Exception? exception = null;
+        try
+        {
+            result = await executionTask.WaitAsync(SignalWaitTimeout);
+        }
+        catch (Exception caughtException)
+        {
+            exception = caughtException;
+        }
+        finally
+        {
+            allowCallerCancellationCallbackToReturn.Set();
+            allowOperationToReturn.Set();
+            await callerCancellationTask.WaitAsync(SignalWaitTimeout);
+            await operationExited.Task.WaitAsync(SignalWaitTimeout);
+        }
+
+        Assert.Null(exception);
+        Assert.False(result?.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.Timeout, result?.Error?.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task ExecuteAsync_WhenCallerCancellationWinsImmediatelyBeforeLateFault_ThrowsCallerCancellationAndReleasesOperationCancellation ()
     {
         var timeProvider = new ManualTimeProvider();
@@ -301,6 +437,19 @@ public sealed class ExecutionDeadlineOperationTests
 
         Assert.Equal(callerCancellationTokenSource.Token, exception.CancellationToken);
         Assert.Equal(0, timeProvider.ActiveTimerCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ExecuteAsync_WhenDeadlineIsNull_ThrowsArgumentNullException ()
+    {
+        _ = await Assert.ThrowsAsync<ArgumentNullException>(() => ExecutionDeadlineOperation.ExecuteAsync(
+                deadline: null!,
+                CancellationToken.None,
+                "Deadline elapsed before operation.",
+                "Deadline elapsed during operation.",
+                static _ => ValueTask.FromResult("operation value"))
+            .AsTask());
     }
 
     private static async Task WaitForCancellationTokenSourceDisposalAsync (CancellationToken cancellationToken)

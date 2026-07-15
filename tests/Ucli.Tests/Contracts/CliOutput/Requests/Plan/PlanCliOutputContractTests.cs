@@ -1,6 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using Microsoft.Extensions.DependencyInjection;
@@ -121,7 +119,7 @@ public sealed class PlanCliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Plan,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)

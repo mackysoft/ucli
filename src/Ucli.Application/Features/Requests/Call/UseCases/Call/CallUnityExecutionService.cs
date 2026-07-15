@@ -38,6 +38,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(preparedRequest);
         ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(deadline);
 
         var baseOutput = CallExecutionOutputFactory.CreateBase(requestId, preparedRequest.PreparedRequest);
         var effectivePlanToken = StringValueNormalizer.TrimToNull(input.PlanToken);
@@ -78,7 +79,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
             var convertedPlanResponse = ExecuteResponseConverter.Convert(
                 planExecutionResult.Response!,
-                preparedRequest.UnityProject.ProjectFingerprint);
+                preparedRequest.UnityProject);
             var planProject = convertedPlanResponse.Project ?? baseOutput.Project;
             var planOutput = new CallPlanOutput(
                 opResults: convertedPlanResponse.OpResults,
@@ -96,14 +97,14 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             if (!convertedPlanResponse.IsSuccess)
             {
                 var prePlanFailureMessage = CreatePrePlanFailureMessage(executionOwnerCommand);
-                var failures = RequestFailureNormalizer.FromOperationErrors(convertedPlanResponse.Errors, prePlanFailureMessage);
+                var failures = RequestFailureNormalizer.FromOperationErrors(convertedPlanResponse.Errors);
                 return CallServiceResult.Failure(
                     RequestFailureNormalizer.ResolveMessage(failures, prePlanFailureMessage),
                     failures,
                     baseOutput);
             }
 
-            if (string.IsNullOrWhiteSpace(convertedPlanResponse.PlanToken))
+            if (convertedPlanResponse.PlanToken == null)
             {
                 return CreateFailure(
                     RequestFailureNormalizer.FromTransportFailure(
@@ -152,7 +153,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
         var convertedCallResponse = ExecuteResponseConverter.Convert(
             callExecutionResult.Response!,
-            preparedRequest.UnityProject.ProjectFingerprint);
+            preparedRequest.UnityProject);
         var callProject = convertedCallResponse.Project ?? baseOutput.Project;
         var executionOutput = baseOutput with
         {
@@ -173,7 +174,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         if (postprocessedCallResponse.PersistenceError != null)
         {
             var callFailureMessage = CreateCallFailureMessage(executionOwnerCommand);
-            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors, callFailureMessage);
+            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors);
             return CallServiceResult.Failure(
                 postprocessedCallResponse.PersistenceError.Message,
                 failures,
@@ -183,7 +184,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         if (!convertedCallResponse.IsSuccess)
         {
             var callFailureMessage = CreateCallFailureMessage(executionOwnerCommand);
-            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors, callFailureMessage);
+            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors);
             return CallServiceResult.Failure(
                 RequestFailureNormalizer.ResolveMessage(failures, callFailureMessage),
                 failures,
@@ -219,10 +220,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         bool allowPlayMode = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestJson);
-        if (!command.IsValid)
-        {
-            throw new ArgumentException("Command name is invalid.", nameof(command));
-        }
+        ArgumentNullException.ThrowIfNull(command);
 
         using var document = JsonDocument.Parse(requestJson);
         return new UnityRequestPayload.ExecuteJson(command, document.RootElement.Clone(), failFast, allowDangerous, planToken, allowPlayMode);

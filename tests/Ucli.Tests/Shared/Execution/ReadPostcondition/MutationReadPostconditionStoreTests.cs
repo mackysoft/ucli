@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -36,10 +35,10 @@ public sealed class MutationReadPostconditionStoreTests
             OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
+                    Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00")),
                 new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                    Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"))
                 {
                     ScenePath = @"Assets\Scenes\Main.unity",
@@ -52,10 +51,10 @@ public sealed class MutationReadPostconditionStoreTests
             OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
+                    Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00")),
                 new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurfaceNames.GuidPath,
+                    Surface: IpcExecuteReadPostconditionSurface.GuidPath,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00")),
             ]))!,
             CancellationToken.None);
@@ -70,15 +69,15 @@ public sealed class MutationReadPostconditionStoreTests
         Assert.Equal(3, readPostcondition.Requirements.Count);
         Assert.Contains(
             readPostcondition.Requirements,
-            static requirement => string.Equals(requirement.Surface, IpcExecuteReadPostconditionSurfaceNames.AssetSearch, StringComparison.Ordinal)
+            static requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.AssetSearch
                 && requirement.MinSafeGeneratedAtUtc == DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"));
         Assert.Contains(
             readPostcondition.Requirements,
-            static requirement => string.Equals(requirement.Surface, IpcExecuteReadPostconditionSurfaceNames.GuidPath, StringComparison.Ordinal)
+            static requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.GuidPath
                 && requirement.MinSafeGeneratedAtUtc == DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"));
         Assert.Contains(
             readPostcondition.Requirements,
-            static requirement => string.Equals(requirement.Surface, IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, StringComparison.Ordinal)
+            static requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.SceneTreeLite
                 && string.Equals(requirement.ScenePath, "Assets/Scenes/Main.unity", StringComparison.Ordinal));
 
         using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath));
@@ -101,7 +100,7 @@ public sealed class MutationReadPostconditionStoreTests
             OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                    Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
                     MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00")),
             ]))!,
             CancellationToken.None);
@@ -113,7 +112,7 @@ public sealed class MutationReadPostconditionStoreTests
         Assert.True(readResult.IsSuccess);
         var readPostcondition = Assert.IsType<OperationExecutionReadPostcondition>(readResult.ReadPostcondition);
         var requirement = Assert.Single(readPostcondition.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, requirement.Surface);
+        Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
         Assert.Null(requirement.ScenePath);
 
         using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath));

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -32,7 +31,7 @@ public sealed class QueryCommandDispatchTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task AssetSchema_WhenAssetGuidUsesUppercaseNFormat_DispatchesCanonicalTypedTarget ()
+    public async Task AssetSchema_WhenAssetGuidUsesUppercaseNFormat_DispatchesStandardJsonGuid ()
     {
         var service = new RecordingQueryService((_, _) => ValueTask.FromResult(CreateSuccessResult(UcliCommandNames.QueryAssetSchema)));
         var command = new QueryAssetSchemaCommand(service, CommandResultTestWriter.Create());
@@ -46,7 +45,7 @@ public sealed class QueryCommandDispatchTests
         var operation = Assert.IsType<QueryUnityOperationRequest>(invocation.Input.Operation);
         JsonAssert.For(operation.Args)
             .HasProperty("target", target => target
-                .HasString("assetGuid", "0123456789abcdef0123456789abcdef"));
+                .HasString("assetGuid", "01234567-89ab-cdef-0123-456789abcdef"));
     }
 
     [Fact]
@@ -115,5 +114,22 @@ public sealed class QueryCommandDispatchTests
             expectedLimit: 25,
             expectedCursor: cursor,
             expectedOffset: 3);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SceneTree_WhenPackagePathUsesAlternateSeparators_DispatchesCanonicalTypedPath ()
+    {
+        var service = new RecordingQueryService((_, _) => ValueTask.FromResult(CreateSuccessResult(UcliCommandNames.QuerySceneTree)));
+        var command = new QuerySceneTreeCommand(service, CommandResultTestWriter.Create());
+
+        var result = await CommandResultCapture.ExecuteAsync(() => command.TreeAsync(
+            path: @"Packages\com.example\Scenes\Main.unity",
+            cancellationToken: CancellationToken.None));
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        var invocation = Assert.Single(service.Invocations);
+        var operation = Assert.IsType<QuerySceneTreeOperationRequest>(invocation.Input.Operation);
+        Assert.Equal("Packages/com.example/Scenes/Main.unity", operation.ScenePath.Value);
     }
 }

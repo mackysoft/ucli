@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Hosting.Cli.Requests;
 /// <summary> Provides the <c>query assets find</c> CLI command entry point. </summary>
 internal sealed class QueryAssetsFindCommand
 {
-    private const string OperationId = "assets.find";
+    private static readonly IpcExecuteStepId OperationId = new("assets.find");
 
     private readonly IQueryService queryService;
 

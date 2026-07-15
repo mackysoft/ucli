@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Contracts;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -29,7 +28,7 @@ public sealed class ResolveCommandDispatchTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Resolve_WhenAssetGuidUsesUppercaseNFormat_CanonicalizesTypedSelector ()
+    public async Task Resolve_WhenAssetGuidUsesUppercaseNFormat_ParsesNativeGuid ()
     {
         var service = new RecordingResolveService((_, _) => ValueTask.FromResult(CreateSuccessResult()));
         var command = new ResolveCommand(service, CommandResultTestWriter.Create());
@@ -41,7 +40,7 @@ public sealed class ResolveCommandDispatchTests
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         var invocation = Assert.Single(service.Invocations);
         var selector = Assert.IsType<ResolveAssetGuidSelectorInput>(invocation.Input.Selector);
-        Assert.Equal("0123456789abcdef0123456789abcdef", selector.AssetGuid.Value);
+        Assert.Equal(Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"), selector.AssetGuid);
     }
 
     [Fact]

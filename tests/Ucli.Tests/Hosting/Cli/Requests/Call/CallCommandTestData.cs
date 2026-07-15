@@ -21,12 +21,12 @@ internal static class CallCommandTestData
                 project: ProjectIdentityInfoTestFactory.Create(),
                 opResults:
                 [
-                    CreateGoDescribeOperationResult(IpcExecuteOperationPhaseNames.Call, applied: true),
+                    CreateGoDescribeOperationResult(IpcExecuteOperationPhase.Call, applied: true),
                 ],
                 plan: new CallPlanOutput(
                     opResults:
                     [
-                        CreateGoDescribeOperationResult(IpcExecuteOperationPhaseNames.Plan, applied: false),
+                        CreateGoDescribeOperationResult(IpcExecuteOperationPhase.Plan, applied: false),
                     ],
                     planToken: "plan-token-1"),
                 readPostcondition: null),
@@ -42,9 +42,9 @@ internal static class CallCommandTestData
                 opResults:
                 [
                     new OperationExecutionOperationResult(
-                        OpId: "step-1",
+                        OpId: new IpcExecuteStepId("step-1"),
                         Op: "edit",
-                        Phase: IpcExecuteOperationPhaseNames.Call,
+                        Phase: IpcExecuteOperationPhase.Call,
                         Applied: true,
                         Changed: true,
                         Touched: []),
@@ -63,32 +63,32 @@ internal static class CallCommandTestData
                 ApplicationFailure.FromCode(
                     ExecuteRequestErrorCodes.OperationContractViolation,
                     ContractViolationMessage,
-                    "step-1"),
+                    new IpcExecuteStepId("step-1")),
             ],
             new CallExecutionOutput(
                 requestId: RequestGuid,
                 project: ProjectIdentityInfoTestFactory.Create(),
                 opResults:
                 [
-                    CreateViolationOperationResult(IpcExecuteOperationPhaseNames.Call, applied: true),
+                    CreateViolationOperationResult(IpcExecuteOperationPhase.Call, applied: true),
                 ],
                 plan: new CallPlanOutput(
                     opResults:
                     [
-                        CreateViolationOperationResult(IpcExecuteOperationPhaseNames.Plan, applied: false),
+                        CreateViolationOperationResult(IpcExecuteOperationPhase.Plan, applied: false),
                     ],
                     planToken: "plan-token-1")
                 {
                     ContractViolations =
                     [
-                        CreateContractViolation(IpcExecuteApplicationStateNames.Indeterminate),
+                        CreateContractViolation(IpcApplicationState.Indeterminate),
                     ],
                 },
                 readPostcondition: null)
             {
                 ContractViolations =
                 [
-                    CreateContractViolation(IpcExecuteApplicationStateNames.Applied),
+                    CreateContractViolation(IpcApplicationState.Applied),
                 ],
             });
     }
@@ -104,11 +104,11 @@ internal static class CallCommandTestData
     }
 
     private static OperationExecutionOperationResult CreateGoDescribeOperationResult (
-        string phase,
+        IpcExecuteOperationPhase phase,
         bool applied)
     {
         return new OperationExecutionOperationResult(
-            OpId: "step-1",
+            OpId: new IpcExecuteStepId("step-1"),
             Op: UcliPrimitiveOperationNames.GoDescribe,
             Phase: phase,
             Applied: applied,
@@ -117,11 +117,11 @@ internal static class CallCommandTestData
     }
 
     private static OperationExecutionOperationResult CreateViolationOperationResult (
-        string phase,
+        IpcExecuteOperationPhase phase,
         bool applied)
     {
         return new OperationExecutionOperationResult(
-            OpId: "step-1",
+            OpId: new IpcExecuteStepId("step-1"),
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
             Phase: phase,
             Applied: applied,
@@ -129,16 +129,16 @@ internal static class CallCommandTestData
             Touched:
             [
                 new OperationExecutionTouchedResource(
-                    Kind: UcliTouchedResourceKindNames.Asset,
+                    Kind: UcliTouchedResourceKind.Asset,
                     Path: "Assets/Example.txt",
-                    Guid: null),
+                    AssetGuid: null),
             ]);
     }
 
-    private static OperationExecutionContractViolation CreateContractViolation (string applicationState)
+    private static OperationExecutionContractViolation CreateContractViolation (IpcApplicationState applicationState)
     {
         return new OperationExecutionContractViolation(
-            OpId: "step-1",
+            OpId: new IpcExecuteStepId("step-1"),
             Operation: UcliPrimitiveOperationNames.ProjectRefresh,
             ExpectedFact: "assurance.mayDirty=false",
             ObservedResult: "opResults[].changed=true",
@@ -151,12 +151,12 @@ internal static class CallCommandTestData
             IpcExecutePostReadSource.CurrentSchemaVersion,
             [
                 new OperationExecutionPostReadSourceStep(
-                    OpId: "step-1",
-                    SourceKind: IpcExecutePostReadSourceKindNames.Edit,
+                    OpId: new IpcExecuteStepId("step-1"),
+                    SourceKind: IpcExecutePostReadSourceKind.Edit,
                     PlayModeMutation: false,
-                    Commit: IpcExecutePostReadCommitNames.Context,
+                    Commit: IpcExecutePostReadCommit.Context,
                     PersistenceExpected: true,
-                    ExpectedPostState: IpcExecuteExpectedPostStateNames.Deterministic),
+                    ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
             ]);
     }
 }

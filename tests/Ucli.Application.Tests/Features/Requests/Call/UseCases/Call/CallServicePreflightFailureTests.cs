@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.CallServiceTestSupport;
 using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;
 
@@ -24,7 +25,7 @@ public sealed class CallServicePreflightFailureTests
                 new ValidationError(
                     ValidationErrorCodes.OperationArgsInvalid,
                     "Operation args are invalid.",
-                    "step-1"),
+                    new IpcExecuteStepId("step-1")),
             ]);
         var service = CreateService(
             preflightResult,

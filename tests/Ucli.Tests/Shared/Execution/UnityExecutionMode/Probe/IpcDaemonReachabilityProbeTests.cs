@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
@@ -28,7 +27,9 @@ public sealed class IpcDaemonReachabilityProbeTests
 
     private static readonly ProbeExceptionCase[] NotRunningConnectivityExceptionCases =
     [
-        new("connection-refused", static () => new SocketException((int)SocketError.ConnectionRefused)),
+        new(
+            "connection-refused",
+            static () => IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused)),
     ];
 
     private static readonly ProbeExceptionCase[] InternalFailureExceptionCases =
@@ -236,7 +237,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         var transportClient = new RecordingIpcTransportClient(request =>
             IpcDaemonPingClientTestSupport.CreateResponse(
                 request,
-                IpcProtocol.StatusError,
+                IpcResponseStatus.Error,
                 [
                     new IpcError(
                         errorCode,
@@ -297,7 +298,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         IDaemonPingClient daemonPingClient = endpointMissing
             ? new UnexpectedDaemonPingClient("A missing endpoint must enter recovery before ping.")
             : new RecordingDaemonPingClient((_, _, _, _) =>
-                throw new SocketException((int)SocketError.ConnectionRefused));
+                throw IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused));
         var probe = new IpcDaemonReachabilityProbe(
             daemonPingClient,
             recoveryWaiter,

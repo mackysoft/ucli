@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.ResolveCommandTestData;
@@ -23,15 +22,17 @@ public sealed class ResolveCommandPreDispatchTests
             service);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("not-an-asset-guid")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
     [Trait("Size", "Small")]
-    public async Task Resolve_WhenAssetGuidIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
+    public async Task Resolve_WhenAssetGuidIsInvalid_ReturnsInvalidArgumentWithoutCallingService (string assetGuid)
     {
         var service = new RecordingResolveService((_, _) => throw new InvalidOperationException("Service should not be called."));
         var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ResolveAsync(
-            assetGuid: "not-an-asset-guid",
+            assetGuid: assetGuid,
             cancellationToken: CancellationToken.None));
 
         ResolveCommandAssert.InvalidInputRejectedBeforeResolveExecution(

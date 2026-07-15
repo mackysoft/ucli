@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 /// <summary> Implements the <c>resolve</c> workflow across read-index and Unity IPC fallback paths. </summary>
 internal sealed class ResolveService : IResolveService
 {
-    private const string ResolveOperationId = "resolve";
+    private static readonly IpcExecuteStepId ResolveOperationId = new("resolve");
 
     private readonly IProjectContextResolver projectContextResolver;
 
@@ -133,7 +133,7 @@ internal sealed class ResolveService : IResolveService
                 executionMode,
                 timeout,
                 readIndexMode,
-                selector.Scene.Value,
+                new UnityScenePath(selector.Scene.Value),
                 depth: null,
                 failFast: input.FailFast,
                 cancellationToken: cancellationToken)
@@ -145,7 +145,7 @@ internal sealed class ResolveService : IResolveService
                 return (
                     ResolveServiceResultFactory.FromIpcError(
                         requestId,
-                        new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
+                        new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
                         ReadIndexInfoFactory.Unity(readResult.Message),
                         project),
                     readResult.Message);
@@ -160,7 +160,7 @@ internal sealed class ResolveService : IResolveService
             return (null, output.AccessInfo.FallbackReason ?? "scene-tree-lite readIndex was not used.");
         }
 
-        var resolveResult = SceneTreeLiteHierarchyPathResolver.Resolve(output.Roots, selector.HierarchyPath.Value);
+        var resolveResult = SceneTreeLiteHierarchyPathResolver.Resolve(output.Roots, selector.HierarchyPath);
         if (!resolveResult.IsSuccess)
         {
             return (null, resolveResult.ErrorMessage!);
@@ -212,7 +212,7 @@ internal sealed class ResolveService : IResolveService
 
         var convertedResponse = ExecuteResponseConverter.Convert(
             executionResult.Response!,
-            projectContext.UnityProject.ProjectFingerprint);
+            projectContext.UnityProject);
         var responseProject = convertedResponse.Project ?? project;
         if (convertedResponse.IsSuccess)
         {
@@ -227,7 +227,7 @@ internal sealed class ResolveService : IResolveService
         return ResolveServiceResultFactory.Failure(
             requestId,
             convertedResponse.OpResults,
-            RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI resolve failed."),
+            RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors),
             readIndex,
             responseProject,
             convertedResponse.ContractViolations);
@@ -245,7 +245,7 @@ internal sealed class ResolveService : IResolveService
             failFast);
     }
 
-    private static OperationExecutionOperationResult CreateResolveOperationResult (string globalObjectId)
+    private static OperationExecutionOperationResult CreateResolveOperationResult (UnityGlobalObjectId globalObjectId)
     {
         return OperationExecutionModelMapper.CreatePlanResult(
             opId: ResolveOperationId,
@@ -268,6 +268,6 @@ internal sealed class ResolveService : IResolveService
         return "selector requires live Unity resolution.";
     }
 
-    private sealed record ResolveOperationResult (string GlobalObjectId);
+    private sealed record ResolveOperationResult (UnityGlobalObjectId GlobalObjectId);
 
 }

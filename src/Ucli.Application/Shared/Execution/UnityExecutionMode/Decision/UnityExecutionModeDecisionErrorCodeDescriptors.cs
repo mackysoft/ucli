@@ -25,7 +25,7 @@ internal static class UnityExecutionModeDecisionErrorCodeDescriptors
             possiblePhases: ["modeDecision", "daemonReachability"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["status", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [
@@ -54,7 +54,7 @@ internal static class UnityExecutionModeDecisionErrorCodeDescriptors
             possiblePhases: ["modeDecision", "daemonReachability"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["status", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [

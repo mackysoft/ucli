@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -69,7 +68,7 @@ public sealed class CallCommandResultFactoryTests
         var root = json.RootElement;
         JsonAssert.For(root)
             .HasString("command", UcliCommandNames.Call)
-            .HasString("status", "error")
+            .HasString("status", ContractLiteralCodec.ToValue(CommandResultStatus.Error))
             .HasProperty("payload", payload => payload
                 .HasProperty("startup", startup => startup
                     .HasString("startupStatus", "blocked")
@@ -105,7 +104,7 @@ public sealed class CallCommandResultFactoryTests
             .HasProperty("readPostcondition", readPostconditionElement => readPostconditionElement
                 .HasArrayLength("requirements", 1)
                 .HasProperty("requirements", 0, requirement => requirement
-                    .HasString("surface", IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite)
+                    .HasString("surface", ContractLiteralCodec.ToValue(IpcExecuteReadPostconditionSurface.SceneTreeLite))
                     .HasString("scenePath", "Assets/Scenes/Main.unity")));
         Assert.False(payload.GetProperty("plan").TryGetProperty("readPostcondition", out _));
     }
@@ -128,9 +127,9 @@ public sealed class CallCommandResultFactoryTests
                 ArtifactPath: null,
                 RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
             Diagnosis: new DaemonDiagnosisOutput(
-                Reason: "unityScriptCompilationFailed",
+                Reason: DaemonDiagnosisReason.UnityScriptCompilationFailed,
                 Message: "Unity startup is blocked.",
-                ReportedBy: "cli",
+                ReportedBy: DaemonDiagnosisReportedBy.Cli,
                 IsInferred: true,
                 UpdatedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:06+00:00"),
                 ProcessId: 1234,
@@ -138,9 +137,9 @@ public sealed class CallCommandResultFactoryTests
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: "fixCompileErrors",
+                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: "compiler",
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                     Code: "CS0246",
                     File: "Assets/Scripts/Broken.cs",
                     Line: 10,

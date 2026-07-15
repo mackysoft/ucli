@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -9,33 +8,19 @@ namespace MackySoft.Ucli.Tests.Execution.Mode;
 
 public sealed class IpcDaemonPingClientFailureTests
 {
-    public static TheoryData<PingResponseFailureCase> PingResponseFailureCases =>
-    [
-        new(
-            "error status",
-            request => CreateResponse(
-                request,
-                IpcProtocol.StatusError,
-                Array.Empty<IpcError>())),
-        new(
-            "error entries",
-            request => CreateResponse(
-                request,
-                IpcProtocol.StatusOk,
-                [
-                    new IpcError(
-                        Code: UcliCoreErrorCodes.InvalidArgument,
-                        Message: "invalid request",
-                        OpId: null),
-                ])),
-    ];
-
-    [Theory]
-    [MemberData(nameof(PingResponseFailureCases))]
+    [Fact]
     [Trait("Size", "Small")]
-    public async Task Ping_WhenResponseReportsFailure_ThrowsDaemonPingResponseException (PingResponseFailureCase testCase)
+    public async Task Ping_WhenResponseReportsFailure_ThrowsDaemonPingResponseException ()
     {
-        var unityIpcClient = new RecordingIpcTransportClient(testCase.CreateResponse);
+        var unityIpcClient = new RecordingIpcTransportClient(request => CreateResponse(
+            request,
+            IpcResponseStatus.Error,
+            [
+                new IpcError(
+                    Code: UcliCoreErrorCodes.InvalidArgument,
+                    Message: "invalid request",
+                    OpId: null),
+            ]));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
             CreateResolvedSessionProvider(),
@@ -48,7 +33,7 @@ public sealed class IpcDaemonPingClientFailureTests
                     CreateFingerprintMatchedProject(),
                     DefaultTimeout,
                     cancellationToken: CancellationToken.None).AsTask(),
-                testCase.Name + " ping failure response",
+                "ping failure response",
                 AsyncWaitTimeout);
         });
     }
@@ -85,7 +70,7 @@ public sealed class IpcDaemonPingClientFailureTests
         var unityIpcClient = CreateSuccessfulPingTransportClient();
         unityIpcClient.EnqueueResponse(request => CreateResponse(
             request,
-            IpcProtocol.StatusError,
+            IpcResponseStatus.Error,
             [
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
@@ -145,15 +130,5 @@ public sealed class IpcDaemonPingClientFailureTests
 
         Assert.Null(exception.ErrorCode);
         Assert.Contains("session token read failed", exception.Message, StringComparison.Ordinal);
-    }
-
-    public sealed record PingResponseFailureCase (
-        string Name,
-        Func<IpcRequest, IpcResponse> CreateResponse)
-    {
-        public override string ToString ()
-        {
-            return Name;
-        }
     }
 }

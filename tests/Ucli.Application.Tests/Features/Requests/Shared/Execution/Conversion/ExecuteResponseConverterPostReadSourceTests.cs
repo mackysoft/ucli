@@ -11,52 +11,49 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
     public void Convert_WhenPostReadSourceIsPresent_PropagatesSourceFacts ()
     {
         var response = CreateResponse(CreateExecuteResponse(
-        [
-            new IpcExecuteOperationResult(
-                OpId: "edit-1",
-                Op: "edit",
-                Phase: IpcExecuteOperationPhaseNames.Call,
-                Applied: true,
-                Changed: true,
-                Touched: []),
-        ]) with
-        {
-            PostReadSource = new IpcExecutePostReadSource(
+            [
+                new IpcExecuteOperationResult(
+                    OpId: new IpcExecuteStepId("edit-1"),
+                    Op: "edit",
+                    Phase: IpcExecuteOperationPhase.Call,
+                    Applied: true,
+                    Changed: true,
+                    Touched: []),
+            ],
+            postReadSource: new IpcExecutePostReadSource(
                 IpcExecutePostReadSource.CurrentSchemaVersion,
                 [
                     new IpcExecutePostReadSourceStep(
-                        OpId: "edit-1",
-                        SourceKind: IpcExecutePostReadSourceKindNames.Edit,
+                        OpId: new IpcExecuteStepId("edit-1"),
+                        SourceKind: IpcExecutePostReadSourceKind.Edit,
                         PlayModeMutation: false,
-                        Commit: IpcExecutePostReadCommitNames.Project,
+                        Commit: IpcExecutePostReadCommit.Project,
                         PersistenceExpected: true,
-                        ExpectedPostState: IpcExecuteExpectedPostStateNames.Deterministic),
-                ]),
-        });
+                        ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
+                ])));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.PostReadSource);
         Assert.Equal(1, result.PostReadSource!.SchemaVersion);
         var sourceStep = Assert.Single(result.PostReadSource.Steps);
-        Assert.Equal("edit-1", sourceStep.OpId);
-        Assert.Equal(IpcExecutePostReadSourceKindNames.Edit, sourceStep.SourceKind);
-        Assert.Equal(IpcExecutePostReadCommitNames.Project, sourceStep.Commit);
+        Assert.Equal("edit-1", sourceStep.OpId.Value);
+        Assert.Equal(IpcExecutePostReadSourceKind.Edit, sourceStep.SourceKind);
+        Assert.Equal(IpcExecutePostReadCommit.Project, sourceStep.Commit);
         Assert.True(sourceStep.PersistenceExpected);
-        Assert.Equal(IpcExecuteExpectedPostStateNames.Deterministic, sourceStep.ExpectedPostState);
+        Assert.Equal(IpcExecuteExpectedPostState.Deterministic, sourceStep.ExpectedPostState);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Convert_WhenPostReadSourceIsEmpty_PropagatesSourceFacts ()
     {
-        var response = CreateResponse(CreateExecuteResponse([]) with
-        {
-            PostReadSource = new IpcExecutePostReadSource(IpcExecutePostReadSource.CurrentSchemaVersion, []),
-        });
+        var response = CreateResponse(CreateExecuteResponse(
+            [],
+            postReadSource: new IpcExecutePostReadSource(IpcExecutePostReadSource.CurrentSchemaVersion, [])));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.PostReadSource);
@@ -102,12 +99,12 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("postReadSource.steps[0].sourceKind", error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(IpcExecutePostReadSourceKind), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -118,7 +115,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         {
             var response = CreateResponse(CreatePostReadSourcePayload(testCase.StepJson));
 
-            var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+            var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
             Assert.False(result.IsSuccess);
             var error = Assert.Single(result.Errors);
@@ -144,7 +141,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             """,
             UcliPrimitiveOperationNames.SceneOpen));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -168,7 +165,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             }
             """));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -206,7 +203,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);

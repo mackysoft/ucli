@@ -160,7 +160,7 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
+                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
                 ReadIndexInfoFactory.Unity(readResult.Message),
                 project);
         }
@@ -207,13 +207,15 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
+                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
                 ReadIndexInfoFactory.Unity(readResult.Message),
                 project);
         }
 
         var output = readResult.Output!;
-        var windowedRoots = SceneTreeWindowProjector.Apply(output.Roots, operation.WindowOptions);
+        var windowedRoots = SceneTreeWindowProjector.Apply(
+            ReadIndexJsonContractMapper.ToJsonContracts(output.Roots),
+            operation.WindowOptions);
         return QueryServiceResultFactory.Success(
             operation.CommandName,
             requestId,
@@ -269,7 +271,7 @@ internal sealed class QueryService : IQueryService
 
         var convertedResponse = ExecuteResponseConverter.Convert(
             executionResult.Response!,
-            projectContext.UnityProject.ProjectFingerprint);
+            projectContext.UnityProject);
         var responseProject = convertedResponse.Project ?? project;
         if (convertedResponse.IsSuccess)
         {
@@ -282,7 +284,7 @@ internal sealed class QueryService : IQueryService
                 convertedResponse.ContractViolations);
         }
 
-        var failures = RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI query failed.");
+        var failures = RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors);
         return QueryServiceResultFactory.Failure(
             operation.CommandName,
             requestId,
@@ -307,31 +309,29 @@ internal sealed class QueryService : IQueryService
             result: result);
     }
 
-    private static AssetsFindResult CreateAssetsFindResult (BoundedWindowResult<IndexAssetSearchEntryJsonContract> windowedEntries)
+    private static AssetsFindResult CreateAssetsFindResult (BoundedWindowResult<AssetSearchLookupEntry> windowedEntries)
     {
         var matches = new AssetsFindMatch[windowedEntries.Items.Count];
         for (var i = 0; i < windowedEntries.Items.Count; i++)
         {
             var entry = windowedEntries.Items[i];
-            var assetGuid = entry.AssetGuid
-                ?? throw new InvalidOperationException("Validated asset-search entry must specify assetGuid.");
             matches[i] = new AssetsFindMatch(
-                assetPath: new UnityAssetPath(entry.AssetPath!),
-                assetGuid: assetGuid.Length == 0 ? null : new UnityAssetGuid(assetGuid),
-                name: entry.Name!,
-                typeId: new UnityTypeId(entry.TypeId!));
+                assetPath: entry.AssetPath,
+                assetGuid: entry.AssetGuid,
+                name: entry.Name,
+                typeId: entry.TypeId);
         }
 
         return new AssetsFindResult(matches, windowedEntries.Window);
     }
 
     private static SceneTreeResult CreateSceneTreeResult (
-        string scenePath,
+        UnityScenePath scenePath,
         BoundedWindowResult<IndexSceneTreeLiteNodeJsonContract> windowedRoots,
         SceneTreeSourceState sourceState)
     {
         return new SceneTreeResult(
-            path: new SceneAssetPath(scenePath),
+            path: scenePath,
             roots: windowedRoots.Items,
             sourceState: sourceState,
             window: windowedRoots.Window);

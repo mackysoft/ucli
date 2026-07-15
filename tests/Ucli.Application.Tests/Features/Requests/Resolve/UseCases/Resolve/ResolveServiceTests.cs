@@ -10,6 +10,9 @@ namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class ResolveServiceTests
 {
+    private const string RootGlobalObjectId = "GlobalObjectId_V1-2-11111111111111111111111111111111-1-0";
+    private const string ChildGlobalObjectId = "GlobalObjectId_V1-2-11111111111111111111111111111111-2-0";
+
     private static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
 
     private static readonly ProjectContext ResolveProjectContext = ProjectContextTestFactory.CreateRepositoryFixtureProject(
@@ -27,21 +30,15 @@ public sealed class ResolveServiceTests
         {
             Result = SceneTreeLiteReadResult.Success(
                 new SceneTreeLiteReadOutput(
-                    ScenePath: "Assets/Scenes/Main.unity",
+                    ScenePath: new UnityScenePath("Assets/Scenes/Main.unity"),
                     Roots:
                     [
-                        new IndexSceneTreeLiteNodeJsonContract(
-                            name: "Root",
-                            globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
-                            children:
+                        CreateSceneNode(
+                            "Root",
+                            RootGlobalObjectId,
                             [
-                                new IndexSceneTreeLiteNodeJsonContract(
-                                    name: "Child",
-                                    globalObjectId: "GlobalObjectId_V1-7-8-9-10-11-12",
-                                    children: [],
-                                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
-                            ],
-                            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                                CreateSceneNode("Child", ChildGlobalObjectId),
+                            ]),
                     ],
                     SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                     AccessInfo: new SceneTreeLiteAccessInfo(
@@ -78,13 +75,13 @@ public sealed class ResolveServiceTests
         Assert.Equal(IndexFreshness.Fresh, result.ReadIndex.Freshness);
 
         var opResult = Assert.Single(result.OpResults);
-        Assert.Equal("resolve", opResult.OpId);
+        Assert.Equal("resolve", opResult.OpId.Value);
         Assert.Equal(UcliPrimitiveOperationNames.Resolve, opResult.Op);
-        Assert.Equal(IpcExecuteOperationPhaseNames.Plan, opResult.Phase);
+        Assert.Equal(IpcExecuteOperationPhase.Plan, opResult.Phase);
         Assert.False(opResult.Applied);
         Assert.False(opResult.Changed);
         Assert.True(opResult.Result.HasValue);
-        Assert.Equal("GlobalObjectId_V1-7-8-9-10-11-12", opResult.Result!.Value.GetProperty("globalObjectId").GetString());
+        Assert.Equal(ChildGlobalObjectId, opResult.Result!.Value.GetProperty("globalObjectId").GetString());
     }
 
     [Fact]
@@ -96,33 +93,21 @@ public sealed class ResolveServiceTests
         {
             Result = SceneTreeLiteReadResult.Success(
                 new SceneTreeLiteReadOutput(
-                    ScenePath: "Assets/Scenes/Main.unity",
+                    ScenePath: new UnityScenePath("Assets/Scenes/Main.unity"),
                     Roots:
                     [
-                        new IndexSceneTreeLiteNodeJsonContract(
-                            name: "Root",
-                            globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
-                            children:
+                        CreateSceneNode(
+                            "Root",
+                            RootGlobalObjectId,
                             [
-                                new IndexSceneTreeLiteNodeJsonContract(
-                                    name: "Child",
-                                    globalObjectId: "GlobalObjectId_V1-7-8-9-10-11-12",
-                                    children: [],
-                                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
-                            ],
-                            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
-                        new IndexSceneTreeLiteNodeJsonContract(
-                            name: "Root",
-                            globalObjectId: "GlobalObjectId_V1-13-14-15-16-17-18",
-                            children:
+                                CreateSceneNode("Child", ChildGlobalObjectId),
+                            ]),
+                        CreateSceneNode(
+                            "Root",
+                            "GlobalObjectId_V1-2-11111111111111111111111111111111-3-0",
                             [
-                                new IndexSceneTreeLiteNodeJsonContract(
-                                    name: "Other",
-                                    globalObjectId: "GlobalObjectId_V1-19-20-21-22-23-24",
-                                    children: [],
-                                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
-                            ],
-                            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                                CreateSceneNode("Other", "GlobalObjectId_V1-2-11111111111111111111111111111111-4-0"),
+                            ]),
                     ],
                     SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                     AccessInfo: new SceneTreeLiteAccessInfo(
@@ -156,7 +141,7 @@ public sealed class ResolveServiceTests
 
         var opResult = Assert.Single(result.OpResults);
         Assert.True(opResult.Result.HasValue);
-        Assert.Equal("GlobalObjectId_V1-7-8-9-10-11-12", opResult.Result!.Value.GetProperty("globalObjectId").GetString());
+        Assert.Equal(ChildGlobalObjectId, opResult.Result!.Value.GetProperty("globalObjectId").GetString());
     }
 
     [Fact]
@@ -171,7 +156,7 @@ public sealed class ResolveServiceTests
         var result = await service.ExecuteAsync(
             RequestId,
             CreateInput(
-                selector: new ResolveAssetGuidSelectorInput(new UnityAssetGuid("11111111111111111111111111111111")),
+                selector: new ResolveAssetGuidSelectorInput(Guid.Parse("11111111-1111-1111-1111-111111111111")),
                 failFast: true),
             CancellationToken.None);
 
@@ -180,9 +165,9 @@ public sealed class ResolveServiceTests
             sceneTreeLiteAccessService);
         Assert.NotNull(result.Project);
         var project = result.Project!;
-        Assert.Equal("/unity/ResponseProject", project.ProjectPath);
-        Assert.Equal(ProjectContextTestFactory.ProjectFingerprint, project.ProjectFingerprint);
-        Assert.Equal("7000.0.1f1", project.UnityVersion);
+        Assert.Equal(ResolveProjectContext.UnityProject.UnityProjectRoot, project.ProjectPath);
+        Assert.Equal(ResolveProjectContext.UnityProject.ProjectFingerprint, project.ProjectFingerprint);
+        Assert.Equal(ResolveProjectContext.UnityProject.UnityVersion, project.UnityVersion);
         Assert.Equal(RequestId, result.RequestId);
 
         var execution = RequestReadIndexAccessInvocationAssert.UnityOperationRequestedOnce(
@@ -194,7 +179,7 @@ public sealed class ResolveServiceTests
             expectedOperationId: "resolve",
             expectedOperationName: UcliPrimitiveOperationNames.Resolve);
         var executeRequest = execution.Request;
-        Assert.Equal("11111111111111111111111111111111", executeRequest.Args.GetProperty("assetGuid").GetString());
+        Assert.Equal("11111111-1111-1111-1111-111111111111", executeRequest.Args.GetProperty("assetGuid").GetString());
     }
 
     [Fact]
@@ -206,10 +191,10 @@ public sealed class ResolveServiceTests
         {
             Result = SceneTreeLiteReadResult.Success(
                 new SceneTreeLiteReadOutput(
-                    ScenePath: "Assets/Scenes/Main.unity",
+                    ScenePath: new UnityScenePath("Assets/Scenes/Main.unity"),
                     Roots:
                     [
-                        new IndexSceneTreeLiteNodeJsonContract("Root", "GlobalObjectId_V1-1-2-3-4-5-6", [], IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        CreateSceneNode("Root", RootGlobalObjectId),
                     ],
                     SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
                     AccessInfo: new SceneTreeLiteAccessInfo(
@@ -251,44 +236,6 @@ public sealed class ResolveServiceTests
         Assert.Equal("Hierarchy path 'Root/Child' did not match a GameObject.", result.ReadIndex.FallbackReason);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenSceneHierarchyIndexFailureMessageIsBlank_FallsBackToUnityWithDefaultReason ()
-    {
-        var projectContextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ResolveProjectContext));
-        var sceneTreeLiteAccessService = new RecordingSceneTreeLiteAccessService
-        {
-            Result = SceneTreeLiteReadResult.Failure("", UcliCoreErrorCodes.InternalError),
-        };
-        var unityRequestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateUnityResponse()));
-        var service = new ResolveService(projectContextResolver, sceneTreeLiteAccessService, unityRequestExecutor);
-
-        var result = await service.ExecuteAsync(
-            RequestId,
-            CreateInput(
-                selector: CreateSceneSelector(),
-                readIndexMode: ReadIndexMode.AllowStale),
-            CancellationToken.None);
-
-        Assert.True(result.IsSuccess);
-        RequestReadIndexAccessInvocationAssert.SceneTreeRequestedOnce(
-            sceneTreeLiteAccessService,
-            UcliCommandIds.Resolve,
-            expectedScenePath: "Assets/Scenes/Main.unity",
-            expectedReadIndexMode: ReadIndexMode.AllowStale,
-            expectedFailFast: false);
-        RequestReadIndexAccessInvocationAssert.UnityOperationRequestedOnce(
-            unityRequestExecutor,
-            UcliCommandIds.Resolve,
-            UnityExecutionMode.Oneshot,
-            TimeSpan.FromMilliseconds(1234),
-            expectedFailFast: false,
-            expectedOperationId: "resolve",
-            expectedOperationName: UcliPrimitiveOperationNames.Resolve);
-        Assert.Equal(ReadIndexInfoSource.Unity, result.ReadIndex.Source);
-        Assert.Equal("readIndex fallback reason is unavailable.", result.ReadIndex.FallbackReason);
-    }
-
     private static ResolveCommandInput CreateInput (
         ResolveSelectorInput selector,
         ReadIndexMode? readIndexMode = null,
@@ -310,23 +257,35 @@ public sealed class ResolveServiceTests
             hierarchyPath: new UnityHierarchyPath("Root/Child"));
     }
 
+    private static SceneTreeLiteNode CreateSceneNode (
+        string name,
+        string globalObjectId,
+        IReadOnlyList<SceneTreeLiteNode>? children = null)
+    {
+        return new SceneTreeLiteNode(
+            name,
+            new UnityGlobalObjectId(globalObjectId),
+            children ?? [],
+            IndexSceneTreeLiteNodeChildrenState.Complete);
+    }
+
     private static UnityRequestResponse CreateUnityResponse ()
     {
         return ExecuteUnityRequestResponseTestFactory.Create(
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             opResults:
             [
                 new IpcExecuteOperationResult(
-                    OpId: "resolve",
+                    OpId: new IpcExecuteStepId("resolve"),
                     Op: UcliPrimitiveOperationNames.Resolve,
-                    Phase: IpcExecuteOperationPhaseNames.Plan,
+                    Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,
                     Changed: false,
                     Touched: [])
                 {
                     Result = JsonSerializer.SerializeToElement(new
                     {
-                        globalObjectId = "GlobalObjectId_V1-1-2-3-4-5-6",
+                        globalObjectId = RootGlobalObjectId,
                     }),
                 },
             ],
@@ -337,9 +296,9 @@ public sealed class ResolveServiceTests
     private static IpcProjectIdentity CreateUnityResponseProjectIdentity ()
     {
         return new IpcProjectIdentity(
-            projectPath: "/unity/ResponseProject",
-            projectFingerprint: ProjectContextTestFactory.ProjectFingerprint,
-            unityVersion: "7000.0.1f1");
+            projectPath: ResolveProjectContext.UnityProject.UnityProjectRoot,
+            projectFingerprint: ResolveProjectContext.UnityProject.ProjectFingerprint,
+            unityVersion: ResolveProjectContext.UnityProject.UnityVersion);
     }
 
 }

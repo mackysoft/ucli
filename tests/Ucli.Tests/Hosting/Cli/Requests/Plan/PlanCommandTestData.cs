@@ -54,7 +54,7 @@ internal static class PlanCommandTestData
                 ApplicationFailure.FromCode(
                     ExecuteRequestErrorCodes.OperationContractViolation,
                     ContractViolationMessage,
-                    "step-1"),
+                    new IpcExecuteStepId("step-1")),
             ],
             new PlanExecutionOutput(
                 requestId: RequestGuid,
@@ -84,7 +84,7 @@ internal static class PlanCommandTestData
                 ApplicationFailure.InvalidInput(
                     "Operation args are invalid.",
                     ValidationErrorCodes.OperationArgsInvalid,
-                    "step-1"),
+                    new IpcExecuteStepId("step-1")),
             ],
             new PlanExecutionOutput(
                 requestId: RequestGuid,
@@ -129,9 +129,9 @@ internal static class PlanCommandTestData
     private static OperationExecutionOperationResult CreateSuccessOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: "step-1",
+            OpId: new IpcExecuteStepId("step-1"),
             Op: UcliPrimitiveOperationNames.GoDescribe,
-            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,
             Changed: false,
             Touched: []);
@@ -140,27 +140,27 @@ internal static class PlanCommandTestData
     private static OperationExecutionOperationResult CreateViolationOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: "step-1",
+            OpId: new IpcExecuteStepId("step-1"),
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
-            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,
             Changed: true,
             Touched:
             [
                 new OperationExecutionTouchedResource(
-                    Kind: UcliTouchedResourceKindNames.Asset,
+                    Kind: UcliTouchedResourceKind.Asset,
                     Path: "Assets/Example.txt",
-                    Guid: null),
+                    AssetGuid: null),
             ]);
     }
 
     private static OperationExecutionContractViolation CreateContractViolation ()
     {
         return new OperationExecutionContractViolation(
-            OpId: "step-1",
+            OpId: new IpcExecuteStepId("step-1"),
             Operation: UcliPrimitiveOperationNames.ProjectRefresh,
             ExpectedFact: "assurance.mayDirty=false",
             ObservedResult: "opResults[].changed=true",
-            ApplicationState: IpcExecuteApplicationStateNames.Indeterminate);
+            ApplicationState: IpcApplicationState.Indeterminate);
     }
 }

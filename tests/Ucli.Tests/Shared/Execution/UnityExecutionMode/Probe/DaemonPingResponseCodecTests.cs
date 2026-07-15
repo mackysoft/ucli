@@ -10,7 +10,7 @@ public sealed class DaemonPingResponseCodecTests
     [Trait("Size", "Small")]
     public void TryValidateSuccessResponse_WhenResponseIsOk_ReturnsTrue ()
     {
-        var response = CreateResponse(IpcProtocol.StatusOk, Array.Empty<IpcError>(), CreatePayload());
+        var response = CreateResponse(IpcResponseStatus.Ok, Array.Empty<IpcError>(), CreatePayload());
 
         var result = DaemonPingResponseCodec.TryValidateSuccessResponse(response, out var error);
 
@@ -23,7 +23,7 @@ public sealed class DaemonPingResponseCodecTests
     public void TryValidateSuccessResponse_WhenResponseHasErrorCode_ReturnsFalse ()
     {
         var response = CreateResponse(
-            IpcProtocol.StatusError,
+            IpcResponseStatus.Error,
             [
                 new IpcError(UcliCoreErrorCodes.InvalidArgument, "invalid request", null),
             ],
@@ -33,7 +33,7 @@ public sealed class DaemonPingResponseCodecTests
 
         Assert.False(result);
         Assert.NotNull(error);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.ErrorCode!.Value);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.ErrorCode);
     }
 
     [Fact]
@@ -44,7 +44,7 @@ public sealed class DaemonPingResponseCodecTests
         const string expectedUnityVersion = " 2022.3.5f1 ";
 
         var response = CreateResponse(
-            IpcProtocol.StatusOk,
+            IpcResponseStatus.Ok,
             Array.Empty<IpcError>(),
             IpcUnityEditorObservationTestFactory.Create(
                 serverVersion: expectedServerVersion,
@@ -66,7 +66,7 @@ public sealed class DaemonPingResponseCodecTests
     [Trait("Size", "Small")]
     public void TryDecodePayload_WhenPayloadIsMissing_ReturnsFalse ()
     {
-        var response = CreateResponse(IpcProtocol.StatusOk, Array.Empty<IpcError>(), null);
+        var response = CreateResponse(IpcResponseStatus.Ok, Array.Empty<IpcError>(), null);
 
         var result = DaemonPingResponseCodec.TryDecodePayload(response, out var payload, out var error);
 
@@ -81,7 +81,7 @@ public sealed class DaemonPingResponseCodecTests
     public void TryDecodePayload_WhenRequiredFieldIsWhitespace_ReturnsFalse ()
     {
         var response = CreateResponse(
-            IpcProtocol.StatusOk,
+            IpcResponseStatus.Ok,
             Array.Empty<IpcError>(),
             CreateWirePayload(serverVersion: " "));
 
@@ -98,7 +98,7 @@ public sealed class DaemonPingResponseCodecTests
     public void TryDecodePayload_WhenCompileStateIsMissing_ReturnsFalse ()
     {
         var response = CreateResponse(
-            IpcProtocol.StatusOk,
+            IpcResponseStatus.Ok,
             Array.Empty<IpcError>(),
                 CreateWirePayload(includeCompileState: false));
 
@@ -115,7 +115,7 @@ public sealed class DaemonPingResponseCodecTests
     public void TryDecodePayload_WhenProjectFingerprintIsMissing_ReturnsFalse ()
     {
         var response = CreateResponse(
-            IpcProtocol.StatusOk,
+            IpcResponseStatus.Ok,
             Array.Empty<IpcError>(),
             CreateWirePayload(projectFingerprint: null));
 
@@ -132,7 +132,7 @@ public sealed class DaemonPingResponseCodecTests
     public void TryDecodePayload_WhenOnlyLegacyRuntimeFieldExists_ReturnsFalse ()
     {
         var response = CreateResponse(
-            IpcProtocol.StatusOk,
+            IpcResponseStatus.Ok,
             Array.Empty<IpcError>(),
             new
             {
@@ -174,7 +174,7 @@ public sealed class DaemonPingResponseCodecTests
     [Trait("Size", "Small")]
     public void TryDecodePayloadForProject_WhenProjectFingerprintMatches_ReturnsTrue ()
     {
-        var response = CreateResponse(IpcProtocol.StatusOk, Array.Empty<IpcError>(), CreatePayload());
+        var response = CreateResponse(IpcResponseStatus.Ok, Array.Empty<IpcError>(), CreatePayload());
 
         var result = DaemonPingResponseCodec.TryDecodePayloadForProject(
             response,
@@ -192,7 +192,7 @@ public sealed class DaemonPingResponseCodecTests
     [Trait("Size", "Small")]
     public void TryDecodePayloadForProject_WhenProjectFingerprintMismatches_ReturnsFalse ()
     {
-        var response = CreateResponse(IpcProtocol.StatusOk, Array.Empty<IpcError>(), CreatePayload());
+        var response = CreateResponse(IpcResponseStatus.Ok, Array.Empty<IpcError>(), CreatePayload());
 
         var result = DaemonPingResponseCodec.TryDecodePayloadForProject(
             response,
@@ -208,7 +208,7 @@ public sealed class DaemonPingResponseCodecTests
     }
 
     private static IpcResponse CreateResponse (
-        string status,
+        IpcResponseStatus status,
         IReadOnlyList<IpcError> errors,
         object? payload)
     {

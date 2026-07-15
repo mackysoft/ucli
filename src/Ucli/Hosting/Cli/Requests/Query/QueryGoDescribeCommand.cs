@@ -12,7 +12,7 @@ internal sealed class QueryGoDescribeCommand
 {
     private const int DefaultDepth = 0;
 
-    private const string OperationId = "go.describe";
+    private static readonly IpcExecuteStepId OperationId = new("go.describe");
 
     private readonly IQueryService queryService;
 

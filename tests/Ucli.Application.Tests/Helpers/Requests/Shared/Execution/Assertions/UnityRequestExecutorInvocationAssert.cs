@@ -123,27 +123,23 @@ internal static class UnityRequestExecutorInvocationAssert
 
     public static UnityRequestPayload.PlayEnter PlayEnterOnce (
         RecordingUnityRequestExecutor executor,
-        TimeSpan expectedTimeout,
-        int expectedPayloadTimeoutMilliseconds)
+        TimeSpan expectedTimeout)
     {
         var invocation = ExecutedOnce(executor, UcliCommandIds.PlayEnter);
         Assert.Equal(UnityExecutionMode.Daemon, invocation.Mode);
         Assert.Equal(expectedTimeout, invocation.Timeout);
         var payload = Assert.IsType<UnityRequestPayload.PlayEnter>(invocation.Payload);
-        Assert.Equal(expectedPayloadTimeoutMilliseconds, payload.TimeoutMilliseconds);
         return payload;
     }
 
     public static UnityRequestPayload.PlayExit PlayExitOnce (
         RecordingUnityRequestExecutor executor,
-        TimeSpan expectedTimeout,
-        int expectedPayloadTimeoutMilliseconds)
+        TimeSpan expectedTimeout)
     {
         var invocation = ExecutedOnce(executor, UcliCommandIds.PlayExit);
         Assert.Equal(UnityExecutionMode.Daemon, invocation.Mode);
         Assert.Equal(expectedTimeout, invocation.Timeout);
         var payload = Assert.IsType<UnityRequestPayload.PlayExit>(invocation.Payload);
-        Assert.Equal(expectedPayloadTimeoutMilliseconds, payload.TimeoutMilliseconds);
         return payload;
     }
 

@@ -1,4 +1,4 @@
-using System.Net.Sockets;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
@@ -14,8 +14,8 @@ internal static class DaemonProbeExceptionClassifier
         ArgumentNullException.ThrowIfNull(exception);
 
         return exception is DaemonSessionNotAvailableException
-            || (exception is SocketException socketException
-            && DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(socketException));
+            || (exception is IpcConnectException connectException
+            && DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(connectException));
     }
 
     /// <summary> Determines whether one daemon error code indicates session authentication rejection. </summary>

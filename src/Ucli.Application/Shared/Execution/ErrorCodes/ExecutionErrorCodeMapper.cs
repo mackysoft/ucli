@@ -12,9 +12,7 @@ internal static class ExecutionErrorCodeMapper
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        return error.Code.HasValue && error.Code.Value.IsValid
-            ? error.Code.Value
-            : ToCode(error.Kind);
+        return error.Code ?? ToCode(error.Kind);
     }
 
     /// <summary> Converts one execution-error kind to the corresponding CLI contract error code. </summary>

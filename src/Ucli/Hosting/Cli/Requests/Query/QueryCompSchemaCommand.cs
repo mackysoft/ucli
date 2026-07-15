@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Hosting.Cli.Requests;
 /// <summary> Provides the <c>query comp schema</c> CLI command entry point. </summary>
 internal sealed class QueryCompSchemaCommand
 {
-    private const string OperationId = "comp.schema";
+    private static readonly IpcExecuteStepId OperationId = new("comp.schema");
 
     private readonly IQueryService queryService;
 

@@ -11,7 +11,7 @@ internal static class QueryAssetsFindOperationRequestFactory
     /// <summary> Attempts to create one normalized <c>assets.find</c> operation request. </summary>
     public static QueryAssetsFindOperationRequestCreationResult Create (
         string commandName,
-        string operationId,
+        IpcExecuteStepId operationId,
         string operationName,
         string? type,
         string? pathPrefix,

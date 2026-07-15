@@ -42,6 +42,7 @@ internal sealed class PhaseExecutionPreflightService : IPhaseExecutionPreflightS
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(preparedRequest);
+        ArgumentNullException.ThrowIfNull(deadline);
 
         if (!deadline.TryGetRemainingTimeout(out var operationCatalogTimeout))
         {

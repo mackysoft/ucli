@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using static MackySoft.Ucli.Tests.Execution.Mode.IpcDaemonPingClientTestSupport;
@@ -14,7 +13,7 @@ public sealed class IpcDaemonPingClientPayloadTests
         var unityIpcClient = new RecordingIpcTransportClient(request =>
             CreateResponse(
                 request,
-                IpcProtocol.StatusOk,
+                IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
                 IpcUnityEditorObservationTestFactory.Create(
                     serverVersion: "0.5.0",
@@ -47,7 +46,7 @@ public sealed class IpcDaemonPingClientPayloadTests
         var unityIpcClient = new RecordingIpcTransportClient(request =>
             CreateResponse(
                 request,
-                IpcProtocol.StatusOk,
+                IpcResponseStatus.Ok,
                 Array.Empty<IpcError>()));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
@@ -76,7 +75,7 @@ public sealed class IpcDaemonPingClientPayloadTests
         var unityIpcClient = new RecordingIpcTransportClient(request =>
             CreateResponse(
                 request,
-                IpcProtocol.StatusOk,
+                IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
                 new
                 {

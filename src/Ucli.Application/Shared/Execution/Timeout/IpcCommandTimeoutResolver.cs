@@ -11,18 +11,13 @@ internal static class IpcCommandTimeoutResolver
     /// <param name="command"> The command used to apply per-command timeout overrides. </param>
     /// <param name="config"> The loaded config values. </param>
     /// <returns> The timeout-resolution result. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="command" /> has an invalid name. </exception>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="config" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="command" /> or <paramref name="config" /> is <see langword="null" />. </exception>
     public static IpcCommandTimeoutResolutionResult ResolveNormalized (
         int? optionValue,
         UcliCommand command,
         UcliConfig config)
     {
-        if (!command.IsValid)
-        {
-            throw new ArgumentException("Command name is invalid.", nameof(command));
-        }
-
+        ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(config);
 
         if (!optionValue.HasValue)

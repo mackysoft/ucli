@@ -18,13 +18,13 @@ public sealed class CallServiceDangerousOperationGuardTests
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: "step-1",
+                            OpId: new IpcExecuteStepId("step-1"),
                             Op: dangerousOperationName,
-                            Phase: IpcExecuteOperationPhaseNames.Plan,
+                            Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
                             Changed: false,
                             Touched: []),
@@ -33,13 +33,13 @@ public sealed class CallServiceDangerousOperationGuardTests
                     planToken: "issued-plan-token")),
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: "step-1",
+                            OpId: new IpcExecuteStepId("step-1"),
                             Op: dangerousOperationName,
-                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
                             Changed: true,
                             Touched: []),
@@ -80,13 +80,13 @@ public sealed class CallServiceDangerousOperationGuardTests
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: "step-1",
+                            OpId: new IpcExecuteStepId("step-1"),
                             Op: dangerousOperationName,
-                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
                             Changed: true,
                             Touched: []),
@@ -145,7 +145,7 @@ public sealed class CallServiceDangerousOperationGuardTests
         Assert.Empty(result.Output.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
-        Assert.Equal("step-1", error.OpId);
+        Assert.Equal("step-1", error.OpId?.Value);
     }
 
     [Fact]
@@ -179,6 +179,6 @@ public sealed class CallServiceDangerousOperationGuardTests
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
-        Assert.Equal("edit-1", error.OpId);
+        Assert.Equal("edit-1", error.OpId?.Value);
     }
 }

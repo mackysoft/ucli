@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -13,11 +12,13 @@ public sealed class IpcDaemonPingClientRequestTests
     [Trait("Size", "Small")]
     public async Task Ping_SendsPingRequestWithProbeContract ()
     {
+        var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(startedAtUtc);
         var unityIpcClient = CreateSuccessfulPingTransportClient();
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
             CreateResolvedSessionProvider(),
-            TimeProvider.System);
+            timeProvider);
 
         await pingClient.PingAsync(CreateFingerprintMatchedProject(), DefaultTimeout, cancellationToken: CancellationToken.None);
 
@@ -26,12 +27,11 @@ public sealed class IpcDaemonPingClientRequestTests
             expectedEndpointAddress: "/tmp/ucli-session.sock",
             expectedMethod: UnityIpcMethod.Ping,
             expectedSessionToken: IpcSessionTokenTestFactory.Create("resolved-token").GetEncodedValue());
-        Assert.InRange(
-            Assert.Single(unityIpcClient.Timeouts),
-            TimeSpan.FromMilliseconds(1),
-            DefaultTimeout);
+        var transportTimeout = Assert.Single(unityIpcClient.Timeouts);
+        Assert.InRange(transportTimeout, TimeSpan.FromMilliseconds(1), DefaultTimeout);
         Assert.Equal(IpcProtocol.CurrentVersion, request.ProtocolVersion);
         Assert.NotEqual(Guid.Empty, request.RequestId);
+        Assert.Equal(startedAtUtc + DefaultTimeout, request.RequestDeadlineUtc);
         Assert.Equal("ucli-mode-probe", request.Payload.GetProperty("clientVersion").GetString());
     }
 
@@ -97,7 +97,7 @@ public sealed class IpcDaemonPingClientRequestTests
         var unityIpcClient = CreateSuccessfulPingTransportClient();
         unityIpcClient.EnqueueResponse(request => CreateResponse(
             request,
-            IpcProtocol.StatusError,
+            IpcResponseStatus.Error,
             [
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,
@@ -191,7 +191,7 @@ public sealed class IpcDaemonPingClientRequestTests
         var unityIpcClient = CreateSuccessfulPingTransportClient();
         unityIpcClient.EnqueueResponse(request => CreateResponse(
             request,
-            IpcProtocol.StatusError,
+            IpcResponseStatus.Error,
             [
                 new IpcError(
                     IpcSessionErrorCodes.SessionTokenInvalid,

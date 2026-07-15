@@ -23,21 +23,21 @@ public sealed class CallServiceReadPostconditionTests
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: "step-1",
+                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
-                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
                             Changed: true,
                             Touched:
                             [
                                 new IpcExecuteTouchedResource(
-                                    Kind: UcliTouchedResourceKindNames.Scene,
-                                    Path: "Assets/Scenes/Main.unity",
-                                    Guid: null),
+                                    kind: UcliTouchedResourceKind.Scene,
+                                    path: "Assets/Scenes/Main.unity",
+                                    assetGuid: null),
                             ]),
                     ],
                     errors: [],
@@ -70,7 +70,7 @@ public sealed class CallServiceReadPostconditionTests
             expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             expectedScenePath: "Assets/Scenes/Main.unity");
         var requirement = Assert.Single(result.Output.ReadPostcondition!.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, requirement.Surface);
+        Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
         Assert.Equal("Assets/Scenes/Main.unity", requirement.ScenePath);
     }
 
@@ -89,21 +89,21 @@ public sealed class CallServiceReadPostconditionTests
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: "step-1",
+                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.SceneSave,
-                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
                             Changed: true,
                             Touched:
                             [
                                 new IpcExecuteTouchedResource(
-                                    Kind: UcliTouchedResourceKindNames.Scene,
-                                    Path: "Assets/Scenes/Main.unity",
-                                    Guid: null),
+                                    kind: UcliTouchedResourceKind.Scene,
+                                    path: "Assets/Scenes/Main.unity",
+                                    assetGuid: null),
                             ]),
                     ],
                     errors: [],

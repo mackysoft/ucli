@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.Results;
 
@@ -81,9 +82,12 @@ public sealed class RequestServiceFailureOutcomeContractTests
     {
         foreach (UcliCode errorCode in RequestServiceResultInvariantTestSupport.InvalidArgumentErrorCodeValues)
         {
-            var validationError = new ValidationError(errorCode, "Validation failed.", "step-1");
+            var validationError = new ValidationError(
+                errorCode,
+                "Validation failed.",
+                new IpcExecuteStepId("step-1"));
 
-            Assert.True(ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(errorCode));
+            Assert.True(InvalidArgumentErrorCodeSet.Contains(errorCode));
 
             var operationResult = OperationExecuteResultFactory.FromValidationErrors(
                 RequestServiceResultInvariantTestSupport.RequestId,
@@ -115,6 +119,6 @@ public sealed class RequestServiceFailureOutcomeContractTests
 
         Assert.Equal(futureErrorCode, error.Code);
         Assert.Equal(ApplicationOutcome.ToolError, error.Outcome);
-        Assert.False(ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(error.Code));
+        Assert.False(InvalidArgumentErrorCodeSet.Contains(error.Code));
     }
 }

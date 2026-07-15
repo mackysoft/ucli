@@ -13,23 +13,15 @@ internal static class RequestFailureNormalizer
         ArgumentNullException.ThrowIfNull(failures);
         ArgumentException.ThrowIfNullOrWhiteSpace(fallbackMessage);
 
-        for (var i = 0; i < failures.Count; i++)
-        {
-            var failure = failures[i];
-            if (failure != null && !string.IsNullOrWhiteSpace(failure.Message))
-            {
-                return failure.Message;
-            }
-        }
-
-        return fallbackMessage;
+        return failures.Count == 0
+            ? fallbackMessage
+            : failures[0].Message;
     }
 
     /// <summary> Creates one application failure from a transport failure. </summary>
     public static ApplicationFailure FromTransportFailure (
         UcliCode? errorCode,
         string? message,
-        string? opId = null,
         string? fallbackMessage = null)
     {
         var normalizedMessage = string.IsNullOrWhiteSpace(message)
@@ -42,8 +34,7 @@ internal static class RequestFailureNormalizer
 
         return ApplicationFailure.FromCode(
             errorCode,
-            normalizedMessage,
-            opId);
+            normalizedMessage);
     }
 
     /// <summary> Converts one Unity request boundary failure into an application failure. </summary>
@@ -56,7 +47,7 @@ internal static class RequestFailureNormalizer
             return ApplicationFailure.Timeout(failure.Message, failure.Code, startupFailure: failure.StartupFailure);
         }
 
-        if (ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(failure.Code))
+        if (InvalidArgumentErrorCodeSet.Contains(failure.Code))
         {
             return ApplicationFailure.InvalidInput(failure.Message, failure.Code, startupFailure: failure.StartupFailure);
         }
@@ -64,28 +55,20 @@ internal static class RequestFailureNormalizer
         return ApplicationFailure.UnityIpcFailure(failure.Message, failure.Code, startupFailure: failure.StartupFailure);
     }
 
-    /// <summary> Normalizes one operation execution error from an external result boundary. </summary>
-    public static ApplicationFailure FromOperationError (
-        OperationExecutionError error,
-        string fallbackMessage)
+    /// <summary> Converts one validated operation execution error into an application failure. </summary>
+    public static ApplicationFailure FromOperationError (OperationExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
 
-        var message = string.IsNullOrWhiteSpace(error.Message)
-            ? fallbackMessage
-            : error.Message;
-        ArgumentException.ThrowIfNullOrWhiteSpace(message, nameof(fallbackMessage));
-
         return ApplicationFailure.FromCode(
             error.Code,
-            message,
+            error.Message,
             error.OpId);
     }
 
     /// <summary> Converts raw operation execution errors into application failures. </summary>
     public static IReadOnlyList<ApplicationFailure> FromOperationErrors (
-        IReadOnlyList<OperationExecutionError> errors,
-        string fallbackMessage)
+        IReadOnlyList<OperationExecutionError> errors)
     {
         ArgumentNullException.ThrowIfNull(errors);
         if (errors.Count == 0)
@@ -96,7 +79,7 @@ internal static class RequestFailureNormalizer
         var failures = new ApplicationFailure[errors.Count];
         for (var i = 0; i < errors.Count; i++)
         {
-            failures[i] = FromOperationError(errors[i], fallbackMessage);
+            failures[i] = FromOperationError(errors[i]);
         }
 
         return failures;
@@ -121,12 +104,6 @@ internal static class RequestFailureNormalizer
                 throw new ArgumentException("Validation errors must not contain null entries.", nameof(validationErrors));
             }
 
-            if (!validationError.Code.IsValid)
-            {
-                throw new ArgumentException("Validation error code must not be empty.", nameof(validationErrors));
-            }
-
-            ArgumentException.ThrowIfNullOrWhiteSpace(validationError.Message, nameof(validationErrors));
             errors[i] = ApplicationFailure.InvalidInput(validationError.Message, validationError.Code, validationError.OpId);
         }
 

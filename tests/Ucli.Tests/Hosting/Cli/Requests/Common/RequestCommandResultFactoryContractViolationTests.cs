@@ -1,22 +1,17 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 
 namespace MackySoft.Ucli.Tests;
 
 public sealed class RequestCommandResultFactoryContractViolationTests
 {
-    private static readonly JsonSerializerOptions SerializerOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-    };
-
     [Fact]
     [Trait("Size", "Small")]
     public void Plan_Create_WhenContractViolationExists_EmitsErrorCodeAndPayloadDetails ()
@@ -109,11 +104,11 @@ public sealed class RequestCommandResultFactoryContractViolationTests
         CommandResult result,
         string expectedCommand)
     {
-        using var json = JsonDocument.Parse(JsonSerializer.Serialize(result, SerializerOptions));
+        using var json = JsonDocument.Parse(new CommandResultJsonContractWriter().Write(result));
         CommandResultAssert.HasStandardEnvelope(
             json.RootElement,
             expectedCommand,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         JsonAssert.For(json.RootElement)
             .HasArrayLength("errors", 1)
@@ -129,7 +124,7 @@ public sealed class RequestCommandResultFactoryContractViolationTests
                     .HasString("operation", UcliPrimitiveOperationNames.AssetsFind)
                     .HasString("expectedFact", "operation.kind=query")
                     .HasString("observedResult", "opResults[].applied=true")
-                    .HasString("applicationState", IpcExecuteApplicationStateNames.Applied)));
+                    .HasString("applicationState", ContractLiteralCodec.ToValue(IpcApplicationState.Applied))));
     }
 
     private static ApplicationFailure CreateContractViolationFailure ()
@@ -137,25 +132,25 @@ public sealed class RequestCommandResultFactoryContractViolationTests
         return ApplicationFailure.ContractViolation(
             "Operation contract violation.",
             ExecuteRequestErrorCodes.OperationContractViolation,
-            "query-1");
+            new IpcExecuteStepId("query-1"));
     }
 
     private static OperationExecutionContractViolation CreateContractViolation ()
     {
         return new OperationExecutionContractViolation(
-            OpId: "query-1",
+            OpId: new IpcExecuteStepId("query-1"),
             Operation: UcliPrimitiveOperationNames.AssetsFind,
             ExpectedFact: "operation.kind=query",
             ObservedResult: "opResults[].applied=true",
-            ApplicationState: IpcExecuteApplicationStateNames.Applied);
+            ApplicationState: IpcApplicationState.Applied);
     }
 
     private static OperationExecutionOperationResult CreateOpResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: "query-1",
+            OpId: new IpcExecuteStepId("query-1"),
             Op: UcliPrimitiveOperationNames.AssetsFind,
-            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Phase: IpcExecuteOperationPhase.Plan,
             Applied: true,
             Changed: false,
             Touched: []);

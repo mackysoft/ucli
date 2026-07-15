@@ -1,3 +1,4 @@
+using System.Globalization;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -12,15 +13,24 @@ internal static class QueryWindowOptionsFactory
         int? limit,
         string? after)
     {
-        if (!BoundedWindowOptionsNormalizer.TryNormalize(
+        if (!BoundedWindowOptions.TryCreate(
             all,
             limit,
             after,
-            allConflictMessage: "'--all' cannot be combined with '--limit' or '--after'.",
-            cursorErrorMessage: "after cursor is invalid.",
             out var options,
-            out var errorMessage))
+            out var failure))
         {
+            var errorMessage = failure switch
+            {
+                BoundedWindowOptionsCreationFailure.AllConflict => "'--all' cannot be combined with '--limit' or '--after'.",
+                BoundedWindowOptionsCreationFailure.LimitOutOfRange => string.Format(
+                    CultureInfo.InvariantCulture,
+                    "limit must be between 1 and {0}. Actual: {1}.",
+                    BoundedWindowConstants.MaxLimit,
+                    limit),
+                BoundedWindowOptionsCreationFailure.InvalidCursor => "after cursor is invalid.",
+                _ => throw new InvalidOperationException($"Unsupported bounded window creation failure: {failure}."),
+            };
             return QueryWindowOptionsCreationResult.Failure(ExecutionError.InvalidArgument(errorMessage));
         }
 

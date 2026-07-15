@@ -51,7 +51,7 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
                             || argsElement.ValueKind != JsonValueKind.Object))
                     {
                         return ValidateRequestJsonParseResult.Failure(ExecutionError.InvalidArgument(
-                            $"Step '{step.Id ?? string.Empty}' property 'args' is required."));
+                            $"Step '{step.Id}' property 'args' is required."));
                     }
 
                     parsedSteps.Add(new ValidateRequestStep(
@@ -114,39 +114,39 @@ internal sealed class ValidateRequestJsonParser : IValidateRequestJsonParser
             IpcExecuteArgumentsContractViolationKind.StepIdOuterWhitespace => ExecutionError.InvalidArgument(
                 $"Step at index {violation.StepIndex} property 'id' must not contain leading or trailing whitespace."),
             IpcExecuteArgumentsContractViolationKind.StepOpMissing => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'op' is required."),
+                $"Step '{violation.StepId}' property 'op' is required."),
             IpcExecuteArgumentsContractViolationKind.StepOpTypeMismatch => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'op' must be a string."),
+                $"Step '{violation.StepId}' property 'op' must be a string."),
             IpcExecuteArgumentsContractViolationKind.StepOpEmptyOrWhitespace => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'op' must not be empty."),
+                $"Step '{violation.StepId}' property 'op' must not be empty."),
             IpcExecuteArgumentsContractViolationKind.StepOpOuterWhitespace => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'op' must not contain leading or trailing whitespace."),
+                $"Step '{violation.StepId}' property 'op' must not contain leading or trailing whitespace."),
             IpcExecuteArgumentsContractViolationKind.StepArgsMissing => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'args' is required."),
+                $"Step '{violation.StepId}' property 'args' is required."),
             IpcExecuteArgumentsContractViolationKind.StepArgsTypeMismatch => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'args' must be an object."),
+                $"Step '{violation.StepId}' property 'args' must be an object."),
             IpcExecuteArgumentsContractViolationKind.StepOnMissing => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'on' is required."),
+                $"Step '{violation.StepId}' property 'on' is required."),
             IpcExecuteArgumentsContractViolationKind.StepOnTypeMismatch => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'on' must be an object."),
+                $"Step '{violation.StepId}' property 'on' must be an object."),
             IpcExecuteArgumentsContractViolationKind.StepSelectMissing => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'select' is required."),
+                $"Step '{violation.StepId}' property 'select' is required."),
             IpcExecuteArgumentsContractViolationKind.StepSelectTypeMismatch => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'select' must be an object."),
+                $"Step '{violation.StepId}' property 'select' must be an object."),
             IpcExecuteArgumentsContractViolationKind.StepActionsMissing => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'actions' is required."),
+                $"Step '{violation.StepId}' property 'actions' is required."),
             IpcExecuteArgumentsContractViolationKind.StepActionsTypeMismatch => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'actions' must be an array."),
+                $"Step '{violation.StepId}' property 'actions' must be an array."),
             IpcExecuteArgumentsContractViolationKind.StepActionMustBeObject => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'actions' must contain only objects."),
+                $"Step '{violation.StepId}' property 'actions' must contain only objects."),
             IpcExecuteArgumentsContractViolationKind.StepCommitMissing => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'commit' is required."),
+                $"Step '{violation.StepId}' property 'commit' is required."),
             IpcExecuteArgumentsContractViolationKind.StepCommitTypeMismatch => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'commit' must be a string."),
+                $"Step '{violation.StepId}' property 'commit' must be a string."),
             IpcExecuteArgumentsContractViolationKind.StepCommitEmptyOrWhitespace => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'commit' must not be empty."),
+                $"Step '{violation.StepId}' property 'commit' must not be empty."),
             IpcExecuteArgumentsContractViolationKind.StepCommitOuterWhitespace => ExecutionError.InvalidArgument(
-                $"Step '{violation.StepId ?? string.Empty}' property 'commit' must not contain leading or trailing whitespace."),
+                $"Step '{violation.StepId}' property 'commit' must not contain leading or trailing whitespace."),
             IpcExecuteArgumentsContractViolationKind.DuplicatedStepId => ExecutionError.InvalidArgument(
                 $"Step id is duplicated: {violation.DuplicatedStepId}."),
             _ => ExecutionError.InvalidArgument("Request JSON is invalid."),

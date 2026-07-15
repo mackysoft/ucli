@@ -6,8 +6,8 @@ namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
 
 public sealed class ExecuteResponseConverterContractViolationTests
 {
-    private const string StepOne = "step-1";
-    private const string StepTwo = "step-2";
+    private static readonly IpcExecuteStepId StepOne = new("step-1");
+    private static readonly IpcExecuteStepId StepTwo = new("step-2");
     private const string ExpectedFact = "assurance.mayDirty=false";
     private const string ObservedResult = "opResults[].changed=true";
     private const string ContractViolationMessage = "Operation result violated declared assurance facts.";
@@ -18,7 +18,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
     {
         var response = CreateResponse(CreateExecuteResponse([]));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.True(result.IsSuccess);
         Assert.Empty(result.ContractViolations);
@@ -30,7 +30,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
     {
         var response = CreateContractViolationFailureResponse(CreateContractViolationPayload());
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var violation = Assert.Single(result.ContractViolations);
@@ -38,43 +38,26 @@ public sealed class ExecuteResponseConverterContractViolationTests
         Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, violation.Operation);
         Assert.Equal(ExpectedFact, violation.ExpectedFact);
         Assert.Equal(ObservedResult, violation.ObservedResult);
-        Assert.Equal(IpcExecuteApplicationStateNames.Indeterminate, violation.ApplicationState);
+        Assert.Equal(IpcApplicationState.Indeterminate, violation.ApplicationState);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Convert_WhenContractViolationPayloadHasNoError_ReturnsInternalError ()
     {
-        var response = CreateResponse(CreateExecuteResponse([]) with
-        {
-            ContractViolations =
+        var response = CreateResponse(CreateExecuteResponse(
+            [CreateOperationResult()],
+            contractViolations:
             [
                 CreateContractViolation(),
-            ],
-        });
+            ]));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Contains("OPERATION_CONTRACT_VIOLATION", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Convert_WhenContractViolationPayloadHasSuccessStatus_ReturnsInternalError ()
-    {
-        var response = CreateContractViolationFailureResponse(
-            CreateContractViolationPayload(),
-            hasFailureStatus: false);
-
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("response status", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -85,12 +68,12 @@ public sealed class ExecuteResponseConverterContractViolationTests
             CreateContractViolationPayload(),
             [CreateContractViolationError(StepTwo)]);
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(StepOne, error.Message, StringComparison.Ordinal);
+        Assert.Contains(StepOne.Value, error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -101,7 +84,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
             CreateContractViolationPayload(),
             [CreateContractViolationError(null)]);
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -120,12 +103,12 @@ public sealed class ExecuteResponseConverterContractViolationTests
                 CreateContractViolationError(StepTwo),
             ]);
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains(StepTwo, error.Message, StringComparison.Ordinal);
+        Assert.Contains(StepTwo.Value, error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -152,12 +135,12 @@ public sealed class ExecuteResponseConverterContractViolationTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("contractViolations[0].operation", error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(IpcExecuteContractViolation.Operation), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -185,13 +168,13 @@ public sealed class ExecuteResponseConverterContractViolationTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("contractViolations[0].applicationState", error.Message, StringComparison.Ordinal);
-        Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(IpcApplicationState), error.Message, StringComparison.Ordinal);
+        Assert.Contains("maybeApplied", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -200,7 +183,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
     {
         var response = CreateContractViolationFailureResponse(CreateExecuteResponse([]));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -210,13 +193,12 @@ public sealed class ExecuteResponseConverterContractViolationTests
 
     private static IpcExecuteResponse CreateContractViolationPayload ()
     {
-        return CreateExecuteResponse([]) with
-        {
-            ContractViolations =
+        return CreateExecuteResponse(
+            [CreateOperationResult()],
+            contractViolations:
             [
                 CreateContractViolation(),
-            ],
-        };
+            ]);
     }
 
     private static IpcExecuteContractViolation CreateContractViolation ()
@@ -226,10 +208,21 @@ public sealed class ExecuteResponseConverterContractViolationTests
             Operation: UcliPrimitiveOperationNames.ProjectRefresh,
             ExpectedFact: ExpectedFact,
             ObservedResult: ObservedResult,
-            ApplicationState: IpcExecuteApplicationStateNames.Indeterminate);
+            ApplicationState: IpcApplicationState.Indeterminate);
     }
 
-    private static OperationExecutionError CreateContractViolationError (string? opId = StepOne)
+    private static IpcExecuteOperationResult CreateOperationResult ()
+    {
+        return new IpcExecuteOperationResult(
+            OpId: StepOne,
+            Op: UcliPrimitiveOperationNames.ProjectRefresh,
+            Phase: IpcExecuteOperationPhase.Call,
+            Applied: true,
+            Changed: true,
+            Touched: []);
+    }
+
+    private static OperationExecutionError CreateContractViolationError (IpcExecuteStepId? opId)
     {
         return new OperationExecutionError(
             ExecuteRequestErrorCodes.OperationContractViolation,
@@ -239,12 +232,10 @@ public sealed class ExecuteResponseConverterContractViolationTests
 
     private static UnityRequestResponse CreateContractViolationFailureResponse (
         IpcExecuteResponse payload,
-        IReadOnlyList<OperationExecutionError>? errors = null,
-        bool hasFailureStatus = true)
+        IReadOnlyList<OperationExecutionError>? errors = null)
     {
         return new UnityRequestResponse(
             Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: errors ?? [CreateContractViolationError()],
-            HasFailureStatus: hasFailureStatus);
+            Errors: errors ?? [CreateContractViolationError(StepOne)]);
     }
 }

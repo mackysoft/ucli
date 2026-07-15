@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Hosting.Cli.Requests;
 /// <summary> Provides the <c>query asset schema</c> CLI command entry point. </summary>
 internal sealed class QueryAssetSchemaCommand
 {
-    private const string OperationId = "asset.schema";
+    private static readonly IpcExecuteStepId OperationId = new("asset.schema");
 
     private readonly IQueryService queryService;
 
@@ -142,13 +142,18 @@ internal sealed class QueryAssetSchemaCommand
             return false;
         }
 
-        UnityAssetGuid? typedAssetGuid = null;
-        if (normalizedAssetGuid is not null
-            && !UnityAssetGuid.TryParse(normalizedAssetGuid, out typedAssetGuid))
+        Guid? typedAssetGuid = null;
+        if (normalizedAssetGuid is not null)
         {
-            error = ExecutionError.InvalidArgument(
-                "Selector '--assetGuid' must be a non-zero 32-character hexadecimal Unity asset GUID.");
-            return false;
+            if (!Guid.TryParse(normalizedAssetGuid, out var parsedAssetGuid)
+                || parsedAssetGuid == Guid.Empty)
+            {
+                error = ExecutionError.InvalidArgument(
+                    "Selector '--assetGuid' must be a non-empty GUID.");
+                return false;
+            }
+
+            typedAssetGuid = parsedAssetGuid;
         }
 
         UnityAssetPath? typedAssetPath = null;

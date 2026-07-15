@@ -58,7 +58,7 @@ internal static class PlanServiceTestSupport
     {
         return UnityRequestExecutionResult.Success(
             ExecuteUnityRequestResponseTestFactory.Create(
-                status: IpcProtocol.StatusOk,
+                status: IpcResponseStatus.Ok,
                 opResults: opResults ?? [],
                 errors: [],
                 planToken: planToken));

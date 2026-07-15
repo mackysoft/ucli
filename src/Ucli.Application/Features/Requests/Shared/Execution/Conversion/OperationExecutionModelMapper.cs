@@ -138,21 +138,21 @@ internal static class OperationExecutionModelMapper
 
     /// <summary> Creates one plan-phase operation result without exposing IPC DTOs from service results. </summary>
     public static OperationExecutionOperationResult CreatePlanResult (
-        string opId,
+        IpcExecuteStepId opId,
         string op,
         bool applied,
         bool changed,
         IReadOnlyList<OperationExecutionTouchedResource> touched,
         JsonElement? result = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(opId);
+        ArgumentNullException.ThrowIfNull(opId);
         ArgumentException.ThrowIfNullOrWhiteSpace(op);
         ArgumentNullException.ThrowIfNull(touched);
 
         return new OperationExecutionOperationResult(
             OpId: opId,
             Op: op,
-            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Phase: IpcExecuteOperationPhase.Plan,
             Applied: applied,
             Changed: changed,
             Touched: touched)
@@ -190,7 +190,7 @@ internal static class OperationExecutionModelMapper
             mappedResources[i] = new OperationExecutionTouchedResource(
                 Kind: touchedResource.Kind,
                 Path: touchedResource.Path,
-                Guid: touchedResource.Guid);
+                AssetGuid: touchedResource.AssetGuid);
         }
 
         return mappedResources;

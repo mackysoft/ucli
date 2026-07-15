@@ -5,7 +5,6 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -61,11 +60,12 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken)
     {
         ValidateRequest(unityProject, timeout, cancellationToken);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var sessionConnection = CreateSessionConnection(session);
         var response = await SendPingRequestAsync(
                 sessionConnection,
                 Guid.NewGuid(),
-                timeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
         _ = DecodeResponse(unityProject, response, validateProjectFingerprint: true);
@@ -78,24 +78,34 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken)
     {
         ValidateRequest(unityProject, timeout, cancellationToken);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
 
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+        {
+            throw new TimeoutException("Timed out before daemon ping request could begin.");
+        }
+
+        if (!deadline.TryGetRemainingMilliseconds(out var requestDeadlineRemainingMilliseconds))
+        {
+            throw new TimeoutException("Timed out before daemon ping request could begin.");
+        }
+
         // NOTE:
         // The empty token belongs only to the raw wire envelope. Receiving any valid correlated
         // response, including SESSION_TOKEN_REQUIRED, proves that the endpoint is serving IPC.
-        var request = new IpcRequest(
-            protocolVersion: IpcProtocol.CurrentVersion,
-            requestId: Guid.NewGuid(),
-            sessionToken: string.Empty,
-            method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+        var request = UnityIpcRequestFactory.CreateUnauthenticatedPingProbe(
             payload: IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ProbeClientVersion)),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
+            requestId: Guid.NewGuid(),
+            requestDeadlineUtc: deadline.UtcDeadline,
+            requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);
+
         _ = await transportClient.SendAsync(
                 endpoint,
                 request,
-                timeout,
+                remainingTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -109,6 +119,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     {
         ArgumentNullException.ThrowIfNull(sessionToken);
         ValidateRequest(unityProject, timeout, cancellationToken);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
@@ -116,7 +127,7 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         var response = await SendPingRequestAsync(
                 explicitTokenConnection,
                 Guid.NewGuid(),
-                timeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
         _ = DecodeResponse(unityProject, response, validateProjectFingerprint: true);
@@ -147,11 +158,12 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         CancellationToken cancellationToken)
     {
         ValidateRequest(unityProject, timeout, cancellationToken);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var sessionConnection = CreateSessionConnection(session);
         var response = await SendPingRequestAsync(
                 sessionConnection,
                 Guid.NewGuid(),
-                timeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
         return DecodeResponse(unityProject, response, validateProjectFingerprint);
@@ -223,15 +235,10 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
         bool validateProjectFingerprint,
         CancellationToken cancellationToken)
     {
-        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
-        {
-            throw new TimeoutException("Timed out while resolving the daemon session for ping.");
-        }
-
         var response = await SendPingRequestAsync(
                 sessionConnection,
                 requestId,
-                remainingTimeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!deadline.TryGetRemainingTimeout(out _))
@@ -245,18 +252,26 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
     /// <summary> Sends one ping request and returns the raw IPC response envelope. </summary>
     /// <param name="sessionConnection"> The endpoint and token captured from the same session generation. </param>
     /// <param name="requestId"> The identifier shared by every delivery attempt for the logical ping. </param>
-    /// <param name="timeout"> The timeout for one ping request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="deadline"> The deadline shared by every delivery attempt for the logical ping request. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the raw ping response. </returns>
     private async ValueTask<IpcResponse> SendPingRequestAsync (
         DaemonSessionConnection sessionConnection,
         Guid requestId,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(sessionConnection);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+        {
+            throw new TimeoutException("Timed out before daemon ping request could begin.");
+        }
+
+        if (!deadline.TryGetRemainingMilliseconds(out var requestDeadlineRemainingMilliseconds))
+        {
+            throw new TimeoutException("Timed out before daemon ping request could begin.");
+        }
 
         return await transportClient.SendAsync(
                 sessionConnection.Endpoint,
@@ -265,8 +280,10 @@ internal sealed class IpcDaemonPingClient : IDaemonPingClient, IDaemonPingInfoCl
                     UnityIpcMethod.Ping,
                     IpcPayloadCodec.SerializeToElement(new IpcPingRequest(ProbeClientVersion)),
                     requestId,
-                    IpcResponseMode.Single),
-                timeout,
+                    IpcResponseMode.Single,
+                    deadline.UtcDeadline,
+                    requestDeadlineRemainingMilliseconds),
+                remainingTimeout,
                 cancellationToken)
             .ConfigureAwait(false);
     }

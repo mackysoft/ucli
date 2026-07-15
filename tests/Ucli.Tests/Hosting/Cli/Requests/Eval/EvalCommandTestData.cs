@@ -47,16 +47,16 @@ internal static class EvalCommandTestData
                 ApplicationFailure.InvalidInput(
                     "Step 'eval' requires dangerous operation 'ucli.cs.eval'. Specify --allowDangerous to execute dangerous operations.",
                     OperationAuthorizationErrorCodes.OperationNotAllowed,
-                    "eval"),
+                    new IpcExecuteStepId("eval")),
             ]);
     }
 
     private static OperationExecutionOperationResult CreateCallOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: "eval",
+            OpId: new IpcExecuteStepId("eval"),
             Op: UcliPrimitiveOperationNames.CsEval,
-            Phase: IpcExecuteOperationPhaseNames.Call,
+            Phase: IpcExecuteOperationPhase.Call,
             Applied: true,
             Changed: false,
             Touched: [])
@@ -64,14 +64,14 @@ internal static class EvalCommandTestData
             Result = IpcPayloadCodec.SerializeToElement(
                 new CsEvalResult(
                     SourceDigest,
-                    CsEvalSourceKindValues.Snippet,
+                    UcliCodeSourceFormKind.Snippet,
                     "Snippet.Run",
                     ExecutionDigest,
                     CreateSuccessfulCompileResult(),
                     7,
                     [],
                     new CsEvalReturnValue(
-                        CsEvalReturnValueKindValues.Json,
+                        CsEvalReturnValueKind.Json,
                         JsonSerializer.SerializeToElement(
                             new
                             {
@@ -79,7 +79,7 @@ internal static class EvalCommandTestData
                             },
                             IpcJsonSerializerOptions.Default)),
                     new CsEvalTouchedResources(
-                        CsEvalTouchedResourceStateValues.None,
+                        CsEvalTouchedResourceState.None,
                         declared: null))),
         };
     }
@@ -87,9 +87,9 @@ internal static class EvalCommandTestData
     private static OperationExecutionOperationResult CreatePlanOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: "eval",
+            OpId: new IpcExecuteStepId("eval"),
             Op: UcliPrimitiveOperationNames.CsEval,
-            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,
             Changed: false,
             Touched: [])
@@ -97,7 +97,7 @@ internal static class EvalCommandTestData
             Result = IpcPayloadCodec.SerializeToElement(
                 new CsEvalResult(
                     SourceDigest,
-                    CsEvalSourceKindValues.Snippet,
+                    UcliCodeSourceFormKind.Snippet,
                     "Snippet.Run",
                     ExecutionDigest,
                     CreateSuccessfulCompileResult(),
@@ -111,7 +111,7 @@ internal static class EvalCommandTestData
     private static CsEvalCompileResult CreateSuccessfulCompileResult ()
     {
         return new CsEvalCompileResult(
-            CsEvalCompileStatusValues.Succeeded,
+            CsEvalCompileStatus.Succeeded,
             diagnostics: []);
     }
 }

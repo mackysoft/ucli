@@ -8,28 +8,36 @@ public sealed class ExecuteResponseConverterDiagnosticTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenDiagnosticsAreMissing_ReturnsInternalError ()
+    public void Convert_WhenDiagnosticsAreNull_ReturnsInternalError ()
     {
-        var response = CreateResponse(CreateExecuteResponse(
-        [
-            new IpcExecuteOperationResult(
-                OpId: "refresh",
-                Op: UcliPrimitiveOperationNames.ProjectRefresh,
-                Phase: IpcExecuteOperationPhaseNames.Call,
-                Applied: true,
-                Changed: true,
-                Touched: [])
+        var projectFingerprintText = ProjectFingerprintTestFactory.Create("project-fingerprint").ToString();
+        var response = CreateResponse($$"""
             {
-                Diagnostics = null!,
-            },
-        ]));
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "{{projectFingerprintText}}",
+                "unityVersion": "6000.1.4f1"
+              },
+              "opResults": [
+                {
+                  "opId": "refresh",
+                  "op": "ucli.project.refresh",
+                  "phase": "call",
+                  "applied": true,
+                  "changed": true,
+                  "touched": [],
+                  "diagnostics": null
+                }
+              ]
+            }
+            """);
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("opResults[0].diagnostics", error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(IpcExecuteOperationResult.Diagnostics), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -57,45 +65,26 @@ public sealed class ExecuteResponseConverterDiagnosticTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("opResults[0].diagnostics", error.Message, StringComparison.Ordinal);
+        Assert.Contains("diagnostics", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Convert_WhenDiagnosticSeverityIsUnsupported_ReturnsInternalError ()
     {
-        var response = CreateResponse(CreateExecuteResponse(
-        [
-            new IpcExecuteOperationResult(
-                OpId: "refresh",
-                Op: UcliPrimitiveOperationNames.ProjectRefresh,
-                Phase: IpcExecuteOperationPhaseNames.Call,
-                Applied: true,
-                Changed: true,
-                Touched: [])
-            {
-                Diagnostics =
-                [
-                    new IpcExecuteDiagnostic(
-                        ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
-                        "unsupported",
-                        IpcExecuteDiagnosticCoverageImpactNames.Partial,
-                        "coverage is partial."),
-                ],
-            },
-        ]));
+        var response = CreateResponse(CreatePayloadWithDiagnostic("unsupported", "partial"));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("opResults[0].diagnostics[0].severity", error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(UcliDiagnosticSeverity), error.Message, StringComparison.Ordinal);
         Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
     }
 
@@ -131,45 +120,26 @@ public sealed class ExecuteResponseConverterDiagnosticTests
             }
             """);
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("opResults[0].diagnostics[0].coverageImpact", error.Message, StringComparison.Ordinal);
+        Assert.Contains("Diagnostic coverage impact must be specified.", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Convert_WhenDiagnosticCoverageImpactIsUnsupported_ReturnsInternalError ()
     {
-        var response = CreateResponse(CreateExecuteResponse(
-        [
-            new IpcExecuteOperationResult(
-                OpId: "refresh",
-                Op: UcliPrimitiveOperationNames.ProjectRefresh,
-                Phase: IpcExecuteOperationPhaseNames.Call,
-                Applied: true,
-                Changed: true,
-                Touched: [])
-            {
-                Diagnostics =
-                [
-                    new IpcExecuteDiagnostic(
-                        ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
-                        IpcExecuteDiagnosticSeverityNames.Warning,
-                        "unsupported",
-                        "coverage is partial."),
-                ],
-            },
-        ]));
+        var response = CreateResponse(CreatePayloadWithDiagnostic("warning", "unsupported"));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("opResults[0].diagnostics[0].coverageImpact", error.Message, StringComparison.Ordinal);
+        Assert.Contains(nameof(IpcExecuteDiagnosticCoverageImpact), error.Message, StringComparison.Ordinal);
         Assert.Contains("unsupported", error.Message, StringComparison.Ordinal);
     }
 
@@ -180,9 +150,9 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         var response = CreateResponse(CreateExecuteResponse(
         [
             new IpcExecuteOperationResult(
-                OpId: "query",
+                OpId: new IpcExecuteStepId("query"),
                 Op: UcliPrimitiveOperationNames.SceneQuery,
-                Phase: IpcExecuteOperationPhaseNames.Plan,
+                Phase: IpcExecuteOperationPhase.Plan,
                 Applied: false,
                 Changed: false,
                 Touched: [])
@@ -191,14 +161,14 @@ public sealed class ExecuteResponseConverterDiagnosticTests
                 [
                     new IpcExecuteDiagnostic(
                         ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
-                        IpcExecuteDiagnosticSeverityNames.Warning,
-                        IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                        UcliDiagnosticSeverity.Warning,
+                        IpcExecuteDiagnosticCoverageImpact.Partial,
                         "Scene query skipped GameObjects whose names contain '/'."),
                 ],
             },
         ]));
 
-        var result = ExecuteResponseConverter.Convert(response, ExpectedProjectFingerprint);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Project);
@@ -208,8 +178,42 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         var opResult = Assert.Single(result.OpResults);
         var diagnostic = Assert.Single(opResult.Diagnostics);
         Assert.Equal(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects, diagnostic.Code);
-        Assert.Equal(IpcExecuteDiagnosticSeverityNames.Warning, diagnostic.Severity);
-        Assert.Equal(IpcExecuteDiagnosticCoverageImpactNames.Partial, diagnostic.CoverageImpact);
+        Assert.Equal(UcliDiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal(IpcExecuteDiagnosticCoverageImpact.Partial, diagnostic.CoverageImpact);
         Assert.Equal("Scene query skipped GameObjects whose names contain '/'.", diagnostic.Message);
+    }
+
+    private static string CreatePayloadWithDiagnostic (
+        string severity,
+        string coverageImpact)
+    {
+        var projectFingerprint = ExpectedProjectFingerprint.ToString();
+        return $$"""
+            {
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "{{projectFingerprint}}",
+                "unityVersion": "6000.1.4f1"
+              },
+              "opResults": [
+                {
+                  "opId": "refresh",
+                  "op": "ucli.project.refresh",
+                  "phase": "call",
+                  "applied": true,
+                  "changed": true,
+                  "touched": [],
+                  "diagnostics": [
+                    {
+                      "code": "HIERARCHY_PATH_UNREPRESENTABLE_OBJECTS",
+                      "severity": "{{severity}}",
+                      "coverageImpact": "{{coverageImpact}}",
+                      "message": "coverage is partial."
+                    }
+                  ]
+                }
+              ]
+            }
+            """;
     }
 }

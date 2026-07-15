@@ -19,13 +19,13 @@ public sealed class CallServicePlanFailureTests
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusError,
+                    status: IpcResponseStatus.Error,
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: "step-1",
+                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Phase: IpcExecuteOperationPhaseNames.Plan,
+                            Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
                             Changed: false,
                             Touched: []),
@@ -71,13 +71,13 @@ public sealed class CallServicePlanFailureTests
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: "step-1",
+                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Phase: IpcExecuteOperationPhaseNames.Plan,
+                            Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
                             Changed: false,
                             Touched: []),
@@ -86,13 +86,13 @@ public sealed class CallServicePlanFailureTests
                     planToken: "issued-plan-token")),
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusError,
+                    status: IpcResponseStatus.Error,
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: "step-1",
+                            OpId: new IpcExecuteStepId("step-1"),
                             Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                            Phase: IpcExecuteOperationPhaseNames.Plan,
+                            Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
                             Changed: false,
                             Touched: []),

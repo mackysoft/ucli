@@ -169,7 +169,7 @@ internal sealed class PlanService : IPlanService
 
         var convertedResponse = ExecuteResponseConverter.Convert(
             executionResult.Response!,
-            preparedRequest.ProjectContext.UnityProject.ProjectFingerprint);
+            preparedRequest.ProjectContext.UnityProject);
         var executionOutput = baseOutput with
         {
             Project = convertedResponse.Project ?? baseOutput.Project,
@@ -178,14 +178,14 @@ internal sealed class PlanService : IPlanService
         };
         if (!convertedResponse.IsSuccess)
         {
-            var failures = RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI plan failed.");
+            var failures = RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors);
             return PlanServiceResult.Failure(
                 RequestFailureNormalizer.ResolveMessage(failures, "uCLI plan failed."),
                 failures,
                 executionOutput);
         }
 
-        if (string.IsNullOrWhiteSpace(convertedResponse.PlanToken))
+        if (convertedResponse.PlanToken == null)
         {
             return PlanFailureResultFactory.FromExecutionError(
                 ExecutionError.InternalError("Execute response payload is invalid. The 'planToken' field is missing."),

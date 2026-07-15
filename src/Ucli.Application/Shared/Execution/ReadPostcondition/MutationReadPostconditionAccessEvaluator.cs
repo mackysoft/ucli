@@ -14,7 +14,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         return EvaluateCoreAsync(
             store,
             project,
-            IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
+            IpcExecuteReadPostconditionSurface.AssetSearch,
             scenePath: null,
             generatedAtUtc,
             "asset-search",
@@ -30,7 +30,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         return EvaluateCoreAsync(
             store,
             project,
-            IpcExecuteReadPostconditionSurfaceNames.GuidPath,
+            IpcExecuteReadPostconditionSurface.GuidPath,
             scenePath: null,
             generatedAtUtc,
             "guid-path",
@@ -48,7 +48,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         return EvaluateCoreAsync(
             store,
             project,
-            IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+            IpcExecuteReadPostconditionSurface.SceneTreeLite,
             NormalizePath(scenePath),
             generatedAtUtc,
             "scene-tree-lite",
@@ -58,7 +58,7 @@ internal static class MutationReadPostconditionAccessEvaluator
     private static async ValueTask<MutationReadPostconditionEvaluationResult> EvaluateCoreAsync (
         IMutationReadPostconditionStore store,
         ResolvedUnityProjectContext project,
-        string surface,
+        IpcExecuteReadPostconditionSurface surface,
         string? scenePath,
         DateTimeOffset generatedAtUtc,
         string surfaceDescription,
@@ -66,7 +66,6 @@ internal static class MutationReadPostconditionAccessEvaluator
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(project);
-        ArgumentException.ThrowIfNullOrWhiteSpace(surface);
         ArgumentException.ThrowIfNullOrWhiteSpace(surfaceDescription);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -97,7 +96,7 @@ internal static class MutationReadPostconditionAccessEvaluator
 
     private static OperationExecutionReadPostconditionRequirement? FindRequirement (
         OperationExecutionReadPostcondition? readPostcondition,
-        string surface,
+        IpcExecuteReadPostconditionSurface surface,
         string? scenePath)
     {
         if (readPostcondition == null)
@@ -108,7 +107,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         for (var i = 0; i < readPostcondition.Requirements.Count; i++)
         {
             var requirement = readPostcondition.Requirements[i];
-            if (!string.Equals(requirement.Surface, surface, StringComparison.Ordinal))
+            if (requirement.Surface != surface)
             {
                 continue;
             }
@@ -125,12 +124,12 @@ internal static class MutationReadPostconditionAccessEvaluator
     }
 
     private static bool MatchesScenePath (
-        string surface,
+        IpcExecuteReadPostconditionSurface surface,
         string? requirementScenePath,
         string? scenePath)
     {
         return string.Equals(requirementScenePath, scenePath, StringComparison.Ordinal)
-            || (string.Equals(surface, IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, StringComparison.Ordinal)
+            || (surface == IpcExecuteReadPostconditionSurface.SceneTreeLite
                 && requirementScenePath == null);
     }
 
