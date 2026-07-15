@@ -1,32 +1,48 @@
 namespace MackySoft.Ucli.Infrastructure.Paths;
 
 /// <summary> Represents the result of converting one path value into a normalized full path. </summary>
-/// <param name="IsSuccess"> Whether path normalization succeeded. </param>
-/// <param name="FullPath"> The normalized full path when normalization succeeded; otherwise <see langword="null" />. </param>
-/// <param name="FailureKind"> The machine-readable failure kind. </param>
-/// <param name="DiagnosticMessage"> The diagnostic failure message. </param>
-internal readonly record struct FullPathNormalizationResult (
-    bool IsSuccess,
-    string? FullPath,
-    PathNormalizationFailureKind FailureKind,
-    string DiagnosticMessage)
+internal sealed class FullPathNormalizationResult
 {
+    private FullPathNormalizationResult (
+        bool isSuccess,
+        string? fullPath,
+        PathNormalizationFailureKind failureKind,
+        string diagnosticMessage)
+    {
+        IsSuccess = isSuccess;
+        FullPath = fullPath;
+        FailureKind = failureKind;
+        DiagnosticMessage = diagnosticMessage;
+    }
+
+    /// <summary> Gets whether path normalization succeeded. </summary>
+    public bool IsSuccess { get; }
+
+    /// <summary> Gets the normalized full path on success; otherwise <see langword="null" />. </summary>
+    public string? FullPath { get; }
+
+    /// <summary> Gets the machine-readable failure kind. </summary>
+    public PathNormalizationFailureKind FailureKind { get; }
+
+    /// <summary> Gets the diagnostic failure message. </summary>
+    public string DiagnosticMessage { get; }
+
     /// <summary> Creates a successful full path normalization result. </summary>
     /// <param name="fullPath"> The normalized full path. </param>
     /// <returns> The successful result. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="fullPath" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="fullPath" /> is empty. </exception>
     public static FullPathNormalizationResult Success (string fullPath)
     {
-        if (fullPath == null)
+        if (string.IsNullOrWhiteSpace(fullPath))
         {
-            throw new ArgumentNullException(nameof(fullPath));
+            throw new ArgumentException("Normalized full path must not be empty.", nameof(fullPath));
         }
 
         return new FullPathNormalizationResult(
-            IsSuccess: true,
-            FullPath: fullPath,
-            FailureKind: PathNormalizationFailureKind.None,
-            DiagnosticMessage: string.Empty);
+            isSuccess: true,
+            fullPath,
+            PathNormalizationFailureKind.None,
+            string.Empty);
     }
 
     /// <summary> Creates a failed full path normalization result. </summary>
@@ -37,15 +53,21 @@ internal readonly record struct FullPathNormalizationResult (
         PathNormalizationFailureKind failureKind,
         string diagnosticMessage)
     {
-        if (failureKind == PathNormalizationFailureKind.None)
+        if (failureKind == PathNormalizationFailureKind.None
+            || !Enum.IsDefined(typeof(PathNormalizationFailureKind), failureKind))
         {
-            throw new ArgumentException("Failure kind must not be None.", nameof(failureKind));
+            throw new ArgumentOutOfRangeException(nameof(failureKind), failureKind, "Failure kind must be defined and non-None.");
+        }
+
+        if (diagnosticMessage == null)
+        {
+            throw new ArgumentNullException(nameof(diagnosticMessage));
         }
 
         return new FullPathNormalizationResult(
-            IsSuccess: false,
-            FullPath: null,
-            FailureKind: failureKind,
-            DiagnosticMessage: diagnosticMessage ?? string.Empty);
+            isSuccess: false,
+            fullPath: null,
+            failureKind,
+            diagnosticMessage);
     }
 }

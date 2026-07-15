@@ -68,6 +68,21 @@ public sealed class FileUtilitiesTests
         Assert.Equal(TimeSpan.FromMilliseconds(expectedDelayMilliseconds), delay);
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(1, 5)]
+    [InlineData(20, 100)]
+    public void ResolveFileReplacementRetryDelay_WhenWindowsRetainsBothReplacementNames_UsesBoundedBackoff (
+        int failureCount,
+        int expectedDelayMilliseconds)
+    {
+        var exception = new IOExceptionWithHResult(unchecked((int)0x80070497));
+
+        var delay = FileUtilities.ResolveFileReplacementRetryDelay(exception, failureCount);
+
+        Assert.Equal(TimeSpan.FromMilliseconds(expectedDelayMilliseconds), delay);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void ResolveFileReplacementRetryDelay_AfterRetryLimit_DoesNotRetry ()

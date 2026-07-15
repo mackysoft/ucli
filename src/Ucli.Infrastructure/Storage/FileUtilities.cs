@@ -17,6 +17,8 @@ public static class FileUtilities
 
     private const int WindowsSharingViolationHResult = unchecked((int)0x80070020);
 
+    private const int WindowsUnableToRemoveReplacedHResult = unchecked((int)0x80070497);
+
     /// <summary> Reads one file as text without blocking concurrent atomic replacement. </summary>
     /// <param name="path"> The target file path. </param>
     /// <returns> The text when file exists; otherwise <see langword="null" />. </returns>
@@ -377,7 +379,7 @@ public static class FileUtilities
     /// <summary> Resolves the bounded retry delay for one failed atomic replacement attempt. </summary>
     /// <param name="exception"> The I/O failure raised by the replacement operation. </param>
     /// <param name="failureCount"> The one-based count of consecutive replacement failures. </param>
-    /// <returns> The retry delay for a Windows sharing violation within the retry limit; otherwise <see langword="null" />. </returns>
+    /// <returns> The retry delay for a recoverable Windows replacement failure within the retry limit; otherwise <see langword="null" />. </returns>
     internal static TimeSpan? ResolveFileReplacementRetryDelay (
         IOException exception,
         int failureCount)
@@ -392,7 +394,8 @@ public static class FileUtilities
             throw new ArgumentOutOfRangeException(nameof(failureCount), failureCount, "failureCount must be greater than zero.");
         }
 
-        if (exception.HResult != WindowsSharingViolationHResult
+        if (exception.HResult is not WindowsSharingViolationHResult
+                and not WindowsUnableToRemoveReplacedHResult
             || failureCount > FileReplacementRetryLimit)
         {
             return null;

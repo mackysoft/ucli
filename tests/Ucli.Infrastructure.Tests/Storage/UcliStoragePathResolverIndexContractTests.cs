@@ -97,7 +97,7 @@ public sealed class UcliStoragePathResolverIndexContractTests
     [Trait("Size", "Small")]
     public void ResolveOpsDescribePath_ReturnsFingerprintScopedPath ()
     {
-        var opKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes("ucli.go.describe"));
+        var opKey = Sha256Digest.Compute(Encoding.UTF8.GetBytes("ucli.go.describe"));
 
         var resolvedPath = UcliStoragePathResolver.ResolveOpsDescribePath(
             UcliStoragePathResolverTestSupport.StorageRoot,
@@ -109,7 +109,19 @@ public sealed class UcliStoragePathResolverIndexContractTests
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.CatalogsDirectoryName,
             UcliStoragePathNames.OpsDescribeDirectoryName,
-            opKey + UcliStoragePathNames.OpsDescribeFileExtension);
+            opKey.ToString() + UcliStoragePathNames.OpsDescribeFileExtension);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveOpsDescribePath_WithNullDigest_ThrowsArgumentNullException ()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => UcliStoragePathResolver.ResolveOpsDescribePath(
+            UcliStoragePathResolverTestSupport.StorageRoot,
+            UcliStoragePathResolverTestSupport.ProjectFingerprint,
+            null!));
+
+        Assert.Equal("opKey", exception.ParamName);
     }
 
     [Fact]

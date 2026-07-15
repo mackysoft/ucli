@@ -10,13 +10,6 @@ namespace MackySoft.Ucli.Infrastructure.Storage;
 /// <summary> Resolves repository-root and shared <c>.ucli</c> storage paths. </summary>
 public static class UcliStoragePathResolver
 {
-    private static readonly char[] PathSegmentInvalidPathChars =
-    {
-        '/',
-        '\\',
-        ':',
-    };
-
     /// <summary> Tries to resolve a repository root path by scanning parent directories for a <c>.git</c> marker. </summary>
     /// <param name="startPath"> The starting directory path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <returns> The repository root path when marker is found; otherwise <see langword="null" />. </returns>
@@ -238,14 +231,17 @@ public static class UcliStoragePathResolver
         string storageRoot,
         ProjectFingerprint projectFingerprint)
     {
-        var normalizedProjectFingerprint = GetProjectFingerprintPathSegment(projectFingerprint);
+        if (projectFingerprint is null)
+        {
+            throw new ArgumentNullException(nameof(projectFingerprint));
+        }
 
         return ResolveUnderStorageRoot(
             storageRoot,
             UcliStoragePathNames.UcliDirectoryName,
             UcliStoragePathNames.LocalDirectoryName,
             UcliStoragePathNames.FingerprintsDirectoryName,
-            normalizedProjectFingerprint);
+            projectFingerprint.ToString());
     }
 
     /// <summary> Resolves the absolute path to one read-index directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/index</c>. </summary>
@@ -363,17 +359,23 @@ public static class UcliStoragePathResolver
     /// <summary> Resolves the absolute path to one read-index ops describe artifact file. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
-    /// <param name="opKey"> The opaque operation describe key. Must be a SHA-256 lower-hex value. </param>
+    /// <param name="opKey"> The operation describe content digest. </param>
     /// <returns> The absolute read-index ops describe artifact file path. </returns>
-    /// <exception cref="ArgumentException"> Thrown when any argument is invalid. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> or <paramref name="opKey" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> is invalid. </exception>
     public static string ResolveOpsDescribePath (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        string opKey)
+        Sha256Digest opKey)
     {
+        if (opKey == null)
+        {
+            throw new ArgumentNullException(nameof(opKey));
+        }
+
         return Path.Combine(
             ResolveOpsDescribeDirectory(storageRoot, projectFingerprint),
-            NormalizeOpsDescribeKey(opKey) + UcliStoragePathNames.OpsDescribeFileExtension);
+            opKey.ToString() + UcliStoragePathNames.OpsDescribeFileExtension);
     }
 
     /// <summary> Resolves the absolute path to one read-index asset-search lookup file. </summary>
@@ -542,27 +544,29 @@ public static class UcliStoragePathResolver
     /// <summary> Resolves one capture-scoped screenshot artifact directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
-    /// <param name="captureId"> The capture identifier. </param>
+    /// <param name="captureId"> The non-empty capture identifier. </param>
     /// <returns> The absolute capture artifact directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="captureId" /> is empty. </exception>
     public static string ResolveScreenshotCaptureArtifactsDirectory (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        string captureId)
+        Guid captureId)
     {
         return Path.Combine(
             ResolveScreenshotArtifactsDirectory(storageRoot, projectFingerprint),
-            NormalizeCaptureId(captureId));
+            GetScreenshotCaptureIdPathSegment(captureId));
     }
 
     /// <summary> Resolves one final screenshot PNG artifact path. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
-    /// <param name="captureId"> The capture identifier. </param>
+    /// <param name="captureId"> The non-empty capture identifier. </param>
     /// <returns> The absolute screenshot PNG artifact path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="captureId" /> is empty. </exception>
     public static string ResolveScreenshotCaptureArtifactPath (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        string captureId)
+        Guid captureId)
     {
         return Path.Combine(
             ResolveScreenshotCaptureArtifactsDirectory(storageRoot, projectFingerprint, captureId),
@@ -585,27 +589,29 @@ public static class UcliStoragePathResolver
     /// <summary> Resolves one capture-scoped screenshot staging directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
-    /// <param name="captureId"> The capture identifier. </param>
+    /// <param name="captureId"> The non-empty capture identifier. </param>
     /// <returns> The absolute capture staging directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="captureId" /> is empty. </exception>
     public static string ResolveScreenshotCaptureStagingDirectory (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        string captureId)
+        Guid captureId)
     {
         return Path.Combine(
             ResolveScreenshotWorkDirectory(storageRoot, projectFingerprint),
-            NormalizeCaptureId(captureId));
+            GetScreenshotCaptureIdPathSegment(captureId));
     }
 
     /// <summary> Resolves one normalized raw screenshot staging file path. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
-    /// <param name="captureId"> The capture identifier. </param>
+    /// <param name="captureId"> The non-empty capture identifier. </param>
     /// <returns> The absolute raw screenshot staging file path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="captureId" /> is empty. </exception>
     public static string ResolveScreenshotCaptureRawStagingPath (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        string captureId)
+        Guid captureId)
     {
         return Path.Combine(
             ResolveScreenshotCaptureStagingDirectory(storageRoot, projectFingerprint, captureId),
@@ -718,6 +724,32 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.SessionFileName);
     }
 
+    /// <summary> Resolves the absolute oneshot bootstrap-envelope directory for one project fingerprint. </summary>
+    public static string ResolveOneshotBootstrapDirectory (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.OneshotBootstrapDirectoryName);
+    }
+
+    /// <summary> Resolves the absolute path for one non-empty oneshot bootstrap identifier. </summary>
+    public static string ResolveOneshotBootstrapPath (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid bootstrapId)
+    {
+        if (bootstrapId == Guid.Empty)
+        {
+            throw new ArgumentException("Bootstrap identifier must not be empty.", nameof(bootstrapId));
+        }
+
+        return Path.Combine(
+            ResolveOneshotBootstrapDirectory(storageRoot, projectFingerprint),
+            bootstrapId.ToString("N") + UcliStoragePathNames.OneshotBootstrapFileExtension);
+    }
+
     /// <summary> Resolves the absolute daemon session-generation lock path. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
@@ -804,11 +836,11 @@ public static class UcliStoragePathResolver
     public static string ResolveLaunchAttemptDirectory (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        string launchAttemptId)
+        Guid launchAttemptId)
     {
         return Path.Combine(
             ResolveLaunchAttemptsDirectory(storageRoot, projectFingerprint),
-            NormalizeLaunchAttemptId(launchAttemptId));
+            GetLaunchAttemptIdPathSegment(launchAttemptId));
     }
 
     /// <summary> Resolves the absolute path to one daemon launch-attempt startup diagnosis file. </summary>
@@ -819,7 +851,7 @@ public static class UcliStoragePathResolver
     public static string ResolveLaunchAttemptStartupDiagnosisPath (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        string launchAttemptId)
+        Guid launchAttemptId)
     {
         return Path.Combine(
             ResolveLaunchAttemptDirectory(storageRoot, projectFingerprint, launchAttemptId),
@@ -897,16 +929,6 @@ public static class UcliStoragePathResolver
         return pathResult.FullPath!;
     }
 
-    private static string GetProjectFingerprintPathSegment (ProjectFingerprint projectFingerprint)
-    {
-        if (projectFingerprint == null)
-        {
-            throw new ArgumentNullException(nameof(projectFingerprint));
-        }
-
-        return projectFingerprint.ToString();
-    }
-
     private static string GetRunIdPathSegment (Guid runId)
     {
         if (runId == Guid.Empty)
@@ -917,80 +939,24 @@ public static class UcliStoragePathResolver
         return runId.ToString("D");
     }
 
-    private static string NormalizeLaunchAttemptId (string launchAttemptId)
+    private static string GetLaunchAttemptIdPathSegment (Guid launchAttemptId)
     {
-        if (!TryTrimToNonEmpty(launchAttemptId, out var normalizedLaunchAttemptId))
+        if (launchAttemptId == Guid.Empty)
         {
             throw new ArgumentException("Launch attempt identifier must not be empty.", nameof(launchAttemptId));
         }
 
-        if (normalizedLaunchAttemptId.IndexOfAny(PathSegmentInvalidPathChars) >= 0
-            || string.Equals(normalizedLaunchAttemptId, ".", StringComparison.Ordinal)
-            || string.Equals(normalizedLaunchAttemptId, "..", StringComparison.Ordinal))
-        {
-            throw new ArgumentException(
-                "Launch attempt identifier must be one path segment and must not contain path separator or traversal tokens.",
-                nameof(launchAttemptId));
-        }
-
-        return normalizedLaunchAttemptId;
+        return launchAttemptId.ToString("N");
     }
 
-    private static string NormalizeCaptureId (string captureId)
+    private static string GetScreenshotCaptureIdPathSegment (Guid captureId)
     {
-        if (string.IsNullOrWhiteSpace(captureId))
+        if (captureId == Guid.Empty)
         {
             throw new ArgumentException("Capture identifier must not be empty.", nameof(captureId));
         }
 
-        if (!string.Equals(captureId, captureId.Trim(), StringComparison.Ordinal))
-        {
-            throw new ArgumentException("Capture identifier must not contain outer whitespace.", nameof(captureId));
-        }
-
-        for (var i = 0; i < captureId.Length; i++)
-        {
-            var character = captureId[i];
-            if (!IsAsciiLetterOrDigit(character) && character is not '-' and not '_')
-            {
-                throw new ArgumentException(
-                    "Capture identifier must contain only ASCII letters, digits, hyphen, or underscore.",
-                    nameof(captureId));
-            }
-        }
-
-        return captureId;
-    }
-
-    private static bool IsAsciiLetterOrDigit (char value)
-    {
-        return value is (>= 'A' and <= 'Z')
-            or (>= 'a' and <= 'z')
-            or (>= '0' and <= '9');
-    }
-
-    private static string NormalizeOpsDescribeKey (string opKey)
-    {
-        if (!TryTrimToNonEmpty(opKey, out var normalizedOpKey))
-        {
-            throw new ArgumentException("Ops describe key must not be empty.", nameof(opKey));
-        }
-
-        if (normalizedOpKey.Length != 64)
-        {
-            throw new ArgumentException("Ops describe key must be a SHA-256 lower-hex value.", nameof(opKey));
-        }
-
-        for (var i = 0; i < normalizedOpKey.Length; i++)
-        {
-            var c = normalizedOpKey[i];
-            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')))
-            {
-                throw new ArgumentException("Ops describe key must be a SHA-256 lower-hex value.", nameof(opKey));
-            }
-        }
-
-        return normalizedOpKey;
+        return captureId.ToString("N");
     }
 
     private static bool TryTrimToNonEmpty (

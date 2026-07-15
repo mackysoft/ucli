@@ -5,6 +5,12 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Storage;
 
 public sealed class UcliStoragePathResolverArtifactContractTests
 {
+    private static readonly Guid ScreenshotCaptureId =
+        Guid.Parse("01234567-89ab-cdef-0123-456789abcdef");
+
+    private static readonly Guid LaunchAttemptId =
+        Guid.Parse("11234567-89ab-cdef-0123-456789abcdef");
+
     private static readonly UcliStoragePathResolverTestSupport.RunScopedPathResolverCase[] RunScopedPathResolvers =
     [
         new(
@@ -149,50 +155,109 @@ public sealed class UcliStoragePathResolverArtifactContractTests
     [Trait("Size", "Small")]
     public void ResolveScreenshotCapturePaths_ReturnCaptureScopedArtifactAndStagingFiles ()
     {
-        const string captureId = "20260711_120000Z_deadbeef";
+        var captureIdPathSegment = ScreenshotCaptureId.ToString("N");
 
         var artifactPath = UcliStoragePathResolver.ResolveScreenshotCaptureArtifactPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint,
-            captureId);
+            ScreenshotCaptureId);
         var stagingPath = UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint,
-            captureId);
+            ScreenshotCaptureId);
 
         UcliStoragePathResolverTestSupport.AssertFingerprintPath(
             artifactPath,
             UcliStoragePathNames.ArtifactsDirectoryName,
             UcliStoragePathNames.ScreenshotDirectoryName,
-            captureId,
+            captureIdPathSegment,
             UcliStoragePathNames.ScreenshotPngFileName);
         UcliStoragePathResolverTestSupport.AssertFingerprintPath(
             stagingPath,
             UcliStoragePathNames.WorkDirectoryName,
             UcliStoragePathNames.ScreenshotDirectoryName,
-            captureId,
+            captureIdPathSegment,
             UcliStoragePathNames.ScreenshotRawStagingFileName);
     }
 
-    [Theory]
-    [InlineData("../escape")]
-    [InlineData("nested/capture")]
-    [InlineData("nested\\capture")]
-    [InlineData("capture:alternate")]
-    [InlineData("capture id")]
-    [InlineData("capture\t")]
-    [InlineData(".")]
-    [InlineData("..")]
+    [Fact]
     [Trait("Size", "Small")]
-    public void ResolveScreenshotCapturePaths_WithUnsafeCaptureId_ThrowsArgumentException (string captureId)
+    public void ScreenshotCapturePathResolvers_WithEmptyCaptureId_ThrowArgumentException ()
     {
-        var exception = Assert.Throws<ArgumentException>(() =>
-            UcliStoragePathResolver.ResolveScreenshotCaptureArtifactPath(
+        Func<Guid, string>[] resolvers =
+        [
+            static captureId => UcliStoragePathResolver.ResolveScreenshotCaptureArtifactsDirectory(
                 UcliStoragePathResolverTestSupport.StorageRoot,
                 UcliStoragePathResolverTestSupport.ProjectFingerprint,
-                captureId));
+                captureId),
+            static captureId => UcliStoragePathResolver.ResolveScreenshotCaptureArtifactPath(
+                UcliStoragePathResolverTestSupport.StorageRoot,
+                UcliStoragePathResolverTestSupport.ProjectFingerprint,
+                captureId),
+            static captureId => UcliStoragePathResolver.ResolveScreenshotCaptureStagingDirectory(
+                UcliStoragePathResolverTestSupport.StorageRoot,
+                UcliStoragePathResolverTestSupport.ProjectFingerprint,
+                captureId),
+            static captureId => UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
+                UcliStoragePathResolverTestSupport.StorageRoot,
+                UcliStoragePathResolverTestSupport.ProjectFingerprint,
+                captureId),
+        ];
 
-        Assert.Equal("captureId", exception.ParamName);
+        foreach (var resolve in resolvers)
+        {
+            var exception = Assert.Throws<ArgumentException>(() => resolve(Guid.Empty));
+
+            Assert.Equal("captureId", exception.ParamName);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveLaunchAttemptPaths_ReturnLaunchAttemptScopedPathsWithNFormatIdentifier ()
+    {
+        var directoryPath = UcliStoragePathResolver.ResolveLaunchAttemptDirectory(
+            UcliStoragePathResolverTestSupport.StorageRoot,
+            UcliStoragePathResolverTestSupport.ProjectFingerprint,
+            LaunchAttemptId);
+        var diagnosisPath = UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
+            UcliStoragePathResolverTestSupport.StorageRoot,
+            UcliStoragePathResolverTestSupport.ProjectFingerprint,
+            LaunchAttemptId);
+
+        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+            directoryPath,
+            UcliStoragePathNames.LaunchAttemptsDirectoryName,
+            LaunchAttemptId.ToString("N"));
+        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+            diagnosisPath,
+            UcliStoragePathNames.LaunchAttemptsDirectoryName,
+            LaunchAttemptId.ToString("N"),
+            UcliStoragePathNames.StartupDiagnosisFileName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void LaunchAttemptPathResolvers_WithEmptyLaunchAttemptId_ThrowArgumentException ()
+    {
+        Func<Guid, string>[] resolvers =
+        [
+            static launchAttemptId => UcliStoragePathResolver.ResolveLaunchAttemptDirectory(
+                UcliStoragePathResolverTestSupport.StorageRoot,
+                UcliStoragePathResolverTestSupport.ProjectFingerprint,
+                launchAttemptId),
+            static launchAttemptId => UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
+                UcliStoragePathResolverTestSupport.StorageRoot,
+                UcliStoragePathResolverTestSupport.ProjectFingerprint,
+                launchAttemptId),
+        ];
+
+        foreach (var resolve in resolvers)
+        {
+            var exception = Assert.Throws<ArgumentException>(() => resolve(Guid.Empty));
+
+            Assert.Equal("launchAttemptId", exception.ParamName);
+        }
     }
 
     [Fact]

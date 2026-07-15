@@ -21,6 +21,22 @@ public sealed class PathNormalizerTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Success_WithEmptyPath_ThrowsArgumentException ()
+    {
+        Assert.Throws<ArgumentException>(
+            static () => FullPathNormalizationResult.Success(string.Empty));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Failure_WithNoneKind_ThrowsArgumentOutOfRangeException ()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            static () => FullPathNormalizationResult.Failure(PathNormalizationFailureKind.None, "failure"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IsFullyQualifiedPath_WithFullPath_ReturnsTrue ()
     {
         var path = Path.GetFullPath("src");

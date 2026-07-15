@@ -44,13 +44,13 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
         var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectRoot);
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(repositoryRoot, unityProjectRoot);
         var unityVersion = ReadUnityVersionOrUnknown(projectVersionPath);
-        return UnityProjectResolutionResult.Success(new ResolvedUnityProjectContext(
-            UnityProjectRoot: unityProjectRoot,
-            RepositoryRoot: repositoryRoot,
-            ProjectFingerprint: projectFingerprint,
-            PathSource: projectPathCandidate.Source,
-            PathSourceLabel: projectPathCandidate.SourceLabel,
-            UnityVersion: unityVersion));
+        return UnityProjectResolutionResult.Success(ResolvedUnityProjectContext.Create(
+            unityProjectRoot: unityProjectRoot,
+            repositoryRoot: repositoryRoot,
+            projectFingerprint: projectFingerprint,
+            pathSource: projectPathCandidate.Source,
+            pathSourceLabel: projectPathCandidate.SourceLabel,
+            unityVersion: unityVersion));
     }
 
     private static string ReadUnityVersionOrUnknown (string projectVersionPath)

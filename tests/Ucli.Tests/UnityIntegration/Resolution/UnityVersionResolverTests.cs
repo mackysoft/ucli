@@ -7,6 +7,22 @@ using MackySoft.Ucli.UnityIntegration.Resolution;
 public sealed class UnityVersionResolverTests
 {
     [Fact]
+    [Trait("Size", "Small")]
+    public void ReadResultSuccess_WhenUnityVersionIsEmpty_ThrowsArgumentException ()
+    {
+        Assert.Throws<ArgumentException>(
+            static () => UnityProjectVersionFileReader.ReadResult.Success(string.Empty));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ReadResultPathInvalid_WhenDiagnosticIsEmpty_ThrowsArgumentException ()
+    {
+        Assert.Throws<ArgumentException>(
+            static () => UnityProjectVersionFileReader.ReadResult.PathInvalid(string.Empty));
+    }
+
+    [Fact]
     [Trait("Size", "Medium")]
     public void Resolve_WithPreferredUnityVersion_ReturnsPreferredValue ()
     {

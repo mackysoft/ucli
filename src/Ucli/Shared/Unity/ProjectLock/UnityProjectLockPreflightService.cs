@@ -48,7 +48,6 @@ internal sealed class UnityProjectLockPreflightService : IUnityProjectLockPrefli
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.UnityProjectRoot);
 
         var lockFileResult = lockFileProbe.Probe(unityProject.UnityProjectRoot);
         if (!lockFileResult.IsSuccess)
