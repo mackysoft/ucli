@@ -290,15 +290,12 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     {
         var configuration = context.Configuration;
         return new UnityRequestPayload.TestRun(
-            TestPlatform: TestRunPlatformCodec.ToValue(configuration.TestPlatform),
-            TestFilter: configuration.TestFilter,
-            TestCategories: configuration.TestCategories,
-            AssemblyNames: configuration.AssemblyNames,
-            TestSettingsPath: configuration.TestSettingsPath,
-            ResultsXmlPath: session.Paths.ResultsXmlPath,
-            EditorLogPath: session.Paths.EditorLogPath,
-            FailFast: context.FailFast,
-            RunId: session.RunId);
+            testPlatform: configuration.TestPlatform,
+            testFilter: configuration.TestFilter,
+            testCategories: configuration.TestCategories,
+            assemblyNames: configuration.AssemblyNames,
+            failFast: context.FailFast,
+            runId: session.RunId);
     }
 
     private static async ValueTask ForwardTestRunProgressFrameAsync (
@@ -455,7 +452,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         UcliCode? errorCode,
         UnityExecutionTarget target)
     {
-        if (errorCode is { IsValid: true } code)
+        if (errorCode is { } code)
         {
             if (code == IpcTransportErrorCodes.IpcTimeout || code == ExecutionErrorCodes.IpcTimeout)
             {
@@ -481,20 +478,12 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        if (response.HasFailureStatus)
+        if (response.Errors.Count != 0)
         {
-            if (response.Errors.Count > 0)
-            {
-                var firstError = response.Errors[0];
-                exitCode = default;
-                errorCode = firstError.Code;
-                errorMessage = $"Unity test run failed with error code '{firstError.Code}'. {firstError.Message}";
-                return false;
-            }
-
+            var firstError = response.Errors[0];
             exitCode = default;
-            errorCode = null;
-            errorMessage = $"Unity test run failed with status '{response.FailureStatus}'.";
+            errorCode = firstError.Code;
+            errorMessage = $"Unity test run failed with error code '{firstError.Code}'. {firstError.Message}";
             return false;
         }
 

@@ -92,7 +92,7 @@ internal sealed class TestRunResultMapper : ITestRunResultMapper
                 UnityTestExecutionFailureKind.Canceled => ExecutionErrorCodes.Canceled,
                 UnityTestExecutionFailureKind.IpcTimedOut => ExecutionErrorCodes.IpcTimeout,
                 UnityTestExecutionFailureKind.ProcessTimedOut => TestRunErrorCodes.UnityTestExecutionTimeout,
-                _ when unityExecutionResult.ErrorCode.HasValue && unityExecutionResult.ErrorCode.Value.IsValid => unityExecutionResult.ErrorCode.Value,
+                _ when unityExecutionResult.ErrorCode is not null => unityExecutionResult.ErrorCode,
                 _ => TestRunErrorCodes.UnityTestExecutionFailed,
             };
 

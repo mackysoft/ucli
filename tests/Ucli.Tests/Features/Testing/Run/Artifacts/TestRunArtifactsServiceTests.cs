@@ -1,7 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -12,7 +11,7 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class TestRunArtifactsServiceTests
 {
-    private static readonly IRunIdGenerator RunIdGenerator = new RunIdGenerator();
+    private static readonly IGuidGenerator RunIdGenerator = new GuidGenerator();
 
     [Fact]
     [Trait("Size", "Medium")]
@@ -166,7 +165,6 @@ public sealed class TestRunArtifactsServiceTests
     private static ResolvedTestRunConfiguration CreateResolvedConfiguration (TestDirectoryScope scope)
     {
         var projectPath = scope.GetPath("UnityProject");
-        var testSettingsPath = scope.WriteFile("UnityProject/ProjectSettings/TestSettings.json", "{}");
 
         return new ResolvedTestRunConfiguration(
             UnityProject: ResolvedUnityProjectContextTestFactory.Create(
@@ -180,7 +178,6 @@ public sealed class TestRunArtifactsServiceTests
             TestFilter: "Category=Smoke",
             TestCategories: ["smoke", "quick"],
             AssemblyNames: ["My.Tests"],
-            TestSettingsPath: testSettingsPath,
             TimeoutMilliseconds: null);
     }
 
@@ -192,6 +189,7 @@ public sealed class TestRunArtifactsServiceTests
             .HasString("runId", session.RunId.ToString("D"))
             .HasString("testPlatform", "StandaloneWindows64");
         Assert.False(document.RootElement.TryGetProperty("buildTarget", out _));
+        Assert.False(document.RootElement.TryGetProperty("testSettingsPath", out _));
     }
 
     private static (DateTimeOffset StartedAt, DateTimeOffset FinishedAt) ReadMetaJson (string metaJsonPath)

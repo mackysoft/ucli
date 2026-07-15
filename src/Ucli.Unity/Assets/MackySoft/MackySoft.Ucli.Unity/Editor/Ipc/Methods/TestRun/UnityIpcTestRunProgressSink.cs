@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -46,9 +47,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             return new TestRunDiagnosticEntry(
                 runId,
-                "TEST_PROGRESS_DROPPED",
+                new UcliCode("TEST_PROGRESS_DROPPED"),
                 "Test progress entries exceeded the pending IPC frame limit; additional progress entries were dropped.",
-                "warning");
+                UcliDiagnosticSeverity.Warning);
         }
     }
 }

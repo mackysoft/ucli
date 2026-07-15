@@ -20,7 +20,6 @@ public sealed class TestRunProfileLoaderTests
               "testFilter": null,
               "testCategories": ["smoke"],
               "assemblyNames": ["Game.Tests"],
-              "testSettingsPath": null,
               "timeout": 90
             }
             """);
@@ -51,7 +50,6 @@ public sealed class TestRunProfileLoaderTests
               "testFilter": null,
               "testCategories": ["smoke, quick", "smoke", "nightly"],
               "assemblyNames": ["Game.Tests, Game.MoreTests", "Game.Tests"],
-              "testSettingsPath": null,
               "timeout": 90
             }
             """);
@@ -81,7 +79,6 @@ public sealed class TestRunProfileLoaderTests
               "testFilter": null,
               "testCategories": [],
               "assemblyNames": [],
-              "testSettingsPath": null,
               "timeout": 90
             }
             """);
@@ -110,7 +107,6 @@ public sealed class TestRunProfileLoaderTests
               "testFilter": null,
               "testCategories": [],
               "assemblyNames": [],
-              "testSettingsPath": null,
               "timeout": 90
             }
             """);
@@ -139,7 +135,6 @@ public sealed class TestRunProfileLoaderTests
               "testFilter": null,
               "testCategories": [],
               "assemblyNames": [],
-              "testSettingsPath": null,
               "timeoutSeconds": 90
             }
             """);
@@ -168,7 +163,6 @@ public sealed class TestRunProfileLoaderTests
               "testFilter": null,
               "testCategories": [],
               "assemblyNames": [],
-              "testSettingsPath": null,
               "timeout": 0
             }
             """);
@@ -179,6 +173,35 @@ public sealed class TestRunProfileLoaderTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("timeout", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Load_WithRemovedTestSettingsPath_ReturnsInvalidArgument ()
+    {
+        var loader = CreateLoader(
+            """
+            {
+              "schemaVersion": 1,
+              "projectPath": ".",
+              "unityVersion": null,
+              "unityEditorPath": null,
+              "testPlatform": "editmode",
+              "testFilter": null,
+              "testCategories": [],
+              "assemblyNames": [],
+              "testSettingsPath": null,
+              "timeout": 90
+            }
+            """);
+
+        var result = await loader.LoadAsync("test.profile.json", CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("unknown property", error.Message, StringComparison.Ordinal);
+        Assert.Contains("testSettingsPath", error.Message, StringComparison.Ordinal);
     }
 
     private static TestRunProfileLoader CreateLoader (string json)

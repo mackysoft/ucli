@@ -30,7 +30,6 @@ internal static class TestRunServiceTestFactory
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
-            TestSettingsPath: null,
             TimeoutMilliseconds: null);
     }
 
@@ -47,16 +46,15 @@ internal static class TestRunServiceTestFactory
             TestFilter: null,
             TestCategories: [],
             AssemblyNames: [],
-            TestSettingsPath: null,
             TimeoutMilliseconds: null);
     }
 
     public static ArtifactsSession CreateArtifactsSession (string? artifactsDir = null)
     {
         return new ArtifactsSession(
-            RunId: RunId,
-            Paths: TestArtifactPaths.Create(artifactsDir ?? Path.Combine(Path.GetTempPath(), "ucli-test-run", RunId.ToString("D"))),
-            StartedAtUtc: new DateTimeOffset(2026, 03, 08, 0, 0, 0, TimeSpan.Zero));
+            runId: RunId,
+            paths: TestArtifactPaths.Create(artifactsDir ?? Path.Combine(Path.GetTempPath(), "ucli-test-run", RunId.ToString("D"))),
+            startedAtUtc: new DateTimeOffset(2026, 03, 08, 0, 0, 0, TimeSpan.Zero));
     }
 
     public static UnityRequestResponse CreateFailureUnityRequestResponse (
@@ -68,9 +66,7 @@ internal static class TestRunServiceTestFactory
             Errors:
             [
                 new OperationExecutionError(code, message, OpId: null),
-            ],
-            HasFailureStatus: true,
-            FailureStatus: IpcProtocol.StatusError);
+            ]);
     }
 
     public static TestRunService CreateService (
@@ -93,7 +89,10 @@ internal static class TestRunServiceTestFactory
             unityTestExecutor,
             daemonTestRunClient,
             streamingProgressFrames ?? (streamingProgressFrame is null ? null : [streamingProgressFrame]),
-            unityRequestResponse);
+            unityRequestResponse,
+            runId => artifactsService is StubTestRunArtifactsService stubArtifactsService
+                ? stubArtifactsService.GetPreparedPaths(runId)
+                : throw new InvalidOperationException("Test-run service tests require the recording artifact service."));
         var executionPipeline = new TestRunExecutionPipeline(
             artifactsService,
             unityRequestExecutor,

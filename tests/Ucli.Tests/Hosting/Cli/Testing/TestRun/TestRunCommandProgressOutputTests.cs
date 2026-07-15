@@ -1,6 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -21,7 +19,7 @@ public sealed class TestRunCommandProgressOutputTests
                 runId: RunIdTestValues.Test,
                 artifactsDir: artifactsDir,
                 summaryJsonPath: summaryJsonPath)));
-        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RunAsync(cancellationToken: CancellationToken.None));
 
@@ -69,7 +67,7 @@ public sealed class TestRunCommandProgressOutputTests
                     "MyGame.Tests",
                     "editmode",
                     ["smoke"],
-                    "pass",
+                    TestCaseResult.Pass,
                     42,
                     null,
                     null),
@@ -78,9 +76,9 @@ public sealed class TestRunCommandProgressOutputTests
                 TestRunProgressEventNames.RunDiagnostic,
                 new TestRunDiagnosticEntry(
                     RunIdTestValues.Test,
-                    "TEST_PROGRESS_STUB",
+                    new UcliCode("TEST_PROGRESS_STUB"),
                     "stub progress",
-                    "info"),
+                    UcliDiagnosticSeverity.Info),
                 cancellationToken);
             return TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",
@@ -88,7 +86,7 @@ public sealed class TestRunCommandProgressOutputTests
                 artifactsDir: artifactsDir,
                 summaryJsonPath: summaryJsonPath);
         });
-        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(
             format: "json",
@@ -141,7 +139,7 @@ public sealed class TestRunCommandProgressOutputTests
                 artifactsDir: artifactsDir,
                 summaryJsonPath: summaryJsonPath);
         });
-        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(
             format: "json",
@@ -157,7 +155,7 @@ public sealed class TestRunCommandProgressOutputTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             2);
         CommandResultAssert.HasSingleError(outputJson.RootElement, TestRunErrorCodes.UnityTestExecutionFailed);
         JsonAssert.For(outputJson.RootElement)
@@ -180,9 +178,9 @@ public sealed class TestRunCommandProgressOutputTests
                 TestRunProgressEventNames.RunDiagnostic,
                 new TestRunDiagnosticEntry(
                     RunIdTestValues.Test,
-                    "TEST_PROGRESS_STUB",
+                    new UcliCode("TEST_PROGRESS_STUB"),
                     "line 1\nline 2",
-                    "info"),
+                    UcliDiagnosticSeverity.Info),
                 cancellationToken);
             return TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",
@@ -190,7 +188,7 @@ public sealed class TestRunCommandProgressOutputTests
                 artifactsDir: "/tmp/ucli-test-run-artifacts",
                 summaryJsonPath: "/tmp/ucli-test-run-artifacts/summary.json");
         });
-        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(
             cancellationToken: CancellationToken.None));
@@ -240,7 +238,7 @@ public sealed class TestRunCommandProgressOutputTests
                     "MyGame.Tests",
                     "editmode",
                     ["smoke"],
-                    "pass",
+                    TestCaseResult.Pass,
                     42,
                     null,
                     null),
@@ -254,7 +252,7 @@ public sealed class TestRunCommandProgressOutputTests
                     "MyGame.Tests",
                     "editmode",
                     ["smoke"],
-                    "fail",
+                    TestCaseResult.Fail,
                     13,
                     "assertion failed",
                     "at SmokeTest.Fails()"),
@@ -265,7 +263,7 @@ public sealed class TestRunCommandProgressOutputTests
                 artifactsDir: "/tmp/ucli-test-run-artifacts",
                 summaryJsonPath: "/tmp/ucli-test-run-artifacts/summary.json");
         });
-        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(
             format: "text",
@@ -276,7 +274,7 @@ public sealed class TestRunCommandProgressOutputTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun,
-            IpcProtocol.StatusOk,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
             1);
         Assert.Equal(
             "Passed SmokeTest.Passes [42 ms]" + Environment.NewLine

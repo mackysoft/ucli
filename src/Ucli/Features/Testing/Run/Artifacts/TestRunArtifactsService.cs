@@ -1,9 +1,10 @@
 using System.ComponentModel;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
-using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Identifiers;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -15,7 +16,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 {
     private readonly ITestRunMetaStore metaStore;
 
-    private readonly IRunIdGenerator runIdGenerator;
+    private readonly IGuidGenerator runIdGenerator;
 
     private readonly TimeProvider timeProvider;
 
@@ -25,7 +26,7 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
     /// <param name="timeProvider"> The time provider used for metadata timestamps. </param>
     public TestRunArtifactsService (
         ITestRunMetaStore metaStore,
-        IRunIdGenerator runIdGenerator,
+        IGuidGenerator runIdGenerator,
         TimeProvider timeProvider)
     {
         this.metaStore = metaStore ?? throw new ArgumentNullException(nameof(metaStore));
@@ -80,9 +81,9 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
 
         var artifactPaths = CreateArtifactPaths(artifactsDir);
         var session = new ArtifactsSession(
-            RunId: runId,
-            Paths: artifactPaths,
-            StartedAtUtc: startedAtUtc);
+            runId: runId,
+            paths: artifactPaths,
+            startedAtUtc: startedAtUtc);
 
         try
         {
@@ -111,8 +112,8 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
         return new ArtifactPaths(
             ArtifactsDir: artifactsDir,
             MetaJsonPath: Path.Combine(artifactsDir, "meta.json"),
-            ResultsXmlPath: Path.Combine(artifactsDir, "results.xml"),
-            EditorLogPath: Path.Combine(artifactsDir, "editor.log"),
+            ResultsXmlPath: Path.Combine(artifactsDir, UcliStoragePathNames.TestResultsXmlFileName),
+            EditorLogPath: Path.Combine(artifactsDir, UcliStoragePathNames.TestEditorLogFileName),
             ResultsJsonPath: Path.Combine(artifactsDir, "results.json"),
             SummaryJsonPath: Path.Combine(artifactsDir, "summary.json"));
     }

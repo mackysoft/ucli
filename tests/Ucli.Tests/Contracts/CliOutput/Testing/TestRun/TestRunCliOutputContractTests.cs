@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using Microsoft.Extensions.DependencyInjection;

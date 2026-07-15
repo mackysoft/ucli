@@ -28,8 +28,7 @@ public sealed class TestRunExecutionPipelineTargetTests
         var requestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(new UnityRequestResponse(
                 IpcPayloadCodec.SerializeToElement(new IpcTestRunResponse(0)),
-                Array.Empty<OperationExecutionError>(),
-                HasFailureStatus: false)));
+                Array.Empty<OperationExecutionError>())));
         var pipeline = new TestRunExecutionPipeline(
             new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),

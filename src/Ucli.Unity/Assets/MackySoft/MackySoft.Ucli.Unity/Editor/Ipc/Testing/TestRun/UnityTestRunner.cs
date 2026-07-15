@@ -53,12 +53,18 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             var executionSettings = CreateExecutionSettings(requestContext);
             var callbacks = new TestRunCallbacks(requestContext, progressSink);
-            var testRunnerApi = ScriptableObject.CreateInstance<TestRunnerApi>();
+            TestRunnerApi testRunnerApi = null;
             var cancellationRegistration = default(CancellationTokenRegistration);
+            IUnityMutationActivity mutationActivity = null;
+            Task<ITestResultAdaptor> runCompletionTask = null;
+            var deferCleanupUntilRunCompletion = false;
             try
             {
+                mutationActivity = mutationLaneControl.BeginMutation();
+                testRunnerApi = ScriptableObject.CreateInstance<TestRunnerApi>();
                 testRunnerApi.RegisterCallbacks(callbacks);
                 var testRunId = testRunnerApi.Execute(executionSettings);
+                runCompletionTask = callbacks.WaitForCompletionAsync(CancellationToken.None);
                 cancellationRegistration = RegisterCancellation(
                     testRunId,
                     cancellationToken,
@@ -70,11 +76,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                     });
                 try
                 {
-                    return await callbacks.WaitForCompletionAsync(cancellationToken);
+                    var result = await callbacks.WaitForCompletionAsync(cancellationToken);
+                    return result;
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    await AwaitCancellationQuiescenceAsync(
+                    deferCleanupUntilRunCompletion = !await AwaitCancellationQuiescenceAsync(
                         callbacks,
                         mutationLaneControl);
                     throw;
@@ -83,8 +90,37 @@ namespace MackySoft.Ucli.Unity.Ipc
             finally
             {
                 cancellationRegistration.Dispose();
-                testRunnerApi.UnregisterCallbacks(callbacks);
-                UnityEngine.Object.DestroyImmediate(testRunnerApi);
+                if (runCompletionTask != null && !runCompletionTask.IsCompleted)
+                {
+                    mutationLaneControl.Quarantine(
+                        "A Unity test run outlived its request and may still mutate Editor state.",
+                        runCompletionTask);
+                    deferCleanupUntilRunCompletion = true;
+                }
+
+                if (deferCleanupUntilRunCompletion)
+                {
+                    ScheduleCleanupAfterRunCompletion(
+                        runCompletionTask,
+                        mainThreadSynchronizationContext,
+                        testRunnerApi,
+                        callbacks,
+                        mutationActivity);
+                }
+                else
+                {
+                    try
+                    {
+                        if (testRunnerApi != null)
+                        {
+                            CleanupTestRunner(testRunnerApi, callbacks);
+                        }
+                    }
+                    finally
+                    {
+                        mutationActivity?.Complete();
+                    }
+                }
             }
         }
 
@@ -193,7 +229,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
                 catch
                 {
-                    // Cancellation still detaches the request and poisons the mutation lane if the
+                    // Cancellation still detaches the request and quarantines the mutation lane if the
                     // test runner cannot publish RunFinished during Unity synchronization teardown.
                 }
             }, new TestRunCancellationState(
@@ -203,8 +239,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 cancelTestRun));
         }
 
-        /// <summary> Waits briefly for a canceled Unity test run to terminate, then poisons mutation admission. </summary>
-        internal static async Task AwaitCancellationQuiescenceAsync (
+        /// <summary> Waits briefly for a canceled Unity test run to terminate, then quarantines the current generation. </summary>
+        internal static async Task<bool> AwaitCancellationQuiescenceAsync (
             TestRunCallbacks callbacks,
             IUnityMutationLaneControl mutationLaneControl)
         {
@@ -223,12 +259,80 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (didQuiesce)
             {
                 await completionTask;
-                return;
+                return true;
             }
 
-            mutationLaneControl.Poison(
-                "A canceled Unity test run did not publish RunFinished and may still mutate Editor state.");
+            mutationLaneControl.Quarantine(
+                "A canceled Unity test run did not publish RunFinished and may still mutate Editor state.",
+                completionTask);
             ObserveFault(completionTask);
+            return false;
+        }
+
+        /// <summary> Defers Unity Test Framework object cleanup until the active run and main-thread cleanup both finish. </summary>
+        internal static void ScheduleCleanupAfterRunCompletion (
+            Task runCompletionTask,
+            SynchronizationContext mainThreadSynchronizationContext,
+            TestRunnerApi testRunnerApi,
+            TestRunCallbacks callbacks,
+            IUnityMutationActivity mutationActivity)
+        {
+            if (runCompletionTask == null)
+            {
+                throw new ArgumentNullException(nameof(runCompletionTask));
+            }
+
+            ObserveFault(runCompletionTask);
+            _ = runCompletionTask.ContinueWith(
+                static (_, state) =>
+                {
+                    var cleanupState = (DeferredTestRunnerCleanupState)state;
+                    try
+                    {
+                        cleanupState.MainThreadSynchronizationContext.Post(
+                            static postedState =>
+                            {
+                                var postedCleanupState = (DeferredTestRunnerCleanupState)postedState;
+                                try
+                                {
+                                    CleanupTestRunner(postedCleanupState.TestRunnerApi, postedCleanupState.Callbacks);
+                                }
+                                finally
+                                {
+                                    postedCleanupState.MutationActivity?.Complete();
+                                }
+                            },
+                            cleanupState);
+                    }
+                    catch
+                    {
+                        // Unity is tearing down its synchronization context. The completed run is already safe;
+                        // the ScriptableObject will be released by Unity lifecycle teardown.
+                        cleanupState.MutationActivity?.Complete();
+                    }
+                },
+                new DeferredTestRunnerCleanupState(
+                    mainThreadSynchronizationContext,
+                    testRunnerApi,
+                    callbacks,
+                    mutationActivity),
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+        }
+
+        private static void CleanupTestRunner (
+            TestRunnerApi testRunnerApi,
+            TestRunCallbacks callbacks)
+        {
+            try
+            {
+                testRunnerApi.UnregisterCallbacks(callbacks);
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(testRunnerApi);
+            }
         }
 
         private static void ObserveFault (Task task)
@@ -245,6 +349,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             SynchronizationContext MainThreadSynchronizationContext,
             IDaemonLogger DaemonLogger,
             Action<string> CancelTestRun);
+
+        private sealed record DeferredTestRunnerCleanupState (
+            SynchronizationContext MainThreadSynchronizationContext,
+            TestRunnerApi TestRunnerApi,
+            TestRunCallbacks Callbacks,
+            IUnityMutationActivity MutationActivity);
 
         /// <summary> Receives Unity Test Framework callbacks and exposes completion task. </summary>
         internal sealed class TestRunCallbacks : ICallbacks
@@ -393,15 +503,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                     : NormalizeProgressText(value);
             }
 
-            private static string NormalizeResult (TestStatus status)
+            private static TestCaseResult NormalizeResult (TestStatus status)
             {
                 return status switch
                 {
-                    TestStatus.Passed => "pass",
-                    TestStatus.Failed => "fail",
-                    TestStatus.Skipped => "skipped",
-                    TestStatus.Inconclusive => "inconclusive",
-                    _ => "inconclusive",
+                    TestStatus.Passed => TestCaseResult.Pass,
+                    TestStatus.Failed => TestCaseResult.Fail,
+                    TestStatus.Skipped => TestCaseResult.Skipped,
+                    TestStatus.Inconclusive => TestCaseResult.Inconclusive,
+                    _ => TestCaseResult.Inconclusive,
                 };
             }
         }

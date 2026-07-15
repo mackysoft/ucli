@@ -10,6 +10,8 @@ internal sealed class StubTestRunArtifactsService : ITestRunArtifactsService
 
     private readonly Func<ResolvedTestRunConfiguration, ArtifactsSession, UnityExecutionTarget, ArtifactsCompletionResult> complete;
 
+    private ArtifactsSession? preparedSession;
+
     public StubTestRunArtifactsService (
         Func<ResolvedTestRunConfiguration, ArtifactsPreparationResult> prepare,
         Func<ResolvedTestRunConfiguration, ArtifactsSession, UnityExecutionTarget, ArtifactsCompletionResult> complete)
@@ -23,7 +25,19 @@ internal sealed class StubTestRunArtifactsService : ITestRunArtifactsService
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return ValueTask.FromResult(prepare(configuration));
+        var result = prepare(configuration);
+        preparedSession = result.Session;
+        return ValueTask.FromResult(result);
+    }
+
+    public ArtifactPaths GetPreparedPaths (Guid runId)
+    {
+        if (preparedSession is null || preparedSession.RunId != runId)
+        {
+            throw new InvalidOperationException("No matching test-run artifact session was prepared.");
+        }
+
+        return preparedSession.Paths;
     }
 
     public ValueTask<ArtifactsCompletionResult> CompleteAsync (

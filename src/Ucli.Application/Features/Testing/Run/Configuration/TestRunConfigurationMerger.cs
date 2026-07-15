@@ -32,7 +32,6 @@ internal static class TestRunConfigurationMerger
             TestFilter: StringValueNormalizer.TrimToNull(cli.TestFilter ?? profile?.TestFilter),
             TestCategories: NormalizeValues(cli.TestCategory, profile?.TestCategories),
             AssemblyNames: NormalizeValues(cli.AssemblyName, profile?.AssemblyNames),
-            TestSettingsPath: NormalizeOptionalValue(cli.TestSettingsPath ?? profile?.TestSettingsPath),
             TimeoutMilliseconds: cli.TimeoutMilliseconds ?? profile?.Timeout);
     }
 

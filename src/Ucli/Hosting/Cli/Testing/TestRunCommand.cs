@@ -16,16 +16,20 @@ internal sealed class TestRunCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
+    private readonly CliStreamEntryWriterFactory streamEntryWriterFactory;
+
     /// <summary> Initializes a new instance of the TestRunCommand class. </summary>
     /// <param name="testRunService"> The test-run core service dependency. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when testRunService is null. </exception>
     public TestRunCommand (
         ITestRunService testRunService,
-        ICommandResultWriter commandResultWriter)
+        ICommandResultWriter commandResultWriter,
+        CliStreamEntryWriterFactory streamEntryWriterFactory)
     {
         this.testRunService = testRunService ?? throw new ArgumentNullException(nameof(testRunService));
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
+        this.streamEntryWriterFactory = streamEntryWriterFactory ?? throw new ArgumentNullException(nameof(streamEntryWriterFactory));
     }
 
     /// <summary> Executes the test run command and emits the JSON result contract. </summary>
@@ -38,7 +42,6 @@ internal sealed class TestRunCommand
     /// <param name="testFilter"> -f|--testFilter, test name filter pattern. </param>
     /// <param name="testCategory"> --testCategory, comma-separated test categories. </param>
     /// <param name="assemblyName"> -a|--assemblyName, comma-separated assembly names. </param>
-    /// <param name="testSettingsPath"> -s|--testSettingsPath, path to TestSettings.json. </param>
     /// <param name="timeout"> Timeout in milliseconds. </param>
     /// <param name="failFast"> --failFast, Fails immediately when readiness-gated Unity execution is not yet ready. </param>
     /// <param name="allowEmptyTestRun"> --allowEmptyTestRun, Accepts a run that reports zero test cases. </param>
@@ -56,7 +59,6 @@ internal sealed class TestRunCommand
         string? testFilter = null,
         string? testCategory = null,
         string? assemblyName = null,
-        string? testSettingsPath = null,
         int? timeout = null,
         bool failFast = false,
         bool allowEmptyTestRun = false,
@@ -101,7 +103,7 @@ internal sealed class TestRunCommand
 
             var progressSink = new CliCommandProgressSink(
                 formatResult.Format,
-                new CliStreamEntryWriter(UcliCommandNames.TestRun),
+                streamEntryWriterFactory.Create(UcliCommandNames.TestRun),
                 new TestRunProgressTextProjector());
             var serviceResult = await testRunService.ExecuteAsync(
                 new TestRunCommandInput(
@@ -114,7 +116,6 @@ internal sealed class TestRunCommand
                     TestFilter: testFilter,
                     TestCategory: SplitCommaSeparatedValues(testCategory),
                     AssemblyName: SplitCommaSeparatedValues(assemblyName),
-                    TestSettingsPath: testSettingsPath,
                     TimeoutMilliseconds: timeout,
                     FailFast: failFast,
                     AllowEmptyTestRun: allowEmptyTestRun),

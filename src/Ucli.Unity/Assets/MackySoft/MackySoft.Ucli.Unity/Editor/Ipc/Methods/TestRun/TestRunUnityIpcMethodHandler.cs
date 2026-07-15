@@ -11,17 +11,12 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class TestRunUnityIpcMethodHandler : IStreamingUnityIpcMethodHandler
     {
         private readonly IUnityTestRunService testRunService;
-        private readonly IIpcRequestTimeoutScopeFactory timeoutScopeFactory;
 
         /// <summary> Initializes a new instance of the <see cref="TestRunUnityIpcMethodHandler" /> class. </summary>
         /// <param name="testRunService"> The test-run service dependency. </param>
-        /// <param name="timeoutScopeFactory"> The request timeout scope factory. </param>
-        public TestRunUnityIpcMethodHandler (
-            IUnityTestRunService testRunService,
-            IIpcRequestTimeoutScopeFactory timeoutScopeFactory)
+        public TestRunUnityIpcMethodHandler (IUnityTestRunService testRunService)
         {
             this.testRunService = testRunService ?? throw new ArgumentNullException(nameof(testRunService));
-            this.timeoutScopeFactory = timeoutScopeFactory ?? throw new ArgumentNullException(nameof(timeoutScopeFactory));
         }
 
         /// <inheritdoc />
@@ -29,10 +24,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -50,21 +45,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                 request,
                 testRunRequest!,
                 progressSinkFactory: null,
-                cancellationToken);
+                cancellation);
         }
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleStreamingAsync (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             IIpcStreamFrameWriter streamWriter,
-            CancellationToken cancellationToken)
+            IpcRequestCancellation cancellation)
         {
             if (streamWriter == null)
             {
                 throw new ArgumentNullException(nameof(streamWriter));
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -85,34 +80,20 @@ namespace MackySoft.Ucli.Unity.Ipc
                     streamWriter,
                     testRunRequest!.RunId,
                     executionCancellationToken),
-                cancellationToken);
+                cancellation);
         }
 
         private async ValueTask<IpcResponse> HandleDecodedAsync (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             IpcTestRunRequest testRunRequest,
             Func<CancellationToken, UnityIpcTestRunProgressSink> progressSinkFactory,
-            CancellationToken cancellationToken)
+            IpcRequestCancellation cancellation)
         {
             IpcResponse response;
             UnityIpcTestRunProgressSink progressSink = null;
-            IIpcRequestTimeoutScope requestTimeoutScope = null;
             try
             {
-                if (!TryValidateTimeoutMilliseconds(testRunRequest.TimeoutMilliseconds, out var timeoutErrorMessage))
-                {
-                    response = UnityIpcResponseFactory.CreateErrorResponse(
-                        request,
-                        UcliCoreErrorCodes.InvalidArgument,
-                        timeoutErrorMessage,
-                        null);
-                    return response;
-                }
-
-                requestTimeoutScope = timeoutScopeFactory.CreateLinked(
-                    testRunRequest.TimeoutMilliseconds,
-                    cancellationToken);
-                var executionCancellationToken = requestTimeoutScope.Token;
+                var executionCancellationToken = cancellation.Token;
                 progressSink = progressSinkFactory?.Invoke(executionCancellationToken);
                 var result = await testRunService.ExecuteAsync(
                     testRunRequest,
@@ -131,9 +112,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         request,
                         response,
                         progressSink,
-                        requestTimeoutScope,
-                        cancellationToken,
-                        testRunRequest.TimeoutMilliseconds);
+                        cancellation);
                 }
 
                 response = UnityIpcResponseFactory.CreateSuccessResponse(request, result.Payload!);
@@ -141,22 +120,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     response,
                     progressSink,
-                    requestTimeoutScope,
-                    cancellationToken,
-                    testRunRequest.TimeoutMilliseconds);
+                    cancellation);
             }
-            catch (OperationCanceledException) when (IsRequestTimeout(
-                requestTimeoutScope,
-                cancellationToken))
+            catch (OperationCanceledException) when (cancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline)
             {
-                response = CreateTimeoutResponse(request, testRunRequest.TimeoutMilliseconds);
+                response = CreateTimeoutResponse(request);
                 return await CompleteProgressAndReturnAsync(
                     request,
                     response,
                     progressSink,
-                    requestTimeoutScope,
-                    cancellationToken,
-                    testRunRequest.TimeoutMilliseconds);
+                    cancellation);
             }
             catch (OperationCanceledException)
             {
@@ -165,7 +138,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     try
                     {
                         await progressSink.CompleteAndFlushAsync(
-                            requestTimeoutScope?.Token ?? cancellationToken);
+                            cancellation.Token);
                     }
                     catch (OperationCanceledException)
                     {
@@ -186,9 +159,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     response,
                     progressSink,
-                    requestTimeoutScope,
-                    cancellationToken,
-                    testRunRequest.TimeoutMilliseconds);
+                    cancellation);
             }
             catch (Exception exception)
             {
@@ -201,36 +172,26 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     response,
                     progressSink,
-                    requestTimeoutScope,
-                    cancellationToken,
-                    testRunRequest.TimeoutMilliseconds);
-            }
-            finally
-            {
-                requestTimeoutScope?.Dispose();
+                    cancellation);
             }
         }
 
         private static async ValueTask<IpcResponse> CompleteProgressAndReturnAsync (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             IpcResponse response,
             UnityIpcTestRunProgressSink progressSink,
-            IIpcRequestTimeoutScope requestTimeoutScope,
-            CancellationToken callerCancellationToken,
-            int? timeoutMilliseconds)
+            IpcRequestCancellation cancellation)
         {
             if (progressSink != null)
             {
                 try
                 {
                     await progressSink.CompleteAndFlushAsync(
-                        requestTimeoutScope?.Token ?? callerCancellationToken);
+                        cancellation.Token);
                 }
-                catch (OperationCanceledException) when (IsRequestTimeout(
-                    requestTimeoutScope,
-                    callerCancellationToken))
+                catch (OperationCanceledException) when (cancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline)
                 {
-                    return CreateTimeoutResponse(request, timeoutMilliseconds);
+                    return CreateTimeoutResponse(request);
                 }
                 catch (OperationCanceledException)
                 {
@@ -249,38 +210,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             return response;
         }
 
-        private static IpcResponse CreateTimeoutResponse (
-            IpcRequest request,
-            int? timeoutMilliseconds)
+        private static IpcResponse CreateTimeoutResponse (ValidatedUnityIpcRequest request)
         {
             return UnityIpcResponseFactory.CreateErrorResponse(
                 request,
                 IpcTransportErrorCodes.IpcTimeout,
-                $"Unity test run timed out after {timeoutMilliseconds!.Value} milliseconds.",
+                "Unity test run reached its request deadline.",
                 null);
-        }
-
-        private static bool TryValidateTimeoutMilliseconds (
-            int? timeoutMilliseconds,
-            out string errorMessage)
-        {
-            errorMessage = null;
-            if (!timeoutMilliseconds.HasValue || timeoutMilliseconds.Value > 0)
-            {
-                return true;
-            }
-
-            errorMessage = "Test run timeoutMilliseconds must be greater than zero when specified.";
-            return false;
-        }
-
-        private static bool IsRequestTimeout (
-            IIpcRequestTimeoutScope requestTimeoutScope,
-            CancellationToken callerCancellationToken)
-        {
-            return requestTimeoutScope != null
-                && requestTimeoutScope.IsTimeoutCancellationRequested
-                && !callerCancellationToken.IsCancellationRequested;
         }
     }
 }

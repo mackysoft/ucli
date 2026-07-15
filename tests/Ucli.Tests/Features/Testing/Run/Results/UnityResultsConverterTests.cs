@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Tests.Helpers.Testing;
@@ -178,9 +177,9 @@ public sealed class UnityResultsConverterTests
         var artifactPaths = TestArtifactPaths.Create(artifactsDirectoryPath);
 
         session = new ArtifactsSession(
-            RunId: RunIdTestValues.Test,
-            Paths: artifactPaths,
-            StartedAtUtc: DateTimeOffset.UtcNow);
+            runId: RunIdTestValues.Test,
+            paths: artifactPaths,
+            startedAtUtc: DateTimeOffset.UtcNow);
         return scope;
     }
 

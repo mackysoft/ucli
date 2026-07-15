@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -25,7 +24,7 @@ public sealed class TestRunCommandResultFactoryTests
 
         Assert.Equal(1, result.ProtocolVersion);
         Assert.Equal(UcliCommandNames.TestRun, result.Command);
-        Assert.Equal("ok", result.Status);
+        Assert.Equal(CommandResultStatus.Ok, result.Status);
         Assert.Equal(1, result.ExitCode);
         Assert.Equal(serviceResult.Message, result.Message);
         Assert.Empty(result.Errors);
@@ -57,7 +56,7 @@ public sealed class TestRunCommandResultFactoryTests
         var result = TestRunCommandResultFactory.Create(serviceResult);
 
         Assert.Equal(UcliCommandNames.TestRun, result.Command);
-        Assert.Equal("error", result.Status);
+        Assert.Equal(CommandResultStatus.Error, result.Status);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         Assert.Single(result.Errors);
         Assert.Equal(errorCode, result.Errors[0].Code);
@@ -89,7 +88,7 @@ public sealed class TestRunCommandResultFactoryTests
         var result = TestRunCommandResultFactory.Create(serviceResult);
 
         Assert.Equal(UcliCommandNames.TestRun, result.Command);
-        Assert.Equal("error", result.Status);
+        Assert.Equal(CommandResultStatus.Error, result.Status);
         Assert.Single(result.Errors);
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, result.Errors[0].Code);
         Assert.NotNull(serviceResult.Failure!.StartupFailure);
@@ -110,27 +109,11 @@ public sealed class TestRunCommandResultFactoryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Create_WithMissingErrorCode_FallsBackToInternalError ()
+    public void InfraError_WithNullErrorCode_ThrowsArgumentNullException ()
     {
-        var serviceResult = TestRunServiceResult.InfraError(
+        Assert.Throws<ArgumentNullException>(() => TestRunServiceResult.InfraError(
             "Unexpected execution pipeline state.",
-            default);
-
-        var result = TestRunCommandResultFactory.Create(serviceResult);
-
-        Assert.Equal("error", result.Status);
-        Assert.Equal(2, result.ExitCode);
-        Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.Errors[0].Code);
-
-        using var json = JsonDocument.Parse(ResultWriter.Write(result));
-        var payload = json.RootElement.GetProperty("payload");
-        JsonAssert.For(payload)
-            .IsNull("result")
-            .HasString("errorKind", "infraError")
-            .IsNull("runId")
-            .IsNull("artifactsDir")
-            .IsNull("summaryJsonPath");
+            null!));
     }
 
     [Fact]
@@ -147,7 +130,7 @@ public sealed class TestRunCommandResultFactoryTests
 
         var result = TestRunCommandResultFactory.Create(serviceResult);
 
-        Assert.Equal("error", result.Status);
+        Assert.Equal(CommandResultStatus.Error, result.Status);
         Assert.Equal(2, result.ExitCode);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
@@ -181,9 +164,9 @@ public sealed class TestRunCommandResultFactoryTests
                 ArtifactPath: null,
                 RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
             Diagnosis: new DaemonDiagnosisOutput(
-                Reason: "unityScriptCompilationFailed",
+                Reason: DaemonDiagnosisReason.UnityScriptCompilationFailed,
                 Message: "Unity startup is blocked.",
-                ReportedBy: "cli",
+                ReportedBy: DaemonDiagnosisReportedBy.Cli,
                 IsInferred: true,
                 UpdatedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:06+00:00"),
                 ProcessId: null,
@@ -191,7 +174,7 @@ public sealed class TestRunCommandResultFactoryTests
                 ProcessStartedAtUtc: null,
                 UnityLogPath: "/tmp/artifacts/editor.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: "fixCompileErrors",
+                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: null),
             RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
             SafeToRetryImmediately: false);

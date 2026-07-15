@@ -37,7 +37,7 @@ internal static class TestRunProgressAssert
                 Assert.Equal(TestRunProgressEventNames.CaseFinished, entry.EventName);
                 var payload = Assert.IsType<TestCaseFinishedEntry>(entry.Payload);
                 Assert.Equal(expectedRunId, payload.RunId);
-                Assert.Equal("pass", payload.Result);
+                Assert.Equal(TestCaseResult.Pass, payload.Result);
                 Assert.Equal(42, payload.DurationMilliseconds);
             },
             entry =>
@@ -45,7 +45,7 @@ internal static class TestRunProgressAssert
                 Assert.Equal(TestRunProgressEventNames.RunDiagnostic, entry.EventName);
                 var payload = Assert.IsType<TestRunDiagnosticEntry>(entry.Payload);
                 Assert.Equal(expectedRunId, payload.RunId);
-                Assert.Equal("TEST_PROGRESS_STUB", payload.Code);
+                Assert.Equal(new UcliCode("TEST_PROGRESS_STUB"), payload.Code);
             });
     }
 

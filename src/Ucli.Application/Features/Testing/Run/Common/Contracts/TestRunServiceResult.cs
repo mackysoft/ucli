@@ -164,6 +164,7 @@ internal sealed record TestRunServiceResult
         string? summaryJsonPath = null,
         StartupFailureDetail? startupFailure = null)
     {
+        ArgumentNullException.ThrowIfNull(errorCode);
         return new TestRunServiceResult(
             result: null,
             errorKind: TestRunErrorKind.InvalidInput,
@@ -190,6 +191,7 @@ internal sealed record TestRunServiceResult
         string? summaryJsonPath = null,
         StartupFailureDetail? startupFailure = null)
     {
+        ArgumentNullException.ThrowIfNull(errorCode);
         return new TestRunServiceResult(
             result: null,
             errorKind: TestRunErrorKind.InfraError,
@@ -220,6 +222,7 @@ internal sealed record TestRunServiceResult
         string? summaryJsonPath = null,
         StartupFailureDetail? startupFailure = null)
     {
+        ArgumentNullException.ThrowIfNull(errorCode);
         return new TestRunServiceResult(
             result: null,
             errorKind: TestRunErrorKind.ToolError,

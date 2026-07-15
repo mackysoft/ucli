@@ -175,9 +175,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 TestFilter: null,
                 TestCategories: Array.Empty<string>(),
                 AssemblyNames: Array.Empty<string>(),
-                TestSettingsPath: null,
-                ResultsXmlPath: "/tmp/results.xml",
-                EditorLogPath: "/tmp/editor.log",
                 FailFast: failFast,
                 RunId: RunId);
         }
@@ -185,16 +182,16 @@ namespace MackySoft.Ucli.Unity.Tests
         private static UnityTestRunRequestContext CreateRequestContext ()
         {
             return new UnityTestRunRequestContext(
-                RunId: RunId,
-                TestPlatform: "editmode",
-                TestMode: UnityTestMode.EditMode,
-                TargetPlatform: null,
-                TestFilter: null,
-                TestCategories: Array.Empty<string>(),
-                AssemblyNames: Array.Empty<string>(),
-                ResultsXmlPath: "/tmp/results.xml",
-                EditorLogPath: "/tmp/editor.log",
-                ConsoleLogPath: "/tmp/console.log");
+                runId: RunId,
+                testPlatform: "editmode",
+                testMode: UnityTestMode.EditMode,
+                targetPlatform: null,
+                testFilter: null,
+                testCategories: Array.Empty<string>(),
+                assemblyNames: Array.Empty<string>(),
+                resultsXmlPath: "/tmp/results.xml",
+                editorLogPath: "/tmp/editor.log",
+                consoleLogPath: "/tmp/console.log");
         }
 
         private sealed class StubUnityTestRunRequestContextFactory : IUnityTestRunRequestContextFactory

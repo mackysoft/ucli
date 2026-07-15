@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -79,7 +78,7 @@ public sealed class TestProfileInitCliOutputContractTests
             .IsNull("testFilter")
             .HasArrayLength("testCategories", 0)
             .HasArrayLength("assemblyNames", 0)
-            .IsNull("testSettingsPath")
             .HasInt32("timeout", UcliContractConstants.TestProfile.TimeoutMilliseconds);
+        Assert.False(profileJson.RootElement.TryGetProperty("testSettingsPath", out _));
     }
 }
