@@ -711,45 +711,6 @@ internal sealed class CompileService : ICompileService
             return ApplicationFailure.InternalError("Unity compile summary is incomplete.");
         }
 
-        if (summary.Refresh is null)
-        {
-            return ApplicationFailure.InternalError("Unity compile summary is missing refresh evidence.");
-        }
-
-        if (summary.ScriptCompilation is null)
-        {
-            return ApplicationFailure.InternalError("Unity compile summary is missing script compilation evidence.");
-        }
-
-        if (summary.ScriptCompilation.Diagnostics is null)
-        {
-            return ApplicationFailure.InternalError("Unity compile summary is missing diagnostics evidence.");
-        }
-
-        if (summary.ScriptCompilation.Diagnostics.ErrorCount < 0
-            || summary.ScriptCompilation.Diagnostics.WarningCount < 0)
-        {
-            return ApplicationFailure.InternalError("Unity compile summary diagnostic counts must not be negative.");
-        }
-
-        if (summary.DomainReload is null)
-        {
-            return ApplicationFailure.InternalError("Unity compile summary is missing domain reload evidence.");
-        }
-
-        if (summary.Lifecycle is null)
-        {
-            return ApplicationFailure.InternalError("Unity compile summary is missing lifecycle evidence.");
-        }
-
-        if (summary.ScriptCompilation.CompileGenerationBefore is < 0
-            || summary.ScriptCompilation.CompileGenerationAfter is < 0
-            || summary.DomainReload.GenerationBefore is < 0
-            || summary.DomainReload.GenerationAfter is < 0)
-        {
-            return ApplicationFailure.InternalError("Unity compile summary generation values must not be negative.");
-        }
-
         return null;
     }
 

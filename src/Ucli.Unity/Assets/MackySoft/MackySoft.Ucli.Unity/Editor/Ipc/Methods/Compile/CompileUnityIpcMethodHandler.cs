@@ -241,7 +241,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             if (TryReadPendingSummary(paths.SummaryJsonPath, daemonLogger, out var completedSummary)
-                && completedSummary != null
                 && completedSummary.Completed
                 && MatchesPendingSummaryIdentity(completedSummary, pendingSummary))
             {
@@ -289,12 +288,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcProjectIdentity projectIdentity,
             out string errorMessage)
         {
-            if (pendingSummary == null)
-            {
-                errorMessage = "Recoverable compile operation pending summary is missing.";
-                return false;
-            }
-
             if (pendingSummary.Completed)
             {
                 errorMessage = "Recoverable compile operation pending summary is already completed.";
@@ -310,12 +303,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (pendingSummary.ProjectFingerprint != projectIdentity.ProjectFingerprint)
             {
                 errorMessage = "Recoverable compile operation project fingerprint does not match this daemon.";
-                return false;
-            }
-
-            if (pendingSummary.Lifecycle == null)
-            {
-                errorMessage = "Recoverable compile operation lifecycle evidence is missing.";
                 return false;
             }
 
@@ -336,13 +323,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcCompileSummary completedSummary,
             IpcCompileSummary pendingSummary)
         {
-            return completedSummary != null
-                && pendingSummary != null
-                && completedSummary.RunId == pendingSummary.RunId
+            return completedSummary.RunId == pendingSummary.RunId
                 && completedSummary.ProjectFingerprint == pendingSummary.ProjectFingerprint
                 && completedSummary.StartedAtUtc == pendingSummary.StartedAtUtc
-                && completedSummary.Lifecycle != null
-                && pendingSummary.Lifecycle != null
                 && string.Equals(
                     completedSummary.Lifecycle.UnityVersion,
                     pendingSummary.Lifecycle.UnityVersion,
@@ -476,14 +459,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             if (!TryReadPendingSummary(paths.RequestJsonPath, daemonLogger, out var pendingSummary)
-                || pendingSummary == null
                 || pendingSummary.Completed)
             {
                 return;
             }
 
             if (TryReadPendingSummary(paths.SummaryJsonPath, daemonLogger, out var existingSummary)
-                && existingSummary != null
                 && existingSummary.Completed
                 && MatchesPendingSummaryIdentity(existingSummary, pendingSummary))
             {
@@ -563,40 +544,39 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var domainReloadObserved = IsDomainReloadObserved(pendingSummary, afterSnapshot);
-            return pendingSummary with
-            {
-                Completed = true,
-                CompletedAtUtc = completedAtUtc,
-                Refresh = new IpcCompileSummary.RefreshEvidence(
+            return new IpcCompileSummary(
+                RunId: pendingSummary.RunId,
+                ProjectFingerprint: pendingSummary.ProjectFingerprint,
+                Completed: true,
+                StartedAtUtc: pendingSummary.StartedAtUtc,
+                CompletedAtUtc: completedAtUtc,
+                Refresh: new IpcCompileSummary.RefreshEvidence(
                     Origin: pendingSummary.Refresh.Origin,
                     Requested: pendingSummary.Refresh.Requested,
                     StartedAtUtc: pendingSummary.Refresh.StartedAtUtc,
                     CompletedAtUtc: completedAtUtc,
                     Completed: true),
-                ScriptCompilation = pendingSummary.ScriptCompilation with
-                {
-                    Started = diagnostics.CompilationStarted
+                ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
+                    Started: diagnostics.CompilationStarted
                         || pendingSummary.ScriptCompilation.CompileGenerationBefore
                             != afterSnapshot.State.Generations.CompileGeneration,
-                    Completed = true,
-                    CompileGenerationAfter = afterSnapshot.State.Generations.CompileGeneration,
-                    Diagnostics = new IpcCompileSummary.DiagnosticsEvidence(
+                    Completed: true,
+                    CompileGenerationBefore: pendingSummary.ScriptCompilation.CompileGenerationBefore,
+                    CompileGenerationAfter: afterSnapshot.State.Generations.CompileGeneration,
+                    Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
                         ErrorCount: errorCount,
                         WarningCount: diagnostics.WarningCount,
-                        PrimaryDiagnostic: primaryDiagnostic),
-                },
-                DomainReload = pendingSummary.DomainReload with
-                {
-                    ReloadRequired = domainReloadObserved,
-                    ReloadObserved = domainReloadObserved,
-                    GenerationAfter = afterSnapshot.State.Generations.DomainReloadGeneration,
-                    Settled = IsLifecycleSettled(afterSnapshot),
-                },
-                Lifecycle = CreateLifecycleEvidence(
+                        PrimaryDiagnostic: primaryDiagnostic)),
+                DomainReload: new IpcCompileSummary.DomainReloadEvidence(
+                    ReloadRequired: domainReloadObserved,
+                    ReloadObserved: domainReloadObserved,
+                    GenerationBefore: pendingSummary.DomainReload.GenerationBefore,
+                    GenerationAfter: afterSnapshot.State.Generations.DomainReloadGeneration,
+                    Settled: IsLifecycleSettled(afterSnapshot)),
+                Lifecycle: CreateLifecycleEvidence(
                     afterSnapshot,
                     unityVersion,
-                    serverVersionProvider),
-            };
+                    serverVersionProvider));
         }
 
         private static IpcCompileSummary CreateAbandonedPendingSummary (
@@ -609,38 +589,37 @@ namespace MackySoft.Ucli.Unity.Ipc
             var primaryDiagnostic = afterSnapshot.PrimaryDiagnostic;
             var errorCount = primaryDiagnostic == null ? 0 : 1;
             var domainReloadObserved = IsDomainReloadObserved(pendingSummary, afterSnapshot);
-            return pendingSummary with
-            {
-                Completed = true,
-                CompletedAtUtc = completedAtUtc,
-                Refresh = new IpcCompileSummary.RefreshEvidence(
+            return new IpcCompileSummary(
+                RunId: pendingSummary.RunId,
+                ProjectFingerprint: pendingSummary.ProjectFingerprint,
+                Completed: true,
+                StartedAtUtc: pendingSummary.StartedAtUtc,
+                CompletedAtUtc: completedAtUtc,
+                Refresh: new IpcCompileSummary.RefreshEvidence(
                     Origin: pendingSummary.Refresh.Origin,
                     Requested: pendingSummary.Refresh.Requested,
                     StartedAtUtc: pendingSummary.Refresh.StartedAtUtc,
                     CompletedAtUtc: null,
                     Completed: false),
-                ScriptCompilation = pendingSummary.ScriptCompilation with
-                {
-                    Started = false,
-                    Completed = false,
-                    CompileGenerationAfter = afterSnapshot.State.Generations.CompileGeneration,
-                    Diagnostics = new IpcCompileSummary.DiagnosticsEvidence(
+                ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
+                    Started: false,
+                    Completed: false,
+                    CompileGenerationBefore: pendingSummary.ScriptCompilation.CompileGenerationBefore,
+                    CompileGenerationAfter: afterSnapshot.State.Generations.CompileGeneration,
+                    Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
                         ErrorCount: errorCount,
                         WarningCount: 0,
-                        PrimaryDiagnostic: primaryDiagnostic),
-                },
-                DomainReload = pendingSummary.DomainReload with
-                {
-                    ReloadRequired = domainReloadObserved,
-                    ReloadObserved = domainReloadObserved,
-                    GenerationAfter = afterSnapshot.State.Generations.DomainReloadGeneration,
-                    Settled = IsLifecycleSettled(afterSnapshot),
-                },
-                Lifecycle = CreateLifecycleEvidence(
+                        PrimaryDiagnostic: primaryDiagnostic)),
+                DomainReload: new IpcCompileSummary.DomainReloadEvidence(
+                    ReloadRequired: domainReloadObserved,
+                    ReloadObserved: domainReloadObserved,
+                    GenerationBefore: pendingSummary.DomainReload.GenerationBefore,
+                    GenerationAfter: afterSnapshot.State.Generations.DomainReloadGeneration,
+                    Settled: IsLifecycleSettled(afterSnapshot)),
+                Lifecycle: CreateLifecycleEvidence(
                     afterSnapshot,
                     unityVersion,
-                    serverVersionProvider),
-            };
+                    serverVersionProvider));
         }
 
         private static bool CanCompletePendingRunFromRecovery (

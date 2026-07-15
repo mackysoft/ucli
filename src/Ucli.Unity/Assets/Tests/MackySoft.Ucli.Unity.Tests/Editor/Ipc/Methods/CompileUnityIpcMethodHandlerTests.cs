@@ -141,18 +141,22 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var request = CreateCompileRequest(Guid.NewGuid(), runId);
                 var pendingSummary = CreatePendingSummary(runId);
-                var completedSummary = pendingSummary with
-                {
-                    Completed = true,
-                    CompletedAtUtc = pendingSummary.StartedAtUtc.AddSeconds(1),
-                    Lifecycle = new IpcCompileSummary.LifecycleEvidence(
+                var completedSummary = new IpcCompileSummary(
+                    RunId: pendingSummary.RunId,
+                    ProjectFingerprint: pendingSummary.ProjectFingerprint,
+                    Completed: true,
+                    StartedAtUtc: pendingSummary.StartedAtUtc,
+                    CompletedAtUtc: pendingSummary.StartedAtUtc.AddSeconds(1),
+                    Refresh: pendingSummary.Refresh,
+                    ScriptCompilation: pendingSummary.ScriptCompilation,
+                    DomainReload: pendingSummary.DomainReload,
+                    Lifecycle: new IpcCompileSummary.LifecycleEvidence(
                         ServerVersion: pendingSummary.Lifecycle.ServerVersion,
                         UnityVersion: "2023.2.22f1",
                         State: pendingSummary.Lifecycle.State,
                         ObservedAtUtc: pendingSummary.Lifecycle.ObservedAtUtc,
                         ActionRequired: pendingSummary.Lifecycle.ActionRequired,
-                        PrimaryDiagnostic: pendingSummary.Lifecycle.PrimaryDiagnostic),
-                };
+                        PrimaryDiagnostic: pendingSummary.Lifecycle.PrimaryDiagnostic));
                 Directory.CreateDirectory(artifactsDirectory);
                 File.WriteAllText(
                     Path.Combine(artifactsDirectory, UcliStoragePathNames.CompileSummaryFileName),
@@ -180,16 +184,22 @@ namespace MackySoft.Ucli.Unity.Tests
             var runId = Guid.NewGuid();
             var request = CreateCompileRequest(Guid.NewGuid(), runId);
             var originalPendingSummary = CreatePendingSummary(runId);
-            var pendingSummary = originalPendingSummary with
-            {
-                Lifecycle = new IpcCompileSummary.LifecycleEvidence(
+            var pendingSummary = new IpcCompileSummary(
+                RunId: originalPendingSummary.RunId,
+                ProjectFingerprint: originalPendingSummary.ProjectFingerprint,
+                Completed: originalPendingSummary.Completed,
+                StartedAtUtc: originalPendingSummary.StartedAtUtc,
+                CompletedAtUtc: originalPendingSummary.CompletedAtUtc,
+                Refresh: originalPendingSummary.Refresh,
+                ScriptCompilation: originalPendingSummary.ScriptCompilation,
+                DomainReload: originalPendingSummary.DomainReload,
+                Lifecycle: new IpcCompileSummary.LifecycleEvidence(
                     ServerVersion: originalPendingSummary.Lifecycle.ServerVersion,
                     UnityVersion: "2023.2.22f1",
                     State: originalPendingSummary.Lifecycle.State,
                     ObservedAtUtc: originalPendingSummary.Lifecycle.ObservedAtUtc,
                     ActionRequired: originalPendingSummary.Lifecycle.ActionRequired,
-                    PrimaryDiagnostic: originalPendingSummary.Lifecycle.PrimaryDiagnostic),
-            };
+                    PrimaryDiagnostic: originalPendingSummary.Lifecycle.PrimaryDiagnostic));
             var context = CreateRecoverableContext(request, pendingSummary);
             var handler = CreateHandler();
 
