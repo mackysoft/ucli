@@ -1,11 +1,20 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.ExceptionServices;
 
 namespace MackySoft.Ucli.Contracts.Text;
 
 /// <summary> Converts enum-backed contract literals without input normalization. </summary>
+/// <remarks>
+/// An external enum used with this codec must declare at least one member, and every declared member must declare one
+/// <see cref="UcliContractLiteralAttribute" />. Represent optional values with nullable enums and keep
+/// runtime-only sentinel values in a separate type.
+/// </remarks>
 public static class ContractLiteralCodec
 {
+    private static readonly MethodInfo GetLiteralsMethod = typeof(ContractLiteralCodec)
+        .GetMethod(nameof(GetLiterals), BindingFlags.Public | BindingFlags.Static)!;
+
     /// <summary> Converts one enum value to its canonical contract literal. </summary>
     /// <typeparam name="TEnum"> The enum type. </typeparam>
     /// <param name="value"> The enum value to convert. </param>
@@ -92,6 +101,33 @@ public static class ContractLiteralCodec
         return Cache<TEnum>.Table.Literals;
     }
 
+    /// <summary> Validates the complete contract-literal definition for an enum known only at runtime. </summary>
+    /// <param name="enumType"> The enum type to validate. </param>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="enumType" /> is not an enum. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="enumType" /> is <see langword="null" />. </exception>
+    /// <exception cref="InvalidOperationException"> Thrown when any enum member does not define a valid, unique contract literal. </exception>
+    internal static void Validate (Type enumType)
+    {
+        if (enumType == null)
+        {
+            throw new ArgumentNullException(nameof(enumType));
+        }
+        if (!enumType.IsEnum)
+        {
+            throw new ArgumentException($"Type '{enumType.FullName}' is not an enum.", nameof(enumType));
+        }
+
+        try
+        {
+            _ = GetLiteralsMethod.MakeGenericMethod(enumType).Invoke(null, null);
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException != null)
+        {
+            ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            throw;
+        }
+    }
+
     private static class Cache<TEnum>
         where TEnum : struct, Enum
     {
@@ -108,24 +144,21 @@ public static class ContractLiteralCodec
             var valueToLiteral = new Dictionary<TEnum, string>();
             var literalToValue = new Dictionary<string, TEnum>(StringComparer.Ordinal);
             var literals = new List<string>(fields.Length);
+            var declaredValues = new HashSet<TEnum>();
 
             for (var i = 0; i < fields.Length; i++)
             {
                 var field = fields[i];
                 var attribute = field.GetCustomAttribute<UcliContractLiteralAttribute>(inherit: false);
-                var ignoreAttribute = field.GetCustomAttribute<UcliContractLiteralIgnoreAttribute>(inherit: false);
-                if (attribute != null && ignoreAttribute != null)
+
+                var value = (TEnum)field.GetValue(null)!;
+                if (!declaredValues.Add(value))
                 {
-                    throw new InvalidOperationException($"Enum member '{enumType.FullName}.{field.Name}' cannot define both a contract literal and a contract literal ignore marker.");
+                    throw new InvalidOperationException($"Enum type '{enumType.FullName}' defines duplicate enum value '{value}'.");
                 }
 
                 if (attribute is null)
                 {
-                    if (ignoreAttribute != null)
-                    {
-                        continue;
-                    }
-
                     throw new InvalidOperationException($"Enum member '{enumType.FullName}.{field.Name}' is missing UcliContractLiteralAttribute.");
                 }
 
@@ -140,12 +173,6 @@ public static class ContractLiteralCodec
                     throw new InvalidOperationException($"Enum member '{enumType.FullName}.{field.Name}' has a contract literal with leading or trailing whitespace.");
                 }
 
-                var value = (TEnum)field.GetValue(null)!;
-                if (valueToLiteral.ContainsKey(value))
-                {
-                    throw new InvalidOperationException($"Enum type '{enumType.FullName}' defines duplicate enum value '{value}'.");
-                }
-
                 if (literalToValue.ContainsKey(literal))
                 {
                     throw new InvalidOperationException($"Enum type '{enumType.FullName}' defines duplicate contract literal '{literal}'.");
@@ -154,6 +181,11 @@ public static class ContractLiteralCodec
                 valueToLiteral.Add(value, literal);
                 literalToValue.Add(literal, value);
                 literals.Add(literal);
+            }
+
+            if (literals.Count == 0)
+            {
+                throw new InvalidOperationException($"Enum type '{enumType.FullName}' does not define any contract literals.");
             }
 
             return new Table<TEnum>(valueToLiteral, literalToValue, literals.AsReadOnly());

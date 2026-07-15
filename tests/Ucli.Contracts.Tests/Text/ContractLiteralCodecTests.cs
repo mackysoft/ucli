@@ -1,9 +1,5 @@
 using System.Reflection;
-using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Configuration;
-using MackySoft.Ucli.Contracts.Daemon;
-using MackySoft.Ucli.Contracts.Index;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -35,48 +31,16 @@ public sealed class ContractLiteralCodecTests
         new("outer whitespace literal", static () => ContractLiteralCodec.GetLiterals<WhitespaceLiteralEnum>()),
         new("duplicate literal", static () => ContractLiteralCodec.GetLiterals<DuplicateLiteralEnum>()),
         new("duplicate enum value", static () => ContractLiteralCodec.GetLiterals<DuplicateEnumValueEnum>()),
-        new("literal and ignore attributes", static () => ContractLiteralCodec.GetLiterals<LiteralAndIgnoreEnum>()),
+        new("no declared members", static () => ContractLiteralCodec.GetLiterals<NoMemberEnum>()),
     ];
 
-    private static readonly Type[] ContractVocabularyEnumTypes =
-    [
-        typeof(UcliOperationExposure),
-        typeof(UcliOperationKind),
-        typeof(OperationPolicy),
-        typeof(PlanTokenMode),
-        typeof(ReadIndexMode),
-        typeof(BuildProfileProjectMutationMode),
-        typeof(BuildProfileSceneSource),
-        typeof(DaemonEditorMode),
-        typeof(DaemonSessionOwnerKind),
-        typeof(DaemonStartupBlockedProcessPolicy),
-        typeof(DaemonStartProgressEvent),
-        typeof(DaemonStartProgressPayloadKind),
-        typeof(IndexSchemaKind),
-        typeof(IndexPropertyType),
-        typeof(IpcResponseMode),
-        typeof(IpcTransportKind),
-        typeof(IpcEditorLifecycleState),
-        typeof(IpcCompileState),
-        typeof(IpcEditorBlockingReason),
-        typeof(IpcScreenshotTarget),
-        typeof(IpcScreenshotSizeMode),
-        typeof(IpcScreenshotColorSpace),
-        typeof(IpcScreenshotPixelFormat),
-        typeof(IpcScreenshotRowOrder),
-        typeof(ScreenshotArtifactKind),
-        typeof(IpcPlayModeState),
-        typeof(IpcPlayModeTransition),
-        typeof(IpcEditStepContract.ActionKind),
-        typeof(SceneTreeSourceStateKind),
-        typeof(UcliOperationInputConstraintKind),
-        typeof(UcliOperationAssetKind),
-        typeof(UcliOperationReferenceTargetKind),
-        typeof(UcliOperationSerializedPropertyAccess),
-        typeof(UcliOperationTypeKind),
-        typeof(UcliOperationPlanMode),
-        typeof(UcliOperationSideEffect),
-    ];
+    private static readonly Type[] ContractVocabularyEnumTypes = typeof(UcliContractLiteralAttribute).Assembly
+        .GetTypes()
+        .Where(static type => type.IsEnum && type
+            .GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Any(static field => field.IsDefined(typeof(UcliContractLiteralAttribute), inherit: false)))
+        .OrderBy(static type => type.FullName, StringComparer.Ordinal)
+        .ToArray();
 
     [Fact]
     [Trait("Size", "Small")]
@@ -180,11 +144,11 @@ public sealed class ContractLiteralCodecTests
     [Trait("Size", "Small")]
     public void TryToValue_WhenValueIsUnmapped_ReturnsFalse ()
     {
-        var result = ContractLiteralCodec.TryToValue(UcliOperationAssetKind.Unspecified, out var literal);
+        var result = ContractLiteralCodec.TryToValue(default(UcliOperationAssetKind), out var literal);
 
         Assert.False(result);
         Assert.Null(literal);
-        Assert.False(ContractLiteralCodec.IsDefined(UcliOperationAssetKind.Unspecified));
+        Assert.False(ContractLiteralCodec.IsDefined(default(UcliOperationAssetKind)));
     }
 
     [Fact]
@@ -202,7 +166,7 @@ public sealed class ContractLiteralCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void GetLiterals_WhenContractVocabularyEnumIsRegistered_BuildsTable ()
+    public void GetLiterals_ForEveryDeclaredContractVocabularyEnum_BuildsTable ()
     {
         foreach (Type enumType in ContractVocabularyEnumTypes)
         {
@@ -265,10 +229,7 @@ public sealed class ContractLiteralCodecTests
         Second = 0,
     }
 
-    private enum LiteralAndIgnoreEnum
+    private enum NoMemberEnum
     {
-        [UcliContractLiteral("value")]
-        [UcliContractLiteralIgnore]
-        Value = 0,
     }
 }
