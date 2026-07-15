@@ -427,25 +427,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static void EnsureWritableArtifactPath (string path)
-        {
-            if (!File.Exists(path) && !Directory.Exists(path))
-            {
-                return;
-            }
-
-            var attributes = File.GetAttributes(path);
-            if ((attributes & FileAttributes.ReparsePoint) != 0)
-            {
-                throw new IOException($"Compile artifact target must not be a reparse point: {path}");
-            }
-
-            if ((attributes & FileAttributes.Directory) != 0)
-            {
-                throw new IOException($"Compile artifact target must not be a directory: {path}");
-            }
-        }
-
         private static void TryWriteAbandonedPendingRun (
             CompileArtifactPaths paths,
             IUnityEditorReadinessGate readinessGate,
@@ -707,69 +688,32 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-            var tempPath = path + $".tmp.{Guid.NewGuid():N}";
+            var temporaryStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var tempPath);
+            var temporaryFileOwned = true;
 
             try
             {
-                EnsureWritableArtifactPath(tempPath);
-                using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                using (var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+                using (temporaryStream)
+                using (var writer = new StreamWriter(
+                           temporaryStream,
+                           new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
                 {
                     writer.Write(JsonSerializer.Serialize(value, IpcJsonSerializerOptions.Default));
                 }
 
                 FileSystemAccessBoundary.EnsureSecureFile(tempPath);
-                EnsureWritableArtifactPath(path);
-                ReplaceFile(tempPath, path);
+                FileUtilities.PublishAtomicWriteTemporaryFile(tempPath, path);
+                temporaryFileOwned = false;
                 FileSystemAccessBoundary.EnsureSecureFile(path);
             }
             finally
             {
-                DeleteTemporaryFileIfExists(tempPath);
+                if (temporaryFileOwned)
+                {
+                    FileUtilities.DeleteIfExists(tempPath);
+                }
             }
         }
-
-        private static void ReplaceFile (
-            string temporaryPath,
-            string path)
-        {
-            try
-            {
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
-            catch (FileNotFoundException)
-            {
-                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-            }
-            catch (IOException) when (!File.Exists(path))
-            {
-                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-            }
-        }
-
-        private static void MoveOrReplaceWhenCreatedConcurrently (
-            string temporaryPath,
-            string path)
-        {
-            try
-            {
-                File.Move(temporaryPath, path);
-            }
-            catch (IOException) when (File.Exists(path))
-            {
-                EnsureWritableArtifactPath(path);
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
-        }
-
-        private static void DeleteTemporaryFileIfExists (string path)
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-
 
         private sealed class SettledLifecycleObservationWindow
         {

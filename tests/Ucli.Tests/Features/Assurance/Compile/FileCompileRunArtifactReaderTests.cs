@@ -101,7 +101,7 @@ public sealed class FileCompileRunArtifactReaderTests
             ?? throw new InvalidOperationException("Run directory path could not be resolved.");
         Assert.DoesNotContain(
             Directory.EnumerateFiles(runDirectoryPath),
-            path => Path.GetFileName(path).Contains(".tmp.", StringComparison.Ordinal));
+            path => Path.GetFileName(path).StartsWith(".tmp-", StringComparison.Ordinal));
     }
 
     [Fact]

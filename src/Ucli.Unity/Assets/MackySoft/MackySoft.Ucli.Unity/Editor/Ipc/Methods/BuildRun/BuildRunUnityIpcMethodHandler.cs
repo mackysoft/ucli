@@ -907,13 +907,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-            var tempPath = path + $".tmp.{Guid.NewGuid():N}";
+            var temporaryStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var tempPath);
+            var temporaryFileOwned = true;
             try
             {
-                using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                using (temporaryStream)
                 {
                     await JsonSerializer.SerializeAsync(
-                            stream,
+                            temporaryStream,
                             value,
                             IpcJsonSerializerOptions.Default,
                             cancellationToken)
@@ -922,13 +923,19 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 cancellationToken.ThrowIfCancellationRequested();
                 FileSystemAccessBoundary.EnsureSecureFile(tempPath);
-                EnsureWritableArtifactPath(path);
-                ReplaceFile(tempPath, path);
+                await FileUtilities.PublishAtomicWriteTemporaryFileAsync(
+                    tempPath,
+                    path,
+                    cancellationToken);
+                temporaryFileOwned = false;
                 FileSystemAccessBoundary.EnsureSecureFile(path);
             }
             finally
             {
-                DeleteTemporaryFileIfExists(tempPath);
+                if (temporaryFileOwned)
+                {
+                    FileUtilities.DeleteIfExists(tempPath);
+                }
             }
         }
 
@@ -945,10 +952,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-            var tempPath = path + $".tmp.{Guid.NewGuid():N}";
+            var temporaryStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var tempPath);
+            var temporaryFileOwned = true;
             try
             {
-                using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, useAsync: true))
+                using (temporaryStream)
                 {
                     var byteCount = Utf8NoBomEncoding.GetByteCount(value);
                     if (byteCount > 0)
@@ -957,7 +965,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         try
                         {
                             var bytesWritten = EncodeUtf8(value, buffer, byteCount);
-                            await stream.WriteAsync(buffer, 0, bytesWritten, cancellationToken);
+                            await temporaryStream.WriteAsync(buffer, 0, bytesWritten, cancellationToken);
                         }
                         finally
                         {
@@ -968,13 +976,19 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 cancellationToken.ThrowIfCancellationRequested();
                 FileSystemAccessBoundary.EnsureSecureFile(tempPath);
-                EnsureWritableArtifactPath(path);
-                ReplaceFile(tempPath, path);
+                await FileUtilities.PublishAtomicWriteTemporaryFileAsync(
+                    tempPath,
+                    path,
+                    cancellationToken);
+                temporaryFileOwned = false;
                 FileSystemAccessBoundary.EnsureSecureFile(path);
             }
             finally
             {
-                DeleteTemporaryFileIfExists(tempPath);
+                if (temporaryFileOwned)
+                {
+                    FileUtilities.DeleteIfExists(tempPath);
+                }
             }
         }
 
@@ -986,65 +1000,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             return Utf8NoBomEncoding.GetBytes(value.AsSpan(), buffer.AsSpan(0, byteCount));
         }
 
-        private static void EnsureWritableArtifactPath (string path)
-        {
-            if (!File.Exists(path) && !Directory.Exists(path))
-            {
-                return;
-            }
-
-            var attributes = File.GetAttributes(path);
-            if ((attributes & FileAttributes.ReparsePoint) != 0)
-            {
-                throw new IOException($"Build artifact target must not be a reparse point: {path}");
-            }
-
-            if ((attributes & FileAttributes.Directory) != 0)
-            {
-                throw new IOException($"Build artifact target must not be a directory: {path}");
-            }
-        }
-
-        private static void ReplaceFile (
-            string temporaryPath,
-            string path)
-        {
-            try
-            {
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
-            catch (FileNotFoundException)
-            {
-                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-            }
-            catch (IOException) when (!File.Exists(path))
-            {
-                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-            }
-        }
-
-        private static void MoveOrReplaceWhenCreatedConcurrently (
-            string temporaryPath,
-            string path)
-        {
-            try
-            {
-                File.Move(temporaryPath, path);
-            }
-            catch (IOException) when (File.Exists(path))
-            {
-                EnsureWritableArtifactPath(path);
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
-        }
-
-        private static void DeleteTemporaryFileIfExists (string path)
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
 
     }
 }
