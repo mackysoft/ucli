@@ -2,10 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
-using System.Text;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 #nullable enable
@@ -16,6 +16,8 @@ namespace MackySoft.Ucli.Unity.Build
     internal sealed class UnityProjectMutationAuditProbe
     {
         private const int FileStreamBufferSize = 81920;
+
+        private const int RootCaptureAttemptLimit = 3;
 
         /// <summary> Captures the current project mutation audit baseline. </summary>
         /// <param name="projectPath"> The Unity project root path. </param>
@@ -80,19 +82,42 @@ namespace MackySoft.Ucli.Unity.Build
                     continue;
                 }
 
-                try
+                var rootFiles = new List<ProjectMutationFileEntry>();
+                var rootCaptured = false;
+                var rootHasFullCoverage = false;
+                for (var attempt = 0; attempt < RootCaptureAttemptLimit; attempt++)
                 {
-                    if (!CaptureRoot(projectRoot, rootPath, files))
+                    rootFiles.Clear();
+                    try
                     {
-                        coverage = IpcBuildProjectMutationAuditCoverage.Partial;
+                        rootHasFullCoverage = CaptureRoot(projectRoot, rootPath, rootFiles);
+                        rootCaptured = true;
+                        break;
                     }
-
-                    scannedRootCount++;
+                    catch (IOException)
+                    {
+                        // Unity imports can replace entries while the live project tree is scanned.
+                        // Discard the incomplete root observation and retry it as one unit.
+                    }
+                    catch (Exception exception) when (exception is UnauthorizedAccessException or NotSupportedException)
+                    {
+                        break;
+                    }
                 }
-                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or NotSupportedException)
+
+                if (!rootCaptured)
+                {
+                    coverage = IpcBuildProjectMutationAuditCoverage.Partial;
+                    continue;
+                }
+
+                files.AddRange(rootFiles);
+                if (!rootHasFullCoverage)
                 {
                     coverage = IpcBuildProjectMutationAuditCoverage.Partial;
                 }
+
+                scannedRootCount++;
             }
 
             if (scannedRootCount == 0)
@@ -244,16 +269,16 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static Sha256Digest CalculateAggregateDigest (IReadOnlyList<ProjectMutationFileEntry> files)
         {
-            var builder = new StringBuilder();
+            using var hashWriter = new Utf8Sha256HashWriter();
             for (var i = 0; i < files.Count; i++)
             {
-                builder.Append(files[i].Path.Value);
-                builder.Append('\0');
-                builder.Append(files[i].Sha256);
-                builder.Append('\n');
+                hashWriter.Append(files[i].Path.Value);
+                hashWriter.Append('\0');
+                hashWriter.Append(files[i].Sha256.ToString());
+                hashWriter.Append('\n');
             }
 
-            return Sha256Digest.Compute(Encoding.UTF8.GetBytes(builder.ToString()));
+            return hashWriter.GetHashAndReset();
         }
 
         private static Sha256Digest ComputeFileSha256 (string path)
