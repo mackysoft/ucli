@@ -128,6 +128,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class StubRenderPipeline : RenderPipeline
         {
+#if UNITY_6000_1_OR_NEWER
+            [System.Obsolete]
+#endif
             protected override void Render (
                 ScriptableRenderContext context,
                 Camera[] cameras)
