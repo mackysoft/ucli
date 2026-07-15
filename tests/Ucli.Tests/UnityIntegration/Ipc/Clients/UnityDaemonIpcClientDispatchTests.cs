@@ -554,19 +554,26 @@ public sealed class UnityDaemonIpcClientDispatchTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        for (var attempt = 0; attempt < 10; attempt++)
-        {
-            await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
-            timeProvider.Advance(retryDelay);
-        }
+        await TestAwaiter.WaitAsync(
+            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+                    timeProvider,
+                    sendTask,
+                    DaemonTimeouts.ProbeAttemptTimeoutCap,
+                    retryDelay)
+                .AsTask(),
+            "Unity daemon dispatch endpoint window manual time",
+            TimeSpan.FromSeconds(1));
 
-        var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(1));
+        var result = await sendTask;
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         Assert.Contains(interruption.Message, result.Message, StringComparison.Ordinal);
         Assert.Single(transportClient.Requests);
         _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
+        Assert.Equal(
+            DateTimeOffset.UnixEpoch + DaemonTimeouts.ProbeAttemptTimeoutCap,
+            timeProvider.GetUtcNow());
     }
 
     [Theory]

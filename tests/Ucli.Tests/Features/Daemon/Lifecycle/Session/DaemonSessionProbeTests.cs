@@ -125,15 +125,22 @@ public sealed class DaemonSessionProbeTests
                 ExecutionDeadline.Start(timeout, timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await AdvanceNextPublicationRetryAsync(timeProvider);
-        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50));
-        timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+        await TestAwaiter.WaitAsync(
+            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+                    timeProvider,
+                    probeTask,
+                    timeout,
+                    TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
+                .AsTask(),
+            "daemon session probe request deadline manual time",
+            TimeSpan.FromSeconds(1));
 
         var result = await probeTask;
 
         Assert.False(result.IsSuccess);
         Assert.IsType<TimeoutException>(result.ProbeFailure);
         Assert.Single(pingInfoClient.Invocations);
+        Assert.Equal(DateTimeOffset.UnixEpoch + timeout, timeProvider.GetUtcNow());
     }
 
     [Fact]
@@ -279,18 +286,26 @@ public sealed class DaemonSessionProbeTests
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
-        for (var attempt = 0; attempt < 10; attempt++)
-        {
-            await AdvanceNextPublicationRetryAsync(timeProvider);
-        }
+        await TestAwaiter.WaitAsync(
+            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+                    timeProvider,
+                    probeTask,
+                    DaemonTimeouts.ProbeAttemptTimeoutCap,
+                    TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
+                .AsTask(),
+            "daemon session probe endpoint window manual time",
+            TimeSpan.FromSeconds(1));
 
-        var result = await probeTask.WaitAsync(TimeSpan.FromSeconds(1));
+        var result = await probeTask;
 
         Assert.False(result.IsSuccess);
         Assert.Same(interruption, result.ProbeFailure);
         Assert.Equal(observedSession, result.Session);
         Assert.Null(result.SessionReadFailure);
         Assert.Single(pingInfoClient.Invocations);
+        Assert.Equal(
+            DateTimeOffset.UnixEpoch + DaemonTimeouts.ProbeAttemptTimeoutCap,
+            timeProvider.GetUtcNow());
     }
 
     [Fact]

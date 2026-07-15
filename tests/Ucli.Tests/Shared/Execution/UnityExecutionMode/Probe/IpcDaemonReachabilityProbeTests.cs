@@ -257,9 +257,17 @@ public sealed class IpcDaemonReachabilityProbeTests
                 DefaultProbeTimeout,
                 CancellationToken.None)
             .AsTask();
-        await AdvanceEndpointAvailabilityWindowAsync(timeProvider);
+        await TestAwaiter.WaitAsync(
+            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+                    timeProvider,
+                    resultTask,
+                    ProbeAttemptTimeoutCap,
+                    TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
+                .AsTask(),
+            "daemon reachability endpoint window manual time",
+            SignalWaitTimeout);
 
-        var result = await resultTask.WaitAsync(SignalWaitTimeout);
+        var result = await resultTask;
 
         Assert.False(result.IsRunning);
         Assert.False(result.HasError);
@@ -507,22 +515,6 @@ public sealed class IpcDaemonReachabilityProbeTests
             unityProjectRoot: scope.FullPath,
             repositoryRoot: scope.FullPath,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
-    }
-
-    private static async Task AdvanceEndpointAvailabilityWindowAsync (ManualTimeProvider timeProvider)
-    {
-        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        var elapsed = TimeSpan.Zero;
-        while (elapsed < ProbeAttemptTimeoutCap)
-        {
-            var remaining = ProbeAttemptTimeoutCap - elapsed;
-            var advanceBy = remaining < retryDelay ? remaining : retryDelay;
-            await timeProvider
-                .WaitForTimerDueWithinAsync(advanceBy)
-                .WaitAsync(SignalWaitTimeout);
-            timeProvider.Advance(advanceBy);
-            elapsed += advanceBy;
-        }
     }
 
     private sealed class FirstResponseTimeoutTransportClient : IIpcTransportClient

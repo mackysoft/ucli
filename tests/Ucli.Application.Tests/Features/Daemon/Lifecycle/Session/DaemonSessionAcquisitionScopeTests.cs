@@ -500,12 +500,16 @@ public sealed class DaemonSessionAcquisitionScopeTests
                 rejectedSession,
                 CancellationToken.None)
             .AsTask();
-        await timeProvider.WaitForTimerDueWithinAsync(RetryDelay);
-        timeProvider.Advance(RetryDelay);
-        var finalDelay = requestTimeout - RetryDelay;
-        await timeProvider.WaitForTimerDueWithinAsync(finalDelay);
-        timeProvider.Advance(finalDelay);
-        var result = await resolutionTask.WaitAsync(TimeSpan.FromSeconds(1));
+        await TestAwaiter.WaitAsync(
+            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+                    timeProvider,
+                    resolutionTask,
+                    requestTimeout,
+                    RetryDelay)
+                .AsTask(),
+            "daemon session acquisition request deadline manual time",
+            TimeSpan.FromSeconds(1));
+        var result = await resolutionTask;
 
         Assert.Equal(DaemonSessionAcquisitionKind.RequestDeadlineExpired, result.Kind);
         Assert.Equal(DateTimeOffset.UnixEpoch + requestTimeout, timeProvider.GetUtcNow());

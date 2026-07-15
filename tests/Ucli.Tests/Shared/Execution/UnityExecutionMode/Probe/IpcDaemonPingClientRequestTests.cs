@@ -315,12 +315,19 @@ public sealed class IpcDaemonPingClientRequestTests
                 validateProjectFingerprint: true,
                 CancellationToken.None)
             .AsTask();
-        await AdvanceNextPublicationRetryAsync(timeProvider);
-        await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(50));
-        timeProvider.Advance(TimeSpan.FromMilliseconds(50));
+        await TestAwaiter.WaitAsync(
+            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+                    timeProvider,
+                    pingTask,
+                    timeout,
+                    TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
+                .AsTask(),
+            "daemon ping request deadline manual time",
+            AsyncWaitTimeout);
 
         await Assert.ThrowsAsync<TimeoutException>(() => pingTask);
         Assert.Single(unityIpcClient.Requests);
+        Assert.Equal(DateTimeOffset.UnixEpoch + timeout, timeProvider.GetUtcNow());
     }
 
     [Fact]
@@ -524,13 +531,6 @@ public sealed class IpcDaemonPingClientRequestTests
                 "Invalid timeout ping result",
                 AsyncWaitTimeout);
         });
-    }
-
-    private static async Task AdvanceNextPublicationRetryAsync (ManualTimeProvider timeProvider)
-    {
-        var retryDelay = TimeSpan.FromMilliseconds(100);
-        await timeProvider.WaitForTimerDueWithinAsync(retryDelay);
-        timeProvider.Advance(retryDelay);
     }
 
     private static async Task ObserveCompletionAsync (Task task)

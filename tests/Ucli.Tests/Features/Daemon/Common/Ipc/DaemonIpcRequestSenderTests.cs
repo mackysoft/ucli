@@ -824,13 +824,17 @@ public sealed class DaemonIpcRequestSenderTests
                 CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        for (var attempt = 0; attempt < 10; attempt++)
-        {
-            await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(AsyncWaitTimeout);
-            timeProvider.Advance(retryDelay);
-        }
+        await TestAwaiter.WaitAsync(
+            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+                    timeProvider,
+                    sendTask,
+                    DaemonTimeouts.ProbeAttemptTimeoutCap,
+                    retryDelay)
+                .AsTask(),
+            "daemon IPC sender endpoint window manual time",
+            AsyncWaitTimeout);
 
-        var result = await sendTask.WaitAsync(AsyncWaitTimeout);
+        var result = await sendTask;
 
         Assert.False(result.IsSuccess);
         var requests = IpcRequestAssert.RetriedAtLeastOnce(transportClient);
@@ -843,6 +847,9 @@ public sealed class DaemonIpcRequestSenderTests
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(DaemonErrorCodes.DaemonSessionNotAvailable, error.Code);
         Assert.Contains("--projectPath", error.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            DateTimeOffset.UnixEpoch + DaemonTimeouts.ProbeAttemptTimeoutCap,
+            timeProvider.GetUtcNow());
     }
 
     private static IpcResponse CreateResponse (Guid requestId)

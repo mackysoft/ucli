@@ -96,16 +96,23 @@ public sealed class IpcDaemonPingClientFailureTests
                 DefaultTimeout,
                 cancellationToken: CancellationToken.None)
             .AsTask();
-        for (var attempt = 0; attempt < 20; attempt++)
-        {
-            await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(100));
-            timeProvider.Advance(TimeSpan.FromMilliseconds(100));
-        }
+        await TestAwaiter.WaitAsync(
+            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+                    timeProvider,
+                    pingTask,
+                    DaemonTimeouts.SessionPublicationRetryTimeout,
+                    TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
+                .AsTask(),
+            "daemon ping publication window manual time",
+            AsyncWaitTimeout);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(() => pingTask);
 
         Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, exception.ErrorCode);
         Assert.Single(unityIpcClient.Requests);
+        Assert.Equal(
+            DateTimeOffset.UnixEpoch + DaemonTimeouts.SessionPublicationRetryTimeout,
+            timeProvider.GetUtcNow());
     }
 
     [Fact]
@@ -134,17 +141,23 @@ public sealed class IpcDaemonPingClientFailureTests
                 cancellationToken: CancellationToken.None)
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
-        for (var attempt = 0; attempt < 10; attempt++)
-        {
-            await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
-            timeProvider.Advance(retryDelay);
-        }
+        await TestAwaiter.WaitAsync(
+            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+                    timeProvider,
+                    pingTask,
+                    DaemonTimeouts.ProbeAttemptTimeoutCap,
+                    retryDelay)
+                .AsTask(),
+            "daemon ping endpoint window manual time",
+            AsyncWaitTimeout);
 
-        var exception = await Assert.ThrowsAsync<IpcResponseReadInterruptedException>(
-            () => pingTask.WaitAsync(TimeSpan.FromSeconds(1)));
+        var exception = await Assert.ThrowsAsync<IpcResponseReadInterruptedException>(() => pingTask);
 
         Assert.Same(interruption, exception);
         Assert.Single(unityIpcClient.Requests);
+        Assert.Equal(
+            DateTimeOffset.UnixEpoch + DaemonTimeouts.ProbeAttemptTimeoutCap,
+            timeProvider.GetUtcNow());
     }
 
     [Theory]
