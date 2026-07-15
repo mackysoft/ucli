@@ -125,7 +125,7 @@ public sealed class OpsServiceTests
             Result = OpsPreflightResult.Success(preflightContext),
         };
         var catalogOutput = new OpsDescribeReadOutput(
-            Operation: CreateGoDescribeEntry(),
+            Operation: OperationCatalogTestFixtures.CreateValidatedOperation(CreateGoDescribeEntry()),
             AccessInfo: new OpsCatalogAccessInfo(
                 true,
                 true,

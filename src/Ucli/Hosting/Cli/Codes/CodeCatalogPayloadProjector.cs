@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Hosting.Cli.Codes;
 
@@ -9,6 +10,12 @@ internal static class CodeCatalogPayloadProjector
     private const int CatalogVersion = 1;
 
     private const string Source = "bundled";
+
+    private static readonly IReadOnlyList<string> ListedKindLiterals = Enum
+        .GetValues<CodeCatalogKind>()
+        .Where(static kind => kind != CodeCatalogKind.Unknown)
+        .Select(ContractLiteralCodec.ToValue)
+        .ToArray();
 
     /// <summary> Creates the public payload for <c>codes list</c>. </summary>
     /// <param name="result"> The successful application list result. </param>
@@ -20,10 +27,10 @@ internal static class CodeCatalogPayloadProjector
         return new ListPayload(
             CatalogVersion,
             Source,
-            CodeCatalogKindValues.KnownKinds,
+            ListedKindLiterals,
             result.Descriptors!.Select(static descriptor => new CodeListItemPayload(
                 descriptor.Code.Value,
-                descriptor.Kind,
+                ContractLiteralCodec.ToValue(descriptor.Kind),
                 descriptor.Category,
                 descriptor.Summary)).ToArray());
     }
@@ -39,7 +46,7 @@ internal static class CodeCatalogPayloadProjector
         return new DescribePayload(
             descriptor.Code.Value,
             result.Known,
-            descriptor.Kind,
+            ContractLiteralCodec.ToValue(descriptor.Kind),
             descriptor.Category,
             descriptor.Summary,
             descriptor.Meaning,

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Ops;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -105,7 +104,7 @@ internal static class OpsCliOutputContractTestSupport
                 : isMutation ? [UcliOperationSideEffect.SceneSave]
                 : isAdvancedCommand ? [UcliOperationSideEffect.EditorStateChange]
                 : [UcliOperationSideEffect.ObservesUnityState],
-            touchedKinds: isMutation ? [UcliTouchedResourceKindNames.Scene] : Array.Empty<string>(),
+            touchedKinds: isMutation ? [UcliTouchedResourceKind.Scene] : Array.Empty<UcliTouchedResourceKind>(),
             planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",
             callSemantics: isMutation ? "Persist save-relevant Unity state." : "Read Unity state without applying mutation.",
@@ -176,7 +175,7 @@ internal static class OpsCliOutputContractTestSupport
             "Returns a GameObject description including components and child hierarchy.",
             new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate arguments and observe Unity state without applying mutation.",
                 callSemantics: "Read Unity state without applying mutation.",

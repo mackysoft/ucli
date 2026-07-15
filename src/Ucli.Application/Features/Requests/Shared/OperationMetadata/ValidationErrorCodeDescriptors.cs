@@ -85,7 +85,7 @@ internal static class ValidationErrorCodeDescriptors
             possiblePhases: possiblePhases,
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].opId", "errors[].message", "payload.requestId"],
             nextActions:
             [

@@ -28,6 +28,6 @@ internal interface IPersistedOpsCatalogReader
     ValueTask<PersistedOpsDescribeReadResult> ReadDescribeAsync (
         ResolvedUnityProjectContext unityProject,
         OpsCatalogDescriptorSnapshot catalogSnapshot,
-        IndexOpsCatalogEntryJsonContract catalogEntry,
+        ValidatedOpsCatalogEntry catalogEntry,
         CancellationToken cancellationToken = default);
 }

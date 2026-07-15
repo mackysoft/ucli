@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Diagnostics;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
@@ -52,7 +51,7 @@ public sealed class CodeCatalogTests
 
         foreach (var descriptor in catalog.Descriptors)
         {
-            Assert.Equal(CodeCatalogKindValues.Error, descriptor.Kind);
+            Assert.Equal(CodeCatalogKind.Error, descriptor.Kind);
             Assert.Contains("errors[].code", descriptor.AppearsIn);
             ErrorInspectTargetAssert.DoesNotUseBroadOrSensitiveTargets(descriptor.Inspect);
         }
@@ -68,7 +67,7 @@ public sealed class CodeCatalogTests
             ]);
 
         Assert.True(catalog.TryFind(ReadyClaimCodes.UnityReadyExecution, out var descriptor));
-        Assert.Equal(CodeCatalogKindValues.Claim, descriptor.Kind);
+        Assert.Equal(CodeCatalogKind.Claim, descriptor.Kind);
         Assert.Equal("ready", descriptor.Category);
         Assert.Contains(UcliCommandIds.Ready, descriptor.AppliesTo);
     }
@@ -80,7 +79,7 @@ public sealed class CodeCatalogTests
         var catalog = CodeCatalogTestSupport.CreateProductionCatalog();
 
         Assert.True(catalog.TryFind(ReadyClaimCodes.UnityReadyReadIndex, out var readyDescriptor));
-        Assert.Equal(CodeCatalogKindValues.Claim, readyDescriptor.Kind);
+        Assert.Equal(CodeCatalogKind.Claim, readyDescriptor.Kind);
         Assert.Contains(UcliCommandIds.Ready, readyDescriptor.AppliesTo);
 
         Assert.True(catalog.TryFind(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, out var daemonNotRunningDescriptor));
@@ -99,7 +98,7 @@ public sealed class CodeCatalogTests
         foreach (var code in BuildErrorCodes.All)
         {
             Assert.True(catalog.TryFind(code, out var descriptor));
-            Assert.Equal(CodeCatalogKindValues.Error, descriptor.Kind);
+            Assert.Equal(CodeCatalogKind.Error, descriptor.Kind);
             Assert.Equal("build", descriptor.Category);
             Assert.Contains(UcliCommandIds.BuildRun, descriptor.AppliesTo);
         }
@@ -120,17 +119,18 @@ public sealed class CodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void KnownKinds_ExposeSupportedKindsWithoutUnknown ()
+    public void CodeCatalogKind_HasStableLiteralsAndInvalidDefault ()
     {
         Assert.Equal(
             [
-                CodeCatalogKindValues.Error,
-                CodeCatalogKindValues.Diagnostic,
-                CodeCatalogKindValues.Reason,
-                CodeCatalogKindValues.Claim,
-                CodeCatalogKindValues.Risk,
+                "error",
+                "diagnostic",
+                "reason",
+                "claim",
+                "risk",
+                "unknown",
             ],
-            CodeCatalogKindValues.KnownKinds);
-        Assert.DoesNotContain(CodeCatalogKindValues.Unknown, CodeCatalogKindValues.KnownKinds);
+            ContractLiteralCodec.GetLiterals<CodeCatalogKind>());
+        Assert.False(ContractLiteralCodec.IsDefined(default(CodeCatalogKind)));
     }
 }

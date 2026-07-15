@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Hosting.Cli.Codes;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -51,7 +50,7 @@ internal static class CodesCliOutputContractTestSupport
                 ]),
             new(
                 "eval execution",
-                CodeCatalogKindValues.Error,
+                CodeCatalogKind.Error,
                 UcliCommandNames.Eval,
                 ExpectedCodes:
                 [
@@ -63,7 +62,7 @@ internal static class CodesCliOutputContractTestSupport
                 RejectedCodes: []),
             new(
                 "daemon logs read",
-                CodeCatalogKindValues.Error,
+                CodeCatalogKind.Error,
                 UcliCommandNames.LogsDaemonRead,
                 ExpectedCodes:
                 [
@@ -73,7 +72,7 @@ internal static class CodesCliOutputContractTestSupport
                 RejectedCodes: []),
             new(
                 "play family",
-                CodeCatalogKindValues.Error,
+                CodeCatalogKind.Error,
                 "play",
                 ExpectedCodes:
                 [
@@ -93,7 +92,7 @@ internal static class CodesCliOutputContractTestSupport
                 ]),
             new(
                 "play enter leaf",
-                CodeCatalogKindValues.Error,
+                CodeCatalogKind.Error,
                 "play.enter",
                 ExpectedCodes:
                 [
@@ -117,7 +116,7 @@ internal static class CodesCliOutputContractTestSupport
     public static async Task AssertCodesListCommandFilterCaseAsync (CodesListCommandFilterCase testCase)
     {
         var result = await RunCodesListCommandAsync(
-            kind: testCase.Kind,
+            kind: testCase.Kind.HasValue ? ContractLiteralCodec.ToValue(testCase.Kind.Value) : null,
             command: testCase.Command);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
@@ -172,7 +171,7 @@ internal static class CodesCliOutputContractTestSupport
 
     public sealed record CodesListCommandFilterCase (
         string Name,
-        string? Kind,
+        CodeCatalogKind? Kind,
         string Command,
         string[] ExpectedCodes,
         string[] RejectedCodes);

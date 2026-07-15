@@ -10,9 +10,8 @@ public sealed class CodeCliArgumentParserTests
         new("SOME_FUTURE_CODE", null, "SOME_FUTURE_CODE"),
         new("SOME.FUTURE_CODE", null, "SOME.FUTURE_CODE"),
         new("A1_B2", null, "A1_B2"),
-        new("error:IPC_TIMEOUT", CodeCatalogKindValues.Error, "IPC_TIMEOUT"),
-        new("future-kind:SOME_FUTURE_CODE", "future-kind", "SOME_FUTURE_CODE"),
-        new("unknown:IPC_TIMEOUT", CodeCatalogKindValues.Unknown, "IPC_TIMEOUT"),
+        new("error:IPC_TIMEOUT", CodeCatalogKind.Error, "IPC_TIMEOUT"),
+        new("unknown:IPC_TIMEOUT", CodeCatalogKind.Unknown, "IPC_TIMEOUT"),
     ];
 
     private static readonly string?[] InvalidCodeReferences =
@@ -24,6 +23,7 @@ public sealed class CodeCliArgumentParserTests
         "lowercase_code",
         "Code:IPC_TIMEOUT",
         "kind with space:IPC_TIMEOUT",
+        "future-kind:SOME_FUTURE_CODE",
         "-kind:IPC_TIMEOUT",
         "error:",
         ":IPC_TIMEOUT",
@@ -44,7 +44,7 @@ public sealed class CodeCliArgumentParserTests
             var result = CodeCliArgumentParser.TryParse(testCase.Value, out var reference, out var errorMessage);
 
             Assert.True(result);
-            Assert.Equal(testCase.ExpectedCode, reference.Code);
+            Assert.Equal(testCase.ExpectedCode, reference.Code.Value);
             Assert.Equal(testCase.ExpectedKind, reference.ExpectedKind);
             Assert.Empty(errorMessage);
         }
@@ -66,6 +66,6 @@ public sealed class CodeCliArgumentParserTests
 
     private sealed record ValidCodeReferenceCase (
         string Value,
-        string? ExpectedKind,
+        CodeCatalogKind? ExpectedKind,
         string ExpectedCode);
 }

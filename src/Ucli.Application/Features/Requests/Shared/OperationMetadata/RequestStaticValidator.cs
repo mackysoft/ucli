@@ -48,14 +48,14 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 Code: ValidationErrorCodes.StepsRequired,
                 Message: "steps is required.",
                 OpId: null));
-            return new ValidationResult(errors);
+            return ValidationResult.Invalid(errors);
         }
 
         if (request.Steps.Count == 0)
         {
             return errors.Count == 0
                 ? ValidationResult.Success()
-                : new ValidationResult(errors);
+                : ValidationResult.Invalid(errors);
         }
 
         Dictionary<string, UcliOperationDescriptor>? operationsByName = null;
@@ -71,7 +71,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         }
 
         var authorizationCache = new Dictionary<string, OperationAuthorizationResult>(StringComparer.Ordinal);
-        var usedStepIds = new HashSet<string>(StringComparer.Ordinal);
+        var usedStepIds = new HashSet<IpcExecuteStepId>();
         foreach (var step in request.Steps)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -89,19 +89,20 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 continue;
             }
 
-            if (!StringValueNormalizer.TryTrimToNonEmpty(step.StepId, out var normalizedStepId))
+            var stepId = step.StepId;
+            if (stepId == null)
             {
                 errors.Add(new ValidationError(
                     Code: ValidationErrorCodes.StepIdRequired,
                     Message: "step.id is required.",
                     OpId: null));
             }
-            else if (!usedStepIds.Add(normalizedStepId))
+            else if (!usedStepIds.Add(stepId))
             {
                 errors.Add(new ValidationError(
                     Code: ValidationErrorCodes.StepIdDuplicated,
-                    Message: $"step.id '{normalizedStepId}' is duplicated.",
-                    OpId: normalizedStepId));
+                    Message: $"step.id '{stepId}' is duplicated.",
+                    OpId: stepId));
             }
 
             if (step.Kind is null)
@@ -109,7 +110,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                 errors.Add(new ValidationError(
                     Code: ValidationErrorCodes.StepKindRequired,
                     Message: "step.kind is required.",
-                    OpId: normalizedStepId));
+                    OpId: stepId));
                 continue;
             }
 
@@ -121,7 +122,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                         errors.Add(new ValidationError(
                             Code: ValidationErrorCodes.OperationNameRequired,
                             Message: "step.op is required.",
-                            OpId: normalizedStepId));
+                            OpId: stepId));
                         continue;
                     }
 
@@ -130,7 +131,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                     {
                         if (TryCreateExposureValidationError(
                                 operationDescriptor,
-                                normalizedStepId,
+                                stepId,
                                 isImplicitEditOperation: false,
                                 out var exposureError))
                         {
@@ -140,7 +141,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
 
                         var argsValidationFailure = TryValidateOperationArgs(
                             step,
-                            normalizedStepId,
+                            stepId,
                             operationDescriptor,
                             errors);
                         if (argsValidationFailure is not null)
@@ -153,7 +154,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                     {
                         await ValidateReferencedOperationAsync(
                                 normalizedOperationName,
-                                normalizedStepId,
+                                stepId,
                                 isImplicitEditOperation: false,
                                 operationsByName,
                                 authorizationCache,
@@ -174,7 +175,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                         errors.Add(new ValidationError(
                             Code: ValidationErrorCodes.EditStepInvalid,
                             Message: errorMessage,
-                            OpId: normalizedStepId));
+                            OpId: stepId));
                         continue;
                     }
 
@@ -194,7 +195,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
 
                         await ValidateReferencedOperationAsync(
                                 operationName,
-                                normalizedStepId,
+                                stepId,
                                 isImplicitEditOperation: true,
                                 operationsByName,
                                 authorizationCache,
@@ -210,17 +211,19 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
                     errors.Add(new ValidationError(
                         Code: ValidationErrorCodes.StepKindInvalid,
                         Message: $"step.kind '{step.Kind}' is unsupported.",
-                        OpId: normalizedStepId));
+                        OpId: stepId));
                     break;
             }
         }
 
-        return new ValidationResult(errors);
+        return errors.Count == 0
+            ? ValidationResult.Success()
+            : ValidationResult.Invalid(errors);
     }
 
     private static ValidationResult? TryValidateOperationArgs (
         ValidateRequestStep step,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         UcliOperationDescriptor operationDescriptor,
         ICollection<ValidationError> errors)
     {
@@ -233,7 +236,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         {
             errors.Add(new ValidationError(
                 Code: ValidationErrorCodes.OperationArgsInvalid,
-                Message: $"Step '{stepId ?? string.Empty}' property 'args' must be an object.",
+                Message: $"Step '{stepId}' property 'args' must be an object.",
                 OpId: stepId));
             return null;
         }
@@ -255,14 +258,14 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
 
         errors.Add(new ValidationError(
             Code: ValidationErrorCodes.OperationArgsInvalid,
-            Message: $"Step '{stepId ?? string.Empty}' args for operation '{operationDescriptor.Name}' are invalid. {error}",
+            Message: $"Step '{stepId}' args for operation '{operationDescriptor.Name}' are invalid. {error}",
             OpId: stepId));
         return null;
     }
 
     private async ValueTask ValidateReferencedOperationAsync (
         string operationName,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         bool isImplicitEditOperation,
         IReadOnlyDictionary<string, UcliOperationDescriptor> operationsByName,
         IDictionary<string, OperationAuthorizationResult> authorizationCache,
@@ -279,7 +282,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         if (!operationsByName.TryGetValue(operationName, out var descriptor))
         {
             var message = isImplicitEditOperation
-                ? $"Edit step '{stepId ?? string.Empty}' requires operation '{operationName}', but it is not registered."
+                ? $"Edit step '{stepId}' requires operation '{operationName}', but it is not registered."
                 : $"Operation '{operationName}' is not registered.";
             errors.Add(new ValidationError(
                 Code: ValidationErrorCodes.OperationNotFound,
@@ -309,7 +312,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
         if (!authorizationResult.IsAllowed)
         {
             var message = isImplicitEditOperation
-                ? $"Edit step '{stepId ?? string.Empty}' requires operation '{operationName}'. {authorizationResult.Message}"
+                ? $"Edit step '{stepId}' requires operation '{operationName}'. {authorizationResult.Message}"
                 : authorizationResult.Message;
             errors.Add(new ValidationError(
                 Code: authorizationResult.ErrorCode ?? OperationAuthorizationErrorCodes.OperationNotAllowed,
@@ -320,7 +323,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
 
     private static bool TryCreateExposureValidationError (
         UcliOperationDescriptor operation,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         bool isImplicitEditOperation,
         out ValidationError? error)
     {
@@ -344,7 +347,7 @@ internal sealed class RequestStaticValidator : IRequestStaticValidator
             : $"Operation '{operation.Name}' has unsupported exposure '{operation.Exposure}'.";
         if (isImplicitEditOperation)
         {
-            message = $"Edit step '{stepId ?? string.Empty}' requires operation '{operation.Name}'. {message}";
+            message = $"Edit step '{stepId}' requires operation '{operation.Name}'. {message}";
         }
 
         error = new ValidationError(

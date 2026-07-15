@@ -106,7 +106,7 @@ public sealed class OpsListFilterTests
     {
         return new UcliOperationAssuranceContract(
             sideEffects: [UcliOperationSideEffect.ExternalProcess],
-            touchedKinds: Array.Empty<string>(),
+            touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
             planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Observe mutation inputs without applying them.",
             callSemantics: "Execute an unbounded mutation fixture.",

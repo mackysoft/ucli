@@ -8,7 +8,7 @@ internal static class CodeCatalogDescriptorTestFactory
     {
         return new CodeCatalogDescriptor(
             Code: new UcliCode(code),
-            Kind: CodeCatalogKindValues.Error,
+            Kind: CodeCatalogKind.Error,
             Category: "test",
             Summary: "Test descriptor.",
             Meaning: "A test descriptor.",
@@ -19,7 +19,7 @@ internal static class CodeCatalogDescriptorTestFactory
             ExecutionSemantics: new UcliErrorExecutionSemantics(
                 ImpliesNotApplied: true,
                 MayBeIndeterminate: false,
-                SafeToRetry: UcliErrorRetryClassValues.No),
+                SafeToRetry: UcliErrorRetryClass.No),
             Inspect: ["errors[].code"],
             RelatedCodes: []);
     }

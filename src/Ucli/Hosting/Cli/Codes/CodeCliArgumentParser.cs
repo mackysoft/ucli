@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Hosting.Cli.Codes;
 
@@ -22,7 +23,7 @@ internal static class CodeCliArgumentParser
             return false;
         }
 
-        var expectedKind = (string?)null;
+        CodeCatalogKind? expectedKind = null;
         var code = value;
         var kindSeparatorIndex = value.IndexOf(':', StringComparison.Ordinal);
         if (kindSeparatorIndex >= 0)
@@ -34,21 +35,23 @@ internal static class CodeCliArgumentParser
                 return false;
             }
 
-            expectedKind = value[..kindSeparatorIndex];
+            var kind = value[..kindSeparatorIndex];
             code = value[(kindSeparatorIndex + 1)..];
-            if (string.IsNullOrWhiteSpace(expectedKind))
+            if (string.IsNullOrWhiteSpace(kind))
             {
                 reference = null!;
                 errorMessage = "Code kind must not be empty.";
                 return false;
             }
 
-            if (!IsKindToken(expectedKind))
+            if (!ContractLiteralCodec.TryParse<CodeCatalogKind>(kind, out var parsedKind))
             {
                 reference = null!;
-                errorMessage = "Code kind must be a lowercase machine token using letters, digits, hyphens, underscores, and optional dot-separated segments.";
+                errorMessage = "Code kind is unsupported.";
                 return false;
             }
+
+            expectedKind = parsedKind;
         }
 
         if (string.IsNullOrWhiteSpace(code))
@@ -58,57 +61,15 @@ internal static class CodeCliArgumentParser
             return false;
         }
 
-        if (!UcliCode.IsValidValue(code))
+        if (!UcliCode.TryCreate(code, out var codeValue))
         {
             reference = null!;
             errorMessage = UcliCode.InvalidValueMessage;
             return false;
         }
 
-        reference = new CodeCatalogCodeReference(new UcliCode(code), expectedKind);
+        reference = new CodeCatalogCodeReference(codeValue, expectedKind);
         errorMessage = string.Empty;
         return true;
-    }
-
-    private static bool IsKindToken (string value)
-    {
-        var segmentStart = true;
-        for (var i = 0; i < value.Length; i++)
-        {
-            var character = value[i];
-            if (segmentStart)
-            {
-                if (!IsLowercaseAsciiLetter(character))
-                {
-                    return false;
-                }
-
-                segmentStart = false;
-                continue;
-            }
-
-            if (character == '.')
-            {
-                segmentStart = true;
-                continue;
-            }
-
-            if (!IsLowercaseAsciiLetter(character) && !IsAsciiDigit(character) && character != '-' && character != '_')
-            {
-                return false;
-            }
-        }
-
-        return !segmentStart;
-    }
-
-    private static bool IsLowercaseAsciiLetter (char character)
-    {
-        return character >= 'a' && character <= 'z';
-    }
-
-    private static bool IsAsciiDigit (char character)
-    {
-        return character >= '0' && character <= '9';
     }
 }

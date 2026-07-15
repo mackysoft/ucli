@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using static MackySoft.Ucli.Tests.OpsCliOutputContractTestSupport;
 
 namespace MackySoft.Ucli.Tests;

@@ -63,7 +63,7 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
         {
             throw new OperationCatalogLoadException(
                 CreateErrorFromCode(
-                    catalogResult.ErrorCode!.Value,
+                    catalogResult.ErrorCode!,
                     $"Operation catalog discovery failed. {catalogResult.Message}"),
                 catalogResult.ErrorCode);
         }
@@ -91,10 +91,7 @@ internal sealed class OperationCatalogDiscoveryService : IOperationCatalogDiscov
         UcliCode errorCode,
         string message)
     {
-        if (!errorCode.IsValid)
-        {
-            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
-        }
+        ArgumentNullException.ThrowIfNull(errorCode);
 
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 

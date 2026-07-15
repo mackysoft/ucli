@@ -1,18 +1,48 @@
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
 
 /// <summary> Represents one normalized <c>ops describe</c> service result. </summary>
-/// <param name="Output"> The successful output; otherwise <see langword="null" />. </param>
-/// <param name="Message"> The user-facing result message. </param>
-/// <param name="ErrorCode"> The machine-readable error code on failure; otherwise <see langword="null" />. </param>
-/// <param name="StartupFailure"> The structured startup failure detail when source fallback failed before Unity accepted the request. </param>
-internal sealed record OpsDescribeServiceResult (
-    OpsDescribeExecutionOutput? Output,
-    string Message,
-    UcliCode? ErrorCode,
-    StartupFailureDetail? StartupFailure = null)
+internal sealed record OpsDescribeServiceResult
 {
+    private OpsDescribeServiceResult (
+        OpsDescribeExecutionOutput? output,
+        string message,
+        UcliCode? errorCode,
+        StartupFailureDetail? startupFailure)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        if (output is null)
+        {
+            ArgumentNullException.ThrowIfNull(errorCode);
+        }
+        else
+        {
+            if (errorCode is not null)
+            {
+                throw new ArgumentException("Successful service result must not contain an error code.", nameof(errorCode));
+            }
+
+            if (startupFailure is not null)
+            {
+                throw new ArgumentException("Successful service result must not contain startup failure details.", nameof(startupFailure));
+            }
+        }
+
+        Output = output;
+        Message = message;
+        ErrorCode = errorCode;
+        StartupFailure = startupFailure;
+    }
+
+    public OpsDescribeExecutionOutput? Output { get; }
+
+    public string Message { get; }
+
+    public UcliCode? ErrorCode { get; }
+
+    public StartupFailureDetail? StartupFailure { get; }
+
     /// <summary> Gets a value indicating whether the service execution succeeded. </summary>
-    public bool IsSuccess => Output is not null && ErrorCode is null;
+    public bool IsSuccess => Output is not null;
 
     /// <summary> Creates a successful service result. </summary>
     /// <param name="output"> The successful output. </param>
@@ -23,7 +53,7 @@ internal sealed record OpsDescribeServiceResult (
         string message)
     {
         ArgumentNullException.ThrowIfNull(output);
-        return new OpsDescribeServiceResult(output, message, null);
+        return new OpsDescribeServiceResult(output, message, null, null);
     }
 
     /// <summary> Creates a failed service result. </summary>

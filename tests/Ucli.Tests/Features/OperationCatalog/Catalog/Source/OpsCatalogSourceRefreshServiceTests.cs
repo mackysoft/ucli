@@ -60,20 +60,22 @@ public sealed class OpsCatalogSourceRefreshServiceTests
                 DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
                 [CreateGoDescribeEntry()]),
         };
+        var inputsManifestContract = new IndexInputsManifestJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+            ScriptAssembliesHash: Sha256DigestTestFactory.Compute("old-script").ToString(),
+            PackagesManifestHash: Sha256DigestTestFactory.Compute("old-manifest").ToString(),
+            PackagesLockHash: Sha256DigestTestFactory.Compute("old-lock").ToString(),
+            AssemblyDefinitionHash: Sha256DigestTestFactory.Compute("old-asmdef").ToString(),
+            AssetsContentHash: Sha256DigestTestFactory.Compute("existing-assets").ToString(),
+            AssetSearchHash: Sha256DigestTestFactory.Compute("existing-asset-search").ToString(),
+            GuidPathHash: Sha256DigestTestFactory.Compute("existing-guid-path").ToString(),
+            CombinedHash: Sha256DigestTestFactory.Compute("old-combined").ToString());
+        Assert.True(ReadIndexInputsManifestSnapshot.TryCreate(inputsManifestContract, out var inputsManifest));
         var persistedArtifactsReader = new StubPersistedOpsCatalogPersistenceArtifactsReader
         {
             Result = new PersistedOpsCatalogPersistenceArtifacts(
-                InputsManifest: new IndexInputsManifestJsonContract(
-                    SchemaVersion: 1,
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-                    ScriptAssembliesHash: "old-script",
-                    PackagesManifestHash: "old-manifest",
-                    PackagesLockHash: "old-lock",
-                    AssemblyDefinitionHash: "old-asmdef",
-                    AssetsContentHash: "existing-assets",
-                    AssetSearchHash: "existing-asset-search",
-                    GuidPathHash: "existing-guid-path",
-                    CombinedHash: "old-combined"),
+                InputsManifest: inputsManifest,
                 HasPersistedAssetLookupArtifacts: true),
         };
         var fingerprintProvider = new RecordingReadIndexInputFingerprintProvider
@@ -264,11 +266,11 @@ public sealed class OpsCatalogSourceRefreshServiceTests
     private static ReadIndexCoreInputHashSnapshot CreateCoreSnapshot (string combinedHash)
     {
         return new ReadIndexCoreInputHashSnapshot(
-            ScriptAssembliesHash: "script",
-            PackagesManifestHash: "manifest",
-            PackagesLockHash: "lock",
-            AssemblyDefinitionHash: "asmdef",
-            CombinedHash: combinedHash);
+            Sha256DigestTestFactory.Compute("script"),
+            Sha256DigestTestFactory.Compute("manifest"),
+            Sha256DigestTestFactory.Compute("lock"),
+            Sha256DigestTestFactory.Compute("asmdef"),
+            Sha256DigestTestFactory.Compute(combinedHash));
     }
 
     private static ReadIndexInputHashSnapshot CreateSnapshot (
@@ -277,14 +279,14 @@ public sealed class OpsCatalogSourceRefreshServiceTests
         string combinedHash)
     {
         return new ReadIndexInputHashSnapshot(
-            ScriptAssembliesHash: "script",
-            PackagesManifestHash: "manifest",
-            PackagesLockHash: "lock",
-            AssemblyDefinitionHash: "asmdef",
-            AssetsContentHash: "assets",
-            AssetSearchHash: assetSearchHash,
-            GuidPathHash: guidPathHash,
-            CombinedHash: combinedHash);
+            Sha256DigestTestFactory.Compute("script"),
+            Sha256DigestTestFactory.Compute("manifest"),
+            Sha256DigestTestFactory.Compute("lock"),
+            Sha256DigestTestFactory.Compute("asmdef"),
+            Sha256DigestTestFactory.Compute("assets"),
+            Sha256DigestTestFactory.Compute(assetSearchHash),
+            Sha256DigestTestFactory.Compute(guidPathHash),
+            Sha256DigestTestFactory.Compute(combinedHash));
     }
 
 }

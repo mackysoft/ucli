@@ -4,16 +4,16 @@ namespace MackySoft.Ucli.Application.Tests.Features.CodeCatalog.Catalog;
 
 public sealed class CodeCatalogServiceDescribeTests
 {
-    public static TheoryData<string> KnownCodeKindMismatchCases =>
+    private static readonly CodeCatalogKind[] KnownCodeKindMismatchCases =
     [
-        CodeCatalogKindValues.Claim,
-        "future-kind",
+        CodeCatalogKind.Claim,
+        CodeCatalogKind.Unknown,
     ];
 
-    public static TheoryData<string> UnknownCodeFallbackCases =>
+    private static readonly CodeCatalogKind[] UnknownCodeFallbackCases =
     [
-        CodeCatalogKindValues.Error,
-        "future-kind",
+        CodeCatalogKind.Error,
+        CodeCatalogKind.Unknown,
     ];
 
     [Fact]
@@ -23,50 +23,54 @@ public sealed class CodeCatalogServiceDescribeTests
         var service = CodeCatalogTestSupport.CreateService();
 
         var result = service.Describe(
-            new CodeCatalogCodeReference(IpcTransportErrorCodes.IpcTimeout, CodeCatalogKindValues.Error),
+            new CodeCatalogCodeReference(IpcTransportErrorCodes.IpcTimeout, CodeCatalogKind.Error),
             requireKnown: true);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Known);
         Assert.NotNull(result.Descriptor);
         Assert.Equal(IpcTransportErrorCodes.IpcTimeout, result.Descriptor!.Code);
-        Assert.Equal(CodeCatalogKindValues.Error, result.Descriptor.Kind);
+        Assert.Equal(CodeCatalogKind.Error, result.Descriptor.Kind);
         Assert.Contains("errors[].code", result.Descriptor.AppearsIn);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(KnownCodeKindMismatchCases))]
-    public void Describe_WithKnownCodeAndMismatchedExpectedKind_ReturnsInvalidArgument (string expectedKind)
+    public void Describe_WithKnownCodeAndMismatchedExpectedKind_ReturnsInvalidArgument ()
     {
         var service = CodeCatalogTestSupport.CreateService();
 
-        var result = service.Describe(
-            new CodeCatalogCodeReference(IpcTransportErrorCodes.IpcTimeout, expectedKind),
-            requireKnown: false);
+        foreach (var expectedKind in KnownCodeKindMismatchCases)
+        {
+            var result = service.Describe(
+                new CodeCatalogCodeReference(IpcTransportErrorCodes.IpcTimeout, expectedKind),
+                requireKnown: false);
 
-        CodeCatalogTestSupport.AssertInvalidArgument(result);
+            CodeCatalogTestSupport.AssertInvalidArgument(result);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [MemberData(nameof(UnknownCodeFallbackCases))]
-    public void Describe_WithUnknownCodeAndRequireKnownFalse_ReturnsUnknownFallback (string expectedKind)
+    public void Describe_WithUnknownCodeAndRequireKnownFalse_ReturnsUnknownFallback ()
     {
         var service = CodeCatalogTestSupport.CreateService();
         var futureCode = new UcliCode("SOME_FUTURE_CODE");
 
-        var result = service.Describe(
-            new CodeCatalogCodeReference(futureCode, expectedKind),
-            requireKnown: false);
+        foreach (var expectedKind in UnknownCodeFallbackCases)
+        {
+            var result = service.Describe(
+                new CodeCatalogCodeReference(futureCode, expectedKind),
+                requireKnown: false);
 
-        Assert.True(result.IsSuccess);
-        Assert.False(result.Known);
-        Assert.NotNull(result.Descriptor);
-        Assert.Equal(futureCode, result.Descriptor!.Code);
-        Assert.Equal(CodeCatalogKindValues.Unknown, result.Descriptor.Kind);
-        Assert.Equal(CodeCatalogKindValues.Unknown, result.Descriptor.Category);
-        Assert.Empty(result.Descriptor.AppearsIn);
+            Assert.True(result.IsSuccess);
+            Assert.False(result.Known);
+            Assert.NotNull(result.Descriptor);
+            Assert.Equal(futureCode, result.Descriptor!.Code);
+            Assert.Equal(CodeCatalogKind.Unknown, result.Descriptor.Kind);
+            Assert.Equal(ContractLiteralCodec.ToValue(CodeCatalogKind.Unknown), result.Descriptor.Category);
+            Assert.Empty(result.Descriptor.AppearsIn);
+        }
     }
 
     [Fact]
@@ -84,12 +88,19 @@ public sealed class CodeCatalogServiceDescribeTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Describe_WithDefaultCodeValue_ReturnsInvalidArgument ()
+    public void CodeCatalogCodeReference_WithNullCode_ThrowsArgumentNullException ()
     {
-        var service = CodeCatalogTestSupport.CreateService();
+        Assert.Throws<ArgumentNullException>(() => new CodeCatalogCodeReference(
+            null!,
+            ExpectedKind: null));
+    }
 
-        var result = service.Describe(new CodeCatalogCodeReference(default, ExpectedKind: null), requireKnown: false);
-
-        CodeCatalogTestSupport.AssertInvalidArgument(result);
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CodeCatalogCodeReference_WithUndefinedExpectedKind_ThrowsArgumentOutOfRangeException ()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new CodeCatalogCodeReference(
+            IpcTransportErrorCodes.IpcTimeout,
+            (CodeCatalogKind)int.MaxValue));
     }
 }

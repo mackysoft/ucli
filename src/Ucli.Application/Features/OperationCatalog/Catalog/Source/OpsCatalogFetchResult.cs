@@ -1,18 +1,48 @@
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents one operation-catalog fetch result. </summary>
-/// <param name="Snapshot"> The validated catalog snapshot on success; otherwise <see langword="null" />. </param>
-/// <param name="Message"> The user-facing result message. </param>
-/// <param name="ErrorCode"> The machine-readable error code on failure; otherwise <see langword="null" />. </param>
-/// <param name="StartupFailure"> The structured startup failure detail when source fetch failed before Unity accepted the request. </param>
-internal sealed record OpsCatalogFetchResult (
-    OpsCatalogSnapshot? Snapshot,
-    string Message,
-    UcliCode? ErrorCode,
-    StartupFailureDetail? StartupFailure = null)
+internal sealed record OpsCatalogFetchResult
 {
+    private OpsCatalogFetchResult (
+        OpsCatalogSnapshot? snapshot,
+        string message,
+        UcliCode? errorCode,
+        StartupFailureDetail? startupFailure)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        if (snapshot is null)
+        {
+            ArgumentNullException.ThrowIfNull(errorCode);
+        }
+        else
+        {
+            if (errorCode is not null)
+            {
+                throw new ArgumentException("Successful fetch result must not contain an error code.", nameof(errorCode));
+            }
+
+            if (startupFailure is not null)
+            {
+                throw new ArgumentException("Successful fetch result must not contain startup failure details.", nameof(startupFailure));
+            }
+        }
+
+        Snapshot = snapshot;
+        Message = message;
+        ErrorCode = errorCode;
+        StartupFailure = startupFailure;
+    }
+
+    public OpsCatalogSnapshot? Snapshot { get; }
+
+    public string Message { get; }
+
+    public UcliCode? ErrorCode { get; }
+
+    public StartupFailureDetail? StartupFailure { get; }
+
     /// <summary> Gets a value indicating whether fetch succeeded. </summary>
-    public bool IsSuccess => Snapshot is not null && ErrorCode is null;
+    public bool IsSuccess => Snapshot is not null;
 
     /// <summary> Creates a successful fetch result. </summary>
     /// <param name="snapshot"> The validated catalog snapshot. </param>
@@ -21,9 +51,10 @@ internal sealed record OpsCatalogFetchResult (
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         return new OpsCatalogFetchResult(
-            Snapshot: snapshot,
-            Message: "Ops catalog read completed.",
-            ErrorCode: null);
+            snapshot,
+            "Ops catalog read completed.",
+            errorCode: null,
+            startupFailure: null);
     }
 
     /// <summary> Creates a failed fetch result. </summary>
@@ -36,9 +67,9 @@ internal sealed record OpsCatalogFetchResult (
         StartupFailureDetail? startupFailure = null)
     {
         return new OpsCatalogFetchResult(
-            Snapshot: null,
-            Message: message,
-            ErrorCode: errorCode,
-            StartupFailure: startupFailure);
+            snapshot: null,
+            message,
+            errorCode,
+            startupFailure);
     }
 }

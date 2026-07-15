@@ -20,7 +20,7 @@ public sealed class OpsCatalogAccessServiceDescribeIndexTests
                 DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
                 IndexFreshness.Fresh,
                 [CreateGoDescribeEntry(), sceneSave]),
-            DescribeResult = PersistedOpsDescribeReadResult.Success(sceneSave),
+            DescribeResult = PersistedOpsDescribeReadResult.Success(CreateValidatedOperation(sceneSave)),
         };
         var sourceRefreshService = new UnexpectedOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
@@ -32,7 +32,7 @@ public sealed class OpsCatalogAccessServiceDescribeIndexTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(sceneSave, result.Output!.Operation);
+        Assert.Equal(sceneSave.Name, result.Output!.Operation.Name);
         OpsCatalogAccessInvocationAssert.PersistedDescribeReadFor(
             persistedReader,
             context,
@@ -51,7 +51,7 @@ public sealed class OpsCatalogAccessServiceDescribeIndexTests
                 DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
                 IndexFreshness.Fresh,
                 [CreateGoDescribeEntry()]),
-            DescribeResult = PersistedOpsDescribeReadResult.Success(operation),
+            DescribeResult = PersistedOpsDescribeReadResult.Success(CreateValidatedOperation(operation)),
         };
         var sourceRefreshService = new UnexpectedOpsCatalogSourceRefreshService();
         var service = new OpsCatalogAccessService(persistedReader, sourceRefreshService);
@@ -62,6 +62,6 @@ public sealed class OpsCatalogAccessServiceDescribeIndexTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(operation, result.Output!.Operation);
+        Assert.Equal(operation.Name, result.Output!.Operation.Name);
     }
 }

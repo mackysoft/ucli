@@ -30,12 +30,14 @@ public sealed class CodeCatalogServiceListTests
     {
         var service = CodeCatalogTestSupport.CreateService();
 
-        var result = service.List(new CodeCatalogListInput(Kind: CodeCatalogKindValues.Error, Command: null));
+        var result = service.List(new CodeCatalogListInput(
+            Kind: ContractLiteralCodec.ToValue(CodeCatalogKind.Error),
+            Command: null));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Descriptors);
         Assert.NotEmpty(result.Descriptors);
-        Assert.All(result.Descriptors!, static descriptor => Assert.Equal(CodeCatalogKindValues.Error, descriptor.Kind));
+        Assert.All(result.Descriptors!, static descriptor => Assert.Equal(CodeCatalogKind.Error, descriptor.Kind));
         Assert.Contains(IpcTransportErrorCodes.IpcTimeout.Value, result.Descriptors!.Select(static descriptor => descriptor.Code.Value));
     }
 
@@ -72,7 +74,9 @@ public sealed class CodeCatalogServiceListTests
     {
         var service = CodeCatalogTestSupport.CreateService();
 
-        var result = service.List(new CodeCatalogListInput(Kind: CodeCatalogKindValues.Error, Command: UcliCommandIds.Eval.Name));
+        var result = service.List(new CodeCatalogListInput(
+            Kind: ContractLiteralCodec.ToValue(CodeCatalogKind.Error),
+            Command: UcliCommandIds.Eval.Name));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Descriptors);
@@ -92,7 +96,9 @@ public sealed class CodeCatalogServiceListTests
     {
         var service = CodeCatalogTestSupport.CreateService();
 
-        var result = service.List(new CodeCatalogListInput(Kind: CodeCatalogKindValues.Error, Command: "play"));
+        var result = service.List(new CodeCatalogListInput(
+            Kind: ContractLiteralCodec.ToValue(CodeCatalogKind.Error),
+            Command: "play"));
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Descriptors);

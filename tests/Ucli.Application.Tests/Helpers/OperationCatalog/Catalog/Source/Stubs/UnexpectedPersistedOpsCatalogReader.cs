@@ -21,7 +21,7 @@ internal sealed class UnexpectedPersistedOpsCatalogReader : IPersistedOpsCatalog
     public ValueTask<PersistedOpsDescribeReadResult> ReadDescribeAsync (
         ResolvedUnityProjectContext unityProject,
         OpsCatalogDescriptorSnapshot catalogSnapshot,
-        IndexOpsCatalogEntryJsonContract catalogEntry,
+        ValidatedOpsCatalogEntry catalogEntry,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException("Persisted ops describe artifact should not be read.");

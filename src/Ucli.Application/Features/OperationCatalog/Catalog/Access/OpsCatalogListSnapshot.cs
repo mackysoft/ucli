@@ -7,7 +7,7 @@ internal sealed record OpsCatalogListSnapshot
     {
         ArgumentNullException.ThrowIfNull(operations);
 
-        Operations = operations;
+        Operations = Array.AsReadOnly(operations.ToArray());
     }
 
     /// <summary> Gets the list projection entries. </summary>
