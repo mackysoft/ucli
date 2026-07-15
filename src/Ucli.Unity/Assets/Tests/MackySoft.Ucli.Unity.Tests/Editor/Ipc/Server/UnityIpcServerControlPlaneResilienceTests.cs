@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -37,12 +38,26 @@ namespace MackySoft.Ucli.Unity.Tests
             using var shutdownAdmissionCoordinator = new UnityShutdownAdmissionCoordinator(mutationExecutor);
             var executeRequestDispatcher = new NonCooperativeMutationExecuteRequestDispatcher(mutationExecutor);
             var shutdownSignal = new StubDaemonShutdownSignal();
+            var readinessGate = CreateQuarantineResilienceReadinessGate(mutationExecutor);
+            var lifecycleSidecarPersistence = new ResilienceLifecycleSidecarPersistence();
+            var lifecycleSidecarWriter = new UnityLifecycleSidecarWriter(
+                lifecycleSidecarPersistence,
+                new ManualMonotonicClock());
+            await lifecycleSidecarWriter.InitializeAsync(
+                readinessGate.CaptureAvailabilityObservation(),
+                CancellationToken.None);
+            using var mutationLifecycleSidecarObserver = new UnityMutationLifecycleSidecarObserver(
+                mutationExecutor,
+                readinessGate,
+                lifecycleSidecarWriter,
+                NoOpDaemonLogger.Instance);
             var server = CreateQuarantineResilienceServer(
                 executeRequestDispatcher,
                 mutationExecutor,
                 controlExecutor,
                 shutdownAdmissionCoordinator,
-                shutdownSignal);
+                shutdownSignal,
+                readinessGate);
             IUnityIpcServerPublicationFence publicationFence = null;
 
             try
@@ -77,9 +92,36 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreatePingRequest(CanonicalSessionToken));
                 Assert.That(pingResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(pingResponse.Errors, Is.Empty);
+                var pingObservation = pingResponse.Payload.Deserialize<IpcUnityEditorObservation>(SerializerOptions);
+                Assert.That(pingObservation, Is.Not.Null);
                 Assert.That(
-                    pingResponse.Payload.Deserialize<IpcUnityEditorObservation>(SerializerOptions),
-                    Is.Not.Null);
+                    pingObservation.State.LifecycleState,
+                    Is.EqualTo(IpcEditorLifecycleState.Busy));
+                Assert.That(
+                    IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(pingObservation.State.LifecycleState),
+                    Is.False);
+
+                var playStatusResponse = await SendNamedPipeRequestAsync(
+                    address,
+                    CreatePlayStatusRequest());
+                Assert.That(playStatusResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
+                Assert.That(playStatusResponse.Errors, Is.Empty);
+                var playStatus = playStatusResponse.Payload.Deserialize<IpcPlayStatusResponse>(SerializerOptions);
+                Assert.That(playStatus, Is.Not.Null);
+                Assert.That(
+                    playStatus.Snapshot.State.LifecycleState,
+                    Is.EqualTo(pingObservation.State.LifecycleState));
+                Assert.That(
+                    IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(
+                        playStatus.Snapshot.State.LifecycleState),
+                    Is.False);
+
+                var persistedObservation = lifecycleSidecarPersistence.LatestSnapshot;
+                Assert.That(persistedObservation, Is.Not.Null);
+                Assert.That(
+                    persistedObservation.State.LifecycleState,
+                    Is.EqualTo(pingObservation.State.LifecycleState));
+                Assert.That(persistedObservation.CanAcceptExecutionRequests, Is.False);
 
                 var opsReadResponse = await SendNamedPipeRequestAsync(
                     address,
@@ -133,6 +175,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     server.StopAsync().AsUniTask(),
                     "Issue 452 resilience server stop",
                     SignalWaitTimeout);
+                await TestAwaiter.WaitAsync(
+                    lifecycleSidecarWriter.StopAsync(CancellationToken.None).AsUniTask(),
+                    "Issue 452 lifecycle sidecar writer stop",
+                    SignalWaitTimeout);
             }
 
             Assert.That(shutdownSignal.SignalCount, Is.EqualTo(1));
@@ -143,7 +189,8 @@ namespace MackySoft.Ucli.Unity.Tests
             IUnityMainThreadRequestExecutor mutationExecutor,
             IUnityControlPlaneRequestExecutor controlExecutor,
             IUnityShutdownAdmissionCoordinator shutdownAdmissionCoordinator,
-            IDaemonShutdownSignal shutdownSignal)
+            IDaemonShutdownSignal shutdownSignal,
+            UnityEditorReadinessGate readinessGate)
         {
             var daemonLogStream = new DaemonLogRingBuffer();
             daemonLogStream.Write("ipc", IpcLogLevel.Info, "server booted");
@@ -160,13 +207,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     new PingUnityIpcMethodHandler(
                         new AssemblyServerVersionProvider(),
-                        new StubUnityEditorReadinessGate(),
+                        readinessGate,
+                        ProjectIdentity,
+                        NoOpDaemonLogger.Instance),
+                    new PlayStatusUnityIpcMethodHandler(
+                        new AssemblyServerVersionProvider(),
+                        readinessGate,
                         ProjectIdentity,
                         NoOpDaemonLogger.Instance),
                     new ExecuteUnityIpcMethodHandler(executeRequestDispatcher, ProjectIdentity),
                     new OpsReadUnityIpcMethodHandler(
                         operationCatalogSnapshot,
-                        new StubUnityEditorReadinessGate()),
+                        readinessGate),
                     new DaemonLogsReadUnityIpcMethodHandler(
                         daemonLogStream,
                         new DaemonLogsReadRequestValidator(),
@@ -235,6 +287,80 @@ namespace MackySoft.Ucli.Unity.Tests
                 UnityIpcMethod.OpsRead,
                 JsonSerializer.SerializeToElement(new IpcOpsReadRequest(), SerializerOptions),
                 TimeSpan.FromSeconds(30));
+        }
+
+        private static IpcRequestEnvelope CreatePlayStatusRequest ()
+        {
+            return CreateResilienceRequest(
+                UnityIpcMethod.PlayStatus,
+                JsonSerializer.SerializeToElement(new IpcPlayStatusRequest(), SerializerOptions),
+                TimeSpan.FromSeconds(30));
+        }
+
+        private static UnityEditorReadinessGate CreateQuarantineResilienceReadinessGate (
+            IUnityMutationExecutionState mutationExecutionState)
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 1,
+                domainReloadGeneration: 1,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+            return new UnityEditorReadinessGate(
+                DaemonEditorMode.Gui,
+                new UnityEditorLifecycleMonitor(
+                    telemetryState,
+                    static () => false,
+                    static () => false,
+                    static () => false,
+                    static () => false),
+                static () => false,
+                mutationExecutionState,
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                subscribeToEditorEvents: false);
+        }
+
+        private sealed class ResilienceLifecycleSidecarPersistence : IUnityLifecycleSidecarPersistence
+        {
+            private readonly object syncRoot = new object();
+
+            private UnityEditorObservation latestSnapshot;
+
+            public UnityEditorObservation LatestSnapshot
+            {
+                get
+                {
+                    lock (syncRoot)
+                    {
+                        return latestSnapshot;
+                    }
+                }
+            }
+
+            public Task WriteAsync (
+                UnityEditorObservation snapshot,
+                DaemonLifecycleRecoveryLease recoveryLease,
+                CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                lock (syncRoot)
+                {
+                    latestSnapshot = snapshot;
+                }
+
+                return Task.CompletedTask;
+            }
+
+            public Task DeleteIfOwnedAsync (CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                return Task.CompletedTask;
+            }
         }
 
         private static IpcRequestEnvelope CreateResilienceRequest (

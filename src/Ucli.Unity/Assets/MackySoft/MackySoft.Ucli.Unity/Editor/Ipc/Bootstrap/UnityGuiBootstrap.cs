@@ -27,8 +27,6 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static readonly TimeSpan LifecycleSidecarAsyncCleanupTimeout = TimeSpan.FromSeconds(2);
 
-        private static readonly TimeSpan LifecycleMutationRetirementTimeout = TimeSpan.FromMilliseconds(500);
-
         private static ActiveGuiBootstrapState activeState;
 
         private static StartingGuiBootstrapState startingState;
@@ -276,6 +274,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var availabilityObservationSource = serviceProvider
                     .GetRequiredService<IUnityEditorAvailabilityObservationSource>();
                 var mutationLaneControl = serviceProvider.GetRequiredService<IUnityMutationLaneControl>();
+                var controlPlaneRequestLifetime = serviceProvider
+                    .GetRequiredService<IUnityControlPlaneRequestLifetime>();
                 var mutationRequestExecutionStartSource = serviceProvider
                     .GetRequiredService<IUnityMutationRequestExecutionStartSource>();
                 var shutdownSignal = serviceProvider.GetRequiredService<IDaemonShutdownSignal>();
@@ -287,13 +287,25 @@ namespace MackySoft.Ucli.Unity.Ipc
                         unityLogCaptureService,
                         serviceProvider))
                 {
-                    ReleaseResourcesForEditorLifecycleEvent(
-                        null,
+                    var resourcesReleasedSafely = ReleaseUnattachedStartingResources(
                         server,
-                        unityLogCaptureService,
                         serviceProvider,
-                        daemonLogger,
-                        deleteSession: false);
+                        daemonLogger);
+                    if (!resourcesReleasedSafely)
+                    {
+                        lock (SyncRoot)
+                        {
+                            isBootstrapRestartBlocked = true;
+                            failedStartResourceRetention = new FailedStartResourceRetention(
+                                server,
+                                unityLogCaptureService,
+                                serviceProvider,
+                                daemonLogger,
+                                lifecycleSidecarWriter: null,
+                                mutationLifecycleSidecarObserver: null);
+                        }
+                    }
+
                     server = null;
                     unityLogCaptureService = null;
                     serviceProvider = null;
@@ -351,6 +363,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     daemonLogger,
                     availabilityObservationSource,
                     mutationLaneControl,
+                    controlPlaneRequestLifetime,
                     mutationLifecycleSidecarObserver,
                     lifecycleSidecarWriter);
                 state.EnsurePreparedSessionPublicationReadyForCommit();
@@ -600,28 +613,40 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static void CompleteUnusedStartingGeneration (StartingGuiBootstrapState state)
         {
-            var claimed = false;
+            var requiresTrackedCleanup = false;
             lock (SyncRoot)
             {
-                if (ReferenceEquals(startingState, state)
-                    && state.TryClaimNormalCleanup())
+                if (!ReferenceEquals(startingState, state) || !state.IsUnclaimed)
                 {
-                    claimed = true;
+                    return;
+                }
+
+                requiresTrackedCleanup = state.Server != null;
+                if (!requiresTrackedCleanup && !state.TryClaimNormalCleanup())
+                {
+                    return;
                 }
             }
 
-            if (!claimed)
+            state.CancelAndDisposeInBackground();
+            if (requiresTrackedCleanup)
             {
+                var cleanupTask = CleanupTrackedFailedStartAsync(state);
+                _ = cleanupTask.ContinueWith(
+                    completedTask =>
+                    {
+                        LogWarningBestEffort(
+                            state.DaemonLogger,
+                            $"Abandoned GUI startup cleanup failed. {completedTask.Exception?.GetBaseException().Message}");
+                    },
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnFaulted,
+                    TaskScheduler.Default);
                 return;
             }
 
-            state.CancelAndDisposeInBackground();
             state.ReleaseManagedResourcesOnce(() =>
             {
-                ReleaseServerForEditorLifecycleEvent(
-                    state.Server,
-                    state.DaemonLogger,
-                    "after abandoned startup");
                 TryInvalidateAndStopLifecycleSidecarWriterForEditorLifecycleEvent(
                     state.LifecycleSidecarWriter,
                     state.DaemonLogger,
@@ -632,10 +657,36 @@ namespace MackySoft.Ucli.Unity.Ipc
                     state.UnityLogCaptureService,
                     state.ServiceProvider,
                     state.DaemonLogger,
-                    deleteSession: false);
+                    deleteSession: false,
+                    disposeServiceProvider: state.Server == null);
             });
             state.SchedulePreparedSessionCleanupAfterPublicationTerminates("after abandoned startup");
             ClearStartingState(state);
+        }
+
+        /// <summary> Releases a server generation that lost startup ownership before listener admission began. </summary>
+        /// <param name="server"> The constructed, not-yet-started server. </param>
+        /// <param name="serviceProvider"> The provider that owns the server generation. </param>
+        /// <param name="daemonLogger"> The logger used to report cleanup failures. </param>
+        /// <returns> <see langword="true" /> when the provider disposed successfully. </returns>
+        internal static bool ReleaseUnattachedStartingResources (
+            IUnityIpcServer server,
+            IServiceProvider serviceProvider,
+            IDaemonLogger daemonLogger)
+        {
+            if (daemonLogger == null)
+            {
+                throw new ArgumentNullException(nameof(daemonLogger));
+            }
+
+            ReleaseServerForEditorLifecycleEvent(
+                server,
+                daemonLogger,
+                "after startup ownership was lost before listener admission");
+            return DisposeServiceProvider(
+                serviceProvider,
+                daemonLogger,
+                "after startup ownership was lost before listener admission");
         }
 
         private static async Task CleanupTrackedFailedStartAsync (StartingGuiBootstrapState state)
@@ -703,8 +754,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (serverStoppedSafely)
             {
                 var mutationLaneControl = state.ServiceProvider?.GetService<IUnityMutationLaneControl>();
-                var managedResourceReleaseTask = ReleaseManagedResourcesAfterRetirementAsync(
+                var controlPlaneRequestLifetime = state.ServiceProvider?
+                    .GetService<IUnityControlPlaneRequestLifetime>();
+                var managedResourceReleaseTask = ReleaseManagedResourcesAfterExecutionRetirementAsync(
                     mutationLaneControl,
+                    controlPlaneRequestLifetime,
                     () =>
                     {
                         state.ReleaseManagedResourcesOnce(() =>
@@ -714,23 +768,37 @@ namespace MackySoft.Ucli.Unity.Ipc
                                 state.UnityLogCaptureService,
                                 state.DaemonLogger,
                                 "after failed startup");
-                            DisposeServiceProvider(
-                                state.ServiceProvider,
-                                state.DaemonLogger,
-                                "after failed startup");
+                            if (!DisposeServiceProvider(
+                                    state.ServiceProvider,
+                                    state.DaemonLogger,
+                                    "after failed startup"))
+                            {
+                                throw new InvalidOperationException(
+                                    "Failed-start GUI service provider did not dispose safely.");
+                            }
                         });
                     });
-                var managedResourcesReleasedInForeground =
-                    await CompletesWithinLifecycleRetirementDeadlineAsync(managedResourceReleaseTask);
                 var releaseCompletionTask = CompleteFailedStartReleaseAsync(
                     state,
                     lifecycleSidecarStop.Completion,
                     managedResourceReleaseTask);
+                var managedResourcesReleasedInForeground = false;
+                try
+                {
+                    managedResourcesReleasedInForeground = await UnityHostGenerationRetirementPolicy
+                        .WaitWithinForegroundDeadlineAsync(managedResourceReleaseTask);
+                }
+                catch (Exception exception)
+                {
+                    state.DaemonLogger.Warning(
+                        DaemonLogCategories.Lifecycle,
+                        $"Failed-start GUI managed-resource release failed. {exception.Message}");
+                }
                 if (!managedResourcesReleasedInForeground)
                 {
                     state.DaemonLogger.Warning(
                         DaemonLogCategories.Lifecycle,
-                        $"Failed-start GUI mutation retirement exceeded its {LifecycleMutationRetirementTimeout.TotalMilliseconds:0}ms foreground deadline. The old generation remains fenced and cleanup continues after retirement.");
+                        $"Failed-start GUI request execution retirement exceeded its {UnityHostGenerationRetirementPolicy.ForegroundDeadline.TotalMilliseconds:0}ms foreground deadline. The old generation remains fenced and cleanup continues after retirement.");
                 }
 
                 if (lifecycleSidecarStop.StoppedInForeground
@@ -962,6 +1030,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 state.LifecycleSidecarWriter,
                 state.DaemonLogger,
                 state.MutationLaneControl,
+                state.ControlPlaneRequestLifetime,
                 cleanupContext: null,
                 deleteSession,
                 () => state.ReleaseManagedResourcesOnce(() =>
@@ -970,10 +1039,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                         state.UnityLogCaptureService,
                         state.DaemonLogger,
                         cleanupContext: null);
-                    DisposeServiceProvider(
-                        state.ServiceProvider,
-                        state.DaemonLogger,
-                        cleanupContext: null);
+                    if (!DisposeServiceProvider(
+                            state.ServiceProvider,
+                            state.DaemonLogger,
+                            cleanupContext: null))
+                    {
+                        throw new InvalidOperationException(
+                            "GUI service provider did not dispose safely.");
+                    }
                 }));
             var stoppedSafely = releaseResult.StoppedSafely;
             state.CompleteStop(stoppedSafely);
@@ -1013,7 +1086,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 state.DaemonLogger.Warning(
                     DaemonLogCategories.Lifecycle,
-                    $"Deferred GUI mutation retirement failed. {exception.Message}");
+                    $"Deferred GUI request execution retirement failed. {exception.Message}");
             }
         }
 
@@ -1056,6 +1129,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 lifecycleSidecarWriter,
                 daemonLogger,
                 serviceProvider?.GetService<IUnityMutationLaneControl>(),
+                serviceProvider?.GetService<IUnityControlPlaneRequestLifetime>(),
                 cleanupContext: "after failed startup",
                 deleteSession: true,
                 () =>
@@ -1064,10 +1138,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                         unityLogCaptureService,
                         daemonLogger,
                         "after failed startup");
-                    DisposeServiceProvider(
-                        serviceProvider,
-                        daemonLogger,
-                        "after failed startup");
+                    if (!DisposeServiceProvider(
+                            serviceProvider,
+                            daemonLogger,
+                            "after failed startup"))
+                    {
+                        throw new InvalidOperationException(
+                            "Failed-start GUI service provider did not dispose safely.");
+                    }
                 });
             return releaseResult.StoppedSafely;
         }
@@ -1078,6 +1156,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityLifecycleSidecarWriter lifecycleSidecarWriter,
             IDaemonLogger daemonLogger,
             IUnityMutationLaneControl mutationLaneControl,
+            IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime,
             string cleanupContext,
             bool deleteSession,
             Action releaseManagedResources)
@@ -1122,17 +1201,32 @@ namespace MackySoft.Ucli.Unity.Ipc
                     releaseCompletionTask: null);
             }
 
-            var managedResourceReleaseTask = ReleaseManagedResourcesAfterRetirementAsync(
+            var managedResourceReleaseTask = ReleaseManagedResourcesAfterExecutionRetirementAsync(
                 mutationLaneControl,
+                controlPlaneRequestLifetime,
                 releaseManagedResources);
-            var managedResourcesReleasedInForeground =
-                await CompletesWithinLifecycleRetirementDeadlineAsync(managedResourceReleaseTask);
+            bool managedResourcesReleasedInForeground;
+            try
+            {
+                managedResourcesReleasedInForeground = await UnityHostGenerationRetirementPolicy
+                    .WaitWithinForegroundDeadlineAsync(managedResourceReleaseTask);
+            }
+            catch (Exception exception)
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    FormatCleanupFailureMessage("GUI managed-resource release", cleanupContext, exception));
+                return new ResourceReleaseResult(
+                    listenerStoppedSafely: false,
+                    releasedInForeground: false,
+                    releaseCompletionTask: null);
+            }
             if (!managedResourcesReleasedInForeground)
             {
                 var effectiveCleanupContext = cleanupContext ?? "during normal stop";
                 daemonLogger.Warning(
                     DaemonLogCategories.Lifecycle,
-                    $"GUI mutation retirement {effectiveCleanupContext} exceeded its {LifecycleMutationRetirementTimeout.TotalMilliseconds:0}ms foreground deadline. The old generation remains fenced and cleanup continues after retirement.");
+                    $"GUI request execution retirement {effectiveCleanupContext} exceeded its {UnityHostGenerationRetirementPolicy.ForegroundDeadline.TotalMilliseconds:0}ms foreground deadline. The old generation remains fenced and cleanup continues after retirement.");
             }
 
             var releaseCompletionTask = Task.WhenAll(
@@ -1145,34 +1239,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 releaseCompletionTask);
         }
 
-        private static async Task ReleaseManagedResourcesAfterRetirementAsync (
+        private static async Task ReleaseManagedResourcesAfterExecutionRetirementAsync (
             IUnityMutationLaneControl mutationLaneControl,
+            IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime,
             Action releaseManagedResources)
         {
-            if (mutationLaneControl != null)
-            {
-                await mutationLaneControl.WaitForRetirementAsync();
-            }
+            var mutationRetirement = mutationLaneControl?.WaitForRetirementAsync()
+                ?? Task.CompletedTask;
+            var controlPlaneRetirement = controlPlaneRequestLifetime?.WaitForRetirementAsync()
+                ?? Task.CompletedTask;
+            await Task.WhenAll(mutationRetirement, controlPlaneRetirement);
 
             releaseManagedResources();
-        }
-
-        private static async Task<bool> CompletesWithinLifecycleRetirementDeadlineAsync (Task completionTask)
-        {
-            if (completionTask.IsCompleted)
-            {
-                await completionTask;
-                return true;
-            }
-
-            var deadlineTask = Task.Delay(LifecycleMutationRetirementTimeout);
-            if (!ReferenceEquals(await Task.WhenAny(completionTask, deadlineTask), completionTask))
-            {
-                return false;
-            }
-
-            await completionTask;
-            return true;
         }
 
         /// <summary> Releases resources from Unity lifecycle callbacks without blocking editor close or domain reload. </summary>
@@ -1202,7 +1280,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 unityLogCaptureService,
                 serviceProvider,
                 daemonLogger,
-                deleteSession);
+                deleteSession,
+                disposeServiceProvider: server == null);
         }
 
         private static void ReleaseServerForEditorLifecycleEvent (
@@ -1240,7 +1319,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             IDisposable unityLogCaptureService,
             IServiceProvider serviceProvider,
             IDaemonLogger daemonLogger,
-            bool deleteSession)
+            bool deleteSession,
+            bool disposeServiceProvider)
         {
             DisposeUnityLogCapture(unityLogCaptureService, daemonLogger, "during editor lifecycle event");
             DeleteSession(
@@ -1248,7 +1328,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 daemonLogger,
                 "during editor lifecycle event",
                 deleteSession);
-            DisposeServiceProvider(serviceProvider, daemonLogger, "during editor lifecycle event");
+            // A created server can still own accepted request work because lifecycle release is intentionally
+            // synchronous. Keep its dependency graph alive until the process exits or the old AppDomain unloads.
+            if (disposeServiceProvider)
+            {
+                _ = DisposeServiceProvider(serviceProvider, daemonLogger, "during editor lifecycle event");
+            }
         }
 
         private static void DisposeUnityLogCapture (
@@ -1296,23 +1381,27 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static void DisposeServiceProvider (
+        private static bool DisposeServiceProvider (
             IServiceProvider serviceProvider,
             IDaemonLogger daemonLogger,
             string cleanupContext)
         {
-            if (serviceProvider is IDisposable disposableServiceProvider)
+            if (serviceProvider is not IDisposable disposableServiceProvider)
             {
-                try
-                {
-                    disposableServiceProvider.Dispose();
-                }
-                catch (Exception exception)
-                {
-                    daemonLogger.Warning(
-                        DaemonLogCategories.Lifecycle,
-                        FormatCleanupFailureMessage("GUI service provider disposal", cleanupContext, exception));
-                }
+                return true;
+            }
+
+            try
+            {
+                disposableServiceProvider.Dispose();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    FormatCleanupFailureMessage("GUI service provider disposal", cleanupContext, exception));
+                return false;
             }
         }
 
@@ -1395,6 +1484,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     DaemonLogCategories.Lifecycle,
                     $"GUI lifecycle sidecar refresh failed. Retrying in the background. {failureMessage}");
             }
+
             if (!force
                 && !capturedState.LifecycleSidecarWriter.IsRefreshDue(
                     DaemonLifecycleObservationTimings.SidecarRefreshInterval))
@@ -1459,7 +1549,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         capturedState.UnityLogCaptureService,
                         capturedState.ServiceProvider,
                         capturedState.DaemonLogger,
-                        deleteSession: true));
+                        deleteSession: true,
+                        disposeServiceProvider: false));
             }
 
             ReleaseFailedStartResourcesForEditorLifecycleEvent(capturedFailedStartResources);
@@ -1517,7 +1608,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         capturedState.UnityLogCaptureService,
                         capturedState.ServiceProvider,
                         capturedState.DaemonLogger,
-                        deleteSession: !recoverySnapshotFlushed));
+                        deleteSession: !recoverySnapshotFlushed,
+                        disposeServiceProvider: false));
             }
 
             ReleaseFailedStartResourcesForEditorLifecycleEvent(capturedFailedStartResources);
@@ -1563,7 +1655,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     state.UnityLogCaptureService,
                     state.ServiceProvider,
                     state.DaemonLogger,
-                    deleteSession: false);
+                    deleteSession: false,
+                    disposeServiceProvider: state.Server == null);
             });
             state.SchedulePreparedSessionCleanupAfterPublicationTerminates(
                 "during editor lifecycle event");
@@ -1806,7 +1899,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 retainedResources.UnityLogCaptureService,
                 retainedResources.ServiceProvider,
                 retainedResources.DaemonLogger,
-                deleteSession: false);
+                deleteSession: false,
+                disposeServiceProvider: false);
         }
 
         private sealed class ResourceReleaseResult
@@ -2060,8 +2154,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         return;
                     }
 
-                    releaseResources();
                     managedResourcesReleased = true;
+                    releaseResources();
                 }
             }
 
@@ -2310,6 +2404,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 IDaemonLogger daemonLogger,
                 IUnityEditorAvailabilityObservationSource availabilityObservationSource,
                 IUnityMutationLaneControl mutationLaneControl,
+                IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime,
                 UnityMutationLifecycleSidecarObserver mutationLifecycleSidecarObserver,
                 UnityLifecycleSidecarWriter lifecycleSidecarWriter)
             {
@@ -2322,6 +2417,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 AvailabilityObservationSource = availabilityObservationSource
                     ?? throw new ArgumentNullException(nameof(availabilityObservationSource));
                 MutationLaneControl = mutationLaneControl ?? throw new ArgumentNullException(nameof(mutationLaneControl));
+                ControlPlaneRequestLifetime = controlPlaneRequestLifetime
+                    ?? throw new ArgumentNullException(nameof(controlPlaneRequestLifetime));
                 LifecycleSidecarWriter = lifecycleSidecarWriter
                     ?? throw new ArgumentNullException(nameof(lifecycleSidecarWriter));
                 this.mutationLifecycleSidecarObserver = mutationLifecycleSidecarObserver
@@ -2343,6 +2440,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             public IUnityEditorAvailabilityObservationSource AvailabilityObservationSource { get; }
 
             public IUnityMutationLaneControl MutationLaneControl { get; }
+
+            public IUnityControlPlaneRequestLifetime ControlPlaneRequestLifetime { get; }
 
             public UnityLifecycleSidecarWriter LifecycleSidecarWriter { get; }
 
@@ -2372,9 +2471,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                         return;
                     }
 
+                    managedResourcesReleased = true;
                     mutationLifecycleSidecarObserver.Dispose();
                     releaseManagedResources();
-                    managedResourcesReleased = true;
                 }
             }
         }

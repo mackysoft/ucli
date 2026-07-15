@@ -121,9 +121,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                     state.DaemonLogger);
                 var serviceProvider = services.BuildServiceProvider();
                 var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
-                if (!TryAttachStartingResources(state, server, serviceProvider))
+                var controlPlaneRequestLifetime = serviceProvider
+                    .GetRequiredService<IUnityControlPlaneRequestLifetime>();
+                if (!TryAttachStartingResources(
+                        state,
+                        server,
+                        serviceProvider,
+                        controlPlaneRequestLifetime))
                 {
-                    ReleaseUntrackedStartingResources(server, serviceProvider, state.DaemonLogger);
+                    ReleaseUnattachedStartingResources(server, serviceProvider, state.DaemonLogger);
                     throw CreateStartingGenerationCancellation(state);
                 }
 
@@ -156,6 +162,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     sessionToken,
                     server,
                     serviceProvider,
+                    controlPlaneRequestLifetime,
                     state.DaemonLogger,
                     storageRoot,
                     projectFingerprint);
@@ -202,6 +209,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     RestartScheduler.ScheduleAfterSafeCleanup();
                 }
+                else if (state.HasDeferredResourceRelease)
+                {
+                    ObserveFault(RestartAfterDeferredFailedStartCleanupAsync(state));
+                }
             }
             finally
             {
@@ -230,7 +241,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static bool TryAttachStartingResources (
             StartingGuiSupervisorState state,
             IUnityIpcServer server,
-            IServiceProvider serviceProvider)
+            IServiceProvider serviceProvider,
+            IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime)
         {
             lock (SyncRoot)
             {
@@ -239,7 +251,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return false;
                 }
 
-                state.AttachResources(server, serviceProvider);
+                state.AttachResources(
+                    server,
+                    serviceProvider,
+                    controlPlaneRequestLifetime);
                 return true;
             }
         }
@@ -348,22 +363,28 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static void CompleteUnusedStartingGeneration (StartingGuiSupervisorState state)
         {
-            var claimed = false;
+            var requiresTrackedCleanup = false;
             lock (SyncRoot)
             {
-                if (ReferenceEquals(startingState, state)
-                    && state.TryClaimNormalCleanup())
+                if (!ReferenceEquals(startingState, state) || !state.IsUnclaimed)
                 {
-                    claimed = true;
+                    return;
+                }
+
+                requiresTrackedCleanup = state.Server != null;
+                if (!requiresTrackedCleanup && !state.TryClaimNormalCleanup())
+                {
+                    return;
                 }
             }
 
-            if (!claimed)
+            state.Cancel();
+            if (requiresTrackedCleanup)
             {
+                ObserveFault(CleanupAbandonedStartingGenerationAsync(state));
                 return;
             }
 
-            state.Cancel();
             state.ReleaseManagedResourcesOnce(() =>
                 ReleaseUntrackedStartingResources(
                     state.Server,
@@ -372,6 +393,22 @@ namespace MackySoft.Ucli.Unity.Ipc
             state.ScheduleManifestCleanupAfterPublicationTerminates("after abandoned startup");
             ClearStartingState(state);
             state.DisposeCancellationSource();
+        }
+
+        private static async Task CleanupAbandonedStartingGenerationAsync (
+            StartingGuiSupervisorState state)
+        {
+            var releasedSafely = await CleanupTrackedFailedStartAsync(state);
+            if (releasedSafely)
+            {
+                RestartScheduler.ScheduleAfterSafeCleanup();
+                return;
+            }
+
+            if (state.HasDeferredResourceRelease)
+            {
+                await RestartAfterDeferredFailedStartCleanupAsync(state);
+            }
         }
 
         private static async Task<bool> CleanupTrackedFailedStartAsync (StartingGuiSupervisorState state)
@@ -385,6 +422,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var stoppedSafely = true;
+            var retirementDeferred = false;
+            Task retirementTask = null;
             if (state.Server != null)
             {
                 try
@@ -397,6 +436,30 @@ namespace MackySoft.Ucli.Unity.Ipc
                     state.DaemonLogger.Warning(
                         DaemonLogCategories.Lifecycle,
                         $"GUI supervisor failed-start server stop failed. {exception.Message}");
+                }
+
+                if (stoppedSafely)
+                {
+                    try
+                    {
+                        retirementTask = state.ControlPlaneRequestLifetime.WaitForRetirementAsync();
+                        stoppedSafely = await UnityHostGenerationRetirementPolicy
+                            .WaitWithinForegroundDeadlineAsync(retirementTask);
+                        if (!stoppedSafely)
+                        {
+                            retirementDeferred = true;
+                            state.DaemonLogger.Warning(
+                                DaemonLogCategories.Lifecycle,
+                                $"GUI supervisor failed-start control-plane request retirement exceeded its {UnityHostGenerationRetirementPolicy.ForegroundDeadline.TotalMilliseconds:0}ms foreground deadline.");
+                        }
+                    }
+                    catch (Exception exception)
+                    {
+                        stoppedSafely = false;
+                        state.DaemonLogger.Warning(
+                            DaemonLogCategories.Lifecycle,
+                            $"GUI supervisor failed-start control-plane request retirement failed. {exception.Message}");
+                    }
                 }
             }
 
@@ -411,7 +474,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     && state.TryClaimNormalCleanup())
                 {
                     ownsCleanup = true;
-                    if (!stoppedSafely)
+                    if (!stoppedSafely && !retirementDeferred)
                     {
                         startingState = null;
                         isBootstrapRestartBlocked = true;
@@ -428,15 +491,111 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (stoppedSafely)
+            if (retirementDeferred)
             {
+                state.AttachDeferredResourceRelease(
+                    CompleteDeferredFailedStartCleanupAsync(state, retirementTask));
+            }
+            else if (stoppedSafely)
+            {
+                var providerDisposedSafely = true;
                 state.ReleaseManagedResourcesOnce(() =>
-                    DisposeServiceProvider(state.ServiceProvider, state.DaemonLogger));
-                ClearStartingState(state);
+                {
+                    providerDisposedSafely = DisposeServiceProvider(
+                        state.ServiceProvider,
+                        state.DaemonLogger);
+                });
+                if (providerDisposedSafely)
+                {
+                    ClearStartingState(state);
+                }
+                else
+                {
+                    stoppedSafely = false;
+                    lock (SyncRoot)
+                    {
+                        if (ReferenceEquals(startingState, state))
+                        {
+                            startingState = null;
+                        }
+
+                        isBootstrapRestartBlocked = true;
+                        failedStartResourceRetention = new FailedStartResourceRetention(
+                            state.Server,
+                            state.ServiceProvider,
+                            state.DaemonLogger);
+                    }
+                }
             }
 
             state.DisposeCancellationSource();
             return stoppedSafely;
+        }
+
+        private static async Task<bool> CompleteDeferredFailedStartCleanupAsync (
+            StartingGuiSupervisorState state,
+            Task retirementTask)
+        {
+            try
+            {
+                await retirementTask;
+            }
+            catch (Exception exception)
+            {
+                LogWarningBestEffort(
+                    state.DaemonLogger,
+                    $"Deferred GUI supervisor failed-start request retirement failed. {exception.Message}");
+                return false;
+            }
+
+            lock (SyncRoot)
+            {
+                if (!ReferenceEquals(startingState, state) || isEditorLifecycleStopping)
+                {
+                    return false;
+                }
+            }
+
+            var providerDisposedSafely = true;
+            state.ReleaseManagedResourcesOnce(() =>
+            {
+                providerDisposedSafely = DisposeServiceProvider(
+                    state.ServiceProvider,
+                    state.DaemonLogger);
+            });
+            if (!providerDisposedSafely)
+            {
+                lock (SyncRoot)
+                {
+                    isBootstrapRestartBlocked = true;
+                }
+
+                return false;
+            }
+
+            ClearStartingState(state);
+            return true;
+        }
+
+        private static async Task RestartAfterDeferredFailedStartCleanupAsync (
+            StartingGuiSupervisorState state)
+        {
+            var releasedSafely = await state.WaitForDeferredResourceReleaseAsync();
+            if (releasedSafely)
+            {
+                RestartScheduler.ScheduleAfterSafeCleanup();
+                return;
+            }
+
+            lock (SyncRoot)
+            {
+                if (isEditorLifecycleStopping)
+                {
+                    return;
+                }
+            }
+
+            BlockRestartWhenUnsafe(stoppedSafely: false);
         }
 
         private static void ReleaseUntrackedStartingResources (
@@ -444,21 +603,42 @@ namespace MackySoft.Ucli.Unity.Ipc
             IServiceProvider serviceProvider,
             IDaemonLogger daemonLogger)
         {
-            if (server != null)
+            ReleaseStartingServerForEditorLifecycleEvent(server, daemonLogger);
+
+            if (server == null)
             {
-                try
-                {
-                    server.ReleaseForEditorLifecycleEvent();
-                }
-                catch (Exception exception)
-                {
-                    daemonLogger.Warning(
-                        DaemonLogCategories.Lifecycle,
-                        $"GUI supervisor startup server lifecycle release failed. {exception.Message}");
-                }
+                _ = DisposeServiceProvider(serviceProvider, daemonLogger);
+            }
+        }
+
+        internal static void ReleaseUnattachedStartingResources (
+            IUnityIpcServer server,
+            IServiceProvider serviceProvider,
+            IDaemonLogger daemonLogger)
+        {
+            ReleaseStartingServerForEditorLifecycleEvent(server, daemonLogger);
+            _ = DisposeServiceProvider(serviceProvider, daemonLogger);
+        }
+
+        private static void ReleaseStartingServerForEditorLifecycleEvent (
+            IUnityIpcServer server,
+            IDaemonLogger daemonLogger)
+        {
+            if (server == null)
+            {
+                return;
             }
 
-            DisposeServiceProvider(serviceProvider, daemonLogger);
+            try
+            {
+                server.ReleaseForEditorLifecycleEvent();
+            }
+            catch (Exception exception)
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    $"GUI supervisor startup server lifecycle release failed. {exception.Message}");
+            }
         }
 
         private static async Task MonitorAsync (ActiveGuiSupervisorState state)
@@ -477,10 +657,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                     // A faulted supervisor listener is terminal as well. Clear the published owner
                     // and manifest so a later bootstrap can create a fresh endpoint generation.
                     var stoppedSafely = await StopStateAsync(state);
-                    BlockRestartWhenUnsafe(stoppedSafely);
                     if (stoppedSafely)
                     {
                         RestartScheduler.ScheduleAfterSafeCleanup();
+                    }
+                    else if (state.HasDeferredResourceRelease)
+                    {
+                        var releasedSafely = await state.WaitForDeferredResourceReleaseAsync();
+                        BlockRestartWhenUnsafe(releasedSafely);
+                        if (releasedSafely)
+                        {
+                            RestartScheduler.ScheduleAfterSafeCleanup();
+                        }
+                    }
+                    else
+                    {
+                        BlockRestartWhenUnsafe(stoppedSafely: false);
                     }
                 }
             }
@@ -528,6 +720,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             MarkStoppingState(state);
 
             var stoppedSafely = true;
+            var retirementDeferred = false;
+            Task retirementTask = null;
             try
             {
                 await state.Server.StopAsync(CancellationToken.None);
@@ -542,10 +736,43 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (stoppedSafely)
             {
-                ReleaseStateResources(state);
-                ClearStoppingState(state);
+                try
+                {
+                    retirementTask = state.ControlPlaneRequestLifetime.WaitForRetirementAsync();
+                    stoppedSafely = await UnityHostGenerationRetirementPolicy
+                        .WaitWithinForegroundDeadlineAsync(retirementTask);
+                    if (!stoppedSafely)
+                    {
+                        retirementDeferred = true;
+                        state.DaemonLogger.Warning(
+                            DaemonLogCategories.Lifecycle,
+                            $"GUI supervisor control-plane request retirement exceeded its {UnityHostGenerationRetirementPolicy.ForegroundDeadline.TotalMilliseconds:0}ms foreground deadline.");
+                    }
+                }
+                catch (Exception exception)
+                {
+                    stoppedSafely = false;
+                    state.DaemonLogger.Warning(
+                        DaemonLogCategories.Lifecycle,
+                        $"GUI supervisor control-plane request retirement failed. {exception.Message}");
+                }
             }
-            else
+
+            if (retirementDeferred)
+            {
+                state.AttachDeferredResourceRelease(
+                    CompleteDeferredStateCleanupAsync(state, retirementTask));
+            }
+            else if (stoppedSafely)
+            {
+                stoppedSafely = ReleaseStateResources(state);
+                if (stoppedSafely)
+                {
+                    ClearStoppingState(state);
+                }
+            }
+
+            if (!stoppedSafely)
             {
                 DeleteStateManifest(state);
                 EnsureEditorLifecycleSubscriptions();
@@ -553,6 +780,39 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             state.CompleteStop(stoppedSafely);
             return await state.WaitForStopCompletionAsync();
+        }
+
+        private static async Task<bool> CompleteDeferredStateCleanupAsync (
+            ActiveGuiSupervisorState state,
+            Task retirementTask)
+        {
+            try
+            {
+                await retirementTask;
+            }
+            catch (Exception exception)
+            {
+                LogWarningBestEffort(
+                    state.DaemonLogger,
+                    $"Deferred GUI supervisor control-plane request retirement failed. {exception.Message}");
+                return false;
+            }
+
+            lock (SyncRoot)
+            {
+                if (!ReferenceEquals(stoppingState, state) || isEditorLifecycleStopping)
+                {
+                    return false;
+                }
+            }
+
+            var releasedSafely = ReleaseStateResources(state);
+            if (releasedSafely)
+            {
+                ClearStoppingState(state);
+            }
+
+            return releasedSafely;
         }
 
         private static void BlockRestartWhenUnsafe (bool stoppedSafely)
@@ -593,19 +853,20 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             DeleteStateManifest(state);
-            DisposeServiceProvider(state.ServiceProvider, state.DaemonLogger);
+            // Accepted request work can still be unwinding because lifecycle release is synchronous.
+            // Keep the provider alive until process exit or AppDomain unload.
             state.CompleteStop(releasedSafely);
         }
 
-        private static void ReleaseStateResources (ActiveGuiSupervisorState state)
+        private static bool ReleaseStateResources (ActiveGuiSupervisorState state)
         {
             if (!state.TryBeginResourceRelease())
             {
-                return;
+                return false;
             }
 
             DeleteStateManifest(state);
-            DisposeServiceProvider(state.ServiceProvider, state.DaemonLogger);
+            return DisposeServiceProvider(state.ServiceProvider, state.DaemonLogger);
         }
 
         private static void DeleteStateManifest (ActiveGuiSupervisorState state)
@@ -625,22 +886,26 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static void DisposeServiceProvider (
+        private static bool DisposeServiceProvider (
             IServiceProvider serviceProvider,
             IDaemonLogger daemonLogger)
         {
-            if (serviceProvider is IDisposable disposable)
+            if (serviceProvider is not IDisposable disposable)
             {
-                try
-                {
-                    disposable.Dispose();
-                }
-                catch (Exception exception)
-                {
-                    daemonLogger.Warning(
-                        DaemonLogCategories.Lifecycle,
-                        $"GUI supervisor service provider disposal failed. {exception.Message}");
-                }
+                return true;
+            }
+
+            try
+            {
+                disposable.Dispose();
+                return true;
+            }
+            catch (Exception exception)
+            {
+                daemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    $"GUI supervisor service provider disposal failed. {exception.Message}");
+                return false;
             }
         }
 
@@ -706,20 +971,21 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (capturedFailedStartResources != null)
             {
-                try
+                if (capturedFailedStartResources.Server != null)
                 {
-                    capturedFailedStartResources.Server.ReleaseForEditorLifecycleEvent();
-                }
-                catch (Exception exception)
-                {
-                    capturedFailedStartResources.DaemonLogger.Warning(
-                        DaemonLogCategories.Lifecycle,
-                        $"GUI supervisor failed-start server lifecycle release failed. {exception.Message}");
+                    try
+                    {
+                        capturedFailedStartResources.Server.ReleaseForEditorLifecycleEvent();
+                    }
+                    catch (Exception exception)
+                    {
+                        capturedFailedStartResources.DaemonLogger.Warning(
+                            DaemonLogCategories.Lifecycle,
+                            $"GUI supervisor failed-start server lifecycle release failed. {exception.Message}");
+                    }
                 }
 
-                DisposeServiceProvider(
-                    capturedFailedStartResources.ServiceProvider,
-                    capturedFailedStartResources.DaemonLogger);
+                // The failed generation can still own accepted work. The old AppDomain or process owns cleanup.
             }
         }
 
@@ -824,6 +1090,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private Task<GuiSupervisorManifestJsonContract> manifestPublicationTask;
 
+            private Task<bool> deferredResourceReleaseTask;
+
             private string manifestPublicationFinalizationWarning;
 
             public StartingGuiSupervisorState (IDaemonLogger daemonLogger)
@@ -846,6 +1114,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public IServiceProvider ServiceProvider { get; private set; }
 
+            public IUnityControlPlaneRequestLifetime ControlPlaneRequestLifetime { get; private set; }
+
             public Task ManifestPublicationFinalization =>
                 manifestPublicationFinalizationCompletionSource.Task;
 
@@ -853,6 +1123,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public bool IsNormalCleanupClaimed =>
                 Volatile.Read(ref completionOwner) == CompletionOwnerNormalCleanup;
+
+            public bool HasDeferredResourceRelease =>
+                Volatile.Read(ref deferredResourceReleaseTask) != null;
 
             public bool CanReleaseForEditorLifecycleEvent
             {
@@ -896,15 +1169,42 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public void AttachResources (
                 IUnityIpcServer server,
-                IServiceProvider serviceProvider)
+                IServiceProvider serviceProvider,
+                IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime)
             {
                 if (!IsUnclaimed)
                 {
                     throw new InvalidOperationException("The GUI supervisor startup generation no longer owns resources.");
                 }
 
-                Server = server ?? throw new ArgumentNullException(nameof(server));
+                Server = server;
                 ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+                ControlPlaneRequestLifetime = controlPlaneRequestLifetime
+                    ?? throw new ArgumentNullException(nameof(controlPlaneRequestLifetime));
+            }
+
+            public void AttachDeferredResourceRelease (Task<bool> resourceReleaseTask)
+            {
+                if (resourceReleaseTask == null)
+                {
+                    throw new ArgumentNullException(nameof(resourceReleaseTask));
+                }
+
+                if (Interlocked.CompareExchange(
+                        ref deferredResourceReleaseTask,
+                        resourceReleaseTask,
+                        null) != null)
+                {
+                    throw new InvalidOperationException(
+                        "GUI supervisor startup generation already owns a deferred resource release.");
+                }
+            }
+
+            public Task<bool> WaitForDeferredResourceReleaseAsync ()
+            {
+                return Volatile.Read(ref deferredResourceReleaseTask)
+                    ?? throw new InvalidOperationException(
+                        "GUI supervisor startup generation has no deferred resource release.");
             }
 
             public void ValidateManifest (GuiSupervisorManifestJsonContract manifest)
@@ -998,8 +1298,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         return;
                     }
 
-                    releaseResources();
                     managedResourcesReleased = true;
+                    releaseResources();
                 }
             }
 
@@ -1187,6 +1487,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private int resourcesReleased;
 
+            private Task<bool> deferredResourceReleaseTask;
+
             private readonly TaskCompletionSource<bool> stopCompletionSource =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
@@ -1194,6 +1496,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 IpcSessionToken sessionToken,
                 IUnityIpcServer server,
                 IServiceProvider serviceProvider,
+                IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime,
                 IDaemonLogger daemonLogger,
                 string storageRoot,
                 ProjectFingerprint projectFingerprint)
@@ -1201,6 +1504,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 SessionToken = sessionToken ?? throw new ArgumentNullException(nameof(sessionToken));
                 Server = server ?? throw new ArgumentNullException(nameof(server));
                 ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
+                ControlPlaneRequestLifetime = controlPlaneRequestLifetime
+                    ?? throw new ArgumentNullException(nameof(controlPlaneRequestLifetime));
                 DaemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
                 StorageRoot = storageRoot ?? throw new ArgumentNullException(nameof(storageRoot));
                 ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
@@ -1212,11 +1517,16 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             public IServiceProvider ServiceProvider { get; }
 
+            public IUnityControlPlaneRequestLifetime ControlPlaneRequestLifetime { get; }
+
             public IDaemonLogger DaemonLogger { get; }
 
             public string StorageRoot { get; }
 
             public ProjectFingerprint ProjectFingerprint { get; }
+
+            public bool HasDeferredResourceRelease =>
+                Volatile.Read(ref deferredResourceReleaseTask) != null;
 
             public bool TryBeginStop ()
             {
@@ -1235,6 +1545,30 @@ namespace MackySoft.Ucli.Unity.Ipc
             public Task<bool> WaitForStopCompletionAsync ()
             {
                 return stopCompletionSource.Task;
+            }
+
+            public void AttachDeferredResourceRelease (Task<bool> resourceReleaseTask)
+            {
+                if (resourceReleaseTask == null)
+                {
+                    throw new ArgumentNullException(nameof(resourceReleaseTask));
+                }
+
+                if (Interlocked.CompareExchange(
+                        ref deferredResourceReleaseTask,
+                        resourceReleaseTask,
+                        null) != null)
+                {
+                    throw new InvalidOperationException(
+                        "GUI supervisor generation already owns a deferred resource release.");
+                }
+            }
+
+            public Task<bool> WaitForDeferredResourceReleaseAsync ()
+            {
+                return Volatile.Read(ref deferredResourceReleaseTask)
+                    ?? throw new InvalidOperationException(
+                        "GUI supervisor generation has no deferred resource release.");
             }
 
             public bool TryBeginResourceRelease ()

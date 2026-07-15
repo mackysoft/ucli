@@ -10,6 +10,7 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
+using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using UnityEditor;
@@ -308,6 +309,25 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public void ReleaseUnattachedStartingResources_WhenServerWasConstructed_ReleasesServerBeforeProvider ()
+        {
+            var server = new SpyUnityIpcServer(Task.CompletedTask);
+            var serviceProvider = new SpyServiceProvider
+            {
+                OnDispose = () => Assert.That(server.ReleaseCallCount, Is.EqualTo(1)),
+            };
+
+            UnityGuiSupervisorBootstrap.ReleaseUnattachedStartingResources(
+                server,
+                serviceProvider,
+                NoOpDaemonLogger.Instance);
+
+            Assert.That(server.ReleaseCallCount, Is.EqualTo(1));
+            Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator StartingGeneration_WhenEditorLifecycleReleases_CancelsAndReleasesOwnedResourcesOnce () => UniTask.ToCoroutine(async () =>
@@ -330,10 +350,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 var manifest = await publicationTask;
                 var server = new SpyUnityIpcServer(Task.CompletedTask);
                 var serviceProvider = new SpyServiceProvider();
+                var controlPlaneRequestLifetime = new DeferredControlPlaneRequestLifetime();
                 var state = new UnityGuiSupervisorBootstrap.StartingGuiSupervisorState(
                     NoOpDaemonLogger.Instance);
                 state.AttachIdentity(storageRoot, projectFingerprint, sessionToken);
-                state.AttachResources(server, serviceProvider);
+                state.AttachResources(server, serviceProvider, controlPlaneRequestLifetime);
                 state.AttachPublicationLease(publicationLease);
                 state.AttachManifestPublicationTask(publicationTask);
                 state.ValidateManifest(manifest);
@@ -345,7 +366,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(state.CancellationToken.IsCancellationRequested, Is.True);
                 Assert.That(server.ReleaseCallCount, Is.EqualTo(1));
-                Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
+                Assert.That(controlPlaneRequestLifetime.WaitCallCount, Is.EqualTo(0));
+                Assert.That(serviceProvider.DisposeCallCount, Is.Zero);
                 Assert.That(
                     File.Exists(UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(
                         storageRoot,
@@ -382,10 +404,12 @@ namespace MackySoft.Ucli.Unity.Tests
                     TaskCreationOptions.RunContinuationsAsynchronously);
                 var server = new SpyUnityIpcServer(stopCompletionSource.Task);
                 var serviceProvider = new SpyServiceProvider();
+                var controlPlaneRequestLifetime = new DeferredControlPlaneRequestLifetime();
                 var state = new UnityGuiSupervisorBootstrap.ActiveGuiSupervisorState(
                     sessionToken,
                     server,
                     serviceProvider,
+                    controlPlaneRequestLifetime,
                     NoOpDaemonLogger.Instance,
                     storageRoot,
                     projectFingerprint);
@@ -398,12 +422,123 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(duplicateStopTask.IsCompleted, Is.False);
 
                 stopCompletionSource.SetResult(true);
+                await controlPlaneRequestLifetime.WaitObserved;
+
+                Assert.That(firstStopTask.IsCompleted, Is.False);
+                Assert.That(duplicateStopTask.IsCompleted, Is.False);
+                Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(0));
+
+                controlPlaneRequestLifetime.CompleteRetirement();
                 var firstResult = await firstStopTask;
                 var duplicateResult = await duplicateStopTask;
 
                 Assert.That(firstResult, Is.True);
                 Assert.That(duplicateResult, Is.True);
                 Assert.That(server.StopCallCount, Is.EqualTo(1));
+                Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator StopState_WhenControlPlaneDoesNotRetire_ReturnsUnsafeAtForegroundDeadline () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            var controlPlaneRequestLifetime = new DeferredControlPlaneRequestLifetime();
+            try
+            {
+                var serviceProvider = new SpyServiceProvider();
+                var state = new UnityGuiSupervisorBootstrap.ActiveGuiSupervisorState(
+                    IpcSessionToken.CreateRandom(),
+                    new SpyUnityIpcServer(Task.CompletedTask),
+                    serviceProvider,
+                    controlPlaneRequestLifetime,
+                    NoOpDaemonLogger.Instance,
+                    storageRoot,
+                    ProjectFingerprintTestFactory.Create("fingerprint-supervisor-retirement-timeout"));
+
+                var stoppedSafely = await UnityGuiSupervisorBootstrap.StopStateAsync(state);
+
+                Assert.That(stoppedSafely, Is.False);
+                Assert.That(controlPlaneRequestLifetime.WaitCallCount, Is.EqualTo(1));
+                Assert.That(serviceProvider.DisposeCallCount, Is.Zero);
+
+                controlPlaneRequestLifetime.CompleteRetirement();
+                var releasedSafely = await state.WaitForDeferredResourceReleaseAsync();
+
+                Assert.That(releasedSafely, Is.True);
+                Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                controlPlaneRequestLifetime.CompleteRetirement();
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator StopState_WhenDeferredProviderDisposeFails_KeepsGenerationUnsafe () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            var controlPlaneRequestLifetime = new DeferredControlPlaneRequestLifetime();
+            try
+            {
+                var serviceProvider = new SpyServiceProvider(throwOnDispose: true);
+                var state = new UnityGuiSupervisorBootstrap.ActiveGuiSupervisorState(
+                    IpcSessionToken.CreateRandom(),
+                    new SpyUnityIpcServer(Task.CompletedTask),
+                    serviceProvider,
+                    controlPlaneRequestLifetime,
+                    NoOpDaemonLogger.Instance,
+                    storageRoot,
+                    ProjectFingerprintTestFactory.Create("fingerprint-supervisor-deferred-dispose-failure"));
+
+                var stoppedSafely = await UnityGuiSupervisorBootstrap.StopStateAsync(state);
+                controlPlaneRequestLifetime.CompleteRetirement();
+                var releasedSafely = await state.WaitForDeferredResourceReleaseAsync();
+                var repeatedResult = await UnityGuiSupervisorBootstrap.StopStateAsync(state);
+
+                Assert.That(stoppedSafely, Is.False);
+                Assert.That(releasedSafely, Is.False);
+                Assert.That(repeatedResult, Is.False);
+                Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                controlPlaneRequestLifetime.CompleteRetirement();
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator StopState_WhenServiceProviderDisposeFails_ReturnsUnsafeWithoutRetry () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            var controlPlaneRequestLifetime = new DeferredControlPlaneRequestLifetime();
+            controlPlaneRequestLifetime.CompleteRetirement();
+            try
+            {
+                var serviceProvider = new SpyServiceProvider(throwOnDispose: true);
+                var state = new UnityGuiSupervisorBootstrap.ActiveGuiSupervisorState(
+                    IpcSessionToken.CreateRandom(),
+                    new SpyUnityIpcServer(Task.CompletedTask),
+                    serviceProvider,
+                    controlPlaneRequestLifetime,
+                    NoOpDaemonLogger.Instance,
+                    storageRoot,
+                    ProjectFingerprintTestFactory.Create("fingerprint-supervisor-dispose-failure"));
+
+                var stoppedSafely = await UnityGuiSupervisorBootstrap.StopStateAsync(state);
+                var repeatedResult = await UnityGuiSupervisorBootstrap.StopStateAsync(state);
+
+                Assert.That(stoppedSafely, Is.False);
+                Assert.That(repeatedResult, Is.False);
                 Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
             }
             finally
@@ -509,6 +644,33 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        private sealed class DeferredControlPlaneRequestLifetime : IUnityControlPlaneRequestLifetime
+        {
+            private readonly TaskCompletionSource<bool> retirementCompletionSource =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly TaskCompletionSource<bool> waitObservedCompletionSource =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public bool HasUnfinishedWork => !retirementCompletionSource.Task.IsCompleted;
+
+            public int WaitCallCount { get; private set; }
+
+            public Task WaitObserved => waitObservedCompletionSource.Task;
+
+            public Task WaitForRetirementAsync ()
+            {
+                WaitCallCount++;
+                waitObservedCompletionSource.TrySetResult(true);
+                return retirementCompletionSource.Task;
+            }
+
+            public void CompleteRetirement ()
+            {
+                retirementCompletionSource.TrySetResult(true);
+            }
+        }
+
         private sealed class SpyUnityIpcServerPublicationFence : IUnityIpcServerPublicationFence
         {
             private bool committed;
@@ -541,7 +703,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class SpyServiceProvider : IServiceProvider, IDisposable
         {
+            private readonly bool throwOnDispose;
+
+            public SpyServiceProvider (bool throwOnDispose = false)
+            {
+                this.throwOnDispose = throwOnDispose;
+            }
+
             public int DisposeCallCount { get; private set; }
+
+            public Action OnDispose { get; set; }
 
             public object GetService (Type serviceType)
             {
@@ -551,6 +722,11 @@ namespace MackySoft.Ucli.Unity.Tests
             public void Dispose ()
             {
                 DisposeCallCount++;
+                OnDispose?.Invoke();
+                if (throwOnDispose)
+                {
+                    throw new InvalidOperationException("service provider disposal failed");
+                }
             }
         }
     }

@@ -13,6 +13,8 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Bootstraps IPC daemon server when Unity is launched in batchmode daemon mode. </summary>
     internal static class UnityDaemonBootstrap
     {
+        private static IServiceProvider RetainedUnsafeServiceProvider { get; set; }
+
         /// <summary> Starts Unity daemon mode after batchmode initialization is ready. </summary>
         /// <returns> A task that completes after daemon mode exits or bootstrap failure requests process exit. </returns>
         internal static async Task StartAsync (IpcDaemonBootstrapArguments bootstrapArguments)
@@ -51,11 +53,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                         editorInstanceId);
 
                 IServiceProvider serviceProvider = services.BuildServiceProvider();
+                IUnityIpcServer server = null;
+                IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime = null;
+                IUnityMutationLaneControl mutationLaneControl = null;
+                var generationRetiredSafely = false;
                 try
                 {
-                    var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
+                    server = serviceProvider.GetRequiredService<IUnityIpcServer>();
+                    controlPlaneRequestLifetime = serviceProvider
+                        .GetRequiredService<IUnityControlPlaneRequestLifetime>();
+                    mutationLaneControl = serviceProvider.GetRequiredService<IUnityMutationLaneControl>();
                     var shutdownSignal = serviceProvider.GetRequiredService<IDaemonShutdownSignal>();
-                    using var unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
+                    var unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
                     unityLogCaptureService.Start();
 
                     using var publicationFence = await server.StartAsync(endpoint, CancellationToken.None);
@@ -96,23 +105,81 @@ namespace MackySoft.Ucli.Unity.Ipc
                     daemonLogger.Info(
                         DaemonLogCategories.Lifecycle,
                         "Daemon shutdown signal received. Stopping IPC server.");
-                    await server.StopAsync(CancellationToken.None);
-                    daemonLogger.Info(
-                        DaemonLogCategories.Lifecycle,
-                        "IPC server stop completed. Exiting Unity batchmode process.");
-                    diagnosisWritten = await PersistDiagnosisAsync(
-                        bootstrapArguments,
-                        DaemonDiagnosisReason.ShutdownRequested,
-                        "Daemon shutdown completed after shutdown request.",
-                        daemonLogger);
                 }
                 finally
                 {
-                    if (serviceProvider is IDisposable disposableServiceProvider)
+                    var serverStoppedSafely = false;
+                    if (server != null)
                     {
-                        disposableServiceProvider.Dispose();
+                        try
+                        {
+                            await server.StopAsync(CancellationToken.None);
+                            serverStoppedSafely = true;
+                        }
+                        catch (Exception exception)
+                        {
+                            daemonLogger.Warning(
+                                DaemonLogCategories.Lifecycle,
+                                $"Daemon IPC server cleanup stop failed. {exception.Message}");
+                        }
+
+                        if (serverStoppedSafely
+                            && controlPlaneRequestLifetime != null
+                            && mutationLaneControl != null)
+                        {
+                            try
+                            {
+                                var retirementTask = Task.WhenAll(
+                                    mutationLaneControl.WaitForRetirementAsync(),
+                                    controlPlaneRequestLifetime.WaitForRetirementAsync());
+                                generationRetiredSafely = await UnityHostGenerationRetirementPolicy
+                                    .WaitWithinForegroundDeadlineAsync(retirementTask);
+                                if (!generationRetiredSafely)
+                                {
+                                    daemonLogger.Warning(
+                                        DaemonLogCategories.Lifecycle,
+                                        $"Daemon request execution retirement exceeded its {UnityHostGenerationRetirementPolicy.ForegroundDeadline.TotalMilliseconds:0}ms foreground deadline.");
+                                }
+                            }
+                            catch (Exception exception)
+                            {
+                                daemonLogger.Warning(
+                                    DaemonLogCategories.Lifecycle,
+                                    $"Daemon request execution retirement failed. {exception.Message}");
+                            }
+                        }
+                    }
+
+                    if (server == null || generationRetiredSafely)
+                    {
+                        if (serviceProvider is IDisposable disposableServiceProvider)
+                        {
+                            disposableServiceProvider.Dispose();
+                        }
+                    }
+                    else
+                    {
+                        RetainedUnsafeServiceProvider = serviceProvider;
+                        daemonLogger.Warning(
+                            DaemonLogCategories.Lifecycle,
+                            "Daemon service provider is retained until process exit because its IPC generation did not retire safely.");
                     }
                 }
+
+                if (!generationRetiredSafely)
+                {
+                    throw new InvalidOperationException(
+                        "Daemon IPC generation did not retire safely during shutdown.");
+                }
+
+                daemonLogger.Info(
+                    DaemonLogCategories.Lifecycle,
+                    "IPC server stop and request execution retirement completed. Exiting Unity batchmode process.");
+                diagnosisWritten = await PersistDiagnosisAsync(
+                    bootstrapArguments,
+                    DaemonDiagnosisReason.ShutdownRequested,
+                    "Daemon shutdown completed after shutdown request.",
+                    daemonLogger);
 
                 EditorApplication.Exit(0);
             }

@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
@@ -12,6 +13,16 @@ namespace MackySoft.Ucli.Unity.Tests
     public sealed class UnitySynchronizationContextRequestExecutorTests
     {
         private static readonly TimeSpan AsyncWaitTimeout = TimeSpan.FromSeconds(5);
+
+        [Test]
+        [Category("Size.Small")]
+        public void TypeContract_DoesNotImplementControlPlaneExecutor ()
+        {
+            Assert.That(
+                typeof(IUnityControlPlaneRequestExecutor).IsAssignableFrom(
+                    typeof(UnitySynchronizationContextRequestExecutor)),
+                Is.False);
+        }
 
         [UnityTest]
         [Category("Size.Small")]
@@ -27,8 +38,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 () => Task.FromResult(Thread.CurrentThread.ManagedThreadId),
                 CancellationToken.None));
 
-            var deadlineUtc = DateTime.UtcNow.AddSeconds(5);
-            while (!executionTask.IsCompleted && DateTime.UtcNow < deadlineUtc)
+            var waitElapsedTime = Stopwatch.StartNew();
+            while (!executionTask.IsCompleted && waitElapsedTime.Elapsed < AsyncWaitTimeout)
             {
                 yield return null;
             }
