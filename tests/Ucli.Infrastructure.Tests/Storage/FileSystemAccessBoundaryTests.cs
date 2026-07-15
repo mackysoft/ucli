@@ -104,4 +104,23 @@ public sealed class FileSystemAccessBoundaryTests
         Assert.Contains("reparse point", exception.Message, StringComparison.OrdinalIgnoreCase);
         Assert.False(File.Exists(Path.Combine(targetDirectoryPath, ".gitignore")));
     }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void EnsureSecureFile_WhenTargetIsSymbolicLink_RejectsLinkWithoutChangingTarget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "secure-file-symlink");
+        var targetPath = scope.WriteFile("target.txt", "target-contents");
+        var symbolicLinkPath = scope.GetPath("linked.txt");
+        if (!TestSymbolicLinks.TryCreateFile(symbolicLinkPath, targetPath))
+        {
+            return;
+        }
+
+        var exception = Assert.Throws<IOException>(() =>
+            FileSystemAccessBoundary.EnsureSecureFile(symbolicLinkPath));
+
+        Assert.Contains("reparse point", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("target-contents", File.ReadAllText(targetPath));
+    }
 }

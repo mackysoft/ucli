@@ -224,6 +224,14 @@ public sealed class FileExclusiveLock : IDisposable
         string lockPath,
         SemaphoreSlim processLock)
     {
+        try
+        {
+            FileUtilities.EnsureRegularFile(lockPath, "Exclusive lock file");
+        }
+        catch (FileNotFoundException)
+        {
+        }
+
         var stream = UseNativeMacRegionLock
             ? OpenNativeMacStream(lockPath)
             : new FileStream(
@@ -233,6 +241,7 @@ public sealed class FileExclusiveLock : IDisposable
                 FileShare.None);
         try
         {
+            FileUtilities.EnsureRegularFile(lockPath, "Exclusive lock file");
             if (stream.Length == 0)
             {
                 stream.SetLength(1);

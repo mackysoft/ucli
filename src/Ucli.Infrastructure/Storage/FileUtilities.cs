@@ -7,9 +7,11 @@ namespace MackySoft.Ucli.Infrastructure.Storage;
 /// <summary> Provides shared utility operations for filesystem files. </summary>
 public static class FileUtilities
 {
+    internal const string AtomicWriteTemporaryFileNamePrefix = ".tmp-";
+
     private const int FileReadBufferSize = 4096;
 
-    private const int TemporaryFileTokenLength = 12;
+    private const int TemporaryFileCreationAttemptLimit = 10;
 
     private const int FileReplacementRetryLimit = 20;
 
@@ -260,16 +262,30 @@ public static class FileUtilities
         var directoryPath = Path.GetDirectoryName(pathResult.FullPath!)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
         Directory.CreateDirectory(directoryPath);
-        var temporaryPath = CreateTemporaryPath(directoryPath);
+        var temporaryStream = OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var temporaryPath);
+        var temporaryFileOwned = true;
 
         try
         {
-            await File.WriteAllTextAsync(temporaryPath, contents, cancellationToken).ConfigureAwait(false);
-            await ReplaceFileWithRetryAsync(temporaryPath, path, cancellationToken).ConfigureAwait(false);
+            using (temporaryStream)
+            using (var writer = new StreamWriter(
+                       temporaryStream,
+                       new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+                       FileReadBufferSize,
+                       leaveOpen: false))
+            {
+                await writer.WriteAsync(contents.AsMemory(), cancellationToken).ConfigureAwait(false);
+            }
+
+            await PublishAtomicWriteTemporaryFileAsync(temporaryPath, path, cancellationToken).ConfigureAwait(false);
+            temporaryFileOwned = false;
         }
         finally
         {
-            DeleteIfExists(temporaryPath);
+            if (temporaryFileOwned)
+            {
+                DeleteIfExists(temporaryPath);
+            }
         }
     }
 
@@ -299,27 +315,26 @@ public static class FileUtilities
         var directoryPath = Path.GetDirectoryName(pathResult.FullPath!)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
         Directory.CreateDirectory(directoryPath);
-        var temporaryPath = CreateTemporaryPath(directoryPath);
+        var temporaryStream = OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var temporaryPath);
+        var temporaryFileOwned = true;
 
         try
         {
-            using (var stream = new FileStream(
-                       temporaryPath,
-                       FileMode.CreateNew,
-                       FileAccess.Write,
-                       FileShare.None,
-                       FileReadBufferSize,
-                       FileOptions.Asynchronous))
+            using (temporaryStream)
             {
-                await stream.WriteAsync(contents, cancellationToken).ConfigureAwait(false);
-                await stream.FlushAsync(cancellationToken).ConfigureAwait(false);
+                await temporaryStream.WriteAsync(contents, cancellationToken).ConfigureAwait(false);
+                await temporaryStream.FlushAsync(cancellationToken).ConfigureAwait(false);
             }
 
-            await ReplaceFileWithRetryAsync(temporaryPath, path, cancellationToken).ConfigureAwait(false);
+            await PublishAtomicWriteTemporaryFileAsync(temporaryPath, path, cancellationToken).ConfigureAwait(false);
+            temporaryFileOwned = false;
         }
         finally
         {
-            DeleteIfExists(temporaryPath);
+            if (temporaryFileOwned)
+            {
+                DeleteIfExists(temporaryPath);
+            }
         }
     }
 
@@ -349,16 +364,30 @@ public static class FileUtilities
         var directoryPath = Path.GetDirectoryName(pathResult.FullPath!)
             ?? throw new InvalidOperationException($"Directory path could not be resolved: {path}");
         Directory.CreateDirectory(directoryPath);
-        var temporaryPath = CreateTemporaryPath(directoryPath);
+        var temporaryStream = OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var temporaryPath);
+        var temporaryFileOwned = true;
 
         try
         {
-            File.WriteAllText(temporaryPath, contents);
-            ReplaceFileWithRetry(temporaryPath, path);
+            using (temporaryStream)
+            using (var writer = new StreamWriter(
+                       temporaryStream,
+                       new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
+                       FileReadBufferSize,
+                       leaveOpen: false))
+            {
+                writer.Write(contents);
+            }
+
+            PublishAtomicWriteTemporaryFile(temporaryPath, path);
+            temporaryFileOwned = false;
         }
         finally
         {
-            DeleteIfExists(temporaryPath);
+            if (temporaryFileOwned)
+            {
+                DeleteIfExists(temporaryPath);
+            }
         }
     }
 
@@ -375,6 +404,78 @@ public static class FileUtilities
         if (File.Exists(path))
         {
             File.Delete(path);
+        }
+    }
+
+    /// <summary>
+    /// Atomically publishes a temporary file created by
+    /// <see cref="OpenAtomicWriteTemporaryFileInDirectory" /> and retries transient Windows replacement failures.
+    /// </summary>
+    /// <param name="temporaryPath"> The owned temporary file path consumed on success. </param>
+    /// <param name="path"> The destination path in the same directory. </param>
+    /// <param name="cancellationToken"> The cancellation token propagated while waiting between replacement attempts. </param>
+    /// <returns> A task that completes after the destination owns the temporary file contents. </returns>
+    internal static async ValueTask PublishAtomicWriteTemporaryFileAsync (
+        string temporaryPath,
+        string path,
+        CancellationToken cancellationToken)
+    {
+        ValidateAtomicWritePublication(temporaryPath, path, out temporaryPath, out path);
+
+        var failureCount = 0;
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            try
+            {
+                ReplaceFileOnce(temporaryPath, path);
+                return;
+            }
+            catch (IOException exception)
+            {
+                failureCount++;
+                var retryDelay = ResolveFileReplacementRetryDelay(exception, failureCount);
+                if (retryDelay is null)
+                {
+                    throw;
+                }
+
+                await Task.Delay(retryDelay.Value, cancellationToken).ConfigureAwait(false);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Atomically publishes a temporary file created by
+    /// <see cref="OpenAtomicWriteTemporaryFileInDirectory" /> and retries transient Windows replacement failures.
+    /// </summary>
+    /// <param name="temporaryPath"> The owned temporary file path consumed on success. </param>
+    /// <param name="path"> The destination path in the same directory. </param>
+    internal static void PublishAtomicWriteTemporaryFile (
+        string temporaryPath,
+        string path)
+    {
+        ValidateAtomicWritePublication(temporaryPath, path, out temporaryPath, out path);
+
+        var failureCount = 0;
+        while (true)
+        {
+            try
+            {
+                ReplaceFileOnce(temporaryPath, path);
+                return;
+            }
+            catch (IOException exception)
+            {
+                failureCount++;
+                var retryDelay = ResolveFileReplacementRetryDelay(exception, failureCount);
+                if (retryDelay is null)
+                {
+                    throw;
+                }
+
+                Thread.Sleep(retryDelay.Value);
+            }
         }
     }
 
@@ -406,84 +507,153 @@ public static class FileUtilities
         return TimeSpan.FromMilliseconds(FileReplacementRetryDelayMilliseconds * failureCount);
     }
 
-    private static async ValueTask ReplaceFileWithRetryAsync (
+    /// <summary> Creates and exclusively opens a short-named temporary file in a validated publication directory. </summary>
+    /// <param name="directoryPath"> The existing directory that owns the temporary file. </param>
+    /// <param name="temporaryPath"> The reserved temporary file path. </param>
+    /// <returns> The exclusive write stream owned by the caller. </returns>
+    internal static FileStream OpenAtomicWriteTemporaryFileInDirectory (
+        string directoryPath,
+        out string temporaryPath)
+    {
+        temporaryPath = string.Empty;
+        for (var attempt = 0; attempt < TemporaryFileCreationAttemptLimit; attempt++)
+        {
+            var candidatePath = Path.Combine(directoryPath, CreateAtomicWriteTemporaryFileName());
+            try
+            {
+                var stream = new FileStream(
+                    candidatePath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None,
+                    FileReadBufferSize,
+                    FileOptions.Asynchronous);
+                temporaryPath = candidatePath;
+                return stream;
+            }
+            catch (IOException) when (File.Exists(candidatePath) || Directory.Exists(candidatePath))
+            {
+                // A concurrent reservation owns this random name; retry with another name.
+            }
+        }
+
+        throw new IOException(
+            $"Could not reserve a temporary file after {TemporaryFileCreationAttemptLimit} attempts: {directoryPath}");
+    }
+
+    /// <summary> Creates a short random file name used by atomic writers before publication. </summary>
+    /// <returns> A file name beginning with <c>.tmp-</c>. </returns>
+    internal static string CreateAtomicWriteTemporaryFileName ()
+    {
+        return AtomicWriteTemporaryFileNamePrefix + Path.GetRandomFileName();
+    }
+
+    private static void ValidateAtomicWritePublication (
         string temporaryPath,
         string path,
-        CancellationToken cancellationToken)
+        out string normalizedTemporaryPath,
+        out string normalizedPath)
     {
-        var failureCount = 0;
-        while (true)
+        if (string.IsNullOrWhiteSpace(temporaryPath))
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            try
-            {
-                ReplaceFileOnce(temporaryPath, path);
-                return;
-            }
-            catch (IOException exception)
-            {
-                failureCount++;
-                var retryDelay = ResolveFileReplacementRetryDelay(exception, failureCount);
-                if (retryDelay is null)
-                {
-                    throw;
-                }
-
-                await Task.Delay(retryDelay.Value, cancellationToken).ConfigureAwait(false);
-            }
+            throw new ArgumentException("Temporary path must not be empty.", nameof(temporaryPath));
         }
-    }
 
-    private static string CreateTemporaryPath (string directoryPath)
-    {
-        var token = Guid.NewGuid().ToString("N")[..TemporaryFileTokenLength];
-        return Path.Combine(directoryPath, ".tmp-" + token);
-    }
-
-    private static void ReplaceFileWithRetry (
-        string temporaryPath,
-        string path)
-    {
-        var failureCount = 0;
-        while (true)
+        if (string.IsNullOrWhiteSpace(path))
         {
-            try
-            {
-                ReplaceFileOnce(temporaryPath, path);
-                return;
-            }
-            catch (IOException exception)
-            {
-                failureCount++;
-                var retryDelay = ResolveFileReplacementRetryDelay(exception, failureCount);
-                if (retryDelay is null)
-                {
-                    throw;
-                }
-
-                Thread.Sleep(retryDelay.Value);
-            }
+            throw new ArgumentException("Destination path must not be empty.", nameof(path));
         }
+
+        var temporaryPathResult = PathNormalizer.TryNormalizeFullPath(temporaryPath);
+        if (!temporaryPathResult.IsSuccess)
+        {
+            throw new ArgumentException(temporaryPathResult.DiagnosticMessage, nameof(temporaryPath));
+        }
+
+        var pathResult = PathNormalizer.TryNormalizeFullPath(path);
+        if (!pathResult.IsSuccess)
+        {
+            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(path));
+        }
+
+        normalizedTemporaryPath = temporaryPathResult.FullPath!;
+        normalizedPath = pathResult.FullPath!;
+        if (PathIdentity.IsSamePath(normalizedTemporaryPath, normalizedPath))
+        {
+            throw new ArgumentException(
+                "Atomic write temporary file and destination must be different paths.",
+                nameof(path));
+        }
+
+        var temporaryDirectoryPath = Path.GetDirectoryName(normalizedTemporaryPath)
+            ?? throw new InvalidOperationException(
+                $"Temporary file directory path could not be resolved: {normalizedTemporaryPath}");
+        var destinationDirectoryPath = Path.GetDirectoryName(normalizedPath)
+            ?? throw new InvalidOperationException(
+                $"Destination directory path could not be resolved: {normalizedPath}");
+        if (!PathIdentity.IsSamePath(temporaryDirectoryPath, destinationDirectoryPath))
+        {
+            throw new ArgumentException(
+                "Atomic write temporary file and destination must share one directory.",
+                nameof(temporaryPath));
+        }
+
+        if (!Path.GetFileName(normalizedTemporaryPath).StartsWith(
+                AtomicWriteTemporaryFileNamePrefix,
+                StringComparison.Ordinal))
+        {
+            throw new ArgumentException(
+                "Atomic write temporary file name is not owned by FileUtilities.",
+                nameof(temporaryPath));
+        }
+
+        EnsureRegularFile(normalizedTemporaryPath, "Atomic write temporary file");
+        EnsureWritableAtomicDestination(normalizedPath);
     }
 
     private static void ReplaceFileOnce (
         string temporaryPath,
         string path)
     {
+        EnsureWritableAtomicDestination(path);
         try
         {
             File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
         }
         catch (FileNotFoundException)
         {
-            try
-            {
-                File.Move(temporaryPath, path);
-            }
-            catch (IOException) when (File.Exists(path))
-            {
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
+            MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
+        }
+        catch (IOException) when (!File.Exists(path))
+        {
+            MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
+        }
+    }
+
+    private static void MoveOrReplaceWhenCreatedConcurrently (
+        string temporaryPath,
+        string path)
+    {
+        try
+        {
+            File.Move(temporaryPath, path);
+        }
+        catch (IOException) when (File.Exists(path))
+        {
+            EnsureWritableAtomicDestination(path);
+            File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
+        }
+    }
+
+    private static void EnsureWritableAtomicDestination (string path)
+    {
+        try
+        {
+            EnsureRegularFile(path, "Atomic write destination");
+        }
+        catch (FileNotFoundException)
+        {
+            return;
         }
     }
 

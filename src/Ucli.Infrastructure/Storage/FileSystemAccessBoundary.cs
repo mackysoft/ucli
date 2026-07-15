@@ -79,11 +79,7 @@ internal static class FileSystemAccessBoundary
         }
 
         var normalizedFilePath = NormalizePathArgument(filePath, nameof(filePath));
-        if (!File.Exists(normalizedFilePath))
-        {
-            throw new FileNotFoundException($"Secure file target was not found: {normalizedFilePath}", normalizedFilePath);
-        }
-
+        FileUtilities.EnsureRegularFile(normalizedFilePath, "Secure file target");
         ApplySecureFileMode(normalizedFilePath);
     }
 

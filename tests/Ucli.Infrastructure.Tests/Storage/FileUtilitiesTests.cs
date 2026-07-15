@@ -19,6 +19,63 @@ public sealed class FileUtilitiesTests
     }
 
     [Fact]
+    [Trait("Size", "Medium")]
+    public async Task ReadAllTextOrNullAsync_WhenSourceIsSymbolicLink_RejectsLinkWithoutReadingTarget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "reopen-safe-symlink");
+        var targetPath = scope.WriteFile("target.txt", "target-contents");
+        var symbolicLinkPath = scope.GetPath("linked.txt");
+        if (!TestSymbolicLinks.TryCreateFile(symbolicLinkPath, targetPath))
+        {
+            return;
+        }
+
+        await Assert.ThrowsAsync<IOException>(() => FileUtilities
+            .ReadAllTextOrNullAsync(symbolicLinkPath, CancellationToken.None)
+            .AsTask());
+
+        Assert.Equal("target-contents", await File.ReadAllTextAsync(targetPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task ReadAllTextOrNullAsync_WhenSourceIsDanglingSymbolicLink_RejectsLinkAsUnsafe ()
+    {
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "reopen-safe-dangling-symlink");
+        var missingTargetPath = scope.GetPath("missing-target.txt");
+        var symbolicLinkPath = scope.GetPath("linked.txt");
+        if (!TestSymbolicLinks.TryCreateFile(symbolicLinkPath, missingTargetPath))
+        {
+            return;
+        }
+
+        await Assert.ThrowsAsync<IOException>(() => FileUtilities
+            .ReadAllTextOrNullAsync(symbolicLinkPath, CancellationToken.None)
+            .AsTask());
+
+        Assert.False(File.Exists(missingTargetPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task WriteAllTextAtomicallyAsync_WhenDestinationIsSymbolicLink_RejectsLinkWithoutMutatingTarget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "atomic-write-symlink");
+        var targetPath = scope.WriteFile("target.txt", "target-contents");
+        var symbolicLinkPath = scope.GetPath("linked.txt");
+        if (!TestSymbolicLinks.TryCreateFile(symbolicLinkPath, targetPath))
+        {
+            return;
+        }
+
+        await Assert.ThrowsAsync<IOException>(() => FileUtilities
+            .WriteAllTextAtomicallyAsync(symbolicLinkPath, "replacement", CancellationToken.None)
+            .AsTask());
+
+        Assert.Equal("target-contents", await File.ReadAllTextAsync(targetPath));
+    }
+
+    [Fact]
     [Trait("Size", "Small")]
     public async Task ReadBytesOrNullWithinLimitAsync_WhenFileFits_ReturnsExactBytes ()
     {
@@ -190,6 +247,85 @@ public sealed class FileUtilitiesTests
         var files = Directory.GetFiles(scope.FullPath);
         Assert.Single(files);
         Assert.Equal(Path.GetFullPath(path), Path.GetFullPath(files[0]));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OpenAtomicWriteTemporaryFileInDirectory_ReservesShortExclusiveFile_AndSupportsCleanupAfterDispose ()
+    {
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "atomic-write-temporary-file");
+
+        string temporaryPath;
+        using (var stream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(scope.FullPath, out temporaryPath))
+        {
+            Assert.Equal(
+                Path.GetFullPath(scope.FullPath),
+                Path.GetFullPath(Path.GetDirectoryName(temporaryPath)!));
+            var temporaryFileName = Path.GetFileName(temporaryPath);
+            Assert.StartsWith(".tmp-", temporaryFileName, StringComparison.Ordinal);
+            Assert.Equal(17, temporaryFileName.Length);
+            Assert.Throws<IOException>(() =>
+            {
+                using var conflictingStream = new FileStream(
+                    temporaryPath,
+                    FileMode.CreateNew,
+                    FileAccess.Write,
+                    FileShare.None);
+            });
+            stream.WriteByte(0x2a);
+        }
+
+        Assert.True(File.Exists(temporaryPath));
+        FileUtilities.DeleteIfExists(temporaryPath);
+        Assert.False(File.Exists(temporaryPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OpenAtomicWriteTemporaryFileInDirectory_WhenReservationFails_DoesNotReportUnownedPath ()
+    {
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "atomic-write-reservation-failure");
+        var missingDirectoryPath = scope.GetPath("missing");
+        var temporaryPath = "not-empty";
+
+        Assert.Throws<DirectoryNotFoundException>(() =>
+        {
+            using var stream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
+                missingDirectoryPath,
+                out temporaryPath);
+        });
+
+        Assert.Empty(temporaryPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task PublishAtomicWriteTemporaryFileAsync_WhenDestinationUsesAnotherDirectory_RejectsPublicationWithoutConsumingTemporaryFile ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "infrastructure-storage",
+            "atomic-write-cross-directory-publication");
+        var destinationDirectoryPath = scope.GetPath("destination");
+        Directory.CreateDirectory(destinationDirectoryPath);
+        string temporaryPath;
+        await using (var stream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
+                         scope.FullPath,
+                         out temporaryPath))
+        {
+            await stream.WriteAsync(new byte[] { 0x2a });
+        }
+
+        var destinationPath = Path.Combine(destinationDirectoryPath, "artifact.json");
+        var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
+            FileUtilities.PublishAtomicWriteTemporaryFileAsync(
+                    temporaryPath,
+                    destinationPath,
+                    CancellationToken.None)
+                .AsTask());
+
+        Assert.Equal("temporaryPath", exception.ParamName);
+        Assert.True(File.Exists(temporaryPath));
+        Assert.False(File.Exists(destinationPath));
     }
 
     private sealed class IOExceptionWithHResult : IOException

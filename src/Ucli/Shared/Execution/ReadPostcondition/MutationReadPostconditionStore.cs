@@ -140,9 +140,6 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
                 SchemaVersion,
                 mergedRequirements);
             var json = JsonSerializer.Serialize(document, SerializerOptions) + Environment.NewLine;
-            var directoryPath = Path.GetDirectoryName(documentPath)
-                ?? throw new InvalidOperationException($"Mutation read postcondition directory path could not be resolved: {documentPath}");
-            FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
             await FileUtilities.WriteAllTextAtomicallyAsync(documentPath, json, cancellationToken).ConfigureAwait(false);
             return MutationReadPostconditionStoreOperationResult.Success();
         }

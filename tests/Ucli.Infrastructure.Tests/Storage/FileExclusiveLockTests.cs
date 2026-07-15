@@ -62,6 +62,27 @@ public sealed class FileExclusiveLockTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public void Acquire_WhenLockPathIsSymbolicLink_RejectsLinkWithoutMutatingTarget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "exclusive-lock-symlink");
+        var targetPath = scope.WriteFile("target.txt", "target-contents");
+        var lockPath = scope.GetPath("session.lock");
+        if (!TestSymbolicLinks.TryCreateFile(lockPath, targetPath))
+        {
+            return;
+        }
+
+        var exception = Assert.Throws<IOException>(() => FileExclusiveLock.Acquire(
+            lockPath,
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None));
+
+        Assert.Contains("reparse point", exception.Message, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("target-contents", File.ReadAllText(targetPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     [SupportedOSPlatform("macos")]
     public async Task Acquire_OnMacOS_PreventsChildProcessFromAcquiringSameRegion ()
     {
