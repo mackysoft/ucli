@@ -112,12 +112,21 @@ public sealed class IpcDaemonReachabilityProbeTests
         {
             using var scope = TestDirectories.CreateTempScope("mode-probe", exceptionCase.ScopeName);
             var timeProvider = new ManualTimeProvider();
-            var daemonPingClient = new RecordingDaemonPingClient((_, _, _, _) => throw exceptionCase.CreateException());
+            var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+            var daemonPingClient = new RecordingDaemonPingClient((_, _, _, _) =>
+            {
+                pingStarted.TrySetResult();
+                throw exceptionCase.CreateException();
+            });
             var probe = new IpcDaemonReachabilityProbe(
                 daemonPingClient,
                 timeProvider);
 
             var resultTask = probe.ProbeAsync(CreateReadyContext(scope), TimeoutClassificationProbeTimeout, CancellationToken.None).AsTask();
+            await TestAwaiter.WaitAsync(
+                pingStarted.Task,
+                "daemon reachability ping start",
+                SignalWaitTimeout);
             await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
                 timeProvider,
                 resultTask,
