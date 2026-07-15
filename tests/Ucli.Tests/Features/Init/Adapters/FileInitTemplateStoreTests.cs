@@ -52,40 +52,6 @@ public sealed class FileInitTemplateStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Write_WhenWindowsStorageRootExceedsSupportedLength_ReturnsInvalidArgumentWithoutWriting ()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        using var scope = TestDirectories.CreateTempScope("init-service", "long-storage-root");
-        var minimumStorageRootLength = UcliStoragePathResolver.MaximumSupportedWindowsStorageRootLength + 1;
-        var workingDirectoryNameLength = Math.Max(
-            1,
-            minimumStorageRootLength - scope.FullPath.Length - 1);
-        var workingDirectoryPath = scope.CreateDirectory(new string('r', workingDirectoryNameLength));
-        using var currentDirectoryScope = new CurrentDirectoryScope(workingDirectoryPath);
-        var configStore = new RecordingUcliConfigStore
-        {
-            SaveHandler = static (_, _, _) => throw new InvalidOperationException("Save should not be called."),
-        };
-        var store = new FileInitTemplateStore(configStore);
-
-        var result = await store.WriteAsync(UcliConfig.CreateDefault(), false, CancellationToken.None);
-
-        Assert.True(workingDirectoryPath.Length > UcliStoragePathResolver.MaximumSupportedWindowsStorageRootLength);
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Equal(ProjectContextErrorCodes.ProjectStorageRootTooLong, error.Code);
-        Assert.Contains("Move the repository to a shorter path", error.Message, StringComparison.Ordinal);
-        Assert.False(Directory.Exists(Path.Combine(workingDirectoryPath, UcliStoragePathNames.UcliDirectoryName)));
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task Write_WhenTemplatesAlreadyExistWithoutForce_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("init-service", "existing-without-force");

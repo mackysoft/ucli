@@ -148,11 +148,6 @@ public sealed class CodeCatalogTests
             Assert.True(catalog.TryFind(code, out var descriptor));
             Assert.Equal(projectResolvingCommands, descriptor.AppliesTo);
         }
-
-        Assert.True(catalog.TryFind(ProjectContextErrorCodes.ProjectStorageRootTooLong, out var storageRootDescriptor));
-        Assert.Equal(
-            [UcliCommandIds.Init, .. projectResolvingCommands],
-            storageRootDescriptor.AppliesTo);
     }
 
     [Fact]

@@ -30,12 +30,6 @@ internal static class ProjectContextErrorCodeDescriptors
         UcliCommandIds.TestRun,
     ];
 
-    private static readonly UcliCommand[] ProjectStorageCommands =
-    [
-        UcliCommandIds.Init,
-        .. ProjectResolutionCommands,
-    ];
-
     public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
     [
         CreateProjectContextDescriptor(
@@ -53,14 +47,6 @@ internal static class ProjectContextErrorCodeDescriptors
             "projectPathResolution",
             "Pass a valid Unity project directory and rerun the command.",
             ProjectResolutionCommands),
-
-        CreateProjectContextDescriptor(
-            ProjectContextErrorCodes.ProjectStorageRootTooLong,
-            "The repository storage root is too long.",
-            "The normalized repository root exceeds the Windows path budget supported by uCLI local storage.",
-            "projectStorageResolution",
-            "Move the repository to a shorter path and rerun the command.",
-            ProjectStorageCommands),
 
         CreateProjectContextDescriptor(
             ProjectContextErrorCodes.UnityProjectMarkerMissing,

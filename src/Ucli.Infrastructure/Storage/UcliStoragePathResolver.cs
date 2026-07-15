@@ -1,6 +1,3 @@
-#if !NET8_0_OR_GREATER
-using System.Runtime.InteropServices;
-#endif
 using System.Text;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
@@ -12,9 +9,6 @@ namespace MackySoft.Ucli.Infrastructure.Storage;
 /// <summary> Resolves repository-root and shared <c>.ucli</c> storage paths. </summary>
 public static class UcliStoragePathResolver
 {
-    /// <summary> Gets the longest Windows storage-root path supported by all fixed uCLI-managed paths. </summary>
-    internal const int MaximumSupportedWindowsStorageRootLength = 112;
-
     /// <summary> Tries to resolve a repository root path by scanning parent directories for a <c>.git</c> marker. </summary>
     /// <param name="startPath"> The starting directory path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <returns> The repository root path when marker is found; otherwise <see langword="null" />. </returns>
@@ -71,14 +65,12 @@ public static class UcliStoragePathResolver
         var repositoryRoot = TryResolveRepositoryRoot(fullStartPath);
         if (repositoryRoot is not null)
         {
-            EnsureSupportedStorageRootLength(repositoryRoot);
             return repositoryRoot;
         }
 
         // NOTE:
         // Local and CI environments may not have a Git repository.
         // Use the starting path as a deterministic fallback storage root.
-        EnsureSupportedStorageRootLength(fullStartPath);
         return fullStartPath;
     }
 
@@ -92,9 +84,7 @@ public static class UcliStoragePathResolver
             throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
         }
 
-        var normalizedStorageRoot = NormalizePathArgument(storageRoot, nameof(storageRoot));
-        EnsureSupportedStorageRootLength(normalizedStorageRoot);
-        return normalizedStorageRoot;
+        return NormalizePathArgument(storageRoot, nameof(storageRoot));
     }
 
     /// <summary> Resolves the absolute path to the <c>.ucli</c> directory. </summary>
@@ -1007,28 +997,6 @@ public static class UcliStoragePathResolver
         }
 
         return pathResult.FullPath!;
-    }
-
-    private static void EnsureSupportedStorageRootLength (string storageRoot)
-    {
-        var storageRootLength = PathStringNormalizer
-            .TrimTrailingDirectorySeparators(storageRoot)
-            .Length;
-        if (IsWindows()
-            && storageRootLength > MaximumSupportedWindowsStorageRootLength)
-        {
-            throw new PathTooLongException(
-                $"Storage root exceeds the {MaximumSupportedWindowsStorageRootLength}-character Windows limit supported by uCLI local storage: {storageRootLength} characters. Move the repository to a shorter path.");
-        }
-    }
-
-    private static bool IsWindows ()
-    {
-#if NET8_0_OR_GREATER
-        return OperatingSystem.IsWindows();
-#else
-        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-#endif
     }
 
 }

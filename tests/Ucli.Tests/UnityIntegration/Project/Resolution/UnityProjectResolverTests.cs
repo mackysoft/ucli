@@ -3,7 +3,6 @@ namespace MackySoft.Ucli.Tests;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Project.Resolution;
 
 public sealed class UnityProjectResolverTests
@@ -123,40 +122,6 @@ public sealed class UnityProjectResolverTests
         Assert.Equal(ProjectContextErrorCodes.ProjectPathInvalidFormat, error.Code);
         Assert.Contains("UnityProject path is invalid", error.Message, StringComparison.Ordinal);
         Assert.DoesNotContain("\0", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public void Resolve_WhenWindowsStorageRootExceedsSupportedLength_ReturnsInvalidArgument ()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        using var scope = TestDirectories.CreateTempScope("unity-project-resolver", "long-storage-root");
-        var minimumRepositoryRootLength = UcliStoragePathResolver.MaximumSupportedWindowsStorageRootLength + 1;
-        var repositoryDirectoryNameLength = Math.Max(
-            1,
-            minimumRepositoryRootLength - scope.FullPath.Length - 1);
-        var repositoryDirectoryName = new string('r', repositoryDirectoryNameLength);
-        var repositoryRoot = scope.CreateDirectory(repositoryDirectoryName);
-        scope.CreateDirectory(Path.Combine(repositoryDirectoryName, ".git"));
-        var unityProjectPath = UnityProjectTestFactory.CreateMinimalUnityProject(
-            scope,
-            Path.Combine(repositoryDirectoryName, "UnityProject"));
-        var resolver = CreateResolver();
-
-        var result = resolver.Resolve(CreateCandidate(unityProjectPath));
-
-        Assert.True(repositoryRoot.Length > UcliStoragePathResolver.MaximumSupportedWindowsStorageRootLength);
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Context);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Equal(ProjectContextErrorCodes.ProjectStorageRootTooLong, error.Code);
-        Assert.Contains("storage root is too long", error.Message, StringComparison.Ordinal);
-        Assert.Contains("Move the repository to a shorter path", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

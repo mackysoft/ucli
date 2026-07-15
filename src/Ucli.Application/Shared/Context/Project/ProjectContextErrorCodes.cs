@@ -9,9 +9,6 @@ internal static class ProjectContextErrorCodes
     /// <summary> Gets the error code used when a project path does not exist. </summary>
     public static readonly UcliCode ProjectPathNotFound = new("PROJECT_PATH_NOT_FOUND");
 
-    /// <summary> Gets the error code used when the repository storage root exceeds the supported Windows path budget. </summary>
-    public static readonly UcliCode ProjectStorageRootTooLong = new("PROJECT_STORAGE_ROOT_TOO_LONG");
-
     /// <summary> Gets the error code used when a directory is missing required Unity project markers. </summary>
     public static readonly UcliCode UnityProjectMarkerMissing = new("UNITY_PROJECT_MARKER_MISSING");
 
@@ -20,7 +17,6 @@ internal static class ProjectContextErrorCodes
     [
         ProjectPathInvalidFormat,
         ProjectPathNotFound,
-        ProjectStorageRootTooLong,
         UnityProjectMarkerMissing,
     ];
 

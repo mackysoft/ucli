@@ -102,39 +102,15 @@ public sealed class UcliStoragePathResolverContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveUcliDirectoryPath_WithMaximumSupportedWindowsStorageRootLength_Succeeds ()
+    public void ResolveUcliDirectoryPath_WithLongStorageRoot_ReturnsPath ()
     {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        var storageRoot = CreateRootedPathWithLength(
-            UcliStoragePathResolver.MaximumSupportedWindowsStorageRootLength);
+        var storageRoot = CreateRootedPathWithLength(160);
 
         var resolvedPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(storageRoot);
 
         Assert.Equal(
             Path.Combine(storageRoot, UcliStoragePathNames.UcliDirectoryName),
             resolvedPath);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void ResolveUcliDirectoryPath_AboveMaximumSupportedWindowsStorageRootLength_ThrowsPathTooLongException ()
-    {
-        if (!OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        var storageRoot = CreateRootedPathWithLength(
-            UcliStoragePathResolver.MaximumSupportedWindowsStorageRootLength + 1);
-
-        var exception = Assert.Throws<PathTooLongException>(() =>
-            UcliStoragePathResolver.ResolveUcliDirectoryPath(storageRoot));
-
-        Assert.Contains("Move the repository to a shorter path", exception.Message, StringComparison.Ordinal);
     }
 
     private static string CreateRootedPathWithLength (int length)

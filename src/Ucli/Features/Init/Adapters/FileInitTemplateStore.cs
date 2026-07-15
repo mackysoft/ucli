@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Init.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Init.Ports;
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -42,12 +41,6 @@ internal sealed class FileInitTemplateStore : IInitTemplateStore
             ucliDirectoryPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(repositoryRoot);
             configPath = UcliStoragePathResolver.ResolveConfigPath(repositoryRoot);
             gitIgnorePath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.GitIgnoreFileName);
-        }
-        catch (PathTooLongException ex)
-        {
-            return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Initialization storage root is too long. {ex.Message}",
-                ProjectContextErrorCodes.ProjectStorageRootTooLong));
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
