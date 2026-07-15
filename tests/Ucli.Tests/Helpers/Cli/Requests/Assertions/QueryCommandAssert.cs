@@ -30,7 +30,7 @@ internal static class QueryCommandAssert
             expectedFailFast);
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(input.Operation);
         Assert.Equal(UcliCommandNames.QueryAssetsFind, operation.CommandName);
-        Assert.Equal("assets.find", operation.OperationId);
+        Assert.Equal("assets.find", operation.OperationId.Value);
         Assert.Equal(UcliPrimitiveOperationNames.AssetsFind, operation.OperationName);
         Assert.Equal(expectedTypeId, operation.Query.TypeId!.Value);
         Assert.Equal(expectedLimit, operation.WindowOptions.Limit);
@@ -62,11 +62,10 @@ internal static class QueryCommandAssert
             expectedFailFast);
         var operation = Assert.IsType<QuerySceneTreeOperationRequest>(input.Operation);
         Assert.Equal(UcliCommandNames.QuerySceneTree, operation.CommandName);
-        Assert.Equal("scene.tree", operation.OperationId);
+        Assert.Equal("scene.tree", operation.OperationId.Value);
         Assert.Equal(UcliPrimitiveOperationNames.SceneTree, operation.OperationName);
-        Assert.Equal(expectedScenePath, operation.ScenePath);
+        Assert.Equal(expectedScenePath, operation.ScenePath.Value);
         Assert.Equal(expectedDepth, operation.Depth);
-        Assert.False(operation.WindowOptions.All);
         Assert.Equal(expectedLimit, operation.WindowOptions.Limit);
         Assert.Equal(expectedCursor, operation.WindowOptions.Cursor);
         Assert.Equal(expectedOffset, operation.WindowOptions.Offset);

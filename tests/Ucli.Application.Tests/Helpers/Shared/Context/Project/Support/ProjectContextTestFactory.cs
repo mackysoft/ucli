@@ -111,13 +111,13 @@ internal static class ProjectContextTestFactory
         string? pathSourceLabel = PathSourceLabel,
         string unityVersion = UnityVersion)
     {
-        return new ResolvedUnityProjectContext(
-            UnityProjectRoot: unityProjectRoot,
-            RepositoryRoot: repositoryRoot,
-            ProjectFingerprint: projectFingerprint ?? ProjectFingerprint,
-            PathSource: pathSource,
-            PathSourceLabel: pathSourceLabel,
-            UnityVersion: unityVersion);
+        return ResolvedUnityProjectContext.Create(
+            unityProjectRoot: unityProjectRoot,
+            repositoryRoot: repositoryRoot,
+            projectFingerprint: projectFingerprint ?? ProjectFingerprint,
+            pathSource: pathSource,
+            pathSourceLabel: pathSourceLabel,
+            unityVersion: unityVersion);
     }
 
     public static ResolvedUnityProjectContext CreateRepositoryFixtureUnityProject (

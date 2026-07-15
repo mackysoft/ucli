@@ -53,7 +53,6 @@ internal static class DaemonServiceCollectionExtensions
     {
         services.AddSingleton<IDaemonSessionStore, DaemonSessionStore>();
         services.AddSingleton<IDaemonDiagnosisStore, DaemonDiagnosisStore>();
-        services.AddSingleton<IDaemonLaunchAttemptIdGenerator, DaemonLaunchAttemptIdGenerator>();
         services.AddSingleton<IDaemonLaunchAttemptStore, DaemonLaunchAttemptStore>();
         services.AddSingleton<IDaemonLifecycleStore, DaemonLifecycleStore>();
         services.AddSingleton<IDaemonSessionDiagnosisResolver, DaemonSessionDiagnosisResolver>();

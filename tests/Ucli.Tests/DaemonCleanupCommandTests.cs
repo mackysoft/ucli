@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
@@ -28,7 +27,7 @@ public sealed class DaemonCleanupCommandTests
                 TimeoutMilliseconds: 3000),
             "completed" => new DaemonCleanupExecutionOutput(
                 CleanupStatus: DaemonCleanupStatus.Completed,
-                SkipReason: DaemonCleanupSkipReason.None,
+                SkipReason: null,
                 DeletedLaunchAttemptCount: deletedLaunchAttemptCount,
                 TimeoutMilliseconds: 3000),
             _ => throw new ArgumentOutOfRangeException(nameof(expectedCleanupStatus), expectedCleanupStatus, "Unsupported cleanup status."),

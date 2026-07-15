@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 
 namespace MackySoft.Ucli.TestSupport;

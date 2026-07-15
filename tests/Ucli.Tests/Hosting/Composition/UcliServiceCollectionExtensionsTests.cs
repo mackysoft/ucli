@@ -1,11 +1,9 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
-using MackySoft.Ucli.Application.Features.Screenshot.Capture;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Hosting.Composition.Common;
@@ -53,10 +51,25 @@ public sealed class UcliServiceCollectionExtensionsTests
             });
 
         Assert.Same(timeProvider, serviceProvider.GetRequiredService<TimeProvider>());
-        Assert.StartsWith(
-            "19700101_000000Z_",
-            serviceProvider.GetRequiredService<IScreenshotCaptureIdFactory>().Create(),
-            StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void AddUcliServices_ResolvesGuidGeneratorWithNonEmptyGuid ()
+    {
+        var services = new ServiceCollection();
+        services.AddUcliServices();
+
+        using var serviceProvider = services.BuildServiceProvider(
+            new ServiceProviderOptions
+            {
+                ValidateOnBuild = true,
+                ValidateScopes = true,
+            });
+
+        Assert.NotEqual(
+            Guid.Empty,
+            serviceProvider.GetRequiredService<IGuidGenerator>().Generate());
     }
 
     [Fact]
@@ -112,7 +125,7 @@ public sealed class UcliServiceCollectionExtensionsTests
               "verifiers": [
                 {
                   "id": "ready.lifecycle",
-                  "kind": "ready.lifecycle",
+                  "kind": "ready",
                   "deterministic": false,
                   "required": true,
                   "primaryClaims": [
@@ -129,7 +142,7 @@ public sealed class UcliServiceCollectionExtensionsTests
                   "required": true,
                   "verifierRef": "ready.lifecycle",
                   "validity": {
-                    "kind": "{{ReadyValidityKindValues.ProbeOnly}}",
+                    "kind": "{{ContractLiteralCodec.ToValue(ReadyValidityKind.ProbeOnly)}}",
                     "guaranteesReusableSession": true
                   },
                   "evidence": [],

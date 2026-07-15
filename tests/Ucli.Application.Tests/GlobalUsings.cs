@@ -1,3 +1,5 @@
+global using MackySoft.Tests;
+global using MackySoft.Ucli.Application.Features.Assurance;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Contracts;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Gateway;
@@ -27,9 +29,12 @@ global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 global using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 global using MackySoft.Ucli.Application.Shared.Execution.Results;
+global using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 global using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
+global using MackySoft.Ucli.Application.Shared.Identifiers;
 global using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 global using MackySoft.Ucli.Contracts;
+global using MackySoft.Ucli.Contracts.Assurance;
 global using MackySoft.Ucli.Contracts.Daemon;
 global using MackySoft.Ucli.Contracts.Index;
 global using MackySoft.Ucli.Contracts.Operations;

@@ -69,6 +69,7 @@ using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projectio
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
+using MackySoft.Ucli.Application.Shared.Identifiers;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -102,6 +103,7 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationSharedServices (this IServiceCollection services)
     {
+        services.AddSingleton<IGuidGenerator, GuidGenerator>();
         services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
         services.AddSingleton<IProjectContextResolver, ProjectContextResolver>();
         services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
@@ -126,12 +128,12 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationAssuranceServices (this IServiceCollection services)
     {
-        services.AddSingleton<IAssuranceSemanticInvariantRule, ReadyAssuranceSemanticInvariantRule>();
-        services.AddSingleton<IAssuranceSemanticInvariantRule, BuildAssuranceSemanticInvariantRule>();
-        services.AddSingleton<IAssuranceSemanticInvariantRule, CompileAssuranceSemanticInvariantRule>();
-        services.AddSingleton<IAssuranceSemanticInvariantRule, VerifyAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssurancePayloadInvariantRule, BuildAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssuranceClaimInvariantRule, ReadyAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssuranceClaimInvariantRule, BuildAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssuranceClaimInvariantRule, CompileAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssuranceClaimInvariantRule, VerifyAssuranceSemanticInvariantRule>();
         services.AddSingleton<AssuranceSemanticInvariantValidator>();
-        services.AddSingleton<IRunIdGenerator, RunIdGenerator>();
         services.AddSingleton<IBuildService, BuildService>();
         services.AddSingleton<ICompileService, CompileService>();
         services.AddSingleton<IReadyService, ReadyService>();
@@ -200,7 +202,7 @@ public static class UcliApplicationServiceCollectionExtensions
         services.AddSingleton<IDaemonInvalidSessionCleanupSafetyEvaluator, DaemonInvalidSessionCleanupSafetyEvaluator>();
 
         services.AddSingleton<ILogsDaemonRequestValidator, LogsDaemonRequestValidator>();
-        services.AddSingleton<IDaemonLogsStreamTerminationPolicy, DaemonLogsStreamTerminationPolicy>();
+        services.AddSingleton<LogsStreamPollingExecutor>();
         services.AddSingleton<ILogsDaemonService, LogsDaemonService>();
         services.AddSingleton<ILogsUnityRequestValidator, LogsUnityRequestValidator>();
         services.AddSingleton<ILogsUnityService, LogsUnityService>();
@@ -237,7 +239,6 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationScreenshotServices (this IServiceCollection services)
     {
-        services.AddSingleton<IScreenshotCaptureIdFactory, ScreenshotCaptureIdFactory>();
         services.AddSingleton<IScreenshotCaptureService, ScreenshotCaptureService>();
         return services;
     }

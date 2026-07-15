@@ -58,9 +58,11 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<ISceneTreeLiteDirtySourceProbeService, SceneTreeLiteDirtySourceProbeService>();
         services.AddSingleton<ISceneTreeLiteSourceRefreshService, SceneTreeLiteSourceRefreshService>();
         services.AddSingleton<IPersistedOpsCatalogPersistenceArtifactsReader, PersistedOpsCatalogPersistenceArtifactsReader>();
+        services.AddSingleton<IIpcTransportConnector, IpcTransportConnector>();
         services.AddSingleton<IIpcTransportClient, IpcTransportClient>();
         services.AddSingleton<IUnityIpcTransportClient, UnityIpcTransportClient>();
         services.AddSingleton<UnityDaemonRecoveryWaiter>();
+        services.AddSingleton(UnityOneshotCleanupPolicy.Default);
         services.AddSingleton<IUnityIpcClient, UnityDaemonIpcClient>();
         services.AddSingleton<IUnityIpcClient, UnityOneshotIpcClient>();
         services.AddSingleton<UnityIpcRequestBuilder>();
