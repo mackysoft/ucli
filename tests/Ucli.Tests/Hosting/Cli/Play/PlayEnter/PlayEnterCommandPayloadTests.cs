@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Play;
@@ -40,8 +39,8 @@ public sealed class PlayEnterCommandPayloadTests
                 .HasBoolean("isPlaying", true)
                 .HasBoolean("isPlayingOrWillChangePlaymode", true))
             .HasProperty("transition", transition => transition
-                .HasString("transition", IpcPlayTransitionCommandNames.Enter)
-                .HasString("result", IpcPlayTransitionResultNames.Entered)
+                .HasString("transition", ContractLiteralCodec.ToValue(IpcPlayTransitionCommand.Enter))
+                .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Entered))
                 .HasProperty("before", _ => { })
                 .HasProperty("after", _ => { }))
             .HasInt32("timeoutMilliseconds", 1000);
@@ -57,7 +56,7 @@ public sealed class PlayEnterCommandPayloadTests
     [Trait("Size", "Small")]
     public async Task Enter_WhenTransitionTimesOut_EmitsErrorEnvelopeWithObservedTransitionPayload ()
     {
-        var output = PlayEnterCommandTestData.CreateOutput(IpcPlayTransitionResultNames.Timeout, includeAfter: false);
+        var output = PlayEnterCommandTestData.CreateOutput(IpcPlayTransitionOutcome.Timeout, includeAfter: false);
         var failure = ApplicationFailure.Timeout(
             "Unity Play Mode enter timed out after 1000 milliseconds.",
             PlayModeErrorCodes.PlayModeTransitionTimeout);
@@ -69,12 +68,12 @@ public sealed class PlayEnterCommandPayloadTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.PlayEnter,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, PlayModeErrorCodes.PlayModeTransitionTimeout);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload").GetProperty("transition"))
-            .HasString("result", IpcPlayTransitionResultNames.Timeout)
-            .HasString("applicationState", IpcPlayApplicationStateNames.Indeterminate)
+            .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Timeout))
+            .HasString("applicationState", ContractLiteralCodec.ToValue(IpcApplicationState.Indeterminate))
             .HasProperty("observed", _ => { });
         Assert.False(outputJson.RootElement.GetProperty("payload").GetProperty("transition").TryGetProperty("after", out _));
     }
@@ -84,9 +83,9 @@ public sealed class PlayEnterCommandPayloadTests
     public async Task Enter_WhenTransitionIsBlocked_EmitsObservedPayloadWithoutAfterOrExecutionResults ()
     {
         var output = PlayEnterCommandTestData.CreateOutput(
-            IpcPlayTransitionResultNames.Blocked,
+            IpcPlayTransitionOutcome.Blocked,
             includeAfter: false,
-            applicationState: IpcPlayApplicationStateNames.NotApplied);
+            applicationState: IpcApplicationState.NotApplied);
         var failure = ApplicationFailure.FromCode(
             PlayModeErrorCodes.PlayModeTransitionBlocked,
             "Unity Play Mode enter is blocked.");
@@ -98,12 +97,12 @@ public sealed class PlayEnterCommandPayloadTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.PlayEnter,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, PlayModeErrorCodes.PlayModeTransitionBlocked);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload").GetProperty("transition"))
-            .HasString("result", IpcPlayTransitionResultNames.Blocked)
-            .HasString("applicationState", IpcPlayApplicationStateNames.NotApplied)
+            .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Blocked))
+            .HasString("applicationState", ContractLiteralCodec.ToValue(IpcApplicationState.NotApplied))
             .HasProperty("observed", _ => { });
         Assert.False(outputJson.RootElement.GetProperty("payload").GetProperty("transition").TryGetProperty("after", out _));
         Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("opResults", out _));

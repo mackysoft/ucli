@@ -1,5 +1,4 @@
 using System.Globalization;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Play.Common;
@@ -63,13 +62,7 @@ internal static class PlayStatusServiceTestSupport
     public static RecordingDaemonProcessIdentityAssessor CreateProcessIdentityAssessor (
         DaemonProcessIdentityAssessmentStatus status)
     {
-        return new RecordingDaemonProcessIdentityAssessor
-        {
-            Assessment = new DaemonProcessIdentityAssessment(
-                status,
-                ObservedStartTimeUtc: null,
-                Error: null),
-        };
+        return new RecordingDaemonProcessIdentityAssessor(status);
     }
 
     public static DaemonLifecycleObservation CreateLifecycleObservation (
@@ -106,7 +99,8 @@ internal static class PlayStatusServiceTestSupport
             serverVersion: "0.5.0",
             editorInstanceId: editorInstanceId
                 ?? session.EditorInstanceId
-                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)));
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+            recoveryLease: null);
     }
 
     public static IpcPlayStatusResponse CreateStatusResponse (
@@ -142,7 +136,7 @@ internal static class PlayStatusServiceTestSupport
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             payload: IpcPayloadCodec.SerializeToElement(payload),
             errors: []));
     }
@@ -154,7 +148,7 @@ internal static class PlayStatusServiceTestSupport
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
-            status: IpcProtocol.StatusError,
+            status: IpcResponseStatus.Error,
             payload: IpcPayloadCodec.SerializeToElement(new { }),
             errors:
             [

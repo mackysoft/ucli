@@ -49,19 +49,9 @@ internal static class PlayExitCommandResultFactory
             actionRequired = output.ActionRequired,
             primaryDiagnostic = output.PrimaryDiagnostic,
             playMode = output.PlayMode,
-            transition = CreateTransitionPayload(output.Transition),
+            transition = PlayTransitionPayloadProjector.Create(output.Transition),
             timeoutMilliseconds = output.TimeoutMilliseconds,
         };
     }
 
-    private static object CreateTransitionPayload (PlayExitTransitionOutput transition)
-    {
-        return PlayTransitionPayloadProjector.Create(
-            transition.Transition,
-            transition.Result,
-            transition.Before,
-            transition.After,
-            transition.Observed,
-            transition.ApplicationState);
-    }
 }

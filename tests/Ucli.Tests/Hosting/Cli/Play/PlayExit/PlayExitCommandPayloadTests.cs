@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Play;
@@ -41,8 +40,8 @@ public sealed class PlayExitCommandPayloadTests
                 .HasBoolean("isPlaying", false)
                 .HasBoolean("isPlayingOrWillChangePlaymode", false))
             .HasProperty("transition", transition => transition
-                .HasString("transition", IpcPlayTransitionCommandNames.Exit)
-                .HasString("result", IpcPlayTransitionResultNames.Exited)
+                .HasString("transition", ContractLiteralCodec.ToValue(IpcPlayTransitionCommand.Exit))
+                .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Exited))
                 .HasProperty("before", _ => { })
                 .HasProperty("after", _ => { }))
             .HasInt32("timeoutMilliseconds", 1000);
@@ -58,7 +57,7 @@ public sealed class PlayExitCommandPayloadTests
     [Trait("Size", "Small")]
     public async Task Exit_WhenTransitionTimesOut_EmitsErrorEnvelopeWithObservedTransitionPayload ()
     {
-        var output = PlayExitCommandTestData.CreateOutput(IpcPlayTransitionResultNames.Timeout, includeAfter: false);
+        var output = PlayExitCommandTestData.CreateOutput(IpcPlayTransitionOutcome.Timeout, includeAfter: false);
         var failure = ApplicationFailure.Timeout(
             "Unity Play Mode exit timed out after 1000 milliseconds.",
             PlayModeErrorCodes.PlayModeTransitionTimeout);
@@ -70,12 +69,12 @@ public sealed class PlayExitCommandPayloadTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.PlayExit,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, PlayModeErrorCodes.PlayModeTransitionTimeout);
         JsonAssert.For(outputJson.RootElement.GetProperty("payload").GetProperty("transition"))
-            .HasString("result", IpcPlayTransitionResultNames.Timeout)
-            .HasString("applicationState", IpcPlayApplicationStateNames.Indeterminate)
+            .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Timeout))
+            .HasString("applicationState", ContractLiteralCodec.ToValue(IpcApplicationState.Indeterminate))
             .HasProperty("observed", _ => { });
         Assert.False(outputJson.RootElement.GetProperty("payload").GetProperty("transition").TryGetProperty("after", out _));
         Assert.False(outputJson.RootElement.GetProperty("payload").TryGetProperty("opResults", out _));

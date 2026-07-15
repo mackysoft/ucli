@@ -39,7 +39,7 @@ public sealed class PlayStatusServiceResponseValidationTests
             UnityRequestResponseTestFactory.Create(new IpcResponse(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
-                status: IpcProtocol.StatusOk,
+                status: IpcResponseStatus.Ok,
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 errors: []))));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);

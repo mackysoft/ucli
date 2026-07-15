@@ -21,13 +21,12 @@ public sealed class PlayExitServiceUnityFailureTests
             IsPlayingOrWillChangePlaymode: true),
             playModeGeneration: 2);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Exit,
-            IpcPlayTransitionResultNames.Timeout,
-            before)
-        {
-            Observed = observed,
-            ApplicationState = IpcPlayApplicationStateNames.Indeterminate,
-        });
+            IpcPlayTransitionCommand.Exit,
+            IpcPlayTransitionOutcome.Timeout,
+            before,
+            After: null,
+            Observed: observed,
+            ApplicationState: IpcApplicationState.Indeterminate));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
             response,
             PlayModeErrorCodes.PlayModeTransitionTimeout,
@@ -39,8 +38,8 @@ public sealed class PlayExitServiceUnityFailureTests
         Assert.False(result.IsSuccess);
         Assert.Equal(PlayModeErrorCodes.PlayModeTransitionTimeout, result.Error!.Code);
         Assert.NotNull(result.Output);
-        Assert.Equal(IpcPlayTransitionResultNames.Timeout, result.Output!.Transition.Result);
-        Assert.Equal(IpcPlayApplicationStateNames.Indeterminate, result.Output.Transition.ApplicationState);
+        Assert.Equal(IpcPlayTransitionOutcome.Timeout, result.Output!.Transition.Result);
+        Assert.Equal(IpcApplicationState.Indeterminate, result.Output.Transition.ApplicationState);
         Assert.Equal(observed.State.PlayMode.State, result.Output.Transition.Observed!.PlayMode.State);
         Assert.Null(result.Output.Transition.After);
     }
@@ -58,13 +57,12 @@ public sealed class PlayExitServiceUnityFailureTests
             CreateStoppedPlayMode(),
             playModeGeneration: 3);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Exit,
-            IpcPlayTransitionResultNames.Blocked,
-            before)
-        {
-            Observed = observed,
-            ApplicationState = IpcPlayApplicationStateNames.Applied,
-        });
+            IpcPlayTransitionCommand.Exit,
+            IpcPlayTransitionOutcome.Blocked,
+            before,
+            After: null,
+            Observed: observed,
+            ApplicationState: IpcApplicationState.Applied));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
             response,
             PlayModeErrorCodes.PlayModeTransitionBlocked,
@@ -76,7 +74,7 @@ public sealed class PlayExitServiceUnityFailureTests
         Assert.False(result.IsSuccess);
         Assert.Equal(PlayModeErrorCodes.PlayModeTransitionBlocked, result.Error!.Code);
         Assert.NotNull(result.Output);
-        Assert.Equal(IpcPlayApplicationStateNames.Applied, result.Output!.Transition.ApplicationState);
+        Assert.Equal(IpcApplicationState.Applied, result.Output!.Transition.ApplicationState);
         Assert.Null(result.Output.Transition.After);
         Assert.Equal(IpcEditorLifecycleState.SafeMode, result.Output.LifecycleState);
     }

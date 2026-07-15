@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Play.Common.Contracts;
 
@@ -15,6 +16,6 @@ internal sealed record PlayLifecycleSnapshotOutput (
     IpcUnityGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
     DateTimeOffset? ObservedAtUtc,
-    string? ActionRequired,
+    DaemonDiagnosisActionRequired? ActionRequired,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic,
     IpcPlayModeSnapshot PlayMode);

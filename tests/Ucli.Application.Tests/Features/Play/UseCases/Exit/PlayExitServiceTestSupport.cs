@@ -52,12 +52,12 @@ internal static class PlayExitServiceTestSupport
             CreateStoppedPlayMode(),
             playModeGeneration: 3);
         return new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Exit,
-            IpcPlayTransitionResultNames.Exited,
-            before)
-        {
-            After = after,
-        });
+            IpcPlayTransitionCommand.Exit,
+            IpcPlayTransitionOutcome.Exited,
+            before,
+            After: after,
+            Observed: null,
+            ApplicationState: null));
     }
 
     public static IpcUnityEditorObservation CreateSnapshot (
@@ -110,7 +110,7 @@ internal static class PlayExitServiceTestSupport
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             payload: IpcPayloadCodec.SerializeToElement(payload),
             errors: []));
     }
@@ -123,7 +123,7 @@ internal static class PlayExitServiceTestSupport
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
-            status: IpcProtocol.StatusError,
+            status: IpcResponseStatus.Error,
             payload: IpcPayloadCodec.SerializeToElement(payload),
             errors:
             [
@@ -138,7 +138,7 @@ internal static class PlayExitServiceTestSupport
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
-            status: IpcProtocol.StatusError,
+            status: IpcResponseStatus.Error,
             payload: IpcPayloadCodec.SerializeToElement(new
             {
                 ignored = true,

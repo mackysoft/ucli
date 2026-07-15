@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Hosting.Cli.Play;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;

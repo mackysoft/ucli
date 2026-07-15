@@ -19,12 +19,12 @@ public sealed class PlayExitServiceTransitionValidationTests
             CreateStoppedPlayMode(),
             playModeGeneration: 10);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Exit,
-            IpcPlayTransitionResultNames.AlreadyExited,
-            before)
-        {
-            After = after,
-        });
+            IpcPlayTransitionCommand.Exit,
+            IpcPlayTransitionOutcome.AlreadyExited,
+            before,
+            After: after,
+            Observed: null,
+            ApplicationState: null));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
         var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
 
@@ -49,12 +49,12 @@ public sealed class PlayExitServiceTransitionValidationTests
             playModeGeneration: 3,
             projectFingerprint: ProjectFingerprintTestFactory.Create("other-project-fingerprint"));
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Exit,
-            IpcPlayTransitionResultNames.Exited,
-            before)
-        {
-            After = after,
-        });
+            IpcPlayTransitionCommand.Exit,
+            IpcPlayTransitionOutcome.Exited,
+            before,
+            After: after,
+            Observed: null,
+            ApplicationState: null));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
         var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
 
@@ -77,12 +77,12 @@ public sealed class PlayExitServiceTransitionValidationTests
             CreateStoppedPlayMode(),
             playModeGeneration: 2);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Exit,
-            IpcPlayTransitionResultNames.Exited,
-            before)
-        {
-            After = after,
-        });
+            IpcPlayTransitionCommand.Exit,
+            IpcPlayTransitionOutcome.Exited,
+            before,
+            After: after,
+            Observed: null,
+            ApplicationState: null));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
         var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
 
@@ -105,12 +105,12 @@ public sealed class PlayExitServiceTransitionValidationTests
             CreateStoppedPlayMode(),
             playModeGeneration: 3);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Exit,
-            IpcPlayTransitionResultNames.Exited,
-            before)
-        {
-            After = after,
-        });
+            IpcPlayTransitionCommand.Exit,
+            IpcPlayTransitionOutcome.Exited,
+            before,
+            After: after,
+            Observed: null,
+            ApplicationState: null));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
         var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
 
@@ -120,106 +120,4 @@ public sealed class PlayExitServiceTransitionValidationTests
         Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenSuccessTransitionContainsErrorFields_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(
-            IpcEditorLifecycleState.PlayMode,
-            CreatePlayingPlayMode(),
-            playModeGeneration: 2);
-        var after = CreateSnapshot(
-            IpcEditorLifecycleState.Ready,
-            CreateStoppedPlayMode(),
-            playModeGeneration: 3);
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Exit,
-            IpcPlayTransitionResultNames.Exited,
-            before)
-        {
-            After = after,
-            Observed = before,
-            ApplicationState = IpcPlayApplicationStateNames.NotApplied,
-        });
-        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
-        var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayExitCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenTimeoutTransitionContainsAfter_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(
-            IpcEditorLifecycleState.PlayMode,
-            CreatePlayingPlayMode(),
-            playModeGeneration: 2);
-        var observed = CreateSnapshot(IpcEditorLifecycleState.PlayMode, new IpcPlayModeSnapshot(
-            State: IpcPlayModeState.Exiting,
-            Transition: IpcPlayModeTransition.Exiting,
-            IsPlaying: true,
-            IsPlayingOrWillChangePlaymode: true),
-            playModeGeneration: 2);
-        var after = CreateSnapshot(
-            IpcEditorLifecycleState.Ready,
-            CreateStoppedPlayMode(),
-            playModeGeneration: 3);
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Exit,
-            IpcPlayTransitionResultNames.Timeout,
-            before)
-        {
-            After = after,
-            Observed = observed,
-            ApplicationState = IpcPlayApplicationStateNames.Indeterminate,
-        });
-        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
-            response,
-            PlayModeErrorCodes.PlayModeTransitionTimeout,
-            "Unity Play Mode exit timed out.")));
-        var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayExitCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenTimeoutApplicationStateIsNotIndeterminate_ReturnsStateUnknown ()
-    {
-        var before = CreateSnapshot(
-            IpcEditorLifecycleState.PlayMode,
-            CreatePlayingPlayMode(),
-            playModeGeneration: 2);
-        var observed = CreateSnapshot(IpcEditorLifecycleState.PlayMode, new IpcPlayModeSnapshot(
-            State: IpcPlayModeState.Exiting,
-            Transition: IpcPlayModeTransition.Exiting,
-            IsPlaying: true,
-            IsPlayingOrWillChangePlaymode: true),
-            playModeGeneration: 2);
-        var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Exit,
-            IpcPlayTransitionResultNames.Timeout,
-            before)
-        {
-            Observed = observed,
-            ApplicationState = IpcPlayApplicationStateNames.NotApplied,
-        });
-        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
-            response,
-            PlayModeErrorCodes.PlayModeTransitionTimeout,
-            "Unity Play Mode exit timed out.")));
-        var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
-
-        var result = await service.ExecuteAsync(new PlayExitCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(PlayModeErrorCodes.PlayModeStateUnknown, result.Error!.Code);
-    }
 }

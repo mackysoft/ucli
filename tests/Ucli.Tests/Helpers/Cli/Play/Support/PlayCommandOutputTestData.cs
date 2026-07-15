@@ -48,7 +48,9 @@ internal static class PlayCommandOutputTestData
             UnityVersion,
             ProjectFingerprint,
             state,
-            ObservedAtUtc);
+            ObservedAtUtc,
+            actionRequired: null,
+            primaryDiagnostic: null);
     }
 
     public static PlayLifecycleSnapshotOutput CreateLifecycleSnapshotOutput (IpcUnityEditorObservation snapshot)

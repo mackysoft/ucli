@@ -27,9 +27,25 @@ internal static class PlayOutputProjectionFactory
             Generations: state.Generations,
             CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
             ObservedAtUtc: observation.ObservedAtUtc,
-            ActionRequired: StringValueNormalizer.TrimToNull(observation.ActionRequired),
+            ActionRequired: observation.ActionRequired,
             PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(observation.PrimaryDiagnostic),
             PlayMode: state.PlayMode);
+    }
+
+    /// <summary> Creates one public transition output from a validated IPC transition result. </summary>
+    /// <param name="transition"> The validated IPC transition result. </param>
+    /// <returns> The projected transition output. </returns>
+    public static PlayTransitionOutput CreateTransitionOutput (IpcPlayTransitionResult transition)
+    {
+        ArgumentNullException.ThrowIfNull(transition);
+
+        return new PlayTransitionOutput(
+            Transition: transition.Transition,
+            Result: transition.Result,
+            Before: CreateSnapshotOutput(transition.Before),
+            After: transition.After is null ? null : CreateSnapshotOutput(transition.After),
+            Observed: transition.Observed is null ? null : CreateSnapshotOutput(transition.Observed),
+            ApplicationState: transition.ApplicationState);
     }
 
     /// <summary> Creates one public primary diagnostic projection. </summary>
@@ -37,7 +53,7 @@ internal static class PlayOutputProjectionFactory
     /// <returns> The diagnostic output, or <see langword="null" /> when absent or invalid. </returns>
     public static DaemonPrimaryDiagnosticOutput? CreatePrimaryDiagnosticOutput (IpcPrimaryDiagnostic? diagnostic)
     {
-        if (diagnostic is null || !StringValueNormalizer.TryTrimToNonEmpty(diagnostic.Kind, out var kind))
+        if (diagnostic?.Kind is not { } kind)
         {
             return null;
         }

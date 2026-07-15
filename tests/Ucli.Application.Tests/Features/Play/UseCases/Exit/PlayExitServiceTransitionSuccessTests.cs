@@ -29,8 +29,8 @@ public sealed class PlayExitServiceTransitionSuccessTests
         Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
         Assert.Equal(3, output.Generations!.PlayModeGeneration);
         Assert.Equal(1500, output.TimeoutMilliseconds);
-        Assert.Equal(IpcPlayTransitionCommandNames.Exit, output.Transition.Transition);
-        Assert.Equal(IpcPlayTransitionResultNames.Exited, output.Transition.Result);
+        Assert.Equal(IpcPlayTransitionCommand.Exit, output.Transition.Transition);
+        Assert.Equal(IpcPlayTransitionOutcome.Exited, output.Transition.Result);
         Assert.NotNull(output.Transition.Before);
         Assert.NotNull(output.Transition.After);
         Assert.Null(output.Transition.Observed);
@@ -38,8 +38,7 @@ public sealed class PlayExitServiceTransitionSuccessTests
 
         UnityRequestExecutorInvocationAssert.PlayExitOnce(
             requestExecutor,
-            TimeSpan.FromMilliseconds(2500),
-            expectedPayloadTimeoutMilliseconds: 1500);
+            TimeSpan.FromMilliseconds(2500));
     }
 
     [Fact]
@@ -51,12 +50,12 @@ public sealed class PlayExitServiceTransitionSuccessTests
             CreateStoppedPlayMode(),
             playModeGeneration: 9);
         var response = new IpcPlayTransitionResponse(new IpcPlayTransitionResult(
-            IpcPlayTransitionCommandNames.Exit,
-            IpcPlayTransitionResultNames.AlreadyExited,
-            before)
-        {
-            After = before,
-        });
+            IpcPlayTransitionCommand.Exit,
+            IpcPlayTransitionOutcome.AlreadyExited,
+            before,
+            After: before,
+            Observed: null,
+            ApplicationState: null));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(response)));
         var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
 
@@ -64,7 +63,7 @@ public sealed class PlayExitServiceTransitionSuccessTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayExitExecutionOutput>(result.Output);
-        Assert.Equal(IpcPlayTransitionResultNames.AlreadyExited, output.Transition.Result);
+        Assert.Equal(IpcPlayTransitionOutcome.AlreadyExited, output.Transition.Result);
         Assert.Equal(IpcEditorLifecycleState.Compiling, output.LifecycleState);
         Assert.Equal(9, output.Transition.Before.Generations!.PlayModeGeneration);
         Assert.Equal(9, output.Transition.After!.Generations!.PlayModeGeneration);
