@@ -27,8 +27,8 @@ public static class UnityProjectFingerprintCalculator
             throw new ArgumentException("Unity project root must not be empty.", nameof(unityProjectRoot));
         }
 
-        var normalizedStorageRoot = NormalizePath(storageRoot);
-        var normalizedUnityProjectRoot = NormalizePath(unityProjectRoot);
+        var normalizedStorageRoot = PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(storageRoot);
+        var normalizedUnityProjectRoot = PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(unityProjectRoot);
         var projectPathFragment = BuildProjectPathFragment(
             normalizedStorageRoot,
             normalizedUnityProjectRoot);
@@ -60,14 +60,6 @@ public static class UnityProjectFingerprintCalculator
         // Unity project path is expected to be equal to or under storage root.
         // Keep deterministic behavior even for unexpected directory layouts.
         return normalizedUnityProjectRoot;
-    }
-
-    /// <summary> Normalizes path values used in fingerprint input. </summary>
-    /// <param name="pathValue"> The path value. </param>
-    /// <returns> The normalized path value. </returns>
-    private static string NormalizePath (string pathValue)
-    {
-        return PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(pathValue);
     }
 
     /// <summary> Normalizes relative path fragments used for fingerprint input. </summary>

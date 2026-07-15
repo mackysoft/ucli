@@ -18,10 +18,14 @@ internal static class ProjectIdentityInfoTestFactory
         ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion)
     {
-        return new ProjectIdentityInfo(
-            ProjectPath: projectPath ?? DefaultProjectPath,
-            ProjectFingerprint: projectFingerprint ?? ProjectFingerprint,
-            UnityVersion: unityVersion);
+        var resolvedProjectPath = projectPath ?? DefaultProjectPath;
+        return ProjectIdentityInfo.From(ResolvedUnityProjectContext.Create(
+            unityProjectRoot: resolvedProjectPath,
+            repositoryRoot: resolvedProjectPath,
+            projectFingerprint: projectFingerprint ?? ProjectFingerprint,
+            pathSource: UnityProjectPathSource.CommandOption,
+            pathSourceLabel: null,
+            unityVersion: unityVersion));
     }
 
     public static ProjectIdentityInfo CreateRepositoryFixture (

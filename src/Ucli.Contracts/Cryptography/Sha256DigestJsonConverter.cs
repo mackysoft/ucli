@@ -7,9 +7,6 @@ namespace MackySoft.Ucli.Contracts.Cryptography;
 public sealed class Sha256DigestJsonConverter : JsonConverter<Sha256Digest>
 {
     /// <inheritdoc />
-    public override bool HandleNull => true;
-
-    /// <inheritdoc />
     public override Sha256Digest Read (
         ref Utf8JsonReader reader,
         Type typeToConvert,
@@ -34,11 +31,6 @@ public sealed class Sha256DigestJsonConverter : JsonConverter<Sha256Digest>
         Sha256Digest value,
         JsonSerializerOptions options)
     {
-        if (value == null)
-        {
-            throw new JsonException("SHA-256 digest must not be null.");
-        }
-
         writer.WriteStringValue(value.ToString());
     }
 }

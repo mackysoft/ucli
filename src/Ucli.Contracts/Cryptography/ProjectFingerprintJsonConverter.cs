@@ -7,9 +7,6 @@ namespace MackySoft.Ucli.Contracts;
 public sealed class ProjectFingerprintJsonConverter : JsonConverter<ProjectFingerprint>
 {
     /// <inheritdoc />
-    public override bool HandleNull => true;
-
-    /// <inheritdoc />
     public override ProjectFingerprint Read (
         ref Utf8JsonReader reader,
         Type typeToConvert,
@@ -34,11 +31,6 @@ public sealed class ProjectFingerprintJsonConverter : JsonConverter<ProjectFinge
         ProjectFingerprint value,
         JsonSerializerOptions options)
     {
-        if (value == null)
-        {
-            throw new JsonException("Project fingerprint must not be null.");
-        }
-
         writer.WriteStringValue(value.ToString());
     }
 }

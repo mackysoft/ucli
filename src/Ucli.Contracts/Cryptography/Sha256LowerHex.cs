@@ -32,7 +32,7 @@ internal static class Sha256LowerHex
     /// <summary> Completes an incremental SHA-256 hash and returns its lowercase hexadecimal digest. </summary>
     /// <param name="hash"> The incremental SHA-256 hash. </param>
     /// <returns> The lowercase hexadecimal SHA-256 digest. </returns>
-    internal static string GetHashAndReset (IncrementalHash hash)
+    internal static Sha256Digest GetHashAndReset (IncrementalHash hash)
     {
         if (hash == null)
         {
@@ -45,7 +45,7 @@ internal static class Sha256LowerHex
             throw new InvalidOperationException("SHA-256 hash computation failed.");
         }
 
-        return ToLowerHex(hashBytes);
+        return Sha256Digest.FromHashBytes(hashBytes);
     }
 
     /// <summary> Converts SHA-256 digest bytes to lowercase hexadecimal text. </summary>

@@ -14,6 +14,11 @@ public sealed class Sha256Digest : IEquatable<Sha256Digest>
         this.value = value;
     }
 
+    internal static Sha256Digest FromHashBytes (ReadOnlySpan<byte> hashBytes)
+    {
+        return new Sha256Digest(Sha256LowerHex.ToLowerHex(hashBytes));
+    }
+
     /// <summary> Computes a digest from source bytes. </summary>
     /// <param name="bytes"> The source bytes. </param>
     /// <returns> The computed digest. </returns>

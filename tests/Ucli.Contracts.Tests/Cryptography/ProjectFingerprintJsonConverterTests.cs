@@ -44,7 +44,6 @@ public sealed class ProjectFingerprintJsonConverterTests
     }
 
     [Theory]
-    [InlineData("null")]
     [InlineData("123")]
     [InlineData("true")]
     [InlineData("{}")]
@@ -57,8 +56,19 @@ public sealed class ProjectFingerprintJsonConverterTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Serialize_WithNull_ThrowsJsonException ()
+    public void Serialize_WithNullableNull_WritesJsonNull ()
     {
-        Assert.Throws<JsonException>(() => JsonSerializer.Serialize<ProjectFingerprint>(null!));
+        var json = JsonSerializer.Serialize<ProjectFingerprint?>(null);
+
+        Assert.Equal("null", json);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Deserialize_WithNullableNull_ReturnsNull ()
+    {
+        var fingerprint = JsonSerializer.Deserialize<ProjectFingerprint?>("null");
+
+        Assert.Null(fingerprint);
     }
 }

@@ -33,7 +33,7 @@ internal sealed class Utf8Sha256HashWriter : IDisposable
     }
 
     /// <summary> Completes the current digest and resets the writer for another hash. </summary>
-    public string GetHashAndReset ()
+    public Sha256Digest GetHashAndReset ()
     {
         ThrowIfDisposed();
         return Sha256LowerHex.GetHashAndReset(hash);

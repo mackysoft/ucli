@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Contracts.Tests;
@@ -45,22 +46,24 @@ public sealed class RequiredProjectFingerprintContractTests
                 RepositoryRoot: "/repo",
                 ProjectFingerprint: null!,
                 SessionPath: "/repo/session.json",
+                SessionGenerationId: Guid.NewGuid(),
                 SessionIssuedAtUtc: Timestamp,
-                EndpointTransportKind: "namedPipe",
-                EndpointAddress: "ucli-endpoint"),
-            ContractKind.OneshotBootstrap => new IpcOneshotBootstrapArguments(
+                Endpoint: new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint")),
+            ContractKind.OneshotBootstrap => new IpcOneshotBootstrapEnvelope(
+                BootstrapId: Guid.NewGuid(),
                 ParentProcessId: 1234,
+                ParentProcessStartedAtUtc: Timestamp.AddMinutes(-2),
                 ProjectFingerprint: null!,
-                SessionToken: "session-token",
+                SessionToken: IpcSessionToken.CreateRandom(),
+                CreatedAtUtc: Timestamp.AddMinutes(-1),
                 ExitDeadlineUtc: Timestamp,
-                EndpointTransportKind: "namedPipe",
-                EndpointAddress: "ucli-endpoint"),
+                Endpoint: new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint")),
             ContractKind.CompileStarted => new CompileStartedEntry(
                 RunId: RunId,
                 ProjectFingerprint: null!,
-                RequestedMode: "auto",
-                ResolvedMode: "daemon",
-                SessionKind: "existing",
+                RequestedMode: AssuranceRequestedExecutionMode.Auto,
+                ResolvedMode: AssuranceResolvedExecutionMode.Daemon,
+                SessionKind: AssuranceSessionKind.Daemon,
                 TimeoutMilliseconds: 1000),
             ContractKind.CompileSummary => new IpcCompileSummary(
                 RunId: RunId,
@@ -96,7 +99,9 @@ public sealed class RequiredProjectFingerprintContractTests
                         IpcPlayModeTransition.None,
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
-                observedAtUtc: Timestamp),
+                observedAtUtc: Timestamp,
+                actionRequired: null,
+                primaryDiagnostic: null),
             ContractKind.DaemonStartupObservation => new DaemonStartStartupObservationProgressEntry(
                 PayloadKind: DaemonStartProgressPayloadKind.StartupObservation,
                 ProjectFingerprint: null!,

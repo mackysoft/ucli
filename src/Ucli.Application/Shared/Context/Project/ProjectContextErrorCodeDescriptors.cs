@@ -62,7 +62,7 @@ internal static class ProjectContextErrorCodeDescriptors
             possiblePhases: [phase],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["projectPath", "cwd", "errors[].message"],
             nextActions:
             [

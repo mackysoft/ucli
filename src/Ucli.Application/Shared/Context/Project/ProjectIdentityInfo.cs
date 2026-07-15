@@ -1,26 +1,19 @@
+using System.Diagnostics.CodeAnalysis;
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Shared.Context.Project;
 
 /// <summary> Represents the public project identity emitted by request command payloads. </summary>
 internal sealed record ProjectIdentityInfo
 {
-    /// <summary> Initializes a validated public project identity. </summary>
-    /// <param name="ProjectPath"> The normalized absolute Unity project root path. </param>
-    /// <param name="ProjectFingerprint"> The resolved Unity project fingerprint. </param>
-    /// <param name="UnityVersion"> The Unity editor version resolved for the project, or <c>unknown</c>. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="ProjectFingerprint" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentException"> Thrown when a required text value is empty. </exception>
-    public ProjectIdentityInfo (
-        string ProjectPath,
-        ProjectFingerprint ProjectFingerprint,
-        string UnityVersion)
+    private ProjectIdentityInfo (
+        string projectPath,
+        ProjectFingerprint projectFingerprint,
+        string unityVersion)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(ProjectPath);
-        ArgumentNullException.ThrowIfNull(ProjectFingerprint);
-        ArgumentException.ThrowIfNullOrWhiteSpace(UnityVersion);
-
-        this.ProjectPath = ProjectPath;
-        this.ProjectFingerprint = ProjectFingerprint;
-        this.UnityVersion = UnityVersion;
+        ProjectPath = projectPath;
+        ProjectFingerprint = projectFingerprint;
+        UnityVersion = unityVersion;
     }
 
     /// <summary> Gets the normalized absolute Unity project root path. </summary>
@@ -40,8 +33,58 @@ internal sealed record ProjectIdentityInfo
         ArgumentNullException.ThrowIfNull(project);
 
         return new ProjectIdentityInfo(
-            ProjectPath: project.UnityProjectRoot,
-            ProjectFingerprint: project.ProjectFingerprint,
-            UnityVersion: project.UnityVersion);
+            project.UnityProjectRoot,
+            project.ProjectFingerprint,
+            project.UnityVersion);
     }
+
+    /// <summary> Validates a host-reported identity against the requested project and creates the canonical public identity. </summary>
+    /// <param name="expectedProject"> The locally resolved project targeted by the request. </param>
+    /// <param name="hostProject"> The project identity reported by the Unity host. </param>
+    /// <param name="project"> The canonical public identity when validation succeeds; otherwise <see langword="null" />. </param>
+    /// <param name="mismatchKind"> The mismatched identity component when validation fails; otherwise unspecified. </param>
+    /// <returns> <see langword="true" /> when the host identity belongs to the requested project; otherwise <see langword="false" />. </returns>
+    public static bool TryFromHost (
+        ResolvedUnityProjectContext expectedProject,
+        IpcProjectIdentity hostProject,
+        [NotNullWhen(true)] out ProjectIdentityInfo? project,
+        out ProjectIdentityMismatchKind mismatchKind)
+    {
+        ArgumentNullException.ThrowIfNull(expectedProject);
+        ArgumentNullException.ThrowIfNull(hostProject);
+
+        project = null;
+        if (hostProject.ProjectFingerprint != expectedProject.ProjectFingerprint)
+        {
+            mismatchKind = ProjectIdentityMismatchKind.ProjectFingerprint;
+            return false;
+        }
+
+        var pathComparison = OperatingSystem.IsWindows()
+            ? StringComparison.OrdinalIgnoreCase
+            : StringComparison.Ordinal;
+        if (!string.Equals(hostProject.ProjectPath, expectedProject.UnityProjectRoot, pathComparison))
+        {
+            mismatchKind = ProjectIdentityMismatchKind.ProjectPath;
+            return false;
+        }
+
+        var expectedUnityVersion = expectedProject.UnityVersion;
+        if (!string.Equals(expectedUnityVersion, ProjectIdentityDefaults.UnknownUnityVersion, StringComparison.Ordinal)
+            && !string.Equals(hostProject.UnityVersion, expectedUnityVersion, StringComparison.Ordinal))
+        {
+            mismatchKind = ProjectIdentityMismatchKind.UnityVersion;
+            return false;
+        }
+
+        project = new ProjectIdentityInfo(
+            expectedProject.UnityProjectRoot,
+            expectedProject.ProjectFingerprint,
+            string.Equals(expectedUnityVersion, ProjectIdentityDefaults.UnknownUnityVersion, StringComparison.Ordinal)
+                ? hostProject.UnityVersion
+                : expectedUnityVersion);
+        mismatchKind = default;
+        return true;
+    }
+
 }

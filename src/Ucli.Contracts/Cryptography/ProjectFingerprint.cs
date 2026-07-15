@@ -16,7 +16,7 @@ public sealed class ProjectFingerprint : IEquatable<ProjectFingerprint>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> is not exactly 64 lowercase hexadecimal characters. </exception>
     public ProjectFingerprint (string value)
     {
-        if (value == null)
+        if (value is null)
         {
             throw new ArgumentNullException(nameof(value));
         }
@@ -39,9 +39,9 @@ public sealed class ProjectFingerprint : IEquatable<ProjectFingerprint>
         string? value,
         [NotNullWhen(true)] out ProjectFingerprint? fingerprint)
     {
-        fingerprint = null;
         if (!Sha256LowerHex.IsLowerHexDigest(value))
         {
+            fingerprint = null;
             return false;
         }
 
@@ -87,4 +87,5 @@ public sealed class ProjectFingerprint : IEquatable<ProjectFingerprint>
     {
         return value;
     }
+
 }

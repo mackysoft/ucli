@@ -67,11 +67,21 @@ public sealed class Sha256DigestTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("null")]
     [InlineData("123")]
     [InlineData("\"not-a-digest\"")]
     public void JsonDeserialization_WhenValueIsInvalid_ThrowsJsonException (string json)
     {
         Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<Sha256Digest>(json));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void JsonSerialization_RoundTripsNull_ForNullableDigest ()
+    {
+        var json = JsonSerializer.Serialize<Sha256Digest?>(null);
+        var roundTrip = JsonSerializer.Deserialize<Sha256Digest?>(json);
+
+        Assert.Equal("null", json);
+        Assert.Null(roundTrip);
     }
 }
