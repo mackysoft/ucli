@@ -1,3 +1,5 @@
+using System.Diagnostics;
+
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorExternalProcessRunnerTests
@@ -122,8 +124,8 @@ public sealed class SupervisorExternalProcessRunnerTests
         string path,
         TimeSpan timeout)
     {
-        var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow < deadline)
+        var waitElapsedTime = Stopwatch.StartNew();
+        while (waitElapsedTime.Elapsed < timeout)
         {
             if (File.Exists(path))
             {
@@ -140,8 +142,8 @@ public sealed class SupervisorExternalProcessRunnerTests
         int processId,
         TimeSpan timeout)
     {
-        var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow < deadline)
+        var waitElapsedTime = Stopwatch.StartNew();
+        while (waitElapsedTime.Elapsed < timeout)
         {
             if (HasExited(processId))
             {

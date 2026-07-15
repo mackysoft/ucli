@@ -148,9 +148,12 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             TimeProvider = timeProvider,
         };
         var readinessProbe = new RecordingDaemonStartupReadinessProbe();
+        var cleanupStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         var compensationService = new RecordingDaemonLaunchCompensationService
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
+            OnCleanup = () => cleanupStarted.TrySetResult(),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var service = CreateService(
@@ -167,6 +170,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
+        await cleanupStarted.Task.WaitAsync(AsyncWaitTimeout);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);

@@ -181,8 +181,8 @@ public sealed class DaemonProcessTerminationServiceTests
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow < deadline)
+        var waitElapsedTime = Stopwatch.StartNew();
+        while (waitElapsedTime.Elapsed < timeout)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (File.Exists(path))

@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
 using System.Text.Json;
@@ -1515,8 +1516,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Func<bool> completionCondition,
             string failureMessage)
         {
-            var deadlineUtc = DateTime.UtcNow + SignalWaitTimeout;
-            while (!completionCondition() && DateTime.UtcNow < deadlineUtc)
+            var waitElapsedTime = Stopwatch.StartNew();
+            while (!completionCondition() && waitElapsedTime.Elapsed < SignalWaitTimeout)
             {
                 if (synchronizationContext.PendingCallbackCount > 1)
                 {
@@ -1536,8 +1537,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Func<bool> completionCondition,
             string failureMessage)
         {
-            var deadlineUtc = DateTime.UtcNow + SignalWaitTimeout;
-            while (!completionCondition() && DateTime.UtcNow < deadlineUtc)
+            var waitElapsedTime = Stopwatch.StartNew();
+            while (!completionCondition() && waitElapsedTime.Elapsed < SignalWaitTimeout)
             {
                 if (synchronizationContext.PendingCallbackCount > 0)
                 {

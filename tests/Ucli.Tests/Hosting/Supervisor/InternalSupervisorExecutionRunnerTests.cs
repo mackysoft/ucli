@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using MackySoft.Ucli.Hosting.Supervisor;
 using MackySoft.Ucli.Infrastructure.Storage;
 using Microsoft.Extensions.DependencyInjection;
@@ -98,8 +99,8 @@ public sealed class InternalSupervisorExecutionRunnerTests
         string path,
         TimeSpan timeout)
     {
-        var deadline = DateTimeOffset.UtcNow + timeout;
-        while (DateTimeOffset.UtcNow < deadline)
+        var waitElapsedTime = Stopwatch.StartNew();
+        while (waitElapsedTime.Elapsed < timeout)
         {
             if (File.Exists(path))
             {
