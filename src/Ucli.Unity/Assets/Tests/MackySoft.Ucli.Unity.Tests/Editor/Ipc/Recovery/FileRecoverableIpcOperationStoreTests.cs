@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -53,6 +54,57 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.Throws<ArgumentOutOfRangeException>(
                 () => record.State = (RecoverableIpcOperationState)999);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ReadAsync_WhenRequestIdIsEmpty_ThrowsArgumentException ()
+        {
+            var store = CreateStore(Path.GetTempPath());
+
+            var exception = Assert.Throws<ArgumentException>(() => store.ReadAsync(
+                UnityIpcMethod.PlayEnter,
+                Guid.Empty,
+                RequestPayloadHash,
+                CancellationToken.None));
+
+            Assert.That(exception.ParamName, Is.EqualTo("requestId"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void WritePendingAsync_WhenRequestIdIsEmpty_ThrowsArgumentException ()
+        {
+            var store = CreateStore(Path.GetTempPath());
+
+            var exception = Assert.Throws<ArgumentException>(() => store.WritePendingAsync(
+                UnityIpcMethod.PlayEnter,
+                Guid.Empty,
+                RequestPayloadHash,
+                DateTimeOffset.UtcNow,
+                IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
+                CancellationToken.None));
+
+            Assert.That(exception.ParamName, Is.EqualTo("requestId"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void WriteCompletedAsync_WhenRequestIdIsEmpty_ThrowsArgumentException ()
+        {
+            var store = CreateStore(Path.GetTempPath());
+
+            var exception = Assert.Throws<ArgumentException>(() => store.WriteCompletedAsync(
+                UnityIpcMethod.PlayEnter,
+                Guid.Empty,
+                RequestPayloadHash,
+                DateTimeOffset.UtcNow.AddSeconds(-1),
+                DateTimeOffset.UtcNow,
+                IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
+                CreateSuccessResponse(Guid.NewGuid()),
+                CancellationToken.None));
+
+            Assert.That(exception.ParamName, Is.EqualTo("requestId"));
         }
 
         [UnityTest]
@@ -553,7 +605,89 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator PurgeExpiredRecordsAsync_RemovesExpiredInvalidRecord () => UniTask.ToCoroutine(async () =>
+        public IEnumerator PurgeExpiredRecordsAsync_WhenAnotherStoreWritesSameRequest_SerializesRecordMutation () => UniTask.ToCoroutine(async () =>
+        {
+            var projectPath = CreateTemporaryProjectPath();
+            try
+            {
+                var maintenanceStore = CreateStore(projectPath);
+                var writerStore = CreateStore(projectPath);
+                var nowUtc = DateTimeOffset.UtcNow;
+                var requestId = Guid.NewGuid();
+                var initialWriteResult = await maintenanceStore.WritePendingAsync(
+                    UnityIpcMethod.PlayEnter,
+                    requestId,
+                    RequestPayloadHash,
+                    nowUtc,
+                    IpcPayloadCodec.SerializeToElement(new { before = "expired" }),
+                    CancellationToken.None);
+                Assert.That(initialWriteResult.IsSuccess, Is.True, initialWriteResult.ErrorMessage);
+                await WaitUntilAsync(
+                    () => GetPrivateField<int>(maintenanceStore, "maintenanceScheduled") == 0,
+                    TimeSpan.FromSeconds(5));
+                RewriteOperationRecord(
+                    projectPath,
+                    record => record.StartedAtUtc = nowUtc.AddHours(-25));
+
+                var operationLockPath = GetPrivateField<string>(maintenanceStore, "operationLockPath");
+                Task<RecoverableIpcOperationStoreResult> purgeTask;
+                Task<RecoverableIpcOperationStoreResult> writeTask;
+                using (FileExclusiveLock.Acquire(
+                           operationLockPath,
+                           TimeSpan.FromSeconds(5),
+                           CancellationToken.None))
+                {
+                    purgeTask = maintenanceStore
+                        .PurgeExpiredRecordsAsync(nowUtc, CancellationToken.None)
+                        .AsTask();
+                    writeTask = writerStore
+                        .WritePendingAsync(
+                            UnityIpcMethod.PlayEnter,
+                            requestId,
+                            RequestPayloadHash,
+                            nowUtc,
+                            IpcPayloadCodec.SerializeToElement(new { before = "current" }),
+                            CancellationToken.None)
+                        .AsTask();
+
+                    await WaitUntilAsync(
+                        () => GetPrivateField<SemaphoreSlim>(maintenanceStore, "ioGate").CurrentCount == 0
+                            && GetPrivateField<SemaphoreSlim>(writerStore, "ioGate").CurrentCount == 0,
+                        TimeSpan.FromSeconds(5));
+                    Assert.That(purgeTask.IsCompleted, Is.False);
+                    Assert.That(writeTask.IsCompleted, Is.False);
+                }
+
+                var purgeResult = await TestAwaiter.WaitAsync(
+                    purgeTask,
+                    "cross-store recoverable maintenance",
+                    TimeSpan.FromSeconds(5));
+                var writeResult = await TestAwaiter.WaitAsync(
+                    writeTask,
+                    "cross-store recoverable write",
+                    TimeSpan.FromSeconds(5));
+                var readResult = await writerStore.ReadAsync(
+                    UnityIpcMethod.PlayEnter,
+                    requestId,
+                    RequestPayloadHash,
+                    CancellationToken.None);
+
+                Assert.That(purgeResult.IsSuccess, Is.True, purgeResult.ErrorMessage);
+                Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
+                Assert.That(readResult.IsSuccess, Is.True, readResult.ErrorMessage);
+                Assert.That(readResult.Record, Is.Not.Null);
+                Assert.That(readResult.Record.StartedAtUtc, Is.EqualTo(nowUtc));
+                Assert.That(readResult.Record.RecoveryPayload.GetProperty("before").GetString(), Is.EqualTo("current"));
+            }
+            finally
+            {
+                DeleteDirectoryIfExists(projectPath);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator PurgeExpiredRecordsAsync_WhenRecordIsMalformed_PreservesUnprovenRecord () => UniTask.ToCoroutine(async () =>
         {
             var projectPath = CreateTemporaryProjectPath();
             try
@@ -576,7 +710,145 @@ namespace MackySoft.Ucli.Unity.Tests
                 var purgeResult = await store.PurgeExpiredRecordsAsync(nowUtc, CancellationToken.None);
 
                 Assert.That(purgeResult.IsSuccess, Is.True, purgeResult.ErrorMessage);
-                Assert.That(File.Exists(recordPath), Is.False);
+                Assert.That(File.Exists(recordPath), Is.True);
+            }
+            finally
+            {
+                DeleteDirectoryIfExists(projectPath);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator PurgeExpiredRecordsAsync_WhenPendingRecordContainsCompletionFields_PreservesUnprovenRecord () => UniTask.ToCoroutine(async () =>
+        {
+            var projectPath = CreateTemporaryProjectPath();
+            try
+            {
+                var store = CreateStore(projectPath);
+                var nowUtc = DateTimeOffset.UtcNow;
+                var requestId = Guid.NewGuid();
+                var writeResult = await store.WritePendingAsync(
+                    UnityIpcMethod.PlayEnter,
+                    requestId,
+                    RequestPayloadHash,
+                    nowUtc.AddHours(-25),
+                    IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
+                    CancellationToken.None);
+                Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
+                RewriteOperationRecord(
+                    projectPath,
+                    record =>
+                    {
+                        record.CompletedAtUtc = nowUtc.AddHours(-24);
+                        record.Response = CreateSuccessResponse(requestId);
+                    });
+                var recordPath = FindOperationRecordPath(projectPath);
+
+                var purgeResult = await store.PurgeExpiredRecordsAsync(nowUtc, CancellationToken.None);
+
+                Assert.That(purgeResult.IsSuccess, Is.True, purgeResult.ErrorMessage);
+                Assert.That(File.Exists(recordPath), Is.True);
+            }
+            finally
+            {
+                DeleteDirectoryIfExists(projectPath);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator PurgeExpiredRecordsAsync_WhenDirectoryNameIsForeign_PreservesDirectoryAndRecord () => UniTask.ToCoroutine(async () =>
+        {
+            var projectPath = CreateTemporaryProjectPath();
+            try
+            {
+                var store = CreateStore(projectPath);
+                var operationsDirectoryPath = ResolveOperationsDirectoryPath(projectPath);
+                var foreignDirectoryPath = Path.Combine(operationsDirectoryPath, "foreign");
+                Directory.CreateDirectory(foreignDirectoryPath);
+                var recordPath = Path.Combine(foreignDirectoryPath, "operation.json");
+                File.WriteAllText(recordPath, "{");
+                File.SetLastWriteTimeUtc(recordPath, DateTime.UtcNow.AddDays(-2));
+
+                var purgeResult = await store.PurgeExpiredRecordsAsync(
+                    DateTimeOffset.UtcNow,
+                    CancellationToken.None);
+
+                Assert.That(purgeResult.IsSuccess, Is.True, purgeResult.ErrorMessage);
+                Assert.That(Directory.Exists(foreignDirectoryPath), Is.True);
+                Assert.That(File.Exists(recordPath), Is.True);
+            }
+            finally
+            {
+                DeleteDirectoryIfExists(projectPath);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator PurgeExpiredRecordsAsync_WhenRecordBelongsToAnotherHost_PreservesRecord () => UniTask.ToCoroutine(async () =>
+        {
+            var projectPath = CreateTemporaryProjectPath();
+            try
+            {
+                var store = CreateStore(projectPath);
+                var nowUtc = DateTimeOffset.UtcNow;
+                var requestId = Guid.NewGuid();
+                var writeResult = await store.WritePendingAsync(
+                    UnityIpcMethod.PlayEnter,
+                    requestId,
+                    RequestPayloadHash,
+                    nowUtc.AddHours(-25),
+                    IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
+                    CancellationToken.None);
+                Assert.That(writeResult.IsSuccess, Is.True, writeResult.ErrorMessage);
+                RewriteOperationRecord(
+                    projectPath,
+                    record => record.HostEditorInstanceId = OtherEditorInstanceId);
+                var recordPath = FindOperationRecordPath(projectPath);
+
+                var purgeResult = await store.PurgeExpiredRecordsAsync(nowUtc, CancellationToken.None);
+
+                Assert.That(purgeResult.IsSuccess, Is.True, purgeResult.ErrorMessage);
+                Assert.That(File.Exists(recordPath), Is.True);
+            }
+            finally
+            {
+                DeleteDirectoryIfExists(projectPath);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator PurgeExpiredRecordsAsync_WhenRecordPathIsFifo_PreservesSpecialNode () => UniTask.ToCoroutine(async () =>
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                return;
+            }
+
+            var projectPath = CreateTemporaryProjectPath();
+            try
+            {
+                var store = CreateStore(projectPath);
+                var requestId = Guid.NewGuid();
+                var operationDirectoryPath = Path.Combine(
+                    ResolveOperationsDirectoryPath(projectPath),
+                    StoragePathSegmentCodec.EncodeGuid(requestId, nameof(requestId)));
+                Directory.CreateDirectory(operationDirectoryPath);
+                var recordPath = Path.Combine(operationDirectoryPath, "operation.json");
+                if (MkFifo(recordPath, Convert.ToUInt32("600", 8)) != 0)
+                {
+                    return;
+                }
+
+                var purgeResult = await store.PurgeExpiredRecordsAsync(
+                    DateTimeOffset.UtcNow.AddDays(2),
+                    CancellationToken.None);
+
+                Assert.That(purgeResult.IsSuccess, Is.True, purgeResult.ErrorMessage);
+                Assert.That(File.Exists(recordPath), Is.True);
             }
             finally
             {
@@ -597,10 +869,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 string expiredRecordPath = null;
                 for (var i = 0; i <= 128; i++)
                 {
-                    var operationDirectoryPath = Path.Combine(operationsDirectoryPath, i.ToString("D3"));
+                    var requestId = CreateIndexedRequestId(i);
+                    var operationDirectoryPath = Path.Combine(
+                        operationsDirectoryPath,
+                        StoragePathSegmentCodec.EncodeGuid(requestId, nameof(requestId)));
                     Directory.CreateDirectory(operationDirectoryPath);
                     var recordPath = Path.Combine(operationDirectoryPath, "operation.json");
-                    File.WriteAllText(recordPath, "{");
+                    WriteExpiredCompletedRecord(recordPath, requestId, DateTimeOffset.UtcNow);
                     if (i == 128)
                     {
                         expiredRecordPath = recordPath;
@@ -696,7 +971,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 var invalidRecordText = new string(' ', 64 * 1024);
                 for (var i = 0; i < 128; i++)
                 {
-                    var operationDirectoryPath = Path.Combine(operationsDirectoryPath, i.ToString("D3"));
+                    var requestId = CreateIndexedRequestId(i + 1);
+                    var operationDirectoryPath = Path.Combine(
+                        operationsDirectoryPath,
+                        StoragePathSegmentCodec.EncodeGuid(requestId, nameof(requestId)));
                     Directory.CreateDirectory(operationDirectoryPath);
                     File.WriteAllText(Path.Combine(operationDirectoryPath, "operation.json"), invalidRecordText);
                 }
@@ -910,6 +1188,37 @@ namespace MackySoft.Ucli.Unity.Tests
                 errors: Array.Empty<IpcError>());
         }
 
+        private static Guid CreateIndexedRequestId (int index)
+        {
+            return Guid.Parse($"00000000-0000-0000-0000-{index + 1:x12}");
+        }
+
+        private static void WriteExpiredCompletedRecord (
+            string recordPath,
+            Guid requestId,
+            DateTimeOffset nowUtc)
+        {
+            using var process = Process.GetCurrentProcess();
+            var record = new RecoverableIpcOperationRecord
+            {
+                SchemaVersion = 1,
+                ProjectFingerprint = ProjectFingerprint,
+                Method = UnityIpcMethod.Compile,
+                RequestId = requestId,
+                RequestPayloadHash = RequestPayloadHash,
+                HostProcessId = process.Id,
+                HostEditorInstanceId = EditorInstanceId,
+                State = RecoverableIpcOperationState.Completed,
+                StartedAtUtc = nowUtc.AddMinutes(-12),
+                CompletedAtUtc = nowUtc.AddMinutes(-11),
+                RecoveryPayload = IpcPayloadCodec.SerializeToElement(new { before = "snapshot" }),
+                Response = CreateSuccessResponse(requestId),
+            };
+            File.WriteAllText(
+                recordPath,
+                JsonSerializer.Serialize(record, IpcJsonSerializerOptions.Default));
+        }
+
         private static void DeleteDirectoryIfExists (string path)
         {
             try
@@ -924,5 +1233,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 TestContext.WriteLine($"Temporary recoverable IPC test directory cleanup failed: {path}. {exception.Message}");
             }
         }
+
+        [DllImport("libc", SetLastError = true, EntryPoint = "mkfifo")]
+        private static extern int MkFifo (
+            string path,
+            uint mode);
     }
 }

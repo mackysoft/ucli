@@ -24,15 +24,17 @@ namespace MackySoft.Ucli.Unity.Ipc
         private const long MaxRecordFileBytes = 1024 * 1024;
         private const int MaxMaintenanceRecordsPerRun = 128;
         private const string RecordFileName = "operation.json";
+        private const string OperationLockFileName = "mutations.lock";
 
         private static readonly TimeSpan CompletedRecordTtl = TimeSpan.FromMinutes(10);
         private static readonly TimeSpan PendingRecordTtl = TimeSpan.FromHours(24);
-        private static readonly TimeSpan InvalidRecordTtl = TimeSpan.FromHours(24);
         private static readonly TimeSpan MaintenanceInterval = TimeSpan.FromMinutes(1);
+        private static readonly TimeSpan OperationLockAcquireTimeout = TimeSpan.FromSeconds(5);
         private static readonly long MaintenanceIntervalTimestampTicks =
             checked((long)(MaintenanceInterval.TotalSeconds * Stopwatch.Frequency));
 
         private readonly string operationsDirectoryPath;
+        private readonly string operationLockPath;
         private readonly ProjectFingerprint projectFingerprint;
         private readonly int hostProcessId;
         private readonly Guid hostEditorInstanceId;
@@ -61,6 +63,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             this.operationsDirectoryPath = operationsDirectoryPath;
+            operationLockPath = Path.Combine(operationsDirectoryPath, OperationLockFileName);
             this.projectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             this.hostProcessId = hostProcessId;
             this.hostEditorInstanceId = hostEditorInstanceId;
@@ -106,6 +109,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
 
+            EnsureRequestId(requestId);
+
             if (requestPayloadHash == null)
             {
                 throw new ArgumentNullException(nameof(requestPayloadHash));
@@ -134,6 +139,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
+
+            EnsureRequestId(requestId);
 
             if (requestPayloadHash == null)
             {
@@ -172,6 +179,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
+
+            EnsureRequestId(requestId);
 
             if (response == null)
             {
@@ -288,6 +297,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 try
                 {
+                    using var operationLock = await FileExclusiveLock.AcquireAsync(
+                            operationLockPath,
+                            OperationLockAcquireTimeout,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                     var path = ResolveRecordPath(record.RequestId);
                     var directoryPath = Path.GetDirectoryName(path);
                     if (string.IsNullOrWhiteSpace(directoryPath))
@@ -302,7 +316,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                         throw new IOException($"Recoverable IPC operation record exceeds the maximum size: {path}");
                     }
 
-                    EnsureWritableRecordFile(path);
                     await FileUtilities.WriteAllTextAtomicallyAsync(path, json, cancellationToken).ConfigureAwait(false);
                     FileSystemAccessBoundary.EnsureSecureFile(path);
                     return RecoverableIpcOperationStoreResult.Success();
@@ -312,7 +325,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     or UnauthorizedAccessException
                     or JsonException
                     or InvalidOperationException
-                    or ArgumentException)
+                    or ArgumentException
+                    or TimeoutException)
                 {
                     return RecoverableIpcOperationStoreResult.Failure(exception.Message);
                 }
@@ -358,7 +372,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 var operationDirectoryPaths = Directory
                     .EnumerateDirectories(operationsDirectoryPath)
-                    .OrderBy(path => Path.GetFileName(path), StringComparer.Ordinal)
+                    .Where(path => TryGetOwnedOperationRequestId(path, out _))
+                    .OrderBy(Path.GetFileName, StringComparer.Ordinal)
                     .ToArray();
                 if (operationDirectoryPaths.Length == 0)
                 {
@@ -371,7 +386,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 for (var offset = 0; offset < processedRecordCount; offset++)
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    var operationDirectoryPath = operationDirectoryPaths[(startIndex + offset) % operationDirectoryPaths.Length];
+                    var operationDirectoryPath = operationDirectoryPaths[
+                        (startIndex + offset) % operationDirectoryPaths.Length];
                     maintenanceCursorDirectoryName = Path.GetFileName(operationDirectoryPath);
                     await PurgeOperationDirectoryAsync(
                             operationDirectoryPath,
@@ -388,7 +404,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             catch (Exception exception) when (
                 exception is IOException
                 or UnauthorizedAccessException
-                or JsonException)
+                or JsonException
+                or TimeoutException)
             {
                 return RecoverableIpcOperationStoreResult.Failure(exception.Message);
             }
@@ -402,7 +419,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             await ioGate.WaitAsync(cancellationToken).ConfigureAwait(false);
             try
             {
-                if (IsReparsePoint(operationDirectoryPath))
+                using var operationLock = await FileExclusiveLock.AcquireAsync(
+                        operationLockPath,
+                        OperationLockAcquireTimeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!TryGetOwnedOperationRequestId(operationDirectoryPath, out var requestId))
                 {
                     return;
                 }
@@ -410,17 +432,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var recordPath = Path.Combine(operationDirectoryPath, RecordFileName);
                 if (!File.Exists(recordPath))
                 {
-                    TryDeleteEmptyDirectory(operationDirectoryPath);
+                    TryDeleteEmptyOwnedDirectory(operationDirectoryPath, requestId);
                     return;
                 }
 
-                if (!ShouldPurgeRecordFile(recordPath, nowUtc))
+                if (!ShouldPurgeRecordFile(recordPath, requestId, nowUtc))
                 {
                     return;
                 }
 
-                FileUtilities.DeleteIfExists(recordPath);
-                TryDeleteEmptyDirectory(operationDirectoryPath);
+                FileUtilities.EnsureRegularFile(recordPath, "Recoverable IPC operation record");
+                File.Delete(recordPath);
+                TryDeleteEmptyOwnedDirectory(operationDirectoryPath, requestId);
             }
             finally
             {
@@ -575,7 +598,6 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static string ReadRecordText (string recordPath)
         {
-            EnsureReadableRecordFile(recordPath);
             using (var stream = FileUtilities.OpenReopenSafeReadStream(recordPath))
             using (var memoryStream = new MemoryStream())
             {
@@ -614,7 +636,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            EnsureReadableRecordFile(recordPath);
             using (var stream = FileUtilities.OpenReopenSafeReadStream(recordPath))
             using (var memoryStream = new MemoryStream())
             {
@@ -648,20 +669,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static void EnsureReadableRecordFile (string path)
-        {
-            var attributes = File.GetAttributes(path);
-            if ((attributes & FileAttributes.ReparsePoint) != 0)
-            {
-                throw new IOException($"Recoverable IPC operation record must not be a reparse point: {path}");
-            }
-
-            if ((attributes & FileAttributes.Directory) != 0)
-            {
-                throw new IOException($"Recoverable IPC operation record must not be a directory: {path}");
-            }
-        }
-
         private void EnsureReadableRecordPath (string path)
         {
             if (Directory.Exists(operationsDirectoryPath)
@@ -679,16 +686,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static void EnsureWritableRecordFile (string path)
-        {
-            if (!File.Exists(path) && !Directory.Exists(path))
-            {
-                return;
-            }
-
-            EnsureReadableRecordFile(path);
-        }
-
         private static bool IsReparsePoint (string path)
         {
             try
@@ -701,79 +698,84 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static bool IsExpiredCompletedRecord (
-            RecoverableIpcOperationRecord record,
-            DateTimeOffset nowUtc)
-        {
-            return record != null
-                && record.HasState
-                && record.State == RecoverableIpcOperationState.Completed
-                && record.CompletedAtUtc.HasValue
-                && nowUtc - record.CompletedAtUtc.Value > CompletedRecordTtl;
-        }
-
-        private static bool IsExpiredPendingRecord (
-            RecoverableIpcOperationRecord record,
-            DateTimeOffset nowUtc)
-        {
-            return record != null
-                && record.HasState
-                && record.State == RecoverableIpcOperationState.Pending
-                && nowUtc - record.StartedAtUtc > PendingRecordTtl;
-        }
-
-        private static bool ShouldPurgeRecordFile (
+        private bool ShouldPurgeRecordFile (
             string recordPath,
+            Guid requestId,
             DateTimeOffset nowUtc)
         {
-            if (!TryReadRecordFile(recordPath, out var record))
-            {
-                return IsRecordFileOlderThan(recordPath, nowUtc, InvalidRecordTtl);
-            }
-
-            if (IsExpiredCompletedRecord(record, nowUtc)
-                || IsExpiredPendingRecord(record, nowUtc))
-            {
-                return true;
-            }
-
-            if (!record.HasState)
-            {
-                return IsRecordFileOlderThan(recordPath, nowUtc, InvalidRecordTtl);
-            }
-
-            return false;
-        }
-
-        private static bool IsRecordFileOlderThan (
-            string recordPath,
-            DateTimeOffset nowUtc,
-            TimeSpan ttl)
-        {
-            try
-            {
-                var lastWriteUtc = new DateTimeOffset(File.GetLastWriteTimeUtc(recordPath), TimeSpan.Zero);
-                return nowUtc - lastWriteUtc > ttl;
-            }
-            catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+            if (!TryReadRecordFile(recordPath, out var record)
+                || !IsOwnedRecord(record, requestId))
             {
                 return false;
             }
+
+            return record.State == RecoverableIpcOperationState.Completed
+                ? nowUtc - record.CompletedAtUtc.Value > CompletedRecordTtl
+                : nowUtc - record.StartedAtUtc > PendingRecordTtl;
         }
 
-        private static void TryDeleteEmptyDirectory (string directoryPath)
+        private bool IsOwnedRecord (
+            RecoverableIpcOperationRecord record,
+            Guid requestId)
+        {
+            if (record == null
+                || record.SchemaVersion != SchemaVersion
+                || record.ProjectFingerprint != projectFingerprint
+                || !ContractLiteralCodec.IsDefined(record.Method)
+                || record.RequestId != requestId
+                || record.RequestPayloadHash == null
+                || record.HostProcessId != hostProcessId
+                || record.HostEditorInstanceId != hostEditorInstanceId
+                || !record.HasState
+                || record.RecoveryPayload.ValueKind == JsonValueKind.Undefined)
+            {
+                return false;
+            }
+
+            return (record.State == RecoverableIpcOperationState.Pending
+                    && !record.CompletedAtUtc.HasValue
+                    && record.Response == null)
+                || (record.State == RecoverableIpcOperationState.Completed
+                    && record.CompletedAtUtc.HasValue
+                    && record.Response != null
+                    && record.Response.RequestId == requestId);
+        }
+
+        private static bool TryGetOwnedOperationRequestId (
+            string directoryPath,
+            out Guid requestId)
+        {
+            var directoryName = Path.GetFileName(directoryPath);
+            return StoragePathSegmentCodec.TryDecodeNonEmptyGuid(directoryName, out requestId)
+                && Directory.Exists(directoryPath)
+                && !IsReparsePoint(directoryPath);
+        }
+
+        private static void TryDeleteEmptyOwnedDirectory (
+            string directoryPath,
+            Guid requestId)
         {
             try
             {
-                if (Directory.Exists(directoryPath)
+                if (TryGetOwnedOperationRequestId(directoryPath, out var currentRequestId)
+                    && currentRequestId == requestId
                     && Directory.GetFileSystemEntries(directoryPath).Length == 0)
                 {
-                    Directory.Delete(directoryPath);
+                    Directory.Delete(directoryPath, recursive: false);
                 }
             }
             catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
             {
             }
         }
+
+        private static void EnsureRequestId (Guid requestId)
+        {
+            if (requestId == Guid.Empty)
+            {
+                throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+            }
+        }
+
     }
 }
