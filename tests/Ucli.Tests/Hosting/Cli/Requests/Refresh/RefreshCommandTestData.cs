@@ -12,7 +12,7 @@ internal static class RefreshCommandTestData
     public static readonly Guid RequestGuid = Guid.Parse(RequestId);
 
     public static OperationExecuteResult CreateSuccessResult (
-        OperationExecutionReadPostcondition? readPostcondition = null,
+        IpcExecuteReadPostcondition? readPostcondition = null,
         OperationExecutionPostReadSource? postReadSource = null)
     {
         return OperationExecuteResultFactory.Success(

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 
 /// <summary> Represents one normalized execute-response conversion result. </summary>
@@ -13,7 +15,7 @@ internal sealed record ExecuteResponseConversionResult (
     IReadOnlyList<OperationExecutionError> Errors,
     IReadOnlyList<OperationExecutionContractViolation> ContractViolations,
     string? PlanToken,
-    OperationExecutionReadPostcondition? ReadPostcondition,
+    IpcExecuteReadPostcondition? ReadPostcondition,
     OperationExecutionPostReadSource? PostReadSource,
     ProjectIdentityInfo? Project)
 {

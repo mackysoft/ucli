@@ -32,31 +32,32 @@ public sealed class MutationReadPostconditionStoreTests
         var firstWrite = await store.WriteMergedAsync(
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint-1"),
-            OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
+            new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00")),
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
+                    ScenePath: null),
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"))
-                {
-                    ScenePath = @"Assets\Scenes\Main.unity",
-                },
-            ]))!,
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
+                    ScenePath: new UnityScenePath(@"Assets\Scenes\Main.unity")),
+            ]),
             CancellationToken.None);
         var secondWrite = await store.WriteMergedAsync(
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint-1"),
-            OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
+            new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00")),
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"),
+                    ScenePath: null),
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurface.GuidPath,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00")),
-            ]))!,
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"),
+                    ScenePath: null),
+            ]),
             CancellationToken.None);
 
         Assert.True(firstWrite.IsSuccess);
@@ -65,7 +66,7 @@ public sealed class MutationReadPostconditionStoreTests
         var readResult = await store.ReadOrNullAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
-        var readPostcondition = Assert.IsType<OperationExecutionReadPostcondition>(readResult.ReadPostcondition);
+        var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
         Assert.Equal(3, readPostcondition.Requirements.Count);
         Assert.Contains(
             readPostcondition.Requirements,
@@ -78,7 +79,7 @@ public sealed class MutationReadPostconditionStoreTests
         Assert.Contains(
             readPostcondition.Requirements,
             static requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.SceneTreeLite
-                && string.Equals(requirement.ScenePath, "Assets/Scenes/Main.unity", StringComparison.Ordinal));
+                && requirement.ScenePath == new UnityScenePath("Assets/Scenes/Main.unity"));
 
         using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath));
         JsonAssert.For(jsonDocument.RootElement)
@@ -97,12 +98,13 @@ public sealed class MutationReadPostconditionStoreTests
         var writeResult = await store.WriteMergedAsync(
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint-1"),
-            OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
+            new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00")),
-            ]))!,
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
+                    ScenePath: null),
+            ]),
             CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
@@ -110,7 +112,7 @@ public sealed class MutationReadPostconditionStoreTests
         var readResult = await store.ReadOrNullAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
-        var readPostcondition = Assert.IsType<OperationExecutionReadPostcondition>(readResult.ReadPostcondition);
+        var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
         var requirement = Assert.Single(readPostcondition.Requirements);
         Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
         Assert.Null(requirement.ScenePath);

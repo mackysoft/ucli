@@ -4,7 +4,6 @@ using System.Text.Json;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Execution.Phases;
 
 #nullable enable
@@ -301,7 +300,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             DateTimeOffset issuedAtUtc)
         {
             var requirements = new List<IpcExecuteReadPostconditionRequirement>();
-            var seen = new HashSet<(IpcExecuteReadPostconditionSurface Surface, string? ScenePath)>();
+            var seen = new HashSet<(IpcExecuteReadPostconditionSurface Surface, UnityScenePath? ScenePath)>();
             for (var traceIndex = 0; traceIndex < operationTraces.Count; traceIndex++)
             {
                 var operationTrace = operationTraces[traceIndex];
@@ -309,10 +308,10 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 {
                     var invalidation = operationTrace.ReadInvalidations[invalidationIndex];
                     var surface = MapReadPostconditionSurface(invalidation.Surface);
-                    var normalizedScenePath = invalidation.ScenePath == null
+                    var scenePath = invalidation.ScenePath == null
                         ? null
-                        : PathStringNormalizer.ToSlashSeparated(invalidation.ScenePath);
-                    var key = (surface, normalizedScenePath);
+                        : new UnityScenePath(invalidation.ScenePath);
+                    var key = (surface, scenePath);
                     if (!seen.Add(key))
                     {
                         continue;
@@ -320,10 +319,8 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
                     requirements.Add(new IpcExecuteReadPostconditionRequirement(
                         Surface: surface,
-                        MinSafeGeneratedAtUtc: issuedAtUtc)
-                    {
-                        ScenePath = normalizedScenePath,
-                    });
+                        MinSafeGeneratedAtUtc: issuedAtUtc,
+                        ScenePath: scenePath));
                 }
             }
 

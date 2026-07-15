@@ -31,7 +31,8 @@ public sealed class VerifyFromInputReaderValidInputTests
                   "requirements": [
                     {
                       "surface": "sceneTreeLite",
-                      "minSafeGeneratedAtUtc": "2026-05-17T00:00:00+00:00"
+                      "minSafeGeneratedAtUtc": "2026-05-17T00:00:00+00:00",
+                      "scenePath": "Assets/Scenes/Main.unity"
                     }
                   ]
                 }

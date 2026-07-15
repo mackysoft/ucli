@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 
@@ -11,7 +12,7 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations,
-        OperationExecutionReadPostcondition? readPostcondition,
+        IpcExecuteReadPostcondition? readPostcondition,
         OperationExecutionPostReadSource? postReadSource,
         ProjectIdentityInfo? project)
     {
@@ -51,7 +52,7 @@ internal sealed record OperationExecuteResult
     public IReadOnlyList<OperationExecutionContractViolation> ContractViolations { get; }
 
     /// <summary> Gets the read postcondition emitted by mutation execution, when available. </summary>
-    public OperationExecutionReadPostcondition? ReadPostcondition { get; }
+    public IpcExecuteReadPostcondition? ReadPostcondition { get; }
 
     /// <summary> Gets source facts used by post-read verification, when available. </summary>
     public OperationExecutionPostReadSource? PostReadSource { get; }
@@ -67,7 +68,7 @@ internal sealed record OperationExecuteResult
         Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
-        OperationExecutionReadPostcondition? readPostcondition,
+        IpcExecuteReadPostcondition? readPostcondition,
         ProjectIdentityInfo project,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
         OperationExecutionPostReadSource? postReadSource = null)
@@ -94,7 +95,7 @@ internal sealed record OperationExecuteResult
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
-        OperationExecutionReadPostcondition? readPostcondition = null,
+        IpcExecuteReadPostcondition? readPostcondition = null,
         ProjectIdentityInfo? project = null,
         OperationExecutionPostReadSource? postReadSource = null)
     {

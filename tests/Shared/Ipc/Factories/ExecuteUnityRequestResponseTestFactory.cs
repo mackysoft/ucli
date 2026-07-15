@@ -9,7 +9,7 @@ internal static class ExecuteUnityRequestResponseTestFactory
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
         string? planToken = null,
-        OperationExecutionReadPostcondition? readPostcondition = null,
+        IpcExecuteReadPostcondition? readPostcondition = null,
         IpcProjectIdentity? project = null)
     {
         var payload = new IpcExecuteResponse(
@@ -19,9 +19,7 @@ internal static class ExecuteUnityRequestResponseTestFactory
                 projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
                 unityVersion: "6000.1.4f1"),
             planToken: planToken,
-            readPostcondition: readPostcondition == null
-                ? null
-                : ReadPostconditionTestFactory.ToIpcContract(readPostcondition),
+            readPostcondition: readPostcondition,
             postReadSource: null,
             contractViolations: null);
 

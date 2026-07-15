@@ -87,30 +87,6 @@ internal static class OperationExecutionModelMapper
             OpId: error.OpId);
     }
 
-    /// <summary> Maps one optional read-postcondition contract. </summary>
-    public static OperationExecutionReadPostcondition? MapReadPostcondition (IpcExecuteReadPostcondition? readPostcondition)
-    {
-        if (readPostcondition == null)
-        {
-            return null;
-        }
-
-        var requirements = readPostcondition.Requirements;
-        var mappedRequirements = new OperationExecutionReadPostconditionRequirement[requirements.Count];
-        for (var i = 0; i < requirements.Count; i++)
-        {
-            var requirement = requirements[i];
-            mappedRequirements[i] = new OperationExecutionReadPostconditionRequirement(
-                Surface: requirement.Surface,
-                MinSafeGeneratedAtUtc: requirement.MinSafeGeneratedAtUtc)
-            {
-                ScenePath = requirement.ScenePath,
-            };
-        }
-
-        return new OperationExecutionReadPostcondition(mappedRequirements);
-    }
-
     /// <summary> Maps one optional post-read source contract. </summary>
     public static OperationExecutionPostReadSource? MapPostReadSource (IpcExecutePostReadSource? postReadSource)
     {

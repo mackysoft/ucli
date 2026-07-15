@@ -71,7 +71,7 @@ public sealed class CallServiceReadPostconditionTests
             expectedScenePath: "Assets/Scenes/Main.unity");
         var requirement = Assert.Single(result.Output.ReadPostcondition!.Requirements);
         Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
-        Assert.Equal("Assets/Scenes/Main.unity", requirement.ScenePath);
+        Assert.Equal(new UnityScenePath("Assets/Scenes/Main.unity"), requirement.ScenePath);
     }
 
     [Fact]

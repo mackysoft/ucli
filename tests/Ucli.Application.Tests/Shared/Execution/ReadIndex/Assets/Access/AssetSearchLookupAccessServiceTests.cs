@@ -142,12 +142,13 @@ public sealed class AssetSearchLookupAccessServiceTests
         var readPostconditionStore = new TestMutationReadPostconditionStore
         {
             ReadResult = MutationReadPostconditionReadResult.Success(
-                OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
+                new IpcExecuteReadPostcondition(
                 [
                     new IpcExecuteReadPostconditionRequirement(
                         Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
-                        MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00")),
-                ]))!),
+                        MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"),
+                        ScenePath: null),
+                ])),
         };
         var refreshService = new RecordingAssetLookupSourceRefreshService
         {

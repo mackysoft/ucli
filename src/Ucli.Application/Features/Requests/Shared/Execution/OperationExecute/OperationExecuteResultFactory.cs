@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 
@@ -64,7 +65,7 @@ internal static class OperationExecuteResultFactory
         Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
-        OperationExecutionReadPostcondition? readPostcondition,
+        IpcExecuteReadPostcondition? readPostcondition,
         ProjectIdentityInfo project,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
         OperationExecutionPostReadSource? postReadSource = null)
@@ -86,7 +87,7 @@ internal static class OperationExecuteResultFactory
         IReadOnlyList<ApplicationFailure> errors,
         string? failureMessage = null,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
-        OperationExecutionReadPostcondition? readPostcondition = null,
+        IpcExecuteReadPostcondition? readPostcondition = null,
         ProjectIdentityInfo? project = null,
         OperationExecutionPostReadSource? postReadSource = null)
     {

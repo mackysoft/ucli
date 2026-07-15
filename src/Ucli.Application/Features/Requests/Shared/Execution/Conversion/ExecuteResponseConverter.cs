@@ -51,7 +51,7 @@ internal static class ExecuteResponseConverter
             Errors: response.Errors,
             ContractViolations: OperationExecutionModelMapper.MapContractViolations(payload.ContractViolations),
             PlanToken: payload.PlanToken,
-            ReadPostcondition: OperationExecutionModelMapper.MapReadPostcondition(payload.ReadPostcondition),
+            ReadPostcondition: payload.ReadPostcondition,
             PostReadSource: OperationExecutionModelMapper.MapPostReadSource(payload.PostReadSource),
             Project: project);
     }

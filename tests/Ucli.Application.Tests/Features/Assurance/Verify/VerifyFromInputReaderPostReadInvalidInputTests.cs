@@ -74,6 +74,34 @@ public sealed class VerifyFromInputReaderPostReadInvalidInputTests
             VerifyErrorCodes.VerifyInputPayloadInvalid
         );
         yield return new InvalidInputCase(
+            CreateValidInputJson(CreateDefaultOpResultJson(), """
+            {
+              "requirements": [
+                {
+                  "surface": "assetSearch",
+                  "minSafeGeneratedAtUtc": "2026-05-17T00:00:00+00:00",
+                  "scenePath": "Assets/Scenes/Main.unity"
+                }
+              ]
+            }
+            """),
+            VerifyErrorCodes.VerifyInputPayloadInvalid
+        );
+        yield return new InvalidInputCase(
+            CreateValidInputJson(CreateDefaultOpResultJson(), """
+            {
+              "requirements": [
+                {
+                  "surface": "sceneTreeLite",
+                  "minSafeGeneratedAtUtc": "2026-05-17T00:00:00+00:00",
+                  "scenePath": "Assets/NotAScene.asset"
+                }
+              ]
+            }
+            """),
+            VerifyErrorCodes.VerifyInputPayloadInvalid
+        );
+        yield return new InvalidInputCase(
             $$"""
             {
               "protocolVersion": 1,

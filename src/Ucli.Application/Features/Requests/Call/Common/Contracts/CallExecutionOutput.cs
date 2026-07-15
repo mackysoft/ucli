@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 
 /// <summary> Represents the command payload emitted by one <c>call</c> execution. </summary>
@@ -11,7 +13,7 @@ internal sealed record CallExecutionOutput
         ProjectIdentityInfo project,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         CallPlanOutput? plan,
-        OperationExecutionReadPostcondition? readPostcondition,
+        IpcExecuteReadPostcondition? readPostcondition,
         OperationExecutionPostReadSource? postReadSource = null)
     {
         if (requestId == Guid.Empty)
@@ -38,7 +40,7 @@ internal sealed record CallExecutionOutput
 
     public CallPlanOutput? Plan { get; init; }
 
-    public OperationExecutionReadPostcondition? ReadPostcondition { get; init; }
+    public IpcExecuteReadPostcondition? ReadPostcondition { get; init; }
 
     public OperationExecutionPostReadSource? PostReadSource { get; init; }
 

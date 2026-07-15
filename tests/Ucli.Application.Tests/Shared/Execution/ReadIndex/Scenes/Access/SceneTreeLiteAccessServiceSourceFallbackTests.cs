@@ -204,7 +204,7 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
         {
             SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<SceneTreeLiteLookupSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
-                "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed."),
+                "Index contract file 'scenes/<sceneStorageKey>.json' is malformed."),
         };
         var refreshService = new RecordingSceneTreeLiteSourceRefreshService
         {
@@ -214,7 +214,7 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
                     scenePath: "Assets/Scenes/Main.unity",
                     roots: CreateTree(),
                     sourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
-                "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed."),
+                "Index contract file 'scenes/<sceneStorageKey>.json' is malformed."),
         };
         var service = CreateService(indexReader, new RecordingReadIndexFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new RecordingSceneTreeLiteSourceProbe());
 

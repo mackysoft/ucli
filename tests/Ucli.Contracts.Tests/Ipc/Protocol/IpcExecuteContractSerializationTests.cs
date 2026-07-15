@@ -619,9 +619,38 @@ public sealed class IpcExecuteContractSerializationTests
     {
         var exception = Assert.Throws<ArgumentException>(() => new IpcExecuteReadPostconditionRequirement(
             IpcExecuteReadPostconditionSurface.AssetSearch,
-            default));
+            default,
+            ScenePath: null));
 
         Assert.Equal("MinSafeGeneratedAtUtc", exception.ParamName);
+    }
+
+    [Theory]
+    [InlineData(IpcExecuteReadPostconditionSurface.AssetSearch)]
+    [InlineData(IpcExecuteReadPostconditionSurface.GuidPath)]
+    [Trait("Size", "Small")]
+    public void IpcExecuteReadPostconditionRequirement_Constructor_WhenProjectSurfaceHasScenePath_ThrowsArgumentException (
+        IpcExecuteReadPostconditionSurface surface)
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcExecuteReadPostconditionRequirement(
+            surface,
+            DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
+            new UnityScenePath("Assets/Scenes/Main.unity")));
+
+        Assert.Equal("ScenePath", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcExecuteReadPostconditionRequirement_PublicSurface_RequiresConstructorValidatedScenePath ()
+    {
+        var constructor = Assert.Single(typeof(IpcExecuteReadPostconditionRequirement).GetConstructors());
+        Assert.Collection(
+            constructor.GetParameters(),
+            parameter => Assert.Equal(typeof(IpcExecuteReadPostconditionSurface), parameter.ParameterType),
+            parameter => Assert.Equal(typeof(DateTimeOffset), parameter.ParameterType),
+            parameter => Assert.Equal(typeof(UnityScenePath), parameter.ParameterType));
+        Assert.Null(typeof(IpcExecuteReadPostconditionRequirement).GetProperty(nameof(IpcExecuteReadPostconditionRequirement.ScenePath))!.SetMethod);
     }
 
     [Fact]
@@ -673,13 +702,12 @@ public sealed class IpcExecuteContractSerializationTests
             [
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00")),
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
+                    ScenePath: null),
                 new IpcExecuteReadPostconditionRequirement(
                     Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"))
-                {
-                    ScenePath = "Assets/Scenes/Main.unity",
-                },
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
+                    ScenePath: new UnityScenePath("Assets/Scenes/Main.unity")),
             ]),
             postReadSource: null,
             contractViolations: null);
@@ -696,6 +724,15 @@ public sealed class IpcExecuteContractSerializationTests
                     .HasString("scenePath", "Assets/Scenes/Main.unity")
                     .HasString("minSafeGeneratedAtUtc", "2026-04-23T00:00:00+00:00")));
         Assert.False(json.GetProperty("readPostcondition").GetProperty("requirements")[0].TryGetProperty("scenePath", out _));
+
+        var roundTrip = JsonSerializer.Deserialize<IpcExecuteResponse>(
+            json.GetRawText(),
+            IpcJsonSerializerOptions.Default);
+
+        Assert.NotNull(roundTrip);
+        Assert.Equal(
+            new UnityScenePath("Assets/Scenes/Main.unity"),
+            roundTrip.ReadPostcondition!.Requirements[1].ScenePath);
     }
 
     [Fact]

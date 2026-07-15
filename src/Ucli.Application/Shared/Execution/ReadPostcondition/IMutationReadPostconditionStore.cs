@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 
 /// <summary> Persists fingerprint-scoped mutation read-postcondition state. </summary>
@@ -13,6 +15,6 @@ internal interface IMutationReadPostconditionStore
     ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        OperationExecutionReadPostcondition readPostcondition,
+        IpcExecuteReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default);
 }

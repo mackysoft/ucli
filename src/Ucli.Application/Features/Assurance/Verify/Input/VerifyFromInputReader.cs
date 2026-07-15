@@ -299,26 +299,15 @@ internal static class VerifyFromInputReader
             return true;
         }
 
-        if (readPostcondition.ValueKind != JsonValueKind.Object
-            || !readPostcondition.TryGetProperty("requirements", out var requirements)
-            || requirements.ValueKind != JsonValueKind.Array)
+        if (!IpcPayloadCodec.TryDeserializeStrict<IpcExecuteReadPostcondition>(
+                readPostcondition,
+                out var contract,
+                out _))
         {
             return false;
         }
 
-        foreach (var requirement in requirements.EnumerateArray())
-        {
-            if (requirement.ValueKind != JsonValueKind.Object
-                || !TryReadContractLiteral(requirement, "surface", out IpcExecuteReadPostconditionSurface _)
-                || !TryReadString(requirement, "minSafeGeneratedAtUtc", out var minSafeGeneratedAtUtc)
-                || !IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(minSafeGeneratedAtUtc, out var parsedMinSafeGeneratedAtUtc)
-                || parsedMinSafeGeneratedAtUtc is null)
-            {
-                return false;
-            }
-        }
-
-        count = requirements.GetArrayLength();
+        count = contract.Requirements.Count;
         return true;
     }
 

@@ -75,7 +75,7 @@ internal sealed record AssetLookupSnapshot
     {
         for (var i = 1; i < entries.Count; i++)
         {
-            if (StringComparer.Ordinal.Compare(entries[i - 1].AssetPath.Value, entries[i].AssetPath.Value) > 0)
+            if (entries[i - 1].AssetPath.CompareTo(entries[i].AssetPath) > 0)
             {
                 return false;
             }
@@ -88,7 +88,7 @@ internal sealed record AssetLookupSnapshot
     {
         for (var i = 1; i < entries.Count; i++)
         {
-            if (StringComparer.Ordinal.Compare(entries[i - 1].AssetPath.Value, entries[i].AssetPath.Value) > 0)
+            if (entries[i - 1].AssetPath.CompareTo(entries[i].AssetPath) > 0)
             {
                 return false;
             }
@@ -106,9 +106,7 @@ internal sealed record AssetLookupSnapshot
         {
             var guidPathEntry = guidPathEntries[i];
             while (assetSearchIndex < assetSearchEntries.Count
-                && StringComparer.Ordinal.Compare(
-                    assetSearchEntries[assetSearchIndex].AssetPath.Value,
-                    guidPathEntry.AssetPath.Value) < 0)
+                && assetSearchEntries[assetSearchIndex].AssetPath.CompareTo(guidPathEntry.AssetPath) < 0)
             {
                 assetSearchIndex++;
             }

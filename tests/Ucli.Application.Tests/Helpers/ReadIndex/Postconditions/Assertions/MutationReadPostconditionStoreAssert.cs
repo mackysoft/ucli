@@ -15,7 +15,7 @@ internal static class MutationReadPostconditionStoreAssert
         return invocation;
     }
 
-    public static OperationExecutionReadPostconditionRequirement WrittenSceneTreeLiteRequirement (
+    public static IpcExecuteReadPostconditionRequirement WrittenSceneTreeLiteRequirement (
         TestMutationReadPostconditionStore store,
         string expectedStorageRoot,
         ProjectFingerprint expectedProjectFingerprint,
@@ -24,11 +24,11 @@ internal static class MutationReadPostconditionStoreAssert
         var invocation = WrittenOnceForProject(store, expectedStorageRoot, expectedProjectFingerprint);
         var requirement = Assert.Single(invocation.ReadPostcondition.Requirements);
         Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
-        Assert.Equal(expectedScenePath, requirement.ScenePath);
+        Assert.Equal(new UnityScenePath(expectedScenePath), requirement.ScenePath);
         return requirement;
     }
 
-    public static OperationExecutionReadPostconditionRequirement WrittenAssetSearchRequirement (
+    public static IpcExecuteReadPostconditionRequirement WrittenAssetSearchRequirement (
         TestMutationReadPostconditionStore store,
         string expectedStorageRoot,
         ProjectFingerprint expectedProjectFingerprint,

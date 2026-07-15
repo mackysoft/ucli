@@ -146,7 +146,7 @@ internal sealed class SceneTreeLiteAccessService : ISceneTreeLiteAccessService
         var readPostconditionEvaluation = await MutationReadPostconditionAccessEvaluator.EvaluateSceneTreeLiteAsync(
                 mutationReadPostconditionStore,
                 project,
-                scenePath.Value,
+                scenePath,
                 lookupSnapshot.GeneratedAtUtc,
                 cancellationToken)
             .ConfigureAwait(false);

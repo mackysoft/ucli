@@ -81,7 +81,7 @@ internal static class OperationExecuteServiceTestSupport
     public static UnityRequestExecutionResult CreateCallSuccessResult (
         JsonElement? result = null,
         IReadOnlyList<IpcExecuteTouchedResource>? touched = null,
-        OperationExecutionReadPostcondition? readPostcondition = null,
+        IpcExecuteReadPostcondition? readPostcondition = null,
         bool changed = true)
     {
         return UnityRequestExecutionResult.Success(ExecuteUnityRequestResponseTestFactory.Create(

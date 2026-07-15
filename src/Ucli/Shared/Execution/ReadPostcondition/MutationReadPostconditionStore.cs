@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
-using MackySoft.Ucli.Application.Shared.Execution.Results;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -65,12 +64,13 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
             return MutationReadPostconditionReadResult.Success(null);
         }
 
-        MutationReadPostconditionDocument document;
+        IReadOnlyList<IpcExecuteReadPostconditionRequirement> mergedRequirements;
         try
         {
-            document = JsonSerializer.Deserialize<MutationReadPostconditionDocument>(json, SerializerOptions)
+            var document = JsonSerializer.Deserialize<MutationReadPostconditionDocument>(json, SerializerOptions)
                 ?? throw new JsonException("Mutation read postcondition JSON is null.");
             ValidateDocument(document, documentPath);
+            mergedRequirements = MergeRequirements(document.Requirements);
         }
         catch (JsonException exception)
         {
@@ -88,16 +88,15 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
                 $"Failed to deserialize mutation read postcondition JSON: {documentPath}. {exception.Message}"));
         }
 
-        var mergedRequirements = MergeRequirements(document.Requirements);
         return MutationReadPostconditionReadResult.Success(
-            mergedRequirements.Count == 0 ? null : MapToApplicationReadPostcondition(mergedRequirements));
+            mergedRequirements.Count == 0 ? null : new IpcExecuteReadPostcondition(mergedRequirements));
     }
 
     /// <inheritdoc />
     public async ValueTask<MutationReadPostconditionStoreOperationResult> WriteMergedAsync (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        OperationExecutionReadPostcondition readPostcondition,
+        IpcExecuteReadPostcondition readPostcondition,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -116,7 +115,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 
         try
         {
-            var mergedRequirements = MergeRequirements(MapToIpcRequirements(readPostcondition.Requirements));
+            var mergedRequirements = MergeRequirements(readPostcondition.Requirements);
             IReadOnlyList<IpcExecuteReadPostconditionRequirement> existingRequirements = [];
             var existingReadResult = await ReadOrNullAsync(storageRoot, projectFingerprint, cancellationToken).ConfigureAwait(false);
             if (!existingReadResult.IsSuccess)
@@ -126,7 +125,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 
             if (existingReadResult.ReadPostcondition != null)
             {
-                existingRequirements = MapToIpcRequirements(existingReadResult.ReadPostcondition.Requirements);
+                existingRequirements = existingReadResult.ReadPostcondition.Requirements;
             }
 
             mergedRequirements = MergeRequirements(existingRequirements.Concat(mergedRequirements).ToArray());
@@ -162,10 +161,11 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
     {
         ArgumentNullException.ThrowIfNull(requirements);
 
-        var merged = new Dictionary<(IpcExecuteReadPostconditionSurface Surface, string? ScenePath), IpcExecuteReadPostconditionRequirement>();
+        var merged = new Dictionary<(IpcExecuteReadPostconditionSurface Surface, UnityScenePath? ScenePath), IpcExecuteReadPostconditionRequirement>();
         for (var i = 0; i < requirements.Count; i++)
         {
-            var requirement = NormalizeAndValidateRequirement(requirements[i]);
+            var requirement = requirements[i];
+            ArgumentNullException.ThrowIfNull(requirement);
             var key = GetRequirementKey(requirement);
             if (merged.TryGetValue(key, out var existing)
                 && existing.MinSafeGeneratedAtUtc >= requirement.MinSafeGeneratedAtUtc)
@@ -178,50 +178,9 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 
         return merged
             .OrderBy(static pair => pair.Key.Surface)
-            .ThenBy(static pair => pair.Key.ScenePath, StringComparer.Ordinal)
+            .ThenBy(static pair => pair.Key.ScenePath?.Value, StringComparer.Ordinal)
             .Select(static pair => pair.Value)
             .ToArray();
-    }
-
-    private static IpcExecuteReadPostconditionRequirement NormalizeAndValidateRequirement (
-        IpcExecuteReadPostconditionRequirement requirement)
-    {
-        ArgumentNullException.ThrowIfNull(requirement);
-        if (requirement.MinSafeGeneratedAtUtc == default)
-        {
-            throw new ArgumentException("minSafeGeneratedAtUtc must not be default.", nameof(requirement));
-        }
-
-        switch (requirement.Surface)
-        {
-            case IpcExecuteReadPostconditionSurface.AssetSearch:
-            case IpcExecuteReadPostconditionSurface.GuidPath:
-                if (requirement.ScenePath != null)
-                {
-                    throw new ArgumentException("scenePath must be omitted for project-scoped read postconditions.", nameof(requirement));
-                }
-
-                return requirement with { ScenePath = null };
-
-            case IpcExecuteReadPostconditionSurface.SceneTreeLite:
-                if (requirement.ScenePath == null)
-                {
-                    return requirement;
-                }
-
-                if (string.IsNullOrWhiteSpace(requirement.ScenePath))
-                {
-                    throw new ArgumentException("scenePath must be omitted or non-empty for scene-tree-lite read postconditions.", nameof(requirement));
-                }
-
-                return requirement with
-                {
-                    ScenePath = PathStringNormalizer.ToSlashSeparated(requirement.ScenePath),
-                };
-
-            default:
-                throw new ArgumentException($"Unsupported read postcondition surface '{requirement.Surface}'.", nameof(requirement));
-        }
     }
 
     private static void ValidateDocument (
@@ -236,52 +195,12 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         }
 
         ArgumentNullException.ThrowIfNull(document.Requirements);
-        for (var i = 0; i < document.Requirements.Count; i++)
-        {
-            _ = NormalizeAndValidateRequirement(document.Requirements[i]);
-        }
     }
 
-    private static (IpcExecuteReadPostconditionSurface Surface, string? ScenePath) GetRequirementKey (
+    private static (IpcExecuteReadPostconditionSurface Surface, UnityScenePath? ScenePath) GetRequirementKey (
         IpcExecuteReadPostconditionRequirement requirement)
     {
         return (requirement.Surface, requirement.ScenePath);
-    }
-
-    private static OperationExecutionReadPostcondition MapToApplicationReadPostcondition (
-        IReadOnlyList<IpcExecuteReadPostconditionRequirement> requirements)
-    {
-        var mappedRequirements = new OperationExecutionReadPostconditionRequirement[requirements.Count];
-        for (var i = 0; i < requirements.Count; i++)
-        {
-            var requirement = requirements[i];
-            mappedRequirements[i] = new OperationExecutionReadPostconditionRequirement(
-                requirement.Surface,
-                requirement.MinSafeGeneratedAtUtc)
-            {
-                ScenePath = requirement.ScenePath,
-            };
-        }
-
-        return new OperationExecutionReadPostcondition(mappedRequirements);
-    }
-
-    private static IReadOnlyList<IpcExecuteReadPostconditionRequirement> MapToIpcRequirements (
-        IReadOnlyList<OperationExecutionReadPostconditionRequirement> requirements)
-    {
-        var mappedRequirements = new IpcExecuteReadPostconditionRequirement[requirements.Count];
-        for (var i = 0; i < requirements.Count; i++)
-        {
-            var requirement = requirements[i];
-            mappedRequirements[i] = new IpcExecuteReadPostconditionRequirement(
-                requirement.Surface,
-                requirement.MinSafeGeneratedAtUtc)
-            {
-                ScenePath = requirement.ScenePath,
-            };
-        }
-
-        return mappedRequirements;
     }
 
     private static bool IsIoFailure (Exception exception)
