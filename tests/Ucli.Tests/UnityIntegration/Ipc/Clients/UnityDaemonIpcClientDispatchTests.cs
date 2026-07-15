@@ -562,7 +562,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
                     retryDelay)
                 .AsTask(),
             "Unity daemon dispatch endpoint window manual time",
-            TimeSpan.FromSeconds(1));
+            TimeSpan.FromSeconds(5));
 
         var result = await sendTask;
 

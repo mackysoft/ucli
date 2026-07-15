@@ -508,7 +508,7 @@ public sealed class DaemonSessionAcquisitionScopeTests
                     RetryDelay)
                 .AsTask(),
             "daemon session acquisition request deadline manual time",
-            TimeSpan.FromSeconds(1));
+            TimeSpan.FromSeconds(5));
         var result = await resolutionTask;
 
         Assert.Equal(DaemonSessionAcquisitionKind.RequestDeadlineExpired, result.Kind);

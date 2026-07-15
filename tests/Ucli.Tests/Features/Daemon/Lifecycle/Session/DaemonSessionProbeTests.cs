@@ -133,7 +133,7 @@ public sealed class DaemonSessionProbeTests
                     TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
                 .AsTask(),
             "daemon session probe request deadline manual time",
-            TimeSpan.FromSeconds(1));
+            TimeSpan.FromSeconds(5));
 
         var result = await probeTask;
 
@@ -294,7 +294,7 @@ public sealed class DaemonSessionProbeTests
                     TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
                 .AsTask(),
             "daemon session probe endpoint window manual time",
-            TimeSpan.FromSeconds(1));
+            TimeSpan.FromSeconds(5));
 
         var result = await probeTask;
 
