@@ -72,10 +72,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var requestCancellation = phaseScope.ExecutionCancellation;
-            requestCancellation.Token.ThrowIfCancellationRequested();
 
             try
             {
+                requestCancellation.Token.ThrowIfCancellationRequested();
                 if (!methodHandlers.TryGetValue(request.Method, out var methodHandler))
                 {
                     return UnityIpcResponseFactory.CreateErrorResponse(
@@ -148,10 +148,10 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var requestCancellation = phaseScope.ExecutionCancellation;
-            requestCancellation.Token.ThrowIfCancellationRequested();
 
             try
             {
+                requestCancellation.Token.ThrowIfCancellationRequested();
                 if (!methodHandlers.TryGetValue(request.Method, out var methodHandler))
                 {
                     return UnityIpcResponseFactory.CreateErrorResponse(

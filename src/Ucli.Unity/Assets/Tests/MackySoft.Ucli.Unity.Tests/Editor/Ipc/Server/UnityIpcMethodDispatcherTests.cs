@@ -346,6 +346,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Dispatch_WhenMutationLaneIsQuarantined_ControlPlaneRemainsResponsive () => UniTask.ToCoroutine(async () =>
         {
+            using var mutationCancellation = new CancellationTokenSource();
             using var mutationExecutor = new UnitySynchronizationContextRequestExecutor(
                 SynchronizationContext.Current,
                 Thread.CurrentThread.ManagedThreadId,
@@ -354,10 +355,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 SynchronizationContext.Current,
                 Thread.CurrentThread.ManagedThreadId,
                 UnityControlPlaneRequestExecutor.DefaultMaxConcurrentInvocations);
+            var mutationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var releaseMutation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var mutationHandler = new StubMethodHandler(UnityIpcMethod.Compile, async (request, cancellation) =>
             {
                 var mutationActivity = mutationExecutor.BeginMutation();
+                mutationStarted.TrySetResult(true);
                 try
                 {
                     await releaseMutation.Task;
@@ -379,38 +382,76 @@ namespace MackySoft.Ucli.Unity.Tests
                 recoverableOperationStore: null,
                 daemonLogger: NoOpDaemonLogger.Instance);
 
-            var mutationResponse = await TestAwaiter.WaitAsync(
-                DispatchAsync(
-                    dispatcher,
-                    CreateRequest(
-                        Guid.NewGuid(),
-                        UnityIpcMethod.Compile,
-                        new IpcCompileRequest(Guid.NewGuid()),
-                        requestDuration: TimeSpan.FromMilliseconds(50)),
-                    CancellationToken.None).AsUniTask(),
-                "Non-cooperative mutation timeout",
+            var mutationTask = DispatchAsync(
+                dispatcher,
+                CreateRequest(
+                    Guid.NewGuid(),
+                    UnityIpcMethod.Compile,
+                    new IpcCompileRequest(Guid.NewGuid())),
+                mutationCancellation.Token);
+            try
+            {
+                await TestAwaiter.WaitAsync(
+                    mutationStarted.Task,
+                    "Non-cooperative mutation start",
+                    AsyncWaitTimeout);
+                mutationCancellation.Cancel();
+                await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+                {
+                    await mutationTask.AsUniTask();
+                }, "Non-cooperative mutation cancellation", AsyncWaitTimeout);
+
+                Assert.That(mutationExecutor.IsQuarantined, Is.True);
+                Assert.That(mutationExecutor.HasUnfinishedWork, Is.True);
+
+                var pingResponse = await TestAwaiter.WaitAsync(
+                    DispatchAsync(
+                        dispatcher,
+                        CreateRequest(Guid.NewGuid(), UnityIpcMethod.Ping, new IpcPingRequest("tests")),
+                        CancellationToken.None).AsUniTask(),
+                    "Control-plane dispatch while mutation lane is quarantined",
+                    AsyncWaitTimeout);
+
+                Assert.That(pingResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
+            }
+            finally
+            {
+                mutationCancellation.Cancel();
+                releaseMutation.TrySetResult(true);
+                await TestAwaiter.WaitAsync(
+                    mutationExecutor.WaitForRetirementAsync().AsUniTask(),
+                    "Quarantined mutation retirement",
+                    AsyncWaitTimeout);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenDeadlineExpiredBeforeEntry_ReturnsCorrelatedTimeoutWithoutCallingHandler () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new StubMethodHandler(UnityIpcMethod.Ping, static (request, _) =>
+                new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId)));
+            var dispatcher = CreateDispatcher(new IUnityIpcMethodHandler[] { handler });
+            var expiredAtUtc = DateTimeOffset.UtcNow - TimeSpan.FromSeconds(1);
+            var request = new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: "session-token",
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+                payload: IpcPayloadCodec.SerializeToElement(new IpcPingRequest("tests")),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: expiredAtUtc,
+                requestDeadlineRemainingMilliseconds: 1);
+
+            var response = await TestAwaiter.WaitAsync(
+                DispatchAsync(dispatcher, request, CancellationToken.None).AsUniTask(),
+                "Expired IPC dispatch",
                 AsyncWaitTimeout);
 
-            Assert.That(mutationResponse.Status, Is.EqualTo(IpcResponseStatus.Error));
-            Assert.That(mutationResponse.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
-            Assert.That(mutationExecutor.IsQuarantined, Is.True);
-            Assert.That(mutationExecutor.HasUnfinishedWork, Is.True);
-
-            var pingResponse = await TestAwaiter.WaitAsync(
-                DispatchAsync(
-                    dispatcher,
-                    CreateRequest(Guid.NewGuid(), UnityIpcMethod.Ping, new IpcPingRequest("tests")),
-                    CancellationToken.None).AsUniTask(),
-                "Control-plane dispatch while mutation lane is quarantined",
-                AsyncWaitTimeout);
-
-            Assert.That(pingResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
-
-            releaseMutation.TrySetResult(true);
-            await TestAwaiter.WaitAsync(
-                mutationExecutor.WaitForRetirementAsync().AsUniTask(),
-                "Quarantined mutation retirement",
-                AsyncWaitTimeout);
+            Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
+            Assert.That(response.Errors, Has.Count.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
+            Assert.That(handler.CallCount, Is.Zero);
         });
 
         [UnityTest]
