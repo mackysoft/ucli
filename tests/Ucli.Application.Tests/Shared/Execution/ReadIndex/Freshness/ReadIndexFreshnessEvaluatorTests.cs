@@ -1,23 +1,23 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex;
 
 public sealed class ReadIndexFreshnessEvaluatorTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Observe_WhenPersistedHashIsMissing_ReturnsProbableWithoutComputingInputFingerprint ()
+    public async Task Observe_Throws_WhenPersistedHashIsNull ()
     {
         var inputProvider = new RecordingReadIndexInputFingerprintProvider();
         var evaluator = new ReadIndexFreshnessEvaluator(inputProvider, new RecordingReadIndexSceneSourceHashProvider());
 
-        var result = await evaluator.ObserveAsync(
+        await Assert.ThrowsAsync<ArgumentNullException>(async () => await evaluator.ObserveAsync(
             ProjectContextTestFactory.CreateUnknownVersionUnityProject(),
             IndexFreshnessTarget.OpsCatalog,
-            persistedSourceInputsHash: null,
-            CancellationToken.None);
+            persistedSourceInputsHash: null!,
+            CancellationToken.None));
 
-        ReadIndexFreshnessInvocationAssert.PersistedHashMissingReturnedProbableWithoutInputFingerprint(
-            result,
-            inputProvider);
+        Assert.Empty(inputProvider.Invocations);
     }
 
     [Fact]
@@ -34,7 +34,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         var result = await evaluator.ObserveAsync(
             unityProject,
             IndexFreshnessTarget.OpsCatalog,
-            "combined-hash",
+            Sha256DigestTestFactory.Compute("combined-hash"),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -58,7 +58,7 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         var result = await evaluator.ObserveAsync(
             unityProject,
             IndexFreshnessTarget.AssetSearchLookup,
-            "old-asset-search-hash",
+            Sha256DigestTestFactory.Compute("old-asset-search-hash"),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -74,15 +74,16 @@ public sealed class ReadIndexFreshnessEvaluatorTests
     {
         var sceneHashProvider = new RecordingReadIndexSceneSourceHashProvider
         {
-            SourceHash = "scene-hash",
+            SourceHash = Sha256DigestTestFactory.Compute("scene-hash"),
         };
         var evaluator = new ReadIndexFreshnessEvaluator(new RecordingReadIndexInputFingerprintProvider(), sceneHashProvider);
         var unityProject = ProjectContextTestFactory.CreateUnknownVersionUnityProject();
+        var scenePath = new SceneAssetPath("Assets/Scenes/Main.unity");
 
         var result = await evaluator.ObserveSceneTreeLiteAsync(
             unityProject,
-            "Assets/Scenes/Main.unity",
-            "scene-hash",
+            scenePath,
+            Sha256DigestTestFactory.Compute("scene-hash"),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -90,17 +91,17 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         ReadIndexFreshnessInvocationAssert.SceneSourceHashComputedOnce(
             sceneHashProvider,
             unityProject,
-            "Assets/Scenes/Main.unity");
+            scenePath);
     }
 
     private static ReadIndexCoreInputHashSnapshot CreateCoreSnapshot (string combinedHash)
     {
         return new ReadIndexCoreInputHashSnapshot(
-            ScriptAssembliesHash: "script-hash",
-            PackagesManifestHash: "manifest-hash",
-            PackagesLockHash: "lock-hash",
-            AssemblyDefinitionHash: "asmdef-hash",
-            CombinedHash: combinedHash);
+            Sha256DigestTestFactory.Compute("script-hash"),
+            Sha256DigestTestFactory.Compute("manifest-hash"),
+            Sha256DigestTestFactory.Compute("lock-hash"),
+            Sha256DigestTestFactory.Compute("asmdef-hash"),
+            Sha256DigestTestFactory.Compute(combinedHash));
     }
 
     private static ReadIndexInputHashSnapshot CreateSnapshot (
@@ -108,14 +109,14 @@ public sealed class ReadIndexFreshnessEvaluatorTests
         string guidPathHash)
     {
         return new ReadIndexInputHashSnapshot(
-            ScriptAssembliesHash: "script-hash",
-            PackagesManifestHash: "manifest-hash",
-            PackagesLockHash: "lock-hash",
-            AssemblyDefinitionHash: "asmdef-hash",
-            AssetsContentHash: "assets-hash",
-            AssetSearchHash: assetSearchHash,
-            GuidPathHash: guidPathHash,
-            CombinedHash: "combined-hash");
+            Sha256DigestTestFactory.Compute("script-hash"),
+            Sha256DigestTestFactory.Compute("manifest-hash"),
+            Sha256DigestTestFactory.Compute("lock-hash"),
+            Sha256DigestTestFactory.Compute("asmdef-hash"),
+            Sha256DigestTestFactory.Compute("assets-hash"),
+            Sha256DigestTestFactory.Compute(assetSearchHash),
+            Sha256DigestTestFactory.Compute(guidPathHash),
+            Sha256DigestTestFactory.Compute("combined-hash"));
     }
 
 }

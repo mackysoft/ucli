@@ -9,7 +9,7 @@ internal static class FileContentHash
     /// <param name="filePath"> The file path to hash. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The computed hash when the file can be read; otherwise <see langword="null" />. </returns>
-    public static async ValueTask<string?> TryComputeFileHashAsync (
+    public static async ValueTask<Sha256Digest?> TryComputeFileHashAsync (
         string filePath,
         CancellationToken cancellationToken = default)
     {
@@ -33,6 +33,6 @@ internal static class FileContentHash
             return null;
         }
 
-        return Sha256LowerHex.Compute(bytes);
+        return Sha256Digest.Compute(bytes);
     }
 }

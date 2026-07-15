@@ -1,3 +1,6 @@
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
 /// <summary> Observes read-index freshness from persisted and current input fingerprints. </summary>
@@ -20,17 +23,14 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
     public async ValueTask<IndexFreshnessEvaluationResult> ObserveAsync (
         ResolvedUnityProjectContext unityProject,
         IndexFreshnessTarget target,
-        string? persistedSourceInputsHash,
+        Sha256Digest persistedSourceInputsHash,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        if (string.IsNullOrWhiteSpace(persistedSourceInputsHash))
-        {
-            return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);
-        }
+        ArgumentNullException.ThrowIfNull(persistedSourceInputsHash);
 
-        if (UsesCoreInputSnapshot(target))
+        if (target == IndexFreshnessTarget.OpsCatalog)
         {
             var currentCoreSnapshot = await inputFingerprintProvider.TryComputeCoreAsync(unityProject, cancellationToken).ConfigureAwait(false);
             if (currentCoreSnapshot == null)
@@ -38,7 +38,7 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
                 return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);
             }
 
-            var coreFreshness = IndexHashFreshnessPolicy.EvaluateFreshness(persistedSourceInputsHash, currentCoreSnapshot, target);
+            var coreFreshness = IndexHashFreshnessPolicy.EvaluateCoreFreshness(persistedSourceInputsHash, currentCoreSnapshot);
             return IndexFreshnessEvaluationResult.Success(coreFreshness);
         }
 
@@ -55,16 +55,14 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
     /// <inheritdoc />
     public async ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLiteAsync (
         ResolvedUnityProjectContext unityProject,
-        string scenePath,
-        string? persistedSourceInputsHash,
+        SceneAssetPath scenePath,
+        Sha256Digest persistedSourceInputsHash,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        if (string.IsNullOrWhiteSpace(persistedSourceInputsHash))
-        {
-            return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);
-        }
+        ArgumentNullException.ThrowIfNull(scenePath);
+        ArgumentNullException.ThrowIfNull(persistedSourceInputsHash);
 
         var currentSourceHash = await sceneSourceHashProvider.TryComputeAsync(unityProject, scenePath, cancellationToken).ConfigureAwait(false);
         if (currentSourceHash == null)
@@ -74,19 +72,5 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
 
         var freshness = IndexHashFreshnessPolicy.EvaluateSceneTreeLiteFreshness(persistedSourceInputsHash, currentSourceHash);
         return IndexFreshnessEvaluationResult.Success(freshness);
-    }
-
-    private static bool UsesCoreInputSnapshot (IndexFreshnessTarget target)
-    {
-        return target switch
-        {
-            IndexFreshnessTarget.OpsCatalog => true,
-            IndexFreshnessTarget.TypesCatalog => true,
-            IndexFreshnessTarget.SchemasCatalog => true,
-            IndexFreshnessTarget.AssetSearchLookup => false,
-            IndexFreshnessTarget.GuidPathLookup => false,
-            IndexFreshnessTarget.SceneTreeLite => throw new ArgumentOutOfRangeException(nameof(target), target, "Scene-tree-lite freshness must be evaluated with scene source hash."),
-            _ => throw new ArgumentOutOfRangeException(nameof(target), target, "Unsupported read-index freshness target."),
-        };
     }
 }

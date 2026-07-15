@@ -2,209 +2,89 @@ namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex;
 
 public sealed class IndexCatalogContractValidatorTests
 {
-    [Fact]
+    [Theory]
+    [InlineData("ops.catalog")]
+    [InlineData("ops.describe")]
+    [InlineData("asset-search.lookup")]
+    [InlineData("guid-path.lookup")]
+    [InlineData("scene-tree-lite.lookup")]
     [Trait("Size", "Small")]
-    public void IsValidTypesCatalog_ReturnsTrue_WhenContractIsComplete ()
+    public void CatalogValidator_ReturnsFalse_WhenSourceInputsHashIsNotCanonical (string artifactName)
     {
-        var contract = new IndexTypesCatalogJsonContract(
-            SchemaVersion: 1,
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
-            SourceInputsHash: "source-hash",
-            Entries:
-            [
-                new IndexTypeEntryJsonContract(
-                    TypeId: "Game.Spawner, Assembly-CSharp",
-                    DisplayName: "Spawner",
-                    Namespace: "Game",
-                    AssemblyName: "Assembly-CSharp",
-                    BaseTypeId: "UnityEngine.MonoBehaviour, UnityEngine.CoreModule",
-                    Flags: new IndexTypeFlagsJsonContract(
-                        IsAbstract: false,
-                        IsGenericDefinition: false,
-                        IsUnityObject: true,
-                        IsComponent: true,
-                        IsScriptableObject: false,
-                        IsSerializeReferenceCandidate: false)),
-            ]);
+        const string invalidDigest = "not-a-digest";
+        var generatedAtUtc = DateTimeOffset.Parse("2026-03-03T00:00:00+00:00");
 
-        var result = IndexCatalogContractValidator.IsValidTypesCatalog(contract);
-
-        Assert.True(result);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IsValidTypesCatalog_ReturnsFalse_WhenTypeIdIsDuplicated ()
-    {
-        var contract = new IndexTypesCatalogJsonContract(
-            SchemaVersion: 1,
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
-            SourceInputsHash: "source-hash",
-            Entries:
-            [
-                new IndexTypeEntryJsonContract(
-                    TypeId: "Game.Spawner, Assembly-CSharp",
-                    DisplayName: "Spawner",
-                    Namespace: "Game",
-                    AssemblyName: "Assembly-CSharp",
-                    BaseTypeId: "UnityEngine.MonoBehaviour, UnityEngine.CoreModule",
-                    Flags: new IndexTypeFlagsJsonContract(
-                        IsAbstract: false,
-                        IsGenericDefinition: false,
-                        IsUnityObject: true,
-                        IsComponent: true,
-                        IsScriptableObject: false,
-                        IsSerializeReferenceCandidate: false)),
-                new IndexTypeEntryJsonContract(
-                    TypeId: "Game.Spawner, Assembly-CSharp",
-                    DisplayName: "SpawnerAlias",
-                    Namespace: "Game",
-                    AssemblyName: "Assembly-CSharp",
-                    BaseTypeId: "UnityEngine.MonoBehaviour, UnityEngine.CoreModule",
-                    Flags: new IndexTypeFlagsJsonContract(
-                        IsAbstract: false,
-                        IsGenericDefinition: false,
-                        IsUnityObject: true,
-                        IsComponent: true,
-                        IsScriptableObject: false,
-                        IsSerializeReferenceCandidate: false)),
-            ]);
-
-        var result = IndexCatalogContractValidator.IsValidTypesCatalog(contract);
+        var result = artifactName switch
+        {
+            "ops.catalog" => OpsCatalogDescriptorSnapshot.TryCreate(
+                new IndexOpsCatalogJsonContract(1, generatedAtUtc, invalidDigest, []),
+                out _),
+            "ops.describe" => OpsDescribeSnapshot.TryCreate(
+                IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(
+                    IndexCatalogContractValidatorOpsTestSupport.CreateValidOpsEntry()) with
+                {
+                    SourceInputsHash = invalidDigest,
+                },
+                out _),
+            "asset-search.lookup" => AssetSearchLookupSnapshot.TryCreate(
+                new IndexAssetSearchLookupJsonContract(1, generatedAtUtc, invalidDigest, []),
+                out _),
+            "guid-path.lookup" => GuidPathLookupSnapshot.TryCreate(
+                new IndexGuidPathLookupJsonContract(1, generatedAtUtc, invalidDigest, []),
+                out _),
+            "scene-tree-lite.lookup" => SceneTreeLiteLookupSnapshot.TryCreate(
+                new IndexSceneTreeLiteLookupJsonContract(1, generatedAtUtc, "Assets/Scenes/Sample.unity", invalidDigest, []),
+                out _),
+            _ => throw new ArgumentOutOfRangeException(nameof(artifactName), artifactName, "Unsupported test artifact."),
+        };
 
         Assert.False(result);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("ops.catalog")]
+    [InlineData("ops.describe")]
+    [InlineData("asset-search.lookup")]
+    [InlineData("guid-path.lookup")]
+    [InlineData("scene-tree-lite.lookup")]
     [Trait("Size", "Small")]
-    public void IsValidSchemasCatalog_ReturnsFalse_WhenNonArrayContainsElementTypeId ()
+    public void CatalogValidator_ReturnsFalse_WhenGeneratedAtUtcIsNotUtc (string artifactName)
     {
-        var contract = new IndexSchemasCatalogJsonContract(
-            SchemaVersion: 1,
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
-            SourceInputsHash: "source-hash",
-            Entries:
-            [
-                new IndexSchemaEntryJsonContract(
-                    SchemaKey: "comp:Game.Spawner, Assembly-CSharp",
-                    Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Comp),
-                    TypeId: "Game.Spawner, Assembly-CSharp",
-                    DisplayName: "Spawner",
-                    Properties:
-                    [
-                        new IndexSchemaPropertyEntryJsonContract(
-                            Path: "field",
-                            PropertyType: ContractLiteralCodec.ToValue(IndexPropertyType.String),
-                            DeclaredTypeId: "System.String, mscorlib",
-                            IsArray: false,
-                            ElementTypeId: "System.Char, mscorlib",
-                            IsReadOnly: false),
-                    ]),
-            ]);
+        var sourceInputsHash = Sha256DigestTestFactory.Compute("source-hash").ToString();
+        DateTimeOffset[] invalidTimestamps =
+        {
+            default,
+            DateTimeOffset.Parse("2026-03-03T09:00:00+09:00"),
+        };
 
-        var result = IndexCatalogContractValidator.IsValidSchemasCatalog(contract);
+        foreach (var invalidTimestamp in invalidTimestamps)
+        {
+            var result = artifactName switch
+            {
+                "ops.catalog" => OpsCatalogDescriptorSnapshot.TryCreate(
+                    new IndexOpsCatalogJsonContract(1, invalidTimestamp, sourceInputsHash, []),
+                    out _),
+                "ops.describe" => OpsDescribeSnapshot.TryCreate(
+                    IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(
+                        IndexCatalogContractValidatorOpsTestSupport.CreateValidOpsEntry()) with
+                    {
+                        GeneratedAtUtc = invalidTimestamp,
+                    },
+                    out _),
+                "asset-search.lookup" => AssetSearchLookupSnapshot.TryCreate(
+                    new IndexAssetSearchLookupJsonContract(1, invalidTimestamp, sourceInputsHash, []),
+                    out _),
+                "guid-path.lookup" => GuidPathLookupSnapshot.TryCreate(
+                    new IndexGuidPathLookupJsonContract(1, invalidTimestamp, sourceInputsHash, []),
+                    out _),
+                "scene-tree-lite.lookup" => SceneTreeLiteLookupSnapshot.TryCreate(
+                    new IndexSceneTreeLiteLookupJsonContract(1, invalidTimestamp, "Assets/Scenes/Sample.unity", sourceInputsHash, []),
+                    out _),
+                _ => throw new ArgumentOutOfRangeException(nameof(artifactName), artifactName, "Unsupported test artifact."),
+            };
 
-        Assert.False(result);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IsValidSchemasCatalog_ReturnsFalse_WhenSchemaKeyDoesNotMatchKindAndTypeId ()
-    {
-        var contract = new IndexSchemasCatalogJsonContract(
-            SchemaVersion: 1,
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
-            SourceInputsHash: "source-hash",
-            Entries:
-            [
-                new IndexSchemaEntryJsonContract(
-                    SchemaKey: "asset:Game.Spawner, Assembly-CSharp",
-                    Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Comp),
-                    TypeId: "Game.Spawner, Assembly-CSharp",
-                    DisplayName: "Spawner",
-                    Properties:
-                    [
-                        new IndexSchemaPropertyEntryJsonContract(
-                            Path: "field",
-                            PropertyType: ContractLiteralCodec.ToValue(IndexPropertyType.String),
-                            DeclaredTypeId: "System.String, mscorlib",
-                            IsArray: false,
-                            ElementTypeId: null,
-                            IsReadOnly: false),
-                    ]),
-            ]);
-
-        var result = IndexCatalogContractValidator.IsValidSchemasCatalog(contract);
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IsValidSchemasCatalog_ReturnsFalse_WhenSchemaKeyIsDuplicated ()
-    {
-        var contract = new IndexSchemasCatalogJsonContract(
-            SchemaVersion: 1,
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
-            SourceInputsHash: "source-hash",
-            Entries:
-            [
-                new IndexSchemaEntryJsonContract(
-                    SchemaKey: "comp:Game.Spawner, Assembly-CSharp",
-                    Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Comp),
-                    TypeId: "Game.Spawner, Assembly-CSharp",
-                    DisplayName: "Spawner",
-                    Properties:
-                    [
-                        new IndexSchemaPropertyEntryJsonContract(
-                            Path: "fieldA",
-                            PropertyType: ContractLiteralCodec.ToValue(IndexPropertyType.String),
-                            DeclaredTypeId: "System.String, mscorlib",
-                            IsArray: false,
-                            ElementTypeId: null,
-                            IsReadOnly: false),
-                    ]),
-                new IndexSchemaEntryJsonContract(
-                    SchemaKey: "comp:Game.Spawner, Assembly-CSharp",
-                    Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Comp),
-                    TypeId: "Game.Spawner, Assembly-CSharp",
-                    DisplayName: "SpawnerDuplicate",
-                    Properties:
-                    [
-                        new IndexSchemaPropertyEntryJsonContract(
-                            Path: "fieldB",
-                            PropertyType: ContractLiteralCodec.ToValue(IndexPropertyType.String),
-                            DeclaredTypeId: "System.String, mscorlib",
-                            IsArray: false,
-                            ElementTypeId: null,
-                            IsReadOnly: false),
-                    ]),
-            ]);
-
-        var result = IndexCatalogContractValidator.IsValidSchemasCatalog(contract);
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IsValidInputsManifest_ReturnsFalse_WhenCombinedHashIsMissing ()
-    {
-        var contract = new IndexInputsManifestJsonContract(
-            SchemaVersion: 1,
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
-            ScriptAssembliesHash: "script-hash",
-            PackagesManifestHash: "manifest-hash",
-            PackagesLockHash: "lock-hash",
-            AssemblyDefinitionHash: "asm-hash",
-            AssetsContentHash: "assets-hash",
-            AssetSearchHash: "asset-search-hash",
-            GuidPathHash: "guid-path-hash",
-            CombinedHash: null);
-
-        var result = IndexCatalogContractValidator.IsValidInputsManifest(contract);
-
-        Assert.False(result);
+            Assert.False(result);
+        }
     }
 
 }

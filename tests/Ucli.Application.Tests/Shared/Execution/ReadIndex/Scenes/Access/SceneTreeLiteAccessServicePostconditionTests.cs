@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -31,7 +30,7 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
                 OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
                 [
                     new IpcExecuteReadPostconditionRequirement(
-                        Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                        Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
                         MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:00:00+00:00"))
                     {
                         ScenePath = "Assets/Scenes/Main.unity",
@@ -41,14 +40,14 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
         var refreshService = new RecordingSceneTreeLiteSourceRefreshService
         {
             Result = SceneTreeLiteRefreshResult.Success(
-                new IpcIndexSceneTreeLiteReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:01:00+00:00"),
-                    ScenePath: "Assets/Scenes/Main.unity",
-                    Roots:
+                CreateSceneTreeLiteSourceSnapshot(
+                    generatedAtUtc: DateTimeOffset.Parse("2026-04-15T00:01:00+00:00"),
+                    scenePath: "Assets/Scenes/Main.unity",
+                    roots:
                     [
-                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-2-11111111111111111111111111111111-1-0", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenState.Complete),
                     ],
-                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
+                    sourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "Existing scene-tree-lite index generatedAtUtc is older than mutation read postcondition."),
         };
         var service = CreateService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new RecordingSceneTreeLiteSourceProbe());
@@ -60,7 +59,7 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.AllowStale,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: null,
             cancellationToken: CancellationToken.None);
 
@@ -90,21 +89,21 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
                 OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
                 [
                     new IpcExecuteReadPostconditionRequirement(
-                        Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                        Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
                         MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:00:00+00:00")),
                 ]))!),
         };
         var refreshService = new RecordingSceneTreeLiteSourceRefreshService
         {
             Result = SceneTreeLiteRefreshResult.Success(
-                new IpcIndexSceneTreeLiteReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:01:00+00:00"),
-                    ScenePath: "Assets/Scenes/Main.unity",
-                    Roots:
+                CreateSceneTreeLiteSourceSnapshot(
+                    generatedAtUtc: DateTimeOffset.Parse("2026-04-15T00:01:00+00:00"),
+                    scenePath: "Assets/Scenes/Main.unity",
+                    roots:
                     [
-                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-2-11111111111111111111111111111111-1-0", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenState.Complete),
                     ],
-                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
+                    sourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "Existing scene-tree-lite index generatedAtUtc is older than mutation read postcondition."),
         };
         var service = CreateService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService, new RecordingSceneTreeLiteSourceProbe());
@@ -116,7 +115,7 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.AllowStale,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: null,
             cancellationToken: CancellationToken.None);
 
@@ -146,7 +145,7 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
                 OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
                 [
                     new IpcExecuteReadPostconditionRequirement(
-                        Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+                        Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
                         MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-15T00:00:00+00:00"))
                     {
                         ScenePath = "Assets/Scenes/Other.unity",
@@ -163,7 +162,7 @@ public sealed class SceneTreeLiteAccessServicePostconditionTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.RequireFresh,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: null,
             cancellationToken: CancellationToken.None);
 

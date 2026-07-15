@@ -1,5 +1,6 @@
 using System.Text;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Infrastructure.Index;
@@ -8,9 +9,9 @@ namespace MackySoft.Ucli.Infrastructure.Index;
 internal sealed class SceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHashCalculator
 {
     /// <inheritdoc />
-    public async ValueTask<string?> TryComputeAsync (
+    public async ValueTask<Sha256Digest?> TryComputeAsync (
         string projectRootPath,
-        string scenePath,
+        SceneAssetPath scenePath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -19,15 +20,14 @@ internal sealed class SceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHa
             throw new ArgumentException("Project root path must not be empty.", nameof(projectRootPath));
         }
 
-        if (string.IsNullOrWhiteSpace(scenePath))
+        if (scenePath is null)
         {
-            throw new ArgumentException("Scene path must not be empty.", nameof(scenePath));
+            throw new ArgumentNullException(nameof(scenePath));
         }
 
-        var normalizedScenePath = PathStringNormalizer.ToSlashSeparated(scenePath);
         var scenePathResult = RepositoryPathNormalizer.TryNormalize(
             projectRootPath,
-            PathStringNormalizer.ToPlatformSeparated(normalizedScenePath));
+            scenePath.Value);
         if (!scenePathResult.IsSuccess)
         {
             return null;
@@ -48,6 +48,6 @@ internal sealed class SceneTreeLiteSourceHashCalculator : ISceneTreeLiteSourceHa
             return null;
         }
 
-        return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(string.Concat(sceneHash, "\n", metaHash)));
+        return Sha256Digest.Compute(Encoding.UTF8.GetBytes(string.Concat(sceneHash, "\n", metaHash)));
     }
 }

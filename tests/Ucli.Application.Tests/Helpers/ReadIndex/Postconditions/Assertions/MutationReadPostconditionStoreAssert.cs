@@ -23,7 +23,7 @@ internal static class MutationReadPostconditionStoreAssert
     {
         var invocation = WrittenOnceForProject(store, expectedStorageRoot, expectedProjectFingerprint);
         var requirement = Assert.Single(invocation.ReadPostcondition.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, requirement.Surface);
+        Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
         Assert.Equal(expectedScenePath, requirement.ScenePath);
         return requirement;
     }
@@ -36,7 +36,7 @@ internal static class MutationReadPostconditionStoreAssert
     {
         var invocation = WrittenOnceForProject(store, expectedStorageRoot, expectedProjectFingerprint);
         var requirement = Assert.Single(invocation.ReadPostcondition.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.AssetSearch, requirement.Surface);
+        Assert.Equal(IpcExecuteReadPostconditionSurface.AssetSearch, requirement.Surface);
         Assert.Equal(expectedMinSafeGeneratedAtUtc, requirement.MinSafeGeneratedAtUtc);
         return requirement;
     }

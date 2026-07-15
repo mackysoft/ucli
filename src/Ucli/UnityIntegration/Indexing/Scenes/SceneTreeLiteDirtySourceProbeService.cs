@@ -24,12 +24,12 @@ internal sealed class SceneTreeLiteDirtySourceProbeService : ISceneTreeLiteDirty
         UcliCommand command,
         UnityExecutionMode mode,
         TimeSpan timeout,
-        string scenePath,
+        UnityScenePath scenePath,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(config);
-        ArgumentException.ThrowIfNullOrWhiteSpace(scenePath);
+        ArgumentNullException.ThrowIfNull(scenePath);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -54,9 +54,9 @@ internal sealed class SceneTreeLiteDirtySourceProbeService : ISceneTreeLiteDirty
             return SceneTreeLiteDirtySourceProbeResult.NotAvailable(fetchResult.Message);
         }
 
-        var response = fetchResult.Response!;
-        return SceneTreeSourceStatePolicy.IsDirtyLiveSource(response.SourceState)
-            ? SceneTreeLiteDirtySourceProbeResult.DirtySource(response, "Dirty loaded scene is open in Unity daemon.")
+        var snapshot = fetchResult.Snapshot!;
+        return SceneTreeSourceStatePolicy.IsDirtyLiveSource(snapshot.SourceState)
+            ? SceneTreeLiteDirtySourceProbeResult.DirtySource(snapshot, "Dirty loaded scene is open in Unity daemon.")
             : SceneTreeLiteDirtySourceProbeResult.NotAvailable("Unity daemon scene is not dirty loaded source.");
     }
 }

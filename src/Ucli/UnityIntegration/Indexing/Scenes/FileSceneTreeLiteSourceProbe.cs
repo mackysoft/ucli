@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
@@ -10,14 +11,14 @@ internal sealed class FileSceneTreeLiteSourceProbe : ISceneTreeLiteSourceProbe
     /// <inheritdoc />
     public ValueTask<SceneTreeLiteSourceProbeResult> EnsureCurrentAssetsSceneExistsAsync (
         ResolvedUnityProjectContext project,
-        string normalizedScenePath,
+        SceneAssetPath scenePath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(project);
-        ArgumentException.ThrowIfNullOrWhiteSpace(normalizedScenePath);
+        ArgumentNullException.ThrowIfNull(scenePath);
 
-        return ValueTask.FromResult(TryEnsureCurrentAssetsSceneExists(project.UnityProjectRoot, normalizedScenePath, out var errorMessage)
+        return ValueTask.FromResult(TryEnsureCurrentAssetsSceneExists(project.UnityProjectRoot, scenePath.Value, out var errorMessage)
             ? SceneTreeLiteSourceProbeResult.Success()
             : SceneTreeLiteSourceProbeResult.Failure(errorMessage));
     }

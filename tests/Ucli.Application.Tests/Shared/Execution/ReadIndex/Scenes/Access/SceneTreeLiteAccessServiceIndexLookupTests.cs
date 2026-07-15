@@ -1,7 +1,7 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Execution.ReadIndex.Scenes.SceneTreeLiteAccessServiceTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex.Scenes;
@@ -33,7 +33,7 @@ public sealed class SceneTreeLiteAccessServiceIndexLookupTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.AllowStale,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: 1,
             cancellationToken: CancellationToken.None);
 
@@ -44,11 +44,11 @@ public sealed class SceneTreeLiteAccessServiceIndexLookupTests
         Assert.Single(result.Output.Roots);
         Assert.Single(result.Output.Roots[0].Children!);
         Assert.Empty(result.Output.Roots[0].Children![0].Children!);
-        Assert.Equal(IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth, result.Output.Roots[0].Children![0].ChildrenState);
+        Assert.Equal(IndexSceneTreeLiteNodeChildrenState.NotExpandedByDepth, result.Output.Roots[0].Children[0].ChildrenState);
         SceneTreeLiteAccessInvocationAssert.FreshnessObservedFor(
             freshnessEvaluator,
             project,
             "Assets/Scenes/Main.unity",
-            "scene-hash");
+            Sha256DigestTestFactory.Compute("scene-hash"));
     }
 }

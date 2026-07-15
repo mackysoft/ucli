@@ -47,37 +47,15 @@ public sealed class AssetLookupSnapshotReaderTests
             failFast: true);
 
         Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Response);
+        Assert.NotNull(result.Snapshot);
         var execution = UnityRequestExecutorAssert.PayloadExecutedOnce<UnityRequestPayload.IndexAssetsRead>(
             executor,
             UcliCommandIds.Query,
             UnityExecutionMode.Auto);
         Assert.True(execution.Payload.FailFast);
-        Assert.Single(result.Response!.AssetSearchEntries!);
-        Assert.Single(result.Response.GuidPathEntries!);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Read_ReturnsFailureStatusMessage_WhenFailureStatusHasNoErrors ()
-    {
-        var executor = new RecordingUnityRequestExecutor(
-            UnityRequestExecutionResult.Success(CreateResponse(
-                "busy",
-                new { },
-                Array.Empty<IpcError>())));
-        var reader = new AssetLookupSnapshotReader(executor);
-
-        var result = await reader.ReadAsync(
-            ResolvedUnityProjectContextTestFactory.Create(),
-            UcliConfig.CreateDefault(),
-            UcliCommandIds.Query,
-            UnityExecutionMode.Auto,
-            TimeSpan.FromMilliseconds(1000));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-        Assert.Equal("index.assets.read failed with status 'busy'.", result.Message);
+        var assetSearchEntry = Assert.Single(result.Snapshot!.AssetSearchEntries);
+        Assert.Equal(Guid.ParseExact("11111111111111111111111111111111", "N"), assetSearchEntry.AssetGuid);
+        Assert.Single(result.Snapshot.GuidPathEntries);
     }
 
     [Fact]
@@ -166,18 +144,19 @@ public sealed class AssetLookupSnapshotReaderTests
             TimeSpan.FromMilliseconds(1000));
 
         Assert.True(result.IsSuccess);
-        Assert.NotNull(result.Response);
-        Assert.Equal(2, result.Response!.AssetSearchEntries!.Count);
-        Assert.Single(result.Response.GuidPathEntries!);
+        Assert.NotNull(result.Snapshot);
+        Assert.Equal(2, result.Snapshot!.AssetSearchEntries.Count);
+        Assert.Null(result.Snapshot.AssetSearchEntries[0].AssetGuid);
+        Assert.Single(result.Snapshot.GuidPathEntries);
     }
 
     private static UnityRequestResponse CreateSuccessResponse<TPayload> (TPayload payload)
     {
-        return CreateResponse(IpcProtocol.StatusOk, payload, Array.Empty<IpcError>());
+        return CreateResponse(IpcResponseStatus.Ok, payload, Array.Empty<IpcError>());
     }
 
     private static UnityRequestResponse CreateResponse<TPayload> (
-        string status,
+        IpcResponseStatus status,
         TPayload payload,
         IReadOnlyList<IpcError> errors)
     {

@@ -9,7 +9,7 @@ internal static class IndexCatalogContractValidatorOpsTestSupport
         return new IndexOpsDescribeJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
-            SourceInputsHash: "source-hash",
+            SourceInputsHash: Sha256DigestTestFactory.Compute("source-hash").ToString(),
             Operation: operation);
     }
 
@@ -37,7 +37,7 @@ internal static class IndexCatalogContractValidatorOpsTestSupport
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ValidationOnly,
                 planSemantics: "Validate arguments without applying mutation.",
                 callSemantics: "Open an editor context without persisting project data.",
@@ -61,7 +61,7 @@ internal static class IndexCatalogContractValidatorOpsTestSupport
             Description = "Assigns serialized property values on a component target.",
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: [UcliOperationSideEffect.SceneContentMutation],
-                touchedKinds: [UcliTouchedResourceKindNames.Scene],
+                touchedKinds: [UcliTouchedResourceKind.Scene],
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate arguments and compute preview changes without persisting project data.",
                 callSemantics: "Apply serialized property values to the live component.",

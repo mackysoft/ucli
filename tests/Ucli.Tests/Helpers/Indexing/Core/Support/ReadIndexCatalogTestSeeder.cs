@@ -28,8 +28,8 @@ internal static class ReadIndexCatalogTestSeeder
                 unityProjectPath,
                 fingerprint,
                 DefaultGeneratedAtUtc,
-                operations,
-                DefaultSourceInputsHash,
+                OperationCatalogTestFixtures.CreateSnapshot(DefaultGeneratedAtUtc, operations).Operations,
+                Sha256DigestTestFactory.Compute(DefaultSourceInputsHash),
                 manifestInputSnapshot: null,
                 CancellationToken.None)
             .AsTask()

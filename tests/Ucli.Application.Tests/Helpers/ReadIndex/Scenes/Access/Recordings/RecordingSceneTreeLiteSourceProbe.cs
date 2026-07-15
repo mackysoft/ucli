@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Tests;
 
 internal sealed class RecordingSceneTreeLiteSourceProbe : ISceneTreeLiteSourceProbe
@@ -10,16 +12,16 @@ internal sealed class RecordingSceneTreeLiteSourceProbe : ISceneTreeLiteSourcePr
 
     public ValueTask<SceneTreeLiteSourceProbeResult> EnsureCurrentAssetsSceneExistsAsync (
         ResolvedUnityProjectContext project,
-        string normalizedScenePath,
+        SceneAssetPath scenePath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        invocations.Add(new Invocation(project, normalizedScenePath, cancellationToken));
+        invocations.Add(new Invocation(project, scenePath, cancellationToken));
         return ValueTask.FromResult(Result);
     }
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext Project,
-        string NormalizedScenePath,
+        SceneAssetPath ScenePath,
         CancellationToken CancellationToken);
 }

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -20,17 +19,17 @@ public sealed class SceneTreeLiteAccessServiceDirtySourceProbeTests
         {
             SceneTreeLiteLookupResult = CreateSuccessfulSceneTreeLiteLookupReadResult(),
         };
-        var dirtyResponse = new IpcIndexSceneTreeLiteReadResponse(
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:02:00+00:00"),
-            ScenePath: "Assets/Scenes/Main.unity",
-            Roots:
+        var dirtySnapshot = CreateSceneTreeLiteSourceSnapshot(
+            generatedAtUtc: DateTimeOffset.Parse("2026-04-14T00:02:00+00:00"),
+            scenePath: "Assets/Scenes/Main.unity",
+            roots:
             [
-                new IndexSceneTreeLiteNodeJsonContract("DirtyRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                new IndexSceneTreeLiteNodeJsonContract("DirtyRoot", "GlobalObjectId_V1-2-11111111111111111111111111111111-1-0", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenState.Complete),
             ],
-            SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: true));
+            sourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: true));
         var dirtyProbeService = new RecordingSceneTreeLiteDirtySourceProbeService
         {
-            Result = SceneTreeLiteDirtySourceProbeResult.DirtySource(dirtyResponse, "Dirty loaded scene is open in Unity daemon."),
+            Result = SceneTreeLiteDirtySourceProbeResult.DirtySource(dirtySnapshot, "Dirty loaded scene is open in Unity daemon."),
         };
         var refreshService = new UnexpectedSceneTreeLiteSourceRefreshService();
         var service = CreateService(
@@ -48,7 +47,7 @@ public sealed class SceneTreeLiteAccessServiceDirtySourceProbeTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.AllowStale,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: null,
             cancellationToken: CancellationToken.None);
 
@@ -97,7 +96,7 @@ public sealed class SceneTreeLiteAccessServiceDirtySourceProbeTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.RequireFresh,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: null,
             cancellationToken: CancellationToken.None);
 

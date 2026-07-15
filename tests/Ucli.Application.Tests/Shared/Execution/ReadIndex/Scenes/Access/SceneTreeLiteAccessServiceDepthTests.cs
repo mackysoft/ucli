@@ -1,7 +1,7 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Execution.ReadIndex.Scenes.SceneTreeLiteAccessServiceTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex.Scenes;
@@ -32,7 +32,7 @@ public sealed class SceneTreeLiteAccessServiceDepthTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.RequireFresh,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: 0,
             cancellationToken: CancellationToken.None);
 
@@ -64,7 +64,7 @@ public sealed class SceneTreeLiteAccessServiceDepthTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.RequireFresh,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: null,
             cancellationToken: CancellationToken.None);
 

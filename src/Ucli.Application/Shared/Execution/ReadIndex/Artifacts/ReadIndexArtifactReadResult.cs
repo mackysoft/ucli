@@ -2,13 +2,23 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
 /// <summary> Represents one read-index artifact read result. </summary>
 /// <typeparam name="T"> The artifact contract type. </typeparam>
-/// <param name="Value"> The artifact contract on success; otherwise <see langword="null" />. </param>
-/// <param name="Error"> The structured read-index error on failure; otherwise <see langword="null" />. </param>
-internal sealed record ReadIndexArtifactReadResult<T> (
-    T? Value,
-    IndexServiceError? Error)
+internal sealed record ReadIndexArtifactReadResult<T>
     where T : class
 {
+    private ReadIndexArtifactReadResult (
+        T? value,
+        IndexServiceError? error)
+    {
+        Value = value;
+        Error = error;
+    }
+
+    /// <summary> Gets the artifact on success; otherwise <see langword="null" />. </summary>
+    public T? Value { get; }
+
+    /// <summary> Gets the structured read-index error on failure; otherwise <see langword="null" />. </summary>
+    public IndexServiceError? Error { get; }
+
     /// <summary> Gets a value indicating whether the artifact read succeeded. </summary>
     public bool IsSuccess => Value is not null && Error is null;
 

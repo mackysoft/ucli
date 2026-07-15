@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -16,10 +15,8 @@ public sealed class FileReadIndexArtifactWriterTests
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops");
         var writer = CreateWriter();
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-08T00:00:00+00:00");
-        IReadOnlyList<IndexOpEntryJsonContract> operations =
-        [
-            ReadIndexOperationTestFactory.CreateGoDescribeEntry(),
-        ];
+        var operations = CreateValidatedOperations(
+            [ReadIndexOperationTestFactory.CreateGoDescribeEntry()]);
         var snapshot = CreateSnapshot();
 
         await writer.WriteOpsCatalogAsync(
@@ -27,7 +24,7 @@ public sealed class FileReadIndexArtifactWriterTests
             ProjectFingerprintTestFactory.Create("fingerprint"),
             generatedAtUtc,
             operations,
-            "ops-hash",
+            Sha256DigestTestFactory.Create('a'),
             snapshot,
             CancellationToken.None);
 
@@ -39,10 +36,10 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.True(catalogResult.IsSuccess);
         Assert.True(manifestResult.IsSuccess);
         Assert.Equal(generatedAtUtc, catalogResult.Value!.GeneratedAtUtc);
-        Assert.Equal("ops-hash", catalogResult.Value.SourceInputsHash);
+        Assert.Equal(Sha256DigestTestFactory.Create('a'), catalogResult.Value.SourceInputsHash);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, catalogResult.Value.Entries![0].Name);
         Assert.Equal("Returns a GameObject description including components and child hierarchy.", catalogResult.Value.Entries[0].Description);
-        Assert.Equal(snapshot.CombinedHash, manifestResult.Value!.CombinedHash);
+        Assert.Equal(snapshot.CombinedHash, manifestResult.Value!.Hashes.CombinedHash);
     }
 
     [Fact]
@@ -60,8 +57,8 @@ public sealed class FileReadIndexArtifactWriterTests
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
-            [firstOperation],
-            "first-ops-hash",
+            CreateValidatedOperations([firstOperation]),
+            Sha256DigestTestFactory.Create('b'),
             manifestInputSnapshot: null,
             CancellationToken.None);
 
@@ -77,8 +74,8 @@ public sealed class FileReadIndexArtifactWriterTests
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
-            [secondOperation],
-            "second-ops-hash",
+            CreateValidatedOperations([secondOperation]),
+            Sha256DigestTestFactory.Create('c'),
             manifestInputSnapshot: null,
             CancellationToken.None);
 
@@ -92,7 +89,7 @@ public sealed class FileReadIndexArtifactWriterTests
         var firstDescribeResult = await reader.ReadOpsDescribeAsync(
             project,
             firstEntry,
-            "first-ops-hash",
+            Sha256DigestTestFactory.Create('b'),
             CancellationToken.None);
 
         Assert.Equal(firstEntry.DescribeHash, firstEntry.DescribeKey);
@@ -101,7 +98,7 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.True(File.Exists(firstDescribePath));
         Assert.True(File.Exists(secondDescribePath));
         Assert.True(firstDescribeResult.IsSuccess);
-        Assert.Equal(firstOperation.Description, firstDescribeResult.Value!.Operation!.Description);
+        Assert.Equal(firstOperation.Description, firstDescribeResult.Value!.Operation.Description);
     }
 
     [Fact]
@@ -126,8 +123,8 @@ public sealed class FileReadIndexArtifactWriterTests
             scope.FullPath,
             projectFingerprint,
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
-            [ReadIndexOperationTestFactory.CreateGoDescribeEntry()],
-            "ops-hash",
+            CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
+            Sha256DigestTestFactory.Create('a'),
             manifestInputSnapshot: null,
             CancellationToken.None);
 
@@ -147,22 +144,71 @@ public sealed class FileReadIndexArtifactWriterTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task WriteOpsCatalog_WhenOldPruneTargetIsLocked_CommitsNewCatalog ()
+    {
+        using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-describe-locked-prune");
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var describeDirectory = UcliStoragePathResolver.ResolveOpsDescribeDirectory(
+            scope.FullPath,
+            projectFingerprint);
+        Directory.CreateDirectory(describeDirectory);
+
+        var lockedArtifactPath = Path.Combine(describeDirectory, $"{0:x64}.json");
+        await File.WriteAllTextAsync(lockedArtifactPath, "{}");
+        File.SetLastWriteTimeUtc(lockedArtifactPath, DateTime.UnixEpoch);
+        var retainedArtifactTimestamp = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        for (var index = 1; index <= 512; index++)
+        {
+            var artifactPath = Path.Combine(describeDirectory, $"{index:x64}.json");
+            await File.WriteAllTextAsync(artifactPath, "{}");
+            File.SetLastWriteTimeUtc(artifactPath, retainedArtifactTimestamp);
+        }
+
+        using var lockedArtifact = new FileStream(
+            lockedArtifactPath,
+            FileMode.Open,
+            FileAccess.ReadWrite,
+            FileShare.None);
+        var generatedAtUtc = DateTimeOffset.Parse("2026-03-08T00:00:00+00:00");
+        var writer = CreateWriter();
+
+        await writer.WriteOpsCatalogAsync(
+            scope.FullPath,
+            projectFingerprint,
+            generatedAtUtc,
+            CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
+            Sha256DigestTestFactory.Create('a'),
+            manifestInputSnapshot: null,
+            CancellationToken.None);
+
+        var reader = new FileReadIndexArtifactReader();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, projectFingerprint);
+        var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
+
+        Assert.True(catalogResult.IsSuccess);
+        Assert.Equal(generatedAtUtc, catalogResult.Value!.GeneratedAtUtc);
+        if (OperatingSystem.IsWindows())
+        {
+            Assert.True(File.Exists(lockedArtifactPath));
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task WriteOpsCatalog_WithoutManifest_WritesCatalogOnly ()
     {
         using var scope = TestDirectories.CreateTempScope("read-index-writer", "ops-no-manifest");
         var writer = CreateWriter();
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-08T00:00:00+00:00");
-        IReadOnlyList<IndexOpEntryJsonContract> operations =
-        [
-            ReadIndexOperationTestFactory.CreateGoDescribeEntry(),
-        ];
+        var operations = CreateValidatedOperations(
+            [ReadIndexOperationTestFactory.CreateGoDescribeEntry()]);
 
         await writer.WriteOpsCatalogAsync(
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             generatedAtUtc,
             operations,
-            "ops-hash",
+            Sha256DigestTestFactory.Create('a'),
             manifestInputSnapshot: null,
             CancellationToken.None);
 
@@ -175,7 +221,7 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.False(manifestResult.IsSuccess);
         Assert.Equal(ReadIndexErrorCodes.ReadIndexBootstrapFailed, manifestResult.Error!.Code);
         Assert.Equal(generatedAtUtc, catalogResult.Value!.GeneratedAtUtc);
-        Assert.Equal("ops-hash", catalogResult.Value.SourceInputsHash);
+        Assert.Equal(Sha256DigestTestFactory.Create('a'), catalogResult.Value.SourceInputsHash);
     }
 
     [Fact]
@@ -193,8 +239,8 @@ public sealed class FileReadIndexArtifactWriterTests
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
-            [oldOperation],
-            "old-ops-hash",
+            CreateValidatedOperations([oldOperation]),
+            Sha256DigestTestFactory.Create('d'),
             manifestInputSnapshot: null,
             CancellationToken.None);
 
@@ -205,14 +251,14 @@ public sealed class FileReadIndexArtifactWriterTests
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
-            [newOperation],
-            "new-ops-hash",
+            CreateValidatedOperations([newOperation]),
+            Sha256DigestTestFactory.Create('e'),
             manifestInputSnapshot: null,
             CancellationToken.None));
 
         var catalogResult = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
         Assert.True(catalogResult.IsSuccess);
-        Assert.Equal("old-ops-hash", catalogResult.Value!.SourceInputsHash);
+        Assert.Equal(Sha256DigestTestFactory.Create('d'), catalogResult.Value!.SourceInputsHash);
 
         var describeResult = await reader.ReadOpsDescribeAsync(
             project,
@@ -221,7 +267,7 @@ public sealed class FileReadIndexArtifactWriterTests
             CancellationToken.None);
 
         Assert.True(describeResult.IsSuccess);
-        Assert.Equal(oldOperation.Description, describeResult.Value!.Operation!.Description);
+        Assert.Equal(oldOperation.Description, describeResult.Value!.Operation.Description);
     }
 
     [Fact]
@@ -238,8 +284,8 @@ public sealed class FileReadIndexArtifactWriterTests
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
-            [ReadIndexOperationTestFactory.CreateGoDescribeEntry()],
-            "ops-hash",
+            CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
+            Sha256DigestTestFactory.Create('a'),
             manifestInputSnapshot: null,
             CancellationToken.None));
         await firstDescribeWriter.WaitUntilEnteredAsync();
@@ -279,8 +325,8 @@ public sealed class FileReadIndexArtifactWriterTests
                 scope.FullPath,
                 ProjectFingerprintTestFactory.Create("fingerprint"),
                 DateTimeOffset.Parse("2026-03-08T00:01:00+00:00"),
-                [ReadIndexOperationTestFactory.CreateGoDescribeEntry()],
-                "ops-hash",
+                CreateValidatedOperations([ReadIndexOperationTestFactory.CreateGoDescribeEntry()]),
+                Sha256DigestTestFactory.Create('a'),
                 suppliedSnapshot,
                 CancellationToken.None)
             .AsTask();
@@ -289,14 +335,14 @@ public sealed class FileReadIndexArtifactWriterTests
         var currentManifest = new IndexInputsManifestJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
-            ScriptAssembliesHash: "current-script",
-            PackagesManifestHash: "current-manifest",
-            PackagesLockHash: "current-lock",
-            AssemblyDefinitionHash: "current-asmdef",
-            AssetsContentHash: "current-assets",
-            AssetSearchHash: "current-asset-search",
-            GuidPathHash: "current-guid-path",
-            CombinedHash: "current-combined");
+            ScriptAssembliesHash: new string('0', 64),
+            PackagesManifestHash: new string('1', 64),
+            PackagesLockHash: new string('2', 64),
+            AssemblyDefinitionHash: new string('3', 64),
+            AssetsContentHash: new string('4', 64),
+            AssetSearchHash: new string('5', 64),
+            GuidPathHash: new string('6', 64),
+            CombinedHash: new string('7', 64));
         var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         await FileUtilities.WriteAllTextAtomicallyAsync(
             manifestPath,
@@ -311,11 +357,11 @@ public sealed class FileReadIndexArtifactWriterTests
         var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
         Assert.True(manifestResult.IsSuccess);
-        Assert.Equal(suppliedSnapshot.ScriptAssembliesHash, manifestResult.Value!.ScriptAssembliesHash);
-        Assert.Equal(suppliedSnapshot.CombinedHash, manifestResult.Value.CombinedHash);
-        Assert.Equal("current-assets", manifestResult.Value.AssetsContentHash);
-        Assert.Equal("current-asset-search", manifestResult.Value.AssetSearchHash);
-        Assert.Equal("current-guid-path", manifestResult.Value.GuidPathHash);
+        Assert.Equal(suppliedSnapshot.ScriptAssembliesHash, manifestResult.Value!.Hashes.ScriptAssembliesHash);
+        Assert.Equal(suppliedSnapshot.CombinedHash, manifestResult.Value.Hashes.CombinedHash);
+        Assert.Equal(Sha256DigestTestFactory.Create('4'), manifestResult.Value.Hashes.AssetsContentHash);
+        Assert.Equal(Sha256DigestTestFactory.Create('5'), manifestResult.Value.Hashes.AssetSearchHash);
+        Assert.Equal(Sha256DigestTestFactory.Create('6'), manifestResult.Value.Hashes.GuidPathHash);
     }
 
     [Fact]
@@ -344,14 +390,14 @@ public sealed class FileReadIndexArtifactWriterTests
         var currentManifest = new IndexInputsManifestJsonContract(
             SchemaVersion: 1,
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
-            ScriptAssembliesHash: "current-script",
-            PackagesManifestHash: "current-manifest",
-            PackagesLockHash: "current-lock",
-            AssemblyDefinitionHash: "current-asmdef",
-            AssetsContentHash: "current-assets",
-            AssetSearchHash: "current-asset-search",
-            GuidPathHash: "current-guid-path",
-            CombinedHash: "current-combined");
+            ScriptAssembliesHash: new string('0', 64),
+            PackagesManifestHash: new string('1', 64),
+            PackagesLockHash: new string('2', 64),
+            AssemblyDefinitionHash: new string('3', 64),
+            AssetsContentHash: new string('4', 64),
+            AssetSearchHash: new string('5', 64),
+            GuidPathHash: new string('6', 64),
+            CombinedHash: new string('7', 64));
         var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
         await FileUtilities.WriteAllTextAtomicallyAsync(
             manifestPath,
@@ -366,14 +412,14 @@ public sealed class FileReadIndexArtifactWriterTests
         var manifestResult = await reader.ReadInputsManifestAsync(project, CancellationToken.None);
 
         Assert.True(manifestResult.IsSuccess);
-        Assert.Equal("current-script", manifestResult.Value!.ScriptAssembliesHash);
-        Assert.Equal("current-manifest", manifestResult.Value.PackagesManifestHash);
-        Assert.Equal("current-lock", manifestResult.Value.PackagesLockHash);
-        Assert.Equal("current-asmdef", manifestResult.Value.AssemblyDefinitionHash);
-        Assert.Equal("current-combined", manifestResult.Value.CombinedHash);
-        Assert.Equal(suppliedSnapshot.AssetsContentHash, manifestResult.Value.AssetsContentHash);
-        Assert.Equal(suppliedSnapshot.AssetSearchHash, manifestResult.Value.AssetSearchHash);
-        Assert.Equal(suppliedSnapshot.GuidPathHash, manifestResult.Value.GuidPathHash);
+        Assert.Equal(Sha256DigestTestFactory.Create('0'), manifestResult.Value!.Hashes.ScriptAssembliesHash);
+        Assert.Equal(Sha256DigestTestFactory.Create('1'), manifestResult.Value.Hashes.PackagesManifestHash);
+        Assert.Equal(Sha256DigestTestFactory.Create('2'), manifestResult.Value.Hashes.PackagesLockHash);
+        Assert.Equal(Sha256DigestTestFactory.Create('3'), manifestResult.Value.Hashes.AssemblyDefinitionHash);
+        Assert.Equal(Sha256DigestTestFactory.Create('7'), manifestResult.Value.Hashes.CombinedHash);
+        Assert.Equal(suppliedSnapshot.AssetsContentHash, manifestResult.Value.Hashes.AssetsContentHash);
+        Assert.Equal(suppliedSnapshot.AssetSearchHash, manifestResult.Value.Hashes.AssetSearchHash);
+        Assert.Equal(suppliedSnapshot.GuidPathHash, manifestResult.Value.Hashes.GuidPathHash);
     }
 
     [Fact]
@@ -401,12 +447,10 @@ public sealed class FileReadIndexArtifactWriterTests
         var failingWriter = CreateWriter(
             guidPathLookupWriter: new ThrowingJsonContractWriter<IndexGuidPathLookupJsonContract>(
                 new IOException("guid lookup write failed")));
-        var updatedSnapshot = initialSnapshot with
-        {
-            AssetsContentHash = "updated-assets",
-            AssetSearchHash = "updated-asset-search",
-            GuidPathHash = "updated-guid-path",
-        };
+        var updatedSnapshot = initialSnapshot.WithAssetHashes(
+            Sha256DigestTestFactory.Create('8'),
+            Sha256DigestTestFactory.Create('9'),
+            Sha256DigestTestFactory.Create('a'));
 
         await Assert.ThrowsAsync<IOException>(async () => await failingWriter.WriteAssetLookupsAsync(
             scope.FullPath,
@@ -468,8 +512,8 @@ public sealed class FileReadIndexArtifactWriterTests
         Assert.True(manifestResult.IsSuccess);
         Assert.Equal(snapshot.AssetSearchHash, assetSearchResult.Value!.SourceInputsHash);
         Assert.Equal(snapshot.GuidPathHash, guidPathResult.Value!.SourceInputsHash);
-        Assert.Equal("Assets/Z.asset", assetSearchResult.Value.Entries![0].AssetPath);
-        Assert.Equal("Assets/Z.asset", guidPathResult.Value.Entries![0].AssetPath);
+        Assert.Equal("Assets/Z.asset", assetSearchResult.Value.Entries[0].AssetPath.Value);
+        Assert.Equal("Assets/Z.asset", guidPathResult.Value.Entries[0].AssetPath.Value);
     }
 
     [Fact]
@@ -483,32 +527,32 @@ public sealed class FileReadIndexArtifactWriterTests
         [
             new IndexSceneTreeLiteNodeJsonContract(
                 "Root",
-                "GlobalObjectId_V1-2-3-4",
+                "GlobalObjectId_V1-2-11111111111111111111111111111111-1-0",
                 Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
-                IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                IndexSceneTreeLiteNodeChildrenState.Complete),
         ];
 
         await writer.WriteSceneTreeLiteAsync(
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             generatedAtUtc,
-            "Assets\\Scenes\\Main.unity",
+            new SceneAssetPath("Assets\\Scenes\\Main.unity"),
             roots,
-            "scene-hash",
+            Sha256DigestTestFactory.Create('a'),
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var result = await reader.ReadSceneTreeLiteLookupAsync(
             project,
-            "Assets/Scenes/Main.unity",
+            new SceneAssetPath("Assets/Scenes/Main.unity"),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(generatedAtUtc, result.Value!.GeneratedAtUtc);
-        Assert.Equal("Assets/Scenes/Main.unity", result.Value.ScenePath);
-        Assert.Equal("scene-hash", result.Value.SourceInputsHash);
-        Assert.Single(result.Value.Roots!);
+        Assert.Equal("Assets/Scenes/Main.unity", result.Value.ScenePath.Value);
+        Assert.Equal(Sha256DigestTestFactory.Create('a'), result.Value.SourceInputsHash);
+        Assert.Single(result.Value.Roots);
         Assert.True(File.Exists(UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"),
@@ -529,45 +573,45 @@ public sealed class FileReadIndexArtifactWriterTests
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             firstGeneratedAtUtc,
-            "Assets/Scenes/First.unity",
+            new SceneAssetPath("Assets/Scenes/First.unity"),
             [CreateSceneRoot("FirstRoot")],
-            "first-hash",
+            Sha256DigestTestFactory.Create('a'),
             CancellationToken.None);
         await writer.WriteSceneTreeLiteAsync(
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             secondGeneratedAtUtc,
-            "Assets/Scenes/Second.unity",
+            new SceneAssetPath("Assets/Scenes/Second.unity"),
             [CreateSceneRoot("SecondRoot")],
-            "second-hash",
+            Sha256DigestTestFactory.Create('b'),
             CancellationToken.None);
         await writer.WriteSceneTreeLiteAsync(
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             updatedGeneratedAtUtc,
-            "Assets/Scenes/First.unity",
+            new SceneAssetPath("Assets/Scenes/First.unity"),
             [CreateSceneRoot("FirstRootUpdated")],
-            "first-updated-hash",
+            Sha256DigestTestFactory.Create('c'),
             CancellationToken.None);
 
         var reader = new FileReadIndexArtifactReader();
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var firstResult = await reader.ReadSceneTreeLiteLookupAsync(
             project,
-            "Assets/Scenes/First.unity",
+            new SceneAssetPath("Assets/Scenes/First.unity"),
             CancellationToken.None);
         var secondResult = await reader.ReadSceneTreeLiteLookupAsync(
             project,
-            "Assets/Scenes/Second.unity",
+            new SceneAssetPath("Assets/Scenes/Second.unity"),
             CancellationToken.None);
 
         Assert.True(firstResult.IsSuccess);
         Assert.True(secondResult.IsSuccess);
-        Assert.Equal("first-updated-hash", firstResult.Value!.SourceInputsHash);
-        Assert.Equal("FirstRootUpdated", firstResult.Value.Roots![0].Name);
+        Assert.Equal(Sha256DigestTestFactory.Create('c'), firstResult.Value!.SourceInputsHash);
+        Assert.Equal("FirstRootUpdated", firstResult.Value.Roots[0].Name);
         Assert.Equal(updatedGeneratedAtUtc, firstResult.Value.GeneratedAtUtc);
-        Assert.Equal("second-hash", secondResult.Value!.SourceInputsHash);
-        Assert.Equal("SecondRoot", secondResult.Value.Roots![0].Name);
+        Assert.Equal(Sha256DigestTestFactory.Create('b'), secondResult.Value!.SourceInputsHash);
+        Assert.Equal("SecondRoot", secondResult.Value.Roots[0].Name);
         Assert.Equal(secondGeneratedAtUtc, secondResult.Value.GeneratedAtUtc);
     }
 
@@ -589,22 +633,30 @@ public sealed class FileReadIndexArtifactWriterTests
     {
         return new IndexSceneTreeLiteNodeJsonContract(
             name,
-            $"GlobalObjectId_V1-{name}",
+            "GlobalObjectId_V1-2-11111111111111111111111111111111-1-0",
             Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
-            IndexSceneTreeLiteNodeChildrenStateValues.Complete);
+            IndexSceneTreeLiteNodeChildrenState.Complete);
     }
 
     private static ReadIndexInputHashSnapshot CreateSnapshot ()
     {
         return new ReadIndexInputHashSnapshot(
-            ScriptAssembliesHash: "script",
-            PackagesManifestHash: "manifest",
-            PackagesLockHash: "lock",
-            AssemblyDefinitionHash: "asmdef",
-            AssetsContentHash: "assets",
-            AssetSearchHash: "asset-search",
-            GuidPathHash: "guid-path",
-            CombinedHash: "combined");
+            Sha256DigestTestFactory.Create('0'),
+            Sha256DigestTestFactory.Create('1'),
+            Sha256DigestTestFactory.Create('2'),
+            Sha256DigestTestFactory.Create('3'),
+            Sha256DigestTestFactory.Create('4'),
+            Sha256DigestTestFactory.Create('5'),
+            Sha256DigestTestFactory.Create('6'),
+            Sha256DigestTestFactory.Create('7'));
+    }
+
+    private static IReadOnlyList<ValidatedOpsOperation> CreateValidatedOperations (
+        IReadOnlyList<IndexOpEntryJsonContract> operations)
+    {
+        return OperationCatalogTestFixtures.CreateSnapshot(
+            DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
+            operations).Operations;
     }
 
     private sealed class BlockingJsonContractWriter<TContract> : IJsonContractWriter<TContract>

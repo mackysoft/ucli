@@ -22,7 +22,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             failFast: true,
             loadedSceneOnly: true,
             cancellationToken: CancellationToken.None);
@@ -32,33 +32,10 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             executor,
             UcliCommandIds.Query,
             UnityExecutionMode.Auto);
-        Assert.Equal("Assets/Scenes/Main.unity", execution.Payload.ScenePath);
+        Assert.Equal("Assets/Scenes/Main.unity", execution.Payload.ScenePath.Value);
         Assert.True(execution.Payload.FailFast);
         Assert.True(execution.Payload.LoadedSceneOnly);
-        Assert.Single(result.Response!.Roots!);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Read_ReturnsFailureStatusMessage_WhenFailureStatusHasNoErrors ()
-    {
-        var executor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(
-            "busy",
-            new { })));
-        var reader = new SceneTreeLiteSnapshotReader(executor);
-
-        var result = await reader.ReadAsync(
-            ResolvedUnityProjectContextTestFactory.Create(),
-            UcliConfig.CreateDefault(),
-            UcliCommandIds.Query,
-            UnityExecutionMode.Auto,
-            TimeSpan.FromSeconds(1),
-            "Assets/Scenes/Main.unity",
-            cancellationToken: CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-        Assert.Equal("index.scene-tree-lite.read failed with status 'busy'.", result.Message);
+        Assert.Single(result.Snapshot!.Roots);
     }
 
     [Fact]
@@ -75,11 +52,11 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             UcliCommandIds.Query,
             UnityExecutionMode.Daemon,
             TimeSpan.FromSeconds(1),
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(" ", result.Response!.Roots![0].Name);
+        Assert.Equal(" ", result.Snapshot!.Roots[0].Name);
     }
 
     [Fact]
@@ -96,7 +73,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             UcliCommandIds.Query,
             UnityExecutionMode.Oneshot,
             TimeSpan.FromSeconds(1),
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -112,10 +89,10 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             UnityRequestExecutionResult.Success(CreateSuccessResponse(
                 new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.UtcNow,
-                    ScenePath: "Assets/Scenes/Main.unity",
+                    ScenePath: new UnityScenePath("Assets/Scenes/Main.unity"),
                     Roots:
                     [
-                        new IndexSceneTreeLiteNodeJsonContract("Root", string.Empty, null, IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        new IndexSceneTreeLiteNodeJsonContract("Root", string.Empty, null, IndexSceneTreeLiteNodeChildrenState.Complete),
                     ],
                     SourceState: CreateSourceState()))));
         var reader = new SceneTreeLiteSnapshotReader(executor);
@@ -126,7 +103,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
             UcliCommandIds.Query,
             UnityExecutionMode.Oneshot,
             TimeSpan.FromSeconds(1),
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -136,7 +113,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
 
     private static UnityRequestResponse CreateSuccessResponse (object payload)
     {
-        return CreateResponse(IpcProtocol.StatusOk, payload);
+        return CreateResponse(IpcResponseStatus.Ok, payload);
     }
 
     private static IpcIndexSceneTreeLiteReadResponse CreatePayload (
@@ -145,10 +122,10 @@ public sealed class SceneTreeLiteSnapshotReaderTests
     {
         return new IpcIndexSceneTreeLiteReadResponse(
             GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
-            ScenePath: scenePath,
+            ScenePath: new UnityScenePath(scenePath),
             Roots:
             [
-                new IndexSceneTreeLiteNodeJsonContract(rootName, "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                new IndexSceneTreeLiteNodeJsonContract(rootName, "GlobalObjectId_V1-2-11111111111111111111111111111111-1-0", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenState.Complete),
             ],
             SourceState: CreateSourceState());
     }
@@ -159,7 +136,7 @@ public sealed class SceneTreeLiteSnapshotReaderTests
     }
 
     private static UnityRequestResponse CreateResponse (
-        string status,
+        IpcResponseStatus status,
         object payload)
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(

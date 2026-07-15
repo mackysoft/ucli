@@ -14,8 +14,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
     public async Task Refresh_PersistsLookup_WhenSnapshotIsStable ()
     {
         var reader = new RecordingSceneTreeLiteSnapshotReader();
-        var response = CreateResponse("Assets/Scenes/Main.unity", "Root");
-        reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(response));
+        var snapshot = SceneTreeLiteSourceSnapshotTestFactory.Create("Assets/Scenes/Main.unity", "Root");
+        reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(snapshot));
         var store = RecordingReadIndexArtifactWriter.ForSceneTreeLite();
         var calculator = RecordingReadIndexSceneSourceHashProvider.ForQueuedResults();
         calculator.Enqueue("hash-1");
@@ -28,13 +28,13 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             "readIndex stale.",
             failFast: true,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Same(response, result.Response);
+        Assert.Same(snapshot, result.Snapshot);
         Assert.Equal("readIndex stale.", result.FallbackReason);
         SceneTreeLiteSnapshotReaderAssert.ReadRequested(reader, UnityExecutionMode.Auto, expectedFailFast: true);
         ReadIndexArtifactWriterAssert.SceneTreeLiteWritten(store, "hash-1");
@@ -45,8 +45,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
     public async Task Refresh_ReturnsFirstSnapshot_WhenRetryReadFails ()
     {
         var reader = new RecordingSceneTreeLiteSnapshotReader();
-        var firstResponse = CreateResponse("Assets/Scenes/Main.unity", "First");
-        reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(firstResponse));
+        var firstSnapshot = SceneTreeLiteSourceSnapshotTestFactory.Create("Assets/Scenes/Main.unity", "First");
+        reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(firstSnapshot));
         reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Failure("retry read timed out", UcliCoreErrorCodes.InternalError));
         var store = RecordingReadIndexArtifactWriter.ForSceneTreeLite();
         var calculator = RecordingReadIndexSceneSourceHashProvider.ForQueuedResults();
@@ -61,14 +61,14 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             "readIndex stale.",
             cancellationToken: CancellationToken.None);
 
         SceneTreeLiteSourceRefreshAssert.FirstSnapshotReturnedAfterRetryFailureWithoutPersistence(
             result,
             store,
-            firstResponse,
+            firstSnapshot,
             expectedFallbackReason: "readIndex stale.",
             expectedRetryFailureMessage: "retry snapshot read failed. retry read timed out");
     }
@@ -78,8 +78,8 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
     public async Task Refresh_WhenSceneIsOutsideAssets_SkipsPersistence ()
     {
         var reader = new RecordingSceneTreeLiteSnapshotReader();
-        var response = CreateResponse("Packages/com.example/Scenes/Main.unity", "PackageRoot");
-        reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(response));
+        var snapshot = SceneTreeLiteSourceSnapshotTestFactory.Create("Packages/com.example/Scenes/Main.unity", "PackageRoot");
+        reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(snapshot));
         var store = RecordingReadIndexArtifactWriter.ForSceneTreeLite();
         var calculator = RecordingReadIndexSceneSourceHashProvider.ForQueuedResults();
         var service = new SceneTreeLiteSourceRefreshService(reader, store, calculator);
@@ -90,7 +90,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
-            "Packages/com.example/Scenes/Main.unity",
+            new UnityScenePath("Packages/com.example/Scenes/Main.unity"),
             "scene-tree-lite readIndex is unavailable for non-Assets scene paths.",
             cancellationToken: CancellationToken.None);
 
@@ -99,7 +99,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             reader,
             calculator,
             store,
-            response,
+            snapshot,
             expectedFallbackReason: "scene-tree-lite readIndex is unavailable for non-Assets scene paths.");
     }
 
@@ -108,11 +108,11 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
     public async Task Refresh_WhenSnapshotIsDirtyLoadedSource_SkipsPersistence ()
     {
         var reader = new RecordingSceneTreeLiteSnapshotReader();
-        var response = CreateResponse(
+        var snapshot = SceneTreeLiteSourceSnapshotTestFactory.Create(
             "Assets/Scenes/Main.unity",
             "DirtyRoot",
             new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: true));
-        reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(response));
+        reader.Enqueue(SceneTreeLiteSnapshotFetchResult.Success(snapshot));
         var store = RecordingReadIndexArtifactWriter.ForSceneTreeLite();
         var calculator = RecordingReadIndexSceneSourceHashProvider.ForQueuedResults();
         calculator.Enqueue("hash-1");
@@ -124,7 +124,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             UcliCommandIds.Query,
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             "readIndex stale.",
             cancellationToken: CancellationToken.None);
 
@@ -132,22 +132,7 @@ public sealed class SceneTreeLiteSourceRefreshServiceTests
             result,
             reader,
             store,
-            response);
-    }
-
-    private static IpcIndexSceneTreeLiteReadResponse CreateResponse (
-        string scenePath,
-        string rootName,
-        SceneTreeSourceState? sourceState = null)
-    {
-        return new IpcIndexSceneTreeLiteReadResponse(
-            GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:00:00+00:00"),
-            ScenePath: scenePath,
-            Roots:
-            [
-                new IndexSceneTreeLiteNodeJsonContract(rootName, "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
-            ],
-            SourceState: sourceState ?? new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false));
+            snapshot);
     }
 
 }

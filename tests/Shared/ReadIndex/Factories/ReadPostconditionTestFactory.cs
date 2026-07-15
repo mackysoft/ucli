@@ -13,7 +13,7 @@ internal static class ReadPostconditionTestFactory
         DateTimeOffset? minSafeGeneratedAtUtc = null)
     {
         return Create(
-            IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
+            IpcExecuteReadPostconditionSurface.AssetSearch,
             minSafeGeneratedAtUtc);
     }
 
@@ -22,7 +22,7 @@ internal static class ReadPostconditionTestFactory
         string scenePath = SceneTreeLiteScenePath)
     {
         return Create(
-            IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+            IpcExecuteReadPostconditionSurface.SceneTreeLite,
             minSafeGeneratedAtUtc,
             scenePath);
     }
@@ -39,7 +39,7 @@ internal static class ReadPostconditionTestFactory
     }
 
     private static OperationExecutionReadPostcondition Create (
-        string surface,
+        IpcExecuteReadPostconditionSurface surface,
         DateTimeOffset? minSafeGeneratedAtUtc,
         string? scenePath = null)
     {

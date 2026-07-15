@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -19,7 +20,7 @@ internal sealed class RecordingSceneTreeLiteAccessService : ISceneTreeLiteAccess
         UnityExecutionMode mode,
         TimeSpan timeout,
         ReadIndexMode readIndexMode,
-        string scenePath,
+        UnityScenePath scenePath,
         int? depth,
         bool failFast = false,
         CancellationToken cancellationToken = default)
@@ -52,7 +53,7 @@ internal sealed class RecordingSceneTreeLiteAccessService : ISceneTreeLiteAccess
         UnityExecutionMode Mode,
         TimeSpan Timeout,
         ReadIndexMode ReadIndexMode,
-        string ScenePath,
+        UnityScenePath ScenePath,
         int? Depth,
         bool FailFast,
         CancellationToken CancellationToken);

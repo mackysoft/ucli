@@ -30,11 +30,6 @@ public sealed class FileSystemIndexInputFingerprintCalculatorSmokeTests
         var snapshot = await calculator.TryComputeAsync(scope.FullPath, CancellationToken.None);
 
         Assert.NotNull(snapshot);
-        Assert.False(string.IsNullOrWhiteSpace(snapshot!.ScriptAssembliesHash));
-        Assert.False(string.IsNullOrWhiteSpace(snapshot.PackagesManifestHash));
-        Assert.False(string.IsNullOrWhiteSpace(snapshot.PackagesLockHash));
-        Assert.False(string.IsNullOrWhiteSpace(snapshot.AssemblyDefinitionHash));
-        Assert.False(string.IsNullOrWhiteSpace(snapshot.CombinedHash));
     }
 
     [Fact]

@@ -26,11 +26,11 @@ internal sealed class InfrastructureReadIndexInputFingerprintProvider : IReadInd
         return snapshot == null
             ? null
             : new ReadIndexCoreInputHashSnapshot(
-                ScriptAssembliesHash: snapshot.ScriptAssembliesHash,
-                PackagesManifestHash: snapshot.PackagesManifestHash,
-                PackagesLockHash: snapshot.PackagesLockHash,
-                AssemblyDefinitionHash: snapshot.AssemblyDefinitionHash,
-                CombinedHash: snapshot.CombinedHash);
+                snapshot.ScriptAssembliesHash,
+                snapshot.PackagesManifestHash,
+                snapshot.PackagesLockHash,
+                snapshot.AssemblyDefinitionHash,
+                snapshot.CombinedHash);
     }
 
     /// <inheritdoc />
@@ -44,13 +44,13 @@ internal sealed class InfrastructureReadIndexInputFingerprintProvider : IReadInd
         return snapshot == null
             ? null
             : new ReadIndexInputHashSnapshot(
-                ScriptAssembliesHash: snapshot.ScriptAssembliesHash,
-                PackagesManifestHash: snapshot.PackagesManifestHash,
-                PackagesLockHash: snapshot.PackagesLockHash,
-                AssemblyDefinitionHash: snapshot.AssemblyDefinitionHash,
-                AssetsContentHash: snapshot.AssetsContentHash,
-                AssetSearchHash: snapshot.AssetSearchHash,
-                GuidPathHash: snapshot.GuidPathHash,
-                CombinedHash: snapshot.CombinedHash);
+                snapshot.ScriptAssembliesHash,
+                snapshot.PackagesManifestHash,
+                snapshot.PackagesLockHash,
+                snapshot.AssemblyDefinitionHash,
+                snapshot.AssetsContentHash,
+                snapshot.AssetSearchHash,
+                snapshot.GuidPathHash,
+                snapshot.CombinedHash);
     }
 }

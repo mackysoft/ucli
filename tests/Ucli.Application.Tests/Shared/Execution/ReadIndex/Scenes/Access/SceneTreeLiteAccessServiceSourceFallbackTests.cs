@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -18,7 +17,8 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
         WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
         var indexReader = new RecordingReadIndexArtifactReader
         {
-            SceneTreeLiteLookupResult = CreateSuccessfulSceneTreeLiteLookupReadResult(sourceInputsHash: "stale-hash"),
+            SceneTreeLiteLookupResult = CreateSuccessfulSceneTreeLiteLookupReadResult(
+                sourceInputsHash: Sha256DigestTestFactory.Compute("stale-hash")),
         };
         var freshnessEvaluator = new RecordingReadIndexFreshnessEvaluator
         {
@@ -27,14 +27,14 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
         var refreshService = new RecordingSceneTreeLiteSourceRefreshService
         {
             Result = SceneTreeLiteRefreshResult.Success(
-                new IpcIndexSceneTreeLiteReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
-                    ScenePath: "Assets/Scenes/Main.unity",
-                    Roots:
+                CreateSceneTreeLiteSourceSnapshot(
+                    generatedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
+                    scenePath: "Assets/Scenes/Main.unity",
+                    roots:
                     [
-                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-1-1-1", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                        new IndexSceneTreeLiteNodeJsonContract("FreshRoot", "GlobalObjectId_V1-2-11111111111111111111111111111111-1-0", Array.Empty<IndexSceneTreeLiteNodeJsonContract>(), IndexSceneTreeLiteNodeChildrenState.Complete),
                     ],
-                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
+                    sourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "Existing scene-tree-lite index freshness is 'stale'."),
         };
         var service = CreateService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService, new RecordingSceneTreeLiteSourceProbe());
@@ -46,7 +46,7 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.RequireFresh,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: null,
             cancellationToken: CancellationToken.None);
 
@@ -71,11 +71,11 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
         var refreshService = new RecordingSceneTreeLiteSourceRefreshService
         {
             Result = SceneTreeLiteRefreshResult.Success(
-                new IpcIndexSceneTreeLiteReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
-                    ScenePath: "Assets/Scenes/Main.unity",
-                    Roots: CreateTree(),
-                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
+                CreateSceneTreeLiteSourceSnapshot(
+                    generatedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
+                    scenePath: "Assets/Scenes/Main.unity",
+                    roots: CreateTree(),
+                    sourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "readIndex disabled by mode."),
         };
         var indexReader = new RecordingReadIndexArtifactReader();
@@ -88,7 +88,7 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.Disabled,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: null,
             failFast: true,
             cancellationToken: CancellationToken.None);
@@ -114,11 +114,11 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
         var refreshService = new RecordingSceneTreeLiteSourceRefreshService
         {
             Result = SceneTreeLiteRefreshResult.Success(
-                new IpcIndexSceneTreeLiteReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
-                    ScenePath: "Packages/com.example/Scenes/Main.unity",
-                    Roots: CreateTree(),
-                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
+                CreateSceneTreeLiteSourceSnapshot(
+                    generatedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
+                    scenePath: "Packages/com.example/Scenes/Main.unity",
+                    roots: CreateTree(),
+                    sourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "scene-tree-lite readIndex is unavailable for non-Assets scene paths."),
         };
         var indexReader = new RecordingReadIndexArtifactReader();
@@ -131,7 +131,7 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.RequireFresh,
-            "Packages/com.example/Scenes/Main.unity",
+            new UnityScenePath("Packages/com.example/Scenes/Main.unity"),
             depth: null,
             cancellationToken: CancellationToken.None);
 
@@ -155,18 +155,18 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
         WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
         var indexReader = new RecordingReadIndexArtifactReader
         {
-            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<SceneTreeLiteLookupSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 "scene-tree-lite lookup is missing."),
         };
         var refreshService = new RecordingSceneTreeLiteSourceRefreshService
         {
             Result = SceneTreeLiteRefreshResult.Success(
-                new IpcIndexSceneTreeLiteReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
-                    ScenePath: "Assets/Scenes/Main.unity",
-                    Roots: CreateTree(),
-                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
+                CreateSceneTreeLiteSourceSnapshot(
+                    generatedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
+                    scenePath: "Assets/Scenes/Main.unity",
+                    roots: CreateTree(),
+                    sourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "scene-tree-lite lookup is missing."),
         };
         var service = CreateService(indexReader, new RecordingReadIndexFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new RecordingSceneTreeLiteSourceProbe());
@@ -178,7 +178,7 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.RequireFresh,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: null,
             cancellationToken: CancellationToken.None);
 
@@ -202,18 +202,18 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
         WriteSceneFile(project.UnityProjectRoot, "Assets/Scenes/Main.unity");
         var indexReader = new RecordingReadIndexArtifactReader
         {
-            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+            SceneTreeLiteLookupResult = ReadIndexArtifactReadResult<SceneTreeLiteLookupSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed."),
         };
         var refreshService = new RecordingSceneTreeLiteSourceRefreshService
         {
             Result = SceneTreeLiteRefreshResult.Success(
-                new IpcIndexSceneTreeLiteReadResponse(
-                    GeneratedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
-                    ScenePath: "Assets/Scenes/Main.unity",
-                    Roots: CreateTree(),
-                    SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
+                CreateSceneTreeLiteSourceSnapshot(
+                    generatedAtUtc: DateTimeOffset.Parse("2026-04-14T00:01:00+00:00"),
+                    scenePath: "Assets/Scenes/Main.unity",
+                    roots: CreateTree(),
+                    sourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false)),
                 "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed."),
         };
         var service = CreateService(indexReader, new RecordingReadIndexFreshnessEvaluator(), new TestMutationReadPostconditionStore(), refreshService, new RecordingSceneTreeLiteSourceProbe());
@@ -225,7 +225,7 @@ public sealed class SceneTreeLiteAccessServiceSourceFallbackTests
             UnityExecutionMode.Auto,
             TimeSpan.FromSeconds(1),
             ReadIndexMode.RequireFresh,
-            "Assets/Scenes/Main.unity",
+            new UnityScenePath("Assets/Scenes/Main.unity"),
             depth: null,
             cancellationToken: CancellationToken.None);
 

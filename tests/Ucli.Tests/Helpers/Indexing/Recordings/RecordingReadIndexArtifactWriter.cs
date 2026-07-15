@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests.Helpers.Indexing;
@@ -89,8 +91,8 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
         string storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
-        IReadOnlyList<IndexOpEntryJsonContract> operations,
-        string sourceInputsHash,
+        IReadOnlyList<ValidatedOpsOperation> operations,
+        Sha256Digest sourceInputsHash,
         ReadIndexInputHashSnapshot? manifestInputSnapshot,
         CancellationToken cancellationToken = default)
     {
@@ -120,9 +122,9 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
         string storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
-        string scenePath,
+        SceneAssetPath scenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
-        string sourceInputsHash,
+        Sha256Digest sourceInputsHash,
         CancellationToken cancellationToken = default)
     {
         if (!allowSceneTreeLite)
@@ -160,8 +162,8 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
         string StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         DateTimeOffset GeneratedAtUtc,
-        IReadOnlyList<IndexOpEntryJsonContract> Operations,
-        string SourceInputsHash,
+        IReadOnlyList<ValidatedOpsOperation> Operations,
+        Sha256Digest SourceInputsHash,
         ReadIndexInputHashSnapshot? ManifestInputSnapshot,
         CancellationToken CancellationToken);
 
@@ -169,8 +171,8 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
         string StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         DateTimeOffset GeneratedAtUtc,
-        string ScenePath,
+        SceneAssetPath ScenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots,
-        string SourceInputsHash,
+        Sha256Digest SourceInputsHash,
         CancellationToken CancellationToken);
 }

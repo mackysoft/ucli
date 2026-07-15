@@ -10,15 +10,15 @@ public sealed class AssetSearchLookupAccessServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Search_WhenAllowStaleIndexExists_ReturnsFilteredIndexEntries ()
+    public async Task Search_WhenAllowStaleIndexExists_ReturnsEntriesMatchingAllFiltersAtPathSegmentBoundary ()
     {
         var indexReader = new RecordingReadIndexArtifactReader
         {
-            AssetSearchLookupResult = ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>.Success(
+            AssetSearchLookupResult = CreateSuccessfulLookup(
                 new IndexAssetSearchLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
-                    SourceInputsHash: "asset-search-hash",
+                    SourceInputsHash: Sha256DigestTestFactory.Compute("asset-search-hash").ToString(),
                     Entries:
                     [
                         CreateAssetSearchEntry("Assets/Data/Spawner.asset", "11111111111111111111111111111111", "Spawner", "Game.Spawner, Assembly-CSharp"),
@@ -48,14 +48,14 @@ public sealed class AssetSearchLookupAccessServiceTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
         Assert.Single(result.Output!.Entries);
-        Assert.Equal("Assets/Data/Spawner.asset", result.Output.Entries[0].AssetPath);
+        Assert.Equal("Assets/Data/Spawner.asset", result.Output.Entries[0].AssetPath.Value);
         Assert.Equal(AssetLookupSource.Index, result.Output.AccessInfo.Source);
         Assert.True(result.Output.AccessInfo.Used);
         ReadIndexFreshnessInvocationAssert.LookupFreshnessObservedOnce(
             freshnessEvaluator,
             project,
             IndexFreshnessTarget.AssetSearchLookup,
-            "asset-search-hash");
+            Sha256DigestTestFactory.Compute("asset-search-hash"));
     }
 
     [Fact]
@@ -64,11 +64,11 @@ public sealed class AssetSearchLookupAccessServiceTests
     {
         var indexReader = new RecordingReadIndexArtifactReader
         {
-            AssetSearchLookupResult = ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>.Success(
+            AssetSearchLookupResult = CreateSuccessfulLookup(
                 new IndexAssetSearchLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-03-08T00:00:00+00:00"),
-                    SourceInputsHash: "stale-hash",
+                    SourceInputsHash: Sha256DigestTestFactory.Compute("stale-hash").ToString(),
                     Entries:
                     [
                         CreateAssetSearchEntry("Assets/Data/Stale.asset", "11111111111111111111111111111111", "Stale", "Game.Stale, Assembly-CSharp"),
@@ -81,7 +81,7 @@ public sealed class AssetSearchLookupAccessServiceTests
         var refreshService = new RecordingAssetLookupSourceRefreshService
         {
             Result = AssetLookupRefreshResult.Success(
-                new IpcIndexAssetsReadResponse(
+                ReadIndexTypedValueTestFactory.CreateAssetLookupSnapshot(new IpcIndexAssetsReadResponse(
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-03-09T00:00:00+00:00"),
                     AssetSearchEntries:
                     [
@@ -90,7 +90,7 @@ public sealed class AssetSearchLookupAccessServiceTests
                     GuidPathEntries:
                     [
                         new IndexGuidPathEntryJsonContract("22222222222222222222222222222222", "Assets/Data/Fresh.asset"),
-                    ]),
+                    ])),
                 "Existing asset-search index freshness is 'stale'."),
         };
         var service = new AssetSearchLookupAccessService(indexReader, freshnessEvaluator, new TestMutationReadPostconditionStore(), refreshService);
@@ -110,7 +110,7 @@ public sealed class AssetSearchLookupAccessServiceTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output);
         Assert.Single(result.Output!.Entries);
-        Assert.Equal("Assets/Data/Fresh.asset", result.Output.Entries[0].AssetPath);
+        Assert.Equal("Assets/Data/Fresh.asset", result.Output.Entries[0].AssetPath.Value);
         Assert.Equal(AssetLookupSource.Source, result.Output.AccessInfo.Source);
         RequestReadIndexAccessInvocationAssert.AssetLookupRefreshRequestedOnce(
             refreshService,
@@ -125,11 +125,11 @@ public sealed class AssetSearchLookupAccessServiceTests
     {
         var indexReader = new RecordingReadIndexArtifactReader
         {
-            AssetSearchLookupResult = ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>.Success(
+            AssetSearchLookupResult = CreateSuccessfulLookup(
                 new IndexAssetSearchLookupJsonContract(
                     SchemaVersion: 1,
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
-                    SourceInputsHash: "asset-search-hash",
+                    SourceInputsHash: Sha256DigestTestFactory.Compute("asset-search-hash").ToString(),
                     Entries:
                     [
                         CreateAssetSearchEntry("Assets/Data/Stale.asset", "11111111111111111111111111111111", "Stale", "Game.Stale, Assembly-CSharp"),
@@ -145,14 +145,14 @@ public sealed class AssetSearchLookupAccessServiceTests
                 OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
                 [
                     new IpcExecuteReadPostconditionRequirement(
-                        Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
+                        Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
                         MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00")),
                 ]))!),
         };
         var refreshService = new RecordingAssetLookupSourceRefreshService
         {
             Result = AssetLookupRefreshResult.Success(
-                new IpcIndexAssetsReadResponse(
+                ReadIndexTypedValueTestFactory.CreateAssetLookupSnapshot(new IpcIndexAssetsReadResponse(
                     GeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:10+00:00"),
                     AssetSearchEntries:
                     [
@@ -161,7 +161,7 @@ public sealed class AssetSearchLookupAccessServiceTests
                     GuidPathEntries:
                     [
                         new IndexGuidPathEntryJsonContract("22222222222222222222222222222222", "Assets/Data/Fresh.asset"),
-                    ]),
+                    ])),
                 "Existing asset-search index generatedAtUtc is older than mutation read postcondition."),
         };
         var service = new AssetSearchLookupAccessService(indexReader, freshnessEvaluator, readPostconditionStore, refreshService);
@@ -180,7 +180,7 @@ public sealed class AssetSearchLookupAccessServiceTests
         Assert.True(result.IsSuccess);
         Assert.Equal(AssetLookupSource.Source, result.Output!.AccessInfo.Source);
         Assert.Single(result.Output.Entries);
-        Assert.Equal("Assets/Data/Fresh.asset", result.Output.Entries[0].AssetPath);
+        Assert.Equal("Assets/Data/Fresh.asset", result.Output.Entries[0].AssetPath.Value);
         Assert.Contains("mutation read postcondition", result.Output.AccessInfo.FallbackReason, StringComparison.Ordinal);
     }
 
@@ -237,6 +237,17 @@ public sealed class AssetSearchLookupAccessServiceTests
                 typeId,
                 "UnityEngine.Object, UnityEngine.CoreModule",
             ]);
+    }
+
+    private static ReadIndexArtifactReadResult<AssetSearchLookupSnapshot> CreateSuccessfulLookup (
+        IndexAssetSearchLookupJsonContract contract)
+    {
+        if (!AssetSearchLookupSnapshot.TryCreate(contract, out var snapshot))
+        {
+            throw new InvalidOperationException("Asset-search fixture is invalid.");
+        }
+
+        return ReadIndexArtifactReadResult<AssetSearchLookupSnapshot>.Success(snapshot);
     }
 
 }

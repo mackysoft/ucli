@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -16,15 +17,17 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to catalog-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalogAsync (
+    public ValueTask<ReadIndexArtifactReadResult<OpsCatalogDescriptorSnapshot>> ReadOpsCatalogAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
-        return ReadContractAsync(
+        return ReadContractAsync<IndexOpsCatalogJsonContract, OpsCatalogDescriptorSnapshot>(
             unityProject,
             UcliStoragePathResolver.ResolveOpsCatalogPath,
             static json => IndexOpsCatalogJsonContractSerializer.Deserialize(json),
-            static contract => IndexCatalogContractValidator.IsValidOpsCatalog(contract),
+            static contract => OpsCatalogDescriptorSnapshot.TryCreate(contract, out var snapshot)
+                ? snapshot
+                : null,
             "ops.catalog.json",
             cancellationToken);
     }
@@ -35,29 +38,16 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="sourceInputsHash"> The expected source-inputs hash from <c>ops.catalog.json</c>. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to describe-artifact read result. </returns>
-    public async ValueTask<ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>> ReadOpsDescribeAsync (
+    public async ValueTask<ReadIndexArtifactReadResult<OpsDescribeSnapshot>> ReadOpsDescribeAsync (
         ResolvedUnityProjectContext unityProject,
-        IndexOpsCatalogEntryJsonContract catalogEntry,
-        string sourceInputsHash,
+        ValidatedOpsCatalogEntry catalogEntry,
+        Sha256Digest sourceInputsHash,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(catalogEntry);
-
-        if (string.IsNullOrWhiteSpace(sourceInputsHash))
-        {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
-                UcliCoreErrorCodes.InvalidArgument,
-                "Source inputs hash must not be empty.");
-        }
-
-        if (string.IsNullOrWhiteSpace(catalogEntry.DescribeKey))
-        {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
-                ReadIndexErrorCodes.ReadIndexFormatInvalid,
-                "Index contract file 'ops.catalog.json' is malformed. describeKey is missing.");
-        }
+        ArgumentNullException.ThrowIfNull(sourceInputsHash);
 
         string contractPath;
         try
@@ -69,13 +59,13 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 UcliCoreErrorCodes.InvalidArgument,
                 $"Index path is invalid. {ex.Message}");
         }
         catch (ArgumentException ex)
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file 'ops.catalog.json' is malformed. {ex.Message}");
         }
@@ -83,7 +73,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         const string contractName = "catalogs/ops.describe/<opKey>.json";
         if (!File.Exists(contractPath))
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 $"Index contract file was not found: {contractName}.");
         }
@@ -99,28 +89,28 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 UcliCoreErrorCodes.InvalidArgument,
                 $"Index path is invalid: {contractPath}. {ex.Message}");
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 $"Failed to read index contract file '{contractName}'. {ex.Message}");
         }
 
         if (json is null)
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 $"Index contract file was not found: {contractName}.");
         }
 
-        var actualHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(json));
-        if (!string.Equals(actualHash, catalogEntry.DescribeHash, StringComparison.Ordinal))
+        var actualHash = Sha256Digest.Compute(Encoding.UTF8.GetBytes(json));
+        if (actualHash != catalogEntry.DescribeHash)
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed. describeHash does not match.");
         }
@@ -132,92 +122,60 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         }
         catch (ArgumentException ex)
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed. {ex.Message}");
         }
         catch (JsonException ex)
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed. {ex.Message}");
         }
 
-        if (contract == null || !IndexCatalogContractValidator.IsValidOpsDescribe(contract))
+        if (!OpsDescribeSnapshot.TryCreate(contract, out var snapshot))
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed.");
         }
 
-        if (!string.Equals(contract.SourceInputsHash, sourceInputsHash, StringComparison.Ordinal))
+        if (snapshot.SourceInputsHash != sourceInputsHash)
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed. sourceInputsHash does not match ops.catalog.json.");
         }
 
-        var operation = contract.Operation!;
+        var operation = snapshot.Operation;
         if (!string.Equals(operation.Name, catalogEntry.Name, StringComparison.Ordinal)
-            || !string.Equals(operation.Kind, catalogEntry.Kind, StringComparison.Ordinal)
-            || !string.Equals(operation.Policy, catalogEntry.Policy, StringComparison.Ordinal)
+            || operation.Kind != catalogEntry.Kind
+            || operation.Policy != catalogEntry.Policy
             || !string.Equals(operation.Description, catalogEntry.Description, StringComparison.Ordinal))
         {
-            return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed. operation descriptor does not match ops.catalog.json.");
         }
 
-        return ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>.Success(contract);
-    }
-
-    /// <summary> Reads one <c>types.catalog.json</c> contract. </summary>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> A task that resolves to catalog-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalogAsync (
-        ResolvedUnityProjectContext unityProject,
-        CancellationToken cancellationToken = default)
-    {
-        return ReadContractAsync(
-            unityProject,
-            UcliStoragePathResolver.ResolveTypesCatalogPath,
-            static json => IndexTypesCatalogJsonContractSerializer.Deserialize(json),
-            static contract => IndexCatalogContractValidator.IsValidTypesCatalog(contract),
-            "types.catalog.json",
-            cancellationToken);
-    }
-
-    /// <summary> Reads one <c>schemas.catalog.json</c> contract. </summary>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> A task that resolves to catalog-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalogAsync (
-        ResolvedUnityProjectContext unityProject,
-        CancellationToken cancellationToken = default)
-    {
-        return ReadContractAsync(
-            unityProject,
-            UcliStoragePathResolver.ResolveSchemasCatalogPath,
-            static json => IndexSchemasCatalogJsonContractSerializer.Deserialize(json),
-            static contract => IndexCatalogContractValidator.IsValidSchemasCatalog(contract),
-            "schemas.catalog.json",
-            cancellationToken);
+        return ReadIndexArtifactReadResult<OpsDescribeSnapshot>.Success(snapshot);
     }
 
     /// <summary> Reads one <c>asset-search.lookup.json</c> contract. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to lookup-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookupAsync (
+    public ValueTask<ReadIndexArtifactReadResult<AssetSearchLookupSnapshot>> ReadAssetSearchLookupAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
-        return ReadContractAsync(
+        return ReadContractAsync<IndexAssetSearchLookupJsonContract, AssetSearchLookupSnapshot>(
             unityProject,
             UcliStoragePathResolver.ResolveAssetSearchLookupPath,
             static json => IndexAssetSearchLookupJsonContractSerializer.Deserialize(json),
-            static contract => IndexCatalogContractValidator.IsValidAssetSearchLookup(contract),
+            static contract => AssetSearchLookupSnapshot.TryCreate(contract, out var snapshot)
+                ? snapshot
+                : null,
             "lookups/asset-search.lookup.json",
             cancellationToken);
     }
@@ -226,15 +184,17 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to lookup-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookupAsync (
+    public ValueTask<ReadIndexArtifactReadResult<GuidPathLookupSnapshot>> ReadGuidPathLookupAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
-        return ReadContractAsync(
+        return ReadContractAsync<IndexGuidPathLookupJsonContract, GuidPathLookupSnapshot>(
             unityProject,
             UcliStoragePathResolver.ResolveGuidPathLookupPath,
             static json => IndexGuidPathLookupJsonContractSerializer.Deserialize(json),
-            static contract => IndexCatalogContractValidator.IsValidGuidPathLookup(contract),
+            static contract => GuidPathLookupSnapshot.TryCreate(contract, out var snapshot)
+                ? snapshot
+                : null,
             "lookups/guid-path.lookup.json",
             cancellationToken);
     }
@@ -244,19 +204,13 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="scenePath"> The project-relative scene path represented by the lookup. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to lookup-read result. </returns>
-    public async ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookupAsync (
+    public async ValueTask<ReadIndexArtifactReadResult<SceneTreeLiteLookupSnapshot>> ReadSceneTreeLiteLookupAsync (
         ResolvedUnityProjectContext unityProject,
-        string scenePath,
+        SceneAssetPath scenePath,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-
-        if (string.IsNullOrWhiteSpace(scenePath))
-        {
-            return ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
-                UcliCoreErrorCodes.InvalidArgument,
-                "Scene path must not be empty.");
-        }
+        ArgumentNullException.ThrowIfNull(scenePath);
 
         string contractPath;
         try
@@ -264,25 +218,27 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
             contractPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
-                scenePath);
+                scenePath.Value);
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
-            return ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<SceneTreeLiteLookupSnapshot>.Failure(
                 UcliCoreErrorCodes.InvalidArgument,
                 $"Index path is invalid. {ex.Message}");
         }
         catch (ArgumentException ex)
         {
-            return ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<SceneTreeLiteLookupSnapshot>.Failure(
                 UcliCoreErrorCodes.InvalidArgument,
                 ex.Message);
         }
 
-        var result = await ReadContractAsync(
+        var result = await ReadContractAsync<IndexSceneTreeLiteLookupJsonContract, SceneTreeLiteLookupSnapshot>(
                 contractPath,
                 static json => IndexSceneTreeLiteLookupJsonContractSerializer.Deserialize(json),
-                static contract => IndexCatalogContractValidator.IsValidSceneTreeLiteLookup(contract),
+                static contract => SceneTreeLiteLookupSnapshot.TryCreate(contract, out var snapshot)
+                    ? snapshot
+                    : null,
                 "lookups/scene-tree-lite/*.lookup.json",
                 cancellationToken)
             .ConfigureAwait(false);
@@ -291,10 +247,9 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
             return result;
         }
 
-        var normalizedScenePath = PathStringNormalizer.ToSlashSeparated(scenePath);
-        if (!string.Equals(result.Value!.ScenePath, normalizedScenePath, StringComparison.Ordinal))
+        if (result.Value!.ScenePath != scenePath)
         {
-            return ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>.Failure(
+            return ReadIndexArtifactReadResult<SceneTreeLiteLookupSnapshot>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 "Index contract file 'lookups/scene-tree-lite/*.lookup.json' is malformed. scenePath does not match the requested scene path.");
         }
@@ -306,27 +261,30 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to manifest-read result. </returns>
-    public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifestAsync (
+    public ValueTask<ReadIndexArtifactReadResult<ReadIndexInputsManifestSnapshot>> ReadInputsManifestAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
-        return ReadContractAsync(
+        return ReadContractAsync<IndexInputsManifestJsonContract, ReadIndexInputsManifestSnapshot>(
             unityProject,
             UcliStoragePathResolver.ResolveIndexInputsManifestPath,
             static json => IndexInputsManifestJsonContractSerializer.Deserialize(json),
-            static contract => IndexCatalogContractValidator.IsValidInputsManifest(contract),
+            static contract => ReadIndexInputsManifestSnapshot.TryCreate(contract, out var snapshot)
+                ? snapshot
+                : null,
             "inputs/manifest.json",
             cancellationToken);
     }
 
-    private static async ValueTask<ReadIndexArtifactReadResult<TContract>> ReadContractAsync<TContract> (
+    private static async ValueTask<ReadIndexArtifactReadResult<TArtifact>> ReadContractAsync<TContract, TArtifact> (
         ResolvedUnityProjectContext unityProject,
         Func<string, ProjectFingerprint, string> pathResolver,
         Func<string, TContract?> deserialize,
-        Func<TContract, bool> validator,
+        Func<TContract, TArtifact?> project,
         string contractName,
         CancellationToken cancellationToken)
         where TContract : class
+        where TArtifact : class
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
@@ -338,7 +296,7 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
-            return ReadIndexArtifactReadResult<TContract>.Failure(
+            return ReadIndexArtifactReadResult<TArtifact>.Failure(
                 UcliCoreErrorCodes.InvalidArgument,
                 $"Index path is invalid. {ex.Message}");
         }
@@ -346,25 +304,26 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         return await ReadContractAsync(
                 contractPath,
                 deserialize,
-                validator,
+                project,
                 contractName,
                 cancellationToken)
             .ConfigureAwait(false);
     }
 
-    private static async ValueTask<ReadIndexArtifactReadResult<TContract>> ReadContractAsync<TContract> (
+    private static async ValueTask<ReadIndexArtifactReadResult<TArtifact>> ReadContractAsync<TContract, TArtifact> (
         string contractPath,
         Func<string, TContract?> deserialize,
-        Func<TContract, bool> validator,
+        Func<TContract, TArtifact?> project,
         string contractName,
         CancellationToken cancellationToken)
         where TContract : class
+        where TArtifact : class
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         if (!File.Exists(contractPath))
         {
-            return ReadIndexArtifactReadResult<TContract>.Failure(
+            return ReadIndexArtifactReadResult<TArtifact>.Failure(
                 ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 $"Index contract file was not found: {contractName}.");
         }
@@ -380,20 +339,20 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
-            return ReadIndexArtifactReadResult<TContract>.Failure(
+            return ReadIndexArtifactReadResult<TArtifact>.Failure(
                 UcliCoreErrorCodes.InvalidArgument,
                 $"Index path is invalid: {contractPath}. {ex.Message}");
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
-            return ReadIndexArtifactReadResult<TContract>.Failure(
+            return ReadIndexArtifactReadResult<TArtifact>.Failure(
                 ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 $"Failed to read index contract file '{contractName}'. {ex.Message}");
         }
 
         if (json is null)
         {
-            return ReadIndexArtifactReadResult<TContract>.Failure(
+            return ReadIndexArtifactReadResult<TArtifact>.Failure(
                 ReadIndexErrorCodes.ReadIndexBootstrapFailed,
                 $"Index contract file was not found: {contractName}.");
         }
@@ -405,25 +364,26 @@ internal sealed class FileReadIndexArtifactReader : IReadIndexArtifactReader
         }
         catch (ArgumentException ex)
         {
-            return ReadIndexArtifactReadResult<TContract>.Failure(
+            return ReadIndexArtifactReadResult<TArtifact>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed. {ex.Message}");
         }
         catch (JsonException ex)
         {
-            return ReadIndexArtifactReadResult<TContract>.Failure(
+            return ReadIndexArtifactReadResult<TArtifact>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed. {ex.Message}");
         }
 
-        if (contract == null || !validator(contract))
+        var artifact = contract == null ? null : project(contract);
+        if (artifact == null)
         {
-            return ReadIndexArtifactReadResult<TContract>.Failure(
+            return ReadIndexArtifactReadResult<TArtifact>.Failure(
                 ReadIndexErrorCodes.ReadIndexFormatInvalid,
                 $"Index contract file '{contractName}' is malformed.");
         }
 
-        return ReadIndexArtifactReadResult<TContract>.Success(contract);
+        return ReadIndexArtifactReadResult<TArtifact>.Success(artifact);
     }
 
     private static bool IsIoFailure (Exception exception)

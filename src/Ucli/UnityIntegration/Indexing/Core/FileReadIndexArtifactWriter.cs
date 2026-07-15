@@ -3,8 +3,8 @@ using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -52,15 +52,15 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         string storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
-        IReadOnlyList<IndexOpEntryJsonContract> operations,
-        string sourceInputsHash,
+        IReadOnlyList<ValidatedOpsOperation> operations,
+        Sha256Digest sourceInputsHash,
         ReadIndexInputHashSnapshot? manifestInputSnapshot,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentNullException.ThrowIfNull(operations);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceInputsHash);
+        ArgumentNullException.ThrowIfNull(sourceInputsHash);
         cancellationToken.ThrowIfCancellationRequested();
 
         using var writeLock = await FileExclusiveLock.AcquireAsync(
@@ -83,7 +83,13 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         EnsureParentDirectory(opsCatalogPath);
         FileSystemAccessBoundary.EnsureSecureDirectory(opsDescribeDirectoryPath);
 
-        var orderedOperations = IndexJsonOrderingPolicy.OrderOpsEntries(operations);
+        var operationContracts = new IndexOpEntryJsonContract[operations.Count];
+        for (var i = 0; i < operations.Count; i++)
+        {
+            operationContracts[i] = operations[i].ToJsonContract();
+        }
+
+        var orderedOperations = IndexJsonOrderingPolicy.OrderOpsEntries(operationContracts);
         var catalogEntries = new List<IndexOpsCatalogEntryJsonContract>(orderedOperations.Count);
         var originalDescribeArtifacts = new Dictionary<string, string?>(StringComparer.Ordinal);
         var catalogWritten = false;
@@ -94,23 +100,17 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
                 cancellationToken.ThrowIfCancellationRequested();
 
                 var operation = orderedOperations[i];
-                if (string.IsNullOrWhiteSpace(operation.Name))
-                {
-                    throw new InvalidOperationException("Operation name must not be empty when writing ops read-index artifacts.");
-                }
-
                 var describeContract = new IndexOpsDescribeJsonContract(
                     SchemaVersion: SchemaVersion,
                     GeneratedAtUtc: generatedAtUtc,
-                    SourceInputsHash: sourceInputsHash,
+                    SourceInputsHash: sourceInputsHash.ToString(),
                     Operation: operation);
                 var describeJson = opsDescribeWriter.Write(describeContract);
-                var describeHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(describeJson));
-                var describeKey = describeHash;
+                var describeHash = Sha256Digest.Compute(Encoding.UTF8.GetBytes(describeJson));
                 var describePath = UcliStoragePathResolver.ResolveOpsDescribePath(
                     storageRoot,
                     projectFingerprint,
-                    describeKey);
+                    describeHash);
 
                 await CaptureOriginalArtifactAsync(describePath, originalDescribeArtifacts, cancellationToken).ConfigureAwait(false);
                 await FileUtilities.WriteAllTextAtomicallyAsync(
@@ -125,14 +125,14 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
                         Kind: operation.Kind,
                         Policy: operation.Policy,
                         Description: operation.Description,
-                        DescribeKey: describeKey,
-                        DescribeHash: describeHash));
+                        DescribeKey: describeHash.ToString(),
+                        DescribeHash: describeHash.ToString()));
             }
 
             var opsCatalog = new IndexOpsCatalogJsonContract(
                 SchemaVersion: SchemaVersion,
                 GeneratedAtUtc: generatedAtUtc,
-                SourceInputsHash: sourceInputsHash,
+                SourceInputsHash: sourceInputsHash.ToString(),
                 Entries: catalogEntries);
 
             await FileUtilities.WriteAllTextAtomicallyAsync(
@@ -205,12 +205,12 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         var assetSearchLookup = new IndexAssetSearchLookupJsonContract(
             SchemaVersion: SchemaVersion,
             GeneratedAtUtc: generatedAtUtc,
-            SourceInputsHash: inputSnapshot.AssetSearchHash,
+            SourceInputsHash: inputSnapshot.AssetSearchHash.ToString(),
             Entries: assetSearchEntries);
         var guidPathLookup = new IndexGuidPathLookupJsonContract(
             SchemaVersion: SchemaVersion,
             GeneratedAtUtc: generatedAtUtc,
-            SourceInputsHash: inputSnapshot.GuidPathHash,
+            SourceInputsHash: inputSnapshot.GuidPathHash.ToString(),
             Entries: guidPathEntries);
 
         var originalArtifacts = new Dictionary<string, string?>(StringComparer.Ordinal);
@@ -249,16 +249,16 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         string storageRoot,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
-        string scenePath,
+        SceneAssetPath scenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
-        string sourceInputsHash,
+        Sha256Digest sourceInputsHash,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
-        ArgumentException.ThrowIfNullOrWhiteSpace(scenePath);
+        ArgumentNullException.ThrowIfNull(scenePath);
         ArgumentNullException.ThrowIfNull(roots);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceInputsHash);
+        ArgumentNullException.ThrowIfNull(sourceInputsHash);
         cancellationToken.ThrowIfCancellationRequested();
 
         using var writeLock = await FileExclusiveLock.AcquireAsync(
@@ -267,15 +267,14 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
                 cancellationToken)
             .ConfigureAwait(false);
 
-        var normalizedScenePath = PathStringNormalizer.ToSlashSeparated(scenePath);
-        var lookupPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(storageRoot, projectFingerprint, normalizedScenePath);
+        var lookupPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(storageRoot, projectFingerprint, scenePath.Value);
         EnsureParentDirectory(lookupPath);
 
         var lookup = new IndexSceneTreeLiteLookupJsonContract(
             SchemaVersion: SchemaVersion,
             GeneratedAtUtc: generatedAtUtc,
-            ScenePath: normalizedScenePath,
-            SourceInputsHash: sourceInputsHash,
+            ScenePath: scenePath.Value,
+            SourceInputsHash: sourceInputsHash.ToString(),
             Roots: roots);
 
         await FileUtilities.WriteAllTextAtomicallyAsync(
@@ -324,7 +323,6 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         try
         {
             var referencedPaths = currentEntries
-                .Where(static entry => !string.IsNullOrWhiteSpace(entry.DescribeKey))
                 .Select(entry => Path.Combine(describeDirectoryPath, $"{entry.DescribeKey}.json"))
                 .ToHashSet(StringComparer.Ordinal);
             var unreferencedArtifacts = Directory
@@ -360,24 +358,22 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         ReadIndexInputHashSnapshot suppliedSnapshot,
         CancellationToken cancellationToken)
     {
-        var currentManifest = await TryReadCurrentInputsManifestAsync(
+        var currentSnapshot = await TryReadCurrentInputsManifestAsync(
                 storageRoot,
                 projectFingerprint,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (currentManifest == null)
+        if (currentSnapshot == null)
         {
             return suppliedSnapshot;
         }
 
         // The operation-catalog refresh computes core hashes before waiting for this lock. Preserve asset hashes
         // committed by a lookup writer that completed while this operation was waiting.
-        return suppliedSnapshot with
-        {
-            AssetsContentHash = currentManifest.AssetsContentHash!,
-            AssetSearchHash = currentManifest.AssetSearchHash!,
-            GuidPathHash = currentManifest.GuidPathHash!,
-        };
+        return suppliedSnapshot.WithAssetHashes(
+            currentSnapshot.AssetsContentHash,
+            currentSnapshot.AssetSearchHash,
+            currentSnapshot.GuidPathHash);
     }
 
     private static async ValueTask<ReadIndexInputHashSnapshot> PreserveCurrentCoreHashesAsync (
@@ -386,29 +382,22 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         ReadIndexInputHashSnapshot suppliedSnapshot,
         CancellationToken cancellationToken)
     {
-        var currentManifest = await TryReadCurrentInputsManifestAsync(
+        var currentSnapshot = await TryReadCurrentInputsManifestAsync(
                 storageRoot,
                 projectFingerprint,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (currentManifest == null)
+        if (currentSnapshot == null)
         {
             return suppliedSnapshot;
         }
 
         // The asset lookup refresh computes a full snapshot before waiting for this lock. Preserve core hashes
         // committed by an operation-catalog writer that completed while this operation was waiting.
-        return suppliedSnapshot with
-        {
-            ScriptAssembliesHash = currentManifest.ScriptAssembliesHash!,
-            PackagesManifestHash = currentManifest.PackagesManifestHash!,
-            PackagesLockHash = currentManifest.PackagesLockHash,
-            AssemblyDefinitionHash = currentManifest.AssemblyDefinitionHash!,
-            CombinedHash = currentManifest.CombinedHash!,
-        };
+        return suppliedSnapshot.WithCoreHashes(currentSnapshot);
     }
 
-    private static async ValueTask<IndexInputsManifestJsonContract?> TryReadCurrentInputsManifestAsync (
+    private static async ValueTask<ReadIndexInputHashSnapshot?> TryReadCurrentInputsManifestAsync (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken)
@@ -439,9 +428,12 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
             return null;
         }
 
-        return currentManifest != null && IndexCatalogContractValidator.IsValidInputsManifest(currentManifest)
-            ? currentManifest
-            : null;
+        if (!ReadIndexInputsManifestSnapshot.TryCreate(currentManifest, out var manifestSnapshot))
+        {
+            return null;
+        }
+
+        return manifestSnapshot.Hashes;
     }
 
     private async ValueTask WriteInputsManifestAsync (
@@ -457,14 +449,14 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         var inputsManifest = new IndexInputsManifestJsonContract(
             SchemaVersion: SchemaVersion,
             GeneratedAtUtc: generatedAtUtc,
-            ScriptAssembliesHash: inputSnapshot.ScriptAssembliesHash,
-            PackagesManifestHash: inputSnapshot.PackagesManifestHash,
-            PackagesLockHash: inputSnapshot.PackagesLockHash,
-            AssemblyDefinitionHash: inputSnapshot.AssemblyDefinitionHash,
-            AssetsContentHash: inputSnapshot.AssetsContentHash,
-            AssetSearchHash: inputSnapshot.AssetSearchHash,
-            GuidPathHash: inputSnapshot.GuidPathHash,
-            CombinedHash: inputSnapshot.CombinedHash);
+            ScriptAssembliesHash: inputSnapshot.ScriptAssembliesHash.ToString(),
+            PackagesManifestHash: inputSnapshot.PackagesManifestHash.ToString(),
+            PackagesLockHash: inputSnapshot.PackagesLockHash.ToString(),
+            AssemblyDefinitionHash: inputSnapshot.AssemblyDefinitionHash.ToString(),
+            AssetsContentHash: inputSnapshot.AssetsContentHash.ToString(),
+            AssetSearchHash: inputSnapshot.AssetSearchHash.ToString(),
+            GuidPathHash: inputSnapshot.GuidPathHash.ToString(),
+            CombinedHash: inputSnapshot.CombinedHash.ToString());
 
         await FileUtilities.WriteAllTextAtomicallyAsync(
                 inputsManifestPath,

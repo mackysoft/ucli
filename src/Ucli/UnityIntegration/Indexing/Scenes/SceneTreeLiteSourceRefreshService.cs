@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Projection;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -47,19 +48,19 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         UcliCommand command,
         UnityExecutionMode mode,
         TimeSpan timeout,
-        string scenePath,
+        UnityScenePath scenePath,
         string fallbackReason,
         bool failFast = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(config);
-        ArgumentException.ThrowIfNullOrWhiteSpace(scenePath);
+        ArgumentNullException.ThrowIfNull(scenePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(fallbackReason);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!UnityAssetPathContract.IsNormalizedSceneAssetPath(scenePath))
+        if (!SceneAssetPath.TryParse(scenePath.Value, out var indexScenePath))
         {
             var fetchResult = await snapshotReader.ReadAsync(
                     project,
@@ -73,16 +74,16 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
                 .ConfigureAwait(false);
             if (!fetchResult.IsSuccess)
             {
-                return SceneTreeLiteRefreshResult.Failure(fetchResult.Message, fetchResult.ErrorCode!.Value);
+                return SceneTreeLiteRefreshResult.Failure(fetchResult.Message, fetchResult.ErrorCode!);
             }
 
             var liveOnlyFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(
                 fallbackReason,
                 null);
-            return SceneTreeLiteRefreshResult.Success(fetchResult.Response!, liveOnlyFallbackReason);
+            return SceneTreeLiteRefreshResult.Success(fetchResult.Snapshot!, liveOnlyFallbackReason);
         }
 
-        IpcIndexSceneTreeLiteReadResponse? response = null;
+        SceneTreeLiteSourceSnapshot? snapshot = null;
         string? persistFailure = null;
         for (var attempt = 0; attempt < MaxSnapshotStabilityAttempts; attempt++)
         {
@@ -93,12 +94,13 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
                     mode,
                     timeout,
                     scenePath,
+                    indexScenePath,
                     failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!attemptResult.FetchResult.IsSuccess)
             {
-                if (response != null)
+                if (snapshot != null)
                 {
                     persistFailure = ReadIndexAccessUtilities.CombineFallbackReasons(
                         persistFailure,
@@ -106,10 +108,10 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
                     break;
                 }
 
-                return SceneTreeLiteRefreshResult.Failure(attemptResult.FetchResult.Message, attemptResult.FetchResult.ErrorCode!.Value);
+                return SceneTreeLiteRefreshResult.Failure(attemptResult.FetchResult.Message, attemptResult.FetchResult.ErrorCode!);
             }
 
-            response = attemptResult.FetchResult.Response!;
+            snapshot = attemptResult.FetchResult.Snapshot!;
             persistFailure = attemptResult.PersistFailure;
             if (!attemptResult.ShouldRetry)
             {
@@ -120,7 +122,7 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         var combinedFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(
             fallbackReason,
             persistFailure);
-        return SceneTreeLiteRefreshResult.Success(response!, combinedFallbackReason);
+        return SceneTreeLiteRefreshResult.Success(snapshot!, combinedFallbackReason);
     }
 
     private async ValueTask<(SceneTreeLiteSnapshotFetchResult FetchResult, string? PersistFailure, bool ShouldRetry)> TryReadAndPersistLookupArtifactAsync (
@@ -129,13 +131,14 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
         UcliCommand command,
         UnityExecutionMode mode,
         TimeSpan timeout,
-        string scenePath,
+        UnityScenePath scenePath,
+        SceneAssetPath indexScenePath,
         bool failFast,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var sourceHashBeforeRead = await sceneSourceHashProvider.TryComputeAsync(project, scenePath, cancellationToken).ConfigureAwait(false);
+        var sourceHashBeforeRead = await sceneSourceHashProvider.TryComputeAsync(project, indexScenePath, cancellationToken).ConfigureAwait(false);
         var fetchResult = await snapshotReader.ReadAsync(
                 project,
                 config,
@@ -151,23 +154,25 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             return (fetchResult, null, false);
         }
 
+        var snapshot = fetchResult.Snapshot!;
+
         if (sourceHashBeforeRead == null)
         {
             return (fetchResult, SourceHashFailureMessage, false);
         }
 
-        if (SceneTreeSourceStatePolicy.IsDirtyLiveSource(fetchResult.Response!.SourceState))
+        if (SceneTreeSourceStatePolicy.IsDirtyLiveSource(snapshot.SourceState))
         {
             return (fetchResult, DirtyLiveSourcePersistenceSkippedMessage, false);
         }
 
-        var sourceHashAfterRead = await sceneSourceHashProvider.TryComputeAsync(project, scenePath, cancellationToken).ConfigureAwait(false);
+        var sourceHashAfterRead = await sceneSourceHashProvider.TryComputeAsync(project, indexScenePath, cancellationToken).ConfigureAwait(false);
         if (sourceHashAfterRead == null)
         {
             return (fetchResult, SourceHashFailureMessage, false);
         }
 
-        if (!string.Equals(sourceHashBeforeRead, sourceHashAfterRead, StringComparison.Ordinal))
+        if (sourceHashBeforeRead != sourceHashAfterRead)
         {
             return (fetchResult, SourceInstabilityFailureMessage, true);
         }
@@ -177,9 +182,9 @@ internal sealed class SceneTreeLiteSourceRefreshService : ISceneTreeLiteSourceRe
             await artifactWriter.WriteSceneTreeLiteAsync(
                     project.RepositoryRoot,
                     project.ProjectFingerprint,
-                    fetchResult.Response!.GeneratedAtUtc,
-                    fetchResult.Response.ScenePath,
-                    fetchResult.Response.Roots!,
+                    snapshot.GeneratedAtUtc,
+                    indexScenePath,
+                    ReadIndexJsonContractMapper.ToJsonContracts(snapshot.Roots),
                     sourceHashAfterRead,
                     cancellationToken)
                 .ConfigureAwait(false);

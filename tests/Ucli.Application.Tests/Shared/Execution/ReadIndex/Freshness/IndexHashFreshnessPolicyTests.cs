@@ -19,7 +19,10 @@ public sealed class IndexHashFreshnessPolicyTests
     {
         var snapshot = CreateSnapshot();
 
-        var result = IndexHashFreshnessPolicy.EvaluateFreshness("different-combined-hash", snapshot, IndexFreshnessTarget.OpsCatalog);
+        var result = IndexHashFreshnessPolicy.EvaluateFreshness(
+            Sha256DigestTestFactory.Compute("different-combined-hash"),
+            snapshot,
+            IndexFreshnessTarget.OpsCatalog);
 
         Assert.Equal(IndexFreshness.Stale, result);
     }
@@ -41,7 +44,10 @@ public sealed class IndexHashFreshnessPolicyTests
     {
         var snapshot = CreateSnapshot();
 
-        var result = IndexHashFreshnessPolicy.EvaluateFreshness("different-asset-search-hash", snapshot, IndexFreshnessTarget.AssetSearchLookup);
+        var result = IndexHashFreshnessPolicy.EvaluateFreshness(
+            Sha256DigestTestFactory.Compute("different-asset-search-hash"),
+            snapshot,
+            IndexFreshnessTarget.AssetSearchLookup);
 
         Assert.Equal(IndexFreshness.Stale, result);
     }
@@ -49,13 +55,13 @@ public sealed class IndexHashFreshnessPolicyTests
     private static ReadIndexInputHashSnapshot CreateSnapshot ()
     {
         return new ReadIndexInputHashSnapshot(
-            ScriptAssembliesHash: "script-hash",
-            PackagesManifestHash: "manifest-hash",
-            PackagesLockHash: "lock-hash",
-            AssemblyDefinitionHash: "asm-hash",
-            AssetsContentHash: "assets-hash",
-            AssetSearchHash: "asset-search-hash",
-            GuidPathHash: "guid-path-hash",
-            CombinedHash: "combined-hash");
+            Sha256DigestTestFactory.Compute("script-hash"),
+            Sha256DigestTestFactory.Compute("manifest-hash"),
+            Sha256DigestTestFactory.Compute("lock-hash"),
+            Sha256DigestTestFactory.Compute("asm-hash"),
+            Sha256DigestTestFactory.Compute("assets-hash"),
+            Sha256DigestTestFactory.Compute("asset-search-hash"),
+            Sha256DigestTestFactory.Compute("guid-path-hash"),
+            Sha256DigestTestFactory.Compute("combined-hash"));
     }
 }

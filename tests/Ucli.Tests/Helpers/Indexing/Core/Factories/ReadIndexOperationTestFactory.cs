@@ -26,7 +26,7 @@ internal static class ReadIndexOperationTestFactory
     {
         return new UcliOperationAssuranceContract(
             sideEffects: sideEffects,
-            touchedKinds: Array.Empty<string>(),
+            touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
             planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",
             callSemantics: "Read Unity state without applying mutation.",
