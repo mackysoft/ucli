@@ -9,7 +9,6 @@ namespace MackySoft.Ucli.Unity.Runtime
     /// <summary> Executes asynchronous work items on Unity main-thread synchronization context. </summary>
     internal sealed class UnitySynchronizationContextRequestExecutor :
         IUnityMainThreadRequestExecutor,
-        IUnityControlPlaneRequestExecutor,
         IUnityMutationRequestExecutionStartSource,
         IUnityMutationExecutionState,
         IUnityMutationLaneControl,

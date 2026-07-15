@@ -180,6 +180,32 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenControlPlaneCapacityIsExhausted_ReturnsEditorBusy () => UniTask.ToCoroutine(async () =>
+        {
+            var handler = new StubControlPlaneMethodHandler(
+                UnityIpcMethod.Ping,
+                static (request, _) => new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId)));
+            var dispatcher = new UnityIpcMethodDispatcher(
+                new IUnityIpcMethodHandler[] { handler },
+                new RecordingMutationExecutor(),
+                new CapacityExceededControlPlaneExecutor(),
+                recoverableOperationStore: null,
+                daemonLogger: NoOpDaemonLogger.Instance);
+            var request = CreateRequest(Guid.NewGuid(), UnityIpcMethod.Ping, new IpcPingRequest("tests"));
+
+            var response = await TestAwaiter.WaitAsync(
+                DispatchAsync(dispatcher, request, CancellationToken.None).AsUniTask(),
+                "Exhausted control-plane IPC dispatch",
+                AsyncWaitTimeout);
+
+            Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(response.Errors, Has.Count.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorBusy));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenHandlerResponseIsMissingOrMismatched_ReturnsCorrelatedInternalError () => UniTask.ToCoroutine(async () =>
         {
             var requestId = Guid.Parse("b58c17cc-2cff-4c27-a565-73796ee98aa2");
@@ -262,16 +288,72 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenOpsReadAwaitsReadiness_PingRemainsResponsive () => UniTask.ToCoroutine(async () =>
+        {
+            var readinessGate = StubUnityEditorReadinessGate.CreatePending();
+            var opsReadHandler = new OpsReadUnityIpcMethodHandler(
+                UcliOperationCatalogSnapshotBuilder.Build(Array.Empty<UcliOperationRegistration>()),
+                readinessGate);
+            var pingHandler = new StubControlPlaneMethodHandler(
+                UnityIpcMethod.Ping,
+                static (request, cancellation) =>
+                {
+                    cancellation.Token.ThrowIfCancellationRequested();
+                    return new ValueTask<IpcResponse>(CreateSuccessResponse(request.RequestId));
+                });
+            using var controlExecutor = new UnityControlPlaneRequestExecutor(
+                SynchronizationContext.Current,
+                Thread.CurrentThread.ManagedThreadId,
+                UnityControlPlaneRequestExecutor.DefaultMaxConcurrentInvocations);
+            var dispatcher = new UnityIpcMethodDispatcher(
+                new IUnityIpcMethodHandler[] { opsReadHandler, pingHandler },
+                new RecordingMutationExecutor(),
+                controlExecutor,
+                recoverableOperationStore: null,
+                daemonLogger: NoOpDaemonLogger.Instance);
+            var opsReadTask = DispatchAsync(
+                dispatcher,
+                CreateRequest(
+                    Guid.NewGuid(),
+                    UnityIpcMethod.OpsRead,
+                    new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true)),
+                CancellationToken.None);
+
+            await TestAwaiter.WaitAsync(
+                readinessGate.WaitObserved.AsUniTask(),
+                "Pending ops.read readiness wait",
+                AsyncWaitTimeout);
+            var pingResponse = await TestAwaiter.WaitAsync(
+                DispatchAsync(
+                    dispatcher,
+                    CreateRequest(Guid.NewGuid(), UnityIpcMethod.Ping, new IpcPingRequest("tests")),
+                    CancellationToken.None).AsUniTask(),
+                "Ping while ops.read is awaiting readiness",
+                AsyncWaitTimeout);
+
+            Assert.That(pingResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
+            Assert.That(opsReadTask.IsCompleted, Is.False);
+
+            readinessGate.Release();
+            var opsReadResponse = await TestAwaiter.WaitAsync(
+                opsReadTask.AsUniTask(),
+                "ops.read completion after readiness",
+                AsyncWaitTimeout);
+            Assert.That(opsReadResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Dispatch_WhenMutationLaneIsQuarantined_ControlPlaneRemainsResponsive () => UniTask.ToCoroutine(async () =>
         {
             using var mutationExecutor = new UnitySynchronizationContextRequestExecutor(
                 SynchronizationContext.Current,
                 Thread.CurrentThread.ManagedThreadId,
                 UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations);
-            using var controlExecutor = new UnitySynchronizationContextRequestExecutor(
+            using var controlExecutor = new UnityControlPlaneRequestExecutor(
                 SynchronizationContext.Current,
                 Thread.CurrentThread.ManagedThreadId,
-                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations);
+                UnityControlPlaneRequestExecutor.DefaultMaxConcurrentInvocations);
             var releaseMutation = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var mutationHandler = new StubMethodHandler(UnityIpcMethod.Compile, async (request, cancellation) =>
             {
@@ -1258,6 +1340,16 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 CallCount++;
                 return workItem();
+            }
+        }
+
+        private sealed class CapacityExceededControlPlaneExecutor : IUnityControlPlaneRequestExecutor
+        {
+            public Task<T> ExecuteAsync<T> (
+                Func<Task<T>> workItem,
+                CancellationToken cancellationToken = default)
+            {
+                return Task.FromException<T>(new UnityControlPlaneCapacityExceededException(1));
             }
         }
 

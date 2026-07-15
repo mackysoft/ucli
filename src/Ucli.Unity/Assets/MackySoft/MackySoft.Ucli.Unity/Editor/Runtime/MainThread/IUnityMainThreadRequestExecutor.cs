@@ -52,6 +52,19 @@ namespace MackySoft.Ucli.Unity.Runtime
             CancellationToken cancellationToken);
     }
 
+    /// <summary> Exposes the actual lifetime of control-plane work owned by one host generation. </summary>
+    internal interface IUnityControlPlaneRequestLifetime
+    {
+        /// <summary> Gets a value indicating whether admitted control-plane work has not terminated. </summary>
+        bool HasUnfinishedWork { get; }
+
+        /// <summary>
+        /// Waits until all currently admitted control-plane work owned by this generation terminates. The host owner
+        /// must stop listener admission before using this task as a generation-retirement fence.
+        /// </summary>
+        Task WaitForRetirementAsync ();
+    }
+
     /// <summary> Publishes the durability barrier immediately before one mutation-lane request begins. </summary>
     internal interface IUnityMutationRequestExecutionStartSource
     {

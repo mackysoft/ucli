@@ -30,10 +30,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 SynchronizationContext.Current,
                 Thread.CurrentThread.ManagedThreadId,
                 UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations);
-            using var controlExecutor = new UnitySynchronizationContextRequestExecutor(
+            using var controlExecutor = new UnityControlPlaneRequestExecutor(
                 SynchronizationContext.Current,
                 Thread.CurrentThread.ManagedThreadId,
-                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations);
+                UnityControlPlaneRequestExecutor.DefaultMaxConcurrentInvocations);
             using var shutdownAdmissionCoordinator = new UnityShutdownAdmissionCoordinator(mutationExecutor);
             var executeRequestDispatcher = new NonCooperativeMutationExecuteRequestDispatcher(mutationExecutor);
             var shutdownSignal = new StubDaemonShutdownSignal();

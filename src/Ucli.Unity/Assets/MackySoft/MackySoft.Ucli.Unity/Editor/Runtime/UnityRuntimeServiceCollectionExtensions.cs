@@ -21,10 +21,13 @@ namespace MackySoft.Ucli.Unity.Runtime
                 throw new ArgumentNullException(nameof(services));
             }
 
+            var mainThreadSynchronizationContext = UnityMainThreadGuard.CaptureSynchronizationContext(
+                nameof(AddUnityRuntimeServices));
+            var mainThreadId = Thread.CurrentThread.ManagedThreadId;
             services.AddSingleton<IMonotonicClock, StopwatchMonotonicClock>();
             services.AddSingleton(_ => new UnitySynchronizationContextRequestExecutor(
-                SynchronizationContext.Current,
-                Thread.CurrentThread.ManagedThreadId,
+                mainThreadSynchronizationContext,
+                mainThreadId,
                 UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations));
             services.AddSingleton<IUnityMainThreadRequestExecutor>(serviceProvider =>
                 serviceProvider.GetRequiredService<UnitySynchronizationContextRequestExecutor>());
@@ -34,11 +37,14 @@ namespace MackySoft.Ucli.Unity.Runtime
                 serviceProvider.GetRequiredService<UnitySynchronizationContextRequestExecutor>());
             services.AddSingleton<IUnityMutationRequestExecutionStartSource>(serviceProvider =>
                 serviceProvider.GetRequiredService<UnitySynchronizationContextRequestExecutor>());
-            services.AddSingleton<IUnityControlPlaneRequestExecutor>(_ =>
-                new UnitySynchronizationContextRequestExecutor(
-                    SynchronizationContext.Current,
-                    Thread.CurrentThread.ManagedThreadId,
-                    UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations));
+            services.AddSingleton(_ => new UnityControlPlaneRequestExecutor(
+                    mainThreadSynchronizationContext,
+                    mainThreadId,
+                    UnityControlPlaneRequestExecutor.DefaultMaxConcurrentInvocations));
+            services.AddSingleton<IUnityControlPlaneRequestExecutor>(serviceProvider =>
+                serviceProvider.GetRequiredService<UnityControlPlaneRequestExecutor>());
+            services.AddSingleton<IUnityControlPlaneRequestLifetime>(serviceProvider =>
+                serviceProvider.GetRequiredService<UnityControlPlaneRequestExecutor>());
             services.AddSingleton(serviceProvider => new UnityEditorReadinessGate(
                 editorMode,
                 serviceProvider.GetRequiredService<IUnityMutationExecutionState>()));

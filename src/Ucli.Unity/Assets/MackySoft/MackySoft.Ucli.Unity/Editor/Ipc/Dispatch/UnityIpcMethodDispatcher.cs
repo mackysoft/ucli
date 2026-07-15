@@ -108,6 +108,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                     exception.Message,
                     null);
             }
+            catch (UnityControlPlaneCapacityExceededException exception)
+            {
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    EditorLifecycleErrorCodes.EditorBusy,
+                    exception.Message,
+                    null);
+            }
             catch (Exception exception)
             {
                 return UnityIpcResponseFactory.CreateErrorResponse(
@@ -180,6 +188,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw;
             }
             catch (UnityMutationLaneUnavailableException exception)
+            {
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    EditorLifecycleErrorCodes.EditorBusy,
+                    exception.Message,
+                    null);
+            }
+            catch (UnityControlPlaneCapacityExceededException exception)
             {
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
