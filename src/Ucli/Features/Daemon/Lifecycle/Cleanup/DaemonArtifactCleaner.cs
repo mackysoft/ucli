@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -38,15 +39,18 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
 
     /// <summary> Cleans stale daemon artifacts only while the persisted session is still absent. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
+    /// <param name="deadline"> The deadline shared by ownership revalidation and artifact deletion admission. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
     public async ValueTask<DaemonArtifactCleanupResult> CleanupIfSessionMissingAsync (
         ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
 
         return await CleanupUnderSessionLockAsync(
                 unityProject,
@@ -62,6 +66,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
                         : SessionCleanupDecision.Cleanup();
                 },
                 "Failed to acquire daemon session cleanup ownership.",
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -70,11 +75,13 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
     public async ValueTask<DaemonArtifactCleanupResult> CleanupIfSessionMatchesAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession expectedSession,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(expectedSession);
+        ArgumentNullException.ThrowIfNull(deadline);
 
         if (expectedSession.ProjectFingerprint != unityProject.ProjectFingerprint)
         {
@@ -97,6 +104,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
                             : SessionCleanupDecision.Preserve();
                 },
                 "Failed to acquire daemon session cleanup ownership.",
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -105,10 +113,12 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
     public async ValueTask<DaemonArtifactCleanupResult> CleanupIfStoppedProcessMatchesAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonProcessTerminationTarget stoppedProcess,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(stoppedProcess.ProcessId, 0);
 
         return await CleanupUnderSessionLockAsync(
@@ -126,6 +136,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
                             : SessionCleanupDecision.Preserve();
                 },
                 "Failed to acquire stopped-process artifact cleanup ownership.",
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -134,11 +145,13 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
     public async ValueTask<DaemonArtifactCleanupResult> CleanupIfSessionArtifactMatchesAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionArtifactIdentity expectedArtifactIdentity,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(expectedArtifactIdentity);
+        ArgumentNullException.ThrowIfNull(deadline);
 
         return await CleanupUnderSessionLockAsync(
                 unityProject,
@@ -159,6 +172,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
                         : SessionCleanupDecision.Preserve();
                 },
                 "Failed to perform generation-scoped daemon session cleanup.",
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -167,34 +181,69 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
         ResolvedUnityProjectContext unityProject,
         Func<DaemonSessionReadResult, SessionCleanupDecision> evaluateCurrentSession,
         string ownershipFailureMessage,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+        {
+            return DaemonArtifactCleanupResult.Failure(ExecutionError.Timeout(
+                "Timed out before daemon artifact cleanup ownership could be acquired."));
+        }
+
         try
         {
             var lockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint);
+            var lockAcquireTimeout = remainingTimeout < SessionLockAcquireTimeout
+                ? remainingTimeout
+                : SessionLockAcquireTimeout;
             using var sessionLock = await FileExclusiveLock.AcquireAsync(
                     lockPath,
-                    SessionLockAcquireTimeout,
+                    lockAcquireTimeout,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var currentSession = await daemonSessionStore.ReadAsync(
-                    unityProject.RepositoryRoot,
-                    unityProject.ProjectFingerprint,
-                    cancellationToken)
+            var sessionReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                    deadline,
+                    cancellationToken,
+                    "Timed out before daemon cleanup ownership could be revalidated.",
+                    "Timed out while revalidating daemon cleanup ownership.",
+                    operationCancellationToken => daemonSessionStore.ReadAsync(
+                        unityProject.RepositoryRoot,
+                        unityProject.ProjectFingerprint,
+                        operationCancellationToken))
                 .ConfigureAwait(false);
+            if (!sessionReadOperation.IsSuccess)
+            {
+                return DaemonArtifactCleanupResult.Failure(sessionReadOperation.Error!);
+            }
+
+            var currentSession = sessionReadOperation.Value!;
             var decision = evaluateCurrentSession(currentSession);
             if (decision.Error is not null)
             {
                 return DaemonArtifactCleanupResult.Failure(decision.Error);
             }
 
-            return decision.ShouldCleanup
-                ? await CleanupCoreAsync(unityProject, cancellationToken).ConfigureAwait(false)
-                : DaemonArtifactCleanupResult.Success();
+            if (!decision.ShouldCleanup)
+            {
+                return DaemonArtifactCleanupResult.Success();
+            }
+
+            if (!deadline.TryGetRemainingTimeout(out _))
+            {
+                return DaemonArtifactCleanupResult.Failure(ExecutionError.Timeout(
+                    "Timed out before daemon artifact deletion could begin."));
+            }
+
+            return await CleanupCoreAsync(unityProject, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or TimeoutException)
+        catch (TimeoutException exception)
+        {
+            return DaemonArtifactCleanupResult.Failure(ExecutionError.Timeout(
+                $"{ownershipFailureMessage} {exception.Message}"));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
             return DaemonArtifactCleanupResult.Failure(ExecutionError.InternalError(
                 $"{ownershipFailureMessage} {exception.Message}"));

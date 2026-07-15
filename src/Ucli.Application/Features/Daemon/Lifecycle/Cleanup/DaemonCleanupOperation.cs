@@ -91,11 +91,22 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
         }
 
         await using var acquiredLock = lockHandle;
-        var readResult = await daemonSessionStore.ReadAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                cancellationToken)
+        var sessionReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                deadline,
+                cancellationToken,
+                "Timed out before reading daemon session for cleanup.",
+                "Timed out while reading daemon session for cleanup.",
+                operationCancellationToken => daemonSessionStore.ReadAsync(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    operationCancellationToken))
             .ConfigureAwait(false);
+        if (!sessionReadOperation.IsSuccess)
+        {
+            return DaemonCleanupResult.Failure(sessionReadOperation.Error!);
+        }
+
+        var readResult = sessionReadOperation.Value!;
         if (!readResult.IsSuccess)
         {
             return await HandleInvalidSessionReadAsync(unityProject, readResult, deadline, cancellationToken).ConfigureAwait(false);
@@ -240,6 +251,7 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             cleanupResult = await artifactCleaner.CleanupIfSessionArtifactMatchesAsync(
                     unityProject,
                     expectedArtifactIdentity,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -248,12 +260,17 @@ internal sealed class DaemonCleanupOperation : IDaemonCleanupOperation
             cleanupResult = await artifactCleaner.CleanupIfSessionMatchesAsync(
                     unityProject,
                     expectedSession,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
         else
         {
-            cleanupResult = await artifactCleaner.CleanupIfSessionMissingAsync(unityProject, cancellationToken).ConfigureAwait(false);
+            cleanupResult = await artifactCleaner.CleanupIfSessionMissingAsync(
+                    unityProject,
+                    deadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         return cleanupResult.IsSuccess

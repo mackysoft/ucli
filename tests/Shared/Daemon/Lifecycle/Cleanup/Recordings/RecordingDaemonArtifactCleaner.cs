@@ -10,15 +10,17 @@ internal sealed class RecordingDaemonArtifactCleaner : IDaemonArtifactCleaner
     public DaemonArtifactCleanupResult NextResult { get; set; } =
         DaemonArtifactCleanupResult.Success();
 
-    public Func<ResolvedUnityProjectContext, CancellationToken, Task<DaemonArtifactCleanupResult>>? CleanupHandler { get; set; }
+    public Func<ResolvedUnityProjectContext, ExecutionDeadline, CancellationToken, Task<DaemonArtifactCleanupResult>>? CleanupHandler { get; set; }
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<DaemonArtifactCleanupResult> CleanupIfSessionMissingAsync (
         ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
 
         invocations.Add(new Invocation(
@@ -26,10 +28,11 @@ internal sealed class RecordingDaemonArtifactCleaner : IDaemonArtifactCleaner
             ExpectedSession: null,
             ExpectedArtifactIdentity: null,
             ExpectedStoppedProcess: null,
+            deadline,
             cancellationToken));
         if (CleanupHandler is not null)
         {
-            return new ValueTask<DaemonArtifactCleanupResult>(CleanupHandler(unityProject, cancellationToken));
+            return new ValueTask<DaemonArtifactCleanupResult>(CleanupHandler(unityProject, deadline, cancellationToken));
         }
 
         return ValueTask.FromResult(NextResult);
@@ -38,10 +41,12 @@ internal sealed class RecordingDaemonArtifactCleaner : IDaemonArtifactCleaner
     public ValueTask<DaemonArtifactCleanupResult> CleanupIfSessionMatchesAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession expectedSession,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(expectedSession);
+        ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
 
         invocations.Add(new Invocation(
@@ -49,10 +54,11 @@ internal sealed class RecordingDaemonArtifactCleaner : IDaemonArtifactCleaner
             expectedSession,
             ExpectedArtifactIdentity: null,
             ExpectedStoppedProcess: null,
+            deadline,
             cancellationToken));
         if (CleanupHandler is not null)
         {
-            return new ValueTask<DaemonArtifactCleanupResult>(CleanupHandler(unityProject, cancellationToken));
+            return new ValueTask<DaemonArtifactCleanupResult>(CleanupHandler(unityProject, deadline, cancellationToken));
         }
 
         return ValueTask.FromResult(NextResult);
@@ -61,9 +67,11 @@ internal sealed class RecordingDaemonArtifactCleaner : IDaemonArtifactCleaner
     public ValueTask<DaemonArtifactCleanupResult> CleanupIfStoppedProcessMatchesAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonProcessTerminationTarget stoppedProcess,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
 
         invocations.Add(new Invocation(
@@ -71,10 +79,11 @@ internal sealed class RecordingDaemonArtifactCleaner : IDaemonArtifactCleaner
             ExpectedSession: null,
             ExpectedArtifactIdentity: null,
             stoppedProcess,
+            deadline,
             cancellationToken));
         if (CleanupHandler is not null)
         {
-            return new ValueTask<DaemonArtifactCleanupResult>(CleanupHandler(unityProject, cancellationToken));
+            return new ValueTask<DaemonArtifactCleanupResult>(CleanupHandler(unityProject, deadline, cancellationToken));
         }
 
         return ValueTask.FromResult(NextResult);
@@ -83,10 +92,12 @@ internal sealed class RecordingDaemonArtifactCleaner : IDaemonArtifactCleaner
     public ValueTask<DaemonArtifactCleanupResult> CleanupIfSessionArtifactMatchesAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionArtifactIdentity expectedArtifactIdentity,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(expectedArtifactIdentity);
+        ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
 
         invocations.Add(new Invocation(
@@ -94,10 +105,11 @@ internal sealed class RecordingDaemonArtifactCleaner : IDaemonArtifactCleaner
             ExpectedSession: null,
             expectedArtifactIdentity,
             ExpectedStoppedProcess: null,
+            deadline,
             cancellationToken));
         if (CleanupHandler is not null)
         {
-            return new ValueTask<DaemonArtifactCleanupResult>(CleanupHandler(unityProject, cancellationToken));
+            return new ValueTask<DaemonArtifactCleanupResult>(CleanupHandler(unityProject, deadline, cancellationToken));
         }
 
         return ValueTask.FromResult(NextResult);
@@ -108,5 +120,6 @@ internal sealed class RecordingDaemonArtifactCleaner : IDaemonArtifactCleaner
         DaemonSession? ExpectedSession,
         DaemonSessionArtifactIdentity? ExpectedArtifactIdentity,
         DaemonProcessTerminationTarget? ExpectedStoppedProcess,
+        ExecutionDeadline Deadline,
         CancellationToken CancellationToken);
 }

@@ -32,7 +32,8 @@ internal static class SupervisorProjectCoordinatorTestSupport
             sessionStore,
             artifactCleaner ?? new RecordingDaemonArtifactCleaner(),
             new SupervisorDiagnosisWriter(diagnosisStore),
-            runtimeLogger);
+            runtimeLogger,
+            effectiveTimeProvider);
         return new SupervisorProjectCoordinator(
             startOperation,
             stopOperation,

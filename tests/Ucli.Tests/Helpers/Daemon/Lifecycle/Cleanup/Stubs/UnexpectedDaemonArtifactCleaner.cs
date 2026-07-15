@@ -14,6 +14,7 @@ internal sealed class UnexpectedDaemonArtifactCleaner : IDaemonArtifactCleaner
 
     public ValueTask<DaemonArtifactCleanupResult> CleanupIfSessionMissingAsync (
         ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         throw new InvalidOperationException(reason);
@@ -22,6 +23,7 @@ internal sealed class UnexpectedDaemonArtifactCleaner : IDaemonArtifactCleaner
     public ValueTask<DaemonArtifactCleanupResult> CleanupIfSessionMatchesAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession expectedSession,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         throw new InvalidOperationException(reason);
@@ -30,6 +32,7 @@ internal sealed class UnexpectedDaemonArtifactCleaner : IDaemonArtifactCleaner
     public ValueTask<DaemonArtifactCleanupResult> CleanupIfStoppedProcessMatchesAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonProcessTerminationTarget stoppedProcess,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         throw new InvalidOperationException(reason);
@@ -38,6 +41,7 @@ internal sealed class UnexpectedDaemonArtifactCleaner : IDaemonArtifactCleaner
     public ValueTask<DaemonArtifactCleanupResult> CleanupIfSessionArtifactMatchesAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionArtifactIdentity expectedArtifactIdentity,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         throw new InvalidOperationException(reason);

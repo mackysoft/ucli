@@ -121,7 +121,7 @@ public sealed class DaemonStopOperationLifecycleTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
-            CleanupHandler = (_, _) =>
+            CleanupHandler = (_, _, _) =>
             {
                 cleanupStarted.TrySetResult();
                 return releaseCleanup.Task;

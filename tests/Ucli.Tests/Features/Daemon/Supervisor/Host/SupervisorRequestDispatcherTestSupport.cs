@@ -34,7 +34,8 @@ internal static class SupervisorRequestDispatcherTestSupport
                 new RecordingDaemonSessionStore(),
                 new RecordingDaemonArtifactCleaner(),
                 new SupervisorDiagnosisWriter(diagnosisStore),
-                runtimeLogger),
+                runtimeLogger,
+                effectiveTimeProvider),
             runtimeLogger,
             effectiveTimeProvider);
         return new SupervisorRequestDispatcher(

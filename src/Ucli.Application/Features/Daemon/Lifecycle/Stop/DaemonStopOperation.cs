@@ -315,11 +315,13 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
             ? await artifactCleaner.CleanupIfStoppedProcessMatchesAsync(
                     unityProject,
                     target,
+                    compensationDeadline,
                     cancellationToken)
                 .ConfigureAwait(false)
             : await artifactCleaner.CleanupIfSessionMatchesAsync(
                     unityProject,
                     session,
+                    compensationDeadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         if (!cleanupResult.IsSuccess)

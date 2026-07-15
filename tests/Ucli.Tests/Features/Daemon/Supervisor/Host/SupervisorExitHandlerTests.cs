@@ -47,7 +47,8 @@ public sealed class SupervisorExitHandlerTests
             sessionStore,
             artifactCleaner,
             new SupervisorDiagnosisWriter(diagnosisStore),
-            new SupervisorRuntimeLogger());
+            new SupervisorRuntimeLogger(),
+            TimeProvider.System);
         var managedProcess = new SupervisorManagedDaemonProcess(
             unityProject,
             session,
@@ -100,7 +101,8 @@ public sealed class SupervisorExitHandlerTests
             sessionStore,
             artifactCleaner,
             new SupervisorDiagnosisWriter(new RecordingDaemonDiagnosisStore()),
-            new SupervisorRuntimeLogger());
+            new SupervisorRuntimeLogger(),
+            TimeProvider.System);
         var managedProcess = new SupervisorManagedDaemonProcess(
             unityProject,
             session,
@@ -159,7 +161,8 @@ public sealed class SupervisorExitHandlerTests
             },
             artifactCleaner,
             new SupervisorDiagnosisWriter(diagnosisStore),
-            new SupervisorRuntimeLogger());
+            new SupervisorRuntimeLogger(),
+            TimeProvider.System);
         var managedProcess = new SupervisorManagedDaemonProcess(
             unityProject,
             session,
@@ -209,7 +212,8 @@ public sealed class SupervisorExitHandlerTests
             },
             artifactCleaner,
             new SupervisorDiagnosisWriter(diagnosisStore),
-            new SupervisorRuntimeLogger());
+            new SupervisorRuntimeLogger(),
+            TimeProvider.System);
         var managedProcess = new SupervisorManagedDaemonProcess(
             unityProject,
             managedSession,
@@ -255,7 +259,8 @@ public sealed class SupervisorExitHandlerTests
             },
             artifactCleaner,
             new SupervisorDiagnosisWriter(diagnosisStore),
-            new SupervisorRuntimeLogger());
+            new SupervisorRuntimeLogger(),
+            TimeProvider.System);
         var managedProcess = new SupervisorManagedDaemonProcess(
             unityProject,
             managedSession,
@@ -296,7 +301,8 @@ public sealed class SupervisorExitHandlerTests
             new UnexpectedDaemonArtifactCleaner("User-owned GUI session must not be cleaned up by the supervisor exit handler."),
             new SupervisorDiagnosisWriter(new UnexpectedDaemonDiagnosisStore(
                 "User-owned GUI session must not write unexpected-exit diagnosis.")),
-            new SupervisorRuntimeLogger());
+            new SupervisorRuntimeLogger(),
+            TimeProvider.System);
         var managedProcess = new SupervisorManagedDaemonProcess(
             unityProject,
             session,

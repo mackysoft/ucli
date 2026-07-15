@@ -34,7 +34,10 @@ public sealed class DaemonArtifactCleanerTests
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
 
-        var cleanupTask = cleaner.CleanupIfSessionMissingAsync(unityProject, CancellationToken.None).AsTask();
+        var cleanupTask = cleaner.CleanupIfSessionMissingAsync(
+            unityProject,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
+            CancellationToken.None).AsTask();
         Assert.False(cleanupTask.IsCompleted);
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         await FileUtilities.WriteAllTextAtomicallyAsync(
@@ -101,6 +104,7 @@ public sealed class DaemonArtifactCleanerTests
         var cleanupTask = cleaner.CleanupIfSessionMatchesAsync(
             unityProject,
             retiredSession,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None).AsTask();
         await cleanupReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var successorWriteTask = successorStore.WriteAsync(
@@ -160,6 +164,7 @@ public sealed class DaemonArtifactCleanerTests
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedSession,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -200,6 +205,7 @@ public sealed class DaemonArtifactCleanerTests
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedSession,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -236,6 +242,7 @@ public sealed class DaemonArtifactCleanerTests
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             new DaemonProcessTerminationTarget(4123, processStartedAtUtc),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -270,6 +277,7 @@ public sealed class DaemonArtifactCleanerTests
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             new DaemonProcessTerminationTarget(4123, processStartedAtUtc),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -303,6 +311,7 @@ public sealed class DaemonArtifactCleanerTests
             new DaemonProcessTerminationTarget(
                 ProcessId: 4123,
                 ProcessStartedAtUtc: new DateTimeOffset(2026, 07, 10, 0, 0, 0, TimeSpan.Zero)),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -330,6 +339,7 @@ public sealed class DaemonArtifactCleanerTests
             new DaemonProcessTerminationTarget(
                 ProcessId: 4123,
                 ProcessStartedAtUtc: new DateTimeOffset(2026, 07, 10, 0, 0, 0, TimeSpan.Zero)),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -378,6 +388,7 @@ public sealed class DaemonArtifactCleanerTests
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedArtifactIdentity,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -417,6 +428,7 @@ public sealed class DaemonArtifactCleanerTests
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedArtifactIdentity,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -451,6 +463,7 @@ public sealed class DaemonArtifactCleanerTests
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedArtifactIdentity,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -479,6 +492,7 @@ public sealed class DaemonArtifactCleanerTests
                 projectFingerprint: projectFingerprint),
             DaemonSessionArtifactIdentity.Create(
                 System.Text.Encoding.UTF8.GetBytes("{ invalid session json")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -521,6 +535,7 @@ public sealed class DaemonArtifactCleanerTests
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedSession,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -563,6 +578,7 @@ public sealed class DaemonArtifactCleanerTests
                 unityProjectRoot: Path.Combine(storageRoot, "UnityProject"),
                 repositoryRoot: storageRoot,
                 projectFingerprint: projectFingerprint),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -599,6 +615,7 @@ public sealed class DaemonArtifactCleanerTests
                 unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-cleanup")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -624,10 +641,75 @@ public sealed class DaemonArtifactCleanerTests
                 unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-cleanup")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(pruneError, result.Error);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task CleanupIfSessionMissing_WhenOwnershipReadIgnoresCancellation_ReturnsTimeoutWithoutLateDeletion ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "daemon-artifact-cleaner",
+            "ownership-read-timeout",
+            DirectoryCleanupMode.BestEffort);
+        var readStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseRead = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var readCompleted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var sessionStore = new RecordingDaemonSessionStore
+        {
+            ReadAsyncHandler = async (_, _, _) =>
+            {
+                readStarted.TrySetResult();
+                await releaseRead.Task.ConfigureAwait(false);
+                readCompleted.TrySetResult();
+                return DaemonSessionReadResult.Missing();
+            },
+        };
+        var lifecycleStore = new RecordingDaemonLifecycleStore();
+        var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
+        var cleaner = new DaemonArtifactCleaner(
+            sessionStore,
+            lifecycleStore,
+            launchAttemptStore);
+        var timeProvider = new ManualTimeProvider();
+        var cleanupTask = cleaner.CleanupIfSessionMissingAsync(
+                ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                    unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
+                    repositoryRoot: scope.FullPath,
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-read-timeout")),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), timeProvider),
+                CancellationToken.None)
+            .AsTask();
+
+        try
+        {
+            await readStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await timeProvider.WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(100));
+            timeProvider.Advance(TimeSpan.FromMilliseconds(100));
+
+            var result = await cleanupTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+            Assert.Empty(lifecycleStore.DeleteInvocations);
+            Assert.Empty(launchAttemptStore.PruneInvocations);
+
+            releaseRead.TrySetResult();
+            await readCompleted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Empty(lifecycleStore.DeleteInvocations);
+            Assert.Empty(launchAttemptStore.PruneInvocations);
+        }
+        finally
+        {
+            releaseRead.TrySetResult();
+        }
     }
 
     private static string Serialize (DaemonSession session)

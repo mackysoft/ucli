@@ -270,7 +270,7 @@ public sealed class DaemonSessionCleanupServiceTests
             TaskCreationOptions.RunContinuationsAsynchronously);
         var artifactCleaner = new RecordingDaemonArtifactCleaner
         {
-            CleanupHandler = async (_, _) =>
+            CleanupHandler = async (_, _, _) =>
             {
                 cleanupStarted.TrySetResult();
                 await releaseCleanup.Task.ConfigureAwait(false);

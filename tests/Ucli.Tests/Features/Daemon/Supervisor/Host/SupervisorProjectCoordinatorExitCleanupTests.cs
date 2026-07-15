@@ -89,7 +89,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
             sessionStore,
             new RecordingDaemonArtifactCleaner
             {
-                CleanupHandler = async (_, _) =>
+                CleanupHandler = async (_, _, _) =>
                 {
                     cleanupStarted.TrySetResult();
                     await cleanupRelease.Task.ConfigureAwait(false);

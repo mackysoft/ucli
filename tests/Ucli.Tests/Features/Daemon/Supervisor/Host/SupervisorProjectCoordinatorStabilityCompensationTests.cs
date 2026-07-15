@@ -243,7 +243,8 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
                 sessionStore,
                 new RecordingDaemonArtifactCleaner(),
                 diagnosisWriter,
-                runtimeLogger),
+                runtimeLogger,
+                timeProvider),
             runtimeLogger,
             timeProvider);
 

@@ -132,6 +132,7 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         var cleanupResult = await artifactCleaner.CleanupIfSessionArtifactMatchesAsync(
                 unityProject,
                 readResult.ArtifactIdentity,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
 
@@ -163,11 +164,13 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
             ? await artifactCleaner.CleanupIfStoppedProcessMatchesAsync(
                     unityProject,
                     target,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false)
             : await artifactCleaner.CleanupIfSessionMatchesAsync(
                     unityProject,
                     session,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         return ToSessionStoreResult(cleanupResult);

@@ -94,6 +94,7 @@ internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensatio
                 cleanupResult = await artifactCleaner.CleanupIfSessionMatchesAsync(
                         unityProject,
                         expectedSession,
+                        deadline,
                         operationCancellationToken)
                     .ConfigureAwait(false);
             }
@@ -104,6 +105,7 @@ internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensatio
                     cleanupResult = await artifactCleaner.CleanupIfStoppedProcessMatchesAsync(
                             unityProject,
                             stoppedProcess,
+                            deadline,
                             operationCancellationToken)
                         .ConfigureAwait(false);
                 }
@@ -111,6 +113,7 @@ internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensatio
                 {
                     cleanupResult = await artifactCleaner.CleanupIfSessionMissingAsync(
                             unityProject,
+                            deadline,
                             operationCancellationToken)
                         .ConfigureAwait(false);
                 }
