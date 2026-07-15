@@ -111,9 +111,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             failure = null;
             scenePath = args.Scene.Value;
-            queryArguments = new SceneQuerySelectionEngine.QueryArguments(
-                args.PathPrefix?.Value,
-                args.ComponentType?.Value);
+            queryArguments = default;
 
             if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var errorMessage))
             {
@@ -121,13 +119,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (queryArguments.ComponentType != null
-                && !ComponentTypeResolver.TryResolveComponentType(queryArguments.ComponentType, out _, out errorMessage))
+            Type? componentRuntimeType = null;
+            if (args.ComponentType != null
+                && !ComponentTypeResolver.TryResolveComponentType(args.ComponentType.Value, out componentRuntimeType, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
+            queryArguments = new SceneQuerySelectionEngine.QueryArguments(
+                args.PathPrefix?.Value,
+                args.ComponentType,
+                componentRuntimeType);
             return true;
         }
 
@@ -138,15 +141,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < matches.Count; i++)
             {
                 var match = matches[i];
-                var componentType = match.ComponentType;
                 payloadMatches[i] = new SceneQueryMatch(
                     kind: match.TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component
                         ? UcliOperationReferenceTargetKind.Component
                         : UcliOperationReferenceTargetKind.GameObject,
                     hierarchyPath: new UnityHierarchyPath(match.HierarchyPath),
-                    componentType: componentType == null
-                        ? null
-                        : new UnityComponentTypeId(componentType));
+                    componentType: match.ComponentType);
             }
 
             return payloadMatches;

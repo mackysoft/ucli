@@ -484,12 +484,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
             else
             {
-                if (!SceneQuerySelectionEngine.TryResolveForEditRuntime(
-                    step,
-                    executionContext,
-                    out var matches,
-                    out diagnostics,
-                    out var errorMessage))
+                if (!TryCreateSceneQueryArguments(step, out var queryArguments, out var errorMessage))
+                {
+                    error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
+                    return false;
+                }
+
+                if (!SceneQuerySelectionEngine.TryQueryRuntime(
+                        step.Context.Path!,
+                        queryArguments,
+                        executionContext,
+                        allowTemporaryState: true,
+                        out var matches,
+                        out diagnostics,
+                        out errorMessage))
                 {
                     error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
                     return false;
@@ -512,6 +520,42 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            return true;
+        }
+
+        private static bool TryCreateSceneQueryArguments (
+            IpcEditStepContract step,
+            out SceneQuerySelectionEngine.QueryArguments queryArguments,
+            out string errorMessage)
+        {
+            queryArguments = default;
+            if (step.Context.Kind != IpcEditStepContract.ContextKind.Scene)
+            {
+                errorMessage = "Edit step query selection is supported only for scene context.";
+                return false;
+            }
+
+            if (!IpcSceneQueryArgsContractReader.TryReadForEditSelection(step.Selection.SourceArgs, out var parsedArgs, out errorMessage))
+            {
+                return false;
+            }
+
+            UnityComponentTypeId? componentTypeId = null;
+            Type? componentRuntimeType = null;
+            if (parsedArgs.ComponentType != null)
+            {
+                componentTypeId = new UnityComponentTypeId(parsedArgs.ComponentType);
+                if (!ComponentTypeResolver.TryResolveComponentType(componentTypeId.Value, out componentRuntimeType, out errorMessage))
+                {
+                    return false;
+                }
+            }
+
+            queryArguments = new SceneQuerySelectionEngine.QueryArguments(
+                parsedArgs.PathPrefix,
+                componentTypeId,
+                componentRuntimeType);
+            errorMessage = string.Empty;
             return true;
         }
 
@@ -1228,7 +1272,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 CreateSceneSelector(
                     scenePath,
                     match.HierarchyPath,
-                    match.ComponentType),
+                    match.ComponentType?.Value),
                 aliasIdentity: null);
         }
 

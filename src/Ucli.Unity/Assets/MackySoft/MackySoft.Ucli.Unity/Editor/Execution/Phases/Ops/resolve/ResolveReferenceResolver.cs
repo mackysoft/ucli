@@ -538,9 +538,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
+            if (!ComponentTypeResolver.TryResolveComponentType(componentType.Value, out var componentRuntimeType, out errorMessage))
+            {
+                return false;
+            }
+
             if (!ComponentOperationUtilities.TryResolveComponentSelector(
                     gameObject!,
-                    componentType.Value,
+                    componentRuntimeType,
                     executionContext,
                     allowTemporaryState,
                     out var resolution,
@@ -1043,9 +1048,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
+            if (!ComponentTypeResolver.TryResolveComponentType(componentType.Value, out var componentRuntimeType, out errorMessage))
+            {
+                return false;
+            }
+
             if (!ComponentOperationUtilities.TryResolveComponentSelector(
                     gameObject,
-                    componentType.Value,
+                    componentRuntimeType,
                     executionContext,
                     allowTemporaryState,
                     out var resolution,

@@ -9,17 +9,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Provides reusable helpers shared by component-domain operations. </summary>
     internal static class ComponentOperationUtilities
     {
-        /// <summary> Resolves one component selector against the specified GameObject and optional request-local ensure state. </summary>
+        /// <summary> Evaluates one resolved component selector against the specified GameObject and optional request-local ensure state. </summary>
         /// <param name="gameObject"> The candidate GameObject. </param>
-        /// <param name="componentType"> The component type selector. </param>
+        /// <param name="componentType"> The resolved component runtime type. </param>
         /// <param name="executionContext"> The request execution context. </param>
         /// <param name="allowTemporaryState"> Whether request-local ensure state may contribute to the selector result. </param>
-        /// <param name="resolution"> The selector resolution result when type parsing succeeds. </param>
-        /// <param name="errorMessage"> The validation error message when the component type cannot be parsed. </param>
+        /// <param name="resolution"> The selector resolution result. </param>
+        /// <param name="errorMessage"> The validation error message when request-local state cannot be inspected. </param>
         /// <returns> <see langword="true" /> when selector evaluation completes; otherwise <see langword="false" />. </returns>
         public static bool TryResolveComponentSelector (
             GameObject gameObject,
-            string componentType,
+            Type componentType,
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             out ComponentSelectorResolutionState resolution,
@@ -30,13 +30,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(gameObject));
             }
 
-            resolution = default;
-            if (!ComponentTypeResolver.TryResolveComponentType(componentType, out var componentRuntimeType, out errorMessage))
+            if (componentType == null)
             {
-                return false;
+                throw new ArgumentNullException(nameof(componentType));
             }
 
-            var components = gameObject.GetComponents(componentRuntimeType!);
+            resolution = default;
+            var components = gameObject.GetComponents(componentType);
             Component? ensuredComponent = null;
             var ensuredComponentCount = 0;
             if (allowTemporaryState
@@ -52,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 var targetTrackingKey = executionContext.CreateGameObjectTrackingKey(gameObject, resource);
-                if (executionContext.TryGetEnsuredComponentState(targetTrackingKey, componentRuntimeType!, out var ensuredComponentState))
+                if (executionContext.TryGetEnsuredComponentState(targetTrackingKey, componentType, out var ensuredComponentState))
                 {
                     ensuredComponent = ensuredComponentState.Component;
                     if (ensuredComponent != null)

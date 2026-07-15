@@ -1009,7 +1009,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var result = ComponentOperationUtilities.TryResolveComponentSelector(
                     target,
-                    IndexTypeIdFormatter.Format(typeof(Transform)),
+                    typeof(Transform),
                     context,
                     allowTemporaryState: true,
                     out _,

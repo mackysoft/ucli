@@ -832,6 +832,73 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator QueryRuntime_WhenResolvedComponentTypeMatchesMultipleNodes_UsesResolvedTypeForAllNodes ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            _ = root.AddComponent<CompOperationTestComponent>();
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            _ = child.AddComponent<CompOperationTestComponent>();
+            var sibling = new GameObject("Sibling");
+            _ = sibling.AddComponent<CompOperationTestComponent>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+            using var context = scope.CreateExecutionContext();
+            var componentTypeId = new UnityComponentTypeId(
+                MackySoft.Ucli.Unity.Index.IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)));
+            var queryArguments = new SceneQuerySelectionEngine.QueryArguments(
+                pathPrefix: null,
+                componentTypeId,
+                componentRuntimeType: typeof(CompOperationTestComponent));
+
+            var succeeded = SceneQuerySelectionEngine.TryQueryRuntime(
+                scenePath,
+                queryArguments,
+                context,
+                allowTemporaryState: false,
+                out var matches,
+                out var diagnostics,
+                out var errorMessage);
+
+            Assert.That(succeeded, Is.True, errorMessage);
+            Assert.That(diagnostics, Is.Empty);
+            Assert.That(matches, Has.Count.EqualTo(3));
+            Assert.That(matches.All(match => ReferenceEquals(match.ComponentType, componentTypeId)), Is.True);
+            yield return null;
+        }
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Query_Validate_WhenComponentTypeCannotResolve_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var queryOperation = new SceneQueryOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var queryRequest = CreateOperation(
+                opId: "op-query",
+                opName: UcliPrimitiveOperationNames.SceneQuery,
+                args: new
+                {
+                    scene = scenePath,
+                    componentType = "Missing.Component, Missing.Assembly",
+                });
+
+            var result = await queryOperation.ValidateAsync(
+                queryRequest,
+                scope.CreateExecutionContext(),
+                CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-query");
+            Assert.That(result.Failure!.Message, Does.Contain("TypeId could not be resolved"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Query_Plan_WhenPreviewSceneHasPlannedChanges_UsesPreviewSceneState () => UniTask.ToCoroutine(async () =>
         {
             var openOperation = new SceneOpenOperation();
