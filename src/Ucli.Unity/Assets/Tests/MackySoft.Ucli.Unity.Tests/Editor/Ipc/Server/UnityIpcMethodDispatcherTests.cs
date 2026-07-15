@@ -1367,7 +1367,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 using var cancellationRegistration = cancellationToken.Register(
                     static state => ((TaskCompletionSource<T>)state).TrySetCanceled(),
                     cancellationSource);
-                return await cancellationSource.Task;
+                return await cancellationSource.Task.ConfigureAwait(false);
             }
         }
 
