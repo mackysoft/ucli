@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -201,7 +202,9 @@ internal static class Program
             additionalProperties: false,
             Required("protocolVersion", ConstInteger(IpcProtocol.CurrentVersion)),
             Required("command", StringSchema()),
-            Required("status", EnumSchema(IpcProtocol.StatusOk, IpcProtocol.StatusError)),
+            Required(
+                "status",
+                EnumSchema(ContractLiteralCodec.GetLiterals<IpcResponseStatus>().ToArray())),
             Required("exitCode", IntegerSchema()),
             Required("message", StringSchema()),
             Required("payload", ObjectSchema(additionalProperties: true)),
@@ -258,24 +261,19 @@ internal static class Program
                 Required("opId", StringSchema()),
                 Required(
                     "sourceKind",
-                    EnumSchema(
-                        IpcExecutePostReadSourceKindNames.Edit,
-                        IpcExecutePostReadSourceKindNames.Operation,
-                        IpcExecutePostReadSourceKindNames.Refresh)),
+                    EnumSchema(ContractLiteralCodec.GetLiterals<IpcExecutePostReadSourceKind>().ToArray())),
                 Required("playModeMutation", BooleanSchema()),
                 Required(
                     "commit",
-                    EnumValueSchema(
-                        IpcExecutePostReadCommitNames.None,
-                        IpcExecutePostReadCommitNames.Context,
-                        IpcExecutePostReadCommitNames.Project,
-                        null)),
+                    EnumValueSchema(ContractLiteralCodec
+                        .GetLiterals<IpcExecutePostReadCommit>()
+                        .Cast<object?>()
+                        .Append(null)
+                        .ToArray())),
                 Required("persistenceExpected", BooleanSchema()),
                 Required(
                     "expectedPostState",
-                    EnumSchema(
-                        IpcExecuteExpectedPostStateNames.Deterministic,
-                        IpcExecuteExpectedPostStateNames.Unavailable))))));
+                    EnumSchema(ContractLiteralCodec.GetLiterals<IpcExecuteExpectedPostState>().ToArray()))))));
     }
 
     private static Dictionary<string, object?> CreateDiagnosticSchema ()
@@ -290,11 +288,14 @@ internal static class Program
     private static Dictionary<string, object?> CreateTouchedSchema ()
     {
         return ObjectSchema(
-            additionalProperties: true,
-            Optional("kind", NullableStringSchema()),
-            Optional("path", NullableStringSchema()),
-            Optional("uri", NullableStringSchema()),
-            Optional("state", NullableStringSchema()));
+            additionalProperties: false,
+            Required(
+                "kind",
+                EnumSchema(ContractLiteralCodec.GetLiterals<UcliTouchedResourceKind>().ToArray())),
+            Required(
+                "path",
+                PatternStringSchema(@"^(?!\s)(?!/)(?!.*\\)(?!.*:)(?!.*[\u0000-\u001F])(?!.*(?:^|/)\.{1,2}(?:/|$))(?!.*//)(?!.*\s$).+$")),
+            Required("assetGuid", NullableNonEmptyUuidStringSchema()));
     }
 
     private static Dictionary<string, object?> CreateContractViolationSchema ()
@@ -307,11 +308,7 @@ internal static class Program
             Required("observedResult", StringSchema()),
             Required(
                 "applicationState",
-                EnumSchema(
-                    IpcExecuteApplicationStateNames.NotApplied,
-                    IpcExecuteApplicationStateNames.Applied,
-                    IpcExecuteApplicationStateNames.Indeterminate,
-                    IpcExecuteApplicationStateNames.Unknown)));
+                EnumSchema(ContractLiteralCodec.GetLiterals<IpcApplicationState>().ToArray())));
     }
 
     private static Dictionary<string, object?> CreateWindowSchema ()
@@ -330,7 +327,9 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: true,
             Required("id", StringSchema()),
-            Required("kind", StringSchema()),
+            Required(
+                "kind",
+                EnumSchema(ContractLiteralCodec.GetLiterals<AssuranceVerifierKind>().ToArray())),
             Required("deterministic", BooleanSchema()),
             Required("required", BooleanSchema()),
             Required("primaryClaims", ArraySchema(StringSchema())),
@@ -378,6 +377,13 @@ internal static class Program
         };
     }
 
+    private static Dictionary<string, object?> CreateReportRefsSchema ()
+    {
+        var schema = ObjectSchema(additionalProperties: true);
+        schema["additionalProperties"] = ReferenceSchema("../defs/report-ref.schema.json");
+        return schema;
+    }
+
     private static Dictionary<string, object?> CreateResidualRiskSchema ()
     {
         return ObjectSchema(
@@ -414,7 +420,7 @@ internal static class Program
             Required("project", ReferenceSchema("../defs/project.schema.json")),
             Required("verifiers", ArraySchema(ReferenceSchema("../defs/verifier.schema.json"))),
             Required("claims", ArraySchema(CreateReadyClaimSchema())),
-            Required("reports", ObjectSchema(additionalProperties: true)),
+            Required("reports", CreateReportRefsSchema()),
             Required("residualRisks", ArraySchema(ReferenceSchema("../defs/residual-risk.schema.json"))),
             Required("target", EnumSchema("execution", "mutation", "test", "readIndex")),
             Required("requestedMode", EnumSchema("auto", "daemon", "oneshot")),
@@ -549,7 +555,7 @@ internal static class Program
             Required("project", ReferenceSchema("../defs/project.schema.json")),
             Required("verifiers", ArraySchema(ReferenceSchema("../defs/verifier.schema.json"))),
             Required("claims", ArraySchema(CreateCompileClaimSchema())),
-            Required("reports", ObjectSchema(additionalProperties: true)),
+            Required("reports", CreateReportRefsSchema()),
             Required("residualRisks", ArraySchema(ReferenceSchema("../defs/residual-risk.schema.json"))),
             Required("requestedMode", EnumSchema("auto", "daemon", "oneshot")),
             Required("resolvedMode", EnumSchema("daemon", "oneshot")),
@@ -780,8 +786,8 @@ internal static class Program
             Required(
                 "kind",
                 EnumSchema(
-                    Literal(IpcBuildRunnerKind.BuildPipeline),
-                    Literal(IpcBuildRunnerKind.ExecuteMethod))),
+                    Literal(BuildRunnerKind.BuildPipeline),
+                    Literal(BuildRunnerKind.ExecuteMethod))),
             Required("method", NullableStringSchema()),
             Required("invocation", ObjectSchema(
                 additionalProperties: false,
@@ -816,7 +822,7 @@ internal static class Program
 
     private static Dictionary<string, object?> CreateBuildRunUnityBuildProfilePathSchema ()
     {
-        // NOTE: Keep this pattern aligned with UnityAssetPathContract.IsNormalizedBuildProfileAssetPath.
+        // NOTE: Keep this pattern aligned with UnityBuildProfileAssetPath.
         return PatternStringSchema(@"^(?!.*[\u0000-\u001F])(?!.*(?:^|/)\.{1,2}(?:/|$))(?!.*//)Assets/(?!.*\\)(?!.*:)(?!.*\.[Mm][Ee][Tt][Aa]$)(?!.*\s$).+$");
     }
 
@@ -905,7 +911,7 @@ internal static class Program
             Required("project", ReferenceSchema("../defs/project.schema.json")),
             Required("verifiers", ArraySchema(ReferenceSchema("../defs/verifier.schema.json"))),
             Required("claims", ArraySchema(CreateVerifyClaimSchema())),
-            Required("reports", ObjectSchema(additionalProperties: true)),
+            Required("reports", CreateReportRefsSchema()),
             Required("residualRisks", ArraySchema(ReferenceSchema("../defs/residual-risk.schema.json"))),
             Required("timeoutMilliseconds", IntegerSchema()));
     }
@@ -1077,11 +1083,9 @@ internal static class Program
                 UcliOperationSideEffectDescriptors.SupportedValues.ToArray()))),
             Required("mayDirty", BooleanSchema()),
             Required("mayPersist", BooleanSchema()),
-            Required("touchedKinds", ArraySchema(EnumSchema(
-                UcliTouchedResourceKindNames.Scene,
-                UcliTouchedResourceKindNames.Prefab,
-                UcliTouchedResourceKindNames.Asset,
-                UcliTouchedResourceKindNames.ProjectSettings))),
+            Required(
+                "touchedKinds",
+                ArraySchema(EnumSchema(ContractLiteralCodec.GetLiterals<UcliTouchedResourceKind>().ToArray()))),
             Required("planMode", EnumSchema(
                 Literal(UcliOperationPlanMode.ValidationOnly),
                 Literal(UcliOperationPlanMode.ObservesLiveUnity))),
@@ -1240,8 +1244,8 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: false,
             Required("kind", EnumSchema(
-                CsEvalSourceKindValues.CompilationUnit,
-                CsEvalSourceKindValues.Snippet)),
+                Literal(UcliCodeSourceFormKind.CompilationUnit),
+                Literal(UcliCodeSourceFormKind.Snippet))),
             Required("description", StringSchema()));
     }
 
@@ -1260,8 +1264,8 @@ internal static class Program
         return ObjectSchema(
             additionalProperties: false,
             Required("kind", EnumSchema(
-                UcliCodeApiMemberKindValues.Property,
-                UcliCodeApiMemberKindValues.Method)),
+                Literal(UcliCodeApiMemberKind.Property),
+                Literal(UcliCodeApiMemberKind.Method))),
             Required("name", StringSchema()),
             Required("description", StringSchema()),
             Required("type", NullableStringSchema()),
@@ -1547,8 +1551,8 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("transition", ConstString(IpcPlayTransitionCommandNames.Enter)),
-            Required("result", ConstString(IpcPlayTransitionResultNames.Entered)),
+            Required("transition", ConstString(Literal(IpcPlayTransitionCommand.Enter))),
+            Required("result", ConstString(Literal(IpcPlayTransitionOutcome.Entered))),
             Required("before", CreatePlayLifecycleSnapshotSchema()),
             Required("after", CreateEnteredPlayLifecycleSnapshotSchema()));
     }
@@ -1557,8 +1561,8 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("transition", ConstString(IpcPlayTransitionCommandNames.Enter)),
-            Required("result", ConstString(IpcPlayTransitionResultNames.AlreadyEntered)),
+            Required("transition", ConstString(Literal(IpcPlayTransitionCommand.Enter))),
+            Required("result", ConstString(Literal(IpcPlayTransitionOutcome.AlreadyEntered))),
             Required("before", CreateEnteredPlayLifecycleSnapshotSchema()),
             Required("after", CreateEnteredPlayLifecycleSnapshotSchema()));
     }
@@ -1567,36 +1571,32 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("transition", ConstString(IpcPlayTransitionCommandNames.Enter)),
-            Required("result", ConstString(IpcPlayTransitionResultNames.Timeout)),
+            Required("transition", ConstString(Literal(IpcPlayTransitionCommand.Enter))),
+            Required("result", ConstString(Literal(IpcPlayTransitionOutcome.Timeout))),
             Required("before", CreatePlayLifecycleSnapshotSchema()),
             Required("observed", CreatePlayLifecycleSnapshotSchema()),
-            Required("applicationState", ConstString(IpcPlayApplicationStateNames.Indeterminate)));
+            Required("applicationState", ConstString(Literal(IpcApplicationState.Indeterminate))));
     }
 
     private static Dictionary<string, object?> CreatePlayEnterBlockedTransitionResultSchema ()
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("transition", ConstString(IpcPlayTransitionCommandNames.Enter)),
-            Required("result", ConstString(IpcPlayTransitionResultNames.Blocked)),
+            Required("transition", ConstString(Literal(IpcPlayTransitionCommand.Enter))),
+            Required("result", ConstString(Literal(IpcPlayTransitionOutcome.Blocked))),
             Required("before", CreatePlayLifecycleSnapshotSchema()),
             Required("observed", CreatePlayLifecycleSnapshotSchema()),
             Required(
                 "applicationState",
-                EnumSchema(
-                    IpcPlayApplicationStateNames.NotApplied,
-                    IpcPlayApplicationStateNames.Applied,
-                    IpcPlayApplicationStateNames.Indeterminate,
-                    IpcPlayApplicationStateNames.Unknown)));
+                EnumSchema(ContractLiteralCodec.GetLiterals<IpcApplicationState>().ToArray())));
     }
 
     private static Dictionary<string, object?> CreatePlayExitExitedTransitionResultSchema ()
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("transition", ConstString(IpcPlayTransitionCommandNames.Exit)),
-            Required("result", ConstString(IpcPlayTransitionResultNames.Exited)),
+            Required("transition", ConstString(Literal(IpcPlayTransitionCommand.Exit))),
+            Required("result", ConstString(Literal(IpcPlayTransitionOutcome.Exited))),
             Required("before", CreateEnteredPlayLifecycleSnapshotSchema()),
             Required("after", CreateReadyStoppedPlayLifecycleSnapshotSchema()));
     }
@@ -1605,8 +1605,8 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("transition", ConstString(IpcPlayTransitionCommandNames.Exit)),
-            Required("result", ConstString(IpcPlayTransitionResultNames.AlreadyExited)),
+            Required("transition", ConstString(Literal(IpcPlayTransitionCommand.Exit))),
+            Required("result", ConstString(Literal(IpcPlayTransitionOutcome.AlreadyExited))),
             Required("before", CreateStoppedPlayLifecycleSnapshotSchema()),
             Required("after", CreateStoppedPlayLifecycleSnapshotSchema()));
     }
@@ -1615,28 +1615,24 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("transition", ConstString(IpcPlayTransitionCommandNames.Exit)),
-            Required("result", ConstString(IpcPlayTransitionResultNames.Timeout)),
+            Required("transition", ConstString(Literal(IpcPlayTransitionCommand.Exit))),
+            Required("result", ConstString(Literal(IpcPlayTransitionOutcome.Timeout))),
             Required("before", CreatePlayLifecycleSnapshotSchema()),
             Required("observed", CreatePlayLifecycleSnapshotSchema()),
-            Required("applicationState", ConstString(IpcPlayApplicationStateNames.Indeterminate)));
+            Required("applicationState", ConstString(Literal(IpcApplicationState.Indeterminate))));
     }
 
     private static Dictionary<string, object?> CreatePlayExitBlockedTransitionResultSchema ()
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("transition", ConstString(IpcPlayTransitionCommandNames.Exit)),
-            Required("result", ConstString(IpcPlayTransitionResultNames.Blocked)),
+            Required("transition", ConstString(Literal(IpcPlayTransitionCommand.Exit))),
+            Required("result", ConstString(Literal(IpcPlayTransitionOutcome.Blocked))),
             Required("before", CreatePlayLifecycleSnapshotSchema()),
             Required("observed", CreatePlayLifecycleSnapshotSchema()),
             Required(
                 "applicationState",
-                EnumSchema(
-                    IpcPlayApplicationStateNames.NotApplied,
-                    IpcPlayApplicationStateNames.Applied,
-                    IpcPlayApplicationStateNames.Indeterminate,
-                    IpcPlayApplicationStateNames.Unknown)));
+                EnumSchema(ContractLiteralCodec.GetLiterals<IpcApplicationState>().ToArray())));
     }
 
     private static Dictionary<string, object?> CreatePlayLifecycleSnapshotSchema ()

@@ -1,11 +1,32 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using MackySoft.Tests;
 
 namespace MackySoft.Ucli.Tests.Schemas;
 
 public sealed class CliOutputSchemaArtifactTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void VerifierSchema_RestrictsKindToCanonicalLiterals ()
+    {
+        var schemaPath = Path.Combine(
+            CliOutputSchemaTestSupport.SchemaRoot,
+            "cli-output",
+            "defs",
+            "verifier.schema.json");
+        using var document = JsonDocument.Parse(File.ReadAllText(schemaPath));
+
+        var literals = document.RootElement
+            .GetProperty("properties")
+            .GetProperty("kind")
+            .GetProperty("enum")
+            .EnumerateArray()
+            .Select(static item => item.GetString()!)
+            .ToArray();
+
+        Assert.Equal(["ready", "compile", "build", "postRead", "test", "logs"], literals);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public void SchemaManifest_IndexesGeneratedV1Schemas ()
@@ -89,6 +110,41 @@ public sealed class CliOutputSchemaArtifactTests
             ? payload
             : payload[runOwnerProperty]!.AsObject();
         runOwner["runId"] = Guid.Empty.ToString("D");
+        using var document = JsonDocument.Parse(root.ToJsonString());
+        var command = document.RootElement.GetProperty("command").GetString()!;
+        var payloadSchemaPath = CliOutputSchemaTestSupport.SchemaSet.FindPayloadSchemaPath(command)!;
+
+        var errors = CliOutputSchemaTestSupport.SchemaSet.Validate(
+            payloadSchemaPath,
+            document.RootElement.GetProperty("payload"));
+
+        Assert.NotEmpty(errors);
+    }
+
+    [Theory]
+    [Trait("Size", "Medium")]
+    [InlineData("compile", "pass-no-reload.json")]
+    [InlineData("ready", "auto-oneshot-success.json")]
+    [InlineData("verify", "default-success.json")]
+    public void AssurancePayloadSchemas_RejectInvalidReportDigest (
+        string goldenDirectory,
+        string goldenFileName)
+    {
+        var goldenPath = TestRepositoryPaths.GetFullPath(
+            "tests",
+            "Ucli.Tests",
+            "GoldenFiles",
+            "Json",
+            "CliOutput",
+            goldenDirectory,
+            goldenFileName);
+        var root = JsonNode.Parse(File.ReadAllText(goldenPath))!.AsObject();
+        var payload = root["payload"]!.AsObject();
+        payload["reports"]!["invalid-digest"] = new JsonObject
+        {
+            ["path"] = "artifacts/report.json",
+            ["digest"] = "not-a-digest",
+        };
         using var document = JsonDocument.Parse(root.ToJsonString());
         var command = document.RootElement.GetProperty("command").GetString()!;
         var payloadSchemaPath = CliOutputSchemaTestSupport.SchemaSet.FindPayloadSchemaPath(command)!;

@@ -22,7 +22,7 @@
           {
             "kind": "asset",
             "path": "Assets/Example.txt",
-            "guid": null
+            "assetGuid": null
           }
         ],
         "diagnostics": []

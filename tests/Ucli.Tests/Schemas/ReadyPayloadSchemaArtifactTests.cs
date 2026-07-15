@@ -22,7 +22,7 @@ public sealed class ReadyPayloadSchemaArtifactTests
               "verifiers": [
                 {
                   "id": "ready.lifecycle",
-                  "kind": "ready.lifecycle",
+                  "kind": "ready",
                   "deterministic": false,
                   "required": true,
                   "primaryClaims": [

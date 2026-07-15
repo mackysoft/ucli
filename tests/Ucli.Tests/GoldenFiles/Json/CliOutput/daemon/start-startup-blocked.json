@@ -12,7 +12,7 @@
     "startup": {
       "startupStatus": "blocked",
       "startupBlockingReason": "compile",
-      "launchAttemptId": "20260312_040500Z_00abcdef",
+      "launchAttemptId": "01234567-89ab-cdef-0123-456789abcdef",
       "editorMode": "batchmode",
       "ownerKind": "cli",
       "canShutdownProcess": true,
@@ -21,7 +21,7 @@
       "elapsedMilliseconds": 2500,
       "processAction": "kept",
       "processTermination": null,
-      "artifactPath": "/repo/.ucli/local/fingerprints/fp/launchAttempts/20260312_040500Z_00abcdef/startup-diagnosis.json",
+      "artifactPath": "/repo/.ucli/local/fingerprints/fp/launchAttempts/0123456789abcdef0123456789abcdef/startup-diagnosis.json",
       "retryDisposition": "retryAfterFix"
     },
     "diagnosis": {

@@ -110,6 +110,45 @@ public sealed class ExecutePayloadSchemaArtifactTests
         Assert.Empty(errors);
     }
 
+    [Theory]
+    [InlineData("""{ "kind": "unknown", "path": "Assets/Example.asset", "assetGuid": null }""")]
+    [InlineData("""{ "kind": "asset", "assetGuid": null }""")]
+    [InlineData("""{ "kind": "asset", "path": "Assets/../Example.asset", "assetGuid": null }""")]
+    [InlineData("""{ "kind": "asset", "path": "Assets/Example.asset", "assetGuid": "00000000-0000-0000-0000-000000000000" }""")]
+    [Trait("Size", "Medium")]
+    public void ExecutePayloadSchema_RejectsInvalidTouchedResource (string touchedResourceJson)
+    {
+        var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
+        using var document = JsonDocument.Parse(
+            $$"""
+            {
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
+              "project": {
+                "projectPath": "/repo/UnityProject",
+                "projectFingerprint": "{{ProjectFingerprint}}",
+                "unityVersion": "6000.1.4f1"
+              },
+              "opResults": [
+                {
+                  "opId": "step-1",
+                  "op": "ucli.project.refresh",
+                  "phase": "call",
+                  "applied": true,
+                  "changed": true,
+                  "touched": [{{touchedResourceJson}}],
+                  "diagnostics": []
+                }
+              ]
+            }
+            """);
+
+        var errors = schemaSet.Validate(
+            "cli-output/payload/call.schema.json",
+            document.RootElement);
+
+        Assert.NotEmpty(errors);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public void ExecutePayloadSchema_RejectsUnknownContractViolationApplicationState ()

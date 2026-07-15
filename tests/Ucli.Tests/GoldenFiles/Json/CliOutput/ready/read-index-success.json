@@ -14,7 +14,7 @@
     "verifiers": [
       {
         "id": "ready.readIndex",
-        "kind": "ready.readIndex",
+        "kind": "ready",
         "deterministic": false,
         "required": true,
         "primaryClaims": [
@@ -53,7 +53,7 @@
                   "status": "available",
                   "required": true,
                   "freshness": "fresh",
-                  "sourceInputsHash": "source-hash",
+                  "sourceInputsHash": "badb34c8bf5ad76b80cfeaaad84b2d13a2c7049b0d8808d0a3086f4fdb1b47cf",
                   "generatedAtUtc": "2026-05-17T00:00:00+00:00"
                 },
                 {
@@ -61,7 +61,7 @@
                   "status": "available",
                   "required": true,
                   "freshness": "fresh",
-                  "sourceInputsHash": "source-hash",
+                  "sourceInputsHash": "badb34c8bf5ad76b80cfeaaad84b2d13a2c7049b0d8808d0a3086f4fdb1b47cf",
                   "generatedAtUtc": "2026-05-17T00:00:00+00:00"
                 },
                 {
@@ -69,7 +69,7 @@
                   "status": "available",
                   "required": true,
                   "freshness": "fresh",
-                  "sourceInputsHash": "source-hash",
+                  "sourceInputsHash": "badb34c8bf5ad76b80cfeaaad84b2d13a2c7049b0d8808d0a3086f4fdb1b47cf",
                   "generatedAtUtc": "2026-05-17T00:00:00+00:00"
                 }
               ]
@@ -95,7 +95,7 @@
           "status": "available",
           "required": true,
           "freshness": "fresh",
-          "sourceInputsHash": "source-hash",
+          "sourceInputsHash": "badb34c8bf5ad76b80cfeaaad84b2d13a2c7049b0d8808d0a3086f4fdb1b47cf",
           "generatedAtUtc": "2026-05-17T00:00:00+00:00"
         },
         {
@@ -103,7 +103,7 @@
           "status": "available",
           "required": true,
           "freshness": "fresh",
-          "sourceInputsHash": "source-hash",
+          "sourceInputsHash": "badb34c8bf5ad76b80cfeaaad84b2d13a2c7049b0d8808d0a3086f4fdb1b47cf",
           "generatedAtUtc": "2026-05-17T00:00:00+00:00"
         },
         {
@@ -111,7 +111,7 @@
           "status": "available",
           "required": true,
           "freshness": "fresh",
-          "sourceInputsHash": "source-hash",
+          "sourceInputsHash": "badb34c8bf5ad76b80cfeaaad84b2d13a2c7049b0d8808d0a3086f4fdb1b47cf",
           "generatedAtUtc": "2026-05-17T00:00:00+00:00"
         }
       ]

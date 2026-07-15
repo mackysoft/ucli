@@ -1,5 +1,3 @@
-using MackySoft.Tests;
-
 namespace MackySoft.Ucli.Tests.Schemas;
 
 internal static class CliOutputSchemaTestSupport

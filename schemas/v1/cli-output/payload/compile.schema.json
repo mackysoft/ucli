@@ -74,7 +74,10 @@
       }
     },
     "reports": {
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+        "$ref": "../defs/report-ref.schema.json"
+      }
     },
     "residualRisks": {
       "type": "array",
