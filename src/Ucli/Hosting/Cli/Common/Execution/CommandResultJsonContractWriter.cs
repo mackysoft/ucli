@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Serialization;
 
@@ -16,7 +17,7 @@ internal sealed class CommandResultJsonContractWriter : JsonContractWriter<Comma
         writer.WriteStartObject();
         writer.WriteNumber("protocolVersion", contract.ProtocolVersion);
         writer.WriteString("command", contract.Command);
-        writer.WriteString("status", contract.Status);
+        writer.WriteString("status", ContractLiteralCodec.ToValue(contract.Status));
         writer.WriteNumber("exitCode", contract.ExitCode);
         writer.WriteString("message", contract.Message);
         writer.WritePropertyName("payload");
@@ -66,7 +67,7 @@ internal sealed class CommandResultJsonContractWriter : JsonContractWriter<Comma
             writer.WriteStartObject();
             WriteNullableString(writer, "code", error.Code.Value);
             WriteNullableString(writer, "message", error.Message);
-            WriteNullableString(writer, "opId", error.OpId);
+            WriteNullableString(writer, "opId", error.OpId?.Value);
             writer.WriteEndObject();
         }
 

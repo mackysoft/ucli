@@ -32,7 +32,7 @@ public sealed class StatusServiceTests
                 AssetRefreshGeneration: 3,
                 PlayModeGeneration: 2));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(
-            DaemonStatusResult.Running(session, pingResponse));
+            DaemonStatusResult.Running(session, pingResponse, diagnosis: null));
         var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
@@ -73,7 +73,9 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning(
+            diagnosis: null,
+            lastLaunchAttempt: null));
         var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
@@ -92,7 +94,7 @@ public sealed class StatusServiceTests
         var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Stale(DaemonSessionTestFactory.Create(
             sessionToken: "stale-session-token",
             projectFingerprint: StatusProjectContext.UnityProject.ProjectFingerprint,
-            endpointAddress: "ucli-daemon-status")));
+            endpointAddress: "ucli-daemon-status"), diagnosis: null));
         var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
@@ -108,7 +110,9 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning(
+            diagnosis: null,
+            lastLaunchAttempt: null));
         var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, 0), CancellationToken.None);
@@ -123,7 +127,9 @@ public sealed class StatusServiceTests
         var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Failure(
             ExecutionError.InvalidArgument("Unity project path is invalid.")));
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning(
+            diagnosis: null,
+            lastLaunchAttempt: null));
         var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
@@ -150,30 +156,6 @@ public sealed class StatusServiceTests
         StatusServiceAssert.DaemonStatusFailureReturned(
             result,
             expectedMessage: "Failed to read daemon session.");
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenRunningPingResponseIsMissing_ReturnsInternalError ()
-    {
-        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
-        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(new DaemonStatusResult(
-            DaemonStatusKind.Running,
-            DaemonSessionTestFactory.Create(
-                projectFingerprint: StatusProjectContext.UnityProject.ProjectFingerprint),
-            Diagnosis: null,
-            Error: null,
-            PingResponse: null));
-        var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
-
-        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal("Daemon status is running but daemon ping response is missing.", error.Message);
     }
 
     private static StatusService CreateService (
@@ -204,6 +186,8 @@ public sealed class StatusServiceTests
                     Transition: IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
-            observedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero));
+            observedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
+            actionRequired: null,
+            primaryDiagnostic: null);
     }
 }

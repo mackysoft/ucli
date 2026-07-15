@@ -1,5 +1,3 @@
-using MackySoft.Tests;
-
 namespace MackySoft.Ucli.Tests;
 
 [Collection(CurrentDirectoryTestCollection.Name)]
@@ -56,7 +54,7 @@ public sealed class SkillsDoctorCliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.SkillsDoctor,
-            status: "error",
+            status: ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             exitCode: (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetContentDigestMismatchCode);
         JsonAssert.For(outputJson.RootElement)
@@ -108,7 +106,7 @@ public sealed class SkillsDoctorCliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.SkillsDoctor,
-            status: "error",
+            status: ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             exitCode: (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetUnmanagedCode);
         JsonAssert.For(outputJson.RootElement)

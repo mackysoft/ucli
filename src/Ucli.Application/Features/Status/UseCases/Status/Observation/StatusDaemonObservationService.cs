@@ -1,7 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Projection;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 
@@ -38,27 +37,16 @@ internal sealed class StatusDaemonObservationService : IStatusDaemonObservationS
             return StatusDaemonObservationResult.Failure(daemonStatusResult.Error!);
         }
 
-        if (daemonStatusResult.Status != DaemonStatusKind.Running)
+        var status = daemonStatusResult.Status.Value;
+        if (status != DaemonStatusKind.Running)
         {
             return StatusDaemonObservationResult.Success(
-                StatusDaemonObservationCodec.CreateWithoutPing(daemonStatusResult.Status));
-        }
-
-        if (daemonStatusResult.Session is null)
-        {
-            return StatusDaemonObservationResult.Failure(ExecutionError.InternalError(
-                "Daemon status is running but daemon session is missing."));
-        }
-
-        if (daemonStatusResult.PingResponse is null)
-        {
-            return StatusDaemonObservationResult.Failure(ExecutionError.InternalError(
-                "Daemon status is running but daemon ping response is missing."));
+                StatusDaemonObservationCodec.CreateWithoutPing(status));
         }
 
         return StatusDaemonObservationResult.Success(
             StatusDaemonObservationCodec.CreateFromPing(
-                daemonStatusResult.Status,
-                daemonStatusResult.PingResponse));
+                status,
+                daemonStatusResult.PingResponse!));
     }
 }

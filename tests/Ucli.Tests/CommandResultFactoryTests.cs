@@ -22,7 +22,7 @@ public sealed class CommandResultFactoryTests
         var result = CommandResultFactory.FromExecutionError(command, error);
 
         Assert.Equal(command, result.Command);
-        Assert.Equal("error", result.Status);
+        Assert.Equal(CommandResultStatus.Error, result.Status);
         Assert.Equal(expectedExitCode, result.ExitCode);
         Assert.Single(result.Errors);
         Assert.Equal(expectedErrorCode, result.Errors[0].Code.Value);

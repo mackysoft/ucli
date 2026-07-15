@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.RegularExpressions;
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 
 namespace MackySoft.Ucli.Tests.Cli;

@@ -1,7 +1,6 @@
 namespace MackySoft.Tests;
 
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Ipc;
 
 internal static class CommandResultAssert
 {
@@ -55,7 +54,7 @@ internal static class CommandResultAssert
         HasStandardEnvelope(
             root,
             command,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             (int)CliExitCode.InvalidArgument);
     }
 
@@ -74,7 +73,7 @@ internal static class CommandResultAssert
         HasStandardEnvelope(
             root,
             command,
-            IpcProtocol.StatusOk,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
             (int)CliExitCode.Success);
     }
 

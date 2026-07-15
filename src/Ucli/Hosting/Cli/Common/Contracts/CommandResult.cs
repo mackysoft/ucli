@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 /// <summary> Represents the JSON contract payload emitted by every CLI command execution. </summary>
 /// <param name="ProtocolVersion"> The protocol version of the emitted JSON payload. </param>
 /// <param name="Command"> The normalized command name associated with this result. </param>
-/// <param name="Status"> The execution status string defined by <see cref="IpcProtocol" />. </param>
+/// <param name="Status"> The execution status. </param>
 /// <param name="ExitCode"> The process exit code associated with this result. </param>
 /// <param name="Message"> The user-facing message that explains the execution outcome. </param>
 /// <param name="Payload"> The JSON-serializable payload object for additional command output. </param>
@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 internal sealed record CommandResult (
     int ProtocolVersion,
     string Command,
-    string Status,
+    CommandResultStatus Status,
     int ExitCode,
     string Message,
     object Payload,
@@ -36,7 +36,7 @@ internal sealed record CommandResult (
         return new CommandResult(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: normalizedCommand,
-            Status: IpcProtocol.StatusOk,
+            Status: CommandResultStatus.Ok,
             ExitCode: (int)CliExitCode.Success,
             Message: normalizedMessage,
             Payload: payload ?? EmptyPayload,
@@ -72,9 +72,7 @@ internal sealed record CommandResult (
             command: command,
             message: message,
             exitCode: CliExitCode.InvalidArgument,
-            errorCode: errorCode.HasValue && errorCode.Value.IsValid
-                ? errorCode.Value
-                : UcliCoreErrorCodes.InvalidArgument);
+            errorCode: errorCode ?? UcliCoreErrorCodes.InvalidArgument);
     }
 
     /// <summary> Creates an error result for command cancellation. </summary>
@@ -104,9 +102,7 @@ internal sealed record CommandResult (
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: errorCode.HasValue && errorCode.Value.IsValid
-                ? errorCode.Value
-                : ExecutionErrorCodes.IpcTimeout);
+            errorCode: errorCode ?? ExecutionErrorCodes.IpcTimeout);
     }
 
     /// <summary> Creates an error result for unexpected runtime failures. </summary>
@@ -123,9 +119,7 @@ internal sealed record CommandResult (
             command: command,
             message: message,
             exitCode: CliExitCode.ToolError,
-            errorCode: errorCode.HasValue && errorCode.Value.IsValid
-                ? errorCode.Value
-                : UcliCoreErrorCodes.InternalError);
+            errorCode: errorCode ?? UcliCoreErrorCodes.InternalError);
     }
 
     /// <summary> Creates a normalized error result with a single error entry. </summary>
@@ -146,7 +140,7 @@ internal sealed record CommandResult (
         return new CommandResult(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: normalizedCommand,
-            Status: IpcProtocol.StatusError,
+            Status: CommandResultStatus.Error,
             ExitCode: (int)exitCode,
             Message: normalizedMessage,
             Payload: EmptyPayload,

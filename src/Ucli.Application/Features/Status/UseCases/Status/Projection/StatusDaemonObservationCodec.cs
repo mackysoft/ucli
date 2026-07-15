@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Status.UseCases.Status.Projection;
@@ -30,46 +28,6 @@ internal static class StatusDaemonObservationCodec
             PlayMode: null);
     }
 
-    /// <summary> Creates observation values from a persisted lifecycle sidecar when ping details are unavailable. </summary>
-    public static StatusDaemonObservation CreateFromLifecycleObservation (
-        DaemonStatusKind daemonStatus,
-        DaemonLifecycleObservation observation)
-    {
-        ArgumentNullException.ThrowIfNull(observation);
-
-        return new StatusDaemonObservation(
-            DaemonStatus: daemonStatus,
-            ServerVersion: observation.ServerVersion,
-            LifecycleState: observation.State.LifecycleState,
-            BlockingReason: observation.BlockingReason,
-            CompileState: observation.State.CompileState,
-            Generations: observation.State.Generations,
-            CanAcceptExecutionRequests: observation.CanAcceptExecutionRequests,
-            EditorMode: observation.State.EditorMode,
-            ObservedAtUtc: observation.ObservedAtUtc,
-            ActionRequired: observation.ActionRequired,
-            PrimaryDiagnostic: ToOutput(observation.PrimaryDiagnostic),
-            PlayMode: observation.State.PlayMode);
-    }
-
-    /// <summary> Creates observation values for an unreachable daemon whose lifecycle cannot be inferred. </summary>
-    public static StatusDaemonObservation CreateUnavailable (DaemonStatusKind daemonStatus)
-    {
-        return new StatusDaemonObservation(
-            DaemonStatus: daemonStatus,
-            ServerVersion: null,
-            LifecycleState: IpcEditorLifecycleState.Unavailable,
-            BlockingReason: IpcEditorBlockingReason.Unavailable,
-            CompileState: null,
-            Generations: null,
-            CanAcceptExecutionRequests: false,
-            EditorMode: null,
-            ObservedAtUtc: DateTimeOffset.UtcNow,
-            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
-            PrimaryDiagnostic: null,
-            PlayMode: null);
-    }
-
     /// <summary> Creates observation values for daemon states where ping details are available. </summary>
     /// <param name="daemonStatus"> The daemon status enum value. </param>
     /// <param name="pingResponse"> The ping response payload. </param>
@@ -93,14 +51,14 @@ internal static class StatusDaemonObservationCodec
             CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
             EditorMode: state.EditorMode,
             ObservedAtUtc: pingResponse.ObservedAtUtc,
-            ActionRequired: StringValueNormalizer.TrimToNull(pingResponse.ActionRequired),
+            ActionRequired: pingResponse.ActionRequired,
             PrimaryDiagnostic: ToOutput(pingResponse.PrimaryDiagnostic),
             PlayMode: state.PlayMode);
     }
 
     private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)
     {
-        if (diagnostic is null || !StringValueNormalizer.TryTrimToNonEmpty(diagnostic.Kind, out var kind))
+        if (diagnostic?.Kind is not { } kind)
         {
             return null;
         }

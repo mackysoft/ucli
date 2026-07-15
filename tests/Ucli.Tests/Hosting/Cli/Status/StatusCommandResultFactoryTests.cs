@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -34,6 +33,9 @@ public sealed class StatusCommandResultFactoryTests
                 CanAcceptExecutionRequests: false,
                 EditorMode: DaemonEditorMode.Batchmode,
                 TimeoutMilliseconds: 1234,
+                ObservedAtUtc: null,
+                ActionRequired: null,
+                PrimaryDiagnostic: null,
                 PlayMode: new IpcPlayModeSnapshot(
                     State: IpcPlayModeState.Stopped,
                     Transition: IpcPlayModeTransition.None,
@@ -43,7 +45,7 @@ public sealed class StatusCommandResultFactoryTests
         var result = StatusCommandResultFactory.Create(executionResult);
 
         Assert.Equal(UcliCommandNames.Status, result.Command);
-        Assert.Equal(IpcProtocol.StatusOk, result.Status);
+        Assert.Equal(CommandResultStatus.Ok, result.Status);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Empty(result.Errors);
 
@@ -80,7 +82,7 @@ public sealed class StatusCommandResultFactoryTests
         var result = StatusCommandResultFactory.Create(executionResult);
 
         Assert.Equal(UcliCommandNames.Status, result.Command);
-        Assert.Equal(IpcProtocol.StatusError, result.Status);
+        Assert.Equal(CommandResultStatus.Error, result.Status);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, result.Errors[0].Code);

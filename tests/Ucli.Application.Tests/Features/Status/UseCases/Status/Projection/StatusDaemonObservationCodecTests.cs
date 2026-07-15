@@ -46,7 +46,9 @@ public sealed class StatusDaemonObservationCodecTests
                     Transition: IpcPlayModeTransition.Entering,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: true)),
-            observedAtUtc: observedAtUtc);
+            observedAtUtc: observedAtUtc,
+            actionRequired: null,
+            primaryDiagnostic: null);
 
         var actual = StatusDaemonObservationCodec.CreateFromPing(
             DaemonStatusKind.Running,

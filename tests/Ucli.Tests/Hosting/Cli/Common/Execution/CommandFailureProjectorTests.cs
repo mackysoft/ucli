@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -10,13 +11,15 @@ public sealed class CommandFailureProjectorTests
     {
         var result = CommandFailureProjector.Create(
             "test",
-            ApplicationFailure.InvalidInput("Invalid input.", opId: "step-1"));
+            ApplicationFailure.InvalidInput(
+                "Invalid input.",
+                opId: new IpcExecuteStepId("step-1")));
 
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Equal("Invalid input.", error.Message);
-        Assert.Equal("step-1", error.OpId);
+        Assert.Equal("step-1", error.OpId?.Value);
     }
 
     [Fact]
