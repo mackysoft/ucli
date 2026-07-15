@@ -347,7 +347,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
             if (processCleanupException is not null && !result.IsSuccess)
             {
-                result = AppendFailureDiagnostic(
+                result = AppendNonRecoverableProcessCleanupDiagnostic(
                     result,
                     $"Unity oneshot process cleanup did not complete. {processCleanupException.Message}");
             }
@@ -815,11 +815,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         return $"{primaryMessage}{Environment.NewLine}{fallbackMessage}";
     }
 
-    /// <summary> Appends a process-termination or post-exit lock-file diagnostic without replacing the primary result. </summary>
+    /// <summary> Appends a process-termination or post-exit lock-file diagnostic without replacing the primary error code. </summary>
     /// <param name="result"> The primary request result. </param>
     /// <param name="terminationResult"> The observed termination result. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <returns> The original result, or an equivalent failure with a termination diagnostic appended. </returns>
+    /// <returns> The original result, or a failure with a termination diagnostic appended. Unconfirmed process cleanup produces a non-recoverable failure. </returns>
     private ValueTask<UnityRequestExecutionResult> AppendPostTerminationDiagnosticAsync (
         UnityRequestExecutionResult result,
         ProcessTerminationResult terminationResult,
@@ -832,7 +832,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
         if (terminationResult == ProcessTerminationResult.ForceKillFailed)
         {
-            return ValueTask.FromResult(AppendFailureDiagnostic(
+            return ValueTask.FromResult(AppendNonRecoverableProcessCleanupDiagnostic(
                 result,
                 ForceKillExitUnconfirmedDiagnostic));
         }
@@ -841,7 +841,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         return AppendPostUnityProcessExitLockFileDiagnosticAsync(result, unityProject);
     }
 
-    private static UnityRequestExecutionResult AppendFailureDiagnostic (
+    private static UnityRequestExecutionResult AppendNonRecoverableProcessCleanupDiagnostic (
         UnityRequestExecutionResult result,
         string diagnostic)
     {
@@ -868,7 +868,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             return result;
         }
 
-        return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
+        return UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            failure.FailureKind,
             failure.Code,
             message,
             failure.StartupFailure));

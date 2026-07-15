@@ -663,6 +663,52 @@ public sealed class UnityOneshotIpcClientCleanupTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenResponseReadIsInterruptedAndPostExitCleanupAddsDiagnostic_PreservesTransportInterruption ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "response-read-interrupted-stale-lock");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
+        var processHandle = StubUnityBatchmodeProcessHandle.CreateNonExiting();
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new IpcResponseReadInterruptedException(new IOException("Pipe is broken.")),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(UnityProjectLockFileProbeResult.Locked(lockFilePath)),
+            unityLogReader: null,
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.StartsWith(
+            "Failed to execute Unity oneshot IPC request. Pipe is broken.",
+            result.Message,
+            StringComparison.Ordinal);
+        Assert.Contains("Stale Unity project lock file was removed", result.Message, StringComparison.Ordinal);
+        Assert.Contains(lockFilePath, result.Message, StringComparison.Ordinal);
+        UnityBatchmodeProcessHandleAssert.TerminatedOnce(processHandle);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task SendAsync_WhenProcessTerminationThrows_PreservesPrimaryFailure ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "termination-throws");
