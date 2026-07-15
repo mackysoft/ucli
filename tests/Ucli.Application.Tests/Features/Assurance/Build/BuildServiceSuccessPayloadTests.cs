@@ -160,7 +160,9 @@ public sealed class BuildServiceSuccessPayloadTests
         var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
         var outputSource = Assert.Single(accountingRequest.OutputSources);
         var absoluteOutputSource = Assert.IsType<BuildOutputSourceEntry.Absolute>(outputSource);
-        Assert.Equal(requestPayload.Request.OutputLayout!.LocationPathName, absoluteOutputSource.Path);
+        Assert.Equal(
+            Path.GetFullPath(requestPayload.Request.OutputLayout!.LocationPathName),
+            absoluteOutputSource.Path);
         Assert.Equal(BuildTargetStableName.StandaloneLinux64, accountingRequest.BuildTarget);
         Assert.Equal("StandaloneLinux64", accountingRequest.UnityBuildTarget);
         Assert.False(accountingRequest.AllowEmptyOutputManifest);
