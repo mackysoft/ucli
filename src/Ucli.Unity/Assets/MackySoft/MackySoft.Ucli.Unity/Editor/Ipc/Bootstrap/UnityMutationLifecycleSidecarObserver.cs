@@ -60,7 +60,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                     .WithObservedAtUtc(observedAtUtc);
                 if (!lifecycleSidecarWriter.TryEnqueue(
                         snapshot,
-                        observedAtUtc,
                         out var version))
                 {
                     throw new InvalidOperationException(

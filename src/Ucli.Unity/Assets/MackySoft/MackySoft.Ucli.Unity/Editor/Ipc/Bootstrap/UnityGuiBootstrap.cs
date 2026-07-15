@@ -309,7 +309,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         projectFingerprint,
                         state.EditorInstanceId,
                         state.LifecycleSidecarGenerationId,
-                        serverVersion));
+                        serverVersion),
+                    serviceProvider.GetRequiredService<IMonotonicClock>());
                 if (!TryAttachLifecycleSidecarWriter(state, lifecycleSidecarWriter))
                 {
                     await lifecycleSidecarWriter.StopAsync(CancellationToken.None);
@@ -318,7 +319,6 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 await lifecycleSidecarWriter.InitializeAsync(
                     initialSnapshot,
-                    initialSnapshot.ObservedAtUtc,
                     state.CancellationToken);
                 EnsureStartingGenerationOwnership(state);
                 mutationLifecycleSidecarObserver = new UnityMutationLifecycleSidecarObserver(
@@ -1395,12 +1395,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     DaemonLogCategories.Lifecycle,
                     $"GUI lifecycle sidecar refresh failed. Retrying in the background. {failureMessage}");
             }
-
-            var now = DateTimeOffset.UtcNow;
-            var lastScheduledAtUtc = capturedState.LifecycleSidecarWriter.LastScheduledAtUtc;
             if (!force
-                && lastScheduledAtUtc.HasValue
-                && now - lastScheduledAtUtc.Value < DaemonLifecycleObservationTimings.SidecarRefreshInterval)
+                && !capturedState.LifecycleSidecarWriter.IsRefreshDue(
+                    DaemonLifecycleObservationTimings.SidecarRefreshInterval))
             {
                 return;
             }
@@ -1411,12 +1408,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 // CLI status commands may time out while Unity is in Play Mode or recovering, but Unity main-thread
                 // callbacks still own the authoritative lifecycle snapshot. Keep the sidecar fresh enough to serve as
                 // the read-only observation path without moving Unity API access off the main thread.
+                var now = DateTimeOffset.UtcNow;
                 var snapshot = capturedState.AvailabilityObservationSource
                     .CaptureAvailabilityObservation()
                     .WithObservedAtUtc(now);
                 _ = capturedState.LifecycleSidecarWriter.TryEnqueue(
                     snapshot,
-                    now,
                     out _);
             }
             catch (Exception exception)
@@ -1588,7 +1585,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                     observedAtUtc + DaemonLifecycleObservationTimings.DomainReloadRecoveryLeaseDuration);
                 if (!state.LifecycleSidecarWriter.TryEnqueueDomainReloadRecovery(
                         snapshot,
-                        observedAtUtc,
                         recoveryLease,
                         out version))
                 {

@@ -22,6 +22,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IUnityLifecycleSidecarPersistence persistence;
 
+        private readonly IMonotonicClock monotonicClock;
+
         private readonly CancellationTokenSource lifetimeCancellationSource = new CancellationTokenSource();
 
         private readonly TaskCompletionSource<bool> stopCompletionSource =
@@ -43,9 +45,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private long completedVersion;
 
-        private DateTimeOffset? lastScheduledAtUtc;
-
-        private DateTimeOffset? lastWriteCompletedAtUtc;
+        private TimeSpan lastScheduledAtMonotonicTime;
 
         private int consecutiveFailureCount;
 
@@ -62,39 +62,17 @@ namespace MackySoft.Ucli.Unity.Ipc
         private Task invalidationTask;
 
         /// <summary> Initializes a writer for one persistence owner. </summary>
-        public UnityLifecycleSidecarWriter (IUnityLifecycleSidecarPersistence persistence)
+        public UnityLifecycleSidecarWriter (
+            IUnityLifecycleSidecarPersistence persistence,
+            IMonotonicClock monotonicClock)
         {
             this.persistence = persistence ?? throw new ArgumentNullException(nameof(persistence));
-        }
-
-        /// <summary> Gets the most recent time at which the Unity thread scheduled a snapshot. </summary>
-        public DateTimeOffset? LastScheduledAtUtc
-        {
-            get
-            {
-                lock (syncRoot)
-                {
-                    return lastScheduledAtUtc;
-                }
-            }
-        }
-
-        /// <summary> Gets the most recent time at which a sidecar write completed successfully. </summary>
-        public DateTimeOffset? LastWriteCompletedAtUtc
-        {
-            get
-            {
-                lock (syncRoot)
-                {
-                    return lastWriteCompletedAtUtc;
-                }
-            }
+            this.monotonicClock = monotonicClock ?? throw new ArgumentNullException(nameof(monotonicClock));
         }
 
         /// <summary> Persists the initial snapshot before endpoint publication commits. </summary>
         public Task InitializeAsync (
             UnityEditorObservation snapshot,
-            DateTimeOffset scheduledAtUtc,
             CancellationToken cancellationToken)
         {
             if (snapshot == null)
@@ -110,8 +88,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new InvalidOperationException("The lifecycle sidecar writer has already been initialized.");
                 }
 
+                var scheduledAtMonotonicTime = monotonicClock.Elapsed;
                 state = WriterState.Initializing;
-                lastScheduledAtUtc = scheduledAtUtc;
+                lastScheduledAtMonotonicTime = scheduledAtMonotonicTime;
                 initializationTask = Task.Run(
                     () => InitializeCoreAsync(snapshot, cancellationToken),
                     CancellationToken.None);
@@ -124,12 +103,10 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// </summary>
         public bool TryEnqueue (
             UnityEditorObservation snapshot,
-            DateTimeOffset scheduledAtUtc,
             out long version)
         {
             return TryEnqueueCore(
                 snapshot,
-                scheduledAtUtc,
                 recoveryLease: null,
                 out version);
         }
@@ -137,7 +114,6 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Schedules the recovery observation written before one domain reload. </summary>
         public bool TryEnqueueDomainReloadRecovery (
             UnityEditorObservation snapshot,
-            DateTimeOffset scheduledAtUtc,
             DaemonLifecycleRecoveryLease recoveryLease,
             out long version)
         {
@@ -146,12 +122,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(recoveryLease));
             }
 
-            return TryEnqueueCore(snapshot, scheduledAtUtc, recoveryLease, out version);
+            return TryEnqueueCore(snapshot, recoveryLease, out version);
         }
 
         private bool TryEnqueueCore (
             UnityEditorObservation snapshot,
-            DateTimeOffset scheduledAtUtc,
             DaemonLifecycleRecoveryLease recoveryLease,
             out long version)
         {
@@ -168,11 +143,30 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return false;
                 }
 
+                var scheduledAtMonotonicTime = monotonicClock.Elapsed;
                 version = checked(++nextVersion);
                 pendingRequest = new WriteRequest(version, snapshot, recoveryLease);
-                lastScheduledAtUtc = scheduledAtUtc;
+                lastScheduledAtMonotonicTime = scheduledAtMonotonicTime;
                 workAvailableSource.TrySetResult(true);
                 return true;
+            }
+        }
+
+        /// <summary> Determines whether the running writer is due to schedule its next periodic refresh. </summary>
+        public bool IsRefreshDue (TimeSpan refreshInterval)
+        {
+            if (refreshInterval <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(refreshInterval),
+                    refreshInterval,
+                    "Refresh interval must be greater than zero.");
+            }
+
+            lock (syncRoot)
+            {
+                return state == WriterState.Running
+                    && monotonicClock.Elapsed - lastScheduledAtMonotonicTime >= refreshInterval;
             }
         }
 
@@ -323,7 +317,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
 
                     state = WriterState.Running;
-                    lastWriteCompletedAtUtc = DateTimeOffset.UtcNow;
                     workerTask = Task.Run(RunWorkerAsync, CancellationToken.None);
                     SignalStateChangedWithoutLock();
                 }
@@ -447,7 +440,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                 lock (syncRoot)
                 {
                     completedVersion = Math.Max(completedVersion, request.Version);
-                    lastWriteCompletedAtUtc = DateTimeOffset.UtcNow;
                     consecutiveFailureCount = 0;
                     failureStreakActive = false;
                     failureNotificationPending = false;

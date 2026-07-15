@@ -306,7 +306,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 sharedState,
                 delaySecondWrite: true,
                 failDeletion: false);
-            var oldWriter = new UnityLifecycleSidecarWriter(oldPersistence);
+            var oldWriter = new UnityLifecycleSidecarWriter(oldPersistence, new ManualMonotonicClock());
             var oldInitialObservation = CreateReadyObservation(
                 new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero),
                 generation: 1);
@@ -315,12 +315,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 generation: 1);
             await oldWriter.InitializeAsync(
                 oldInitialObservation,
-                oldInitialObservation.ObservedAtUtc,
                 CancellationToken.None);
             Assert.That(
                 oldWriter.TryEnqueue(
                     delayedOldObservation,
-                    delayedOldObservation.ObservedAtUtc,
                     out _),
                 Is.True);
             await TestAwaiter.WaitAsync(
@@ -435,7 +433,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 sharedState,
                 delaySecondWrite: false,
                 failDeletion: false);
-            var writer = new UnityLifecycleSidecarWriter(persistence);
+            var writer = new UnityLifecycleSidecarWriter(persistence, new ManualMonotonicClock());
             var readyObservation = CreateReadyObservation(
                 new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero),
                 generation: 1);
@@ -450,7 +448,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 registration = await PrepareAndPublishSessionAsync(storageRoot);
                 await writer.InitializeAsync(
                     readyObservation,
-                    readyObservation.ObservedAtUtc,
                     CancellationToken.None);
                 var activeState = CreateActiveGuiBootstrapState(
                     registration,
@@ -505,13 +502,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 new SharedLifecycleSidecarState(),
                 delaySecondWrite: false,
                 failDeletion: true);
-            var writer = new UnityLifecycleSidecarWriter(persistence);
+            var writer = new UnityLifecycleSidecarWriter(persistence, new ManualMonotonicClock());
             var initialObservation = CreateReadyObservation(
                 new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero),
                 generation: 1);
             await writer.InitializeAsync(
                 initialObservation,
-                initialObservation.ObservedAtUtc,
                 CancellationToken.None);
             var serviceProvider = new SpyServiceProvider();
 
