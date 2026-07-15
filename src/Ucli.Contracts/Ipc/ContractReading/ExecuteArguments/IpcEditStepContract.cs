@@ -45,12 +45,16 @@ internal sealed record IpcEditStepContract (
     /// </summary>
     internal enum CardinalityKind
     {
+        [UcliContractLiteral("one")]
         One = 0,
 
+        [UcliContractLiteral("first")]
         First,
 
+        [UcliContractLiteral("all")]
         All,
 
+        [UcliContractLiteral("atMostOne")]
         AtMostOne,
     }
 
@@ -92,10 +96,13 @@ internal sealed record IpcEditStepContract (
     /// </summary>
     internal enum CommitKind
     {
+        [UcliContractLiteral("none")]
         None = 0,
 
+        [UcliContractLiteral("context")]
         Context,
 
+        [UcliContractLiteral("project")]
         Project,
     }
 

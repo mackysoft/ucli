@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
@@ -51,7 +52,7 @@ internal static class IpcEditStepSelectionReader
             return false;
         }
 
-        if (!IpcCamelCaseEnumLiteralParser.TryParse(cardinalityLiteral!, out cardinality))
+        if (!ContractLiteralCodec.TryParse(cardinalityLiteral!, out cardinality))
         {
             errorMessage = "Edit step property 'step.select.cardinality' must be one of 'one', 'first', 'all', or 'atMostOne'.";
             return false;
