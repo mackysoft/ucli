@@ -3,6 +3,7 @@ using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -27,7 +28,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly Func<int, DateTimeOffset, bool> parentProcessIsSameProcess;
 
-        private readonly Func<DateTimeOffset> utcNowProvider;
+        private readonly TimeSpan monotonicRequestExitDeadline;
+
+        private readonly IMonotonicClock monotonicClock;
 
         private readonly Func<string, IpcOneshotBootstrapEnvelope, bool> tryDeleteEnvelopeIfOwned;
 
@@ -42,7 +45,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcOneshotBootstrapEnvelope bootstrapEnvelope,
             TimeSpan pollInterval,
             Func<int, DateTimeOffset, bool> parentProcessIsSameProcess,
-            Func<DateTimeOffset> utcNowProvider,
+            DateTimeOffset observedUtcNow,
+            IMonotonicClock monotonicClock,
             Func<string, IpcOneshotBootstrapEnvelope, bool> tryDeleteEnvelopeIfOwned,
             Action<int> processExit)
         {
@@ -62,9 +66,30 @@ namespace MackySoft.Ucli.Unity.Ipc
             this.storageRoot = storageRoot;
             this.bootstrapEnvelope = bootstrapEnvelope ?? throw new ArgumentNullException(nameof(bootstrapEnvelope));
             this.parentProcessIsSameProcess = parentProcessIsSameProcess ?? throw new ArgumentNullException(nameof(parentProcessIsSameProcess));
-            this.utcNowProvider = utcNowProvider ?? throw new ArgumentNullException(nameof(utcNowProvider));
+            if (observedUtcNow == default || observedUtcNow.Offset != TimeSpan.Zero)
+            {
+                throw new ArgumentException(
+                    "Observed UTC time must be a non-default UTC timestamp.",
+                    nameof(observedUtcNow));
+            }
+
+            this.monotonicClock = monotonicClock ?? throw new ArgumentNullException(nameof(monotonicClock));
             this.tryDeleteEnvelopeIfOwned = tryDeleteEnvelopeIfOwned ?? throw new ArgumentNullException(nameof(tryDeleteEnvelopeIfOwned));
             this.processExit = processExit ?? throw new ArgumentNullException(nameof(processExit));
+
+            var monotonicNow = monotonicClock.Elapsed;
+            if (monotonicNow < TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(monotonicClock),
+                    monotonicNow,
+                    "Monotonic clock elapsed time must not be negative.");
+            }
+
+            var remainingTime = bootstrapEnvelope.ExitDeadlineUtc - observedUtcNow;
+            monotonicRequestExitDeadline = remainingTime > TimeSpan.Zero
+                ? monotonicNow + remainingTime
+                : monotonicNow;
             timer = new Timer(
                 static state => ((OneshotProcessLifetimeWatchdog)state).InspectLifetime(),
                 this,
@@ -89,12 +114,14 @@ namespace MackySoft.Ucli.Unity.Ipc
             string storageRoot,
             IpcOneshotBootstrapEnvelope bootstrapEnvelope)
         {
+            var monotonicClock = new StopwatchMonotonicClock();
             return new OneshotProcessLifetimeWatchdog(
                 storageRoot,
                 bootstrapEnvelope,
                 ProductionPollInterval,
                 ProcessLivenessProbe.IsSameProcess,
-                static () => DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow,
+                monotonicClock,
                 OneshotBootstrapEnvelopeStore.TryDeleteIfOwned,
                 static exitCode => Environment.Exit(exitCode));
         }
@@ -153,7 +180,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 switch (observedState)
                 {
                     case RequestDeadlineMonitoringState:
-                        if (utcNowProvider() < bootstrapEnvelope.ExitDeadlineUtc
+                        if (monotonicClock.Elapsed < monotonicRequestExitDeadline
                             && parentProcessIsSameProcess(
                                 bootstrapEnvelope.ParentProcessId,
                                 bootstrapEnvelope.ParentProcessStartedAtUtc))

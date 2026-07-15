@@ -31,17 +31,17 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Handle_WhenOneshotStartupPingHandled_KeepsRequestDeadlineAndDoesNotSignalCompletion () => UniTask.ToCoroutine(async () =>
         {
-            var deadlineUtc = ObservedUtc.AddMinutes(1);
-            var observedUtcTicks = ObservedUtc.Ticks;
+            var requestExitTimeout = TimeSpan.FromMinutes(1);
+            var elapsedTicks = 0L;
             var exitObserved = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var watchdog = new OneshotProcessLifetimeWatchdog(
                 storageRoot: StorageRoot,
-                bootstrapEnvelope: CreateBootstrapEnvelope(deadlineUtc),
+                bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc + requestExitTimeout),
                 pollInterval: WatchdogPollInterval,
                 parentProcessIsSameProcess: static (_, _) => true,
-                utcNowProvider: () => new DateTimeOffset(
-                    Interlocked.Read(ref observedUtcTicks),
-                    TimeSpan.Zero),
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new DelegatingMonotonicClock(
+                    () => new TimeSpan(Interlocked.Read(ref elapsedTicks))),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
                 processExit: exitCode => exitObserved.TrySetResult(exitCode));
             var completionSignal = new OneshotRequestCompletionSignal(watchdog);
@@ -56,7 +56,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(handledResult.Request, Is.Not.Null);
             Assert.That(handledResult.Method, Is.EqualTo(UnityIpcMethod.Ping));
             Assert.That(completionSignal.IsCompleted, Is.False);
-            Interlocked.Exchange(ref observedUtcTicks, deadlineUtc.Ticks);
+            Interlocked.Exchange(ref elapsedTicks, requestExitTimeout.Ticks);
             Assert.That(exitObserved.Task.Wait(SignalWaitTimeout), Is.True);
             Assert.That(exitObserved.Task.Result, Is.EqualTo(1));
         });
@@ -65,26 +65,26 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Handle_WhenReadyPingRequestHandled_ReleasesRequestDeadlineWithoutSignalingCompletion () => UniTask.ToCoroutine(async () =>
         {
-            var deadlineUtc = ObservedUtc.AddMinutes(1);
-            var observedUtcTicks = ObservedUtc.Ticks;
+            var requestExitTimeout = TimeSpan.FromMinutes(1);
+            var elapsedTicks = 0L;
             var parentProbeAfterDeadline = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var exitCount = 0;
             using var watchdog = new OneshotProcessLifetimeWatchdog(
                 storageRoot: StorageRoot,
-                bootstrapEnvelope: CreateBootstrapEnvelope(deadlineUtc),
+                bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc + requestExitTimeout),
                 pollInterval: WatchdogPollInterval,
                 parentProcessIsSameProcess: (_, _) =>
                 {
-                    if (Interlocked.Read(ref observedUtcTicks) >= deadlineUtc.Ticks)
+                    if (Interlocked.Read(ref elapsedTicks) >= requestExitTimeout.Ticks)
                     {
                         parentProbeAfterDeadline.TrySetResult(true);
                     }
 
                     return true;
                 },
-                utcNowProvider: () => new DateTimeOffset(
-                    Interlocked.Read(ref observedUtcTicks),
-                    TimeSpan.Zero),
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new DelegatingMonotonicClock(
+                    () => new TimeSpan(Interlocked.Read(ref elapsedTicks))),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
                 processExit: _ => Interlocked.Increment(ref exitCount));
             var completionSignal = new OneshotRequestCompletionSignal(watchdog);
@@ -97,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(handledResult.Request, Is.Not.Null);
             Assert.That(handledResult.Method, Is.EqualTo(UnityIpcMethod.Ping));
             Assert.That(completionSignal.IsCompleted, Is.False);
-            Interlocked.Exchange(ref observedUtcTicks, deadlineUtc.Ticks);
+            Interlocked.Exchange(ref elapsedTicks, requestExitTimeout.Ticks);
             Assert.That(parentProbeAfterDeadline.Task.Wait(SignalWaitTimeout), Is.True);
             Assert.That(Volatile.Read(ref exitCount), Is.EqualTo(0));
         });
@@ -106,26 +106,26 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Handle_WhenSuccessfulNonPingRequestHandled_DisablesRequestDeadlineBeforeSignalingCompletion () => UniTask.ToCoroutine(async () =>
         {
-            var deadlineUtc = ObservedUtc.AddMinutes(1);
-            var observedUtcTicks = ObservedUtc.Ticks;
+            var requestExitTimeout = TimeSpan.FromMinutes(1);
+            var elapsedTicks = 0L;
             var parentProbeAfterDeadline = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var exitCount = 0;
             using var watchdog = new OneshotProcessLifetimeWatchdog(
                 storageRoot: StorageRoot,
-                bootstrapEnvelope: CreateBootstrapEnvelope(deadlineUtc),
+                bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc + requestExitTimeout),
                 pollInterval: WatchdogPollInterval,
                 parentProcessIsSameProcess: (_, _) =>
                 {
-                    if (Interlocked.Read(ref observedUtcTicks) >= deadlineUtc.Ticks)
+                    if (Interlocked.Read(ref elapsedTicks) >= requestExitTimeout.Ticks)
                     {
                         parentProbeAfterDeadline.TrySetResult(true);
                     }
 
                     return true;
                 },
-                utcNowProvider: () => new DateTimeOffset(
-                    Interlocked.Read(ref observedUtcTicks),
-                    TimeSpan.Zero),
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new DelegatingMonotonicClock(
+                    () => new TimeSpan(Interlocked.Read(ref elapsedTicks))),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
                 processExit: _ => Interlocked.Increment(ref exitCount));
             var completionSignal = new OneshotRequestCompletionSignal(watchdog);
@@ -138,7 +138,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(handledResult.Request, Is.Not.Null);
             Assert.That(handledResult.Method, Is.EqualTo(UnityIpcMethod.OpsRead));
             Assert.That(completionSignal.IsCompleted, Is.True);
-            Interlocked.Exchange(ref observedUtcTicks, deadlineUtc.Ticks);
+            Interlocked.Exchange(ref elapsedTicks, requestExitTimeout.Ticks);
             Assert.That(parentProbeAfterDeadline.Task.Wait(SignalWaitTimeout), Is.True);
             Assert.That(Volatile.Read(ref exitCount), Is.EqualTo(0));
         });
@@ -252,7 +252,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(1)),
                 pollInterval: WatchdogPollInterval,
                 parentProcessIsSameProcess: static (_, _) => true,
-                utcNowProvider: static () => ObservedUtc,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
                 processExit: static _ => { });
         }

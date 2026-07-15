@@ -73,7 +73,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     Endpoint: endpoint),
                 pollInterval: TimeSpan.FromHours(1),
                 parentProcessIsSameProcess: static (_, _) => true,
-                utcNowProvider: static () => ObservedUtc,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
                 processExit: _ => Interlocked.Increment(ref exitCount));
             try

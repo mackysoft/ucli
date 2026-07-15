@@ -41,7 +41,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     observedParentProcessStartedAtUtc = parentProcessStartedAtUtc;
                     return false;
                 },
-                utcNowProvider: static () => ObservedUtc,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
                 processExit: observedExitCode =>
                 {
@@ -57,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Timer_WhenUtcDeadlineIsReached_ExitsWhileMainThreadIsBlocked ()
+        public void Timer_WhenDeadlineHasNoRemainingTime_ExitsWhileMainThreadIsBlocked ()
         {
             var exitObserved = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var watchdog = new OneshotProcessLifetimeWatchdog(
@@ -65,7 +66,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc),
                 pollInterval: PollInterval,
                 parentProcessIsSameProcess: static (_, _) => true,
-                utcNowProvider: static () => ObservedUtc,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
                 processExit: observedExitCode =>
                 {
@@ -97,7 +99,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
                     return true;
                 },
-                utcNowProvider: static () => ObservedUtc,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: (_, _) => Interlocked.Increment(ref cleanupCount) == 1,
                 processExit: _ => Interlocked.Increment(ref exitCount));
 
@@ -110,34 +113,105 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Timer_WhenMonotonicDeadlineIsReached_ExitsOnce ()
+        {
+            var elapsedTicks = 0L;
+            var cleanupCount = 0;
+            var exitCount = 0;
+            var exitObserved = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var watchdog = new OneshotProcessLifetimeWatchdog(
+                storageRoot: StorageRoot,
+                bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(1)),
+                pollInterval: PollInterval,
+                parentProcessIsSameProcess: static (_, _) => true,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new DelegatingMonotonicClock(
+                    () => new TimeSpan(Interlocked.Read(ref elapsedTicks))),
+                tryDeleteEnvelopeIfOwned: (_, _) => Interlocked.Increment(ref cleanupCount) == 1,
+                processExit: exitCode =>
+                {
+                    Interlocked.Increment(ref exitCount);
+                    exitObserved.TrySetResult(exitCode);
+                });
+
+            Interlocked.Exchange(ref elapsedTicks, TimeSpan.FromMinutes(1).Ticks);
+
+            Assert.That(exitObserved.Task.Wait(SignalWaitTimeout), Is.True);
+            Assert.That(exitObserved.Task.Result, Is.EqualTo(1));
+            Assert.That(Volatile.Read(ref cleanupCount), Is.EqualTo(1));
+            Assert.That(Volatile.Read(ref exitCount), Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Timer_WhenMonotonicClockHasEarlierOrigin_UsesElapsedDeltaFromConstruction ()
+        {
+            var clockOrigin = TimeSpan.FromMinutes(5);
+            var requestExitTimeout = TimeSpan.FromMinutes(1);
+            var elapsedTicks = clockOrigin.Ticks;
+            var firstObservation = new TaskCompletionSource<string>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var exitObserved = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var watchdog = new OneshotProcessLifetimeWatchdog(
+                storageRoot: StorageRoot,
+                bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc + requestExitTimeout),
+                pollInterval: PollInterval,
+                parentProcessIsSameProcess: (_, _) =>
+                {
+                    firstObservation.TrySetResult("parent-probed");
+                    return true;
+                },
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new DelegatingMonotonicClock(
+                    () => new TimeSpan(Interlocked.Read(ref elapsedTicks))),
+                tryDeleteEnvelopeIfOwned: static (_, _) => true,
+                processExit: exitCode =>
+                {
+                    firstObservation.TrySetResult("exit-requested");
+                    exitObserved.TrySetResult(exitCode);
+                });
+
+            Assert.That(firstObservation.Task.Wait(SignalWaitTimeout), Is.True);
+            Assert.That(firstObservation.Task.Result, Is.EqualTo("parent-probed"));
+            Assert.That(exitObserved.Task.IsCompleted, Is.False);
+
+            Interlocked.Exchange(
+                ref elapsedTicks,
+                (clockOrigin + requestExitTimeout).Ticks);
+
+            Assert.That(exitObserved.Task.Wait(SignalWaitTimeout), Is.True);
+            Assert.That(exitObserved.Task.Result, Is.EqualTo(1));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void MarkRequestCompleted_WhenDeadlineLaterArrivesAndParentIsAlive_DoesNotExit ()
         {
-            var deadlineUtc = ObservedUtc.AddMinutes(1);
-            var observedUtcTicks = ObservedUtc.Ticks;
+            var requestExitTimeout = TimeSpan.FromMinutes(1);
+            var elapsedTicks = 0L;
             var parentProbeAfterDeadline = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var cleanupCount = 0;
             var exitCount = 0;
             using var watchdog = new OneshotProcessLifetimeWatchdog(
                 storageRoot: StorageRoot,
-                bootstrapEnvelope: CreateBootstrapEnvelope(deadlineUtc),
+                bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc + requestExitTimeout),
                 pollInterval: PollInterval,
                 parentProcessIsSameProcess: (_, _) =>
                 {
-                    if (Interlocked.Read(ref observedUtcTicks) >= deadlineUtc.Ticks)
+                    if (Interlocked.Read(ref elapsedTicks) >= requestExitTimeout.Ticks)
                     {
                         parentProbeAfterDeadline.TrySetResult(true);
                     }
 
                     return true;
                 },
-                utcNowProvider: () => new DateTimeOffset(
-                    Interlocked.Read(ref observedUtcTicks),
-                    TimeSpan.Zero),
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new DelegatingMonotonicClock(
+                    () => new TimeSpan(Interlocked.Read(ref elapsedTicks))),
                 tryDeleteEnvelopeIfOwned: (_, _) => Interlocked.Increment(ref cleanupCount) == 1,
                 processExit: _ => Interlocked.Increment(ref exitCount));
 
             watchdog.MarkRequestCompleted();
-            Interlocked.Exchange(ref observedUtcTicks, deadlineUtc.Ticks);
+            Interlocked.Exchange(ref elapsedTicks, requestExitTimeout.Ticks);
 
             Assert.That(parentProbeAfterDeadline.Task.Wait(SignalWaitTimeout), Is.True);
             watchdog.Dispose();
@@ -149,9 +223,10 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void MarkRequestCompleted_WhileDeadlineInspectionIsInFlight_WhenCompletionWins_DoesNotExit ()
         {
-            var deadlineProbeEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var elapsedTimeProbeEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var parentProbeObserved = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var releaseDeadlineProbe = new ManualResetEventSlim();
+            using var releaseElapsedTimeProbe = new ManualResetEventSlim();
+            var monotonicObservationCount = 0;
             var cleanupCount = 0;
             var exitCount = 0;
             var watchdog = new OneshotProcessLifetimeWatchdog(
@@ -163,20 +238,25 @@ namespace MackySoft.Ucli.Unity.Tests
                     parentProbeObserved.TrySetResult(true);
                     return true;
                 },
-                utcNowProvider: () =>
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new DelegatingMonotonicClock(() =>
                 {
-                    deadlineProbeEntered.TrySetResult(true);
-                    releaseDeadlineProbe.Wait();
-                    return ObservedUtc;
-                },
+                    if (Interlocked.Increment(ref monotonicObservationCount) > 1)
+                    {
+                        elapsedTimeProbeEntered.TrySetResult(true);
+                        releaseElapsedTimeProbe.Wait();
+                    }
+
+                    return TimeSpan.Zero;
+                }),
                 tryDeleteEnvelopeIfOwned: (_, _) => Interlocked.Increment(ref cleanupCount) == 1,
                 processExit: _ => Interlocked.Increment(ref exitCount));
             try
             {
-                Assert.That(deadlineProbeEntered.Task.Wait(SignalWaitTimeout), Is.True);
+                Assert.That(elapsedTimeProbeEntered.Task.Wait(SignalWaitTimeout), Is.True);
 
                 watchdog.MarkRequestCompleted();
-                releaseDeadlineProbe.Set();
+                releaseElapsedTimeProbe.Set();
 
                 Assert.That(parentProbeObserved.Task.Wait(SignalWaitTimeout), Is.True);
                 watchdog.Dispose();
@@ -185,7 +265,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             finally
             {
-                releaseDeadlineProbe.Set();
+                releaseElapsedTimeProbe.Set();
                 watchdog.Dispose();
             }
         }
@@ -201,7 +281,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(1)),
                 pollInterval: PollInterval,
                 parentProcessIsSameProcess: (_, _) => Volatile.Read(ref parentIsAlive) != 0,
-                utcNowProvider: static () => ObservedUtc,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
                 processExit: exitCode => exitObserved.TrySetResult(exitCode));
 
@@ -231,7 +312,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     probeReturning.TrySetResult(true);
                     return false;
                 },
-                utcNowProvider: static () => ObservedUtc,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
                 processExit: _ => Interlocked.Increment(ref exitCount));
             try
@@ -255,11 +337,12 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Dispose_AfterRequestCompletedWhileParentProbeIsInFlight_PreventsExitAfterParentDisappears ()
         {
-            var deadlineProbeEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var elapsedTimeProbeEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var parentProbeEntered = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var parentProbeReturning = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var releaseDeadlineProbe = new ManualResetEventSlim();
+            using var releaseElapsedTimeProbe = new ManualResetEventSlim();
             using var releaseParentProbe = new ManualResetEventSlim();
+            var monotonicObservationCount = 0;
             var exitCount = 0;
             var watchdog = new OneshotProcessLifetimeWatchdog(
                 storageRoot: StorageRoot,
@@ -272,19 +355,24 @@ namespace MackySoft.Ucli.Unity.Tests
                     parentProbeReturning.TrySetResult(true);
                     return false;
                 },
-                utcNowProvider: () =>
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new DelegatingMonotonicClock(() =>
                 {
-                    deadlineProbeEntered.TrySetResult(true);
-                    releaseDeadlineProbe.Wait();
-                    return ObservedUtc;
-                },
+                    if (Interlocked.Increment(ref monotonicObservationCount) > 1)
+                    {
+                        elapsedTimeProbeEntered.TrySetResult(true);
+                        releaseElapsedTimeProbe.Wait();
+                    }
+
+                    return TimeSpan.Zero;
+                }),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
                 processExit: _ => Interlocked.Increment(ref exitCount));
             try
             {
-                Assert.That(deadlineProbeEntered.Task.Wait(SignalWaitTimeout), Is.True);
+                Assert.That(elapsedTimeProbeEntered.Task.Wait(SignalWaitTimeout), Is.True);
                 watchdog.MarkRequestCompleted();
-                releaseDeadlineProbe.Set();
+                releaseElapsedTimeProbe.Set();
                 Assert.That(parentProbeEntered.Task.Wait(SignalWaitTimeout), Is.True);
 
                 watchdog.Dispose();
@@ -295,7 +383,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             finally
             {
-                releaseDeadlineProbe.Set();
+                releaseElapsedTimeProbe.Set();
                 releaseParentProbe.Set();
                 watchdog.Dispose();
             }
@@ -315,7 +403,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(-1)),
                 pollInterval: PollInterval,
                 parentProcessIsSameProcess: static (_, _) => false,
-                utcNowProvider: static () => ObservedUtc,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: (_, _) => Interlocked.Increment(ref cleanupCount) == 1,
                 processExit: _ =>
                 {
@@ -361,7 +450,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 bootstrapEnvelope: expectedEnvelope,
                 pollInterval: PollInterval,
                 parentProcessIsSameProcess: static (_, _) => true,
-                utcNowProvider: static () => ObservedUtc,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: (storageRoot, bootstrapEnvelope) =>
                 {
                     observedStorageRoot = storageRoot;
@@ -393,7 +483,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc),
                 pollInterval: PollInterval,
                 parentProcessIsSameProcess: static (_, _) => true,
-                utcNowProvider: static () => ObservedUtc,
+                observedUtcNow: ObservedUtc,
+                monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => throw new InvalidOperationException("cleanup failed"),
                 processExit: exitCode => exitObserved.TrySetResult(exitCode));
 
