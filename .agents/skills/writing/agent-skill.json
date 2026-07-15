@@ -7,8 +7,8 @@
   "displayName": "Writing",
   "description": "自然言語の文章を作成、変更、レビュー、要約、翻訳、ローカライズ、返信するときに、対象、読者、媒体、言語、出力形式を文章前提として固定し、意味保持、事実性、論理構造、文章構造、文体、表記を整える。会話、スレッド、コメント、メール、案内、告知、提案、報告、説明文、記事、原稿、専門文書などの文章成果物や、やりとりの読みやすさを改善したいときに使う。",
   "dependencies": [],
-  "contentDigest": "451d143d0c57b94a9da8a119c2b1fa7536b6a5910ce1a31762b73aa4e0a0e06f",
-  "manifestDigest": "6031407abe80cd4e04be31e91d13195eb3142bdae41c2db7a76b4f04c8d03736",
+  "contentDigest": "de505c42b00c1cb05adeb05e5ecfc6772f42af30bf33b4929a0424aa2c6ba1b3",
+  "manifestDigest": "6c760ed239ccabf7ec19b6a584e9a87200e77775f4055299c97555bb57dd5109",
   "hostArtifacts": [
     {
       "host": "claude",
