@@ -16,7 +16,7 @@ internal sealed class UnexpectedIpcTransportClient : IIpcTransportClient
 
     public ValueTask<IpcResponse> SendAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -25,7 +25,7 @@ internal sealed class UnexpectedIpcTransportClient : IIpcTransportClient
 
     public ValueTask<IpcResponse> SendStreamingAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
@@ -35,7 +35,7 @@ internal sealed class UnexpectedIpcTransportClient : IIpcTransportClient
 
     public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
@@ -45,7 +45,7 @@ internal sealed class UnexpectedIpcTransportClient : IIpcTransportClient
 
     public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         CancellationToken cancellationToken = default)
     {

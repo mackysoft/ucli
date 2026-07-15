@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -12,50 +13,39 @@ internal static class IpcTransportClientTestSupport
 
     public static readonly TimeSpan WaitTimeout = TimeSpan.FromSeconds(5);
 
-    public static IpcStreamFrame CreateProgressFrame (
-        IpcRequest request,
-        int? protocolVersion = null,
-        Guid? requestId = null,
-        string kind = IpcStreamFrameKinds.Progress,
-        string? eventName = "test.progress",
-        IpcResponse? response = null)
+    public static IpcTransportClient CreateClient (TimeProvider timeProvider)
+    {
+        return new IpcTransportClient(
+            new IpcTransportConnector(),
+            timeProvider);
+    }
+
+    public static IpcStreamFrame CreateProgressFrame (IpcRequestEnvelope request)
     {
         return new IpcStreamFrame(
-            protocolVersion ?? IpcProtocol.CurrentVersion,
-            requestId ?? request.RequestId,
-            kind,
-            eventName,
+            IpcProtocol.CurrentVersion,
+            request.RequestId,
+            IpcStreamFrameKind.Progress,
+            "test.progress",
             IpcTransportTestHarness.Json("""{"progress":true}"""),
-            response);
+            response: null);
     }
 
     public static IpcStreamFrame CreateTerminalFrame (
-        IpcRequest request,
-        string? eventName = null,
+        IpcRequestEnvelope request,
         IpcResponse? response = null)
     {
         return new IpcStreamFrame(
             IpcProtocol.CurrentVersion,
             request.RequestId,
-            IpcStreamFrameKinds.Terminal,
-            eventName,
+            IpcStreamFrameKind.Terminal,
+            @event: null,
             IpcTransportTestHarness.Json("{}"),
             response ?? IpcTransportTestHarness.CreateResponse(request.RequestId, """{"done":true}"""));
     }
 
-    public static IpcStreamFrame CreateTerminalFrameWithoutResponse (IpcRequest request)
-    {
-        return new IpcStreamFrame(
-            IpcProtocol.CurrentVersion,
-            request.RequestId,
-            IpcStreamFrameKinds.Terminal,
-            @event: null,
-            IpcTransportTestHarness.Json("{}"),
-            response: null);
-    }
-
     public static async Task WriteProgressThenTerminalAsync (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         Stream stream,
         CancellationToken cancellationToken)
     {
@@ -70,7 +60,7 @@ internal static class IpcTransportClientTestSupport
     }
 
     public static async Task WriteProgressThenDelayedTerminalAsync (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         Stream stream,
         CancellationToken cancellationToken)
     {

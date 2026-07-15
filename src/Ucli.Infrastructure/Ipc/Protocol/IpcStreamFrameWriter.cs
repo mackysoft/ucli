@@ -3,7 +3,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Infrastructure.Ipc;
 
 /// <summary> Writes length-prefixed IPC stream frames to one connected transport stream. </summary>
-internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
+internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter, IDisposable
 {
     private readonly Stream stream;
 
@@ -11,9 +11,17 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
 
     private readonly CancellationToken connectionLifetimeCancellationToken;
 
+    private readonly CancellationTokenSource connectionLifetimeSignal;
+
+    private readonly Task connectionLifetimeCancellationTask;
+
     private readonly CancellationToken transportWriteCancellationToken;
 
-    private readonly TimeSpan frameWriteTimeout;
+    private readonly CancellationToken frameWriteCutoffToken;
+
+    private readonly CancellationTokenSource frameWriteCutoffSignal;
+
+    private readonly Task frameWriteCutoffTask;
 
     private readonly Action<Exception>? writeFailureHandler;
 
@@ -21,21 +29,24 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
 
     private Exception? terminalWriteFailure;
 
+    private bool terminalFrameWritten;
+
+    private int disposed;
+
     /// <summary> Initializes a new instance of the <see cref="IpcStreamFrameWriter" /> class. </summary>
     /// <param name="stream"> The connected transport stream. </param>
-    /// <param name="request"> The request that owns the stream response. </param>
+    /// <param name="request"> The response-correlation context that owns the stream response. </param>
     /// <param name="connectionLifetimeCancellationToken"> The cancellation token for the connected transport lifetime. </param>
     /// <param name="transportWriteCancellationToken"> The cancellation token passed to transport write operations. </param>
-    /// <param name="frameWriteTimeout"> The upper bound for writing one frame. </param>
+    /// <param name="frameWriteCutoffToken"> The shared request-phase token canceled at the monotonic write cutoff. </param>
     /// <param name="writeFailureHandler"> The callback invoked when a connection-local write failure occurs, or <see langword="null" /> when no notification is required. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="stream" /> or <paramref name="request" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="frameWriteTimeout" /> is not positive. </exception>
     public IpcStreamFrameWriter (
         Stream stream,
-        IpcRequest request,
+        IIpcRequestCorrelation request,
         CancellationToken connectionLifetimeCancellationToken,
         CancellationToken transportWriteCancellationToken,
-        TimeSpan frameWriteTimeout,
+        CancellationToken frameWriteCutoffToken,
         Action<Exception>? writeFailureHandler)
     {
         this.stream = stream ?? throw new ArgumentNullException(nameof(stream));
@@ -46,17 +57,29 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
 
         requestId = request.RequestId;
         this.connectionLifetimeCancellationToken = connectionLifetimeCancellationToken;
+        connectionLifetimeSignal = CancellationTokenSource.CreateLinkedTokenSource(
+            connectionLifetimeCancellationToken);
+        connectionLifetimeCancellationTask = Task.Delay(
+            Timeout.Infinite,
+            connectionLifetimeSignal.Token);
         this.transportWriteCancellationToken = transportWriteCancellationToken;
-        if (frameWriteTimeout <= TimeSpan.Zero)
+        this.frameWriteCutoffToken = frameWriteCutoffToken;
+        frameWriteCutoffSignal = CancellationTokenSource.CreateLinkedTokenSource(frameWriteCutoffToken);
+        frameWriteCutoffTask = Task.Delay(Timeout.Infinite, frameWriteCutoffSignal.Token);
+        this.writeFailureHandler = writeFailureHandler;
+    }
+
+    /// <summary> Releases cancellation registrations and synchronization state owned by this writer. </summary>
+    public void Dispose ()
+    {
+        if (Interlocked.Exchange(ref disposed, 1) != 0)
         {
-            throw new ArgumentOutOfRangeException(
-                nameof(frameWriteTimeout),
-                frameWriteTimeout,
-                "Frame write timeout must be greater than zero.");
+            return;
         }
 
-        this.frameWriteTimeout = frameWriteTimeout;
-        this.writeFailureHandler = writeFailureHandler;
+        frameWriteCutoffSignal.Dispose();
+        connectionLifetimeSignal.Dispose();
+        writeGate.Dispose();
     }
 
     /// <summary> Writes one progress frame. </summary>
@@ -88,7 +111,7 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
         var frame = new IpcStreamFrame(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            kind: IpcStreamFrameKinds.Progress,
+            kind: IpcStreamFrameKind.Progress,
             @event: eventName,
             payload: IpcPayloadCodec.SerializeToElement(payload),
             response: null);
@@ -114,7 +137,7 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
         var frame = new IpcStreamFrame(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            kind: IpcStreamFrameKinds.Terminal,
+            kind: IpcStreamFrameKind.Terminal,
             @event: null,
             payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
             response: response);
@@ -126,20 +149,17 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
         CancellationToken frameAdmissionCancellationToken)
     {
         ThrowIfWriterUnavailable();
-        await writeGate.WaitAsync(frameAdmissionCancellationToken).ConfigureAwait(false);
+        await WaitForWriteGateAsync(frameAdmissionCancellationToken).ConfigureAwait(false);
         try
         {
             ThrowIfWriterUnavailable();
+            ThrowIfTerminalFrameWasWritten();
             try
             {
                 // NOTE: Once admitted, a length-prefixed frame must not be interrupted by an execution deadline.
-                // Only the connection lifetime and the independent frame deadline may stop its transport write.
+                // Only the connection lifetime and the exchange-wide write cutoff may stop its transport write.
                 connectionLifetimeCancellationToken.ThrowIfCancellationRequested();
-                using var frameWriteTimeoutCancellationTokenSource =
-                    CancellationTokenSource.CreateLinkedTokenSource(connectionLifetimeCancellationToken);
-                var timeoutTask = Task.Delay(
-                    frameWriteTimeout,
-                    frameWriteTimeoutCancellationTokenSource.Token);
+                ThrowIfWriteCutoffReached();
                 var writeTask = Task.Run(
                     async () =>
                     {
@@ -152,25 +172,39 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
                             .ConfigureAwait(false);
                     },
                     CancellationToken.None);
-                var completedTask = await Task.WhenAny(writeTask, timeoutTask).ConfigureAwait(false);
-                if (!ReferenceEquals(completedTask, writeTask))
+                var completedTask = await Task.WhenAny(
+                        writeTask,
+                        connectionLifetimeCancellationTask,
+                        frameWriteCutoffTask)
+                    .ConfigureAwait(false);
+                if (ReferenceEquals(completedTask, writeTask))
                 {
-                    ObserveFault(writeTask);
-                    if (connectionLifetimeCancellationToken.IsCancellationRequested)
+                    try
                     {
-                        connectionLifetimeCancellationToken.ThrowIfCancellationRequested();
+                        await writeTask.ConfigureAwait(false);
+                        terminalFrameWritten |= frame.Kind == IpcStreamFrameKind.Terminal;
+                        return;
                     }
-
-                    var timeoutException = new IOException(
-                        $"Timed out while writing an IPC stream frame after {frameWriteTimeout.TotalMilliseconds:0} milliseconds.");
-                    var recordedFailure = RecordTerminalWriteFailure(
-                        timeoutException,
-                        notifyWriteFailure: true);
-                    throw recordedFailure;
+                    catch (OperationCanceledException) when (
+                        !connectionLifetimeCancellationToken.IsCancellationRequested
+                        && frameWriteCutoffToken.IsCancellationRequested)
+                    {
+                        throw RecordWriteCutoffFailure(
+                            "Timed out while writing an IPC stream frame before the request write cutoff.");
+                    }
                 }
 
-                frameWriteTimeoutCancellationTokenSource.Cancel();
-                await writeTask.ConfigureAwait(false);
+                ObserveFault(writeTask);
+                if (ReferenceEquals(
+                        completedTask,
+                        connectionLifetimeCancellationTask)
+                    || connectionLifetimeCancellationToken.IsCancellationRequested)
+                {
+                    connectionLifetimeCancellationToken.ThrowIfCancellationRequested();
+                }
+
+                throw RecordWriteCutoffFailure(
+                    "Timed out while writing an IPC stream frame before the request write cutoff.");
             }
             catch (OperationCanceledException exception) when (connectionLifetimeCancellationToken.IsCancellationRequested)
             {
@@ -189,6 +223,38 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
         finally
         {
             writeGate.Release();
+        }
+    }
+
+    private async ValueTask WaitForWriteGateAsync (
+        CancellationToken frameAdmissionCancellationToken)
+    {
+        frameAdmissionCancellationToken.ThrowIfCancellationRequested();
+        connectionLifetimeCancellationToken.ThrowIfCancellationRequested();
+        ThrowIfWriteCutoffReached();
+        if (writeGate.Wait(0))
+        {
+            return;
+        }
+
+        using var gateWaitCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+            frameAdmissionCancellationToken,
+            connectionLifetimeCancellationToken,
+            frameWriteCutoffToken);
+        try
+        {
+            await writeGate.WaitAsync(gateWaitCancellationTokenSource.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException exception) when (connectionLifetimeCancellationToken.IsCancellationRequested)
+        {
+            throw RecordTerminalWriteFailure(
+                exception,
+                notifyWriteFailure: false);
+        }
+        catch (OperationCanceledException) when (frameWriteCutoffToken.IsCancellationRequested)
+        {
+            throw RecordWriteCutoffFailure(
+                "Timed out while waiting to write an IPC stream frame before the request write cutoff.");
         }
     }
 
@@ -225,11 +291,41 @@ internal sealed class IpcStreamFrameWriter : IIpcStreamFrameWriter
 
     private void ThrowIfWriterUnavailable ()
     {
+        if (Volatile.Read(ref disposed) != 0)
+        {
+            throw new ObjectDisposedException(nameof(IpcStreamFrameWriter));
+        }
+
         var failure = Volatile.Read(ref terminalWriteFailure);
         if (failure is not null)
         {
             throw failure;
         }
+    }
+
+    private void ThrowIfWriteCutoffReached ()
+    {
+        if (frameWriteCutoffToken.IsCancellationRequested)
+        {
+            throw RecordWriteCutoffFailure(
+                "The IPC request write cutoff has already elapsed.");
+        }
+    }
+
+    private void ThrowIfTerminalFrameWasWritten ()
+    {
+        if (terminalFrameWritten)
+        {
+            throw new InvalidOperationException(
+                "The terminal IPC stream frame has already been written for this request.");
+        }
+    }
+
+    private Exception RecordWriteCutoffFailure (string message)
+    {
+        return RecordTerminalWriteFailure(
+            new IOException(message),
+            notifyWriteFailure: true);
     }
 
     private static void ObserveFault (Task task)

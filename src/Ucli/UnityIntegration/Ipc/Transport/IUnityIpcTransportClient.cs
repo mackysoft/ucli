@@ -19,7 +19,7 @@ internal interface IUnityIpcTransportClient
     ValueTask<IpcResponse> SendAsync (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 
@@ -35,7 +35,7 @@ internal interface IUnityIpcTransportClient
     ValueTask<IpcResponse> SendStreamingAsync (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default);

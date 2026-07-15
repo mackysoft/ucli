@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace MackySoft.Ucli.Application.Shared.Configuration;
 
 /// <summary> Validates and normalizes IPC-timeout config values. </summary>
@@ -64,7 +66,7 @@ internal static class IpcTimeoutConfigValidator
 
     private static bool TryParseSupportedTimeoutCommand (
         string? commandName,
-        out UcliCommand command)
+        [NotNullWhen(true)] out UcliCommand? command)
     {
         if (!UcliCommand.TryCreate(commandName, out command))
         {

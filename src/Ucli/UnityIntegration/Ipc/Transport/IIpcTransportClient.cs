@@ -11,10 +11,14 @@ internal interface IIpcTransportClient
     /// <param name="timeout"> The timeout for one request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The response envelope. </returns>
+    /// <exception cref="IpcConnectException"> Thrown when a non-timeout connection failure occurs before any request bytes are written. </exception>
+    /// <exception cref="IpcConnectTimeoutException"> Thrown when connection does not complete within the shorter of <paramref name="timeout" /> and the transport connection-attempt cap. No request bytes have been written when this exception is thrown. </exception>
+    /// <exception cref="TimeoutException"> Thrown when request transmission or response reading does not complete within <paramref name="timeout" />. </exception>
+    /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled. </exception>
     /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but the response frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 
@@ -25,10 +29,15 @@ internal interface IIpcTransportClient
     /// <param name="onProgressFrame"> The callback invoked for each progress frame. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The terminal response envelope. </returns>
+    /// <exception cref="IpcConnectException"> Thrown when a non-timeout connection failure occurs before any request bytes are written. </exception>
+    /// <exception cref="IpcConnectTimeoutException"> Thrown when connection does not complete within the shorter of <paramref name="timeout" /> and the transport connection-attempt cap. No request bytes have been written when this exception is thrown. </exception>
+    /// <exception cref="TimeoutException"> Thrown when request transmission or response reading does not complete within <paramref name="timeout" />. </exception>
+    /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled. </exception>
     /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but a response stream frame read was interrupted. </exception>
+    /// <exception cref="IpcStreamingOperationInProgressException"> Thrown when another streaming operation on this client is active or has not finished after cancellation or timeout. </exception>
     ValueTask<IpcResponse> SendStreamingAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default);
@@ -43,10 +52,15 @@ internal interface IIpcTransportClient
     /// <param name="onProgressFrame"> The callback invoked for each progress frame. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The terminal response envelope. </returns>
+    /// <exception cref="IpcConnectException"> Thrown when a non-timeout connection failure occurs before any request bytes are written. </exception>
+    /// <exception cref="IpcConnectTimeoutException"> Thrown when connection does not complete within the shorter of <paramref name="sendTimeout" /> and the transport connection-attempt cap. No request bytes have been written when this exception is thrown. </exception>
+    /// <exception cref="TimeoutException"> Thrown when request transmission does not complete within <paramref name="sendTimeout" />. </exception>
+    /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled during connection, writing, or the otherwise unbounded response wait. </exception>
     /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but a response stream frame read was interrupted. </exception>
+    /// <exception cref="IpcStreamingOperationInProgressException"> Thrown when another streaming operation on this client is active or has not finished after cancellation. </exception>
     ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default);
@@ -60,10 +74,14 @@ internal interface IIpcTransportClient
     /// <param name="sendTimeout"> The timeout for connection and request write. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The response envelope. </returns>
+    /// <exception cref="IpcConnectException"> Thrown when a non-timeout connection failure occurs before any request bytes are written. </exception>
+    /// <exception cref="IpcConnectTimeoutException"> Thrown when connection does not complete within the shorter of <paramref name="sendTimeout" /> and the transport connection-attempt cap. No request bytes have been written when this exception is thrown. </exception>
+    /// <exception cref="TimeoutException"> Thrown when request transmission does not complete within <paramref name="sendTimeout" />. </exception>
+    /// <exception cref="OperationCanceledException"> Thrown when <paramref name="cancellationToken" /> is canceled during connection, writing, or the otherwise unbounded response wait. </exception>
     /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but the response frame read was interrupted. </exception>
     ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         CancellationToken cancellationToken = default);
 }

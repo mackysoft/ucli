@@ -4,63 +4,63 @@ namespace MackySoft.Ucli.Tests.Helpers.Ipc;
 
 internal static class IpcRequestAssert
 {
-    public static IReadOnlyList<IpcRequest> Methods (
+    public static IReadOnlyList<IpcRequestEnvelope> Methods (
         RecordingIpcTransportClient transportClient,
         params UnityIpcMethod[] expectedMethods)
     {
         return Methods(transportClient.Requests, expectedMethods);
     }
 
-    public static IReadOnlyList<IpcRequest> Methods (
+    public static IReadOnlyList<IpcRequestEnvelope> Methods (
         RecordingUnityIpcTransportClient transportClient,
         params UnityIpcMethod[] expectedMethods)
     {
         return Methods(transportClient.Requests, expectedMethods);
     }
 
-    public static IReadOnlyList<IpcRequest> Methods (
-        IReadOnlyList<IpcRequest> requests,
+    public static IReadOnlyList<IpcRequestEnvelope> Methods (
+        IReadOnlyList<IpcRequestEnvelope> requests,
         params UnityIpcMethod[] expectedMethods)
     {
         Assert.Collection(
             requests,
             expectedMethods
-                .Select<UnityIpcMethod, Action<IpcRequest>>(
+                .Select<UnityIpcMethod, Action<IpcRequestEnvelope>>(
                     expectedMethod => request => Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method))
                 .ToArray());
         return requests;
     }
 
-    public static IReadOnlyList<IpcRequest> RetriedAtLeastOnce (
+    public static IReadOnlyList<IpcRequestEnvelope> RetriedAtLeastOnce (
         RecordingIpcTransportClient transportClient,
         int maximumAttempts = int.MaxValue)
     {
         return RetriedAtLeastOnce(transportClient.Requests, maximumAttempts);
     }
 
-    public static IReadOnlyList<IpcRequest> RetriedAtLeastOnce (
+    public static IReadOnlyList<IpcRequestEnvelope> RetriedAtLeastOnce (
         RecordingUnityIpcTransportClient transportClient,
         int maximumAttempts = int.MaxValue)
     {
         return RetriedAtLeastOnce(transportClient.Requests, maximumAttempts);
     }
 
-    public static IReadOnlyList<IpcRequest> WithMethod (
+    public static IReadOnlyList<IpcRequestEnvelope> WithMethod (
         RecordingIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod)
     {
         return WithMethod(transportClient.Requests, expectedMethod);
     }
 
-    public static IReadOnlyList<IpcRequest> WithMethod (
+    public static IReadOnlyList<IpcRequestEnvelope> WithMethod (
         RecordingUnityIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod)
     {
         return WithMethod(transportClient.Requests, expectedMethod);
     }
 
-    public static IReadOnlyList<IpcRequest> WithMethod (
-        IReadOnlyList<IpcRequest> requests,
+    public static IReadOnlyList<IpcRequestEnvelope> WithMethod (
+        IReadOnlyList<IpcRequestEnvelope> requests,
         UnityIpcMethod expectedMethod)
     {
         var expectedMethodLiteral = ContractLiteralCodec.ToValue(expectedMethod);
@@ -71,29 +71,29 @@ internal static class IpcRequestAssert
         return matchingRequests;
     }
 
-    public static IpcRequest SingleWithMethod (
-        IReadOnlyList<IpcRequest> requests,
+    public static IpcRequestEnvelope SingleWithMethod (
+        IReadOnlyList<IpcRequestEnvelope> requests,
         UnityIpcMethod expectedMethod)
     {
         return Assert.Single(WithMethod(requests, expectedMethod));
     }
 
-    public static IpcRequest SingleWithMethod (
+    public static IpcRequestEnvelope SingleWithMethod (
         RecordingIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod)
     {
         return SingleWithMethod(transportClient.Requests, expectedMethod);
     }
 
-    public static IpcRequest SingleWithMethod (
+    public static IpcRequestEnvelope SingleWithMethod (
         RecordingUnityIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod)
     {
         return SingleWithMethod(transportClient.Requests, expectedMethod);
     }
 
-    public static IReadOnlyList<IpcRequest> AllSessionToken (
-        IReadOnlyList<IpcRequest> requests,
+    public static IReadOnlyList<IpcRequestEnvelope> AllSessionToken (
+        IReadOnlyList<IpcRequestEnvelope> requests,
         string expectedSessionToken)
     {
         Assert.All(
@@ -102,24 +102,24 @@ internal static class IpcRequestAssert
         return requests;
     }
 
-    public static IReadOnlyList<IpcRequest> SessionTokens (
-        IReadOnlyList<IpcRequest> requests,
+    public static IReadOnlyList<IpcRequestEnvelope> SessionTokens (
+        IReadOnlyList<IpcRequestEnvelope> requests,
         params string[] expectedSessionTokens)
     {
         Assert.Collection(
             requests,
             expectedSessionTokens
-                .Select<string, Action<IpcRequest>>(expectedToken => request => Assert.Equal(expectedToken, request.SessionToken))
+                .Select<string, Action<IpcRequestEnvelope>>(expectedToken => request => Assert.Equal(expectedToken, request.SessionToken))
                 .ToArray());
         return requests;
     }
 
-    public static Guid SingleRequestId (IReadOnlyList<IpcRequest> requests)
+    public static Guid SingleRequestId (IReadOnlyList<IpcRequestEnvelope> requests)
     {
         return Assert.Single(requests.Select(static request => request.RequestId).Distinct());
     }
 
-    public static UnityIpcMethod ParseMethod (IpcRequest request)
+    public static UnityIpcMethod ParseMethod (IpcRequestEnvelope request)
     {
         Assert.True(
             ContractLiteralCodec.TryParse(request.Method, out UnityIpcMethod method),
@@ -127,8 +127,8 @@ internal static class IpcRequestAssert
         return method;
     }
 
-    public static IReadOnlyList<IpcRequest> RetriedAtLeastOnce (
-        IReadOnlyList<IpcRequest> requests,
+    public static IReadOnlyList<IpcRequestEnvelope> RetriedAtLeastOnce (
+        IReadOnlyList<IpcRequestEnvelope> requests,
         int maximumAttempts = int.MaxValue)
     {
         Assert.InRange(requests.Count, 2, maximumAttempts);

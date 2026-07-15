@@ -5,7 +5,7 @@ namespace MackySoft.Ucli.TestSupport;
 internal static class IpcResponseTestFactory
 {
     public static IpcResponse CreateSuccess<TPayload> (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TPayload payload)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -13,23 +13,23 @@ internal static class IpcResponseTestFactory
         return new IpcResponse(
             protocolVersion: request.ProtocolVersion,
             requestId: request.RequestId,
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             payload: IpcPayloadCodec.SerializeToElement(payload),
             errors: Array.Empty<IpcError>());
     }
 
     public static IpcResponse CreateError (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         UcliCode code,
         string message,
-        string? opId = null)
+        IpcExecuteStepId? opId = null)
     {
         ArgumentNullException.ThrowIfNull(request);
 
         return new IpcResponse(
             protocolVersion: request.ProtocolVersion,
             requestId: request.RequestId,
-            status: IpcProtocol.StatusError,
+            status: IpcResponseStatus.Error,
             payload: IpcPayloadCodec.SerializeToElement(new { }),
             errors:
             [

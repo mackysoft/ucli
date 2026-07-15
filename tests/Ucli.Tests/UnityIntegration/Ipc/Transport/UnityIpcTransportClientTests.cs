@@ -162,7 +162,7 @@ public sealed class UnityIpcTransportClientTests
         return new IpcStreamFrame(
             IpcProtocol.CurrentVersion,
             requestId,
-            IpcStreamFrameKinds.Progress,
+            IpcStreamFrameKind.Progress,
             "test.progress",
             IpcTransportTestHarness.Json("{}"),
             response: null);

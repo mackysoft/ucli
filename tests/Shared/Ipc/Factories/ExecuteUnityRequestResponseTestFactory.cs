@@ -5,7 +5,7 @@ namespace MackySoft.Ucli.TestSupport;
 internal static class ExecuteUnityRequestResponseTestFactory
 {
     public static UnityRequestResponse Create (
-        string status,
+        IpcResponseStatus status,
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
         string? planToken = null,
@@ -17,13 +17,13 @@ internal static class ExecuteUnityRequestResponseTestFactory
             project ?? new IpcProjectIdentity(
                 projectPath: "/repo/UnityProject",
                 projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-                unityVersion: "6000.1.4f1"))
-        {
-            PlanToken = planToken,
-            ReadPostcondition = readPostcondition == null
+                unityVersion: "6000.1.4f1"),
+            planToken: planToken,
+            readPostcondition: readPostcondition == null
                 ? null
                 : ReadPostconditionTestFactory.ToIpcContract(readPostcondition),
-        };
+            postReadSource: null,
+            contractViolations: null);
 
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,

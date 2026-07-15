@@ -5,28 +5,28 @@ namespace MackySoft.Ucli.Tests.Helpers.Ipc;
 
 internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClient, IIpcTransportClient
 {
-    private readonly Func<IpcRequest, CancellationToken, ValueTask<IpcResponse>> responseFactory;
+    private readonly Func<IpcRequestEnvelope, CancellationToken, ValueTask<IpcResponse>> responseFactory;
 
-    private readonly Func<IpcRequest, IpcStreamFrame?>? progressFrameFactory;
+    private readonly Func<IpcRequestEnvelope, IpcStreamFrame?>? progressFrameFactory;
 
     private readonly List<UnityInvocation> unityInvocations = [];
 
     private readonly List<EndpointInvocation> endpointInvocations = [];
 
-    private readonly List<IpcRequest> requests = [];
+    private readonly List<IpcRequestEnvelope> requests = [];
 
-    private readonly List<IpcRequest> streamingRequests = [];
+    private readonly List<IpcRequestEnvelope> streamingRequests = [];
 
     public RecordingUnityIpcTransportClient (
-        Func<IpcRequest, IpcResponse> responseFactory,
-        Func<IpcRequest, IpcStreamFrame?>? progressFrameFactory = null)
+        Func<IpcRequestEnvelope, IpcResponse> responseFactory,
+        Func<IpcRequestEnvelope, IpcStreamFrame?>? progressFrameFactory = null)
         : this(AdaptResponseFactory(responseFactory), progressFrameFactory)
     {
     }
 
     public RecordingUnityIpcTransportClient (
-        Func<IpcRequest, CancellationToken, ValueTask<IpcResponse>> responseFactory,
-        Func<IpcRequest, IpcStreamFrame?>? progressFrameFactory = null)
+        Func<IpcRequestEnvelope, CancellationToken, ValueTask<IpcResponse>> responseFactory,
+        Func<IpcRequestEnvelope, IpcStreamFrame?>? progressFrameFactory = null)
     {
         this.responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
         this.progressFrameFactory = progressFrameFactory;
@@ -36,14 +36,14 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
 
     public IReadOnlyList<EndpointInvocation> EndpointInvocations => endpointInvocations;
 
-    public IReadOnlyList<IpcRequest> Requests => requests;
+    public IReadOnlyList<IpcRequestEnvelope> Requests => requests;
 
-    public IReadOnlyList<IpcRequest> StreamingRequests => streamingRequests;
+    public IReadOnlyList<IpcRequestEnvelope> StreamingRequests => streamingRequests;
 
     public ValueTask<IpcResponse> SendAsync (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -55,7 +55,7 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
     public async ValueTask<IpcResponse> SendStreamingAsync (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
@@ -72,7 +72,7 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
 
     public ValueTask<IpcResponse> SendAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -83,7 +83,7 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
 
     public async ValueTask<IpcResponse> SendStreamingAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
@@ -100,7 +100,7 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
 
     public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         CancellationToken cancellationToken = default)
     {
@@ -111,7 +111,7 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
 
     public async ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
@@ -127,7 +127,7 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
     }
 
     private async ValueTask EmitProgressFrameAsync (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken)
     {
@@ -137,8 +137,8 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
         }
     }
 
-    private static Func<IpcRequest, CancellationToken, ValueTask<IpcResponse>> AdaptResponseFactory (
-        Func<IpcRequest, IpcResponse> responseFactory)
+    private static Func<IpcRequestEnvelope, CancellationToken, ValueTask<IpcResponse>> AdaptResponseFactory (
+        Func<IpcRequestEnvelope, IpcResponse> responseFactory)
     {
         ArgumentNullException.ThrowIfNull(responseFactory);
 
@@ -146,7 +146,7 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
     }
 
     private ValueTask<IpcResponse> SendCoreAsync (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         CancellationToken cancellationToken)
     {
         requests.Add(request);
@@ -156,13 +156,13 @@ internal sealed class RecordingUnityIpcTransportClient : IUnityIpcTransportClien
     internal readonly record struct UnityInvocation (
         string StorageRoot,
         ProjectFingerprint ProjectFingerprint,
-        IpcRequest Request,
+        IpcRequestEnvelope Request,
         TimeSpan Timeout,
         bool IsStreaming);
 
     internal readonly record struct EndpointInvocation (
         IpcEndpoint Endpoint,
-        IpcRequest Request,
+        IpcRequestEnvelope Request,
         TimeSpan Timeout,
         bool IsStreaming);
 }

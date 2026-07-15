@@ -5,6 +5,16 @@ namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class IpcTransportClientRequestValidationTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WithNullTimeProvider_ThrowsArgumentNullException ()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() =>
+            new IpcTransportClient(new IpcTransportConnector(), null!));
+
+        Assert.Equal("timeProvider", exception.ParamName);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(0)]
@@ -14,7 +24,7 @@ public sealed class IpcTransportClientRequestValidationTests
         var endpoint = new IpcEndpoint(
             IpcTransportKind.NamedPipe,
             "ucli-invalid-timeout");
-        var client = new IpcTransportClient();
+        var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
         var timeout = TimeSpan.FromMilliseconds(timeoutMilliseconds);
 
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
@@ -27,7 +37,7 @@ public sealed class IpcTransportClientRequestValidationTests
     [Trait("Size", "Small")]
     public async Task SendAsync_WithStreamResponseMode_ThrowsInvalidOperationException ()
     {
-        var client = new IpcTransportClient();
+        var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {
@@ -43,7 +53,7 @@ public sealed class IpcTransportClientRequestValidationTests
     [Trait("Size", "Small")]
     public async Task SendStreamingAsync_WithSingleResponseMode_ThrowsInvalidOperationException ()
     {
-        var client = new IpcTransportClient();
+        var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
 
         await Assert.ThrowsAsync<InvalidOperationException>(async () =>
         {

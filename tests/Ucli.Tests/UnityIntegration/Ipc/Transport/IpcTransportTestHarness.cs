@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -8,8 +7,8 @@ namespace MackySoft.Ucli.Tests.Ipc;
 internal static class IpcTransportTestHarness
 {
     internal static async Task WithUnixStreamingServerAsync (
-        Func<IpcRequest, Stream, CancellationToken, Task> writeFramesAsync,
-        Func<IpcEndpoint, IpcRequest, Task> executeClientAsync,
+        Func<IpcRequestEnvelope, Stream, CancellationToken, Task> writeFramesAsync,
+        Func<IpcEndpoint, IpcRequestEnvelope, Task> executeClientAsync,
         TimeSpan waitTimeout)
     {
         var endpoint = new IpcEndpoint(
@@ -26,7 +25,7 @@ internal static class IpcTransportTestHarness
             endpoint,
             async (stream, cancellationToken) =>
             {
-                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
+                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
                     stream,
                     IpcJsonSerializerOptions.Default,
                     cancellationToken: cancellationToken);
@@ -66,8 +65,8 @@ internal static class IpcTransportTestHarness
     }
 
     internal static async Task WithUnixResponseServerAsync (
-        Func<IpcRequest, Stream, CancellationToken, Task> writeResponseAsync,
-        Func<IpcEndpoint, IpcRequest, Task> executeClientAsync,
+        Func<IpcRequestEnvelope, Stream, CancellationToken, Task> writeResponseAsync,
+        Func<IpcEndpoint, IpcRequestEnvelope, Task> executeClientAsync,
         TimeSpan waitTimeout)
     {
         var endpoint = new IpcEndpoint(
@@ -84,7 +83,7 @@ internal static class IpcTransportTestHarness
             endpoint,
             async (stream, cancellationToken) =>
             {
-                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
+                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
                     stream,
                     IpcJsonSerializerOptions.Default,
                     cancellationToken: cancellationToken);
@@ -135,38 +134,42 @@ internal static class IpcTransportTestHarness
             cancellationToken: cancellationToken);
     }
 
-    internal static IpcRequest CreateStreamingRequest ()
+    internal static IpcRequestEnvelope CreateStreamingRequest ()
     {
-        return new IpcRequest(
+        return new IpcRequestEnvelope(
             IpcProtocol.CurrentVersion,
             Guid.NewGuid(),
             "token",
             ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
             Json("{}"),
-            ContractLiteralCodec.ToValue(IpcResponseMode.Stream));
+            ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+            DateTimeOffset.MaxValue,
+            int.MaxValue);
     }
 
-    internal static IpcRequest CreateSingleRequest ()
+    internal static IpcRequestEnvelope CreateSingleRequest ()
     {
-        return new IpcRequest(
+        return new IpcRequestEnvelope(
             IpcProtocol.CurrentVersion,
             Guid.NewGuid(),
             "token",
             ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
             Json("{}"),
-            ContractLiteralCodec.ToValue(IpcResponseMode.Single));
+            ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            DateTimeOffset.MaxValue,
+            int.MaxValue);
     }
 
     internal static IpcResponse CreateResponse (
         Guid requestId,
         string payloadJson,
         int? protocolVersion = null,
-        string? status = null)
+        IpcResponseStatus? status = null)
     {
         return new IpcResponse(
             protocolVersion ?? IpcProtocol.CurrentVersion,
             requestId,
-            status ?? IpcProtocol.StatusOk,
+            status ?? IpcResponseStatus.Ok,
             Json(payloadJson),
             Array.Empty<IpcError>());
     }

@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
-/// <summary> Represents timeout while establishing IPC transport connection. </summary>
+/// <summary> Represents timeout while establishing an IPC transport connection before any request bytes are written. </summary>
 internal sealed class IpcConnectTimeoutException : TimeoutException
 {
     /// <summary> Initializes a new instance of the <see cref="IpcConnectTimeoutException" /> class. </summary>

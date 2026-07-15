@@ -31,7 +31,7 @@ internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
     public async ValueTask<IpcResponse> SendAsync (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -47,7 +47,7 @@ internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
     public async ValueTask<IpcResponse> SendStreamingAsync (
         string storageRoot,
         ProjectFingerprint projectFingerprint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)

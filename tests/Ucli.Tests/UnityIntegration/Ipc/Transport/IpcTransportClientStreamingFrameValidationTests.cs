@@ -1,81 +1,87 @@
-using MackySoft.Tests;
+using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class IpcTransportClientStreamingFrameValidationTests
 {
-    public static TheoryData<string, Func<IpcRequest, IpcStreamFrame>> InvalidStreamingFrames => new()
+    public static TheoryData<string, Func<IpcRequestEnvelope, JsonElement>> InvalidStreamingFrames => new()
     {
         {
             "progress request id mismatches",
-            request => IpcTransportClientTestSupport.CreateProgressFrame(
+            request => CreateRawFrame(
                 request,
                 requestId: Guid.NewGuid())
         },
         {
             "frame kind is unsupported",
-            request => IpcTransportClientTestSupport.CreateProgressFrame(
+            request => CreateRawFrame(
                 request,
                 kind: "unsupported")
         },
         {
             "progress protocol version mismatches",
-            request => IpcTransportClientTestSupport.CreateProgressFrame(
+            request => CreateRawFrame(
                 request,
                 protocolVersion: IpcProtocol.CurrentVersion + 1)
         },
         {
             "progress event is missing",
-            request => IpcTransportClientTestSupport.CreateProgressFrame(
+            request => CreateRawFrame(
                 request,
                 eventName: null)
         },
         {
             "progress contains terminal response",
-            request => IpcTransportClientTestSupport.CreateProgressFrame(
+            request => CreateRawFrame(
                 request,
                 response: IpcTransportTestHarness.CreateResponse(request.RequestId, "{}"))
         },
         {
             "terminal response is missing",
-            request => IpcTransportClientTestSupport.CreateTerminalFrameWithoutResponse(request)
+            request => CreateRawFrame(
+                request,
+                kind: IpcStreamFrameKind.Terminal,
+                eventName: null)
         },
         {
             "terminal contains event",
-            request => IpcTransportClientTestSupport.CreateTerminalFrame(
+            request => CreateRawFrame(
                 request,
-                eventName: "test.progress")
+                kind: IpcStreamFrameKind.Terminal,
+                eventName: "test.progress",
+                response: IpcTransportTestHarness.CreateResponse(request.RequestId, "{}"))
         },
         {
             "terminal response protocol version mismatches",
-            request => IpcTransportClientTestSupport.CreateTerminalFrame(
+            request => CreateRawFrame(
                 request,
-                response: IpcTransportTestHarness.CreateResponse(
+                kind: IpcStreamFrameKind.Terminal,
+                eventName: null,
+                response: CreateRawResponse(
                     request.RequestId,
-                    "{}",
                     protocolVersion: IpcProtocol.CurrentVersion + 1))
         },
         {
             "terminal response status is unsupported",
-            request => IpcTransportClientTestSupport.CreateTerminalFrame(
+            request => CreateRawFrame(
                 request,
-                response: IpcTransportTestHarness.CreateResponse(
+                kind: IpcStreamFrameKind.Terminal,
+                eventName: null,
+                response: CreateRawResponse(
                     request.RequestId,
-                    "{}",
                     status: "unknown"))
         },
         {
             "terminal response errors is null",
-            request => IpcTransportClientTestSupport.CreateTerminalFrame(
+            request => CreateRawFrame(
                 request,
-                response: new IpcResponse(
-                    IpcProtocol.CurrentVersion,
+                kind: IpcStreamFrameKind.Terminal,
+                eventName: null,
+                response: CreateRawResponse(
                     request.RequestId,
-                    IpcProtocol.StatusOk,
-                    IpcTransportTestHarness.Json("{}"),
-                    null!))
+                    nullErrors: true))
         },
     };
 
@@ -84,7 +90,7 @@ public sealed class IpcTransportClientStreamingFrameValidationTests
     [Trait("Size", "Medium")]
     public async Task SendStreamingAsync_WhenStreamFrameIsInvalid_ThrowsInvalidDataException (
         string caseName,
-        Func<IpcRequest, IpcStreamFrame> createFrame)
+        Func<IpcRequestEnvelope, JsonElement> createFrame)
     {
         Assert.NotEmpty(caseName);
 
@@ -96,11 +102,15 @@ public sealed class IpcTransportClientStreamingFrameValidationTests
         await IpcTransportTestHarness.WithUnixStreamingServerAsync(
             async (request, stream, cancellationToken) =>
             {
-                await IpcTransportTestHarness.WriteStreamFrameAsync(stream, createFrame(request), cancellationToken);
+                await IpcFrameCodec.WriteModelAsync(
+                    stream,
+                    createFrame(request),
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: cancellationToken);
             },
             async (endpoint, request) =>
             {
-                var client = new IpcTransportClient();
+                var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
                 var exceptionTask = Assert.ThrowsAsync<InvalidDataException>(async () =>
                 {
                     await client.SendStreamingAsync(
@@ -117,5 +127,41 @@ public sealed class IpcTransportClientStreamingFrameValidationTests
                     IpcTransportClientTestSupport.WaitTimeout);
             },
             IpcTransportClientTestSupport.WaitTimeout);
+    }
+
+    private static JsonElement CreateRawFrame (
+        IpcRequestEnvelope request,
+        int? protocolVersion = null,
+        Guid? requestId = null,
+        object? kind = null,
+        string? eventName = "test.progress",
+        object? response = null)
+    {
+        return IpcPayloadCodec.SerializeToElement(new Dictionary<string, object?>
+        {
+            ["protocolVersion"] = protocolVersion ?? IpcProtocol.CurrentVersion,
+            ["requestId"] = requestId ?? request.RequestId,
+            ["kind"] = kind ?? IpcStreamFrameKind.Progress,
+            ["event"] = eventName,
+            ["payload"] = new { progress = true },
+            ["response"] = response,
+        });
+    }
+
+    private static JsonElement CreateRawResponse (
+        Guid requestId,
+        int? protocolVersion = null,
+        object? status = null,
+        object? errors = null,
+        bool nullErrors = false)
+    {
+        return IpcPayloadCodec.SerializeToElement(new Dictionary<string, object?>
+        {
+            ["protocolVersion"] = protocolVersion ?? IpcProtocol.CurrentVersion,
+            ["requestId"] = requestId,
+            ["status"] = status ?? IpcResponseStatus.Ok,
+            ["payload"] = new { },
+            ["errors"] = nullErrors ? null : errors ?? Array.Empty<object>(),
+        });
     }
 }

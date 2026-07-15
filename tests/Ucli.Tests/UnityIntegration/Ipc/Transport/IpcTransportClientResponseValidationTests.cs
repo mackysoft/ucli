@@ -1,4 +1,4 @@
-using MackySoft.Tests;
+using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -23,7 +23,7 @@ public sealed class IpcTransportClientResponseValidationTests
             static (_, _, _) => Task.CompletedTask,
             async (endpoint, request) =>
             {
-                var client = new IpcTransportClient();
+                var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
                 var exceptionTask = Assert.ThrowsAsync<IpcResponseReadInterruptedException>(async () =>
                 {
                     if (useUnboundedResponseWait)
@@ -71,15 +71,15 @@ public sealed class IpcTransportClientResponseValidationTests
             {
                 var response = invalidField switch
                 {
-                    "protocol" => IpcTransportTestHarness.CreateResponse(request.RequestId, "{}", protocolVersion: IpcProtocol.CurrentVersion + 1),
-                    "requestId" => IpcTransportTestHarness.CreateResponse(Guid.NewGuid(), "{}"),
-                    "status" => IpcTransportTestHarness.CreateResponse(request.RequestId, "{}", status: "unknown"),
-                    "errors" => new IpcResponse(
-                        IpcProtocol.CurrentVersion,
-                        request.RequestId,
-                        IpcProtocol.StatusOk,
-                        IpcTransportTestHarness.Json("{}"),
-                        null!),
+                    "protocol" => IpcPayloadCodec.SerializeToElement(
+                        IpcTransportTestHarness.CreateResponse(
+                            request.RequestId,
+                            "{}",
+                            protocolVersion: IpcProtocol.CurrentVersion + 1)),
+                    "requestId" => IpcPayloadCodec.SerializeToElement(
+                        IpcTransportTestHarness.CreateResponse(Guid.NewGuid(), "{}")),
+                    "status" => CreateRawResponse(request.RequestId, "unknown", Array.Empty<object>()),
+                    "errors" => CreateRawResponse(request.RequestId, "ok", errors: null),
                     _ => throw new InvalidOperationException("Unsupported invalid field."),
                 };
                 await IpcFrameCodec.WriteModelAsync(
@@ -90,7 +90,7 @@ public sealed class IpcTransportClientResponseValidationTests
             },
             async (endpoint, request) =>
             {
-                var client = new IpcTransportClient();
+                var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
                 var exceptionTask = Assert.ThrowsAsync<InvalidDataException>(async () =>
                 {
                     await client.SendAsync(endpoint, request, IpcTransportClientTestSupport.DefaultTimeout).AsTask();
@@ -102,5 +102,20 @@ public sealed class IpcTransportClientResponseValidationTests
                     IpcTransportClientTestSupport.WaitTimeout);
             },
             IpcTransportClientTestSupport.WaitTimeout);
+    }
+
+    private static JsonElement CreateRawResponse (
+        Guid requestId,
+        string status,
+        object? errors)
+    {
+        return IpcPayloadCodec.SerializeToElement(new Dictionary<string, object?>
+        {
+            ["protocolVersion"] = IpcProtocol.CurrentVersion,
+            ["requestId"] = requestId,
+            ["status"] = status,
+            ["payload"] = new { },
+            ["errors"] = errors,
+        });
     }
 }

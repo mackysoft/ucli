@@ -1,4 +1,3 @@
-using System.IO.Pipes;
 using System.Net.Sockets;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -9,10 +8,31 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 /// <summary> Implements transport-level IPC communication with explicitly resolved endpoints. </summary>
 internal sealed class IpcTransportClient : IIpcTransportClient
 {
+    /// <summary> Gets the maximum time spent on one connection attempt before any request bytes are written. </summary>
+    internal static TimeSpan ConnectionAttemptTimeoutCap { get; } = TimeSpan.FromSeconds(1);
+
+    private readonly IIpcTransportConnector connector;
+
+    private readonly TimeProvider timeProvider;
+
+    private int activeStreamingOperation;
+
+    /// <summary> Initializes the transport client with its connection and clock dependencies. </summary>
+    /// <param name="connector"> The IPC stream connector. </param>
+    /// <param name="timeProvider"> The clock used for outward transport deadlines. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
+    public IpcTransportClient (
+        IIpcTransportConnector connector,
+        TimeProvider timeProvider)
+    {
+        this.connector = connector ?? throw new ArgumentNullException(nameof(connector));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+    }
+
     /// <inheritdoc />
-    public async ValueTask<IpcResponse> SendAsync (
+    public ValueTask<IpcResponse> SendAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -21,46 +41,19 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         cancellationToken.ThrowIfCancellationRequested();
         EnsureResponseMode(request, IpcResponseMode.Single, nameof(SendAsync));
 
-        using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCancellationTokenSource.CancelAfter(timeout);
-        var ipcCancellationToken = timeoutCancellationTokenSource.Token;
-        var hasConnected = false;
-        try
-        {
-            await using var stream = await ConnectAsync(endpoint, ipcCancellationToken).ConfigureAwait(false);
-            hasConnected = true;
-            await IpcFrameCodec.WriteModelAsync(
-                    stream,
-                    request,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: ipcCancellationToken)
-                .ConfigureAwait(false);
-
-            var response = await ReadResponseModelAsync<IpcResponse>(stream, ipcCancellationToken).ConfigureAwait(false);
-
-            ValidateIpcResponse(request, response);
-            return response;
-        }
-        catch (OperationCanceledException exception)
-            when (!cancellationToken.IsCancellationRequested && timeoutCancellationTokenSource.IsCancellationRequested)
-        {
-            if (!hasConnected)
-            {
-                throw new IpcConnectTimeoutException(
-                    $"IPC connection timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-                    exception);
-            }
-
-            throw new TimeoutException(
-                $"IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-                exception);
-        }
+        return SendCoreAsync(
+            endpoint,
+            request,
+            timeout,
+            responseWaitIsBounded: true,
+            onProgressFrame: null,
+            cancellationToken);
     }
 
     /// <inheritdoc />
-    public async ValueTask<IpcResponse> SendStreamingAsync (
+    public ValueTask<IpcResponse> SendStreamingAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
@@ -71,51 +64,19 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         cancellationToken.ThrowIfCancellationRequested();
         EnsureResponseMode(request, IpcResponseMode.Stream, nameof(SendStreamingAsync));
 
-        using var timeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        timeoutCancellationTokenSource.CancelAfter(timeout);
-        var ipcCancellationToken = timeoutCancellationTokenSource.Token;
-        var hasConnected = false;
-        try
-        {
-            await using var stream = await ConnectAsync(endpoint, ipcCancellationToken).ConfigureAwait(false);
-            hasConnected = true;
-            await IpcFrameCodec.WriteModelAsync(
-                    stream,
-                    request,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: ipcCancellationToken)
-                .ConfigureAwait(false);
-
-            return await ReadStreamingResponseAsync(
-                    stream,
-                    request,
-                    (frame, callbackCancellationToken) => InvokeBoundedProgressFrameAsync(
-                        frame,
-                        onProgressFrame,
-                        callbackCancellationToken),
-                    ipcCancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException exception)
-            when (!cancellationToken.IsCancellationRequested && timeoutCancellationTokenSource.IsCancellationRequested)
-        {
-            if (!hasConnected)
-            {
-                throw new IpcConnectTimeoutException(
-                    $"IPC connection timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-                    exception);
-            }
-
-            throw new TimeoutException(
-                $"IPC streaming request timed out after {timeout.TotalMilliseconds:0} milliseconds.",
-                exception);
-        }
+        return SendCoreAsync(
+            endpoint,
+            request,
+            timeout,
+            responseWaitIsBounded: true,
+            onProgressFrame,
+            cancellationToken);
     }
 
     /// <inheritdoc />
-    public async ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
+    public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         CancellationToken cancellationToken = default)
     {
@@ -124,46 +85,19 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         cancellationToken.ThrowIfCancellationRequested();
         EnsureResponseMode(request, IpcResponseMode.Single, nameof(SendWithUnboundedResponseWaitAsync));
 
-        using var sendTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        sendTimeoutCancellationTokenSource.CancelAfter(sendTimeout);
-        var sendCancellationToken = sendTimeoutCancellationTokenSource.Token;
-        var hasConnected = false;
-        try
-        {
-            await using var stream = await ConnectAsync(endpoint, sendCancellationToken).ConfigureAwait(false);
-            hasConnected = true;
-            await IpcFrameCodec.WriteModelAsync(
-                    stream,
-                    request,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: sendCancellationToken)
-                .ConfigureAwait(false);
-
-            var response = await ReadResponseModelAsync<IpcResponse>(stream, cancellationToken).ConfigureAwait(false);
-
-            ValidateIpcResponse(request, response);
-            return response;
-        }
-        catch (OperationCanceledException exception)
-            when (!cancellationToken.IsCancellationRequested && sendTimeoutCancellationTokenSource.IsCancellationRequested)
-        {
-            if (!hasConnected)
-            {
-                throw new IpcConnectTimeoutException(
-                    $"IPC connection timed out after {sendTimeout.TotalMilliseconds:0} milliseconds.",
-                    exception);
-            }
-
-            throw new TimeoutException(
-                $"IPC request write timed out after {sendTimeout.TotalMilliseconds:0} milliseconds.",
-                exception);
-        }
+        return SendCoreAsync(
+            endpoint,
+            request,
+            sendTimeout,
+            responseWaitIsBounded: false,
+            onProgressFrame: null,
+            cancellationToken);
     }
 
     /// <inheritdoc />
-    public async ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
+    public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
         IpcEndpoint endpoint,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
@@ -174,20 +108,236 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         cancellationToken.ThrowIfCancellationRequested();
         EnsureResponseMode(request, IpcResponseMode.Stream, nameof(SendStreamingWithUnboundedResponseWaitAsync));
 
-        using var sendTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        sendTimeoutCancellationTokenSource.CancelAfter(sendTimeout);
-        var sendCancellationToken = sendTimeoutCancellationTokenSource.Token;
-        var hasConnected = false;
+        return SendCoreAsync(
+            endpoint,
+            request,
+            sendTimeout,
+            responseWaitIsBounded: false,
+            onProgressFrame,
+            cancellationToken);
+    }
+
+    private async ValueTask<IpcResponse> SendCoreAsync (
+        IpcEndpoint endpoint,
+        IpcRequestEnvelope request,
+        TimeSpan timeout,
+        bool responseWaitIsBounded,
+        Func<IpcStreamFrame, CancellationToken, ValueTask>? onProgressFrame,
+        CancellationToken cancellationToken)
+    {
+        var holdsStreamingAdmission = onProgressFrame is not null;
+        if (holdsStreamingAdmission
+            && Interlocked.CompareExchange(ref activeStreamingOperation, 1, 0) != 0)
+        {
+            throw new IpcStreamingOperationInProgressException();
+        }
+
+        var operationOwnsStreamingAdmission = false;
         try
         {
-            await using var stream = await ConnectAsync(endpoint, sendCancellationToken).ConfigureAwait(false);
-            hasConnected = true;
+            var raceSignals = new TransportRaceSignals(responseWaitIsBounded);
+            using var callerCancellationRegistration = cancellationToken.CanBeCanceled
+                ? cancellationToken.UnsafeRegister(
+                    static state => ((TransportRaceSignals)state!).SignalCallerCancellation(),
+                    raceSignals)
+                : default;
+            using var deadlineDelayCancellationTokenSource = new CancellationTokenSource();
+            var deadlineTask = Task.Delay(
+                timeout,
+                timeProvider,
+                deadlineDelayCancellationTokenSource.Token);
+            _ = deadlineTask.ContinueWith(
+                static (completedTask, state) =>
+                {
+                    if (completedTask.Status == TaskStatus.RanToCompletion)
+                    {
+                        ((TransportRaceSignals)state!).SignalOverallDeadline();
+                    }
+                },
+                raceSignals,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+            using var connectionDeadlineCancellationTokenSource = new CancellationTokenSource();
+            var connectionTimeout = GetShorterTimeout(timeout, ConnectionAttemptTimeoutCap);
+            var connectionDeadlineTask = Task.Delay(
+                connectionTimeout,
+                timeProvider,
+                connectionDeadlineCancellationTokenSource.Token);
+            _ = connectionDeadlineTask.ContinueWith(
+                static (completedTask, state) =>
+                {
+                    if (completedTask.Status == TaskStatus.RanToCompletion)
+                    {
+                        ((TransportRaceSignals)state!).SignalConnectionDeadline();
+                    }
+                },
+                raceSignals,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously,
+                TaskScheduler.Default);
+
+            var operationCancellationTokenSource = new CancellationTokenSource();
+            var disposeOperationCancellationTokenSource = true;
+            var operationState = new IpcTransportOperationState(raceSignals);
+            var operationTask = Task.Run(
+                async () =>
+                {
+                    try
+                    {
+                        return await ExecuteTransportOperationAsync(
+                                endpoint,
+                                request,
+                                onProgressFrame,
+                                operationState,
+                                raceSignals,
+                                operationCancellationTokenSource.Token)
+                            .ConfigureAwait(false);
+                    }
+                    finally
+                    {
+                        raceSignals.SignalOperationCompleted();
+                        if (holdsStreamingAdmission)
+                        {
+                            Volatile.Write(ref activeStreamingOperation, 0);
+                        }
+                    }
+                },
+                CancellationToken.None);
+            operationOwnsStreamingAdmission = holdsStreamingAdmission;
+
+            void AbandonOperation ()
+            {
+                AbandonTransportOperation(
+                    operationTask,
+                    operationCancellationTokenSource,
+                    operationState);
+                disposeOperationCancellationTokenSource = false;
+            }
+
+            try
+            {
+                var connectionPhaseCompletion = await raceSignals.ConnectionPhaseCompletion
+                    .ConfigureAwait(false);
+
+                if (connectionPhaseCompletion == ConnectionPhaseCompletion.CallerCancellation)
+                {
+                    AbandonOperation();
+                    throw new OperationCanceledException(cancellationToken);
+                }
+
+                if (connectionPhaseCompletion is ConnectionPhaseCompletion.ConnectionDeadline
+                    or ConnectionPhaseCompletion.OverallDeadline)
+                {
+                    AbandonOperation();
+                    throw CreateConnectTimeoutException(connectionTimeout);
+                }
+
+                connectionDeadlineCancellationTokenSource.Cancel();
+
+                if (connectionPhaseCompletion == ConnectionPhaseCompletion.Operation)
+                {
+                    return await operationTask.ConfigureAwait(false);
+                }
+
+                if (connectionPhaseCompletion != ConnectionPhaseCompletion.ConnectionEstablished)
+                {
+                    throw new InvalidOperationException($"Unsupported IPC connection phase completion: {connectionPhaseCompletion}.");
+                }
+
+                var sendPhaseCompletion = await raceSignals.SendPhaseCompletion.ConfigureAwait(false);
+                if (sendPhaseCompletion == SendPhaseCompletion.Operation)
+                {
+                    return await operationTask.ConfigureAwait(false);
+                }
+
+                if (sendPhaseCompletion == SendPhaseCompletion.CallerCancellation)
+                {
+                    AbandonOperation();
+                    throw new OperationCanceledException(cancellationToken);
+                }
+
+                if (sendPhaseCompletion == SendPhaseCompletion.Deadline)
+                {
+                    AbandonOperation();
+                    throw CreateTransportTimeoutException(
+                        responseWaitIsBounded,
+                        onProgressFrame is not null,
+                        timeout);
+                }
+
+                if (sendPhaseCompletion != SendPhaseCompletion.RequestWritten)
+                {
+                    throw new InvalidOperationException($"Unsupported IPC send phase completion: {sendPhaseCompletion}.");
+                }
+
+                deadlineDelayCancellationTokenSource.Cancel();
+                var unboundedResponseCompletion = await raceSignals.UnboundedResponseCompletion.ConfigureAwait(false);
+                if (unboundedResponseCompletion == UnboundedResponseCompletion.CallerCancellation)
+                {
+                    AbandonOperation();
+                    throw new OperationCanceledException(cancellationToken);
+                }
+
+                if (unboundedResponseCompletion != UnboundedResponseCompletion.Operation)
+                {
+                    throw new InvalidOperationException($"Unsupported IPC response phase completion: {unboundedResponseCompletion}.");
+                }
+
+                return await operationTask.ConfigureAwait(false);
+            }
+            finally
+            {
+                connectionDeadlineCancellationTokenSource.Cancel();
+                deadlineDelayCancellationTokenSource.Cancel();
+                if (disposeOperationCancellationTokenSource)
+                {
+                    operationCancellationTokenSource.Dispose();
+                }
+            }
+        }
+        finally
+        {
+            if (holdsStreamingAdmission && !operationOwnsStreamingAdmission)
+            {
+                Volatile.Write(ref activeStreamingOperation, 0);
+            }
+        }
+    }
+
+    private async ValueTask<IpcResponse> ExecuteTransportOperationAsync (
+        IpcEndpoint endpoint,
+        IpcRequestEnvelope request,
+        Func<IpcStreamFrame, CancellationToken, ValueTask>? onProgressFrame,
+        IpcTransportOperationState operationState,
+        TransportRaceSignals raceSignals,
+        CancellationToken cancellationToken)
+    {
+        Stream? stream = null;
+        try
+        {
+            stream = await ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
+            if (!operationState.TryAttach(stream))
+            {
+                ScheduleStreamCleanup(stream);
+                stream = null;
+                throw new OperationCanceledException(cancellationToken);
+            }
+
             await IpcFrameCodec.WriteModelAsync(
                     stream,
                     request,
                     IpcJsonSerializerOptions.Default,
-                    cancellationToken: sendCancellationToken)
+                    cancellationToken: cancellationToken)
                 .ConfigureAwait(false);
+            raceSignals.SignalRequestWritten();
+
+            if (onProgressFrame is null)
+            {
+                var response = await ReadResponseModelAsync<IpcResponse>(stream, cancellationToken).ConfigureAwait(false);
+                ValidateIpcResponse(request, response);
+                return response;
+            }
 
             return await ReadStreamingResponseAsync(
                     stream,
@@ -196,24 +346,92 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                     cancellationToken)
                 .ConfigureAwait(false);
         }
-        catch (OperationCanceledException exception)
-            when (!cancellationToken.IsCancellationRequested && sendTimeoutCancellationTokenSource.IsCancellationRequested)
+        finally
         {
-            if (!hasConnected)
+            if (stream is not null && operationState.TryTakeForCleanup(stream))
             {
-                throw new IpcConnectTimeoutException(
-                    $"IPC connection timed out after {sendTimeout.TotalMilliseconds:0} milliseconds.",
-                    exception);
+                ScheduleStreamCleanup(stream);
             }
+        }
+    }
 
-            throw new TimeoutException(
-                $"IPC streaming request write timed out after {sendTimeout.TotalMilliseconds:0} milliseconds.",
+    private async ValueTask<Stream> ConnectAsync (
+        IpcEndpoint endpoint,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await connector.ConnectAsync(endpoint, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (TimeoutException exception)
+        {
+            throw new IpcConnectTimeoutException(
+                "IPC connection failed with a transport timeout before the request was sent.",
+                exception);
+        }
+        catch (Exception exception) when (exception is SocketException or IOException)
+        {
+            throw new IpcConnectException(
+                "IPC connection failed before the request was sent.",
                 exception);
         }
     }
 
+    private static TimeoutException CreateTransportTimeoutException (
+        bool responseWaitIsBounded,
+        bool isStreaming,
+        TimeSpan timeout)
+    {
+        var requestKind = isStreaming
+            ? "IPC streaming request"
+            : "IPC request";
+        var phase = responseWaitIsBounded
+            ? string.Empty
+            : " write";
+        return new TimeoutException(
+            $"{requestKind}{phase} timed out after {timeout.TotalMilliseconds:0} milliseconds.");
+    }
+
+    private static IpcConnectTimeoutException CreateConnectTimeoutException (TimeSpan connectionTimeout)
+    {
+        return new IpcConnectTimeoutException(
+            $"IPC connection timed out after {connectionTimeout.TotalMilliseconds:0} milliseconds before the request was sent.");
+    }
+
+    private static TimeSpan GetShorterTimeout (
+        TimeSpan first,
+        TimeSpan second)
+    {
+        return first < second ? first : second;
+    }
+
+    private static void ScheduleStreamCleanup (Stream stream)
+    {
+        ObserveFault(Task.Run(
+            async () => await stream.DisposeAsync().ConfigureAwait(false),
+            CancellationToken.None));
+    }
+
+    private static void AbandonTransportOperation (
+        Task operationTask,
+        CancellationTokenSource operationCancellationTokenSource,
+        IpcTransportOperationState operationState)
+    {
+        var abortTask = operationState.AbortAsync();
+        var cancellationRequestTask = operationCancellationTokenSource.CancelAsync();
+        ObserveFault(abortTask);
+        ObserveAndDisposeAfterCompletion(
+            operationTask,
+            cancellationRequestTask,
+            operationCancellationTokenSource);
+    }
+
     private static void EnsureResponseMode (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         IpcResponseMode expectedResponseMode,
         string operationName)
     {
@@ -229,7 +447,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
 
     private static async ValueTask<IpcResponse> ReadStreamingResponseAsync (
         Stream stream,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken)
     {
@@ -239,7 +457,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
             var frame = await ReadResponseModelAsync<IpcStreamFrame>(stream, cancellationToken).ConfigureAwait(false);
 
             ValidateStreamingFrame(request, frame);
-            if (string.Equals(frame.Kind, IpcStreamFrameKinds.Progress, StringComparison.Ordinal))
+            if (frame.Kind == IpcStreamFrameKind.Progress)
             {
                 try
                 {
@@ -279,79 +497,20 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         }
     }
 
-    private static async ValueTask InvokeBoundedProgressFrameAsync (
-        IpcStreamFrame frame,
-        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
-        CancellationToken cancellationToken)
-    {
-        cancellationToken.ThrowIfCancellationRequested();
-
-        var callbackCancellationTokenSource = new CancellationTokenSource();
-        var disposeCallbackCancellationTokenSource = true;
-        try
-        {
-            var cancellationSignalSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-            using var cancellationRegistration = cancellationToken.UnsafeRegister(
-                static state => ((TaskCompletionSource)state!).TrySetResult(),
-                cancellationSignalSource);
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // NOTE: The callback receives an independently owned token so a blocking callback registered on it
-            // cannot delay the transport deadline signal. Cancellation is requested asynchronously after the
-            // deadline wins, while the caller-visible operation returns without waiting for callback cooperation.
-            var callbackTask = Task.Run(
-                async () => await onProgressFrame(
-                        frame,
-                        callbackCancellationTokenSource.Token)
-                    .ConfigureAwait(false),
-                CancellationToken.None);
-            var completedTask = await Task.WhenAny(callbackTask, cancellationSignalSource.Task).ConfigureAwait(false);
-            if (ReferenceEquals(completedTask, callbackTask))
-            {
-                await callbackTask.ConfigureAwait(false);
-                cancellationToken.ThrowIfCancellationRequested();
-                return;
-            }
-
-            if (callbackTask.IsCompleted)
-            {
-                ObserveFault(callbackTask);
-            }
-            else
-            {
-                var cancellationRequestTask = callbackCancellationTokenSource.CancelAsync();
-                disposeCallbackCancellationTokenSource = false;
-                ObserveAndDisposeAfterCompletion(
-                    callbackTask,
-                    cancellationRequestTask,
-                    callbackCancellationTokenSource);
-            }
-
-            throw new OperationCanceledException(cancellationToken);
-        }
-        finally
-        {
-            if (disposeCallbackCancellationTokenSource)
-            {
-                callbackCancellationTokenSource.Dispose();
-            }
-        }
-    }
-
     private static void ObserveAndDisposeAfterCompletion (
-        Task callbackTask,
+        Task operationTask,
         Task cancellationRequestTask,
-        CancellationTokenSource callbackCancellationTokenSource)
+        CancellationTokenSource operationCancellationTokenSource)
     {
-        ObserveFault(callbackTask);
+        ObserveFault(operationTask);
         ObserveFault(cancellationRequestTask);
-        _ = Task.WhenAll(callbackTask, cancellationRequestTask).ContinueWith(
+        _ = Task.WhenAll(operationTask, cancellationRequestTask).ContinueWith(
             static (completedTask, state) =>
             {
                 _ = completedTask.Exception;
                 ((CancellationTokenSource)state!).Dispose();
             },
-            callbackCancellationTokenSource,
+            operationCancellationTokenSource,
             CancellationToken.None,
             TaskContinuationOptions.ExecuteSynchronously,
             TaskScheduler.Default);
@@ -367,7 +526,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
     }
 
     private static void ValidateStreamingFrame (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         IpcStreamFrame frame)
     {
         if (frame.ProtocolVersion != IpcProtocol.CurrentVersion)
@@ -382,42 +541,10 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                 $"IPC stream frame requestId mismatch. Expected={request.RequestId}, Actual={frame.RequestId}.");
         }
 
-        if (string.Equals(frame.Kind, IpcStreamFrameKinds.Progress, StringComparison.Ordinal))
-        {
-            if (string.IsNullOrWhiteSpace(frame.Event))
-            {
-                throw new InvalidDataException("IPC progress stream frame must contain an event name.");
-            }
-
-            if (frame.Response is not null)
-            {
-                throw new InvalidDataException("IPC progress stream frame must not contain a terminal response.");
-            }
-
-            return;
-        }
-
-        if (string.Equals(frame.Kind, IpcStreamFrameKinds.Terminal, StringComparison.Ordinal))
-        {
-            if (!string.IsNullOrWhiteSpace(frame.Event))
-            {
-                throw new InvalidDataException("IPC terminal stream frame must not contain an event name.");
-            }
-
-            if (frame.Response is null)
-            {
-                throw new InvalidDataException("IPC terminal stream frame must contain a response.");
-            }
-
-            ValidateIpcResponse(request, frame.Response);
-            return;
-        }
-
-        throw new InvalidDataException($"Unsupported IPC stream frame kind: {frame.Kind}.");
     }
 
     private static void ValidateIpcResponse (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         IpcResponse response)
     {
         if (response.ProtocolVersion != IpcProtocol.CurrentVersion)
@@ -432,79 +559,160 @@ internal sealed class IpcTransportClient : IIpcTransportClient
                 $"IPC response requestId mismatch. Expected={request.RequestId}, Actual={response.RequestId}.");
         }
 
-        if (!string.Equals(response.Status, IpcProtocol.StatusOk, StringComparison.Ordinal)
-            && !string.Equals(response.Status, IpcProtocol.StatusError, StringComparison.Ordinal))
-        {
-            throw new InvalidDataException($"Unsupported IPC response status: {response.Status}.");
-        }
-
-        if (response.Errors is null)
-        {
-            throw new InvalidDataException("IPC response errors must not be null.");
-        }
     }
 
-    /// <summary> Opens a stream connection to the specified endpoint. </summary>
-    /// <param name="endpoint"> The endpoint to connect. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The connected stream. </returns>
-    private static async ValueTask<Stream> ConnectAsync (
-        IpcEndpoint endpoint,
-        CancellationToken cancellationToken)
+    private enum ConnectionPhaseCompletion
     {
-        return endpoint.TransportKind switch
-        {
-            IpcTransportKind.NamedPipe => await ConnectNamedPipeAsync(endpoint.Address, cancellationToken).ConfigureAwait(false),
-            IpcTransportKind.UnixDomainSocket => await ConnectUnixDomainSocketAsync(endpoint.Address, cancellationToken).ConfigureAwait(false),
-            _ => throw new InvalidOperationException($"Unsupported IPC transport kind: {endpoint.TransportKind}."),
-        };
+        ConnectionEstablished,
+        Operation,
+        ConnectionDeadline,
+        OverallDeadline,
+        CallerCancellation,
     }
 
-    /// <summary> Connects a named pipe client stream to the server pipe. </summary>
-    /// <param name="pipeName"> The named pipe name. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The connected named pipe stream. </returns>
-    private static async ValueTask<Stream> ConnectNamedPipeAsync (
-        string pipeName,
-        CancellationToken cancellationToken)
+    private enum SendPhaseCompletion
     {
-        var stream = new NamedPipeClientStream(
-            serverName: ".",
-            pipeName: pipeName,
-            direction: PipeDirection.InOut,
-            options: PipeOptions.Asynchronous);
-
-        try
-        {
-            await stream.ConnectAsync(cancellationToken).ConfigureAwait(false);
-            return stream;
-        }
-        catch
-        {
-            stream.Dispose();
-            throw;
-        }
+        RequestWritten,
+        Operation,
+        Deadline,
+        CallerCancellation,
     }
 
-    /// <summary> Connects a Unix domain socket stream to the server socket. </summary>
-    /// <param name="socketPath"> The Unix domain socket file path. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The connected network stream. </returns>
-    private static async ValueTask<Stream> ConnectUnixDomainSocketAsync (
-        string socketPath,
-        CancellationToken cancellationToken)
+    private enum UnboundedResponseCompletion
     {
-        var socket = new Socket(AddressFamily.Unix, SocketType.Stream, ProtocolType.Unspecified);
-        try
+        Operation,
+        CallerCancellation,
+    }
+
+    private sealed class TransportRaceSignals
+    {
+        private readonly bool responseWaitIsBounded;
+
+        private readonly TaskCompletionSource<ConnectionPhaseCompletion> connectionPhaseCompletionSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource<SendPhaseCompletion> sendPhaseCompletionSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        private readonly TaskCompletionSource<UnboundedResponseCompletion> unboundedResponseCompletionSource =
+            new(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        public TransportRaceSignals (bool responseWaitIsBounded)
         {
-            var endPoint = new UnixDomainSocketEndPoint(socketPath);
-            await socket.ConnectAsync(endPoint, cancellationToken).ConfigureAwait(false);
-            return new NetworkStream(socket, ownsSocket: true);
+            this.responseWaitIsBounded = responseWaitIsBounded;
         }
-        catch
+
+        public Task<ConnectionPhaseCompletion> ConnectionPhaseCompletion => connectionPhaseCompletionSource.Task;
+
+        public Task<SendPhaseCompletion> SendPhaseCompletion => sendPhaseCompletionSource.Task;
+
+        public Task<UnboundedResponseCompletion> UnboundedResponseCompletion => unboundedResponseCompletionSource.Task;
+
+        public void SignalConnectionEstablished ()
         {
-            socket.Dispose();
-            throw;
+            connectionPhaseCompletionSource.TrySetResult(IpcTransportClient.ConnectionPhaseCompletion.ConnectionEstablished);
+        }
+
+        public void SignalRequestWritten ()
+        {
+            if (!responseWaitIsBounded)
+            {
+                sendPhaseCompletionSource.TrySetResult(IpcTransportClient.SendPhaseCompletion.RequestWritten);
+            }
+        }
+
+        public void SignalOperationCompleted ()
+        {
+            connectionPhaseCompletionSource.TrySetResult(IpcTransportClient.ConnectionPhaseCompletion.Operation);
+            sendPhaseCompletionSource.TrySetResult(IpcTransportClient.SendPhaseCompletion.Operation);
+            unboundedResponseCompletionSource.TrySetResult(IpcTransportClient.UnboundedResponseCompletion.Operation);
+        }
+
+        public void SignalConnectionDeadline ()
+        {
+            connectionPhaseCompletionSource.TrySetResult(IpcTransportClient.ConnectionPhaseCompletion.ConnectionDeadline);
+        }
+
+        public void SignalOverallDeadline ()
+        {
+            connectionPhaseCompletionSource.TrySetResult(IpcTransportClient.ConnectionPhaseCompletion.OverallDeadline);
+            sendPhaseCompletionSource.TrySetResult(IpcTransportClient.SendPhaseCompletion.Deadline);
+        }
+
+        public void SignalCallerCancellation ()
+        {
+            connectionPhaseCompletionSource.TrySetResult(IpcTransportClient.ConnectionPhaseCompletion.CallerCancellation);
+            sendPhaseCompletionSource.TrySetResult(IpcTransportClient.SendPhaseCompletion.CallerCancellation);
+            unboundedResponseCompletionSource.TrySetResult(IpcTransportClient.UnboundedResponseCompletion.CallerCancellation);
         }
     }
+
+    private sealed class IpcTransportOperationState
+    {
+        private readonly object syncRoot = new object();
+
+        private readonly TransportRaceSignals raceSignals;
+
+        private Stream? stream;
+
+        private bool abortRequested;
+
+        public IpcTransportOperationState (TransportRaceSignals raceSignals)
+        {
+            this.raceSignals = raceSignals ?? throw new ArgumentNullException(nameof(raceSignals));
+        }
+
+        public bool TryAttach (Stream connectedStream)
+        {
+            ArgumentNullException.ThrowIfNull(connectedStream);
+
+            lock (syncRoot)
+            {
+                if (abortRequested)
+                {
+                    return false;
+                }
+
+                stream = connectedStream;
+            }
+
+            raceSignals.SignalConnectionEstablished();
+            return true;
+        }
+
+        public bool TryTakeForCleanup (Stream connectedStream)
+        {
+            lock (syncRoot)
+            {
+                if (!ReferenceEquals(stream, connectedStream))
+                {
+                    return false;
+                }
+
+                stream = null;
+                return true;
+            }
+        }
+
+        public Task AbortAsync ()
+        {
+            Stream? streamToAbort;
+            lock (syncRoot)
+            {
+                if (abortRequested)
+                {
+                    return Task.CompletedTask;
+                }
+
+                abortRequested = true;
+                streamToAbort = stream;
+                stream = null;
+            }
+
+            return streamToAbort is null
+                ? Task.CompletedTask
+                : Task.Run(streamToAbort.Dispose, CancellationToken.None);
+        }
+    }
+
 }

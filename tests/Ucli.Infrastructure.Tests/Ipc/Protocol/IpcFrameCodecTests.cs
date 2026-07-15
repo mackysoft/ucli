@@ -197,7 +197,7 @@ public sealed class IpcFrameCodecTests
         await stream.WriteAsync(payload);
         stream.Position = 0;
 
-        var result = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(stream, IpcJsonSerializerOptions.Default);
+        var result = await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(stream, IpcJsonSerializerOptions.Default);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(IpcFrameReadErrorKind.PayloadJsonInvalid, result.ErrorKind);
