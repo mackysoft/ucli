@@ -10,11 +10,54 @@ public sealed class DaemonSessionJsonContractSerializerTests
 {
     private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 
+    private static readonly Guid SessionGenerationId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
     private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     [Fact]
     [Trait("Size", "Small")]
     public void Deserialize_WithValidJson_ReturnsContract ()
+    {
+        const string Json = """
+            {
+              "schemaVersion": 2,
+              "sessionGenerationId": "22222222-2222-2222-2222-222222222222",
+              "sessionToken": "token-123",
+              "projectFingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+              "issuedAtUtc": "2026-03-02T00:00:00+00:00",
+              "editorMode": "batchmode",
+              "ownerKind": "cli",
+              "canShutdownProcess": true,
+              "endpointTransportKind": "namedPipe",
+              "endpointAddress": "ucli-daemon-endpoint",
+              "processId": 1234,
+              "processStartedAtUtc": "2026-03-02T00:00:01+00:00",
+              "ownerProcessId": 5678
+            }
+            """;
+
+        var contract = DaemonSessionJsonContractSerializer.Deserialize(Json);
+
+        Assert.NotNull(contract);
+        Assert.Equal(DaemonSessionStorageContract.CurrentSchemaVersion, contract.SchemaVersion);
+        Assert.Equal(SessionGenerationId, contract.SessionGenerationId);
+        Assert.Equal("token-123", contract.SessionToken);
+        Assert.Equal(new ProjectFingerprint(ProjectFingerprintText), contract.ProjectFingerprint);
+        Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"), contract.IssuedAtUtc);
+        Assert.Equal(DaemonEditorMode.Batchmode, contract.EditorMode);
+        Assert.Equal(DaemonSessionOwnerKind.Cli, contract.OwnerKind);
+        Assert.True(contract.CanShutdownProcess);
+        Assert.Equal(IpcTransportKind.NamedPipe, contract.EndpointTransportKind);
+        Assert.Equal("ucli-daemon-endpoint", contract.EndpointAddress);
+        Assert.Equal(1234, contract.ProcessId);
+        Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"), contract.ProcessStartedAtUtc);
+        Assert.Equal(5678, contract.OwnerProcessId);
+        Assert.Null(contract.EditorInstanceId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Deserialize_WhenSessionGenerationIdIsMissing_PreservesInvalidEmptyValue ()
     {
         const string Json = """
             {
@@ -36,19 +79,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         var contract = DaemonSessionJsonContractSerializer.Deserialize(Json);
 
         Assert.NotNull(contract);
-        Assert.Equal(DaemonSessionStorageContract.CurrentSchemaVersion, contract.SchemaVersion);
-        Assert.Equal("token-123", contract.SessionToken);
-        Assert.Equal(new ProjectFingerprint(ProjectFingerprintText), contract.ProjectFingerprint);
-        Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"), contract.IssuedAtUtc);
-        Assert.Equal(DaemonEditorMode.Batchmode, contract.EditorMode);
-        Assert.Equal(DaemonSessionOwnerKind.Cli, contract.OwnerKind);
-        Assert.True(contract.CanShutdownProcess);
-        Assert.Equal(IpcTransportKind.NamedPipe, contract.EndpointTransportKind);
-        Assert.Equal("ucli-daemon-endpoint", contract.EndpointAddress);
-        Assert.Equal(1234, contract.ProcessId);
-        Assert.Equal(DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"), contract.ProcessStartedAtUtc);
-        Assert.Equal(5678, contract.OwnerProcessId);
-        Assert.Null(contract.EditorInstanceId);
+        Assert.Equal(Guid.Empty, contract.SessionGenerationId);
     }
 
     [Fact]
@@ -58,6 +89,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         const string Json = """
             {
               "schemaVersion": 2,
+              "sessionGenerationId": "22222222-2222-2222-2222-222222222222",
               "sessionToken": "token-123",
               "projectFingerprint": "not-a-project-fingerprint",
               "issuedAtUtc": "2026-03-02T00:00:00+00:00",
@@ -97,6 +129,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         const string Json = """
             {
               "schemaVersion": 2,
+              "sessionGenerationId": "22222222-2222-2222-2222-222222222222",
               "sessionToken": "token-123",
               "projectFingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
               "issuedAtUtc": "2026-03-02T00:00:00+00:00",
@@ -122,6 +155,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
     {
         var contract = new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+            SessionGenerationId: SessionGenerationId,
             SessionToken: "token-123",
             ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),
@@ -132,10 +166,8 @@ public sealed class DaemonSessionJsonContractSerializerTests
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"),
-            OwnerProcessId: 5678)
-        {
-            EditorInstanceId = EditorInstanceId,
-        };
+            OwnerProcessId: 5678,
+            EditorInstanceId: EditorInstanceId);
 
         var json = DaemonSessionJsonContractSerializer.Serialize(contract);
         using var jsonDocument = JsonDocument.Parse(json);
@@ -154,6 +186,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         const string Json = """
             {
               "schemaVersion": 2,
+              "sessionGenerationId": "22222222-2222-2222-2222-222222222222",
               "sessionToken": "token-123",
               "projectFingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
               "issuedAtUtc": "2026-03-02T00:00:00+00:00",
@@ -182,6 +215,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
         const string Json = """
             {
               "schemaVersion": 2,
+              "sessionGenerationId": "22222222-2222-2222-2222-222222222222",
               "sessionToken": "token-123",
               "projectFingerprint": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
               "issuedAtUtc": "2026-03-02T00:00:00+00:00",
@@ -206,6 +240,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
     {
         var contract = new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+            SessionGenerationId: SessionGenerationId,
             SessionToken: "token-123",
             ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             IssuedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:00+00:00"),
@@ -216,7 +251,8 @@ public sealed class DaemonSessionJsonContractSerializerTests
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
             ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-02T00:00:01+00:00"),
-            OwnerProcessId: 5678);
+            OwnerProcessId: 5678,
+            EditorInstanceId: null);
 
         var json = DaemonSessionJsonContractSerializer.Serialize(contract);
         using var jsonDocument = JsonDocument.Parse(json);
@@ -229,6 +265,7 @@ public sealed class DaemonSessionJsonContractSerializerTests
     private static JsonSchemaNode SessionJsonSchema => JsonSchemaNode.Object(
         builder => builder
             .Required("schemaVersion", JsonSchemaNode.Value(JsonSchemaType.Int32))
+            .Required("sessionGenerationId", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("sessionToken", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("projectFingerprint", JsonSchemaNode.Value(JsonSchemaType.String))
             .Required("issuedAtUtc", JsonSchemaNode.Value(JsonSchemaType.String))

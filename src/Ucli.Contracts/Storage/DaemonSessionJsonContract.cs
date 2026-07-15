@@ -6,6 +6,7 @@ namespace MackySoft.Ucli.Contracts.Storage;
 
 /// <summary> Represents persisted daemon <c>session.json</c> contract fields. </summary>
 /// <param name="SchemaVersion"> The schema-version value. </param>
+/// <param name="SessionGenerationId"> The daemon session generation identifier. </param>
 /// <param name="SessionToken"> The daemon session token value. </param>
 /// <param name="ProjectFingerprint"> The project fingerprint value. </param>
 /// <param name="IssuedAtUtc"> The issued-at timestamp. </param>
@@ -17,8 +18,10 @@ namespace MackySoft.Ucli.Contracts.Storage;
 /// <param name="ProcessId"> The process identifier value. </param>
 /// <param name="ProcessStartedAtUtc"> The observed process start timestamp in UTC when available. </param>
 /// <param name="OwnerProcessId"> The owner process identifier value. </param>
+/// <param name="EditorInstanceId"> The Unity Editor process instance identifier when available. </param>
 internal sealed record DaemonSessionJsonContract (
     int SchemaVersion,
+    Guid SessionGenerationId,
     string? SessionToken,
     ProjectFingerprint? ProjectFingerprint,
     DateTimeOffset IssuedAtUtc,
@@ -29,12 +32,10 @@ internal sealed record DaemonSessionJsonContract (
     string? EndpointAddress,
     int? ProcessId,
     DateTimeOffset? ProcessStartedAtUtc,
-    int? OwnerProcessId)
+    int? OwnerProcessId,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    Guid? EditorInstanceId)
 {
-    /// <summary> Gets the Unity Editor process instance identifier that survives domain reloads within the process. </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public Guid? EditorInstanceId { get; init; }
-
     /// <inheritdoc />
     public override string ToString () => nameof(DaemonSessionJsonContract);
 }

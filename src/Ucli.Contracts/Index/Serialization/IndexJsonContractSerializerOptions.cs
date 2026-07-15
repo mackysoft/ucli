@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
@@ -7,6 +8,10 @@ internal static class IndexJsonContractSerializerOptions
 {
     public static JsonSerializerOptions Deserialize { get; } = new()
     {
+        Converters =
+        {
+            new ContractLiteralJsonConverterFactory(),
+        },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
     };

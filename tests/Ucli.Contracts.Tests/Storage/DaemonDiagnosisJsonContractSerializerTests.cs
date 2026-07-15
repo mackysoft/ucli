@@ -1,7 +1,6 @@
 using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Storage;
 
@@ -39,9 +38,9 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
         var contract = DaemonDiagnosisJsonContractSerializer.Deserialize(Json);
 
         Assert.NotNull(contract);
-        Assert.Equal("shutdownRequested", contract.Reason);
+        Assert.Equal(DaemonDiagnosisReason.ShutdownRequested, contract.Reason);
         Assert.Equal("daemon shutdown completed", contract.Message);
-        Assert.Equal("unity", contract.ReportedBy);
+        Assert.Equal(DaemonDiagnosisReportedBy.Unity, contract.ReportedBy);
         Assert.False(contract.IsInferred);
         Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:00+00:00"), contract.UpdatedAtUtc);
         Assert.Equal(1234, contract.ProcessId);
@@ -49,10 +48,10 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
         Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:01+00:00"), contract.SessionIssuedAtUtc);
         Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:02+00:00"), contract.ProcessStartedAtUtc);
         Assert.Equal("/repo/.ucli/unity.log", contract.UnityLogPath);
-        Assert.Equal("scriptCompilation", contract.StartupPhase);
-        Assert.Equal("fixCompileErrors", contract.ActionRequired);
+        Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, contract.StartupPhase);
+        Assert.Equal(DaemonDiagnosisActionRequired.FixCompileErrors, contract.ActionRequired);
         Assert.NotNull(contract.PrimaryDiagnostic);
-        Assert.Equal("compiler", contract.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, contract.PrimaryDiagnostic!.Kind);
         Assert.Equal("CS1739", contract.PrimaryDiagnostic.Code);
         Assert.Equal("Assets/Foo.cs", contract.PrimaryDiagnostic.File);
         Assert.Equal(74, contract.PrimaryDiagnostic.Line);
@@ -81,12 +80,61 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Deserialize_WithUnknownFiniteLiteral_ThrowsJsonException ()
+    {
+        const string Json = """
+            {
+              "reason": "unknown",
+              "message": "diagnosis",
+              "reportedBy": "unity",
+              "isInferred": false,
+              "updatedAtUtc": "2026-03-09T00:00:00+00:00",
+              "processId": null,
+              "editorInstancePath": null,
+              "sessionIssuedAtUtc": "2026-03-09T00:00:01+00:00",
+              "processStartedAtUtc": null,
+              "unityLogPath": null,
+              "startupPhase": null,
+              "actionRequired": null,
+              "primaryDiagnostic": null
+            }
+            """;
+
+        Assert.Throws<JsonException>(() => DaemonDiagnosisJsonContractSerializer.Deserialize(Json));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Deserialize_WhenRequiredFiniteLiteralIsMissing_ThrowsJsonException ()
+    {
+        const string Json = """
+            {
+              "message": "diagnosis",
+              "reportedBy": "unity",
+              "isInferred": false,
+              "updatedAtUtc": "2026-03-09T00:00:00+00:00",
+              "processId": null,
+              "editorInstancePath": null,
+              "sessionIssuedAtUtc": "2026-03-09T00:00:01+00:00",
+              "processStartedAtUtc": null,
+              "unityLogPath": null,
+              "startupPhase": null,
+              "actionRequired": null,
+              "primaryDiagnostic": null
+            }
+            """;
+
+        Assert.Throws<JsonException>(() => DaemonDiagnosisJsonContractSerializer.Deserialize(Json));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Serialize_WithContract_WritesCamelCaseFields ()
     {
         var contract = new DaemonDiagnosisJsonContract(
-            Reason: "shutdownRequested",
+            Reason: DaemonDiagnosisReason.ShutdownRequested,
             Message: "daemon shutdown completed",
-            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            ReportedBy: DaemonDiagnosisReportedBy.Unity,
             IsInferred: false,
             UpdatedAtUtc: DateTimeOffset.Parse("2026-03-09T00:00:00+00:00"),
             ProcessId: 1234,
@@ -94,10 +142,10 @@ public sealed class DaemonDiagnosisJsonContractSerializerTests
             SessionIssuedAtUtc: DateTimeOffset.Parse("2026-03-09T00:00:01+00:00"),
             ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-09T00:00:02+00:00"),
             UnityLogPath: "/repo/.ucli/unity.log",
-            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
-            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
             PrimaryDiagnostic: new DaemonDiagnosisPrimaryDiagnosticJsonContract(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS1739",
                 File: "Assets/Foo.cs",
                 Line: 74,

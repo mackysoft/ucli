@@ -26,17 +26,9 @@ public sealed class UcliCommandTests
         " ",
         "daemon status",
         "daemon\tstatus",
-        ".daemon",
-        "daemon.",
-        "daemon..status",
-    ];
-
-    private static readonly string[] InvalidConstructorCommandNames =
-    [
-        "",
-        " ",
-        "daemon status",
-        "daemon\tstatus",
+        "daemon\rstatus",
+        "daemon\nstatus",
+        "\u00a0",
         ".daemon",
         "daemon.",
         "daemon..status",
@@ -95,10 +87,11 @@ public sealed class UcliCommandTests
         {
             Assert.True(UcliCommand.IsValidName(name), $"{name} must be accepted as a command name.");
             var command = new UcliCommand(name);
-            Assert.True(command.IsValid, $"{name} must create a valid command identifier.");
+            Assert.True(UcliCommand.TryCreate(name, out var parsedCommand));
+            Assert.NotNull(parsedCommand);
             Assert.Equal(name, command.Name);
-            string rawName = command;
-            Assert.Equal(name, rawName);
+            Assert.Equal(name, command.ToString());
+            Assert.Equal(command, parsedCommand);
         }
     }
 
@@ -114,9 +107,41 @@ public sealed class UcliCommandTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IsValid_OnDefaultCommand_ReturnsFalse ()
+    public void IsValidName_WithValidName_DoesNotAllocate ()
     {
-        Assert.False(default(UcliCommand).IsValid);
+        const string Name = "daemon.status";
+        for (var index = 0; index < 16; index++)
+        {
+            _ = UcliCommand.IsValidName(Name);
+        }
+
+        var allocatedBytesBefore = GC.GetAllocatedBytesForCurrentThread();
+        var isValid = true;
+        for (var index = 0; index < 1_000; index++)
+        {
+            isValid &= UcliCommand.IsValidName(Name);
+        }
+
+        var allocatedBytes = GC.GetAllocatedBytesForCurrentThread() - allocatedBytesBefore;
+        Assert.True(isValid);
+        Assert.Equal(0, allocatedBytes);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryCreate_WithInvalidName_ReturnsNull ()
+    {
+        foreach (string? name in InvalidCommandNames)
+        {
+            Assert.False(UcliCommand.TryCreate(name, out var command));
+            Assert.Null(command);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ConstructionModel_UsesPrivateValidatedValueConstructor ()
+    {
     }
 
     [Fact]
@@ -173,11 +198,11 @@ public sealed class UcliCommandTests
     [Trait("Size", "Small")]
     public void Constructor_WithInvalidName_ThrowsArgumentException ()
     {
-        foreach (string name in InvalidConstructorCommandNames)
+        foreach (string? name in InvalidCommandNames)
         {
             Assert.Throws<ArgumentException>(() =>
             {
-                _ = new UcliCommand(name);
+                _ = new UcliCommand(name!);
             });
         }
     }

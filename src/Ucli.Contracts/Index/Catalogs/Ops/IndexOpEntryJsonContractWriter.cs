@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
@@ -18,7 +19,8 @@ internal static class IndexOpEntryJsonContractWriter
         WriteNullableString(writer, "description", entry.Description);
         WriteArray(writer, "inputs", entry.Inputs, WriteOperationInput);
         WriteOperationResultContract(writer, entry.ResultContract);
-        WriteOperationAssurance(writer, entry.Assurance);
+        writer.WritePropertyName("assurance");
+        JsonSerializer.Serialize(writer, entry.Assurance);
         WriteOperationCodeContract(writer, entry.CodeContract);
         WriteSchema(writer, "argsSchema", entry.ArgsSchemaJson);
         WriteOptionalSchema(writer, "resultSchema", entry.ResultSchemaJson);
@@ -77,6 +79,28 @@ internal static class IndexOpEntryJsonContractWriter
         for (var i = 0; i < values.Count; i++)
         {
             writer.WriteStringValue(values[i]);
+        }
+
+        writer.WriteEndArray();
+    }
+
+    private static void WriteContractLiteralArray<TEnum> (
+        Utf8JsonWriter writer,
+        string propertyName,
+        IReadOnlyList<TEnum>? values)
+        where TEnum : struct, Enum
+    {
+        writer.WritePropertyName(propertyName);
+        if (values == null)
+        {
+            writer.WriteNullValue();
+            return;
+        }
+
+        writer.WriteStartArray();
+        for (var i = 0; i < values.Count; i++)
+        {
+            writer.WriteStringValue(ContractLiteralCodec.ToValue(values[i]));
         }
 
         writer.WriteEndArray();
@@ -184,32 +208,6 @@ internal static class IndexOpEntryJsonContractWriter
         writer.WriteEndObject();
     }
 
-    private static void WriteOperationAssurance (
-        Utf8JsonWriter writer,
-        UcliOperationAssuranceContract? assurance)
-    {
-        writer.WritePropertyName("assurance");
-        if (assurance == null)
-        {
-            writer.WriteNullValue();
-            return;
-        }
-
-        writer.WriteStartObject();
-        WriteStringArray(writer, "sideEffects", assurance.SideEffects);
-        writer.WriteBoolean("mayDirty", assurance.MayDirty);
-        writer.WriteBoolean("mayPersist", assurance.MayPersist);
-        WriteStringArray(writer, "touchedKinds", assurance.TouchedKinds);
-        WriteNullableString(writer, "planMode", assurance.PlanMode);
-        WriteNullableString(writer, "planSemantics", assurance.PlanSemantics);
-        WriteNullableString(writer, "callSemantics", assurance.CallSemantics);
-        WriteNullableString(writer, "touchedContract", assurance.TouchedContract);
-        WriteNullableString(writer, "readPostconditionContract", assurance.ReadPostconditionContract);
-        WriteNullableString(writer, "failureSemantics", assurance.FailureSemantics);
-        WriteStringArray(writer, "dangerousNotes", assurance.DangerousNotes);
-        writer.WriteEndObject();
-    }
-
     private static void WriteSchema (
         Utf8JsonWriter writer,
         string propertyName,
@@ -251,7 +249,12 @@ internal static class IndexOpEntryJsonContractWriter
 
         writer.WritePropertyName("codeContract");
         writer.WriteStartObject();
-        WriteNullableString(writer, "language", codeContract.Language);
+        WriteNullableString(
+            writer,
+            "language",
+            codeContract.Language.HasValue
+                ? ContractLiteralCodec.ToValue(codeContract.Language.Value)
+                : null);
         WriteCodeEntryPoint(writer, codeContract.EntryPoint);
         WriteArray(writer, "sourceForms", codeContract.SourceForms, WriteCodeSourceForm);
         WriteArray(writer, "apiTypes", codeContract.ApiTypes, WriteCodeApiType);
@@ -283,7 +286,12 @@ internal static class IndexOpEntryJsonContractWriter
         UcliCodeSourceFormContract sourceForm)
     {
         writer.WriteStartObject();
-        WriteNullableString(writer, "kind", sourceForm.Kind);
+        WriteNullableString(
+            writer,
+            "kind",
+            sourceForm.Kind.HasValue
+                ? ContractLiteralCodec.ToValue(sourceForm.Kind.Value)
+                : null);
         WriteNullableString(writer, "description", sourceForm.Description);
         writer.WriteEndObject();
     }
@@ -305,7 +313,12 @@ internal static class IndexOpEntryJsonContractWriter
         UcliCodeApiMemberContract member)
     {
         writer.WriteStartObject();
-        WriteNullableString(writer, "kind", member.Kind);
+        WriteNullableString(
+            writer,
+            "kind",
+            member.Kind.HasValue
+                ? ContractLiteralCodec.ToValue(member.Kind.Value)
+                : null);
         WriteNullableString(writer, "name", member.Name);
         WriteNullableString(writer, "description", member.Description);
         WriteNullableString(writer, "type", member.Type);

@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
@@ -12,8 +13,13 @@ public sealed record IndexSceneTreeLiteNodeJsonContract
         string? name,
         string? globalObjectId,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? children,
-        string? childrenState)
+        IndexSceneTreeLiteNodeChildrenState childrenState)
     {
+        if (!ContractLiteralCodec.IsDefined(childrenState))
+        {
+            throw new ArgumentOutOfRangeException(nameof(childrenState), childrenState, "Unsupported scene-tree-lite node children state.");
+        }
+
         Name = name;
         GlobalObjectId = globalObjectId;
         Children = children;
@@ -35,8 +41,8 @@ public sealed record IndexSceneTreeLiteNodeJsonContract
     [UcliDescription("Child nodes in hierarchy order.")]
     public IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? Children { get; init; }
 
-    /// <summary> Gets whether the child nodes are complete or truncated. </summary>
+    /// <summary> Gets the child collection completeness state. </summary>
     [UcliRequired]
     [UcliDescription("Child node completeness state. Values are complete, notExpandedByDepth, truncatedByWindow, and unknown.")]
-    public string? ChildrenState { get; init; }
+    public IndexSceneTreeLiteNodeChildrenState ChildrenState { get; }
 }

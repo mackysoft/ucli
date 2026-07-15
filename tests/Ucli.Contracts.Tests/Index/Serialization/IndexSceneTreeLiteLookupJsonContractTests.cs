@@ -1,10 +1,61 @@
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Text;
 using static MackySoft.Tests.JsonTextAssert;
 
 namespace MackySoft.Ucli.Contracts.Tests.Index;
 
 public sealed class IndexSceneTreeLiteLookupJsonContractTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ChildrenStateVocabulary_DefinesCanonicalLiteralsAndRejectsDefault ()
+    {
+        Assert.Equal(
+            ["complete", "notExpandedByDepth", "truncatedByWindow", "unknown"],
+            ContractLiteralCodec.GetLiterals<IndexSceneTreeLiteNodeChildrenState>());
+        Assert.False(ContractLiteralCodec.IsDefined(default(IndexSceneTreeLiteNodeChildrenState)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void NodeConstructor_WhenChildrenStateIsUndefined_ThrowsArgumentOutOfRangeException ()
+    {
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() => new IndexSceneTreeLiteNodeJsonContract(
+            name: "Root",
+            globalObjectId: string.Empty,
+            children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
+            childrenState: default));
+
+        Assert.Equal("childrenState", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Serializer_WhenChildrenStateIsMissing_ThrowsArgumentOutOfRangeException ()
+    {
+        const string json =
+            """
+            {
+              "schemaVersion": 1,
+              "generatedAtUtc": "2026-03-03T00:00:00+00:00",
+              "scenePath": "Assets/Scenes/Main.unity",
+              "sourceInputsHash": "scene-hash",
+              "roots": [
+                {
+                  "name": "Root",
+                  "globalObjectId": "",
+                  "children": []
+                }
+              ]
+            }
+            """;
+
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(
+            () => IndexSceneTreeLiteLookupJsonContractSerializer.Deserialize(json));
+
+        Assert.Equal("childrenState", exception.ParamName);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void Serializer_RoundTripsSceneTreeRootsAndChildrenState ()
@@ -25,9 +76,9 @@ public sealed class IndexSceneTreeLiteLookupJsonContractTests
                             name: "Child",
                             globalObjectId: string.Empty,
                             children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
-                            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                            childrenState: IndexSceneTreeLiteNodeChildrenState.Complete),
                     ],
-                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                    childrenState: IndexSceneTreeLiteNodeChildrenState.Complete),
             ]);
 
         var json = new IndexSceneTreeLiteLookupJsonContractWriter().Write(contract);
@@ -40,9 +91,9 @@ public sealed class IndexSceneTreeLiteLookupJsonContractTests
         Assert.NotNull(deserialized.Roots);
         Assert.Single(deserialized.Roots);
         Assert.Equal("Root", deserialized.Roots[0].Name);
-        Assert.Equal(IndexSceneTreeLiteNodeChildrenStateValues.Complete, deserialized.Roots[0].ChildrenState);
+        Assert.Equal(IndexSceneTreeLiteNodeChildrenState.Complete, deserialized.Roots[0].ChildrenState);
         Assert.Single(deserialized.Roots[0].Children!);
-        Assert.Equal(IndexSceneTreeLiteNodeChildrenStateValues.Complete, deserialized.Roots[0].Children![0].ChildrenState);
+        Assert.Equal(IndexSceneTreeLiteNodeChildrenState.Complete, deserialized.Roots[0].Children![0].ChildrenState);
     }
 
     [Fact]
@@ -60,12 +111,12 @@ public sealed class IndexSceneTreeLiteLookupJsonContractTests
                     name: "RootZ",
                     globalObjectId: "z",
                     children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
-                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                    childrenState: IndexSceneTreeLiteNodeChildrenState.Complete),
                 new IndexSceneTreeLiteNodeJsonContract(
                     name: "RootA",
                     globalObjectId: "a",
                     children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
-                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                    childrenState: IndexSceneTreeLiteNodeChildrenState.Complete),
             ]);
 
         AssertExactJson(

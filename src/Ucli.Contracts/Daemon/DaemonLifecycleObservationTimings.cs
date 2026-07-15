@@ -12,7 +12,10 @@ public static class DaemonLifecycleObservationTimings
     /// <summary> Gets the minimum interval between periodic lifecycle sidecar writes. </summary>
     public static TimeSpan SidecarRefreshInterval { get; } = TimeSpan.FromSeconds(1);
 
-    /// <summary> Gets the maximum age accepted when a sidecar substitutes for an unavailable IPC response. </summary>
+    /// <summary> Gets the maximum age accepted for an ordinary sidecar that has no domain-reload recovery lease. </summary>
     public static TimeSpan FreshnessWindow { get; } = TimeSpan.FromTicks(
         SidecarRefreshInterval.Ticks * FreshnessRefreshSlotCount);
+
+    /// <summary> Gets the finite lifetime of a domain-reload recovery sidecar written before assembly reload. </summary>
+    public static TimeSpan DomainReloadRecoveryLeaseDuration { get; } = TimeSpan.FromMinutes(5);
 }

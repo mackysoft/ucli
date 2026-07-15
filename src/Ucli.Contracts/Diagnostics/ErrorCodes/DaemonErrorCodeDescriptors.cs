@@ -36,7 +36,7 @@ internal static class DaemonErrorCodeDescriptors
             possiblePhases: ["modeDecision", "daemonSessionValidation"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["status", "payload.daemon", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [
@@ -55,7 +55,7 @@ internal static class DaemonErrorCodeDescriptors
             possiblePhases: ["daemonStartup", "guiBootstrap", "scriptCompilation", "packageResolution", "userAction"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.diagnosis", "payload.primaryDiagnostic", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
@@ -83,7 +83,7 @@ internal static class DaemonErrorCodeDescriptors
             possiblePhases: ["daemonStartup", "processLaunch", "endpointRegistration"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.Unknown,
+            safeToRetry: UcliErrorRetryClass.Unknown,
             inspect: ["payload.diagnosis", UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
@@ -102,7 +102,7 @@ internal static class DaemonErrorCodeDescriptors
             possiblePhases: ["endpointRegistration", "daemonStartup"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.Unknown,
+            safeToRetry: UcliErrorRetryClass.Unknown,
             inspect: ["payload.diagnosis", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
@@ -126,7 +126,7 @@ internal static class DaemonErrorCodeDescriptors
             possiblePhases: ["daemonSessionResolution", "ipcDispatch", "logRead"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: [UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [
@@ -194,7 +194,7 @@ internal static class DaemonErrorCodeDescriptors
             possiblePhases: ["daemonStartup", phase],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["payload.diagnosis", "payload.diagnosis.primaryDiagnostic", UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [

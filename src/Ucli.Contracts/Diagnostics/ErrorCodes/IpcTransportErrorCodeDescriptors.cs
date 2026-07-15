@@ -37,7 +37,7 @@ internal static class IpcTransportErrorCodeDescriptors
             possiblePhases: ["readinessWait", "ipcDispatch", "unityExecution", "responseRead", "daemonLifecycle", "worktreeDiscovery", "logRead"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect:
             [
                 "status",

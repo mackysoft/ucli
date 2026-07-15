@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Diagnostics;
 
@@ -51,15 +52,14 @@ public sealed class UcliErrorDescriptorTests
             Assert.NotNull(descriptor.AppliesTo);
             Assert.NotNull(descriptor.PossiblePhases);
             Assert.NotNull(descriptor.ExecutionSemantics);
-            Assert.False(string.IsNullOrWhiteSpace(descriptor.ExecutionSemantics.SafeToRetry));
-            Assert.True(UcliErrorRetryClassValues.IsKnown(descriptor.ExecutionSemantics.SafeToRetry));
+            Assert.True(ContractLiteralCodec.IsDefined(descriptor.ExecutionSemantics.SafeToRetry));
             Assert.NotNull(descriptor.Inspect);
             Assert.NotNull(descriptor.NextActions);
             Assert.NotNull(descriptor.RelatedCodes);
 
             foreach (var command in descriptor.AppliesTo)
             {
-                Assert.True(command.IsValid);
+                Assert.NotNull(command);
             }
 
             foreach (var possiblePhase in descriptor.PossiblePhases)
@@ -81,6 +81,22 @@ public sealed class UcliErrorDescriptorTests
                 Assert.Contains(relatedCode, knownCodes);
             }
         }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void RetryClassification_HasStableLiteralsAndRejectsDefaultValue ()
+    {
+        Assert.Equal(
+            ["yes", "no", "waitThenRetry", "replanRequired", "contextDependent", "unknown"],
+            ContractLiteralCodec.GetLiterals<UcliErrorRetryClass>());
+        Assert.False(ContractLiteralCodec.IsDefined(default(UcliErrorRetryClass)));
+        Assert.Equal(
+            "SafeToRetry",
+            Assert.Throws<ArgumentOutOfRangeException>(() => new UcliErrorExecutionSemantics(
+                ImpliesNotApplied: null,
+                MayBeIndeterminate: true,
+                SafeToRetry: default)).ParamName);
     }
 
     [Fact]
@@ -119,7 +135,7 @@ public sealed class UcliErrorDescriptorTests
         Assert.Contains(UcliCommandIds.Query, descriptor.AppliesTo);
         Assert.Contains(UcliCommandIds.Call, descriptor.AppliesTo);
         Assert.Contains("payload.opResults[].diagnostics[]", descriptor.Inspect);
-        Assert.Equal(UcliErrorRetryClassValues.ContextDependent, descriptor.ExecutionSemantics.SafeToRetry);
+        Assert.Equal(UcliErrorRetryClass.ContextDependent, descriptor.ExecutionSemantics.SafeToRetry);
     }
 
     [Fact]
@@ -136,7 +152,7 @@ public sealed class UcliErrorDescriptorTests
         Assert.Contains(UcliCommandIds.Resolve, descriptor.AppliesTo);
         Assert.Null(descriptor.ExecutionSemantics.ImpliesNotApplied);
         Assert.True(descriptor.ExecutionSemantics.MayBeIndeterminate);
-        Assert.Equal(UcliErrorRetryClassValues.ContextDependent, descriptor.ExecutionSemantics.SafeToRetry);
+        Assert.Equal(UcliErrorRetryClass.ContextDependent, descriptor.ExecutionSemantics.SafeToRetry);
         Assert.Contains("payload.contractViolations[]", descriptor.Inspect);
     }
 

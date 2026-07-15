@@ -75,6 +75,12 @@ public static class UcliStoragePathNames
     /// <summary> Gets the test-artifacts directory name under one fingerprint artifacts directory. </summary>
     public const string TestArtifactsDirectoryName = "test";
 
+    /// <summary> Gets the Unity test results XML file name under one test-run artifacts directory. </summary>
+    public const string TestResultsXmlFileName = "results.xml";
+
+    /// <summary> Gets the Unity editor log file name under one test-run artifacts directory. </summary>
+    public const string TestEditorLogFileName = "editor.log";
+
     /// <summary> Gets the compile-artifacts directory name under one fingerprint artifacts directory. </summary>
     public const string CompileArtifactsDirectoryName = "compile";
 
@@ -95,6 +101,12 @@ public static class UcliStoragePathNames
 
     /// <summary> Gets the recoverable IPC operation directory name under one fingerprint directory. </summary>
     public const string IpcOperationsDirectoryName = "ipc-operations";
+
+    /// <summary> Gets the oneshot bootstrap-envelope directory name under one fingerprint directory. </summary>
+    public const string OneshotBootstrapDirectoryName = "oneshot-bootstrap";
+
+    /// <summary> Gets the file extension for one oneshot bootstrap envelope. </summary>
+    public const string OneshotBootstrapFileExtension = ".json";
 
     /// <summary> Gets the build-run metadata artifact file name. </summary>
     public const string BuildMetadataFileName = "build.json";

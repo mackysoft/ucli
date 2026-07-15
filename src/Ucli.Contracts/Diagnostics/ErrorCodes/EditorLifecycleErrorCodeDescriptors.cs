@@ -66,7 +66,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             possiblePhases: ["readinessWait", "scriptCompilation"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["status", "payload.lifecycleState", "payload.primaryDiagnostic", UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
@@ -89,7 +89,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             possiblePhases: ["readinessWait", "operationAuthorization"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["status", "payload.lifecycleState", "payload.playMode"],
             nextActions:
             [
@@ -115,7 +115,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             possiblePhases: ["readinessWait", "unityExecution"],
             impliesNotApplied: null,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["status", "payload.lifecycleState", UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
@@ -134,7 +134,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             possiblePhases: ["readinessWait", "pluginVerify"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["status", UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
@@ -153,7 +153,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             possiblePhases: ["readinessWait", "ipcDispatch"],
             impliesNotApplied: null,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["status", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonErrorLogsCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
@@ -172,7 +172,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             possiblePhases: ["readinessWait", "ipcProbe", "daemonRecovery"],
             impliesNotApplied: null,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["status", UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonErrorLogsCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
@@ -203,7 +203,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             possiblePhases: [phase],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.WaitThenRetry,
+            safeToRetry: UcliErrorRetryClass.WaitThenRetry,
             inspect: TransientInspectTargets(),
             nextActions: TransientNextActions(),
             relatedCodes: TransientRelatedCodes(code));

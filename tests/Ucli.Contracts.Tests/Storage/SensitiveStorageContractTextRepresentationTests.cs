@@ -16,6 +16,7 @@ public sealed class SensitiveStorageContractTextRepresentationTests
         const string SessionToken = "sensitive-daemon-session-token-DO-NOT-LOG";
         var contract = new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+            SessionGenerationId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
             SessionToken: SessionToken,
             ProjectFingerprint: ProjectFingerprint,
             IssuedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
@@ -26,7 +27,8 @@ public sealed class SensitiveStorageContractTextRepresentationTests
             EndpointAddress: "ucli-daemon-endpoint",
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
-            OwnerProcessId: 5678);
+            OwnerProcessId: 5678,
+            EditorInstanceId: null);
 
         string[] textRepresentations =
         [

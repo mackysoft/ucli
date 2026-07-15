@@ -19,7 +19,7 @@ internal static class ScreenshotErrorCodeDescriptors
             possiblePhases: ["modeDecision", "daemonSessionResolution"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect:
             [
                 "errors[].code",
@@ -44,7 +44,7 @@ internal static class ScreenshotErrorCodeDescriptors
             possiblePhases: ["capturePreflight", "resolutionTransaction", "repaintWait"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message"],
             nextActions:
             [
@@ -63,7 +63,7 @@ internal static class ScreenshotErrorCodeDescriptors
             possiblePhases: ["capturePreflight", "surfaceCapture", "pixelNormalization", "artifactValidation"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect:
             [
                 "errors[].code",

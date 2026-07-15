@@ -17,15 +17,12 @@ public sealed class UcliCodeJsonConverter : JsonConverter<UcliCode>
             throw new JsonException("Expected a JSON string for a code value.");
         }
 
-        var value = reader.GetString();
-        try
+        if (!UcliCode.TryCreate(reader.GetString(), out var code))
         {
-            return new UcliCode(value!);
+            throw new JsonException("JSON string for a code value is invalid.");
         }
-        catch (ArgumentException exception)
-        {
-            throw new JsonException("JSON string for a code value is invalid.", exception);
-        }
+
+        return code;
     }
 
     /// <inheritdoc />
@@ -34,11 +31,6 @@ public sealed class UcliCodeJsonConverter : JsonConverter<UcliCode>
         UcliCode value,
         JsonSerializerOptions options)
     {
-        if (!value.IsValid)
-        {
-            throw new JsonException("Code value is invalid.");
-        }
-
         writer.WriteStringValue(value.Value);
     }
 }

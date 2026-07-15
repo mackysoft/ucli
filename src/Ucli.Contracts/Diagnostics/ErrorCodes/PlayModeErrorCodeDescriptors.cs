@@ -49,7 +49,7 @@ internal static class PlayModeErrorCodeDescriptors
             possiblePhases: ["operationAuthorization", "unityExecution"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["status", "payload.playMode", "payload.opResults"],
             nextActions:
             [
@@ -76,7 +76,7 @@ internal static class PlayModeErrorCodeDescriptors
             possiblePhases: ["modeDecision", "operationAuthorization", "playModeControl"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect:
             [
                 "status",
@@ -107,7 +107,7 @@ internal static class PlayModeErrorCodeDescriptors
             possiblePhases: ["operationAuthorization", "unityExecution", "readPostcondition"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["payload.opResults", "payload.opResults[].touched", "payload.readPostcondition"],
             nextActions:
             [
@@ -129,7 +129,7 @@ internal static class PlayModeErrorCodeDescriptors
             ["sessionResolution"],
             true,
             false,
-            UcliErrorRetryClassValues.No,
+            UcliErrorRetryClass.No,
             [
                 "payload.daemonStatus",
                 "payload.editorMode",
@@ -149,7 +149,7 @@ internal static class PlayModeErrorCodeDescriptors
             ["playModeControl", "transitionWait"],
             false,
             true,
-            UcliErrorRetryClassValues.ContextDependent,
+            UcliErrorRetryClass.ContextDependent,
             [
                 "payload.transition.before.playMode",
                 "payload.transition.observed",
@@ -168,7 +168,7 @@ internal static class PlayModeErrorCodeDescriptors
             ["playModeControl", "transitionWait"],
             true,
             false,
-            UcliErrorRetryClassValues.ContextDependent,
+            UcliErrorRetryClass.ContextDependent,
             [
                 "payload.transition.before.lifecycleState",
                 "payload.transition.before.blockingReason",
@@ -189,7 +189,7 @@ internal static class PlayModeErrorCodeDescriptors
             ["playModeControl"],
             true,
             false,
-            UcliErrorRetryClassValues.WaitThenRetry,
+            UcliErrorRetryClass.WaitThenRetry,
             ["payload.transition.before.playMode", "payload.transition.observed.playMode"],
             "Wait for the current Play Mode transition to finish, then rerun the command if needed.",
             [PlayModeErrorCodes.PlayModeTransitionTimeout]),
@@ -202,7 +202,7 @@ internal static class PlayModeErrorCodeDescriptors
             ["playModeControl"],
             true,
             false,
-            UcliErrorRetryClassValues.ContextDependent,
+            UcliErrorRetryClass.ContextDependent,
             [
                 "payload.transition.before.lifecycleState",
                 "payload.transition.before.playMode",
@@ -221,7 +221,7 @@ internal static class PlayModeErrorCodeDescriptors
             ["playModeControl"],
             true,
             false,
-            UcliErrorRetryClassValues.ContextDependent,
+            UcliErrorRetryClass.ContextDependent,
             [
                 "payload.transition.before.lifecycleState",
                 "payload.transition.before.playMode",
@@ -240,7 +240,7 @@ internal static class PlayModeErrorCodeDescriptors
             ["playModeControl", "lifecycleObservation"],
             null,
             true,
-            UcliErrorRetryClassValues.ContextDependent,
+            UcliErrorRetryClass.ContextDependent,
             [
                 "payload.snapshot.lifecycleState",
                 "payload.snapshot.playMode",
@@ -262,7 +262,7 @@ internal static class PlayModeErrorCodeDescriptors
         IReadOnlyList<string> possiblePhases,
         bool? impliesNotApplied,
         bool mayBeIndeterminate,
-        string safeToRetry,
+        UcliErrorRetryClass safeToRetry,
         IReadOnlyList<string> inspect,
         string nextAction,
         IReadOnlyList<UcliCode> relatedCodes)

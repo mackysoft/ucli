@@ -15,7 +15,7 @@ internal static class UcliCoreErrorCodeDescriptors
             possiblePhases: ["argumentParsing", "staticValidation"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "errors[].opId"],
             nextActions:
             [
@@ -34,7 +34,7 @@ internal static class UcliCoreErrorCodeDescriptors
             possiblePhases: ["preflight"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["status", "errors[].message"],
             nextActions:
             [
@@ -53,7 +53,7 @@ internal static class UcliCoreErrorCodeDescriptors
             possiblePhases: ["dispatch"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["command", "errors[].message"],
             nextActions:
             [
@@ -72,7 +72,7 @@ internal static class UcliCoreErrorCodeDescriptors
             possiblePhases: ["dispatch", "preflight", "execution", "projection"],
             impliesNotApplied: null,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.Unknown,
+            safeToRetry: UcliErrorRetryClass.Unknown,
             inspect: ["status", "errors[].code", "errors[].message", "payload.requestId", "payload.opResults", "payload.readPostcondition", UcliErrorInspectTargets.DaemonErrorLogsCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [

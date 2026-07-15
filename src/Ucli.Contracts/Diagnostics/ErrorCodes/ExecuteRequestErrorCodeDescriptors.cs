@@ -21,7 +21,7 @@ internal static class ExecuteRequestErrorCodeDescriptors
             possiblePhases: ["idempotencyCheck"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].message", "IPC client retry and recovery logs"],
             nextActions:
             [
@@ -47,7 +47,7 @@ internal static class ExecuteRequestErrorCodeDescriptors
             possiblePhases: ["plan", "call"],
             impliesNotApplied: null,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.opResults[].diagnostics[]", "steps[].args.selector.hierarchyPath", "Unity scene hierarchy"],
             nextActions:
             [
@@ -74,7 +74,7 @@ internal static class ExecuteRequestErrorCodeDescriptors
             possiblePhases: ["plan", "call"],
             impliesNotApplied: null,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect:
             [
                 "errors[].code",
