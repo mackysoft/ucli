@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -25,19 +24,19 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public void Write (
-            string source,
-            string level,
+            IpcUnityLogSource source,
+            IpcLogLevel level,
             string message,
             string stackTrace = null)
         {
-            if (string.IsNullOrWhiteSpace(source))
+            if (!MackySoft.Ucli.Contracts.Text.ContractLiteralCodec.IsDefined(source))
             {
-                throw new ArgumentException("source must not be empty.", nameof(source));
+                throw new ArgumentOutOfRangeException(nameof(source), source, "Unity log source must be defined.");
             }
 
-            if (string.IsNullOrWhiteSpace(level))
+            if (!MackySoft.Ucli.Contracts.Text.ContractLiteralCodec.IsDefined(level))
             {
-                throw new ArgumentException("level must not be empty.", nameof(level));
+                throw new ArgumentOutOfRangeException(nameof(level), level, "Unity log level must be defined.");
             }
 
             if (string.IsNullOrWhiteSpace(message))
@@ -51,7 +50,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var cursor = IpcLogCursorCodec.Encode(streamId, sequence);
                 var unityLogEvent = new UnityLogEvent(
                     Sequence: sequence,
-                    Timestamp: DateTimeOffset.UtcNow.ToString("O", CultureInfo.InvariantCulture),
+                    Timestamp: DateTimeOffset.UtcNow,
                     Level: level,
                     Source: source,
                     Message: message,

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Globalization;
 
 #nullable enable
 
@@ -12,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Determines whether one event passes shared sequence and time-window filters. </summary>
         public static bool PassesSequenceAndTimeWindow (
             long sequence,
-            string timestamp,
+            DateTimeOffset timestamp,
             long? afterSequence,
             DateTimeOffset? since,
             DateTimeOffset? until)
@@ -24,15 +23,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (since.HasValue
                 && !afterSequence.HasValue
-                && TryParseEventTimestamp(timestamp, out var eventTimestampSince)
-                && eventTimestampSince < since.Value)
+                && timestamp < since.Value)
             {
                 return false;
             }
 
             if (until.HasValue
-                && TryParseEventTimestamp(timestamp, out var eventTimestampUntil)
-                && eventTimestampUntil > until.Value)
+                && timestamp > until.Value)
             {
                 return false;
             }
@@ -82,17 +79,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return tailEvents;
-        }
-
-        private static bool TryParseEventTimestamp (
-            string timestampText,
-            out DateTimeOffset timestamp)
-        {
-            return DateTimeOffset.TryParse(
-                timestampText,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.RoundtripKind,
-                out timestamp);
         }
     }
 }

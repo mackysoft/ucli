@@ -36,7 +36,7 @@ internal static class LogsReadCommandResultFactory
     private static ApplicationFailure CreateFailure (LogsReadServiceResult serviceResult)
     {
         var error = serviceResult.Error ?? throw new ArgumentException("Failed logs read result must contain an error.", nameof(serviceResult));
-        if (error.Code == ExecutionErrorCodes.Canceled || serviceResult.CompletionReason == LogsReadCompletionReasons.Canceled)
+        if (serviceResult.CompletionReason == LogsReadCompletionReason.Canceled)
         {
             return ApplicationFailure.Canceled(error.Message, ExecutionErrorCodes.Canceled);
         }

@@ -23,6 +23,11 @@ internal static class DaemonLogsClientAssert
         Assert.Equal(expectedTailValues, logsClient.Invocations.Select(static invocation => invocation.Query.Tail).ToArray());
     }
 
+    public static void SingleReadHasNoCategoryFilter (RecordingDaemonLogsClient logsClient)
+    {
+        Assert.Null(SingleReadQuery(logsClient).Category);
+    }
+
     private static IpcDaemonLogsReadRequest SingleReadQuery (RecordingDaemonLogsClient logsClient)
     {
         return Assert.Single(logsClient.Invocations).Query;

@@ -20,7 +20,10 @@ public sealed class LogsUnityServiceStreamTests
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:1", "alpha", timestamp: "2099-01-01T00:00:00Z"),
+                        CreateEvent(
+                            "stream-1:1",
+                            "alpha",
+                            new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero)),
                     ],
                     nextCursor: "stream-1:2")),
             ]);
@@ -69,13 +72,19 @@ public sealed class LogsUnityServiceStreamTests
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:1", "alpha"),
+                        CreateEvent(
+                            "stream-1:1",
+                            "alpha",
+                            new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
                     nextCursor: "stream-1:2")),
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:2", "bravo"),
+                        CreateEvent(
+                            "stream-1:2",
+                            "bravo",
+                            new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
                     nextCursor: "stream-1:3")),
                 UnityLogsClientReadResult.Success(CreatePayload(
@@ -136,7 +145,10 @@ public sealed class LogsUnityServiceStreamTests
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:100", "alpha"),
+                        CreateEvent(
+                            "stream-1:100",
+                            "alpha",
+                            new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
                     nextCursor: "stream-1:101")),
                 UnityLogsClientReadResult.Success(CreatePayload(
@@ -179,7 +191,10 @@ public sealed class LogsUnityServiceStreamTests
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:10", "first"),
+                        CreateEvent(
+                            "stream-1:10",
+                            "first",
+                            new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
                     nextCursor: "stream-1:11")),
                 UnityLogsClientReadResult.Success(CreatePayload(
@@ -210,7 +225,7 @@ public sealed class LogsUnityServiceStreamTests
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         UnityLogsClientAssert.ReadAfterCursors(unityLogsClient, null, "stream-1:11");
-        Assert.Equal(LogsReadCompletionReasons.IdleTimeout, result.CompletionReason);
+        Assert.Equal(LogsReadCompletionReason.IdleTimeout, result.CompletionReason);
     }
 
     [Fact]
@@ -223,7 +238,10 @@ public sealed class LogsUnityServiceStreamTests
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:10", "first"),
+                        CreateEvent(
+                            "stream-1:10",
+                            "first",
+                            new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
                     nextCursor: "stream-1:11")),
                 UnityLogsClientReadResult.Failure(ExecutionError.Timeout("Unity logs read request timed out.")),
@@ -254,7 +272,7 @@ public sealed class LogsUnityServiceStreamTests
         Assert.Equal(1, result.Count);
         Assert.Equal("stream-1:11", result.NextCursor);
         UnityLogsClientAssert.ReadAfterCursors(unityLogsClient, null, "stream-1:11");
-        Assert.Equal(LogsReadCompletionReasons.IdleTimeout, result.CompletionReason);
+        Assert.Equal(LogsReadCompletionReason.IdleTimeout, result.CompletionReason);
     }
 
     [Fact]
@@ -267,7 +285,10 @@ public sealed class LogsUnityServiceStreamTests
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:10", "first"),
+                        CreateEvent(
+                            "stream-1:10",
+                            "first",
+                            new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
                     nextCursor: "stream-1:11")),
                 UnityLogsClientReadResult.Success(CreatePayload(
@@ -298,6 +319,6 @@ public sealed class LogsUnityServiceStreamTests
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         UnityLogsClientAssert.SingleReadWithoutAfterCursor(unityLogsClient);
-        Assert.Equal(LogsReadCompletionReasons.UntilReached, result.CompletionReason);
+        Assert.Equal(LogsReadCompletionReason.UntilReached, result.CompletionReason);
     }
 }

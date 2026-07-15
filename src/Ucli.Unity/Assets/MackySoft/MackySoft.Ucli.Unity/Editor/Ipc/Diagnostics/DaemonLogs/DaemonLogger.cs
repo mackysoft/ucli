@@ -30,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string message,
             string raw = null)
         {
-            Write(IpcDaemonLogsLevelCodec.Info, category, message, raw);
+            Write(IpcLogLevel.Info, category, message, raw);
             consoleLogSink.Info(FormatMessage(category, message));
         }
 
@@ -40,7 +40,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string message,
             string raw = null)
         {
-            Write(IpcDaemonLogsLevelCodec.Warning, category, message, raw);
+            Write(IpcLogLevel.Warning, category, message, raw);
             consoleLogSink.Warning(FormatMessage(category, message));
         }
 
@@ -50,7 +50,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string message,
             string raw = null)
         {
-            Write(IpcDaemonLogsLevelCodec.Error, category, message, raw);
+            Write(IpcLogLevel.Error, category, message, raw);
             consoleLogSink.Error(FormatMessage(category, message));
         }
 
@@ -65,7 +65,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(exception));
             }
 
-            Write(IpcDaemonLogsLevelCodec.Error, category, message, exception.ToString());
+            Write(IpcLogLevel.Error, category, message, exception.ToString());
             consoleLogSink.Error(FormatExceptionMessage(category, message, exception));
         }
 
@@ -75,16 +75,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="message"> The user-facing message. </param>
         /// <param name="raw"> The optional raw detail payload. </param>
         private void Write (
-            string level,
+            IpcLogLevel level,
             string category,
             string message,
             string raw)
         {
-            if (string.IsNullOrWhiteSpace(level))
-            {
-                throw new ArgumentException("level must not be empty.", nameof(level));
-            }
-
             if (string.IsNullOrWhiteSpace(category))
             {
                 throw new ArgumentException("category must not be empty.", nameof(category));

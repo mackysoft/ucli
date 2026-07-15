@@ -21,12 +21,12 @@ internal static class LogsUnityServiceTestSupport
     public static IpcUnityLogEvent CreateEvent (
         string cursor,
         string message,
-        string timestamp = "2026-03-05T10:30:00+09:00")
+        DateTimeOffset timestamp)
     {
         return new IpcUnityLogEvent(
             Timestamp: timestamp,
-            Level: "info",
-            Source: "runtime",
+            Level: IpcLogLevel.Info,
+            Source: IpcUnityLogSource.Runtime,
             Message: message,
             StackTrace: null,
             Cursor: cursor);
@@ -45,10 +45,9 @@ internal static class LogsUnityServiceTestSupport
         ILogsUnityRequestValidator? requestValidator = null)
     {
         return new LogsUnityService(
-            resolver,
+            new LogsStreamPollingExecutor(resolver, TimeProvider.System),
             unityLogsClient,
-            requestValidator ?? new LogsUnityRequestValidator(),
-            new DaemonLogsStreamTerminationPolicy());
+            requestValidator ?? new LogsUnityRequestValidator());
     }
 
     public static LogsUnityService CreateZeroPollIntervalService (

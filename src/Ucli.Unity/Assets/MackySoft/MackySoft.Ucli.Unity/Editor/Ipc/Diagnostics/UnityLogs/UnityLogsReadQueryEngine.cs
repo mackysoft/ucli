@@ -38,14 +38,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                     continue;
                 }
 
-                if (!string.Equals(filter.Level, IpcDaemonLogsLevelCodec.All, StringComparison.Ordinal)
-                    && !string.Equals(unityLogEvent.Level, filter.Level, StringComparison.OrdinalIgnoreCase))
+                if (filter.Level.HasValue && unityLogEvent.Level != filter.Level.Value)
                 {
                     continue;
                 }
 
-                if (!IpcUnityLogsSourceCodec.IsAll(filter.Source)
-                    && !string.Equals(unityLogEvent.Source, filter.Source, StringComparison.OrdinalIgnoreCase))
+                if (filter.Source.HasValue && unityLogEvent.Source != filter.Source.Value)
                 {
                     continue;
                 }
@@ -61,8 +59,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                         unityLogEvent.Message,
                         effectiveStackTrace,
                         filter.Query,
-                        searchPrimaryText: !string.Equals(filter.QueryTarget, IpcDaemonLogsQueryTargetCodec.Stack, StringComparison.Ordinal),
-                        searchSecondaryText: !string.Equals(filter.QueryTarget, IpcDaemonLogsQueryTargetCodec.Message, StringComparison.Ordinal)))
+                        searchPrimaryText: filter.QueryTarget != IpcLogQueryTarget.Stack,
+                        searchSecondaryText: filter.QueryTarget != IpcLogQueryTarget.Message))
                 {
                     continue;
                 }

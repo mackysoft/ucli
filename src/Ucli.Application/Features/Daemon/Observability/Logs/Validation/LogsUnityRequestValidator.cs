@@ -19,16 +19,25 @@ internal sealed class LogsUnityRequestValidator : ILogsUnityRequestValidator
         query = null;
         streamOptions = null;
 
+        if (!LogsRequestContractLiteralParser.TryParseLevel(request.Level, out var level, out var literalError)
+            || !LogsRequestContractLiteralParser.TryParseQueryTarget(request.QueryTarget, out var queryTarget, out literalError)
+            || !LogsRequestContractLiteralParser.TryParseSource(request.Source, out var source, out literalError)
+            || !LogsRequestContractLiteralParser.TryParseStackTraceMode(request.StackTrace, out var stackTraceMode, out literalError))
+        {
+            error = ExecutionError.InvalidArgument(literalError!);
+            return false;
+        }
+
         var ipcRequest = new IpcUnityLogsReadRequest(
             Tail: request.Tail,
             After: request.After,
             Since: request.Since,
             Until: request.Until,
-            Level: request.Level,
+            Level: level,
             Query: request.Query,
-            QueryTarget: request.QueryTarget,
-            Source: request.Source,
-            StackTrace: request.StackTrace,
+            QueryTarget: queryTarget,
+            Source: source,
+            StackTrace: stackTraceMode,
             StackTraceMaxFrames: request.StackTraceMaxFrames,
             StackTraceMaxChars: request.StackTraceMaxChars);
         if (!IpcUnityLogsReadRequestNormalizer.TryNormalize(

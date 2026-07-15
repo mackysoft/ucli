@@ -47,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var snapshot = stream.Snapshot();
             Assert.That(snapshot.Events.Count, Is.EqualTo(1));
-            Assert.That(snapshot.Events[0].Source, Is.EqualTo(IpcUnityLogsSourceCodec.Compile));
+            Assert.That(snapshot.Events[0].Source, Is.EqualTo(IpcUnityLogSource.Compile));
             Assert.That(snapshot.Events[0].Message, Is.EqualTo("Assets/Test.cs(12,5): error CS1001: ; expected"));
         }
 

@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Observability.Logs.Ipc;
@@ -29,7 +30,8 @@ internal sealed class IpcUnityConsoleClearClient : IUnityConsoleClearClient
 
         var sendResult = await daemonIpcRequestSender.SendAsync(
                 unityProject,
-                IpcUnityConsoleClearRequestCodec.CreateRequest,
+                UnityIpcMethod.UnityConsoleClear,
+                IpcPayloadCodec.SerializeToElement(new IpcUnityConsoleClearRequest(UcliCommandIds.LogsUnityClear.Name)),
                 timeout,
                 cancellationToken)
             .ConfigureAwait(false);

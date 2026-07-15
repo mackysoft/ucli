@@ -26,7 +26,7 @@ internal static class UnityLogsClientAssert
     public static void SingleReadWithStackTraceNoneAndNoLimits (RecordingUnityLogsClient logsClient)
     {
         var query = SingleReadQuery(logsClient);
-        Assert.Equal(IpcUnityLogsStackTraceModeCodec.None, query.StackTrace);
+        Assert.Equal(IpcUnityLogStackTraceMode.None, query.StackTrace);
         Assert.Null(query.StackTraceMaxFrames);
         Assert.Null(query.StackTraceMaxChars);
     }

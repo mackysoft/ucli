@@ -3,21 +3,23 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Logs;
 
-public sealed class IpcDaemonLogsResponseCodecTests
+public sealed class IpcLogsResponseDecodeHelperTests
 {
+    private const string OperationName = "Logs read";
+
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDecode_WhenResponseIsSuccessful_ReturnsDecodedPayload ()
+    public void TryDecodeReadPayload_WhenResponseIsSuccessful_ReturnsDecodedPayload ()
     {
         var response = CreateResponse(
-            status: IpcProtocol.StatusOk,
-            errors: Array.Empty<IpcError>(),
+            status: IpcResponseStatus.Ok,
+            errors: [],
             payload: new IpcDaemonLogsReadResponse(
                 Events:
                 [
                     new IpcDaemonLogEvent(
-                        Timestamp: "2026-03-05T10:30:00+09:00",
-                        Level: "info",
+                        Timestamp: new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9)),
+                        Level: IpcLogLevel.Info,
                         Category: "ipc",
                         Message: "Server started.",
                         Raw: null,
@@ -25,7 +27,11 @@ public sealed class IpcDaemonLogsResponseCodecTests
                 ],
                 NextCursor: "stream-1:11"));
 
-        var result = IpcDaemonLogsResponseCodec.TryDecode(response, out var payload, out var error);
+        var result = IpcLogsResponseDecodeHelper.TryDecodeReadPayload<IpcDaemonLogsReadResponse>(
+            response,
+            OperationName,
+            out var payload,
+            out var error);
 
         Assert.True(result);
         Assert.Null(error);
@@ -36,49 +42,59 @@ public sealed class IpcDaemonLogsResponseCodecTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDecode_WhenResponseContainsInvalidArgumentError_ReturnsInvalidArgument ()
+    public void TryDecodeReadPayload_WhenResponseContainsInvalidArgumentError_ReturnsInvalidArgument ()
     {
         var response = CreateResponse(
-            status: IpcProtocol.StatusError,
+            status: IpcResponseStatus.Error,
             errors:
             [
                 new IpcError(UcliCoreErrorCodes.InvalidArgument, "queryTarget stack is not supported.", null),
             ],
             payload: new { });
 
-        var result = IpcDaemonLogsResponseCodec.TryDecode(response, out var payload, out var error);
+        var result = IpcLogsResponseDecodeHelper.TryDecodeReadPayload<IpcDaemonLogsReadResponse>(
+            response,
+            OperationName,
+            out var payload,
+            out var error);
 
         Assert.False(result);
         Assert.Null(payload);
         var executionError = Assert.IsType<ExecutionError>(error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, executionError.Kind);
+        Assert.Contains(OperationName, executionError.Message, StringComparison.Ordinal);
         Assert.Contains("INVALID_ARGUMENT", executionError.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDecode_WhenPayloadIsInvalid_ReturnsInternalError ()
+    public void TryDecodeReadPayload_WhenPayloadIsInvalid_ReturnsInternalError ()
     {
         var response = CreateResponse(
-            status: IpcProtocol.StatusOk,
-            errors: Array.Empty<IpcError>(),
+            status: IpcResponseStatus.Ok,
+            errors: [],
             payload: new
             {
                 events = Array.Empty<object>(),
                 nextCursor = "",
             });
 
-        var result = IpcDaemonLogsResponseCodec.TryDecode(response, out var payload, out var error);
+        var result = IpcLogsResponseDecodeHelper.TryDecodeReadPayload<IpcDaemonLogsReadResponse>(
+            response,
+            OperationName,
+            out var payload,
+            out var error);
 
         Assert.False(result);
         Assert.Null(payload);
         var executionError = Assert.IsType<ExecutionError>(error);
         Assert.Equal(ExecutionErrorKind.InternalError, executionError.Kind);
-        Assert.Contains("nextCursor", executionError.Message, StringComparison.Ordinal);
+        Assert.Contains(OperationName, executionError.Message, StringComparison.Ordinal);
+        Assert.Contains("NextCursor", executionError.Message, StringComparison.Ordinal);
     }
 
     private static IpcResponse CreateResponse (
-        string status,
+        IpcResponseStatus status,
         IReadOnlyList<IpcError> errors,
         object payload)
     {

@@ -12,6 +12,40 @@ public sealed class LogsDaemonServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenCategoryIsAll_SendsNoCategoryFilter ()
+    {
+        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 3000, unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
+        var resolver = new RecordingDaemonCommandExecutionContextResolver(
+            DaemonCommandExecutionContextResolutionResult.Success(context));
+        var daemonLogsClient = new RecordingDaemonLogsClient(
+            [
+                DaemonLogsClientReadResult.Success(CreatePayload([], "stream-1:1")),
+            ]);
+        var service = CreateService(resolver, daemonLogsClient);
+
+        var result = await service.ExecuteAsync(
+            new LogsDaemonServiceRequest(
+                ProjectPath: "/tmp/unity-project",
+                Tail: null,
+                After: null,
+                Since: null,
+                Until: null,
+                Level: null,
+                Query: null,
+                QueryTarget: null,
+                Category: " ALL ",
+                Stream: false,
+                PollIntervalMilliseconds: null,
+                IdleTimeoutMilliseconds: null),
+            static (_, _, _) => ValueTask.CompletedTask,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess, result.Error?.Message);
+        DaemonLogsClientAssert.SingleReadHasNoCategoryFilter(daemonLogsClient);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenStreamEnabled_UsesNextCursorForIncrementalReads ()
     {
         var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 3000, unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
@@ -128,7 +162,7 @@ public sealed class LogsDaemonServiceTests
         Assert.Equal(ExecutionErrorCodes.Canceled, result.Error!.Code);
         Assert.Equal(1, result.Count);
         Assert.Equal("stream-1:1", result.NextCursor);
-        Assert.Equal("canceled", result.CompletionReason);
+        Assert.Equal(LogsReadCompletionReason.Canceled, result.CompletionReason);
         Assert.Equal(["alpha"], emittedMessages);
     }
 
@@ -214,7 +248,7 @@ public sealed class LogsDaemonServiceTests
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         DaemonLogsClientAssert.ReadAfterCursors(daemonLogsClient, null, "stream-1:11");
-        Assert.Equal(LogsReadCompletionReasons.IdleTimeout, result.CompletionReason);
+        Assert.Equal(LogsReadCompletionReason.IdleTimeout, result.CompletionReason);
     }
 
     [Fact]
@@ -254,7 +288,7 @@ public sealed class LogsDaemonServiceTests
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         DaemonLogsClientAssert.SingleReadWithoutAfterCursor(daemonLogsClient);
-        Assert.Equal(LogsReadCompletionReasons.UntilReached, result.CompletionReason);
+        Assert.Equal(LogsReadCompletionReason.UntilReached, result.CompletionReason);
     }
 
     private static IpcDaemonLogEvent CreateEvent (
@@ -262,8 +296,8 @@ public sealed class LogsDaemonServiceTests
         string message)
     {
         return new IpcDaemonLogEvent(
-            Timestamp: "2026-03-05T10:30:00+09:00",
-            Level: "info",
+            Timestamp: new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9)),
+            Level: IpcLogLevel.Info,
             Category: "ipc",
             Message: message,
             Raw: null,
@@ -283,10 +317,9 @@ public sealed class LogsDaemonServiceTests
         ILogsDaemonRequestValidator? requestValidator = null)
     {
         return new LogsDaemonService(
-            resolver,
+            new LogsStreamPollingExecutor(resolver, TimeProvider.System),
             daemonLogsClient,
-            requestValidator ?? new LogsDaemonRequestValidator(),
-            new DaemonLogsStreamTerminationPolicy());
+            requestValidator ?? new LogsDaemonRequestValidator());
     }
 
     private static LogsDaemonService CreateImmediateIdleStreamService (

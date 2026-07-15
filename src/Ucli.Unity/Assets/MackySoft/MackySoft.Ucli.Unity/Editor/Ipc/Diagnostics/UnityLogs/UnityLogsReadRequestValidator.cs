@@ -51,11 +51,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Tail: normalizedRequest!.Tail,
                 Since: since,
                 Until: until,
-                Level: normalizedRequest.Level!,
+                Level: normalizedRequest.Level,
                 Query: normalizedRequest.Query,
-                QueryTarget: normalizedRequest.QueryTarget!,
-                Source: normalizedRequest.Source!,
-                StackTraceMode: normalizedRequest.StackTrace!,
+                QueryTarget: normalizedRequest.QueryTarget!.Value,
+                Source: normalizedRequest.Source,
+                StackTraceMode: normalizedRequest.StackTrace!.Value,
                 StackTraceMaxFrames: normalizedRequest.StackTraceMaxFrames,
                 StackTraceMaxChars: normalizedRequest.StackTraceMaxChars);
             errorMessage = string.Empty;

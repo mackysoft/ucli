@@ -45,9 +45,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Tail: normalizedRequest!.Tail,
                 Since: since,
                 Until: until,
-                Level: normalizedRequest.Level!,
+                Level: normalizedRequest.Level,
                 Query: normalizedRequest.Query,
-                QueryTarget: normalizedRequest.QueryTarget!,
+                QueryTarget: normalizedRequest.QueryTarget!.Value,
                 Category: normalizedRequest.Category);
             errorMessage = string.Empty;
             return true;

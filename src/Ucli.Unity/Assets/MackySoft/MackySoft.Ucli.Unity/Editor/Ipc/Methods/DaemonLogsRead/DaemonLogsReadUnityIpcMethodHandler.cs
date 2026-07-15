@@ -44,10 +44,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -90,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="message"> The user-facing error message. </param>
         /// <returns> The invalid-argument response envelope. </returns>
         private static IpcResponse CreateInvalidArgumentResponse (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             string message)
         {
             return UnityIpcResponseFactory.CreateErrorResponse(

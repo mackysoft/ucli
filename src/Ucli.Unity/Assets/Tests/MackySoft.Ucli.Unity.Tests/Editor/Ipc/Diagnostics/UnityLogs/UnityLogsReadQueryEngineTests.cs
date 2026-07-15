@@ -21,16 +21,16 @@ namespace MackySoft.Ucli.Unity.Tests
                     Tail: null,
                     Since: null,
                     Until: null,
-                    Level: IpcDaemonLogsLevelCodec.All,
+                    Level: null,
                     Query: null,
-                    QueryTarget: IpcDaemonLogsQueryTargetCodec.Message,
-                    Source: IpcUnityLogsSourceCodec.Compile,
-                    StackTraceMode: IpcUnityLogsStackTraceModeCodec.All,
+                    QueryTarget: IpcLogQueryTarget.Message,
+                    Source: IpcUnityLogSource.Compile,
+                    StackTraceMode: IpcUnityLogStackTraceMode.All,
                     StackTraceMaxFrames: null,
                     StackTraceMaxChars: null));
 
             Assert.That(filtered.Count, Is.EqualTo(1));
-            Assert.That(filtered[0].Source, Is.EqualTo(IpcUnityLogsSourceCodec.Compile));
+            Assert.That(filtered[0].Source, Is.EqualTo(IpcUnityLogSource.Compile));
         }
 
         [Test]
@@ -46,11 +46,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     Tail: null,
                     Since: null,
                     Until: null,
-                    Level: IpcDaemonLogsLevelCodec.All,
+                    Level: null,
                     Query: "SocketException",
-                    QueryTarget: IpcDaemonLogsQueryTargetCodec.Stack,
-                    Source: IpcUnityLogsSourceCodec.All,
-                    StackTraceMode: IpcUnityLogsStackTraceModeCodec.None,
+                    QueryTarget: IpcLogQueryTarget.Stack,
+                    Source: null,
+                    StackTraceMode: IpcUnityLogStackTraceMode.None,
                     StackTraceMaxFrames: null,
                     StackTraceMaxChars: null));
 
@@ -66,9 +66,9 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 new UnityLogEvent(
                     Sequence: 1,
-                    Timestamp: "2026-03-05T10:35:22.0000000+09:00",
-                    Level: IpcDaemonLogsLevelCodec.Error,
-                    Source: IpcUnityLogsSourceCodec.Runtime,
+                    Timestamp: new DateTimeOffset(2026, 3, 5, 10, 35, 22, TimeSpan.FromHours(9)),
+                    Level: IpcLogLevel.Error,
+                    Source: IpcUnityLogSource.Runtime,
                     Message: "runtime error",
                     StackTrace: "frame 1\nframe 2\nSocketException: broken pipe",
                     Cursor: "stream-1:1"),
@@ -81,11 +81,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     Tail: null,
                     Since: null,
                     Until: null,
-                    Level: IpcDaemonLogsLevelCodec.All,
+                    Level: null,
                     Query: "SocketException",
-                    QueryTarget: IpcDaemonLogsQueryTargetCodec.Stack,
-                    Source: IpcUnityLogsSourceCodec.All,
-                    StackTraceMode: IpcUnityLogsStackTraceModeCodec.All,
+                    QueryTarget: IpcLogQueryTarget.Stack,
+                    Source: null,
+                    StackTraceMode: IpcUnityLogStackTraceMode.All,
                     StackTraceMaxFrames: 2,
                     StackTraceMaxChars: null));
 
@@ -105,11 +105,11 @@ namespace MackySoft.Ucli.Unity.Tests
                     Tail: null,
                     Since: DateTimeOffset.Parse("2030-01-01T00:00:00+00:00"),
                     Until: null,
-                    Level: IpcDaemonLogsLevelCodec.All,
+                    Level: null,
                     Query: null,
-                    QueryTarget: IpcDaemonLogsQueryTargetCodec.Message,
-                    Source: IpcUnityLogsSourceCodec.All,
-                    StackTraceMode: IpcUnityLogsStackTraceModeCodec.All,
+                    QueryTarget: IpcLogQueryTarget.Message,
+                    Source: null,
+                    StackTraceMode: IpcUnityLogStackTraceMode.All,
                     StackTraceMaxFrames: null,
                     StackTraceMaxChars: null));
 
@@ -123,17 +123,17 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 new UnityLogEvent(
                     Sequence: 1,
-                    Timestamp: "2026-03-05T10:35:22.0000000+09:00",
-                    Level: IpcDaemonLogsLevelCodec.Error,
-                    Source: IpcUnityLogsSourceCodec.Runtime,
+                    Timestamp: new DateTimeOffset(2026, 3, 5, 10, 35, 22, TimeSpan.FromHours(9)),
+                    Level: IpcLogLevel.Error,
+                    Source: IpcUnityLogSource.Runtime,
                     Message: "runtime error",
                     StackTrace: "SocketException: broken pipe",
                     Cursor: "stream-1:1"),
                 new UnityLogEvent(
                     Sequence: 2,
-                    Timestamp: "2026-03-05T10:36:22.0000000+09:00",
-                    Level: IpcDaemonLogsLevelCodec.Warning,
-                    Source: IpcUnityLogsSourceCodec.Compile,
+                    Timestamp: new DateTimeOffset(2026, 3, 5, 10, 36, 22, TimeSpan.FromHours(9)),
+                    Level: IpcLogLevel.Warning,
+                    Source: IpcUnityLogSource.Compile,
                     Message: "compile warning",
                     StackTrace: null,
                     Cursor: "stream-1:2"),

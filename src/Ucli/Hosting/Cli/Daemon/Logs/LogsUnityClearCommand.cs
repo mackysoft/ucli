@@ -74,7 +74,7 @@ internal sealed class LogsUnityClearCommand
             message: "Unity Console clear completed.",
             payload: new
             {
-                clearStatus = output.ClearStatus,
+                clearStatus = "cleared",
                 timeoutMilliseconds = output.TimeoutMilliseconds,
             });
     }

@@ -17,6 +17,7 @@ internal static class LogsReadCommandExecutor
     /// <param name="format"> The requested output format. </param>
     /// <param name="timeout"> The requested command timeout in milliseconds. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
+    /// <param name="streamEntryWriterFactory"> The per-invocation standard-error stream writer factory. </param>
     /// <param name="executeAsync"> The service execution delegate. </param>
     /// <param name="createProgressEntry"> The output projection for one log event. </param>
     /// <param name="textProjector"> The text projection used when <paramref name="format" /> resolves to text. </param>
@@ -27,6 +28,7 @@ internal static class LogsReadCommandExecutor
         string? format,
         string? timeout,
         ICommandResultWriter commandResultWriter,
+        CliStreamEntryWriterFactory streamEntryWriterFactory,
         Func<int?, Func<TLogEvent, string, CancellationToken, ValueTask>, CancellationToken, ValueTask<LogsReadServiceResult>> executeAsync,
         Func<TLogEvent, string, CliCommandProgressEntry<TPayload>> createProgressEntry,
         ICliCommandProgressTextProjector textProjector,
@@ -35,6 +37,7 @@ internal static class LogsReadCommandExecutor
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
         ArgumentNullException.ThrowIfNull(commandResultWriter);
+        ArgumentNullException.ThrowIfNull(streamEntryWriterFactory);
         ArgumentNullException.ThrowIfNull(executeAsync);
         ArgumentNullException.ThrowIfNull(createProgressEntry);
         ArgumentNullException.ThrowIfNull(textProjector);
@@ -52,7 +55,7 @@ internal static class LogsReadCommandExecutor
             {
                 var invalidFormatResult = LogsReadCommandResultFactory.Create(
                     commandName,
-                    LogsReadServiceResult.Failure(formatResult.Error!));
+                    LogsReadServiceResult.Failure(formatResult.Error!, 0, null));
                 commandResultWriter.WriteToStandardOutput(invalidFormatResult);
                 return invalidFormatResult.ExitCode;
             }
@@ -62,14 +65,14 @@ internal static class LogsReadCommandExecutor
             {
                 var invalidTimeoutResult = LogsReadCommandResultFactory.Create(
                     commandName,
-                    LogsReadServiceResult.Failure(timeoutResult.Error!));
+                    LogsReadServiceResult.Failure(timeoutResult.Error!, 0, null));
                 commandResultWriter.WriteToStandardOutput(invalidTimeoutResult);
                 return invalidTimeoutResult.ExitCode;
             }
 
             var progressSink = new CliCommandProgressSink(
                 formatResult.Format,
-                new CliStreamEntryWriter(commandName),
+                streamEntryWriterFactory.Create(commandName),
                 textProjector);
             var serviceResult = await executeAsync(
                     timeoutResult.TimeoutMilliseconds,

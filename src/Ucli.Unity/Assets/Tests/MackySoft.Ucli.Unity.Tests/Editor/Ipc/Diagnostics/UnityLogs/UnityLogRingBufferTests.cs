@@ -13,8 +13,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var buffer = new UnityLogRingBuffer();
 
-            buffer.Write(IpcUnityLogsSourceCodec.Runtime, IpcDaemonLogsLevelCodec.Info, "runtime message");
-            buffer.Write(IpcUnityLogsSourceCodec.Compile, IpcDaemonLogsLevelCodec.Warning, "compile message");
+            buffer.Write(IpcUnityLogSource.Runtime, IpcLogLevel.Info, "runtime message");
+            buffer.Write(IpcUnityLogSource.Compile, IpcLogLevel.Warning, "compile message");
 
             var snapshot = buffer.Snapshot();
 
@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             for (var i = 0; i <= UnityLogRingBuffer.Capacity; i++)
             {
-                buffer.Write(IpcUnityLogsSourceCodec.Runtime, IpcDaemonLogsLevelCodec.Info, "message-" + i);
+                buffer.Write(IpcUnityLogSource.Runtime, IpcLogLevel.Info, "message-" + i);
             }
 
             var snapshot = buffer.Snapshot();

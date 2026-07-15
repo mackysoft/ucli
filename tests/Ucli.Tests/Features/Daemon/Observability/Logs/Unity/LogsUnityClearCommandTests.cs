@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Hosting.Cli.Daemon.Logs;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -13,7 +12,7 @@ public sealed class LogsUnityClearCommandTests
     public async Task Clear_WhenServiceSucceeds_WritesJsonEnvelope ()
     {
         var command = new LogsUnityClearCommand(
-            new RecordingLogsUnityClearService(LogsUnityClearServiceResult.Success(new LogsUnityClearServiceOutput("cleared", 4500))),
+            new RecordingLogsUnityClearService(LogsUnityClearServiceResult.Success(new LogsUnityClearServiceOutput(4500))),
             CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ClearAsync(
@@ -35,7 +34,7 @@ public sealed class LogsUnityClearCommandTests
     [Trait("Size", "Small")]
     public async Task Clear_WhenTimeoutIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
-        var service = new RecordingLogsUnityClearService(LogsUnityClearServiceResult.Success(new LogsUnityClearServiceOutput("cleared", 3000)));
+        var service = new RecordingLogsUnityClearService(LogsUnityClearServiceResult.Success(new LogsUnityClearServiceOutput(3000)));
         var command = new LogsUnityClearCommand(service, CommandResultTestWriter.Create());
 
         var (exitCode, standardOutput) = await StandardOutputCapture.ExecuteAsync(() => command.ClearAsync(timeout: "0"));

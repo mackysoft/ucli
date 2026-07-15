@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -8,11 +9,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         int? Tail,
         DateTimeOffset? Since,
         DateTimeOffset? Until,
-        string Level,
+        IpcLogLevel? Level,
         string Query,
-        string QueryTarget,
-        string Source,
-        string StackTraceMode,
+        IpcLogQueryTarget QueryTarget,
+        IpcUnityLogSource? Source,
+        IpcUnityLogStackTraceMode StackTraceMode,
         int? StackTraceMaxFrames,
         int? StackTraceMaxChars);
 }

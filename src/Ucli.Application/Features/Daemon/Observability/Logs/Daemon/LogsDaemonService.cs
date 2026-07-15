@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
@@ -9,29 +8,24 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 /// <summary> Implements polling orchestration for <c>logs daemon read</c> command execution. </summary>
 internal sealed class LogsDaemonService : ILogsDaemonService
 {
-    private readonly IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver;
+    private readonly LogsStreamPollingExecutor streamPollingExecutor;
 
     private readonly IDaemonLogsClient daemonLogsClient;
 
     private readonly ILogsDaemonRequestValidator requestValidator;
 
-    private readonly IDaemonLogsStreamTerminationPolicy streamTerminationPolicy;
-
     /// <summary> Initializes a new instance of the <see cref="LogsDaemonService" /> class. </summary>
-    /// <param name="daemonCommandExecutionContextResolver"> The daemon-command context resolver dependency. </param>
+    /// <param name="streamPollingExecutor"> The shared log-stream polling executor dependency. </param>
     /// <param name="daemonLogsClient"> The daemon-log IPC client dependency. </param>
     /// <param name="requestValidator"> The command request validator dependency. </param>
-    /// <param name="streamTerminationPolicy"> The stream-termination policy dependency. </param>
     public LogsDaemonService (
-        IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
+        LogsStreamPollingExecutor streamPollingExecutor,
         IDaemonLogsClient daemonLogsClient,
-        ILogsDaemonRequestValidator requestValidator,
-        IDaemonLogsStreamTerminationPolicy streamTerminationPolicy)
+        ILogsDaemonRequestValidator requestValidator)
     {
-        this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
+        this.streamPollingExecutor = streamPollingExecutor ?? throw new ArgumentNullException(nameof(streamPollingExecutor));
         this.daemonLogsClient = daemonLogsClient ?? throw new ArgumentNullException(nameof(daemonLogsClient));
         this.requestValidator = requestValidator ?? throw new ArgumentNullException(nameof(requestValidator));
-        this.streamTerminationPolicy = streamTerminationPolicy ?? throw new ArgumentNullException(nameof(streamTerminationPolicy));
     }
 
     /// <inheritdoc />
@@ -46,11 +40,10 @@ internal sealed class LogsDaemonService : ILogsDaemonService
 
         if (!requestValidator.TryValidate(request, out var query, out var streamOptions, out var argumentValidationError))
         {
-            return ValueTask.FromResult(LogsReadServiceResult.Failure(argumentValidationError!));
+            return ValueTask.FromResult(LogsReadServiceResult.Failure(argumentValidationError!, 0, null));
         }
 
-        return LogsStreamPollingExecutor.ExecuteAsync(
-            daemonCommandExecutionContextResolver,
+        return streamPollingExecutor.ExecuteAsync(
             UcliCommandIds.LogsDaemonRead,
             request.ProjectPath,
             request.TimeoutMilliseconds,
@@ -60,16 +53,19 @@ internal sealed class LogsDaemonService : ILogsDaemonService
             daemonLogsClient.ReadAsync,
             static readResult => readResult.Response,
             static readResult => readResult.Error,
-            static (query, after) => query with
-            {
-                Tail = null,
-                After = after,
-            },
+            static (query, after) => new IpcDaemonLogsReadRequest(
+                Tail: null,
+                After: after,
+                Since: query.Since,
+                Until: query.Until,
+                Level: query.Level,
+                Query: query.Query,
+                QueryTarget: query.QueryTarget,
+                Category: query.Category),
             static response => response.Events,
             static response => response.NextCursor,
             static daemonLogEvent => daemonLogEvent.Cursor,
             onEvent,
-            streamTerminationPolicy,
             static daemonLogEvent => daemonLogEvent.Timestamp,
             cancellationToken);
     }

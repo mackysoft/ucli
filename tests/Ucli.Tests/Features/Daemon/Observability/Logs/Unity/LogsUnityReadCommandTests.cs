@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -23,7 +22,7 @@ public sealed class LogsUnityReadCommandTests
                 CreateEvent(
                     cursor: "stream-1:1",
                     message: "compile warning",
-                    source: "compile",
+                    source: IpcUnityLogSource.Compile,
                     stackTrace: null),
                 "stream-1:3",
                 cancellationToken);
@@ -31,12 +30,12 @@ public sealed class LogsUnityReadCommandTests
                 CreateEvent(
                     cursor: "stream-1:2",
                     message: "runtime error",
-                    source: "runtime",
+                    source: IpcUnityLogSource.Runtime,
                     stackTrace: "at Player.Run()"),
                 "stream-1:3",
                 cancellationToken);
-            return LogsReadServiceResult.Success(count: 2, nextCursor: "stream-1:3");
-        }), CommandResultTestWriter.Create());
+            return LogsReadServiceResult.Completed(count: 2, nextCursor: "stream-1:3");
+        }), CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "json"));
 
@@ -68,19 +67,19 @@ public sealed class LogsUnityReadCommandTests
                 CreateEvent(
                     cursor: "stream-1:1",
                     message: "line 1\nline 2",
-                    source: "runtime",
+                    source: IpcUnityLogSource.Runtime,
                     stackTrace: "frame 1\nframe 2"),
                 "stream-1:2",
                 cancellationToken);
-            return LogsReadServiceResult.Success(count: 1, nextCursor: "stream-1:2");
-        }), CommandResultTestWriter.Create());
+            return LogsReadServiceResult.Completed(count: 1, nextCursor: "stream-1:2");
+        }), CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "text"));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
         AssertSuccessResult(standardOutput, count: 1, nextCursor: "stream-1:2");
         Assert.Equal(
-            "2026-03-05T10:30:00+09:00 info runtime line 1\\nline 2 | frame 1\\nframe 2" + Environment.NewLine,
+            "2026-03-05T10:30:00.0000000+09:00 info runtime line 1\\nline 2 | frame 1\\nframe 2" + Environment.NewLine,
             standardError);
     }
 
@@ -94,12 +93,12 @@ public sealed class LogsUnityReadCommandTests
                 CreateEvent(
                     cursor: "stream-1:1",
                     message: "compile warning",
-                    source: "compile",
+                    source: IpcUnityLogSource.Compile,
                     stackTrace: null),
                 "stream-1:2",
                 cancellationToken);
             throw new InvalidOperationException("unity log read failed");
-        }), CommandResultTestWriter.Create());
+        }), CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "text"));
 
@@ -124,9 +123,9 @@ public sealed class LogsUnityReadCommandTests
     {
         var service = new RecordingLogsUnityService(static (_, _, _) =>
         {
-            return ValueTask.FromResult(LogsReadServiceResult.Success(count: 0, nextCursor: "stream-1:1"));
+            return ValueTask.FromResult(LogsReadServiceResult.Completed(count: 0, nextCursor: "stream-1:1"));
         });
-        var command = new LogsUnityReadCommand(service, CommandResultTestWriter.Create());
+        var command = new LogsUnityReadCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, _, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(timeout: "1234"));
 
@@ -140,7 +139,7 @@ public sealed class LogsUnityReadCommandTests
     public async Task Read_WhenFormatIsInvalid_WritesInvalidArgumentResultWithoutCallingService ()
     {
         var service = new RecordingLogsUnityService((_, _, _) => throw new InvalidOperationException("service must not be called"));
-        var command = new LogsUnityReadCommand(service, CommandResultTestWriter.Create());
+        var command = new LogsUnityReadCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "yaml"));
 
@@ -157,10 +156,13 @@ public sealed class LogsUnityReadCommandTests
     {
         var command = new LogsUnityReadCommand(new RecordingLogsUnityService(static (_, _, _) =>
         {
-            return ValueTask.FromResult(LogsReadServiceResult.Failure(ExecutionError.InternalError(
-                DaemonSessionNotAvailableMessage,
-                DaemonErrorCodes.DaemonSessionNotAvailable)));
-        }), CommandResultTestWriter.Create());
+            return ValueTask.FromResult(LogsReadServiceResult.Failure(
+                ExecutionError.InternalError(
+                    DaemonSessionNotAvailableMessage,
+                    DaemonErrorCodes.DaemonSessionNotAvailable),
+                count: 0,
+                nextCursor: null));
+        }), CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "json"));
 
@@ -187,7 +189,7 @@ public sealed class LogsUnityReadCommandTests
     {
         var command = new LogsUnityReadCommand(
             new RecordingLogsUnityService(static (_, _, cancellationToken) => throw new OperationCanceledException(cancellationToken)),
-            CommandResultTestWriter.Create());
+            CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -243,12 +245,12 @@ public sealed class LogsUnityReadCommandTests
     private static IpcUnityLogEvent CreateEvent (
         string cursor,
         string message,
-        string source,
+        IpcUnityLogSource source,
         string? stackTrace)
     {
         return new IpcUnityLogEvent(
-            Timestamp: "2026-03-05T10:30:00+09:00",
-            Level: "info",
+            Timestamp: new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9)),
+            Level: IpcLogLevel.Info,
             Source: source,
             Message: message,
             StackTrace: stackTrace,

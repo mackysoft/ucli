@@ -13,8 +13,8 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Snapshot_WhenEventsAreWritten_ContainsMonotonicCursorSequence ()
         {
             var stream = new DaemonLogRingBuffer();
-            stream.Write("ipc", "info", "first");
-            stream.Write("ipc", "warning", "second");
+            stream.Write("ipc", IpcLogLevel.Info, "first");
+            stream.Write("ipc", IpcLogLevel.Warning, "second");
 
             var snapshot = stream.Snapshot();
 
@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var stream = new DaemonLogRingBuffer();
             for (var i = 0; i < DaemonLogRingBuffer.Capacity + 1; i++)
             {
-                stream.Write("ipc", "info", $"event-{i}");
+                stream.Write("ipc", IpcLogLevel.Info, $"event-{i}");
             }
 
             var snapshot = stream.Snapshot();
@@ -49,9 +49,9 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Snapshot_WhenAfterCursorIsApplied_AllowsIncrementalFiltering ()
         {
             var stream = new DaemonLogRingBuffer();
-            stream.Write("ipc", "info", "event-1");
-            stream.Write("ipc", "warning", "event-2");
-            stream.Write("transport", "warning", "event-3");
+            stream.Write("ipc", IpcLogLevel.Info, "event-1");
+            stream.Write("ipc", IpcLogLevel.Warning, "event-2");
+            stream.Write("transport", IpcLogLevel.Warning, "event-3");
             var snapshot = stream.Snapshot();
             var afterCursor = snapshot.Events[1].Cursor;
             Assert.That(IpcLogCursorCodec.TryParse(afterCursor, out _, out var afterSequence), Is.True);
@@ -60,7 +60,7 @@ namespace MackySoft.Ucli.Unity.Tests
             foreach (var daemonLogEvent in snapshot.Events)
             {
                 if (daemonLogEvent.Sequence >= afterSequence
-                    && string.Equals(daemonLogEvent.Level, "warning", StringComparison.OrdinalIgnoreCase))
+                    && daemonLogEvent.Level == IpcLogLevel.Warning)
                 {
                     filtered.Add(daemonLogEvent);
                 }

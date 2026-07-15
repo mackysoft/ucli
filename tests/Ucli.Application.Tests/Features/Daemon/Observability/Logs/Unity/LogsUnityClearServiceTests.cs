@@ -8,7 +8,7 @@ public sealed class LogsUnityClearServiceTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenClientSucceeds_ReturnsClearedOutputAndUsesClearTimeoutCommand ()
+    public async Task Execute_WhenClientSucceeds_ReturnsTimeoutMetadataAndUsesClearTimeoutCommand ()
     {
         var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 4500);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
@@ -23,8 +23,7 @@ public sealed class LogsUnityClearServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
-        Assert.Equal("cleared", result.Output!.ClearStatus);
-        Assert.Equal(4500, result.Output.TimeoutMilliseconds);
+        Assert.Equal(4500, result.Output!.TimeoutMilliseconds);
         DaemonCommandExecutionContextResolverAssert.ResolvedFor(
             resolver,
             UcliCommandIds.LogsUnityClear,

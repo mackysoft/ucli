@@ -32,7 +32,8 @@ internal sealed class IpcUnityLogsClient : IUnityLogsClient
 
         var sendResult = await daemonIpcRequestSender.SendAsync(
                 unityProject,
-                sessionToken => IpcUnityLogsRequestCodec.CreateRequest(query, sessionToken),
+                UnityIpcMethod.UnityLogsRead,
+                IpcPayloadCodec.SerializeToElement(query),
                 timeout,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -41,7 +42,11 @@ internal sealed class IpcUnityLogsClient : IUnityLogsClient
             return UnityLogsClientReadResult.Failure(ProjectError(sendResult.Error!));
         }
 
-        if (!IpcUnityLogsResponseCodec.TryDecode(sendResult.Response!, out var payload, out var decodeError))
+        if (!IpcLogsResponseDecodeHelper.TryDecodeReadPayload<IpcUnityLogsReadResponse>(
+                sendResult.Response!,
+                "Unity logs read",
+                out var payload,
+                out var decodeError))
         {
             return UnityLogsClientReadResult.Failure(decodeError!);
         }
