@@ -43,7 +43,7 @@ public sealed class FileScreenshotArtifactStoreTests
         Assert.Single(Directory.EnumerateFiles(paths.ArtifactDirectory));
         Assert.DoesNotContain(
             Directory.EnumerateFiles(paths.ArtifactDirectory),
-            static path => path.Contains(".tmp.", StringComparison.Ordinal));
+            static path => Path.GetFileName(path).StartsWith(".tmp-", StringComparison.Ordinal));
 
         var pngBytes = await File.ReadAllBytesAsync(paths.PngPath, CancellationToken.None);
         Assert.Equal(pngBytes.LongLength, artifact.SizeBytes);
@@ -301,20 +301,15 @@ public sealed class FileScreenshotArtifactStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task CommitAsync_WhenTemporaryArtifactDeletionFails_StillRemovesFinalArtifactAndStaging ()
+    public async Task CommitAsync_WhenTemporaryArtifactIsPublished_DoesNotDeleteReleasedPath ()
     {
-        using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "temporary-delete-failure");
+        using var scope = TestDirectories.CreateTempScope("screenshot-artifact-store", "released-temporary-path");
         var deletionAttempts = new List<string>();
         var store = CreateStore(
             new ManualTimeProvider(CreatedAtUtc),
             path =>
             {
                 deletionAttempts.Add(path);
-                if (path.Contains(".tmp.", StringComparison.Ordinal))
-                {
-                    throw new IOException("Expected temporary PNG deletion failure.");
-                }
-
                 File.Delete(path);
             });
         var paths = Prepare(store, scope);
@@ -322,13 +317,14 @@ public sealed class FileScreenshotArtifactStoreTests
 
         var result = await paths.Lease.CommitAsync(CreateStagingImage(), CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.Contains("Expected temporary PNG deletion failure.", result.Error!.Message, StringComparison.Ordinal);
-        Assert.Contains(paths.PngPath, deletionAttempts);
+        Assert.True(result.IsSuccess);
+        Assert.DoesNotContain(
+            deletionAttempts,
+            static path => Path.GetFileName(path).StartsWith(".tmp-", StringComparison.Ordinal));
         Assert.False(File.Exists(paths.RawStagingPath));
         Assert.False(Directory.Exists(paths.StagingDirectory));
-        Assert.False(File.Exists(paths.PngPath));
-        Assert.False(Directory.Exists(paths.ArtifactDirectory));
+        Assert.True(File.Exists(paths.PngPath));
+        Assert.True(Directory.Exists(paths.ArtifactDirectory));
     }
 
     [Fact]

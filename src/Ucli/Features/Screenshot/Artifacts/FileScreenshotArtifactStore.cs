@@ -103,19 +103,31 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            temporaryPngPath = paths.PngPath + $".tmp.{Guid.NewGuid():N}";
             FileSystemAccessBoundary.EnsureSecureDirectory(paths.StagingDirectory);
             EnsureReadableRawStagingFile(paths.RawStagingPath, staging.SizeBytes);
             EnsureCapturePathDoesNotExist(paths.ArtifactDirectory, "Screenshot artifact directory");
             FileSystemAccessBoundary.EnsureSecureDirectory(paths.ArtifactDirectory);
             EnsureWritableNewFilePath(paths.PngPath, "Screenshot PNG artifact");
-            EnsureWritableNewFilePath(temporaryPngPath, "Screenshot temporary PNG artifact");
 
-            await EncodeTemporaryPngAsync(paths, staging, temporaryPngPath, cancellationToken).ConfigureAwait(false);
+            var temporaryPngStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
+                paths.ArtifactDirectory,
+                out var reservedTemporaryPngPath);
+            temporaryPngPath = reservedTemporaryPngPath;
+            using (temporaryPngStream)
+            {
+                await EncodeTemporaryPngAsync(
+                        paths,
+                        staging,
+                        temporaryPngStream,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             FileSystemAccessBoundary.EnsureSecureFile(temporaryPngPath);
             await ValidatePngAgainstRawAsync(paths, staging, temporaryPngPath, cancellationToken).ConfigureAwait(false);
 
             File.Move(temporaryPngPath, paths.PngPath);
+            temporaryPngPath = null;
             finalArtifactCreated = true;
             FileSystemAccessBoundary.EnsureSecureFile(paths.PngPath);
             await ValidatePngAgainstRawAsync(paths, staging, paths.PngPath, cancellationToken).ConfigureAwait(false);
@@ -192,17 +204,10 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     private async ValueTask EncodeTemporaryPngAsync (
         CapturePaths paths,
         IpcScreenshotStagingImage staging,
-        string temporaryPngPath,
+        Stream pngStream,
         CancellationToken cancellationToken)
     {
         await using var rawStream = OpenRawStagingFile(paths.RawStagingPath);
-        await using var pngStream = new FileStream(
-            temporaryPngPath,
-            FileMode.CreateNew,
-            FileAccess.Write,
-            FileShare.None,
-            FileStreamBufferSize,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
         await pngEncoder
             .EncodeAsync(
                 rawStream,

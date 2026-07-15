@@ -58,20 +58,16 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
                 directoryPath);
             EnsureTargetDoesNotExist(fullPath);
 
-            var temporaryPath = fullPath + $".tmp.{Guid.NewGuid():N}";
+            var temporaryStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
+                directoryPath,
+                out var temporaryPath);
             var published = false;
             try
             {
-                using (var stream = new FileStream(
-                    temporaryPath,
-                    FileMode.CreateNew,
-                    FileAccess.Write,
-                    FileShare.None,
-                    bufferSize: 81920,
-                    useAsync: true))
+                using (temporaryStream)
                 {
-                    await stream.WriteAsync(bytes, cancellationToken);
-                    await stream.FlushAsync(cancellationToken);
+                    await temporaryStream.WriteAsync(bytes, cancellationToken);
+                    await temporaryStream.FlushAsync(cancellationToken);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -92,7 +88,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
             }
             finally
             {
-                DeletePathIfExists(temporaryPath);
+                if (!published)
+                {
+                    DeletePathIfExists(temporaryPath);
+                }
             }
         }
 
