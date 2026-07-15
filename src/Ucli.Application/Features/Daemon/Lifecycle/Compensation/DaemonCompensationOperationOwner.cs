@@ -109,7 +109,9 @@ internal sealed class DaemonCompensationOperationOwner
     /// </param>
     /// <param name="beforeTimeoutMessage"> The timeout message used when admission exhausts the deadline. </param>
     /// <param name="operationTimeoutMessage"> The timeout message used when the mutation exhausts the deadline. </param>
-    /// <param name="operation"> The mutation to execute with its current remaining budget and owned token. </param>
+    /// <param name="operation">
+    /// The mutation to execute with its current remaining budget and owned token. The delegate must return its asynchronous operation without blocking.
+    /// </param>
     /// <returns> The completed value or a structured timeout error. </returns>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="lane" /> is unsupported. </exception>
     public async ValueTask<ExecutionDeadlineOperationResult<T>> ExecuteAsync<T> (
@@ -176,12 +178,10 @@ internal sealed class DaemonCompensationOperationOwner
         string operationTimeoutMessage,
         Func<TimeSpan, CancellationToken, ValueTask<T>> operation)
     {
-        var operationTask = Task.Run(
-            async () => await operation(
-                    remainingTimeout,
-                    ownedCompensation.CancellationTokenSource.Token)
-                .ConfigureAwait(false),
-            CancellationToken.None);
+        var operationTask = InvokeOperationAsync(
+            operation,
+            remainingTimeout,
+            ownedCompensation.CancellationTokenSource.Token);
         var waitResult = await WaitForTaskAsync(
                 operationTask,
                 remainingTimeout,
@@ -253,6 +253,14 @@ internal sealed class DaemonCompensationOperationOwner
         {
             await ReleaseOwnershipAsync(operationKey, ownedCompensation).ConfigureAwait(false);
         }
+    }
+
+    private static async Task<T> InvokeOperationAsync<T> (
+        Func<TimeSpan, CancellationToken, ValueTask<T>> operation,
+        TimeSpan remainingTimeout,
+        CancellationToken cancellationToken)
+    {
+        return await operation(remainingTimeout, cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask ReleaseOwnershipAsync (

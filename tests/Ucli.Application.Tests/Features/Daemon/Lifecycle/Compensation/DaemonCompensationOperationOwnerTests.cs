@@ -26,13 +26,14 @@ public sealed class DaemonCompensationOperationOwnerTests
                 CancellationToken.None,
                 "Timed out before compensation began.",
                 "Timed out while compensation remained owned.",
-                (_, _) =>
+                async (_, _) =>
                 {
                     mutationStarted.TrySetResult();
-                    releaseMutation.Task.GetAwaiter().GetResult();
+                    await releaseMutation.Task.ConfigureAwait(false);
                     throw new InvalidOperationException("deferred mutation failed");
                 })
             .AsTask();
+        Assert.True(mutationStarted.Task.IsCompletedSuccessfully);
         await TestAwaiter.WaitAsync(
             mutationStarted.Task,
             "Compensation mutation start",
