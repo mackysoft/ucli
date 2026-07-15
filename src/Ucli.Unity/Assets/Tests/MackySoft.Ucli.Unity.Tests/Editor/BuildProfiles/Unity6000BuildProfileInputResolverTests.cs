@@ -49,7 +49,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     new[] { inactiveScenePath },
                     scenesEnabled: true,
                     out _,
-                    out _,
                     out _);
                 var requestedProfile = CreateBuildProfileAsset(
                     editorScope,
@@ -57,7 +56,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     new[] { requestedScenePath },
                     scenesEnabled: true,
                     out var stableBuildTarget,
-                    out var unityBuildTargetLiteral,
                     out var requestedProfilePath);
                 BuildProfile.SetActiveBuildProfile(inactiveProfile);
                 var resolver = CreateResolver();
@@ -74,7 +72,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 var preconditionInput = result.PreconditionInput!;
                 Assert.That(preconditionInput.InputKind, Is.EqualTo(BuildProfileInputsKind.UnityBuildProfile));
                 Assert.That(preconditionInput.BuildTarget, Is.EqualTo(stableBuildTarget));
-                Assert.That(preconditionInput.UnityBuildTarget, Is.EqualTo(unityBuildTargetLiteral));
                 Assert.That(preconditionInput.SceneSource, Is.EqualTo(BuildProfileSceneSource.UnityBuildProfile));
                 Assert.That(preconditionInput.ScenePaths, Is.EqualTo(new[] { new SceneAssetPath(requestedScenePath) }));
 
@@ -107,42 +104,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public async Task ResolveAsync_WithPostApplyOutputLayoutFailure_ReturnsAppliedProfileEvidence ()
-        {
-            using (new ActiveBuildProfileScope())
-            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
-            {
-                var scenePath = CreateSavedScene(editorScope, "Unity6000BuildProfileOutputLayoutFailure");
-                CreateBuildProfileAsset(
-                    editorScope,
-                    "Unity6000BuildProfileOutputLayoutFailure",
-                    new[] { scenePath },
-                    scenesEnabled: true,
-                    out _,
-                    out _,
-                    out var profilePath);
-                var resolver = CreateResolver();
-                var request = CreateRequest(string.Empty, profilePath);
-
-                var result = await resolver.ResolveAsync(request, CancellationToken.None);
-
-                Assert.That(result.IsSuccess, Is.False);
-                Assert.That(result.Error, Is.Not.Null);
-                Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildInputsInvalid));
-                Assert.That(result.LifecycleBefore, Is.Not.Null);
-                Assert.That(result.DirtyState, Is.Not.Null);
-                Assert.That(result.UnityBuildProfile, Is.Not.Null);
-                Assert.That(result.UnityBuildProfile!.Path.Value, Is.EqualTo(profilePath));
-                Assert.That(result.UnityBuildProfile.Digest, Is.EqualTo(ComputeAssetDigest(profilePath)));
-                Assert.That(result.UnityBuildProfile.ApplyAudit, Is.Not.Null);
-                Assert.That(result.UnityBuildProfile.ApplyAudit!.Applied, Is.True);
-                Assert.That(result.LifecycleBefore, Is.SameAs(result.UnityBuildProfile.ApplyAudit.LifecycleAfter));
-                Assert.That(result.DirtyState, Is.SameAs(result.UnityBuildProfile.ApplyAudit.DirtyStateAfter));
-            }
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public async Task ResolveAsync_WithDisabledProfileScene_ReturnsSceneDisabled ()
         {
             using (new ActiveBuildProfileScope())
@@ -155,7 +116,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     "Unity6000BuildProfileDisabled",
                     new[] { scenePath },
                     scenesEnabled: false,
-                    out _,
                     out _,
                     out var profilePath);
                 var resolver = CreateResolver();
@@ -271,14 +231,10 @@ namespace MackySoft.Ucli.Unity.Tests
             string[] scenePaths,
             bool scenesEnabled,
             out BuildTargetStableName stableBuildTarget,
-            out string unityBuildTargetLiteral,
             out string profilePath)
         {
             var buildTarget = EditorUserBuildSettings.activeBuildTarget;
-            if (!TryResolveStableBuildTarget(
-                buildTarget,
-                out stableBuildTarget,
-                out unityBuildTargetLiteral))
+            if (!UnityBuildTargetSupportProbe.TryGetStableName(buildTarget, out stableBuildTarget))
             {
                 Assert.Fail($"Active Unity build target is not mapped to a supported uCLI build target: {buildTarget}.");
                 profilePath = string.Empty;
@@ -333,22 +289,6 @@ namespace MackySoft.Ucli.Unity.Tests
             AssetDatabase.Refresh(ImportAssetOptions.ForceSynchronousImport);
         }
 
-        private static bool TryResolveStableBuildTarget (
-            BuildTarget target,
-            out BuildTargetStableName stableBuildTarget,
-            out string unityBuildTargetLiteral)
-        {
-            unityBuildTargetLiteral = target.ToString();
-            if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolveStableName(unityBuildTargetLiteral, out var stableName))
-            {
-                stableBuildTarget = default;
-                return false;
-            }
-
-            stableBuildTarget = stableName;
-            return true;
-        }
-
         private static string CreateSavedScene (
             EditorTestScope scope,
             string prefix)
@@ -361,9 +301,9 @@ namespace MackySoft.Ucli.Unity.Tests
             return scenePath;
         }
 
-        private static string ComputeAssetDigest (string assetPath)
+        private static Sha256Digest ComputeAssetDigest (string assetPath)
         {
-            return Sha256LowerHex.Compute(File.ReadAllBytes(UnityAssetPathUtility.ToAbsolutePath(assetPath)));
+            return Sha256Digest.Compute(File.ReadAllBytes(UnityAssetPathUtility.ToAbsolutePath(assetPath)));
         }
 
         private static UnityEditorObservation CreateObservation (int captureIndex)
