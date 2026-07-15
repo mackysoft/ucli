@@ -1,7 +1,9 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.Helpers.Process;
 using MackySoft.Ucli.Tests.Helpers.Unity;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 
@@ -15,13 +17,8 @@ public sealed class UnityBatchmodeProcessLauncherTests
     {
         var projectPath = @"C:\Users\Foo Bar\Project";
         var unityLogPath = @"C:\Users\Foo Bar\Project\.ucli\unity.log";
-        var bootstrapArguments = new IpcOneshotBootstrapArguments(
-            ParentProcessId: 1234,
-            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-            SessionToken: "session-token",
-            ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-            EndpointTransportKind: "unixDomainSocket",
-            EndpointAddress: @"\\.\pipe\ucli-oneshot");
+        var bootstrapEnvelope = CreateBootstrapEnvelope();
+        var bootstrapArguments = new IpcOneshotBootstrapArguments(bootstrapEnvelope.BootstrapId);
 
         var arguments = UnityBatchmodeProcessLauncher.BuildArgumentTokens(projectPath, unityLogPath, bootstrapArguments);
 
@@ -33,25 +30,21 @@ public sealed class UnityBatchmodeProcessLauncherTests
         Assert.Contains("MackySoft.Ucli.Unity.Editor.BuildExecuteMethodBridge.Run", arguments);
         Assert.DoesNotContain(@"C:\\Users\\Foo Bar\\Project", arguments, StringComparer.Ordinal);
         Assert.DoesNotContain(@"C:\\Users\\Foo Bar\\Project\\.ucli\\unity.log", arguments, StringComparer.Ordinal);
+        Assert.DoesNotContain(bootstrapEnvelope.SessionToken.GetEncodedValue(), arguments, StringComparer.Ordinal);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void BuildArgumentTokens_WithActiveBuildProfile_AddsUnityActiveBuildProfileArguments ()
     {
-        var bootstrapArguments = new IpcOneshotBootstrapArguments(
-            ParentProcessId: 1234,
-            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-            SessionToken: "session-token",
-            ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-            EndpointTransportKind: "unixDomainSocket",
-            EndpointAddress: "/tmp/ucli.sock");
+        var bootstrapArguments = new IpcOneshotBootstrapArguments(Guid.NewGuid());
 
         var arguments = UnityBatchmodeProcessLauncher.BuildArgumentTokens(
             "/tmp/unity-project",
             "/tmp/unity.log",
             bootstrapArguments,
-            new UnityBatchmodeLaunchOptions("Assets/BuildProfiles/LinuxPlayer.asset"));
+            new UnityBatchmodeLaunchOptions(
+                new UnityBuildProfileAssetPath("Assets/BuildProfiles/LinuxPlayer.asset")));
 
         var argumentArray = arguments.ToArray();
         var activeBuildProfileIndex = Array.IndexOf(argumentArray, "-activeBuildProfile");
@@ -74,17 +67,11 @@ public sealed class UnityBatchmodeProcessLauncherTests
             },
             new RecordingUnityProjectLockPreflightService());
 
-        var result = await launcher.LaunchAsync(
+        var result = await launcher.LaunchOneshotAsync(
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: "/tmp/repository-root"),
-            new IpcOneshotBootstrapArguments(
-                ParentProcessId: 1234,
-                ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-                SessionToken: "session-token",
-                ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                EndpointTransportKind: "unixDomainSocket",
-                EndpointAddress: "/tmp/ucli.sock"),
+            CreateBootstrapEnvelope(),
             "/tmp/unity.log",
             UnityBatchmodeLaunchOptions.Default,
             CancellationToken.None);
@@ -107,17 +94,11 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 lockFilePath,
                 UnityProjectLockFailureMessage.CreateAlreadyOpen("/tmp/unity-project", lockFilePath))));
 
-        var result = await launcher.LaunchAsync(
+        var result = await launcher.LaunchOneshotAsync(
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: "/tmp/repository-root"),
-            new IpcOneshotBootstrapArguments(
-                ParentProcessId: 1234,
-                ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-                SessionToken: "session-token",
-                ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                EndpointTransportKind: "unixDomainSocket",
-                EndpointAddress: "/tmp/ucli.sock"),
+            CreateBootstrapEnvelope(),
             "/tmp/unity.log",
             UnityBatchmodeLaunchOptions.Default,
             CancellationToken.None);
@@ -141,17 +122,11 @@ public sealed class UnityBatchmodeProcessLauncherTests
                 "/tmp/unity-project/Temp/UnityLockfile",
                 "lock owner could not be inspected")));
 
-        var result = await launcher.LaunchAsync(
+        var result = await launcher.LaunchOneshotAsync(
             ResolvedUnityProjectContextTestFactory.Create(
                 unityProjectRoot: "/tmp/unity-project",
                 repositoryRoot: "/tmp/repository-root"),
-            new IpcOneshotBootstrapArguments(
-                ParentProcessId: 1234,
-                ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-                SessionToken: "session-token",
-                ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                EndpointTransportKind: "unixDomainSocket",
-                EndpointAddress: "/tmp/ucli.sock"),
+            CreateBootstrapEnvelope(),
             "/tmp/unity.log",
             UnityBatchmodeLaunchOptions.Default,
             CancellationToken.None);
@@ -182,15 +157,9 @@ public sealed class UnityBatchmodeProcessLauncherTests
             new RecordingUnityUcliPluginLocator(),
             lockPreflightService);
 
-        var result = await launcher.LaunchAsync(
+        var result = await launcher.LaunchOneshotAsync(
             unityProject,
-            new IpcOneshotBootstrapArguments(
-                ParentProcessId: 1234,
-                ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-                SessionToken: "session-token",
-                ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                EndpointTransportKind: "unixDomainSocket",
-                EndpointAddress: "/tmp/ucli.sock"),
+            CreateBootstrapEnvelope(),
             scope.GetPath("unity.log"),
             UnityBatchmodeLaunchOptions.Default,
             CancellationToken.None);
@@ -233,21 +202,87 @@ public sealed class UnityBatchmodeProcessLauncherTests
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () =>
         {
-            _ = await launcher.LaunchAsync(
+            _ = await launcher.LaunchOneshotAsync(
                 unityProject,
-                new IpcOneshotBootstrapArguments(
-                    ParentProcessId: 1234,
-                    ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
-                    SessionToken: "session-token",
-                    ExitDeadlineUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                    EndpointTransportKind: "unixDomainSocket",
-                    EndpointAddress: "/tmp/ucli.sock"),
+                CreateBootstrapEnvelope(),
                 scope.GetPath("unity.log"),
                 UnityBatchmodeLaunchOptions.Default,
                 cancellationTokenSource.Token);
         });
 
         lockPreflightService.AssertOnlyInitialStartPreflightFor(unityProject, cancellationTokenSource.Token);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task LaunchOneshot_WhenPreflightFails_DeletesBootstrapEnvelope ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-batchmode-process-launcher", "bootstrap-launch-failure");
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
+            unityProjectRoot: scope.GetPath("unity-project"),
+            repositoryRoot: scope.FullPath);
+        var envelope = CreateBootstrapEnvelope(scope.FullPath);
+        var launcher = new UnityBatchmodeProcessLauncher(
+            new UnexpectedUnityVersionResolver("Preflight failure must stop before Unity version resolution."),
+            new StubUnityEditorPathResolver(),
+            new RecordingUnityUcliPluginLocator(),
+            new RecordingUnityProjectLockPreflightService(UnityProjectLockPreflightResult.Ambiguous(
+                scope.GetPath("unity-project/Temp/UnityLockfile"),
+                "lock owner could not be inspected")));
+
+        var result = await launcher.LaunchOneshotAsync(
+            unityProject,
+            envelope,
+            scope.GetPath("unity.log"),
+            UnityBatchmodeLaunchOptions.Default,
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.False(File.Exists(UcliStoragePathResolver.ResolveOneshotBootstrapPath(
+            scope.FullPath,
+            envelope.ProjectFingerprint,
+            envelope.BootstrapId)));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task ProcessHandleDispose_AfterSuccessfulOwnershipTransfer_DeletesBootstrapEnvelope ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-batchmode-process-launcher", "bootstrap-success-cleanup");
+        var envelope = CreateBootstrapEnvelope(scope.FullPath);
+        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, envelope);
+        var innerHandle = new StubUnityBatchmodeProcessHandle();
+        var handle = new OneshotBootstrapOwnedProcessHandle(innerHandle, scope.FullPath, envelope);
+
+        await handle.DisposeAsync();
+
+        Assert.Equal(1, innerHandle.DisposeCount);
+        Assert.False(File.Exists(UcliStoragePathResolver.ResolveOneshotBootstrapPath(
+            scope.FullPath,
+            envelope.ProjectFingerprint,
+            envelope.BootstrapId)));
+    }
+
+    private static IpcOneshotBootstrapEnvelope CreateBootstrapEnvelope ()
+    {
+        return CreateBootstrapEnvelope("/tmp/repository-root");
+    }
+
+    private static IpcOneshotBootstrapEnvelope CreateBootstrapEnvelope (string storageRoot)
+    {
+        var createdAtUtc = DateTimeOffset.UtcNow;
+        using var process = System.Diagnostics.Process.GetCurrentProcess();
+        return new IpcOneshotBootstrapEnvelope(
+            BootstrapId: Guid.NewGuid(),
+            ParentProcessId: process.Id,
+            ParentProcessStartedAtUtc: new DateTimeOffset(process.StartTime.ToUniversalTime()),
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
+            SessionToken: IpcSessionTokenTestFactory.Create("session-token"),
+            CreatedAtUtc: createdAtUtc,
+            ExitDeadlineUtc: createdAtUtc.AddMinutes(5),
+            Endpoint: UcliIpcEndpointResolver.ResolveDaemonEndpoint(
+                storageRoot,
+                ProjectFingerprintTestFactory.Create("project-fingerprint")));
     }
 
 }

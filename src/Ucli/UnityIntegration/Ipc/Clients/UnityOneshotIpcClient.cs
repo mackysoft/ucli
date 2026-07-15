@@ -32,12 +32,11 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private delegate ValueTask<IpcResponse> SendPreparedIpcRequestAsync (
         ResolvedUnityProjectContext unityProject,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken);
 
     private static readonly TimeSpan StartupRetryDelay = TimeSpan.FromMilliseconds(50);
-    private static readonly TimeSpan DefaultCleanupTimeout = TimeSpan.FromSeconds(30);
 
     private static readonly ProcessTerminationPolicy EmergencyTerminationPolicy = new(
         ProcessTerminationMode.GracefulThenKill,
@@ -56,9 +55,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private readonly UnityBatchmodeProcessLifetimeOwner processLifetimeOwner = new();
 
-    private readonly TimeSpan cleanupTimeout;
-
-    private readonly TimeSpan cleanupRetryDelay;
+    private readonly UnityOneshotCleanupPolicy cleanupPolicy;
 
     private readonly TimeProvider timeProvider;
 
@@ -67,48 +64,25 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     /// <param name="transportClient"> The shared IPC transport client dependency. </param>
     /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
     /// <param name="unityProjectLockPreflightService"> The Unity project lock preflight service dependency. </param>
-    /// <param name="unityLogReader"> The optional Unity log reader used for startup failure classification. </param>
+    /// <param name="unityLogReader"> The Unity log reader used for startup failure classification, or <see langword="null" /> when log classification is unavailable. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
+    /// <param name="cleanupPolicy"> The validated cleanup timing policy. </param>
     public UnityOneshotIpcClient (
         IUnityBatchmodeProcessLauncher batchmodeProcessLauncher,
         IUnityIpcTransportClient transportClient,
         IProjectLifecycleLockProvider lifecycleLockProvider,
         IUnityProjectLockPreflightService unityProjectLockPreflightService,
-        IUnityLogReader? unityLogReader = null,
-        TimeProvider? timeProvider = null)
-        : this(
-            batchmodeProcessLauncher,
-            transportClient,
-            lifecycleLockProvider,
-            unityProjectLockPreflightService,
-            unityLogReader,
-            DefaultCleanupTimeout,
-            StartupRetryDelay,
-            timeProvider)
-    {
-    }
-
-    internal UnityOneshotIpcClient (
-        IUnityBatchmodeProcessLauncher batchmodeProcessLauncher,
-        IUnityIpcTransportClient transportClient,
-        IProjectLifecycleLockProvider lifecycleLockProvider,
-        IUnityProjectLockPreflightService unityProjectLockPreflightService,
         IUnityLogReader? unityLogReader,
-        TimeSpan cleanupTimeout,
-        TimeSpan cleanupRetryDelay,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider,
+        UnityOneshotCleanupPolicy cleanupPolicy)
     {
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(cleanupTimeout, TimeSpan.Zero);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(cleanupRetryDelay, TimeSpan.Zero);
-
         this.batchmodeProcessLauncher = batchmodeProcessLauncher ?? throw new ArgumentNullException(nameof(batchmodeProcessLauncher));
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
         this.unityProjectLockPreflightService = unityProjectLockPreflightService ?? throw new ArgumentNullException(nameof(unityProjectLockPreflightService));
         this.unityLogReader = unityLogReader;
-        this.cleanupTimeout = cleanupTimeout;
-        this.cleanupRetryDelay = cleanupRetryDelay;
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        this.cleanupPolicy = cleanupPolicy ?? throw new ArgumentNullException(nameof(cleanupPolicy));
     }
 
     /// <inheritdoc />
@@ -118,13 +92,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     public ValueTask<UnityRequestExecutionResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(deadline);
         return SendCoreAsync(
             unityProject,
             dispatchRequest,
-            timeout,
+            deadline,
+            IpcResponseMode.Single,
             SendPreparedSingleRequestAsync,
             cancellationToken);
     }
@@ -133,15 +109,24 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     public ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(onProgressFrame);
+        ArgumentNullException.ThrowIfNull(dispatchRequest);
+        ArgumentNullException.ThrowIfNull(deadline);
+        if (!UnityIpcMethodCapabilities.SupportsStreaming(dispatchRequest.Method))
+        {
+            return ValueTask.FromResult(UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
+                $"IPC method does not support streaming: {ContractLiteralCodec.ToValue(dispatchRequest.Method)}.")));
+        }
+
         return SendCoreAsync(
             unityProject,
             dispatchRequest,
-            timeout,
+            deadline,
+            IpcResponseMode.Stream,
             (preparedUnityProject, request, requestTimeout, requestCancellationToken) =>
                 SendPreparedStreamingRequestAsync(
                     preparedUnityProject,
@@ -155,20 +140,16 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     private async ValueTask<UnityRequestExecutionResult> SendCoreAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
+        IpcResponseMode responseMode,
         SendPreparedIpcRequestAsync sendPreparedRequestAsync,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.UnityProjectRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProject.RepositoryRoot);
-        ArgumentNullException.ThrowIfNull(unityProject.ProjectFingerprint);
         ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentNullException.ThrowIfNull(sendPreparedRequestAsync);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
@@ -180,7 +161,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         {
             if (!deadline.TryGetRemainingTimeout(out var lockTimeout))
             {
-                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
+                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
             }
 
             await using var lifecycleLock = new BestEffortAsyncDisposable(
@@ -196,23 +177,28 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 FileSystemAccessBoundary.EnsureSecureDirectory(unityLogDirectoryPath);
             }
 
-            if (!deadline.TryGetRemainingTimeout(out var launchRemainingTimeout))
+            if (!deadline.TryGetRemainingTimeout(out _))
             {
-                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
+                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
             }
 
             var sessionToken = IpcSessionToken.CreateRandom();
-            var launchResult = await batchmodeProcessLauncher.LaunchAsync(
+            var bootstrapCreatedAtUtc = timeProvider.GetUtcNow();
+            using var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
+            var bootstrapEnvelope = new IpcOneshotBootstrapEnvelope(
+                BootstrapId: Guid.NewGuid(),
+                ParentProcessId: currentProcess.Id,
+                ParentProcessStartedAtUtc: new DateTimeOffset(currentProcess.StartTime.ToUniversalTime()),
+                ProjectFingerprint: unityProject.ProjectFingerprint,
+                SessionToken: sessionToken,
+                CreatedAtUtc: bootstrapCreatedAtUtc,
+                ExitDeadlineUtc: deadline.UtcDeadline,
+                Endpoint: endpoint);
+            var launchResult = await batchmodeProcessLauncher.LaunchOneshotAsync(
                     unityProject,
-                    new IpcOneshotBootstrapArguments(
-                        ParentProcessId: Environment.ProcessId,
-                        ProjectFingerprint: unityProject.ProjectFingerprint,
-                        SessionToken: sessionToken.GetEncodedValue(),
-                        ExitDeadlineUtc: timeProvider.GetUtcNow() + launchRemainingTimeout,
-                        EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
-                        EndpointAddress: endpoint.Address),
+                    bootstrapEnvelope,
                     unityLogPath,
-                    ResolveLaunchOptions(dispatchRequest),
+                    dispatchRequest.LaunchOptions,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!launchResult.IsSuccess)
@@ -222,7 +208,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             }
 
             var processHandle = launchResult.ProcessHandle!;
-            var shutdownRequest = CreateShutdownRequest(sessionToken, Guid.NewGuid());
             await using var processHandleDisposal = new BestEffortAsyncDisposable(processHandle);
             var shouldTerminateProcess = true;
             var terminationResult = ProcessTerminationResult.None;
@@ -237,7 +222,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     ResolveStartupProbeFailFast(dispatchRequest),
                     deadline,
                     processHandle,
-                    timeout,
                     cancellationToken)
                 .ConfigureAwait(false);
                 if (startupProbeFailure != null)
@@ -246,16 +230,22 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 }
                 else if (!deadline.TryGetRemainingTimeout(out var requestTimeout))
                 {
-                    result = UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(timeout));
+                    result = UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
+                }
+                else if (!deadline.TryGetRemainingMilliseconds(out var requestDeadlineRemainingMilliseconds))
+                {
+                    result = UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.OneshotTimeout(deadline.Timeout));
                 }
                 else
                 {
                     var request = UnityIpcRequestFactory.Create(
                         sessionToken,
                         dispatchRequest.Method,
-                        dispatchRequest.CreatePayload(requestTimeout),
+                        dispatchRequest.Payload,
                         Guid.NewGuid(),
-                        dispatchRequest.ResponseMode);
+                        responseMode,
+                        deadline.UtcDeadline,
+                        requestDeadlineRemainingMilliseconds);
                     var response = await sendPreparedRequestAsync(
                             unityProject,
                             request,
@@ -265,7 +255,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                     var responseResult = UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
                     var terminalPingShutdownError = await RequestTerminalPingShutdownAsync(
                             unityProject,
-                            shutdownRequest,
+                            sessionToken,
                             dispatchRequest,
                             processHandle)
                         .ConfigureAwait(false);
@@ -280,7 +270,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         {
                             var exitWaitError = await WaitForExitAsync(
                                     processHandle,
-                                    cleanupTimeout,
+                                    cleanupPolicy.Timeout,
                                     timeProvider,
                                     cancellationToken)
                                 .ConfigureAwait(false);
@@ -317,7 +307,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             catch (Exception exception)
             {
                 result = UnityRequestExecutionResult.Failure(
-                    UnityIpcFailureClassifier.FromOneshotDispatchException(exception, timeout));
+                    UnityIpcFailureClassifier.FromOneshotDispatchException(exception, deadline.Timeout));
             }
             finally
             {
@@ -329,7 +319,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         {
                             terminationResult = await CleanupLaunchedProcessAsync(
                                     unityProject,
-                                    shutdownRequest,
+                                    sessionToken,
                                     processHandle)
                                 .ConfigureAwait(false);
                         }
@@ -376,13 +366,13 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         catch (Exception exception)
         {
             return UnityRequestExecutionResult.Failure(
-                UnityIpcFailureClassifier.FromOneshotDispatchException(exception, timeout));
+                UnityIpcFailureClassifier.FromOneshotDispatchException(exception, deadline.Timeout));
         }
     }
 
     private ValueTask<IpcResponse> SendPreparedSingleRequestAsync (
         ResolvedUnityProjectContext unityProject,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken)
     {
@@ -394,17 +384,9 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             cancellationToken);
     }
 
-    private static UnityBatchmodeLaunchOptions ResolveLaunchOptions (UnityIpcDispatchRequest dispatchRequest)
-    {
-        ArgumentNullException.ThrowIfNull(dispatchRequest);
-        return dispatchRequest.OneshotActiveBuildProfilePath == null
-            ? UnityBatchmodeLaunchOptions.Default
-            : new UnityBatchmodeLaunchOptions(dispatchRequest.OneshotActiveBuildProfilePath);
-    }
-
     private ValueTask<IpcResponse> SendPreparedStreamingRequestAsync (
         ResolvedUnityProjectContext unityProject,
-        IpcRequest request,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken)
@@ -426,7 +408,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private async ValueTask<ExecutionError?> RequestTerminalPingShutdownAsync (
         ResolvedUnityProjectContext unityProject,
-        IpcRequest shutdownRequest,
+        IpcSessionToken sessionToken,
         UnityIpcDispatchRequest dispatchRequest,
         IUnityBatchmodeProcessHandle processHandle)
     {
@@ -436,10 +418,12 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             return null;
         }
 
-        var cleanupDeadline = ExecutionDeadline.Start(cleanupTimeout, timeProvider);
+        var cleanupDeadline = ExecutionDeadline.Start(cleanupPolicy.Timeout, timeProvider);
+        var shutdownRequestId = Guid.NewGuid();
         if (await TryRequestShutdownUntilCleanupDeadlineAsync(
                 unityProject,
-                shutdownRequest,
+                sessionToken,
+                shutdownRequestId,
                 processHandle,
                 cleanupDeadline)
             .ConfigureAwait(false))
@@ -448,13 +432,13 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         }
 
         return ExecutionError.Timeout(
-            $"Unity oneshot ping shutdown did not complete within {cleanupTimeout.TotalMilliseconds:0} milliseconds.",
+            $"Unity oneshot ping shutdown did not complete within {cleanupPolicy.Timeout.TotalMilliseconds:0} milliseconds.",
             ExecutionErrorCodes.IpcTimeout);
     }
 
     private async ValueTask<ProcessTerminationResult> CleanupLaunchedProcessAsync (
         ResolvedUnityProjectContext unityProject,
-        IpcRequest shutdownRequest,
+        IpcSessionToken sessionToken,
         IUnityBatchmodeProcessHandle processHandle)
     {
         if (processHandle.HasExited)
@@ -462,8 +446,15 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             return ProcessTerminationResult.None;
         }
 
-        var cleanupDeadline = ExecutionDeadline.Start(cleanupTimeout, timeProvider);
-        if (await TryRequestShutdownUntilCleanupDeadlineAsync(unityProject, shutdownRequest, processHandle, cleanupDeadline).ConfigureAwait(false)
+        var cleanupDeadline = ExecutionDeadline.Start(cleanupPolicy.Timeout, timeProvider);
+        var shutdownRequestId = Guid.NewGuid();
+        if (await TryRequestShutdownUntilCleanupDeadlineAsync(
+                unityProject,
+                sessionToken,
+                shutdownRequestId,
+                processHandle,
+                cleanupDeadline)
+            .ConfigureAwait(false)
             && !processHandle.HasExited
             && cleanupDeadline.TryGetRemainingTimeout(out var exitTimeout))
         {
@@ -487,7 +478,8 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private async ValueTask<bool> TryRequestShutdownUntilCleanupDeadlineAsync (
         ResolvedUnityProjectContext unityProject,
-        IpcRequest shutdownRequest,
+        IpcSessionToken sessionToken,
+        Guid shutdownRequestId,
         IUnityBatchmodeProcessHandle processHandle,
         ExecutionDeadline cleanupDeadline)
     {
@@ -500,14 +492,44 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
             try
             {
+                var attemptTimeout = GetCleanupAttemptTimeout(remainingTimeout);
+                if (!cleanupDeadline.TryGetRemainingMilliseconds(out var requestDeadlineRemainingMilliseconds))
+                {
+                    return false;
+                }
+
+                var shutdownRequest = CreateShutdownRequest(
+                    sessionToken,
+                    shutdownRequestId,
+                    cleanupDeadline.UtcDeadline,
+                    requestDeadlineRemainingMilliseconds);
                 var response = await transportClient.SendAsync(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint,
                         shutdownRequest,
-                        GetCleanupAttemptTimeout(remainingTimeout),
+                        attemptTimeout,
                         CancellationToken.None)
                     .ConfigureAwait(false);
-                return !IpcResponseFailureReader.TryRead(response, out _, out _);
+                if (!IpcResponseFailureReader.TryRead(response, out var firstError))
+                {
+                    return true;
+                }
+
+                if (!IsCleanupShutdownResponseRetryable(firstError))
+                {
+                    return false;
+                }
+
+                if (!cleanupDeadline.TryGetRemainingTimeout(out remainingTimeout))
+                {
+                    return false;
+                }
+
+                await TimeProviderDelay.DelayAsync(
+                        GetCleanupRetryDelay(remainingTimeout),
+                        timeProvider,
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
             }
             catch (Exception exception) when (IsCleanupShutdownRetryable(exception))
             {
@@ -534,7 +556,6 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     /// <param name="failFast"> Whether readiness probing should fail immediately instead of waiting for lifecycle readiness. </param>
     /// <param name="deadline"> The shared request deadline. </param>
     /// <param name="processHandle"> The launched process handle. </param>
-    /// <param name="timeout"> The original request timeout used for diagnostics. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> <see langword="null" /> when startup is reachable; otherwise the startup failure. </returns>
     private async ValueTask<UnityRequestFailure?> WaitUntilReachableAsync (
@@ -544,11 +565,10 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         bool failFast,
         ExecutionDeadline deadline,
         IUnityBatchmodeProcessHandle processHandle,
-        TimeSpan timeout,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(dispatchRequest);
-        var startupProbeRequest = CreateStartupProbeRequest(sessionToken, Guid.NewGuid());
+        var startupProbeRequestId = Guid.NewGuid();
 
         while (true)
         {
@@ -556,7 +576,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
             if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
             {
-                var message = $"Unity oneshot IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.";
+                var message = $"Unity oneshot IPC request timed out after {deadline.Timeout.TotalMilliseconds:0} milliseconds.";
                 return await CreateStartupTimeoutFailureAsync(
                         unityProject,
                         processHandle,
@@ -585,6 +605,22 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                 : TimeSpan.FromSeconds(1);
             try
             {
+                if (!deadline.TryGetRemainingMilliseconds(out var requestDeadlineRemainingMilliseconds))
+                {
+                    var message = $"Unity oneshot IPC request timed out after {deadline.Timeout.TotalMilliseconds:0} milliseconds.";
+                    return await CreateStartupTimeoutFailureAsync(
+                            unityProject,
+                            processHandle,
+                            message,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+
+                var startupProbeRequest = CreateStartupProbeRequest(
+                    sessionToken,
+                    startupProbeRequestId,
+                    deadline.UtcDeadline,
+                    requestDeadlineRemainingMilliseconds);
                 var pingResponse = await transportClient.SendAsync(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint,
@@ -603,7 +639,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
                         $"Unity oneshot startup probe returned an invalid response. {error!.Message}");
                 }
 
-                var readinessDecision = UnityDaemonReadinessPolicy.Evaluate(payload!, failFast);
+                var readinessDecision = UnityEditorReadinessPolicy.Evaluate(payload!, failFast);
                 if (readinessDecision.IsReady)
                 {
                     return null;
@@ -624,7 +660,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
                 if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
                 {
-                    var message = $"Unity oneshot IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.";
+                    var message = $"Unity oneshot IPC request timed out after {deadline.Timeout.TotalMilliseconds:0} milliseconds.";
                     return await CreateStartupTimeoutFailureAsync(
                             unityProject,
                             processHandle,
@@ -644,7 +680,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             {
                 if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
                 {
-                    var message = $"Unity oneshot IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.";
+                    var message = $"Unity oneshot IPC request timed out after {deadline.Timeout.TotalMilliseconds:0} milliseconds.";
                     return await CreateStartupTimeoutFailureAsync(
                             unityProject,
                             processHandle,
@@ -864,7 +900,7 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     {
         ArgumentNullException.ThrowIfNull(exception);
         return exception is TimeoutException
-            or System.Net.Sockets.SocketException
+            or IpcConnectException
             or IpcResponseReadInterruptedException;
     }
 
@@ -890,17 +926,22 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
     private TimeSpan GetCleanupRetryDelay (TimeSpan remainingTimeout)
     {
-        if (remainingTimeout < cleanupRetryDelay)
+        if (remainingTimeout < cleanupPolicy.RetryDelay)
         {
             return remainingTimeout;
         }
 
-        return cleanupRetryDelay;
+        return cleanupPolicy.RetryDelay;
     }
 
     private static bool IsCleanupShutdownRetryable (Exception exception)
     {
-        return exception is TimeoutException or System.Net.Sockets.SocketException or IOException or ObjectDisposedException;
+        return exception is TimeoutException or IOException or ObjectDisposedException;
+    }
+
+    private static bool IsCleanupShutdownResponseRetryable (IpcError error)
+    {
+        return error.Code == EditorLifecycleErrorCodes.EditorBusy;
     }
 
     /// <summary> Resolves whether the dispatch payload requests fail-fast readiness behavior. </summary>
@@ -932,7 +973,9 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
         ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentNullException.ThrowIfNull(pingResponse);
 
-        return dispatchRequest.AllowedStartupLifecycleStates.Contains(pingResponse.State.LifecycleState);
+        return UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
+            dispatchRequest.Method,
+            pingResponse.State.LifecycleState);
     }
 
     private static bool TryReadFailFast<TRequest> (
@@ -948,10 +991,13 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
     /// <summary> Creates the startup probe request for one session token. </summary>
     /// <param name="sessionToken"> The canonical session token assigned to the launched oneshot process. </param>
     /// <param name="requestId"> The non-empty identifier reused by every startup-probe attempt. </param>
+    /// <param name="requestDeadlineUtc"> The UTC deadline shared by every startup-probe attempt. </param>
     /// <returns> The IPC ping request used to verify startup readiness. </returns>
-    private static IpcRequest CreateStartupProbeRequest (
+    private static IpcRequestEnvelope CreateStartupProbeRequest (
         IpcSessionToken sessionToken,
-        Guid requestId)
+        Guid requestId,
+        DateTimeOffset requestDeadlineUtc,
+        int requestDeadlineRemainingMilliseconds)
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.OneshotStartup));
         return UnityIpcRequestFactory.Create(
@@ -959,16 +1005,21 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             UnityIpcMethod.Ping,
             payload,
             requestId,
-            IpcResponseMode.Single);
+            IpcResponseMode.Single,
+            requestDeadlineUtc,
+            requestDeadlineRemainingMilliseconds);
     }
 
     /// <summary> Creates the shutdown request shared by cleanup attempts for one launched process. </summary>
     /// <param name="sessionToken"> The canonical session token assigned to the launched oneshot process. </param>
     /// <param name="requestId"> The non-empty identifier reused by every shutdown attempt. </param>
+    /// <param name="requestDeadlineUtc"> The UTC deadline shared by every shutdown attempt. </param>
     /// <returns> The IPC shutdown request used during process cleanup. </returns>
-    private static IpcRequest CreateShutdownRequest (
+    private static IpcRequestEnvelope CreateShutdownRequest (
         IpcSessionToken sessionToken,
-        Guid requestId)
+        Guid requestId,
+        DateTimeOffset requestDeadlineUtc,
+        int requestDeadlineRemainingMilliseconds)
     {
         var payload = IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest(CleanupShutdownRequestedBy));
         return UnityIpcRequestFactory.Create(
@@ -976,7 +1027,9 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
             UnityIpcMethod.Shutdown,
             payload,
             requestId,
-            IpcResponseMode.Single);
+            IpcResponseMode.Single,
+            requestDeadlineUtc,
+            requestDeadlineRemainingMilliseconds);
     }
 
     private static string ResolveUnityLogPath (ResolvedUnityProjectContext unityProject)

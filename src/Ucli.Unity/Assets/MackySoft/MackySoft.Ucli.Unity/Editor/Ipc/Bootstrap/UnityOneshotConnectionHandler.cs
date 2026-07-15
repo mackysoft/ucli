@@ -4,26 +4,30 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
-    /// <summary> Decorates one shared IPC connection handler and signals oneshot completion after a terminal request. </summary>
+    /// <summary> Decorates one shared IPC connection handler and coordinates oneshot lifecycle after terminal responses. </summary>
     internal sealed class UnityOneshotConnectionHandler : IUnityIpcConnectionHandler
     {
         private readonly UnityIpcConnectionHandler innerConnectionHandler;
 
         private readonly OneshotRequestCompletionSignal completionSignal;
 
+        private readonly OneshotProcessLifetimeWatchdog lifetimeWatchdog;
+
         /// <summary> Initializes a new instance of the <see cref="UnityOneshotConnectionHandler" /> class. </summary>
         /// <param name="innerConnectionHandler"> The shared IPC connection handler. </param>
         /// <param name="completionSignal"> The oneshot completion signal. </param>
+        /// <param name="lifetimeWatchdog"> The process watchdog that owns the original request deadline. </param>
         public UnityOneshotConnectionHandler (
             UnityIpcConnectionHandler innerConnectionHandler,
-            OneshotRequestCompletionSignal completionSignal)
+            OneshotRequestCompletionSignal completionSignal,
+            OneshotProcessLifetimeWatchdog lifetimeWatchdog)
         {
             this.innerConnectionHandler = innerConnectionHandler ?? throw new ArgumentNullException(nameof(innerConnectionHandler));
             this.completionSignal = completionSignal ?? throw new ArgumentNullException(nameof(completionSignal));
+            this.lifetimeWatchdog = lifetimeWatchdog ?? throw new ArgumentNullException(nameof(lifetimeWatchdog));
         }
 
         /// <inheritdoc />
@@ -32,22 +36,40 @@ namespace MackySoft.Ucli.Unity.Ipc
             CancellationToken cancellationToken = default)
         {
             var result = await innerConnectionHandler.HandleAsync(stream, cancellationToken);
-            if (ShouldSignalCompletion(result))
+            if (result != null
+                && result.HasTerminalResponse
+                && !HasPreDispatchFailure(result.Response!))
             {
-                completionSignal.Signal();
+                if (result.Method == UnityIpcMethod.Ping)
+                {
+                    if (!IsOneshotStartupPing(result.Request!))
+                    {
+                        // The CLI owns a separate cleanup deadline after the terminal command response.
+                        // Keep only parent-process monitoring while it retries the shutdown exchange.
+                        lifetimeWatchdog.MarkRequestCompleted();
+                    }
+                }
+                else if (result.Method != UnityIpcMethod.Shutdown
+                    || result.IsShutdownAdmissionCommitted)
+                {
+                    completionSignal.Signal();
+                }
             }
 
             return result;
         }
 
-        private static bool ShouldSignalCompletion (UnityIpcConnectionHandleResult result)
+        private static bool IsOneshotStartupPing (ValidatedUnityIpcRequest request)
         {
-            if (result.Request == null || result.Response == null || HasPreDispatchFailure(result.Response))
-            {
-                return false;
-            }
-
-            return !ContractLiteralCodec.Matches(result.Request.Method, UnityIpcMethod.Ping);
+            return UnityIpcRequestCodec.TryDecodePingRequest(
+                    request,
+                    out var payload,
+                    out _)
+                && payload != null
+                && string.Equals(
+                    payload.ClientVersion,
+                    IpcPingClientVersions.OneshotStartup,
+                    StringComparison.Ordinal);
         }
 
         private static bool HasPreDispatchFailure (IpcResponse response)

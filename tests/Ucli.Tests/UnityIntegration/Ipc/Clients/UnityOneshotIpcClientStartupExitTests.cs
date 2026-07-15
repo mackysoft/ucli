@@ -1,8 +1,7 @@
-using MackySoft.Tests;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
-using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using static MackySoft.Ucli.Tests.Ipc.UnityOneshotIpcClientTestSupport;
 
@@ -18,7 +17,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var processHandle = new StubUnityBatchmodeProcessHandle(hasExited: true, exitCode: 1);
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
@@ -28,7 +27,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -49,7 +48,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
         var processHandle = new StubUnityBatchmodeProcessHandle(hasExited: true, exitCode: 1);
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
@@ -59,7 +58,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -81,7 +80,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         var projectLockPreflightService = CreateProjectLockPreflightService();
         projectLockPreflightService.CleanupAsyncHandler = static (_, _) =>
             ValueTask.FromException<UnityProjectLockPreflightResult>(new IOException("lock cleanup failed"));
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
@@ -90,7 +89,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -120,7 +119,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
             truncated: false,
             path: unityLogPath,
             sizeBytes: 192));
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
@@ -131,7 +130,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -141,7 +140,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         Assert.Equal(DaemonStartupStatus.Blocked, startupFailure.Startup!.StartupStatus);
         Assert.Equal(DaemonStartupBlockingReason.Compile, startupFailure.Startup.StartupBlockingReason);
         Assert.Equal(DaemonStartupProcessAction.Unknown, startupFailure.Startup.ProcessAction);
-        Assert.Equal("unityScriptCompilationFailed", startupFailure.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, startupFailure.Diagnosis!.Reason);
         Assert.Equal("CS0246", startupFailure.Diagnosis.PrimaryDiagnostic!.Code);
     }
 
@@ -164,7 +163,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
             truncated: false,
             path: unityLogPath,
             sizeBytes: 224));
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
@@ -175,7 +174,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -185,8 +184,8 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         Assert.Equal(DaemonStartupStatus.Blocked, startupFailure.Startup!.StartupStatus);
         Assert.Equal(DaemonStartupBlockingReason.PackageResolution, startupFailure.Startup.StartupBlockingReason);
         Assert.Equal(DaemonStartupProcessAction.Unknown, startupFailure.Startup.ProcessAction);
-        Assert.Equal("unityPackageResolutionFailed", startupFailure.Diagnosis!.Reason);
-        Assert.Equal("packageResolution", startupFailure.Diagnosis.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisReason.UnityPackageResolutionFailed, startupFailure.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution, startupFailure.Diagnosis.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -208,7 +207,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
             truncated: false,
             path: unityLogPath,
             sizeBytes: 192));
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Transport should not be called.")),
             new StubProjectLifecycleLockProvider(),
@@ -219,7 +218,7 @@ public sealed class UnityOneshotIpcClientStartupExitTests
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);

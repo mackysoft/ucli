@@ -6,7 +6,16 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Coordinates completion of the single request handled by Unity oneshot mode. </summary>
     internal sealed class OneshotRequestCompletionSignal
     {
+        private readonly OneshotProcessLifetimeWatchdog lifetimeWatchdog;
+
         private readonly TaskCompletionSource<bool> completionSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+        /// <summary> Initializes a completion signal bound to the owning oneshot process watchdog. </summary>
+        /// <param name="lifetimeWatchdog"> The watchdog that retains parent monitoring after request completion. </param>
+        public OneshotRequestCompletionSignal (OneshotProcessLifetimeWatchdog lifetimeWatchdog)
+        {
+            this.lifetimeWatchdog = lifetimeWatchdog ?? throw new System.ArgumentNullException(nameof(lifetimeWatchdog));
+        }
 
         /// <summary> Gets whether the oneshot request-response exchange has completed. </summary>
         internal bool IsCompleted => completionSource.Task.IsCompleted;
@@ -14,6 +23,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Signals that the oneshot request-response exchange has completed. </summary>
         internal void Signal ()
         {
+            lifetimeWatchdog.MarkRequestCompleted();
             completionSource.TrySetResult(true);
         }
 

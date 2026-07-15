@@ -1,6 +1,7 @@
 using System;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
@@ -24,10 +25,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 bootstrapKind,
                 expected.StorageRoot,
                 expected.ProjectFingerprint,
-                ContractLiteralCodec.ToValue(expected.Endpoint.TransportKind),
-                expected.Endpoint.Address);
+                expected.Endpoint);
 
-            var endpoint = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedEndpoint(arguments);
+            var endpoint = ResolveValidatedEndpoint(bootstrapKind, arguments);
 
             Assert.That(endpoint, Is.EqualTo(expected.Endpoint));
         }
@@ -45,21 +45,19 @@ namespace MackySoft.Ucli.Unity.Tests
             var otherTransportKind = expected.Endpoint.TransportKind == IpcTransportKind.NamedPipe
                 ? IpcTransportKind.UnixDomainSocket
                 : IpcTransportKind.NamedPipe;
-            var transportKind = mismatchKind == EndpointMismatchKind.Transport
-                ? ContractLiteralCodec.ToValue(otherTransportKind)
-                : ContractLiteralCodec.ToValue(expected.Endpoint.TransportKind);
-            var address = mismatchKind == EndpointMismatchKind.Address
-                ? expected.Endpoint.Address + "-foreign"
-                : expected.Endpoint.Address;
+            var endpoint = mismatchKind == EndpointMismatchKind.Transport
+                ? otherTransportKind == IpcTransportKind.NamedPipe
+                    ? new IpcEndpoint(otherTransportKind, "ucli-foreign-endpoint")
+                    : new IpcEndpoint(otherTransportKind, "/tmp/ucli-foreign-endpoint.sock")
+                : CreateForeignEndpoint(expected.Endpoint.TransportKind);
             var arguments = CreateArguments(
                 bootstrapKind,
                 expected.StorageRoot,
                 expected.ProjectFingerprint,
-                transportKind,
-                address);
+                endpoint);
 
             var exception = Assert.Throws<InvalidOperationException>(() =>
-                UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedEndpoint(arguments));
+                ResolveValidatedEndpoint(bootstrapKind, arguments));
 
             Assert.That(exception!.Message, Does.Contain("endpoint"));
         }
@@ -77,11 +75,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 bootstrapKind,
                 expected.StorageRoot,
                 foreignFingerprint,
-                ContractLiteralCodec.ToValue(expected.Endpoint.TransportKind),
-                expected.Endpoint.Address);
+                expected.Endpoint);
 
             var exception = Assert.Throws<InvalidOperationException>(() =>
-                UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedEndpoint(arguments));
+                ResolveValidatedEndpoint(bootstrapKind, arguments));
 
             Assert.That(exception!.Message, Does.Contain("fingerprint"));
         }
@@ -95,11 +92,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 BatchmodeBootstrapKind.Daemon,
                 expected.StorageRoot + "-foreign",
                 expected.ProjectFingerprint,
-                ContractLiteralCodec.ToValue(expected.Endpoint.TransportKind),
-                expected.Endpoint.Address);
+                expected.Endpoint);
 
             var exception = Assert.Throws<InvalidOperationException>(() =>
-                UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedEndpoint(arguments));
+                UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedDaemonEndpoint(
+                    (IpcDaemonBootstrapArguments)arguments));
 
             Assert.That(exception!.Message, Does.Contain("storage root"));
         }
@@ -113,12 +110,18 @@ namespace MackySoft.Ucli.Unity.Tests
             return new ExpectedEndpointContext(storageRoot, projectFingerprint, endpoint);
         }
 
-        private static IpcBatchmodeBootstrapArguments CreateArguments (
+        private static IpcEndpoint CreateForeignEndpoint (IpcTransportKind transportKind)
+        {
+            return transportKind == IpcTransportKind.NamedPipe
+                ? new IpcEndpoint(transportKind, "ucli-foreign-endpoint")
+                : new IpcEndpoint(transportKind, "/tmp/ucli-foreign-endpoint.sock");
+        }
+
+        private static object CreateArguments (
             BatchmodeBootstrapKind bootstrapKind,
             string storageRoot,
             ProjectFingerprint projectFingerprint,
-            string endpointTransportKind,
-            string endpointAddress)
+            IpcEndpoint endpoint)
         {
             switch (bootstrapKind)
             {
@@ -127,19 +130,42 @@ namespace MackySoft.Ucli.Unity.Tests
                         RepositoryRoot: storageRoot,
                         ProjectFingerprint: projectFingerprint,
                         SessionPath: "/tmp/ucli-session.json",
+                        SessionGenerationId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
                         SessionIssuedAtUtc: DateTimeOffset.Parse("2026-01-01T00:00:00Z"),
-                        EndpointTransportKind: endpointTransportKind,
-                        EndpointAddress: endpointAddress);
+                        Endpoint: endpoint);
 
                 case BatchmodeBootstrapKind.Oneshot:
-                    return new IpcOneshotBootstrapArguments(
-                        ParentProcessId: 1,
+                    using (var process = System.Diagnostics.Process.GetCurrentProcess())
+                    {
+                        var nowUtc = DateTimeOffset.UtcNow;
+                        return new IpcOneshotBootstrapEnvelope(
+                        BootstrapId: Guid.NewGuid(),
+                        ParentProcessId: process.Id,
+                        ParentProcessStartedAtUtc: new DateTimeOffset(process.StartTime.ToUniversalTime()),
                         ProjectFingerprint: projectFingerprint,
-                        SessionToken: "session-token",
-                        ExitDeadlineUtc: DateTimeOffset.Parse("2026-01-01T00:01:00Z"),
-                        EndpointTransportKind: endpointTransportKind,
-                        EndpointAddress: endpointAddress);
+                        SessionToken: IpcSessionToken.CreateRandom(),
+                        CreatedAtUtc: nowUtc,
+                        ExitDeadlineUtc: nowUtc.AddMinutes(1),
+                        Endpoint: endpoint);
+                    }
 
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(bootstrapKind), bootstrapKind, null);
+            }
+        }
+
+        private static IpcEndpoint ResolveValidatedEndpoint (
+            BatchmodeBootstrapKind bootstrapKind,
+            object arguments)
+        {
+            switch (bootstrapKind)
+            {
+                case BatchmodeBootstrapKind.Daemon:
+                    return UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedDaemonEndpoint(
+                        (IpcDaemonBootstrapArguments)arguments);
+                case BatchmodeBootstrapKind.Oneshot:
+                    return UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedOneshotEndpoint(
+                        (IpcOneshotBootstrapEnvelope)arguments);
                 default:
                     throw new ArgumentOutOfRangeException(nameof(bootstrapKind), bootstrapKind, null);
             }

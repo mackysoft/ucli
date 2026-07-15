@@ -13,72 +13,77 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Validates batchmode bootstrap endpoint declarations against the current Unity project identity. </summary>
     internal static class UnityBatchmodeBootstrapEndpointValidator
     {
-        /// <summary> Resolves the only endpoint owned by the current project and rejects a different bootstrap declaration. </summary>
-        /// <param name="bootstrapArguments"> The parsed batchmode bootstrap arguments. </param>
-        /// <returns> The internally derived endpoint after all declared identity and endpoint values match. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="bootstrapArguments" /> is <see langword="null" />. </exception>
-        /// <exception cref="InvalidOperationException"> Thrown when the bootstrap identity or endpoint differs from the current project. </exception>
-        public static IpcEndpoint ResolveValidatedEndpoint (IpcBatchmodeBootstrapArguments bootstrapArguments)
+        /// <summary> Resolves the current project's daemon endpoint and validates one daemon bootstrap declaration. </summary>
+        internal static IpcEndpoint ResolveValidatedDaemonEndpoint (IpcDaemonBootstrapArguments bootstrapArguments)
         {
             if (bootstrapArguments == null)
             {
                 throw new ArgumentNullException(nameof(bootstrapArguments));
             }
 
-            var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
-            var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
-            var expectedProjectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
-
-            ProjectFingerprint declaredProjectFingerprint;
-            string declaredTransportKind;
-            string declaredAddress;
-            switch (bootstrapArguments)
+            ResolveCurrentProject(out var storageRoot, out var projectFingerprint, out var endpoint);
+            if (!PathIdentity.IsSamePath(bootstrapArguments.RepositoryRoot, storageRoot))
             {
-                case IpcDaemonBootstrapArguments daemonArguments:
-                    if (!PathIdentity.IsSamePath(daemonArguments.RepositoryRoot, storageRoot))
-                    {
-                        throw new InvalidOperationException(
-                            $"Daemon bootstrap storage root does not match the current Unity project. Expected={storageRoot}, Actual={daemonArguments.RepositoryRoot}");
-                    }
-
-                    declaredProjectFingerprint = daemonArguments.ProjectFingerprint;
-                    declaredTransportKind = daemonArguments.EndpointTransportKind;
-                    declaredAddress = daemonArguments.EndpointAddress;
-                    break;
-
-                case IpcOneshotBootstrapArguments oneshotArguments:
-                    declaredProjectFingerprint = oneshotArguments.ProjectFingerprint;
-                    declaredTransportKind = oneshotArguments.EndpointTransportKind;
-                    declaredAddress = oneshotArguments.EndpointAddress;
-                    break;
-
-                default:
-                    throw new ArgumentOutOfRangeException(
-                        nameof(bootstrapArguments),
-                        bootstrapArguments,
-                        "Batchmode bootstrap argument type is unsupported.");
+                throw new InvalidOperationException(
+                    $"Daemon bootstrap storage root does not match the current Unity project. Expected={storageRoot}, Actual={bootstrapArguments.RepositoryRoot}");
             }
 
+            ValidateDeclaredIdentity(
+                projectFingerprint,
+                endpoint,
+                bootstrapArguments.ProjectFingerprint,
+                bootstrapArguments.Endpoint);
+            return endpoint;
+        }
+
+        /// <summary> Resolves the current project's oneshot endpoint and validates one persisted bootstrap generation. </summary>
+        internal static IpcEndpoint ResolveValidatedOneshotEndpoint (IpcOneshotBootstrapEnvelope bootstrapEnvelope)
+        {
+            if (bootstrapEnvelope == null)
+            {
+                throw new ArgumentNullException(nameof(bootstrapEnvelope));
+            }
+
+            ResolveCurrentProject(out _, out var projectFingerprint, out var endpoint);
+            ValidateDeclaredIdentity(
+                projectFingerprint,
+                endpoint,
+                bootstrapEnvelope.ProjectFingerprint,
+                bootstrapEnvelope.Endpoint);
+            return endpoint;
+        }
+
+        private static void ResolveCurrentProject (
+            out string storageRoot,
+            out ProjectFingerprint projectFingerprint,
+            out IpcEndpoint endpoint)
+        {
+            var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
+            storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
+            projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
+            endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
+        }
+
+        private static void ValidateDeclaredIdentity (
+            ProjectFingerprint expectedProjectFingerprint,
+            IpcEndpoint expectedEndpoint,
+            ProjectFingerprint declaredProjectFingerprint,
+            IpcEndpoint declaredEndpoint)
+        {
             if (!expectedProjectFingerprint.Equals(declaredProjectFingerprint))
             {
                 throw new InvalidOperationException(
                     $"Batchmode bootstrap project fingerprint does not match the current Unity project. Expected={expectedProjectFingerprint}, Actual={declaredProjectFingerprint}");
             }
 
-            var expectedEndpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
-                storageRoot,
-                expectedProjectFingerprint);
-            if (!ContractLiteralCodec.Matches(declaredTransportKind, expectedEndpoint.TransportKind)
-                || !string.Equals(declaredAddress, expectedEndpoint.Address, StringComparison.Ordinal))
+            if (declaredEndpoint != expectedEndpoint)
             {
                 throw new InvalidOperationException(
                     "Batchmode bootstrap endpoint does not match the endpoint owned by the current Unity project. " +
                     $"ExpectedTransport={ContractLiteralCodec.ToValue(expectedEndpoint.TransportKind)}, " +
                     $"ExpectedAddress={expectedEndpoint.Address}, " +
-                    $"ActualTransport={declaredTransportKind}, ActualAddress={declaredAddress}");
+                    $"ActualTransport={ContractLiteralCodec.ToValue(declaredEndpoint.TransportKind)}, ActualAddress={declaredEndpoint.Address}");
             }
-
-            return expectedEndpoint;
         }
     }
 }

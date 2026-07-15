@@ -1,8 +1,6 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
-using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using static MackySoft.Ucli.Tests.Ipc.UnityOneshotIpcClientTestSupport;
@@ -25,7 +23,7 @@ public sealed class UnityOneshotIpcClientStreamingTests
                 return IpcRequestAssert.ParseMethod(request) switch
                 {
                     UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
-                    UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
+                    UnityIpcMethod.TestRun => CreateSuccessResponse(request.RequestId),
                     UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                     _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
                 };
@@ -33,11 +31,11 @@ public sealed class UnityOneshotIpcClientStreamingTests
             request => new IpcStreamFrame(
                 IpcProtocol.CurrentVersion,
                 request.RequestId,
-                IpcStreamFrameKinds.Progress,
+                IpcStreamFrameKind.Progress,
                 "test.progress",
                 EmptyPayload(),
                 null));
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
@@ -46,8 +44,8 @@ public sealed class UnityOneshotIpcClientStreamingTests
 
         var result = await client.SendStreamingAsync(
             unityProject,
-            CreateDispatchRequest(IpcResponseMode.Stream),
-            TimeSpan.FromSeconds(30),
+            CreateStreamingDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             (frame, _) =>
             {
                 progressFrames.Add(frame);
@@ -56,10 +54,10 @@ public sealed class UnityOneshotIpcClientStreamingTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead);
-        var dispatchRequest = IpcRequestAssert.SingleWithMethod(transportClient, UnityIpcMethod.OpsRead);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.TestRun);
+        var dispatchRequest = IpcRequestAssert.SingleWithMethod(transportClient, UnityIpcMethod.TestRun);
         Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), dispatchRequest.ResponseMode);
-        UnityIpcTransportClientAssert.SingleStreamingRequestSent(transportClient, UnityIpcMethod.OpsRead);
+        UnityIpcTransportClientAssert.SingleStreamingRequestSent(transportClient, UnityIpcMethod.TestRun);
         IpcStreamFrameAssert.SingleEvent(progressFrames, "test.progress");
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);
     }
@@ -78,12 +76,12 @@ public sealed class UnityOneshotIpcClientStreamingTests
             return IpcRequestAssert.ParseMethod(request) switch
             {
                 UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
-                UnityIpcMethod.OpsRead => throw new IpcProgressFrameHandlerException(handlerException),
+                UnityIpcMethod.TestRun => throw new IpcProgressFrameHandlerException(handlerException),
                 UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
@@ -93,14 +91,14 @@ public sealed class UnityOneshotIpcClientStreamingTests
         {
             await client.SendStreamingAsync(
                     unityProject,
-                    CreateDispatchRequest(IpcResponseMode.Stream),
-                    TimeSpan.FromSeconds(30),
+                    CreateStreamingDispatchRequest(),
+                    ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
                     (_, _) => ValueTask.CompletedTask,
                     CancellationToken.None)
                 .AsTask();
         });
 
         Assert.Same(handlerException, exception);
-        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead, UnityIpcMethod.Shutdown);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.TestRun, UnityIpcMethod.Shutdown);
     }
 }

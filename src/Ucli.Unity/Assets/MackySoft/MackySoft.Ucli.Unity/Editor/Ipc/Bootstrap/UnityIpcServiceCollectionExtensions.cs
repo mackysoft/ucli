@@ -72,7 +72,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddSingleton<IUnityTestRunner, UnityTestRunner>();
             services.AddSingleton<IUnityTestResultsXmlWriter, UnityTestResultsXmlWriter>();
             services.AddSingleton<IUnityTestRunService, UnityTestRunService>();
-            services.AddSingleton<IIpcRequestTimeoutScopeFactory, IpcRequestTimeoutScopeFactory>();
+            services.AddSingleton<IIpcRequestPhaseScopeFactory, IpcRequestPhaseScopeFactory>();
             services.AddSingleton<IServerVersionProvider, AssemblyServerVersionProvider>();
             services.AddSingleton<IUnityEditorUpdateAwaiter, UnityEditorUpdateAwaiterAdapter>();
             services.AddSingleton<IUnityPlayModeController, UnityEditorPlayModeController>();
@@ -106,7 +106,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     serviceProvider.GetRequiredService<IUnityEditorReadinessGate>(),
                     serviceProvider.GetRequiredService<IpcProjectIdentity>(),
                     serviceProvider.GetRequiredService<IServerVersionProvider>(),
-                    serviceProvider.GetRequiredService<IDaemonLogger>());
+                    serviceProvider.GetRequiredService<IDaemonLogger>(),
+                    serviceProvider.GetRequiredService<IUnityMutationLaneControl>());
             });
             services.AddSingleton<IUnityIpcMethodHandler, BuildRunUnityIpcMethodHandler>();
             services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider =>
@@ -222,10 +223,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Registers oneshot-only transport and completion services. </summary>
         /// <param name="services"> The target service collection. </param>
         /// <param name="expectedEndpoint"> The endpoint derived and validated for this oneshot host. </param>
+        /// <param name="lifetimeWatchdog"> The watchdog instance that owns this oneshot process lifetime. </param>
         /// <returns> The updated service collection. </returns>
         public static IServiceCollection AddUnityIpcOneshotHostServices (
             this IServiceCollection services,
-            IpcEndpoint expectedEndpoint)
+            IpcEndpoint expectedEndpoint,
+            OneshotProcessLifetimeWatchdog lifetimeWatchdog)
         {
             if (services == null)
             {
@@ -237,12 +240,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(expectedEndpoint));
             }
 
+            if (lifetimeWatchdog == null)
+            {
+                throw new ArgumentNullException(nameof(lifetimeWatchdog));
+            }
+
             services.AddSingleton<IDaemonShutdownSignal, DaemonShutdownSignal>();
             services.AddSingleton<IUnityShutdownAdmissionCoordinator, UnityShutdownAdmissionCoordinator>();
             services.AddSingleton<IUnityIpcMethodDispatcher>(serviceProvider => CreateMethodDispatcher(
                 serviceProvider,
                 recoverableOperationStore: null));
             services.AddSingleton<IUnityIpcRequestHandler, UnityIpcRequestHandler>();
+            services.AddSingleton(lifetimeWatchdog);
             services.AddSingleton<OneshotRequestCompletionSignal>();
             services.AddSingleton<IUnityIpcMethodHandler, ShutdownUnityIpcMethodHandler>();
             services.AddSingleton(CreateConnectionHandler);
@@ -306,6 +315,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             services.AddUnityRuntimeServices(DaemonEditorMode.Gui);
             services.AddSingleton<ISessionTokenValidator>(sessionTokenValidator);
             services.AddSingleton<IDaemonLogger>(daemonLogger);
+            services.AddSingleton<IIpcRequestPhaseScopeFactory, IpcRequestPhaseScopeFactory>();
             services.AddSingleton<IUnityGuiBootstrapStarter, UnityGuiBootstrapStarter>();
             services.AddSingleton<IUnityIpcMethodHandler>(serviceProvider => new GuiRebootstrapUnityIpcMethodHandler(
                 bootstrapStarter: serviceProvider.GetRequiredService<IUnityGuiBootstrapStarter>(),
@@ -338,10 +348,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static UnityIpcConnectionHandler CreateConnectionHandler (IServiceProvider serviceProvider)
         {
             return new UnityIpcConnectionHandler(
-                serviceProvider.GetRequiredService<IUnityIpcRequestHandler>(),
-                serviceProvider.GetRequiredService<IUnityShutdownAdmissionCoordinator>(),
-                UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
-                UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
+                requestHandler: serviceProvider.GetRequiredService<IUnityIpcRequestHandler>(),
+                shutdownAdmissionCoordinator: serviceProvider.GetRequiredService<IUnityShutdownAdmissionCoordinator>(),
+                phaseScopeFactory: serviceProvider.GetRequiredService<IIpcRequestPhaseScopeFactory>(),
+                recoverableReplayAvailable: serviceProvider.GetService<IRecoverableIpcOperationStore>() != null,
+                initialFrameReadTimeout: UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
+                responseFrameWriteTimeout: UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
         }
 
         private static UnityIpcMethodDispatcher CreateMethodDispatcher (

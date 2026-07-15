@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Tests.Helpers.Ipc;
 
 internal static class UnityOneshotLaunchAssert
 {
-    public static IpcOneshotBootstrapArguments LaunchedOnce (
+    public static IpcOneshotBootstrapEnvelope LaunchedOnce (
         RecordingUnityBatchmodeProcessLauncher launcher,
         ResolvedUnityProjectContext expectedUnityProject,
         DateTimeOffset? exitDeadlineReferenceUtc = null)
@@ -24,7 +24,7 @@ internal static class UnityOneshotLaunchAssert
             exitDeadlineReferenceUtc ?? DateTimeOffset.UtcNow);
     }
 
-    public static IpcOneshotBootstrapArguments LaunchedOnceWithDefaultOptions (
+    public static IpcOneshotBootstrapEnvelope LaunchedOnceWithDefaultOptions (
         RecordingUnityBatchmodeProcessLauncher launcher,
         ResolvedUnityProjectContext expectedUnityProject,
         DateTimeOffset? exitDeadlineReferenceUtc = null)
@@ -35,7 +35,7 @@ internal static class UnityOneshotLaunchAssert
         return bootstrapArguments;
     }
 
-    public static IpcOneshotBootstrapArguments LaunchedOnceWithActiveBuildProfile (
+    public static IpcOneshotBootstrapEnvelope LaunchedOnceWithActiveBuildProfile (
         RecordingUnityBatchmodeProcessLauncher launcher,
         ResolvedUnityProjectContext expectedUnityProject,
         string expectedActiveBuildProfilePath,
@@ -44,24 +44,27 @@ internal static class UnityOneshotLaunchAssert
         var bootstrapArguments = LaunchedOnce(launcher, expectedUnityProject, exitDeadlineReferenceUtc);
         var invocation = Assert.Single(launcher.Invocations);
         Assert.NotNull(invocation.LaunchOptions);
-        Assert.Equal(expectedActiveBuildProfilePath, invocation.LaunchOptions!.ActiveBuildProfilePath);
+        Assert.Equal(expectedActiveBuildProfilePath, invocation.LaunchOptions!.ActiveBuildProfilePath!.Value);
         return bootstrapArguments;
     }
 
-    private static IpcOneshotBootstrapArguments HasOneshotBootstrapArguments (
+    private static IpcOneshotBootstrapEnvelope HasOneshotBootstrapArguments (
         RecordingUnityBatchmodeProcessLauncher.Invocation invocation,
         ResolvedUnityProjectContext expectedUnityProject,
         DateTimeOffset exitDeadlineReferenceUtc)
     {
-        var bootstrapArguments = Assert.IsType<IpcOneshotBootstrapArguments>(invocation.BootstrapArguments);
-        Assert.Equal(Environment.ProcessId, bootstrapArguments.ParentProcessId);
-        Assert.False(string.IsNullOrWhiteSpace(bootstrapArguments.SessionToken));
-        Assert.True(bootstrapArguments.ExitDeadlineUtc > exitDeadlineReferenceUtc);
+        var bootstrapEnvelope = invocation.BootstrapEnvelope;
+        Assert.NotEqual(Guid.Empty, bootstrapEnvelope.BootstrapId);
+        Assert.Equal(Environment.ProcessId, bootstrapEnvelope.ParentProcessId);
+        Assert.NotEqual(default, bootstrapEnvelope.ParentProcessStartedAtUtc);
+        Assert.Equal(TimeSpan.Zero, bootstrapEnvelope.ParentProcessStartedAtUtc.Offset);
+        Assert.Equal(expectedUnityProject.ProjectFingerprint, bootstrapEnvelope.ProjectFingerprint);
+        Assert.False(string.IsNullOrWhiteSpace(bootstrapEnvelope.SessionToken.GetEncodedValue()));
+        Assert.True(bootstrapEnvelope.ExitDeadlineUtc > exitDeadlineReferenceUtc);
         var expectedEndpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             expectedUnityProject.RepositoryRoot,
             expectedUnityProject.ProjectFingerprint);
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedEndpoint.TransportKind), bootstrapArguments.EndpointTransportKind);
-        Assert.Equal(expectedEndpoint.Address, bootstrapArguments.EndpointAddress);
-        return bootstrapArguments;
+        Assert.Equal(expectedEndpoint, bootstrapEnvelope.Endpoint);
+        return bootstrapEnvelope;
     }
 }

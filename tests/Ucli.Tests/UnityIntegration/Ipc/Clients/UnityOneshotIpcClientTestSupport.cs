@@ -1,16 +1,46 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
 using MackySoft.Ucli.Tests.Helpers.Unity;
+using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
+using MackySoft.Ucli.UnityIntegration.Ipc.Process;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
 internal static class UnityOneshotIpcClientTestSupport
 {
     public static readonly TimeSpan MaximumStartupRetryDelay = TimeSpan.FromSeconds(1);
+
+    public static UnityOneshotIpcClient CreateClient (
+        IUnityBatchmodeProcessLauncher batchmodeProcessLauncher,
+        IUnityIpcTransportClient transportClient,
+        IProjectLifecycleLockProvider lifecycleLockProvider,
+        IUnityProjectLockPreflightService unityProjectLockPreflightService,
+        IUnityLogReader? unityLogReader = null,
+        TimeSpan? cleanupTimeout = null,
+        TimeSpan? cleanupRetryDelay = null,
+        TimeProvider? timeProvider = null)
+    {
+        var defaultPolicy = UnityOneshotCleanupPolicy.Default;
+        var cleanupPolicy = cleanupTimeout.HasValue || cleanupRetryDelay.HasValue
+            ? new UnityOneshotCleanupPolicy(
+                cleanupTimeout ?? defaultPolicy.Timeout,
+                cleanupRetryDelay ?? defaultPolicy.RetryDelay)
+            : defaultPolicy;
+        return new UnityOneshotIpcClient(
+            batchmodeProcessLauncher,
+            transportClient,
+            lifecycleLockProvider,
+            unityProjectLockPreflightService,
+            unityLogReader,
+            timeProvider ?? TimeProvider.System,
+            cleanupPolicy);
+    }
 
     public static JsonElement EmptyPayload ()
     {
@@ -22,13 +52,20 @@ internal static class UnityOneshotIpcClientTestSupport
         return JsonDocument.Parse("""{"sentinel":"oneshot-payload"}""").RootElement.Clone();
     }
 
-    public static UnityIpcDispatchRequest CreateDispatchRequest (
-        IpcResponseMode responseMode = IpcResponseMode.Single)
+    public static UnityIpcDispatchRequest CreateDispatchRequest ()
     {
         return new UnityIpcDispatchRequest(
             UnityIpcMethod.OpsRead,
             CreateDispatchPayload(),
-            responseMode: responseMode);
+            UnityBatchmodeLaunchOptions.Default);
+    }
+
+    public static UnityIpcDispatchRequest CreateStreamingDispatchRequest ()
+    {
+        return new UnityIpcDispatchRequest(
+            UnityIpcMethod.TestRun,
+            CreateDispatchPayload(),
+            UnityBatchmodeLaunchOptions.Default);
     }
 
     public static UnityIpcDispatchRequest CreateOpsReadDispatchRequest (
@@ -37,14 +74,16 @@ internal static class UnityOneshotIpcClientTestSupport
     {
         return new UnityIpcDispatchRequest(
             UnityIpcMethod.OpsRead,
-            IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(failFast, requireReadinessGate)));
+            IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(failFast, requireReadinessGate)),
+            UnityBatchmodeLaunchOptions.Default);
     }
 
     public static UnityIpcDispatchRequest CreateReadyPingDispatchRequest (bool failFast)
     {
         return new UnityIpcDispatchRequest(
             UnityIpcMethod.Ping,
-            IpcPayloadCodec.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.Ready, failFast)));
+            IpcPayloadCodec.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.Ready, failFast)),
+            UnityBatchmodeLaunchOptions.Default);
     }
 
     public static UnityIpcDispatchRequest CreateCompileDispatchRequest ()
@@ -52,7 +91,7 @@ internal static class UnityOneshotIpcClientTestSupport
         return new UnityIpcDispatchRequest(
             UnityIpcMethod.Compile,
             IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(RunIdTestValues.Compile)),
-            [IpcEditorLifecycleState.CompileFailed, IpcEditorLifecycleState.SafeMode]);
+            UnityBatchmodeLaunchOptions.Default);
     }
 
     public static IpcResponse CreateSuccessResponse (Guid requestId)
@@ -60,7 +99,7 @@ internal static class UnityOneshotIpcClientTestSupport
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             payload: EmptyPayload(),
             errors: Array.Empty<IpcError>());
     }
@@ -73,12 +112,12 @@ internal static class UnityOneshotIpcClientTestSupport
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             payload: payload,
             errors: Array.Empty<IpcError>());
     }
 
-    public static void AssertTerminalPingAndCleanupShutdownRequests (RecordingUnityIpcTransportClient transportClient)
+    public static void AssertTerminalPingAndFallbackCleanupShutdownRequests (RecordingUnityIpcTransportClient transportClient)
     {
         var shutdownRequests = IpcRequestAssert.WithMethod(transportClient, UnityIpcMethod.Shutdown);
         Assert.Collection(
@@ -86,34 +125,33 @@ internal static class UnityOneshotIpcClientTestSupport
             AssertOneshotCleanupShutdownRequest,
             AssertOneshotCleanupShutdownRequest);
         Assert.Single(shutdownRequests.Select(static request => request.SessionToken).Distinct(StringComparer.Ordinal));
-        var shutdownRequestId = shutdownRequests[0].RequestId;
-        Assert.NotEqual(Guid.Empty, shutdownRequestId);
-        Assert.All(shutdownRequests, request => Assert.Equal(shutdownRequestId, request.RequestId));
+        Assert.All(shutdownRequests, request => Assert.NotEqual(Guid.Empty, request.RequestId));
+        Assert.NotEqual(shutdownRequests[0].RequestId, shutdownRequests[1].RequestId);
     }
 
-    public static IpcOneshotBootstrapArguments AssertCleanupShutdownUsesLaunchSession (
+    public static IpcOneshotBootstrapEnvelope AssertCleanupShutdownUsesLaunchSession (
         RecordingUnityBatchmodeProcessLauncher launcher,
         RecordingUnityIpcTransportClient transportClient,
         ResolvedUnityProjectContext unityProject,
         DateTimeOffset? exitDeadlineReferenceUtc = null)
     {
-        var bootstrapArguments = UnityOneshotLaunchAssert.LaunchedOnce(launcher, unityProject, exitDeadlineReferenceUtc);
+        var bootstrapEnvelope = UnityOneshotLaunchAssert.LaunchedOnce(launcher, unityProject, exitDeadlineReferenceUtc);
         var shutdownRequest = IpcRequestAssert.SingleWithMethod(transportClient, UnityIpcMethod.Shutdown);
-        Assert.Equal(bootstrapArguments.SessionToken, shutdownRequest.SessionToken);
-        return bootstrapArguments;
+        Assert.Equal(bootstrapEnvelope.SessionToken.GetEncodedValue(), shutdownRequest.SessionToken);
+        return bootstrapEnvelope;
     }
 
-    public static IpcOneshotBootstrapArguments AssertCleanupShutdownsUseLaunchSession (
+    public static IpcOneshotBootstrapEnvelope AssertCleanupShutdownsUseLaunchSession (
         RecordingUnityBatchmodeProcessLauncher launcher,
         RecordingUnityIpcTransportClient transportClient,
         ResolvedUnityProjectContext unityProject,
         DateTimeOffset? exitDeadlineReferenceUtc = null)
     {
-        var bootstrapArguments = UnityOneshotLaunchAssert.LaunchedOnce(launcher, unityProject, exitDeadlineReferenceUtc);
+        var bootstrapEnvelope = UnityOneshotLaunchAssert.LaunchedOnce(launcher, unityProject, exitDeadlineReferenceUtc);
         Assert.All(
             IpcRequestAssert.WithMethod(transportClient, UnityIpcMethod.Shutdown),
-            request => Assert.Equal(bootstrapArguments.SessionToken, request.SessionToken));
-        return bootstrapArguments;
+            request => Assert.Equal(bootstrapEnvelope.SessionToken.GetEncodedValue(), request.SessionToken));
+        return bootstrapEnvelope;
     }
 
     public static IpcResponse CreatePingResponse (
@@ -127,7 +165,7 @@ internal static class UnityOneshotIpcClientTestSupport
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             payload: payload,
             errors: Array.Empty<IpcError>());
     }
@@ -146,7 +184,7 @@ internal static class UnityOneshotIpcClientTestSupport
         };
     }
 
-    private static void AssertOneshotCleanupShutdownRequest (IpcRequest request)
+    private static void AssertOneshotCleanupShutdownRequest (IpcRequestEnvelope request)
     {
         Assert.True(IpcPayloadCodec.TryDeserialize(
             request.Payload,

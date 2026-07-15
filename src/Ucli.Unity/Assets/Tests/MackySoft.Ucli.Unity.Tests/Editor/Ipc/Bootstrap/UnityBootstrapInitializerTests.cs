@@ -30,14 +30,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(result, Is.True);
             Assert.That(bootstrapArguments, Is.TypeOf<IpcOneshotBootstrapArguments>());
-            Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).ParentProcessId, Is.EqualTo(123));
             Assert.That(
-                ((IpcOneshotBootstrapArguments)bootstrapArguments).ProjectFingerprint,
-                Is.EqualTo(ProjectFingerprintTestFactory.Create("project-fingerprint")));
-            Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).SessionToken, Is.EqualTo("oneshot-token"));
-            Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).ExitDeadlineUtc, Is.EqualTo(new System.DateTimeOffset(2026, 03, 09, 0, 0, 0, System.TimeSpan.Zero)));
-            Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).EndpointTransportKind, Is.EqualTo("unixDomainSocket"));
-            Assert.That(((IpcOneshotBootstrapArguments)bootstrapArguments).EndpointAddress, Is.EqualTo("/tmp/ucli.sock"));
+                ((IpcOneshotBootstrapArguments)bootstrapArguments).BootstrapId,
+                Is.EqualTo(System.Guid.Parse("386052a2-f938-414b-930b-47b687844237")));
         }
 
         [Test]
@@ -52,6 +47,38 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 out _,
                 out _);
+
+            Assert.That(result, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void HasOneshotTarget_WhenOneshotPayloadIsOtherwiseInvalid_ReturnsTrue ()
+        {
+            var result = UnityBootstrapInitializer.HasOneshotTarget(
+                new[]
+                {
+                    "Unity",
+                    IpcBatchmodeBootstrapArgumentNames.Target,
+                    "oneshot",
+                    IpcOneshotBootstrapArgumentNames.BootstrapId,
+                    "invalid",
+                });
+
+            Assert.That(result, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void HasOneshotTarget_WhenTargetIsDifferent_ReturnsFalse ()
+        {
+            var result = UnityBootstrapInitializer.HasOneshotTarget(
+                new[]
+                {
+                    "Unity",
+                    IpcBatchmodeBootstrapArgumentNames.Target,
+                    "daemon",
+                });
 
             Assert.That(result, Is.False);
         }
@@ -79,7 +106,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     "Unity",
                     IpcGuiBootstrapArgumentNames.Target,
-                    IpcGuiBootstrapTargetValues.Daemon,
+                    "daemon",
                     IpcGuiBootstrapArgumentNames.OwnerProcessId,
                     "123",
                     IpcGuiBootstrapArgumentNames.CanShutdownProcess,
@@ -103,7 +130,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     "Unity",
                     IpcGuiBootstrapArgumentNames.Target,
-                    IpcGuiBootstrapTargetValues.Daemon,
+                    "daemon",
                     IpcGuiBootstrapArgumentNames.OwnerProcessId,
                     "0",
                     IpcGuiBootstrapArgumentNames.CanShutdownProcess,
@@ -129,9 +156,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     RepositoryRoot: "/repo",
                     ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
                     SessionPath: "/repo/.ucli/session.json",
+                    SessionGenerationId: System.Guid.Parse("11111111-1111-1111-1111-111111111111"),
                     SessionIssuedAtUtc: new System.DateTimeOffset(2026, 03, 09, 0, 0, 0, System.TimeSpan.Zero),
-                    EndpointTransportKind: "unixDomainSocket",
-                    EndpointAddress: "/tmp/ucli.sock"));
+                    Endpoint: new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli.sock")));
             return args;
         }
 
@@ -145,12 +172,7 @@ namespace MackySoft.Ucli.Unity.Tests
             IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(
                 args,
                 new IpcOneshotBootstrapArguments(
-                    123,
-                    ProjectFingerprintTestFactory.Create("project-fingerprint"),
-                    "oneshot-token",
-                    new System.DateTimeOffset(2026, 03, 09, 0, 0, 0, System.TimeSpan.Zero),
-                    "unixDomainSocket",
-                    "/tmp/ucli.sock"));
+                    System.Guid.Parse("386052a2-f938-414b-930b-47b687844237")));
             return args;
         }
     }

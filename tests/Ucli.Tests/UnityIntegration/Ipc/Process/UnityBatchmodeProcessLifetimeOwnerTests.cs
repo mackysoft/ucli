@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Tests.Helpers.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 

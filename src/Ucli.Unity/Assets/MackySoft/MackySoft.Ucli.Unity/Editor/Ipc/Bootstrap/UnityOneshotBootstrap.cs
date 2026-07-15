@@ -4,6 +4,9 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
+using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Unity.Project;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
 
@@ -13,12 +16,21 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal static class UnityOneshotBootstrap
     {
         /// <summary> Starts one oneshot bootstrap after batchmode initialization is ready. </summary>
+        /// <param name="bootstrapEnvelope"> The validated bootstrap generation owned by this process. </param>
+        /// <param name="lifetimeWatchdog"> The watchdog instance started for the same bootstrap generation. </param>
         /// <returns> A task that completes after the request finishes and process exit is requested. </returns>
-        internal static async Task StartAsync (IpcOneshotBootstrapArguments bootstrapArguments)
+        internal static async Task StartAsync (
+            IpcOneshotBootstrapEnvelope bootstrapEnvelope,
+            OneshotProcessLifetimeWatchdog lifetimeWatchdog)
         {
-            if (bootstrapArguments == null)
+            if (bootstrapEnvelope == null)
             {
-                throw new ArgumentNullException(nameof(bootstrapArguments));
+                throw new ArgumentNullException(nameof(bootstrapEnvelope));
+            }
+
+            if (lifetimeWatchdog == null)
+            {
+                throw new ArgumentNullException(nameof(lifetimeWatchdog));
             }
 
             var daemonLogStream = new DaemonLogRingBuffer();
@@ -27,21 +39,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 UnityMainThreadDaemonConsoleLogSink.CaptureCurrent());
             try
             {
-                var endpoint = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedEndpoint(bootstrapArguments);
-                if (!IpcSessionToken.TryParse(bootstrapArguments.SessionToken, out var sessionToken))
-                {
-                    throw new InvalidOperationException("Oneshot session token is invalid.");
-                }
-
-                using var parentProcessWatcher = OneshotParentProcessWatcher.Start(bootstrapArguments.ParentProcessId);
-                using var deadlineWatcher = OneshotDeadlineWatcher.Start(bootstrapArguments.ExitDeadlineUtc);
+                var endpoint = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedOneshotEndpoint(bootstrapEnvelope);
                 var services = new ServiceCollection();
                 services.AddUnityIpcApplicationServices(
-                    new ExactSessionTokenValidator(sessionToken),
-                    bootstrapArguments.ProjectFingerprint,
+                    new ExactSessionTokenValidator(bootstrapEnvelope.SessionToken),
+                    bootstrapEnvelope.ProjectFingerprint,
                     daemonLogger,
                     DaemonEditorMode.Batchmode);
-                services.AddUnityIpcOneshotHostServices(endpoint);
+                services.AddUnityIpcOneshotHostServices(endpoint, lifetimeWatchdog);
 
                 IServiceProvider serviceProvider = services.BuildServiceProvider();
                 try
@@ -61,31 +66,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                             "IPC listener terminated before oneshot endpoint ownership could become active.");
                     }
 
-                    if (parentProcessWatcher.HasRequestedExit)
-                    {
-                        await server.StopAsync(CancellationToken.None);
-                        return;
-                    }
-
-                    var deadlineTask = deadlineWatcher.WaitAsync();
-                    var completedTask = await Task.WhenAny(requestCompletionTask, serverTerminationTask, deadlineTask);
+                    var completedTask = await Task.WhenAny(requestCompletionTask, serverTerminationTask);
                     if (ReferenceEquals(completedTask, serverTerminationTask))
                     {
                         await serverTerminationTask;
                         throw new InvalidOperationException("IPC server loop terminated before oneshot request completion was observed.");
                     }
 
-                    if (ReferenceEquals(completedTask, deadlineTask))
-                    {
-                        await server.StopAsync(CancellationToken.None);
-                        parentProcessWatcher.Dispose();
-                        EditorApplication.Exit(1);
-                        return;
-                    }
-
                     await requestCompletionTask;
                     await server.StopAsync(CancellationToken.None);
-                    parentProcessWatcher.Dispose();
                     EditorApplication.Exit(0);
                 }
                 finally
@@ -103,6 +92,24 @@ namespace MackySoft.Ucli.Unity.Ipc
                     "uCLI oneshot bootstrap failed.",
                     exception);
                 EditorApplication.Exit(1);
+            }
+            finally
+            {
+                DeleteBootstrapEnvelopeIfOwned(bootstrapEnvelope);
+            }
+        }
+
+        private static void DeleteBootstrapEnvelopeIfOwned (IpcOneshotBootstrapEnvelope bootstrapEnvelope)
+        {
+            try
+            {
+                var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
+                var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
+                OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(storageRoot, bootstrapEnvelope);
+            }
+            catch (Exception)
+            {
+                // NOTE: The CLI process-handle owner independently performs ownership-checked cleanup.
             }
         }
     }

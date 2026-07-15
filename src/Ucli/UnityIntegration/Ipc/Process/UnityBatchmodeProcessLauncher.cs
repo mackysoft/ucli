@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -64,7 +63,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
-        var batchmodeLaunchResult = await LaunchAsync(
+        var batchmodeLaunchResult = await LaunchBatchmodeAsync(
                 unityProject,
                 new IpcDaemonBootstrapArguments(
                     RepositoryRoot: unityProject.RepositoryRoot,
@@ -72,9 +71,9 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                     SessionPath: UcliStoragePathResolver.ResolveSessionPath(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint),
+                    SessionGenerationId: session.SessionGenerationId,
                     SessionIssuedAtUtc: session.IssuedAtUtc,
-                    EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
-                    EndpointAddress: endpoint.Address),
+                    Endpoint: endpoint),
                 unityLogPath,
                 UnityBatchmodeLaunchOptions.Default,
                 cancellationToken)
@@ -114,32 +113,71 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     }
 
     /// <inheritdoc />
-    public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchAsync (
+    public async ValueTask<UnityBatchmodeProcessLaunchResult> LaunchOneshotAsync (
         ResolvedUnityProjectContext unityProject,
-        IpcBatchmodeBootstrapArguments bootstrapArguments,
+        IpcOneshotBootstrapEnvelope bootstrapEnvelope,
         string unityLogPath,
-        UnityBatchmodeLaunchOptions? launchOptions = null,
-        CancellationToken cancellationToken = default)
+        UnityBatchmodeLaunchOptions launchOptions,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentNullException.ThrowIfNull(bootstrapArguments);
+        ArgumentNullException.ThrowIfNull(bootstrapEnvelope);
+        ArgumentNullException.ThrowIfNull(launchOptions);
 
         if (string.IsNullOrWhiteSpace(unityLogPath))
         {
-            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
-                "Unity log path must not be empty.")));
+            return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
+                "Unity log path must not be empty."));
         }
 
-        return LaunchValidatedAsync(
-            unityProject,
-            bootstrapArguments,
-            unityLogPath,
-            launchOptions ?? UnityBatchmodeLaunchOptions.Default,
-            cancellationToken);
+        var envelopeCreated = false;
+        try
+        {
+            OneshotBootstrapEnvelopeStore.Create(unityProject.RepositoryRoot, bootstrapEnvelope);
+            envelopeCreated = true;
+
+            var launchResult = await LaunchBatchmodeAsync(
+                    unityProject,
+                    new IpcOneshotBootstrapArguments(bootstrapEnvelope.BootstrapId),
+                    unityLogPath,
+                    launchOptions,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!launchResult.IsSuccess)
+            {
+                OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(unityProject.RepositoryRoot, bootstrapEnvelope);
+                return launchResult;
+            }
+
+            return UnityBatchmodeProcessLaunchResult.Success(
+                new OneshotBootstrapOwnedProcessHandle(
+                    launchResult.ProcessHandle!,
+                    unityProject.RepositoryRoot,
+                    bootstrapEnvelope));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            if (envelopeCreated)
+            {
+                OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(unityProject.RepositoryRoot, bootstrapEnvelope);
+            }
+
+            throw;
+        }
+        catch (Exception exception)
+        {
+            if (envelopeCreated)
+            {
+                OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(unityProject.RepositoryRoot, bootstrapEnvelope);
+            }
+
+            return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
+                $"Failed to prepare Unity oneshot bootstrap. {exception.Message}"));
+        }
     }
 
-    private async ValueTask<UnityBatchmodeProcessLaunchResult> LaunchValidatedAsync (
+    private async ValueTask<UnityBatchmodeProcessLaunchResult> LaunchBatchmodeAsync (
         ResolvedUnityProjectContext unityProject,
         IpcBatchmodeBootstrapArguments bootstrapArguments,
         string unityLogPath,
@@ -305,10 +343,10 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             "-logFile",
             unityLogPath,
         };
-        if (!string.IsNullOrWhiteSpace(launchOptions.ActiveBuildProfilePath))
+        if (launchOptions.ActiveBuildProfilePath != null)
         {
             tokens.Add("-activeBuildProfile");
-            tokens.Add(launchOptions.ActiveBuildProfilePath);
+            tokens.Add(launchOptions.ActiveBuildProfilePath.Value);
         }
 
         IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(tokens, bootstrapArguments);
