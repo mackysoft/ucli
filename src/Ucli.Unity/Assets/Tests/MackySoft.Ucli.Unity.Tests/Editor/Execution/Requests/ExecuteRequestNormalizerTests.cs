@@ -339,6 +339,64 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void Compile_WhenSelectFromComponentTypeCannotResolve_ReturnsInvalidArgumentBeforeSelection ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan.Name,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "invalidComponentType",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                from = new
+                                {
+                                    op = UcliPrimitiveOperationNames.SceneQuery,
+                                    args = new
+                                    {
+                                        componentType = "Missing.Component, Missing.Assembly",
+                                    },
+                                },
+                                cardinality = "all",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var normalizationResult = CreateNormalizer().Normalize(request);
+
+            Assert.That(normalizationResult.IsSuccess, Is.True, normalizationResult.Error?.Message);
+            using var executionContext = scope.CreateExecutionContext();
+            var error = CompileSingleStepFailure(normalizationResult.Request!, 0, executionContext);
+            Assert.That(error.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(error.OpId?.Value, Is.EqualTo("invalidComponentType"));
+            Assert.That(error.Message, Does.Contain("TypeId could not be resolved"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void Normalize_WhenEditContainsDuplicateCreateAssetActions_AssignsDistinctExecutionKeys ()
         {
             var assetPath = "Assets/Generated/Spawner.asset";
