@@ -1,5 +1,3 @@
-using MackySoft.Tests;
-using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -9,40 +7,44 @@ namespace MackySoft.Ucli.Tests;
 
 internal static class ReadyCommandTestData
 {
+    private static readonly AssuranceVerifierId LifecycleVerifierId = new("ready.lifecycle");
+    private static readonly AssuranceVerifierId ReadIndexVerifierId = new("ready.readIndex");
+
     public static ReadyExecutionOutput CreateOutput (
-        string verdict = ReadyVerdictValues.Pass)
+        AssuranceVerdict verdict = AssuranceVerdict.Pass)
     {
         var lifecycle = CreateLifecycle();
-        var claimStatus = string.Equals(verdict, ReadyVerdictValues.Pass, StringComparison.Ordinal)
-            ? ReadyClaimStatusValues.Passed
-            : ReadyClaimStatusValues.Failed;
+        var claimStatus = verdict == AssuranceVerdict.Pass
+            ? AssuranceClaimStatus.Passed
+            : AssuranceClaimStatus.Failed;
         return new ReadyExecutionOutput(
             Verdict: verdict,
             Project: ProjectIdentityInfoTestFactory.Create(
-                projectPath: "<projectPath>",
                 projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>")),
             Verifiers:
             [
                 new ReadyVerifierOutput(
-                    Id: "ready.lifecycle",
-                    Kind: "ready.lifecycle",
+                    Id: LifecycleVerifierId,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: [ReadyClaimCodes.UnityReadyExecution],
-                    Effects: []),
+                    PrimaryClaims: [ReadyClaimCodes.UnityReadyExecution]),
             ],
             Claims:
             [
                 new ReadyClaimOutput(
                     Id: ReadyClaimCodes.UnityReadyExecution,
                     Status: claimStatus,
-                    Coverage: ReadyCoverageValues.Full,
+                    Coverage: AssuranceCoverage.Full,
                     Required: true,
-                    VerifierRef: "ready.lifecycle",
+                    VerifierRef: LifecycleVerifierId,
                     Statement: "Unity is ready for execution.",
-                    Subject: CreateSubject("execution", "auto", "oneshot", "transientProbe"),
+                    Subject: CreateSubject(
+                        ReadyTarget.Execution,
+                        AssuranceRequestedExecutionMode.Auto,
+                        AssuranceResolvedExecutionMode.Oneshot,
+                        AssuranceSessionKind.TransientProbe),
                     Validity: new ReadyClaimValidityOutput(
-                        ReadyValidityKindValues.ProbeOnly,
+                        ReadyValidityKind.ProbeOnly,
                         GuaranteesReusableSession: false),
                     Evidence:
                     [
@@ -52,12 +54,12 @@ internal static class ReadyCommandTestData
                     ],
                     ResidualRisks: []),
             ],
-            Reports: new Dictionary<string, ReadyReportOutput>(StringComparer.Ordinal),
+            Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal),
             ResidualRisks: [],
-            Target: "execution",
-            RequestedMode: "auto",
-            ResolvedMode: "oneshot",
-            SessionKind: "transientProbe",
+            Target: ReadyTarget.Execution,
+            RequestedMode: AssuranceRequestedExecutionMode.Auto,
+            ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
+            SessionKind: AssuranceSessionKind.TransientProbe,
             TimeoutMilliseconds: 10000,
             Lifecycle: lifecycle,
             ReadIndex: null);
@@ -65,34 +67,35 @@ internal static class ReadyCommandTestData
 
     public static ReadyExecutionOutput CreateReadIndexOutput ()
     {
-        var readIndex = new ReadyReadIndexOutput("allowStale", CreateReadIndexArtifacts());
+        var readIndex = new ReadyReadIndexOutput(ReadyReadIndexMode.AllowStale, CreateReadIndexArtifacts());
         return new ReadyExecutionOutput(
-            Verdict: ReadyVerdictValues.Pass,
+            Verdict: AssuranceVerdict.Pass,
             Project: ProjectIdentityInfoTestFactory.Create(
-                projectPath: "<projectPath>",
                 projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>")),
             Verifiers:
             [
                 new ReadyVerifierOutput(
-                    Id: "ready.readIndex",
-                    Kind: "ready.readIndex",
+                    Id: ReadIndexVerifierId,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: [ReadyClaimCodes.UnityReadyReadIndex],
-                    Effects: []),
+                    PrimaryClaims: [ReadyClaimCodes.UnityReadyReadIndex]),
             ],
             Claims:
             [
                 new ReadyClaimOutput(
                     Id: ReadyClaimCodes.UnityReadyReadIndex,
-                    Status: ReadyClaimStatusValues.Passed,
-                    Coverage: ReadyCoverageValues.Full,
+                    Status: AssuranceClaimStatus.Passed,
+                    Coverage: AssuranceCoverage.Full,
                     Required: true,
-                    VerifierRef: "ready.readIndex",
+                    VerifierRef: ReadIndexVerifierId,
                     Statement: "Unity is ready for readIndex.",
-                    Subject: CreateSubject("readIndex", "auto", AssuranceExecutionModeCodec.NotApplicable, AssuranceSessionKindValues.ArtifactOnly),
+                    Subject: CreateSubject(
+                        ReadyTarget.ReadIndex,
+                        AssuranceRequestedExecutionMode.Auto,
+                        AssuranceResolvedExecutionMode.NotApplicable,
+                        AssuranceSessionKind.ArtifactOnly),
                     Validity: new ReadyClaimValidityOutput(
-                        ReadyValidityKindValues.ProbeOnly,
+                        ReadyValidityKind.ProbeOnly,
                         GuaranteesReusableSession: false),
                     Evidence:
                     [
@@ -102,12 +105,12 @@ internal static class ReadyCommandTestData
                     ],
                     ResidualRisks: []),
             ],
-            Reports: new Dictionary<string, ReadyReportOutput>(StringComparer.Ordinal),
+            Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal),
             ResidualRisks: [],
-            Target: "readIndex",
-            RequestedMode: "auto",
-            ResolvedMode: AssuranceExecutionModeCodec.NotApplicable,
-            SessionKind: AssuranceSessionKindValues.ArtifactOnly,
+            Target: ReadyTarget.ReadIndex,
+            RequestedMode: AssuranceRequestedExecutionMode.Auto,
+            ResolvedMode: AssuranceResolvedExecutionMode.NotApplicable,
+            SessionKind: AssuranceSessionKind.ArtifactOnly,
             TimeoutMilliseconds: 10000,
             Lifecycle: null,
             ReadIndex: readIndex);
@@ -140,9 +143,9 @@ internal static class ReadyCommandTestData
                 ArtifactPath: null,
                 RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
             Diagnosis: new DaemonDiagnosisOutput(
-                Reason: "unityScriptCompilationFailed",
+                Reason: DaemonDiagnosisReason.UnityScriptCompilationFailed,
                 Message: "Unity startup is blocked.",
-                ReportedBy: "cli",
+                ReportedBy: DaemonDiagnosisReportedBy.Cli,
                 IsInferred: true,
                 UpdatedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:06+00:00"),
                 ProcessId: 1234,
@@ -150,9 +153,9 @@ internal static class ReadyCommandTestData
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: "fixCompileErrors",
+                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: "compiler",
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                     Code: "CS0246",
                     File: "Assets/Scripts/Broken.cs",
                     Line: 10,
@@ -191,17 +194,17 @@ internal static class ReadyCommandTestData
     }
 
     private static Dictionary<string, object?> CreateSubject (
-        string target,
-        string requestedMode,
-        string resolvedMode,
-        string sessionKind)
+        ReadyTarget target,
+        AssuranceRequestedExecutionMode requestedMode,
+        AssuranceResolvedExecutionMode resolvedMode,
+        AssuranceSessionKind sessionKind)
     {
         return new Dictionary<string, object?>(StringComparer.Ordinal)
         {
             ["kind"] = "unityReady",
-            ["target"] = target,
-            ["requestedMode"] = requestedMode,
-            ["resolvedMode"] = resolvedMode,
+            ["target"] = ContractLiteralCodec.ToValue(target),
+            ["requestedMode"] = ContractLiteralCodec.ToValue(requestedMode),
+            ["resolvedMode"] = ContractLiteralCodec.ToValue(resolvedMode),
             ["sessionKind"] = sessionKind,
         };
     }
@@ -211,21 +214,21 @@ internal static class ReadyCommandTestData
         var generatedAtUtc = DateTimeOffset.Parse("2026-05-17T00:00:00Z");
         return
         [
-            CreateCatalogArtifact("ops.catalog", generatedAtUtc),
-            CreateCatalogArtifact("asset-search.lookup", generatedAtUtc),
-            CreateCatalogArtifact("guid-path.lookup", generatedAtUtc),
+            CreateCatalogArtifact(ReadyReadIndexArtifactName.OpsCatalog, generatedAtUtc),
+            CreateCatalogArtifact(ReadyReadIndexArtifactName.AssetSearchLookup, generatedAtUtc),
+            CreateCatalogArtifact(ReadyReadIndexArtifactName.GuidPathLookup, generatedAtUtc),
         ];
     }
 
     private static ReadyReadIndexArtifactOutput CreateCatalogArtifact (
-        string name,
+        ReadyReadIndexArtifactName name,
         DateTimeOffset generatedAtUtc)
     {
-        return new ReadyReadIndexArtifactOutput(
-            Name: name,
-            Status: ReadyReadIndexArtifactStatusValues.Available,
-            Freshness: "fresh",
-            SourceInputsHash: "source-hash",
-            GeneratedAtUtc: generatedAtUtc);
+        return ReadyReadIndexArtifactOutput.Available(
+            name,
+            required: true,
+            freshness: IndexFreshness.Fresh,
+            Sha256DigestTestFactory.Compute("source-hash"),
+            generatedAtUtc);
     }
 }

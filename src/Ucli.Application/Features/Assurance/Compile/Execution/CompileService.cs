@@ -2,9 +2,10 @@ using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Application.Shared.Identifiers;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
@@ -14,11 +15,12 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
 /// <summary> Executes compile assurance probes and compiles the result into an assurance packet. </summary>
 internal sealed class CompileService : ICompileService
 {
-    private const string VerifierId = "compile";
     private const string SummaryReportRef = "compile.summary";
     private const string DiagnosticsReportRef = "compile.diagnostics";
-    private const string RefreshOriginDiagnosticsRead = "diagnosticsRead";
     private const string ProgressObservationSourceHostDispatch = "hostDispatch";
+
+    internal static readonly AssuranceVerifierId VerifierId = new("compile");
+
     private static readonly IReadOnlyList<CompileResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<CompileResidualRiskOutput>();
 
@@ -28,7 +30,7 @@ internal sealed class CompileService : ICompileService
 
     private readonly IUnityRequestExecutor unityRequestExecutor;
 
-    private readonly IRunIdGenerator runIdGenerator;
+    private readonly IGuidGenerator runIdGenerator;
 
     private readonly ICompileRunArtifactStore artifactStore;
 
@@ -39,16 +41,16 @@ internal sealed class CompileService : ICompileService
         IProjectContextResolver projectContextResolver,
         IUnityExecutionModeDecisionService executionModeDecisionService,
         IUnityRequestExecutor unityRequestExecutor,
-        IRunIdGenerator runIdGenerator,
+        IGuidGenerator runIdGenerator,
         ICompileRunArtifactStore artifactStore,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.executionModeDecisionService = executionModeDecisionService ?? throw new ArgumentNullException(nameof(executionModeDecisionService));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
         this.runIdGenerator = runIdGenerator ?? throw new ArgumentNullException(nameof(runIdGenerator));
         this.artifactStore = artifactStore ?? throw new ArgumentNullException(nameof(artifactStore));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -251,10 +253,10 @@ internal sealed class CompileService : ICompileService
         }
 
         var response = executionResult.Response!;
-        if (response.HasFailureStatus || response.Errors.Count != 0)
+        if (response.Errors.Count != 0)
         {
-            var firstError = response.Errors.FirstOrDefault();
-            if (firstError?.Code == ExecutionErrorCodes.IpcTimeout)
+            var firstError = response.Errors[0];
+            if (firstError.Code == ExecutionErrorCodes.IpcTimeout)
             {
                 return CompileDispatchResult.ArtifactRecoverableFailure(ApplicationFailure.FromCode(
                     firstError.Code,
@@ -262,8 +264,8 @@ internal sealed class CompileService : ICompileService
             }
 
             return CompileDispatchResult.Failure(ApplicationFailure.FromCode(
-                firstError?.Code,
-                firstError?.Message ?? $"Unity compile IPC failed with status '{response.FailureStatus}'."));
+                firstError.Code,
+                firstError.Message));
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcCompileResponse compileResponse, out var payloadError))
@@ -348,9 +350,9 @@ internal sealed class CompileService : ICompileService
             new CompileStartedEntry(
                 RunId: runId,
                 ProjectFingerprint: project.ProjectFingerprint,
-                RequestedMode: AssuranceExecutionModeCodec.ToRequestedModeValue(requestedMode),
-                ResolvedMode: AssuranceExecutionModeCodec.ToResolvedModeValue(executionTarget),
-                SessionKind: AssuranceExecutionModeCodec.ToSessionKindValue(executionTarget),
+                RequestedMode: AssuranceExecutionModeCodec.ToRequestedMode(requestedMode),
+                ResolvedMode: AssuranceExecutionModeCodec.ToResolvedMode(executionTarget),
+                SessionKind: AssuranceExecutionModeCodec.ToSessionKind(executionTarget),
                 TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds)),
             cancellationToken);
     }
@@ -364,7 +366,7 @@ internal sealed class CompileService : ICompileService
             CompileProgressEventNames.RefreshStarted,
             new CompileRefreshStartedEntry(
                 RunId: runId,
-                RefreshOrigin: CompileEffectValues.AssetDatabaseRefresh,
+                RefreshOrigin: CompileRefreshOrigin.AssetDatabaseRefresh,
                 ObservationSource: ProgressObservationSourceHostDispatch),
             cancellationToken);
     }
@@ -378,7 +380,7 @@ internal sealed class CompileService : ICompileService
             CompileProgressEventNames.Diagnostic,
             new CompileDiagnosticEntry(
                 RunId: summary.RunId,
-                RefreshOrigin: RefreshOriginDiagnosticsRead,
+                RefreshOrigin: CompileRefreshOrigin.DiagnosticsRead,
                 PrimaryDiagnostic: summary.ScriptCompilation.Diagnostics.PrimaryDiagnostic),
             cancellationToken);
     }
@@ -439,23 +441,22 @@ internal sealed class CompileService : ICompileService
             [
                 new CompileVerifierOutput(
                     Id: VerifierId,
-                    Kind: VerifierId,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: CompileClaimCodes.All.Select(static code => code.Value).ToArray(),
-                    Effects: CompileEffectValues.All,
+                    PrimaryClaims: CompileClaimCodes.All,
+                    Effects: AssuranceEffectSets.Compile,
                     ReportRef: SummaryReportRef),
             ],
             Claims: claims,
-            Reports: new Dictionary<string, CompileReportOutput>(StringComparer.Ordinal)
+            Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                [SummaryReportRef] = new CompileReportOutput(summaryJsonPath),
-                [DiagnosticsReportRef] = new CompileReportOutput(diagnosticsJsonPath),
+                [SummaryReportRef] = AssuranceReportReference.FromPath(summaryJsonPath, digest: null),
+                [DiagnosticsReportRef] = AssuranceReportReference.FromPath(diagnosticsJsonPath, digest: null),
             },
             ResidualRisks: EmptyResidualRisks,
-            RequestedMode: AssuranceExecutionModeCodec.ToRequestedModeValue(requestedMode),
-            ResolvedMode: AssuranceExecutionModeCodec.ToResolvedModeValue(executionTarget),
-            SessionKind: AssuranceExecutionModeCodec.ToSessionKindValue(executionTarget),
+            RequestedMode: AssuranceExecutionModeCodec.ToRequestedMode(requestedMode),
+            ResolvedMode: AssuranceExecutionModeCodec.ToResolvedMode(executionTarget),
+            SessionKind: AssuranceExecutionModeCodec.ToSessionKind(executionTarget),
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
             Compile: compileOutput);
     }
@@ -464,14 +465,14 @@ internal sealed class CompileService : ICompileService
     {
         var state = summary.Lifecycle.State;
         return new CompileOutput(
-            RunId: summary.RunId,
-            Refresh: new CompileRefreshOutput(
+            runId: summary.RunId,
+            refresh: new CompileRefreshOutput(
                 Origin: summary.Refresh.Origin,
                 Requested: summary.Refresh.Requested,
                 StartedAtUtc: summary.Refresh.StartedAtUtc,
                 CompletedAtUtc: summary.Refresh.CompletedAtUtc,
                 Completed: summary.Refresh.Completed),
-            ScriptCompilation: new CompileScriptCompilationOutput(
+            scriptCompilation: new CompileScriptCompilationOutput(
                 Started: summary.ScriptCompilation.Started,
                 Completed: summary.ScriptCompilation.Completed,
                 CompileGenerationBefore: summary.ScriptCompilation.CompileGenerationBefore,
@@ -480,13 +481,13 @@ internal sealed class CompileService : ICompileService
                     ErrorCount: summary.ScriptCompilation.Diagnostics.ErrorCount,
                     WarningCount: summary.ScriptCompilation.Diagnostics.WarningCount,
                     PrimaryDiagnostic: CreatePrimaryDiagnosticOutput(summary.ScriptCompilation.Diagnostics.PrimaryDiagnostic))),
-            DomainReload: new CompileDomainReloadOutput(
+            domainReload: new CompileDomainReloadOutput(
                 ReloadRequired: summary.DomainReload.ReloadRequired,
                 ReloadObserved: summary.DomainReload.ReloadObserved,
                 GenerationBefore: summary.DomainReload.GenerationBefore,
                 GenerationAfter: summary.DomainReload.GenerationAfter,
                 Settled: summary.DomainReload.Settled),
-            Lifecycle: new CompileLifecycleOutput(
+            lifecycle: new CompileLifecycleOutput(
                 ServerVersion: summary.Lifecycle.ServerVersion,
                 UnityVersion: summary.Lifecycle.UnityVersion,
                 EditorMode: state?.EditorMode,
@@ -505,13 +506,13 @@ internal sealed class CompileService : ICompileService
 
     private static CompilePrimaryDiagnosticOutput? CreatePrimaryDiagnosticOutput (IpcPrimaryDiagnostic? diagnostic)
     {
-        if (diagnostic is null || !StringValueNormalizer.TryTrimToNonEmpty(diagnostic.Kind, out var kind))
+        if (diagnostic is null || !diagnostic.Kind.HasValue)
         {
             return null;
         }
 
         return new CompilePrimaryDiagnosticOutput(
-            Kind: kind,
+            Kind: diagnostic.Kind.Value,
             Code: StringValueNormalizer.TrimToNull(diagnostic.Code),
             File: StringValueNormalizer.TrimToNull(diagnostic.File),
             Line: diagnostic.Line,
@@ -536,13 +537,13 @@ internal sealed class CompileService : ICompileService
                 },
                 [
                     new CompileEvidenceOutput(
-                        Kind: CompileEffectValues.ScriptCompilation,
+                        Kind: CompileEvidenceKind.ScriptCompilation,
                         EvidenceRef: DiagnosticsReportRef,
                         Data: compileOutput.ScriptCompilation),
                 ]),
             CreateClaim(
                 CompileClaimCodes.UnityDomainReloadSettled,
-                summary.DomainReload.Settled ? CompileClaimStatusValues.Passed : CompileClaimStatusValues.Failed,
+                summary.DomainReload.Settled ? AssuranceClaimStatus.Passed : AssuranceClaimStatus.Failed,
                 "Unity domain reload reached a settled state after compile observation.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
@@ -551,15 +552,16 @@ internal sealed class CompileService : ICompileService
                 },
                 [
                     new CompileEvidenceOutput(
-                        Kind: CompileEffectValues.DomainReload,
+                        Kind: CompileEvidenceKind.DomainReload,
+                        EvidenceRef: null,
                         Data: compileOutput.DomainReload),
                 ]),
             CreateClaim(
                 CompileClaimCodes.UnityLifecycleReadyAfterCompile,
                 summary.Lifecycle.State is not null
                     && IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(summary.Lifecycle.State.LifecycleState)
-                    ? CompileClaimStatusValues.Passed
-                    : CompileClaimStatusValues.Failed,
+                    ? AssuranceClaimStatus.Passed
+                    : AssuranceClaimStatus.Failed,
                 "Unity lifecycle is ready after compile observation.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
                 {
@@ -569,15 +571,16 @@ internal sealed class CompileService : ICompileService
                 },
                 [
                     new CompileEvidenceOutput(
-                        Kind: "lifecycleSnapshot",
+                        Kind: CompileEvidenceKind.LifecycleSnapshot,
+                        EvidenceRef: null,
                         Data: compileOutput.Lifecycle),
                 ]),
         ];
     }
 
     private static CompileClaimOutput CreateClaim (
-        string id,
-        string status,
+        UcliCode id,
+        AssuranceClaimStatus status,
         string statement,
         IReadOnlyDictionary<string, object?> subject,
         IReadOnlyList<CompileEvidenceOutput> evidence)
@@ -585,10 +588,10 @@ internal sealed class CompileService : ICompileService
         return new CompileClaimOutput(
             Id: id,
             Status: status,
-            Coverage: CompileCoverageValues.Full,
+            Coverage: AssuranceCoverage.Full,
             Required: true,
             VerifierRef: VerifierId,
-            Statement: string.Equals(status, CompileClaimStatusValues.Passed, StringComparison.Ordinal)
+            Statement: status == AssuranceClaimStatus.Passed
                 ? statement
                 : statement.Replace(" completed ", " did not complete ", StringComparison.Ordinal),
             Subject: subject,
@@ -596,12 +599,12 @@ internal sealed class CompileService : ICompileService
             ResidualRisks: EmptyResidualRisks);
     }
 
-    private static string ResolveCompileNoErrorsStatus (IpcCompileSummary summary)
+    private static AssuranceClaimStatus ResolveCompileNoErrorsStatus (IpcCompileSummary summary)
     {
         return summary.ScriptCompilation.Completed
             && summary.ScriptCompilation.Diagnostics.ErrorCount == 0
-            ? CompileClaimStatusValues.Passed
-            : CompileClaimStatusValues.Failed;
+            ? AssuranceClaimStatus.Passed
+            : AssuranceClaimStatus.Failed;
     }
 
     private static bool TryCreateDiagnosticsReadSummary (
@@ -619,9 +622,9 @@ internal sealed class CompileService : ICompileService
 
         var primaryDiagnostic = diagnosis.PrimaryDiagnostic;
         var isCompilerDiagnosis = primaryDiagnostic is not null
-            && string.Equals(primaryDiagnostic.Kind, DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, StringComparison.Ordinal);
+            && primaryDiagnostic.Kind == DaemonDiagnosisPrimaryDiagnosticKind.Compiler;
         if (!isCompilerDiagnosis
-            && !string.Equals(diagnosis.Reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal))
+            && diagnosis.Reason != DaemonDiagnosisReason.UnityScriptCompilationFailed)
         {
             return false;
         }
@@ -631,7 +634,7 @@ internal sealed class CompileService : ICompileService
         var startedAtUtc = startup?.StartedAtUtc ?? observedAtUtc;
         var compileDiagnostic = primaryDiagnostic is null
             ? new IpcPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: null,
                 File: null,
                 Line: null,
@@ -652,7 +655,7 @@ internal sealed class CompileService : ICompileService
             StartedAtUtc: startedAtUtc,
             CompletedAtUtc: observedAtUtc,
             Refresh: new IpcCompileSummary.RefreshEvidence(
-                Origin: RefreshOriginDiagnosticsRead,
+                Origin: CompileRefreshOrigin.DiagnosticsRead,
                 Requested: false,
                 StartedAtUtc: startedAtUtc,
                 CompletedAtUtc: observedAtUtc,
@@ -677,7 +680,7 @@ internal sealed class CompileService : ICompileService
                 UnityVersion: project.UnityVersion,
                 State: null,
                 ObservedAtUtc: observedAtUtc,
-                ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: compileDiagnostic));
         return true;
     }
@@ -711,13 +714,6 @@ internal sealed class CompileService : ICompileService
         if (summary.Refresh is null)
         {
             return ApplicationFailure.InternalError("Unity compile summary is missing refresh evidence.");
-        }
-
-        if (!string.Equals(summary.Refresh.Origin, CompileEffectValues.AssetDatabaseRefresh, StringComparison.Ordinal)
-            && !string.Equals(summary.Refresh.Origin, RefreshOriginDiagnosticsRead, StringComparison.Ordinal))
-        {
-            return ApplicationFailure.InternalError(
-                $"Unity compile summary refresh origin is invalid: {summary.Refresh.Origin}.");
         }
 
         if (summary.ScriptCompilation is null)
@@ -757,21 +753,22 @@ internal sealed class CompileService : ICompileService
         return null;
     }
 
-    private static string RecalculateVerdict (IReadOnlyList<CompileClaimOutput> claims)
+    private static AssuranceVerdict RecalculateVerdict (IReadOnlyList<CompileClaimOutput> claims)
     {
-        if (claims.Any(static claim => string.Equals(claim.Status, CompileClaimStatusValues.Failed, StringComparison.Ordinal)))
+        var claimStates = new AssuranceVerdictClaimState[claims.Count];
+        for (var i = 0; i < claims.Count; i++)
         {
-            return CompileVerdictValues.Fail;
+            var claim = claims[i];
+            claimStates[i] = new AssuranceVerdictClaimState(
+                claim.Status,
+                claim.Coverage,
+                claim.Required,
+                claim.ResidualRisks.Any(static risk => risk.Blocking));
         }
 
-        if (claims.Any(static claim =>
-                !string.Equals(claim.Status, CompileClaimStatusValues.Passed, StringComparison.Ordinal)
-                || !string.Equals(claim.Coverage, CompileCoverageValues.Full, StringComparison.Ordinal)))
-        {
-            return CompileVerdictValues.Incomplete;
-        }
-
-        return CompileVerdictValues.Pass;
+        return AssuranceVerdictCalculator.Calculate(
+            claimStates,
+            Array.Empty<AssuranceVerdictResidualRiskState>());
     }
 
     private static ApplicationFailure CreateTimeoutFailure (TimeSpan timeout)

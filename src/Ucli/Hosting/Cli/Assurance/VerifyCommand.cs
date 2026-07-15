@@ -14,13 +14,17 @@ internal sealed class VerifyCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
+    private readonly CliStreamEntryWriterFactory streamEntryWriterFactory;
+
     /// <summary> Initializes a new instance of the <see cref="VerifyCommand" /> class. </summary>
     public VerifyCommand (
         IVerifyService verifyService,
-        ICommandResultWriter commandResultWriter)
+        ICommandResultWriter commandResultWriter,
+        CliStreamEntryWriterFactory streamEntryWriterFactory)
     {
         this.verifyService = verifyService ?? throw new ArgumentNullException(nameof(verifyService));
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
+        this.streamEntryWriterFactory = streamEntryWriterFactory ?? throw new ArgumentNullException(nameof(streamEntryWriterFactory));
     }
 
     /// <summary> Executes the verify command and emits the JSON result contract. </summary>
@@ -74,7 +78,7 @@ internal sealed class VerifyCommand
 
         var progressSink = new CliCommandProgressSink(
             formatResult.Format,
-            new CliStreamEntryWriter(UcliCommandNames.Verify),
+            streamEntryWriterFactory.Create(UcliCommandNames.Verify),
             new VerifyProgressTextProjector());
         var executionResult = await verifyService.ExecuteAsync(
                 new VerifyCommandInput(

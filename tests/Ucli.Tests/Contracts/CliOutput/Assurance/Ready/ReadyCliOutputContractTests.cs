@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Tests.Helpers.Assurance;
 
@@ -19,7 +18,7 @@ public sealed class ReadyCliOutputContractTests
         Assert.True(result.IsValid);
         var claim = Assert.Single(payload.GetProperty("claims").EnumerateArray());
         var validity = claim.GetProperty("validity");
-        Assert.Equal(ReadyValidityKindValues.ProbeOnly, validity.GetProperty("kind").GetString());
+        Assert.Equal(ContractLiteralCodec.ToValue(ReadyValidityKind.ProbeOnly), validity.GetProperty("kind").GetString());
         Assert.False(validity.GetProperty("guaranteesReusableSession").GetBoolean());
     }
 
@@ -34,8 +33,10 @@ public sealed class ReadyCliOutputContractTests
 
         Assert.True(result.IsValid);
         Assert.Equal("readIndex", payload.GetProperty("target").GetString());
-        Assert.Equal(AssuranceExecutionModeCodec.NotApplicable, payload.GetProperty("resolvedMode").GetString());
-        Assert.Equal(AssuranceSessionKindValues.ArtifactOnly, payload.GetProperty("sessionKind").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(AssuranceResolvedExecutionMode.NotApplicable),
+            payload.GetProperty("resolvedMode").GetString());
+        Assert.Equal(ContractLiteralCodec.ToValue(AssuranceSessionKind.ArtifactOnly), payload.GetProperty("sessionKind").GetString());
         Assert.Equal(JsonValueKind.Null, payload.GetProperty("lifecycle").ValueKind);
         Assert.Equal(JsonValueKind.Object, payload.GetProperty("readIndex").ValueKind);
         Assert.Equal(3, payload.GetProperty("readIndex").GetProperty("artifacts").GetArrayLength());

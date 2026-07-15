@@ -1,32 +1,24 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Semantics;
 
 /// <summary> Validates verify-specific semantic invariants inside the common assurance payload shape. </summary>
-internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceSemanticInvariantRule
+internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceClaimInvariantRule
 {
-    /// <inheritdoc />
-    public void ValidatePayload (
-        JsonElement payload,
-        List<AssuranceSemanticInvariantViolation> violations)
-    {
-        ArgumentNullException.ThrowIfNull(violations);
-    }
-
     /// <inheritdoc />
     public void ValidateClaim (
         JsonElement payload,
         JsonElement claimElement,
         string claimPath,
-        string claimId,
+        UcliCode claimId,
         List<AssuranceSemanticInvariantViolation> violations)
     {
         ArgumentNullException.ThrowIfNull(violations);
 
-        if (!IsVerifyClaim(claimId) || !IsVerifyPayload(payload))
+        if (!VerifyClaimCodes.All.Contains(claimId) || !IsVerifyPayload(payload))
         {
             return;
         }
@@ -38,10 +30,10 @@ internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceSemanticI
     private static void ValidateUnavailablePostMutationClaim (
         JsonElement claimElement,
         string claimPath,
-        string claimId,
+        UcliCode claimId,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        if (!VerifyClaimCodes.PostMutationObserved.EqualsValue(claimId)
+        if (VerifyClaimCodes.PostMutationObserved != claimId
             || !claimElement.TryGetProperty("subject", out var subjectElement)
             || subjectElement.ValueKind != JsonValueKind.Object
             || !TryReadString(subjectElement, "reason", out var reason)
@@ -55,14 +47,16 @@ internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceSemanticI
             AddViolation(violations, BuildPropertyPath(claimPath, "required"), "Unavailable post-state claims must not be required.");
         }
 
-        if (TryReadString(claimElement, "status", out var status)
-            && !string.Equals(status, VerifyClaimStatusValues.OutOfScope, StringComparison.Ordinal))
+        if (TryReadString(claimElement, "status", out var statusLiteral)
+            && (!ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status)
+                || status != AssuranceClaimStatus.OutOfScope))
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "status"), "Unavailable post-state claims must be outOfScope.");
         }
 
-        if (TryReadString(claimElement, "coverage", out var coverage)
-            && !string.Equals(coverage, VerifyCoverageValues.None, StringComparison.Ordinal))
+        if (TryReadString(claimElement, "coverage", out var coverageLiteral)
+            && (!ContractLiteralCodec.TryParse(coverageLiteral, out AssuranceCoverage coverage)
+                || coverage != AssuranceCoverage.None))
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "coverage"), "Unavailable post-state claims must have coverage none.");
         }
@@ -73,34 +67,49 @@ internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceSemanticI
         string claimPath,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        if (!TryReadFromResultDiagnosticImpact(claimElement, out var diagnosticImpact)
-            || string.Equals(diagnosticImpact, IpcExecuteDiagnosticCoverageImpactNames.None, StringComparison.Ordinal))
+        if (!TryReadFromResultDiagnosticImpact(
+                claimElement,
+                claimPath,
+                out var diagnosticImpact,
+                out var invalidImpactPath))
+        {
+            if (invalidImpactPath != null)
+            {
+                AddViolation(violations, invalidImpactPath, "Diagnostic impact must be a supported verify diagnostic impact.");
+            }
+
+            return;
+        }
+
+        if (diagnosticImpact == VerifyDiagnosticImpact.None)
         {
             return;
         }
 
-        if (!TryReadString(claimElement, "status", out var status)
-            || !TryReadString(claimElement, "coverage", out var coverage))
+        if (!TryReadString(claimElement, "status", out var statusLiteral)
+            || !ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status)
+            || !TryReadString(claimElement, "coverage", out var coverageLiteral)
+            || !ContractLiteralCodec.TryParse(coverageLiteral, out AssuranceCoverage coverage))
         {
             return;
         }
 
-        if (string.Equals(diagnosticImpact, IpcExecuteDiagnosticCoverageImpactNames.Partial, StringComparison.Ordinal)
-            && string.Equals(status, VerifyClaimStatusValues.Passed, StringComparison.Ordinal)
-            && string.Equals(coverage, VerifyCoverageValues.Full, StringComparison.Ordinal))
+        if (diagnosticImpact == VerifyDiagnosticImpact.Partial
+            && status == AssuranceClaimStatus.Passed
+            && coverage == AssuranceCoverage.Full)
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "coverage"), "Partial diagnostics must not produce a clean full-coverage claim.");
             return;
         }
 
-        if (string.Equals(diagnosticImpact, IpcExecuteDiagnosticCoverageImpactNames.Indeterminate, StringComparison.Ordinal))
+        if (diagnosticImpact == VerifyDiagnosticImpact.Indeterminate)
         {
-            if (string.Equals(status, VerifyClaimStatusValues.Passed, StringComparison.Ordinal))
+            if (status == AssuranceClaimStatus.Passed)
             {
                 AddViolation(violations, BuildPropertyPath(claimPath, "status"), "Indeterminate diagnostics must not produce a passed claim.");
             }
 
-            if (!string.Equals(coverage, VerifyCoverageValues.None, StringComparison.Ordinal))
+            if (coverage != AssuranceCoverage.None)
             {
                 AddViolation(violations, BuildPropertyPath(claimPath, "coverage"), "Indeterminate diagnostics must produce coverage none.");
             }
@@ -108,8 +117,8 @@ internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceSemanticI
             return;
         }
 
-        if (string.Equals(diagnosticImpact, IpcExecuteDiagnosticSeverityNames.Error, StringComparison.Ordinal)
-            && !string.Equals(status, VerifyClaimStatusValues.Failed, StringComparison.Ordinal))
+        if (diagnosticImpact == VerifyDiagnosticImpact.Error
+            && status != AssuranceClaimStatus.Failed)
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "status"), "Error diagnostics must produce a failed claim.");
         }
@@ -117,35 +126,36 @@ internal sealed class VerifyAssuranceSemanticInvariantRule : IAssuranceSemanticI
 
     private static bool TryReadFromResultDiagnosticImpact (
         JsonElement claimElement,
-        out string diagnosticImpact)
+        string claimPath,
+        out VerifyDiagnosticImpact diagnosticImpact,
+        out string? invalidImpactPath)
     {
-        diagnosticImpact = string.Empty;
+        diagnosticImpact = default;
+        invalidImpactPath = null;
         if (!claimElement.TryGetProperty("evidence", out var evidenceElement) || evidenceElement.ValueKind != JsonValueKind.Array)
         {
             return false;
         }
 
+        var index = 0;
         foreach (var evidenceItem in evidenceElement.EnumerateArray())
         {
             if (evidenceItem.ValueKind != JsonValueKind.Object
                 || !TryReadString(evidenceItem, "kind", out var kind)
                 || !string.Equals(kind, "fromResultSummary", StringComparison.Ordinal)
                 || !evidenceItem.TryGetProperty("data", out var dataElement)
-                || dataElement.ValueKind != JsonValueKind.Object
-                || !TryReadString(dataElement, "diagnosticImpact", out diagnosticImpact))
+                || dataElement.ValueKind != JsonValueKind.Object)
             {
+                index++;
                 continue;
             }
 
-            return true;
+            invalidImpactPath = $"{claimPath}.evidence[{index}].data.diagnosticImpact";
+            return TryReadString(dataElement, "diagnosticImpact", out var diagnosticImpactLiteral)
+                && ContractLiteralCodec.TryParse(diagnosticImpactLiteral, out diagnosticImpact);
         }
 
         return false;
-    }
-
-    private static bool IsVerifyClaim (string claimId)
-    {
-        return VerifyClaimCodes.All.Any(code => code.EqualsValue(claimId));
     }
 
     private static bool IsVerifyPayload (JsonElement payload)

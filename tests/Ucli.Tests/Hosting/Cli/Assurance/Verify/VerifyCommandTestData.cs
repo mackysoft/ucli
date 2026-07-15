@@ -1,13 +1,16 @@
-using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
-using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Tests;
 
 internal static class VerifyCommandTestData
 {
+    private static readonly AssuranceVerifierId CompileVerifierId = new("compile");
+    private static readonly AssuranceVerifierId ReadyVerifierId = new("ready.lifecycle");
+
     public static JsonGoldenFileNormalization CreateGoldenNormalization ()
     {
         return new JsonGoldenFileNormalization()
@@ -17,33 +20,32 @@ internal static class VerifyCommandTestData
     }
 
     public static VerifyExecutionOutput CreateOutput (
-        string verdict = VerifyVerdictValues.Pass)
+        AssuranceVerdict verdict = AssuranceVerdict.Pass)
     {
-        var compileClaimStatus = string.Equals(verdict, VerifyVerdictValues.Pass, StringComparison.Ordinal)
-            ? VerifyClaimStatusValues.Passed
-            : VerifyClaimStatusValues.Failed;
+        var compileClaimStatus = verdict == AssuranceVerdict.Pass
+            ? AssuranceClaimStatus.Passed
+            : AssuranceClaimStatus.Failed;
         return new VerifyExecutionOutput(
             Verdict: verdict,
             Project: ProjectIdentityInfoTestFactory.Create(
-                projectPath: "<projectPath>",
                 projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>"),
                 unityVersion: "<unityVersion>"),
             Verifiers:
             [
                 new VerifyVerifierOutput(
-                    Id: "ready.lifecycle",
-                    Kind: VerifyStepKindValues.Ready,
+                    Id: ReadyVerifierId,
+                    Kind: AssuranceVerifierKind.Ready,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: ["UNITY_READY_EXECUTION"],
+                    PrimaryClaims: [ReadyClaimCodes.UnityReadyExecution],
                     Effects: []),
                 new VerifyVerifierOutput(
-                    Id: "compile",
-                    Kind: VerifyStepKindValues.Compile,
+                    Id: CompileVerifierId,
+                    Kind: AssuranceVerifierKind.Compile,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: ["UNITY_COMPILE_NO_ERRORS"],
-                    Effects: VerifyEffectValues.Compile)
+                    PrimaryClaims: [CompileClaimCodes.UnityCompileNoErrors],
+                    Effects: AssuranceEffectSets.Compile)
                 {
                     ReportRef = "compile.summary",
                 },
@@ -51,11 +53,11 @@ internal static class VerifyCommandTestData
             Claims:
             [
                 new VerifyClaimOutput(
-                    Id: "UNITY_READY_EXECUTION",
-                    Status: VerifyClaimStatusValues.Passed,
-                    Coverage: VerifyCoverageValues.Full,
+                    Id: ReadyClaimCodes.UnityReadyExecution,
+                    Status: AssuranceClaimStatus.Passed,
+                    Coverage: AssuranceCoverage.Full,
                     Required: true,
-                    VerifierRef: "ready.lifecycle",
+                    VerifierRef: ReadyVerifierId,
                     Statement: "Unity is ready for execution.",
                     Subject: new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
@@ -65,15 +67,15 @@ internal static class VerifyCommandTestData
                     ResidualRisks: [])
                 {
                     Validity = new ReadyClaimValidityOutput(
-                        Kind: "probeOnly",
+                        Kind: ReadyValidityKind.ProbeOnly,
                         GuaranteesReusableSession: false),
                 },
                 new VerifyClaimOutput(
-                    Id: "UNITY_COMPILE_NO_ERRORS",
+                    Id: CompileClaimCodes.UnityCompileNoErrors,
                     Status: compileClaimStatus,
-                    Coverage: VerifyCoverageValues.Full,
+                    Coverage: AssuranceCoverage.Full,
                     Required: true,
-                    VerifierRef: "compile",
+                    VerifierRef: CompileVerifierId,
                     Statement: "Unity script compilation has no errors.",
                     Subject: new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
@@ -88,26 +90,25 @@ internal static class VerifyCommandTestData
                     ],
                     ResidualRisks: []),
             ],
-            Reports: new Dictionary<string, VerifyReportOutput>(StringComparer.Ordinal)
+            Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                ["compile.summary"] = new VerifyReportOutput
-                {
-                    Path = $".ucli/local/compile/{RunIdTestValues.CompileText}/summary.json",
-                },
+                ["compile.summary"] = AssuranceReportReference.FromPath(
+                    $".ucli/local/compile/{RunIdTestValues.CompileText}/summary.json",
+                    digest: null),
             },
             ResidualRisks: [],
             Profile: new VerifyProfileOutput(
-                Source: VerifyProfileSourceValues.BuiltIn,
+                Source: VerifyProfileSource.BuiltIn,
                 Name: "built-in:default",
                 Path: null,
-                Digest: "1111111111111111111111111111111111111111111111111111111111111111"),
+                Digest: Sha256Digest.Parse("1111111111111111111111111111111111111111111111111111111111111111")),
             TimeoutMilliseconds: 120000);
     }
 
     public static VerifyStepProgressEntry CreateReadyStepProgressEntry ()
     {
         return new VerifyStepProgressEntry(
-            VerifyStepKindValues.Ready,
+            VerifyStepKind.Ready,
             Required: true,
             Effects: [],
             SkipReason: null);
@@ -116,7 +117,7 @@ internal static class VerifyCommandTestData
     public static VerifyStepProgressEntry CreateSkippedPostReadProgressEntry ()
     {
         return new VerifyStepProgressEntry(
-            VerifyStepKindValues.PostRead,
+            VerifyStepKind.PostRead,
             Required: false,
             Effects: [],
             SkipReason: VerifyStepSkipReasons.PostReadNotNeeded);
@@ -127,7 +128,7 @@ internal static class VerifyCommandTestData
         return new VerifyDiagnosticEntry(
             "VERIFY_STUB",
             "stub diagnostic",
-            "error",
-            VerifyStepKindValues.Compile);
+            UcliDiagnosticSeverity.Error,
+            VerifyStepKind.Compile);
     }
 }

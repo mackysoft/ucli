@@ -57,8 +57,8 @@ internal static class ReadyCommandResultFactory
         return new CommandResult(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.Ready,
-            Status: IpcProtocol.StatusOk,
-            ExitCode: string.Equals(output.Verdict, ReadyVerdictValues.Pass, StringComparison.Ordinal)
+            Status: CommandResultStatus.Ok,
+            ExitCode: output.Verdict == AssuranceVerdict.Pass
                 ? (int)CliExitCode.Success
                 : 1,
             Message: executionResult.Message,

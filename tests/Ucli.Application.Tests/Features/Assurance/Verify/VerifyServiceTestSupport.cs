@@ -1,10 +1,9 @@
 using System.Text.Json;
-using MackySoft.Tests;
-using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Execution;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
@@ -41,13 +40,13 @@ internal static class VerifyServiceTestSupport
                 TestRunId,
                 "/repo/.ucli/local/test/test-run-1",
                 "/repo/.ucli/local/test/test-run-1/summary.json")),
-            logsService ?? new RecordingVerifyLogsUnityService((_, _, _) => ValueTask.FromResult(LogsReadServiceResult.Success())),
+            logsService ?? new RecordingVerifyLogsUnityService((_, _, _) => ValueTask.FromResult(LogsReadServiceResult.Completed(0, null))),
             profileFileReader ?? new StubVerifyProfileFileReader((profilePath, root) => VerifyProfileFileReadResult.Success(
                 File.ReadAllText(Path.Combine(root, profilePath)),
                 profilePath.Replace('\\', '/'))),
             fromInputFileReader ?? new StubVerifyFromInputFileReader((fromPath, root) => VerifyFromInputFileReadResult.Success(
                 File.ReadAllText(Path.Combine(root, fromPath)))),
-            timeProvider);
+            timeProvider ?? TimeProvider.System);
     }
 
     public static void WriteRequiredPostReadProfile (TestDirectoryScope scope)
@@ -71,104 +70,103 @@ internal static class VerifyServiceTestSupport
         ReadyTarget target,
         ProjectIdentityInfo project)
     {
-        var claimCode = ReadyClaimCodes.ForTarget(target).Value;
-        var verifierId = "ready.lifecycle";
+        var claimCode = ReadyClaimCodes.ForTarget(target);
+        var verifierId = new AssuranceVerifierId("ready.lifecycle");
         return ReadyExecutionResult.Success(new ReadyExecutionOutput(
-            Verdict: ReadyVerdictValues.Pass,
+            Verdict: AssuranceVerdict.Pass,
             Project: project,
             Verifiers:
             [
                 new ReadyVerifierOutput(
                     Id: verifierId,
-                    Kind: verifierId,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: [claimCode],
-                    Effects: [])
+                    PrimaryClaims: [claimCode])
             ],
             Claims:
             [
                 new ReadyClaimOutput(
                     Id: claimCode,
-                    Status: ReadyClaimStatusValues.Passed,
-                    Coverage: ReadyCoverageValues.Full,
+                    Status: AssuranceClaimStatus.Passed,
+                    Coverage: AssuranceCoverage.Full,
                     Required: true,
                     VerifierRef: verifierId,
                     Statement: "Unity is ready.",
                     Subject: new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
-                        ["target"] = ReadyTargetCodec.ToValue(target),
+                        ["target"] = ContractLiteralCodec.ToValue(target),
                     },
                     Validity: new ReadyClaimValidityOutput(
-                        ReadyValidityKindValues.ProbeOnly,
+                        ReadyValidityKind.ProbeOnly,
                         GuaranteesReusableSession: false),
                     Evidence: [],
                     ResidualRisks: [])
             ],
-            Reports: new Dictionary<string, ReadyReportOutput>(StringComparer.Ordinal),
+            Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal),
             ResidualRisks: [],
-            Target: ReadyTargetCodec.ToValue(target),
-            RequestedMode: AssuranceExecutionModeCodec.Auto,
-            ResolvedMode: AssuranceExecutionModeCodec.Oneshot,
-            SessionKind: AssuranceSessionKindValues.TransientProbe,
-            TimeoutMilliseconds: 10000));
+            Target: target,
+            RequestedMode: AssuranceRequestedExecutionMode.Auto,
+            ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
+            SessionKind: AssuranceSessionKind.TransientProbe,
+            TimeoutMilliseconds: 10000,
+            Lifecycle: null,
+            ReadIndex: null));
     }
 
     public static CompileExecutionResult CreateCompileResult (ProjectIdentityInfo project)
     {
-        return CreateCompileResult(project, CompileClaimStatusValues.Passed);
+        return CreateCompileResult(project, AssuranceClaimStatus.Passed);
     }
 
     public static CompileExecutionResult CreateCompileResult (
         ProjectIdentityInfo project,
-        string claimStatus)
+        AssuranceClaimStatus claimStatus)
     {
-        var failed = string.Equals(claimStatus, CompileClaimStatusValues.Failed, StringComparison.Ordinal);
+        var failed = claimStatus == AssuranceClaimStatus.Failed;
         return CompileExecutionResult.Success(new CompileExecutionOutput(
-            Verdict: failed ? CompileVerdictValues.Fail : CompileVerdictValues.Pass,
+            Verdict: failed ? AssuranceVerdict.Fail : AssuranceVerdict.Pass,
             Project: project,
             Verifiers:
             [
                 new CompileVerifierOutput(
-                    Id: "compile",
-                    Kind: "compile",
+                    Id: new AssuranceVerifierId("compile"),
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: [CompileClaimCodes.UnityCompileNoErrors.Value],
-                    Effects: CompileEffectValues.All,
+                    PrimaryClaims: [CompileClaimCodes.UnityCompileNoErrors],
+                    Effects: AssuranceEffectSets.Compile,
                     ReportRef: "compile.summary")
             ],
             Claims:
             [
                 new CompileClaimOutput(
-                    Id: CompileClaimCodes.UnityCompileNoErrors.Value,
+                    Id: CompileClaimCodes.UnityCompileNoErrors,
                     Status: claimStatus,
-                    Coverage: CompileCoverageValues.Full,
+                    Coverage: AssuranceCoverage.Full,
                     Required: true,
-                    VerifierRef: "compile",
+                    VerifierRef: new AssuranceVerifierId("compile"),
                     Statement: "Unity script compilation has no errors.",
                     Subject: new Dictionary<string, object?>(StringComparer.Ordinal),
                     Evidence: [],
                     ResidualRisks: [])
             ],
-            Reports: new Dictionary<string, CompileReportOutput>(StringComparer.Ordinal)
+            Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                ["compile.summary"] = new CompileReportOutput("/repo/.ucli/local/compile/run-1/summary.json"),
+                ["compile.summary"] = AssuranceReportReference.FromPath("/repo/.ucli/local/compile/run-1/summary.json", digest: null),
             },
             ResidualRisks: [],
-            RequestedMode: AssuranceExecutionModeCodec.Auto,
-            ResolvedMode: AssuranceExecutionModeCodec.Oneshot,
-            SessionKind: AssuranceSessionKindValues.TransientProbe,
+            RequestedMode: AssuranceRequestedExecutionMode.Auto,
+            ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
+            SessionKind: AssuranceSessionKind.TransientProbe,
             TimeoutMilliseconds: 10000,
             Compile: new CompileOutput(
-                RunId: CompileRunId,
-                Refresh: new CompileRefreshOutput(
-                    Origin: CompileEffectValues.AssetDatabaseRefresh,
+                runId: CompileRunId,
+                refresh: new CompileRefreshOutput(
+                    Origin: CompileRefreshOrigin.AssetDatabaseRefresh,
                     Requested: true,
                     StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                     CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:01Z"),
                     Completed: true),
-                ScriptCompilation: new CompileScriptCompilationOutput(
+                scriptCompilation: new CompileScriptCompilationOutput(
                     Started: true,
                     Completed: true,
                     CompileGenerationBefore: 1,
@@ -177,13 +175,13 @@ internal static class VerifyServiceTestSupport
                         ErrorCount: failed ? 1 : 0,
                         WarningCount: 0,
                         PrimaryDiagnostic: null)),
-                DomainReload: new CompileDomainReloadOutput(
+                domainReload: new CompileDomainReloadOutput(
                     ReloadRequired: false,
                     ReloadObserved: false,
                     GenerationBefore: 1,
                     GenerationAfter: 1,
                     Settled: true),
-                Lifecycle: new CompileLifecycleOutput(
+                lifecycle: new CompileLifecycleOutput(
                     ServerVersion: "0.5.0",
                     UnityVersion: "6000.1.4f1",
                     EditorMode: DaemonEditorMode.Batchmode,
@@ -384,9 +382,9 @@ internal static class VerifyServiceTestSupport
     public static IpcUnityLogEvent CreateLogEvent (string cursor)
     {
         return new IpcUnityLogEvent(
-            Timestamp: "2026-05-17T00:00:00+00:00",
-            Level: "error",
-            Source: "runtime",
+            Timestamp: new DateTimeOffset(2026, 5, 17, 0, 0, 0, TimeSpan.Zero),
+            Level: IpcLogLevel.Error,
+            Source: IpcUnityLogSource.Runtime,
             Message: "Unity log event.",
             StackTrace: null,
             Cursor: cursor);

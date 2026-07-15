@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
 
@@ -10,30 +11,40 @@ public sealed record BuildDiagnosticEntry
     [JsonConstructor]
     public BuildDiagnosticEntry (
         Guid RunId,
-        string Code,
-        string Severity,
+        UcliCode Code,
+        UcliDiagnosticSeverity Severity,
         string Message,
-        string Phase)
+        BuildRunProgressPhase Phase)
     {
         if (RunId == Guid.Empty)
         {
             throw new ArgumentException("Run id must not be empty.", nameof(RunId));
         }
 
+        if (!ContractLiteralCodec.IsDefined(Severity))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Severity), Severity, "Build diagnostic severity must be specified.");
+        }
+
+        if (!ContractLiteralCodec.IsDefined(Phase))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Phase), Phase, "Build diagnostic phase must be specified.");
+        }
+
         this.RunId = RunId;
-        this.Code = Code;
+        this.Code = Code ?? throw new ArgumentNullException(nameof(Code));
         this.Severity = Severity;
-        this.Message = Message;
+        this.Message = ContractArgumentGuard.RequireValue(Message, nameof(Message));
         this.Phase = Phase;
     }
 
     public Guid RunId { get; }
 
-    public string Code { get; }
+    public UcliCode Code { get; }
 
-    public string Severity { get; }
+    public UcliDiagnosticSeverity Severity { get; }
 
     public string Message { get; }
 
-    public string Phase { get; }
+    public BuildRunProgressPhase Phase { get; }
 }

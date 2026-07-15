@@ -1,11 +1,8 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Assurance;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Compile.CompileServiceTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Compile;
@@ -43,8 +40,7 @@ public sealed class CompileServiceRecoveryTests
         var service = CreateService(
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
                 payload,
-                [],
-                HasFailureStatus: false))));
+                []))));
 
         var result = await service.ExecuteAsync(new CompileCommandInput(
             ProjectPath: null,
@@ -65,9 +61,8 @@ public sealed class CompileServiceRecoveryTests
         var progressSink = new CollectingCommandProgressSink();
         var service = CreateService(
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
-                default,
-                [new OperationExecutionError(ExecutionErrorCodes.IpcTimeout, "Unity compile assurance timed out.", null)],
-                HasFailureStatus: true))),
+                JsonSerializer.SerializeToElement(new { }),
+                [new OperationExecutionError(ExecutionErrorCodes.IpcTimeout, "Unity compile assurance timed out.", null)]))),
             artifactStore: artifactStore);
 
         var result = await service.ExecuteAsync(new CompileCommandInput(
@@ -77,7 +72,7 @@ public sealed class CompileServiceRecoveryTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(1, artifactStore.ReadCount);
-        Assert.Equal(CompileVerdictValues.Fail, result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
             CompileProgressEventNames.Started,
@@ -90,9 +85,8 @@ public sealed class CompileServiceRecoveryTests
 
         var resultWithoutProgress = await CreateService(
                 unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(new UnityRequestResponse(
-                    default,
-                    [new OperationExecutionError(ExecutionErrorCodes.IpcTimeout, "Unity compile assurance timed out.", null)],
-                    HasFailureStatus: true))),
+                    JsonSerializer.SerializeToElement(new { }),
+                    [new OperationExecutionError(ExecutionErrorCodes.IpcTimeout, "Unity compile assurance timed out.", null)]))),
                 artifactStore: new StubCompileRunArtifactStore(CompileRunArtifactReadResult.Success(CreateSummary(errorCount: 1))))
             .ExecuteAsync(new CompileCommandInput(
                 ProjectPath: null,

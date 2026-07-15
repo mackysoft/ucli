@@ -50,7 +50,7 @@ internal static class VerifyErrorCodeDescriptors
             possiblePhases: ["argumentParsing", "inputValidation"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.project"],
             nextActions:
             [

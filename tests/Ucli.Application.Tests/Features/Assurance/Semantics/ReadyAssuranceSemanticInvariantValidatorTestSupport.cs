@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
@@ -60,7 +61,7 @@ internal static class ReadyAssuranceSemanticInvariantValidatorTestSupport
             {
                 CreateVerifier(
                     id: "ready.lifecycle",
-                    kind: "ready.lifecycle",
+                    kind: "ready",
                     deterministic: false,
                     reportRef: null,
                     effects: []),
@@ -186,10 +187,11 @@ internal static class ReadyAssuranceSemanticInvariantValidatorTestSupport
         return new AssuranceSemanticInvariantValidator(
             new StaticCodeCatalog(
             [
-                CreateDescriptor(ReadyClaim, CodeCatalogKindValues.Claim),
-                CreateDescriptor(CompileClaim, CodeCatalogKindValues.Claim),
-                CreateDescriptor(LogUnavailableRisk, CodeCatalogKindValues.Risk),
+                CreateDescriptor(ReadyClaim, CodeCatalogKind.Claim),
+                CreateDescriptor(CompileClaim, CodeCatalogKind.Claim),
+                CreateDescriptor(LogUnavailableRisk, CodeCatalogKind.Risk),
             ]),
+            [new BuildAssuranceSemanticInvariantRule()],
             [new ReadyAssuranceSemanticInvariantRule()]);
     }
 }

@@ -1,6 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
-using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Build;
 
@@ -16,20 +16,20 @@ public sealed class BuildProfileResolverResolvedModelTests
 
         Assert.True(result.IsSuccess);
         var profile = result.Profile!;
+        var inputs = Assert.IsType<ResolvedBuildInputs.Explicit>(profile.Inputs);
+        var scenes = Assert.IsType<ResolvedBuildScenes.Explicit>(inputs.Scenes);
         Assert.Equal(1, profile.SchemaVersion);
         Assert.Equal(BuildProfileInputsKind.Explicit, profile.Inputs.Kind);
-        Assert.Equal(BuildTargetStableName.StandaloneLinux64, profile.BuildTarget.StableNameValue);
-        Assert.Equal("standaloneLinux64", profile.BuildTarget.StableName);
-        Assert.Equal("StandaloneLinux64", profile.BuildTarget.UnityBuildTargetLiteral);
-        Assert.Equal(BuildProfileSceneSource.Explicit, profile.Scenes.Source);
+        Assert.Equal(BuildTargetStableName.StandaloneLinux64, inputs.BuildTarget);
+        Assert.Equal(BuildProfileSceneSource.Explicit, scenes.Source);
         Assert.Equal(
             [
-                "Assets/Scenes/Main.unity",
-                "Assets/Scenes/Bootstrap.unity",
+                new SceneAssetPath("Assets/Scenes/Main.unity"),
+                new SceneAssetPath("Assets/Scenes/Bootstrap.unity"),
             ],
-            profile.Scenes.Paths);
-        Assert.False(profile.Options.Development);
-        Assert.Equal(BuildProfileRunnerKind.BuildPipeline, profile.Runner.Kind);
+            scenes.Paths);
+        Assert.False(inputs.Options.Development);
+        Assert.IsType<ResolvedBuildRunner.BuildPipeline>(profile.Runner);
         Assert.Equal(
             [
                 BuildProfileRuntimeExecutionMode.Daemon,
@@ -43,8 +43,27 @@ public sealed class BuildProfileResolverResolvedModelTests
             ],
             profile.Policy.Runtime.AllowedEditorModes);
         Assert.Equal(BuildProfileProjectMutationMode.Forbid, profile.Policy.ProjectMutationMode);
-        Assert.Matches("^[0-9a-f]{64}$", profile.Digest);
-        Assert.False(profile.Digest.StartsWith("sha256:", StringComparison.Ordinal));
+        Assert.Matches("^[0-9a-f]{64}$", profile.Digest.ToString());
+        Assert.False(profile.Digest.ToString().StartsWith("sha256:", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveJson_WithPortableSceneSeparators_NormalizesAtProfileBoundary ()
+    {
+        var json = ValidExplicitProfileJson.Replace(
+            "Assets/Scenes/Main.unity",
+            "Assets\\\\Scenes\\\\Main.unity",
+            StringComparison.Ordinal);
+
+        var result = BuildProfileResolver.ResolveJson(json);
+
+        Assert.True(result.IsSuccess);
+        var inputs = Assert.IsType<ResolvedBuildInputs.Explicit>(result.Profile!.Inputs);
+        var scenes = Assert.IsType<ResolvedBuildScenes.Explicit>(inputs.Scenes);
+        Assert.Equal(
+            new SceneAssetPath("Assets/Scenes/Main.unity"),
+            scenes.Paths[0]);
     }
 
     [Fact]
@@ -84,9 +103,10 @@ public sealed class BuildProfileResolverResolvedModelTests
 
         Assert.True(result.IsSuccess);
         var profile = result.Profile!;
-        Assert.Equal(BuildProfileSceneSource.EditorBuildSettings, profile.Scenes.Source);
-        Assert.Empty(profile.Scenes.Paths);
-        Assert.True(profile.Options.Development);
+        var inputs = Assert.IsType<ResolvedBuildInputs.Explicit>(profile.Inputs);
+        var scenes = Assert.IsType<ResolvedBuildScenes.EditorBuildSettings>(inputs.Scenes);
+        Assert.Equal(BuildProfileSceneSource.EditorBuildSettings, scenes.Source);
+        Assert.True(inputs.Options.Development);
         Assert.Equal([BuildProfileRuntimeExecutionMode.Daemon], profile.Policy.Runtime.AllowedExecutionModes);
         Assert.Equal([DaemonEditorMode.Batchmode], profile.Policy.Runtime.AllowedEditorModes);
         Assert.Equal(BuildProfileProjectMutationMode.Audit, profile.Policy.ProjectMutationMode);
@@ -165,10 +185,10 @@ public sealed class BuildProfileResolverResolvedModelTests
 
         Assert.True(result.IsSuccess);
         var profile = result.Profile!;
+        var inputs = Assert.IsType<ResolvedBuildInputs.UnityBuildProfile>(profile.Inputs);
         Assert.Equal(BuildProfileInputsKind.UnityBuildProfile, profile.Inputs.Kind);
-        Assert.Equal("Assets/BuildProfiles/Linux.asset", profile.Inputs.RequireUnityBuildProfilePath());
-        Assert.Throws<InvalidOperationException>(() => profile.Inputs.RequireBuildTarget());
-        Assert.Matches("^[0-9a-f]{64}$", profile.Digest);
+        Assert.Equal("Assets/BuildProfiles/Linux.asset", inputs.Path.Value);
+        Assert.Matches("^[0-9a-f]{64}$", profile.Digest.ToString());
     }
 
     [Fact]
@@ -198,8 +218,8 @@ public sealed class BuildProfileResolverResolvedModelTests
             """));
 
         Assert.True(result.IsSuccess);
-        var runner = result.Profile!.Runner;
-        Assert.Equal(BuildProfileRunnerKind.ExecuteMethod, runner.Kind);
+        var runner = Assert.IsType<ResolvedBuildRunner.ExecuteMethod>(result.Profile!.Runner);
+        Assert.Equal(BuildRunnerKind.ExecuteMethod, runner.Kind);
         Assert.Equal("Build.Entry.Run", runner.Method);
         Assert.Equal("${ucli.build.outputDir}", runner.Invocation.Arguments["output"]);
         Assert.Equal("${build.target}", runner.Invocation.Arguments["target"]);

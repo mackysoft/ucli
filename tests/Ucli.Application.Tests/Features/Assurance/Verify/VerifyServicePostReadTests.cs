@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
@@ -28,7 +27,7 @@ public sealed class VerifyServicePostReadTests
                     "cursor-2",
                     cancellationToken)
                 .ConfigureAwait(false);
-            return LogsReadServiceResult.Success();
+            return LogsReadServiceResult.Completed(2, "cursor-2");
         });
         var service = CreateService(scope.FullPath, logsService: logsService);
 
@@ -81,7 +80,7 @@ public sealed class VerifyServicePostReadTests
                     "cursor-2",
                     cancellationToken)
                 .ConfigureAwait(false);
-            return LogsReadServiceResult.Success();
+            return LogsReadServiceResult.Completed(2, "cursor-2");
         });
         var service = CreateService(scope.FullPath, logsService: logsService);
 
@@ -121,11 +120,11 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Fail, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.ReadSurfaceSafe.Value, StringComparison.Ordinal));
+        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.ReadSurfaceSafe);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Failed, claim.Status);
-        Assert.Equal(VerifyCoverageValues.Full, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Failed, claim.Status);
+        Assert.Equal(AssuranceCoverage.Full, claim.Coverage);
     }
 
     [Fact]
@@ -151,11 +150,11 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Pass, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
+        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Passed, claim.Status);
-        Assert.Equal(VerifyCoverageValues.Full, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
+        Assert.Equal(AssuranceCoverage.Full, claim.Coverage);
     }
 
     [Fact]
@@ -187,12 +186,12 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Pass, result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
         var claim = Assert.Single(result.Output.Claims);
-        Assert.Equal(VerifyClaimCodes.PostMutationObserved.Value, claim.Id);
+        Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.False(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.OutOfScope, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.OutOfScope, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
     [Fact]
@@ -221,12 +220,12 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Incomplete, result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Incomplete, result.Output!.Verdict);
         var claim = Assert.Single(result.Output.Claims);
-        Assert.Equal(VerifyClaimCodes.PostMutationObserved.Value, claim.Id);
+        Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Unverified, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Unverified, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
     [Fact]
@@ -247,12 +246,12 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Incomplete, result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Incomplete, result.Output!.Verdict);
         var claim = Assert.Single(result.Output.Claims);
-        Assert.Equal(VerifyClaimCodes.PostMutationObserved.Value, claim.Id);
+        Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Unverified, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Unverified, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
     [Fact]
@@ -273,10 +272,10 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Incomplete, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.ReadSurfaceSafe.Value, StringComparison.Ordinal));
-        Assert.Equal(VerifyClaimStatusValues.Indeterminate, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(AssuranceVerdict.Incomplete, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.ReadSurfaceSafe);
+        Assert.Equal(AssuranceClaimStatus.Indeterminate, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
     [Fact]
@@ -307,7 +306,7 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Fail, result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
         var risk = Assert.Single(result.Output.ResidualRisks);
         Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value, risk.Code);
         Assert.True(risk.Blocking);
@@ -331,9 +330,9 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Fail, result.Output!.Verdict);
-        var observedClaim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
-        Assert.Equal(VerifyCoverageValues.Full, observedClaim.Coverage);
+        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
+        var observedClaim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
+        Assert.Equal(AssuranceCoverage.Full, observedClaim.Coverage);
         var risk = Assert.Single(result.Output.ResidualRisks);
         Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value, risk.Code);
         Assert.True(risk.Blocking);

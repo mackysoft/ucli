@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
 
@@ -12,16 +15,18 @@ public sealed class BuildServiceResponseValidationTests
         using var tempDirectory = CreateArtifactDirectoryScope();
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 runnerResult: new IpcBuildRunnerResultArtifact(
-                    Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
-                    Status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    Source: IpcBuildRunnerResultSource.UcliBuildRunnerResult,
+                    Status: IpcBuildReportResult.Succeeded,
                     DurationMilliseconds: 2500,
                     ErrorCount: 0,
                     WarningCount: 0,
-                    Diagnostics: [])),
+                    Diagnostics: [],
+                    Outputs: [],
+                    BuildReport: null)),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
         var result = await service.ExecuteAsync(CreateInput());
@@ -38,16 +43,18 @@ public sealed class BuildServiceResponseValidationTests
         using var tempDirectory = CreateArtifactDirectoryScope();
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 runnerResult: new IpcBuildRunnerResultArtifact(
-                    Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport),
-                    Status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    Source: IpcBuildRunnerResultSource.BuildPipelineBuildReport,
+                    Status: IpcBuildReportResult.Succeeded,
                     DurationMilliseconds: 9999,
                     ErrorCount: 0,
                     WarningCount: 0,
-                    Diagnostics: [])),
+                    Diagnostics: [],
+                    Outputs: [],
+                    BuildReport: null)),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
         var result = await service.ExecuteAsync(CreateInput());
@@ -64,8 +71,8 @@ public sealed class BuildServiceResponseValidationTests
         using var tempDirectory = CreateArtifactDirectoryScope();
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Unknown),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed),
+                IpcBuildReportResult.Unknown,
+                IpcBuildLogCompletionReason.Failed,
                 errorCount: 0),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
@@ -76,22 +83,30 @@ public sealed class BuildServiceResponseValidationTests
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Medium")]
-    [InlineData("unsupported", "Assets/Scenes/Main.unity")]
-    [InlineData("explicit", " Assets/Scenes/Main.unity")]
-    public async Task Execute_WithInvalidResolvedInputResponse_ReturnsCommandFailure (
-        string sceneSource,
-        string scenePath)
+    public async Task Execute_WithUnsupportedResolvedSceneSource_ReturnsCommandFailure ()
     {
         using var tempDirectory = CreateArtifactDirectoryScope();
-        var service = CreateService(
-            requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+        var requestExecutor = new RecordingUnityRequestExecutor(payload =>
+        {
+            var buildRun = (UnityRequestPayload.BuildRun)payload;
+            var response = CreateBuildResponseResult(
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
-                sceneSource: sceneSource,
-                scenes: [scenePath]),
+                sceneSource: BuildProfileSceneSource.Explicit,
+                scenes: [new SceneAssetPath("Assets/Scenes/Main.unity")],
+                reportOutputPath: buildRun.Request.OutputLayout!.LocationPathName,
+                outputLayout: buildRun.Request.OutputLayout).Response!;
+            var payloadObject = JsonNode.Parse(response.Payload.GetRawText())!.AsObject();
+            payloadObject["input"]!["sceneSource"] = "unsupported";
+            return UnityRequestExecutionResult.Success(new UnityRequestResponse(
+                JsonSerializer.SerializeToElement(payloadObject),
+                response.Errors));
+        });
+        var service = CreateService(
+            requestExecutor: requestExecutor,
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
         var result = await service.ExecuteAsync(CreateInput());
@@ -103,19 +118,19 @@ public sealed class BuildServiceResponseValidationTests
 
     [Theory]
     [Trait("Size", "Medium")]
-    [InlineData("otherTarget", "StandaloneLinux64", "Development")]
-    [InlineData("standaloneLinux64", "StandaloneOSX", "Development")]
-    [InlineData("standaloneLinux64", "StandaloneLinux64", "None")]
+    [InlineData(BuildTargetStableName.Android, "StandaloneLinux64", "Development")]
+    [InlineData(BuildTargetStableName.StandaloneLinux64, "StandaloneOSX", "Development")]
+    [InlineData(BuildTargetStableName.StandaloneLinux64, "StandaloneLinux64", "None")]
     public async Task Execute_WithMismatchedResolvedInputResponse_ReturnsCommandFailure (
-        string buildTarget,
+        BuildTargetStableName buildTarget,
         string unityBuildTarget,
         string buildOptions)
     {
         using var tempDirectory = CreateArtifactDirectoryScope();
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 buildTarget: buildTarget,
                 unityBuildTarget: unityBuildTarget,
@@ -136,10 +151,10 @@ public sealed class BuildServiceResponseValidationTests
         using var tempDirectory = CreateArtifactDirectoryScope();
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
-                scenes: ["Assets/Scenes/Other.unity"]),
+                scenes: [new SceneAssetPath("Assets/Scenes/Other.unity")]),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
         var result = await service.ExecuteAsync(CreateInput());
@@ -160,13 +175,13 @@ public sealed class BuildServiceResponseValidationTests
             {
                 var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
                 var mismatchedLayout = new IpcBuildOutputLayout(
-                    Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                    Shape: IpcBuildOutputLayoutShape.File,
                     LocationPathName: Path.Combine(tempDirectory.FullPath, "other-output", "player", "Player"));
                 return CreateBuildResponseResult(
-                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                    ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                    IpcBuildReportResult.Succeeded,
+                    IpcBuildLogCompletionReason.Completed,
                     errorCount: 0,
-                    reportOutputPath: buildRunPayload.OutputLayout!.LocationPathName,
+                    reportOutputPath: buildRunPayload.Request.OutputLayout!.LocationPathName,
                     outputLayout: mismatchedLayout);
             }),
             artifactStore: artifactStore);
@@ -186,8 +201,8 @@ public sealed class BuildServiceResponseValidationTests
         using var tempDirectory = CreateArtifactDirectoryScope();
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Failed,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 1),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
@@ -206,8 +221,8 @@ public sealed class BuildServiceResponseValidationTests
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Unknown),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed),
+                IpcBuildReportResult.Unknown,
+                IpcBuildLogCompletionReason.Failed,
                 errorCount: 1),
             artifactStore: artifactStore);
 

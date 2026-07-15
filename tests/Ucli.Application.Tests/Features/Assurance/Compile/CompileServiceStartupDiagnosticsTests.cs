@@ -1,8 +1,5 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Storage;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Compile.CompileServiceTestSupport;
 
@@ -31,15 +28,15 @@ public sealed class CompileServiceStartupDiagnosticsTests
 
         Assert.True(result.IsSuccess);
         var output = result.Output!;
-        Assert.Equal(CompileVerdictValues.Fail, output.Verdict);
-        Assert.Equal("diagnosticsRead", output.Compile.Refresh.Origin);
+        Assert.Equal(AssuranceVerdict.Fail, output.Verdict);
+        Assert.Equal(CompileRefreshOrigin.DiagnosticsRead, output.Compile.Refresh.Origin);
         Assert.False(output.Compile.Refresh.Requested);
         Assert.Equal(1, output.Compile.ScriptCompilation.Diagnostics.ErrorCount);
         Assert.Equal("CS0246", output.Compile.ScriptCompilation.Diagnostics.PrimaryDiagnostic!.Code);
         Assert.Null(output.Compile.Lifecycle.LifecycleState);
         Assert.Equal(0, artifactStore.ReadCount);
         Assert.Equal(1, artifactStore.WriteCount);
-        Assert.Equal("diagnosticsRead", artifactStore.WrittenSummary!.Refresh.Origin);
+        Assert.Equal(CompileRefreshOrigin.DiagnosticsRead, artifactStore.WrittenSummary!.Refresh.Origin);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
             CompileProgressEventNames.Started,
@@ -60,7 +57,7 @@ public sealed class CompileServiceStartupDiagnosticsTests
                 DaemonErrorCodes.DaemonStartupBlocked,
                 "Unity startup was blocked by script compilation errors.",
                 CreateStartupFailure(
-                    DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+                    DaemonDiagnosisReason.UnityScriptCompilationFailed,
                     primaryDiagnostic: null)))),
             artifactStore: artifactStore);
 
@@ -71,7 +68,7 @@ public sealed class CompileServiceStartupDiagnosticsTests
 
         Assert.True(result.IsSuccess);
         var diagnostic = result.Output!.Compile.ScriptCompilation.Diagnostics.PrimaryDiagnostic!;
-        Assert.Equal("compiler", diagnostic.Kind);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, diagnostic.Kind);
         Assert.Null(diagnostic.Code);
         Assert.Contains("script compilation", diagnostic.Message, StringComparison.OrdinalIgnoreCase);
         Assert.Equal(0, artifactStore.ReadCount);
@@ -89,7 +86,7 @@ public sealed class CompileServiceStartupDiagnosticsTests
                 DaemonErrorCodes.DaemonStartupBlocked,
                 "Unity startup was blocked by package resolution.",
                 CreateStartupFailure(
-                    DaemonDiagnosisReasonValues.UnityPackageResolutionFailed,
+                    DaemonDiagnosisReason.UnityPackageResolutionFailed,
                     primaryDiagnostic: null)))),
             artifactStore: artifactStore);
 

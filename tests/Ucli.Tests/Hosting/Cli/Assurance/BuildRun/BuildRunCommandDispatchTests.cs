@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
@@ -13,7 +12,7 @@ public sealed class BuildRunCommandDispatchTests
     public async Task Run_MapsOptionsToServiceInputAndCancellationToken ()
     {
         var service = new RecordingBuildService((_, _, _) => ValueTask.FromResult(BuildExecutionResult.Success(BuildRunTestData.CreateOutput())));
-        var command = new BuildRunCommand(service, CommandResultTestWriter.Create());
+        var command = new BuildRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RunAsync(

@@ -103,11 +103,14 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     /// <inheritdoc />
     public BuildRunArtifactPreparationResult PrepareBuildPipelineOutputLayout (
         BuildRunArtifactPaths paths,
-        string buildTarget,
+        BuildTargetStableName buildTarget,
         IpcBuildOutputLayout outputLayout)
     {
         ArgumentNullException.ThrowIfNull(paths);
-        ArgumentException.ThrowIfNullOrWhiteSpace(buildTarget);
+        if (!ContractLiteralCodec.IsDefined(buildTarget))
+        {
+            throw new ArgumentOutOfRangeException(nameof(buildTarget), buildTarget, "Build target must be specified.");
+        }
         ArgumentNullException.ThrowIfNull(outputLayout);
 
         try
@@ -160,7 +163,10 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     {
         ArgumentNullException.ThrowIfNull(request);
         ArgumentNullException.ThrowIfNull(request.Paths);
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.BuildTarget);
+        if (!ContractLiteralCodec.IsDefined(request.BuildTarget))
+        {
+            throw new ArgumentOutOfRangeException(nameof(request), request.BuildTarget, "Build target must be specified.");
+        }
         ArgumentException.ThrowIfNullOrWhiteSpace(request.UnityBuildTarget);
         ArgumentNullException.ThrowIfNull(request.OutputSources);
         cancellationToken.ThrowIfCancellationRequested();
@@ -268,7 +274,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                     request.Paths.OutputManifestJsonPath,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!string.Equals(outputManifestDigest, persistedOutputManifestDigest, StringComparison.Ordinal))
+            if (outputManifestDigest != persistedOutputManifestDigest)
             {
                 throw new OutputManifestArtifactDigestMismatchException(
                     $"Expected={outputManifestDigest}, Actual={persistedOutputManifestDigest}.");
@@ -617,15 +623,19 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
     private static void EnsureExpectedBuildPipelineOutputLayout (
         BuildRunArtifactPaths paths,
-        string buildTarget,
+        BuildTargetStableName buildTarget,
         IpcBuildOutputLayout outputLayout)
     {
-        if (!IpcBuildOutputLayoutResolver.TryResolve(paths.RunnerOutputDirectory, buildTarget, out var expectedLayout))
+        if (!IpcBuildOutputLayoutResolver.TryResolve(
+            paths.RunnerOutputDirectory,
+            buildTarget,
+            androidAppBundle: false,
+            out var expectedLayout))
         {
             throw new InvalidOperationException($"Build target does not have a deterministic BuildPipeline output layout: {buildTarget}");
         }
 
-        if (!string.Equals(outputLayout.Shape, expectedLayout!.Shape, StringComparison.Ordinal))
+        if (outputLayout.Shape != expectedLayout!.Shape)
         {
             throw new InvalidOperationException(
                 $"BuildPipeline output layout shape must be {expectedLayout.Shape}: {outputLayout.Shape}");
@@ -737,7 +747,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
     private async ValueTask<OutputManifestArtifacts> CreateOutputManifestArtifactsAsync (
         BuildRunArtifactPaths paths,
-        string buildTarget,
+        BuildTargetStableName buildTarget,
         string unityBuildTarget,
         IReadOnlyList<BuildOutputSourceEntry> outputSources,
         bool allowEmptyOutputManifest,
@@ -1391,7 +1401,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             && char.IsAsciiLetter(path[0]);
     }
 
-    private static async ValueTask<string> ComputeFileSha256Async (
+    private static async ValueTask<Sha256Digest> ComputeFileSha256Async (
         string filePath,
         long expectedLength,
         CancellationToken cancellationToken)
@@ -1478,7 +1488,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
     }
 
-    private static async ValueTask<string> ComputeExistingArtifactSha256Async (
+    private static async ValueTask<Sha256Digest> ComputeExistingArtifactSha256Async (
         string path,
         CancellationToken cancellationToken)
     {
@@ -1565,7 +1575,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
     }
 
-    private static async ValueTask<string> WriteTextAtomicallyAsync (
+    private static async ValueTask<Sha256Digest> WriteTextAtomicallyAsync (
         string path,
         string text,
         CancellationToken cancellationToken)
@@ -1611,7 +1621,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
     }
 
-    private static string ComputeUtf8Sha256 (string text)
+    private static Sha256Digest ComputeUtf8Sha256 (string text)
     {
         using var hashWriter = new Utf8Sha256HashWriter();
         hashWriter.Append(text);
@@ -1622,7 +1632,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         BuildArtifactKind kind,
         string artifactRoot,
         string path,
-        string sha256)
+        Sha256Digest sha256)
     {
         return new BuildArtifactRef(
             kind,
@@ -1732,7 +1742,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     private void VerifyManifestDigest (BuildOutputManifestJsonContract contract)
     {
         var calculatedDigest = outputManifestWriter.CalculateManifestDigest(contract.ToContent());
-        if (!string.Equals(calculatedDigest, contract.ManifestDigest, StringComparison.Ordinal))
+        if (calculatedDigest != contract.ManifestDigest)
         {
             throw new OutputManifestDigestMismatchException(
                 $"Expected={contract.ManifestDigest}, Actual={calculatedDigest}.");

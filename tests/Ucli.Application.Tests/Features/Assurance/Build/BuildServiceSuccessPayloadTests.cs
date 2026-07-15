@@ -1,9 +1,8 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
 
@@ -18,8 +17,8 @@ public sealed class BuildServiceSuccessPayloadTests
         using var tempDirectory = CreateArtifactDirectoryScope();
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
         var requestExecutor = CreateBuildResponseExecutor(
-            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            IpcBuildReportResult.Succeeded,
+            IpcBuildLogCompletionReason.Completed,
             errorCount: 0);
         var progressSink = new CollectingCommandProgressSink();
         var service = CreateService(
@@ -33,14 +32,14 @@ public sealed class BuildServiceSuccessPayloadTests
             Assert.Fail(string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
         }
         var output = result.Output!;
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), output.Verdict);
+        Assert.Equal(AssuranceVerdict.Pass, output.Verdict);
         Assert.Equal(RunId, output.Build.RunId);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded), output.Build.Summary.Result);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport), output.Build.RunnerResult.Source);
+        Assert.Equal(IpcBuildReportResult.Succeeded, output.Build.Summary.Result);
+        Assert.Equal(IpcBuildRunnerResultSource.BuildPipelineBuildReport, output.Build.RunnerResult.Source);
         Assert.Equal(output.Build.RunnerResult.Status, output.Build.Summary.Result);
-        Assert.Equal(BuildReportRefs.BuildReport, output.Build.Summary.ReportRef);
-        Assert.Equal(BuildReportRefs.BuildLog, output.Build.Logs.ReportRef);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed), output.Build.Logs.CompletionReason);
+        Assert.Equal(BuildArtifactKind.BuildReport, output.Build.Summary.ReportRef);
+        Assert.Equal(BuildArtifactKind.BuildLog, output.Build.Logs.ReportRef);
+        Assert.Equal(IpcBuildLogCompletionReason.Completed, output.Build.Logs.CompletionReason);
         var generationsBefore = Assert.IsType<IpcUnityGenerationSnapshot>(output.Build.Generations.Before);
         var generationsAfter = Assert.IsType<IpcUnityGenerationSnapshot>(output.Build.Generations.After);
         var generationsValidFor = Assert.IsType<IpcUnityGenerationSnapshot>(output.Build.Generations.ValidFor);
@@ -49,36 +48,36 @@ public sealed class BuildServiceSuccessPayloadTests
         Assert.Equal(11, generationsValidFor.AssetRefreshGeneration);
         var expectedProfileDigest = BuildProfileResolver.ResolveJson(ProfileJson).Profile!.Digest;
         Assert.Equal(expectedProfileDigest, output.Build.Profile.Digest);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit), output.Build.Inputs.InputKind);
-        Assert.Equal("standaloneLinux64", output.Build.Inputs.Target.StableName);
+        Assert.Equal(BuildProfileInputsKind.Explicit, output.Build.Inputs.InputKind);
+        Assert.Equal(BuildTargetStableName.StandaloneLinux64, output.Build.Inputs.Target.StableName);
         Assert.Equal("StandaloneLinux64", output.Build.Inputs.Target.UnityBuildTarget);
-        Assert.Equal("explicit", output.Build.Inputs.Scenes.Source);
-        Assert.Equal(["Assets/Scenes/Main.unity"], output.Build.Inputs.Scenes.Paths);
+        Assert.Equal(BuildProfileSceneSource.Explicit, output.Build.Inputs.Scenes.Source);
+        Assert.Equal([new SceneAssetPath("Assets/Scenes/Main.unity")], output.Build.Inputs.Scenes.Paths);
         Assert.True(output.Build.Inputs.Options.Development);
         Assert.Null(output.Build.Inputs.UnityBuildProfile);
-        Assert.Equal(BuildReportRefs.BuildOutputManifest, output.Build.Output.ManifestRef);
+        Assert.Equal(BuildArtifactKind.BuildOutputManifest, output.Build.Output.ManifestRef);
         Assert.Equal(StubBuildRunArtifactStore.OutputManifestDigest, output.Build.Output.ManifestDigest);
         Assert.Equal(1, output.Build.Output.EntryCount);
         Assert.Equal(1, output.Build.Output.FileCount);
         Assert.Equal(
-            [BuildReportRefs.Build, BuildReportRefs.BuildLog, BuildReportRefs.BuildOutputManifest, BuildReportRefs.BuildReport],
-            output.Reports.Keys.Order(StringComparer.Ordinal).ToArray());
-        Assert.Equal(StubBuildRunArtifactStore.BuildMetadataDigest, output.Reports[BuildReportRefs.Build].Digest);
-        Assert.Equal(StubBuildRunArtifactStore.BuildReportArtifactDigest, output.Reports[BuildReportRefs.BuildReport].Digest);
-        Assert.Equal(StubBuildRunArtifactStore.BuildOutputManifestArtifactDigest, output.Reports[BuildReportRefs.BuildOutputManifest].Digest);
-        Assert.Equal(StubBuildRunArtifactStore.BuildLogArtifactDigest, output.Reports[BuildReportRefs.BuildLog].Digest);
-        Assert.Equal("build.json", output.Reports[BuildReportRefs.Build].Path);
-        Assert.Equal("build-report.json", output.Reports[BuildReportRefs.BuildReport].Path);
-        Assert.Equal("output-manifest.json", output.Reports[BuildReportRefs.BuildOutputManifest].Path);
-        Assert.Equal("build.log", output.Reports[BuildReportRefs.BuildLog].Path);
+            [BuildArtifactKind.Build, BuildArtifactKind.BuildReport, BuildArtifactKind.BuildOutputManifest, BuildArtifactKind.BuildLog],
+            output.Reports.Keys.Order().ToArray());
+        Assert.Equal(StubBuildRunArtifactStore.BuildMetadataDigest, output.Reports[BuildArtifactKind.Build].Digest);
+        Assert.Equal(StubBuildRunArtifactStore.BuildReportArtifactDigest, output.Reports[BuildArtifactKind.BuildReport].Digest);
+        Assert.Equal(StubBuildRunArtifactStore.BuildOutputManifestArtifactDigest, output.Reports[BuildArtifactKind.BuildOutputManifest].Digest);
+        Assert.Equal(StubBuildRunArtifactStore.BuildLogArtifactDigest, output.Reports[BuildArtifactKind.BuildLog].Digest);
+        Assert.Equal("build.json", output.Reports[BuildArtifactKind.Build].Path);
+        Assert.Equal("build-report.json", output.Reports[BuildArtifactKind.BuildReport].Path);
+        Assert.Equal("output-manifest.json", output.Reports[BuildArtifactKind.BuildOutputManifest].Path);
+        Assert.Equal("build.log", output.Reports[BuildArtifactKind.BuildLog].Path);
         Assert.True(output.Reports.ContainsKey(output.Build.Output.ManifestRef));
         AssertEvidenceRefsResolveToReports(output);
-        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildExecuteMethodResolved.Value);
-        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildExecuteMethodInvoked.Value);
-        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildExecuteMethodCompleted.Value);
+        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildExecuteMethodResolved);
+        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildExecuteMethodInvoked);
+        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildExecuteMethodCompleted);
         Assert.All(output.Claims, claim => Assert.True(claim.Required));
         var verifier = Assert.Single(output.Verifiers);
-        Assert.Equal("build", verifier.Id);
+        Assert.Equal(new AssuranceVerifierId("build"), verifier.Id);
         Assert.Equal(output.Claims.Where(static claim => claim.Required).Select(static claim => claim.Id).ToArray(), verifier.PrimaryClaims);
         Assert.Equal(BuildPipelineEffectValues, verifier.Effects);
         var preparedPaths = artifactStore.PreparedPaths;
@@ -88,22 +87,24 @@ public sealed class BuildServiceSuccessPayloadTests
             ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
             artifactStore.WrittenMetadata!.Summary.GetProperty("result").GetString());
         Assert.Equal(
-            output.Build.RunnerResult.Source,
+            ContractLiteralCodec.ToValue(output.Build.RunnerResult.Source),
             artifactStore.WrittenMetadata.RunnerResult.GetProperty("source").GetString());
         Assert.Equal(
-            output.Build.RunnerResult.Status,
+            ContractLiteralCodec.ToValue(output.Build.RunnerResult.Status),
             artifactStore.WrittenMetadata.RunnerResult.GetProperty("status").GetString());
         Assert.Equal(output.Build.Profile.Path, artifactStore.WrittenMetadata.Profile.GetProperty("path").GetString());
-        Assert.Equal(expectedProfileDigest, artifactStore.WrittenMetadata.Profile.GetProperty("digest").GetString());
-        Assert.Equal(output.Build.Inputs.InputKind, artifactStore.WrittenMetadata.Inputs.GetProperty("inputKind").GetString());
+        Assert.Equal(expectedProfileDigest.ToString(), artifactStore.WrittenMetadata.Profile.GetProperty("digest").GetString());
         Assert.Equal(
-            output.Build.Inputs.Target.StableName,
+            ContractLiteralCodec.ToValue(output.Build.Inputs.InputKind),
+            artifactStore.WrittenMetadata.Inputs.GetProperty("inputKind").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(output.Build.Inputs.Target.StableName),
             artifactStore.WrittenMetadata.Inputs.GetProperty("target").GetProperty("stableName").GetString());
         Assert.Equal(
             output.Build.Inputs.Target.UnityBuildTarget,
             artifactStore.WrittenMetadata.Inputs.GetProperty("target").GetProperty("unityBuildTarget").GetString());
         Assert.Equal(
-            output.Build.Inputs.Scenes.Source,
+            ContractLiteralCodec.ToValue(output.Build.Inputs.Scenes.Source),
             artifactStore.WrittenMetadata.Inputs.GetProperty("scenes").GetProperty("source").GetString());
         Assert.Equal(
             output.Build.Inputs.Options.Development,
@@ -119,8 +120,8 @@ public sealed class BuildServiceSuccessPayloadTests
         Assert.Equal(
             CreateExpectedPlayerLocationPathName(preparedPaths.RunnerOutputDirectory),
             artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").GetProperty("locationPathName").GetString());
-        Assert.Equal(output.Build.Summary.ReportRef, artifactStore.WrittenMetadata.Summary.GetProperty("reportRef").GetString());
-        Assert.Equal(output.Build.Logs.ReportRef, artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
+        Assert.Equal(ContractLiteralCodec.ToValue(output.Build.Summary.ReportRef!.Value), artifactStore.WrittenMetadata.Summary.GetProperty("reportRef").GetString());
+        Assert.Equal(ContractLiteralCodec.ToValue(output.Build.Logs.ReportRef), artifactStore.WrittenMetadata.Logs.GetProperty("reportRef").GetString());
         Assert.False(artifactStore.WrittenMetadata.ProjectMutation.GetProperty("mutated").GetBoolean());
         Assert.Equal("full", artifactStore.WrittenMetadata.ProjectMutation.GetProperty("coverage").GetString());
         Assert.Equal(output.Build.Generations.Before.CompileGeneration, artifactStore.WrittenMetadata.Generations.GetProperty("before").GetProperty("compileGeneration").GetInt64());
@@ -159,8 +160,8 @@ public sealed class BuildServiceSuccessPayloadTests
         var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
         var outputSource = Assert.Single(accountingRequest.OutputSources);
         Assert.False(outputSource.IsRunnerOutputRelative);
-        Assert.Equal(requestPayload.OutputLayout!.LocationPathName, outputSource.Path);
-        Assert.Equal("standaloneLinux64", accountingRequest.BuildTarget);
+        Assert.Equal(requestPayload.Request.OutputLayout!.LocationPathName, outputSource.Path);
+        Assert.Equal(BuildTargetStableName.StandaloneLinux64, accountingRequest.BuildTarget);
         Assert.Equal("StandaloneLinux64", accountingRequest.UnityBuildTarget);
         Assert.False(accountingRequest.AllowEmptyOutputManifest);
     }

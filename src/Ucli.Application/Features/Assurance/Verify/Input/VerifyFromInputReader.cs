@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 
@@ -115,7 +116,7 @@ internal static class VerifyFromInputReader
     {
         return root.TryGetProperty("status", out var statusElement)
             && statusElement.ValueKind == JsonValueKind.String
-            && string.Equals(statusElement.GetString(), IpcProtocol.StatusOk, StringComparison.Ordinal)
+            && ContractLiteralCodec.Matches(statusElement.GetString(), CommandResultStatus.Ok)
             && root.TryGetProperty("exitCode", out var exitCodeElement)
             && exitCodeElement.ValueKind == JsonValueKind.Number
             && exitCodeElement.TryGetInt32(out var exitCode)
@@ -133,9 +134,9 @@ internal static class VerifyFromInputReader
         foreach (var opResultElement in opResultsElement.EnumerateArray())
         {
             if (opResultElement.ValueKind != JsonValueKind.Object
-                || !TryReadString(opResultElement, "opId", out var opId)
+                || !TryReadExecuteStepId(opResultElement, "opId", out var opId)
                 || !TryReadString(opResultElement, "op", out var op)
-                || !TryReadKnownOperationPhase(opResultElement, "phase")
+                || !TryReadContractLiteral(opResultElement, "phase", out IpcExecuteOperationPhase _)
                 || !TryReadBoolean(opResultElement, "applied", out var applied)
                 || !TryReadBoolean(opResultElement, "changed", out var changed)
                 || !opResultElement.TryGetProperty("touched", out var touchedElement)
@@ -167,11 +168,11 @@ internal static class VerifyFromInputReader
                 diagnostics,
                 new VerifyFromPostReadSourceStep(
                     opId,
-                    IpcExecutePostReadSourceKindNames.Operation,
+                    IpcExecutePostReadSourceKind.Operation,
                     false,
                     null,
                     false,
-                    IpcExecuteExpectedPostStateNames.Unavailable)));
+                    IpcExecuteExpectedPostState.Unavailable)));
         }
 
         opResults = results;
@@ -180,9 +181,9 @@ internal static class VerifyFromInputReader
 
     private static bool TryReadPostReadSource (
         JsonElement payload,
-        out IReadOnlyDictionary<string, VerifyFromPostReadSourceStep> postReadSourceByOpId)
+        out IReadOnlyDictionary<IpcExecuteStepId, VerifyFromPostReadSourceStep> postReadSourceByOpId)
     {
-        postReadSourceByOpId = new Dictionary<string, VerifyFromPostReadSourceStep>(StringComparer.Ordinal);
+        postReadSourceByOpId = new Dictionary<IpcExecuteStepId, VerifyFromPostReadSourceStep>();
         if (!payload.TryGetProperty("postReadSource", out var postReadSourceElement)
             || postReadSourceElement.ValueKind != JsonValueKind.Object
             || !postReadSourceElement.TryGetProperty("schemaVersion", out var schemaVersionElement)
@@ -195,18 +196,16 @@ internal static class VerifyFromInputReader
             return false;
         }
 
-        var stepsByOpId = new Dictionary<string, VerifyFromPostReadSourceStep>(StringComparer.Ordinal);
+        var stepsByOpId = new Dictionary<IpcExecuteStepId, VerifyFromPostReadSourceStep>();
         foreach (var stepElement in stepsElement.EnumerateArray())
         {
             if (stepElement.ValueKind != JsonValueKind.Object
-                || !TryReadString(stepElement, "opId", out var opId)
-                || !TryReadString(stepElement, "sourceKind", out var sourceKind)
-                || !IsKnownPostReadSourceKind(sourceKind)
+                || !TryReadExecuteStepId(stepElement, "opId", out var opId)
+                || !TryReadContractLiteral(stepElement, "sourceKind", out IpcExecutePostReadSourceKind sourceKind)
                 || !TryReadBoolean(stepElement, "playModeMutation", out var playModeMutation)
                 || !TryReadOptionalPostReadCommit(stepElement, out var commit)
                 || !TryReadBoolean(stepElement, "persistenceExpected", out var persistenceExpected)
-                || !TryReadString(stepElement, "expectedPostState", out var expectedPostState)
-                || !IsKnownExpectedPostState(expectedPostState)
+                || !TryReadContractLiteral(stepElement, "expectedPostState", out IpcExecuteExpectedPostState expectedPostState)
                 || stepsByOpId.ContainsKey(opId))
             {
                 return false;
@@ -227,7 +226,7 @@ internal static class VerifyFromInputReader
 
     private static bool TryAttachPostReadSource (
         IReadOnlyList<VerifyFromOperationResult> opResults,
-        IReadOnlyDictionary<string, VerifyFromPostReadSourceStep> postReadSourceByOpId,
+        IReadOnlyDictionary<IpcExecuteStepId, VerifyFromPostReadSourceStep> postReadSourceByOpId,
         out IReadOnlyList<VerifyFromOperationResult> normalizedOpResults)
     {
         normalizedOpResults = [];
@@ -275,11 +274,10 @@ internal static class VerifyFromInputReader
         foreach (var diagnosticElement in diagnosticsElement.EnumerateArray())
         {
             if (diagnosticElement.ValueKind != JsonValueKind.Object
-                || !TryReadString(diagnosticElement, "code", out var code)
-                || !UcliCode.IsValidValue(code)
-                || !TryReadKnownDiagnosticSeverity(diagnosticElement, "severity", out var severity)
-                || !TryReadString(diagnosticElement, "coverageImpact", out var coverageImpact)
-                || !IsKnownDiagnosticCoverageImpact(coverageImpact)
+                || !TryReadString(diagnosticElement, "code", out var codeText)
+                || !UcliCode.TryCreate(codeText, out var code)
+                || !TryReadContractLiteral(diagnosticElement, "severity", out UcliDiagnosticSeverity severity)
+                || !TryReadContractLiteral(diagnosticElement, "coverageImpact", out IpcExecuteDiagnosticCoverageImpact coverageImpact)
                 || !TryReadString(diagnosticElement, "message", out var message))
             {
                 return null;
@@ -311,8 +309,7 @@ internal static class VerifyFromInputReader
         foreach (var requirement in requirements.EnumerateArray())
         {
             if (requirement.ValueKind != JsonValueKind.Object
-                || !TryReadString(requirement, "surface", out var surface)
-                || !IsKnownReadPostconditionSurface(surface)
+                || !TryReadContractLiteral(requirement, "surface", out IpcExecuteReadPostconditionSurface _)
                 || !TryReadString(requirement, "minSafeGeneratedAtUtc", out var minSafeGeneratedAtUtc)
                 || !IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(minSafeGeneratedAtUtc, out var parsedMinSafeGeneratedAtUtc)
                 || parsedMinSafeGeneratedAtUtc is null)
@@ -334,6 +331,23 @@ internal static class VerifyFromInputReader
         return owner.TryGetProperty(propertyName, out var propertyElement)
             && propertyElement.ValueKind == JsonValueKind.String
             && !string.IsNullOrWhiteSpace(value = propertyElement.GetString() ?? string.Empty);
+    }
+
+    private static bool TryReadExecuteStepId (
+        JsonElement owner,
+        string propertyName,
+        out IpcExecuteStepId value)
+    {
+        value = default!;
+        if (!TryReadString(owner, propertyName, out var text)
+            || StringValueValidator.HasOuterWhitespace(text)
+            || !StringValueValidator.IsWellFormedUtf16(text))
+        {
+            return false;
+        }
+
+        value = new IpcExecuteStepId(text);
+        return true;
     }
 
     private static bool TryReadBoolean (
@@ -358,7 +372,7 @@ internal static class VerifyFromInputReader
 
     private static bool TryReadOptionalPostReadCommit (
         JsonElement owner,
-        out string? value)
+        out IpcExecutePostReadCommit? value)
     {
         value = null;
         if (!owner.TryGetProperty("commit", out var propertyElement))
@@ -376,19 +390,13 @@ internal static class VerifyFromInputReader
             return false;
         }
 
-        value = propertyElement.GetString();
-        return !string.IsNullOrWhiteSpace(value) && IsKnownPostReadCommit(value);
-    }
+        if (!ContractLiteralCodec.TryParse(propertyElement.GetString(), out IpcExecutePostReadCommit commit))
+        {
+            return false;
+        }
 
-    private static bool TryReadKnownOperationPhase (
-        JsonElement owner,
-        string propertyName)
-    {
-        return TryReadString(owner, propertyName, out var phase)
-            && phase is IpcExecuteOperationPhaseNames.Validate
-                or IpcExecuteOperationPhaseNames.Plan
-                or IpcExecuteOperationPhaseNames.Call
-                or IpcExecuteOperationPhaseNames.Skipped;
+        value = commit;
+        return true;
     }
 
     private static bool TouchedItemsAreValid (JsonElement touchedElement)
@@ -396,8 +404,7 @@ internal static class VerifyFromInputReader
         foreach (var item in touchedElement.EnumerateArray())
         {
             if (item.ValueKind != JsonValueKind.Object
-                || !TryReadString(item, "kind", out var kind)
-                || !IsKnownTouchedResourceKind(kind)
+                || !TryReadContractLiteral<UcliTouchedResourceKind>(item, "kind", out _)
                 || !TryReadString(item, "path", out _))
             {
                 return false;
@@ -407,63 +414,16 @@ internal static class VerifyFromInputReader
         return true;
     }
 
-    private static bool TryReadKnownDiagnosticSeverity (
+    private static bool TryReadContractLiteral<TEnum> (
         JsonElement owner,
         string propertyName,
-        out string severity)
+        out TEnum value)
+        where TEnum : struct, Enum
     {
-        if (TryReadString(owner, propertyName, out severity)
-            && severity is IpcExecuteDiagnosticSeverityNames.Info
-                or IpcExecuteDiagnosticSeverityNames.Warning
-                or IpcExecuteDiagnosticSeverityNames.Error)
-        {
-            return true;
-        }
-
-        severity = string.Empty;
-        return false;
-    }
-
-    private static bool IsKnownDiagnosticCoverageImpact (string coverageImpact)
-    {
-        return coverageImpact is IpcExecuteDiagnosticCoverageImpactNames.None
-            or IpcExecuteDiagnosticCoverageImpactNames.Partial
-            or IpcExecuteDiagnosticCoverageImpactNames.Indeterminate;
-    }
-
-    private static bool IsKnownTouchedResourceKind (string kind)
-    {
-        return kind is UcliTouchedResourceKindNames.Scene
-            or UcliTouchedResourceKindNames.Prefab
-            or UcliTouchedResourceKindNames.Asset
-            or UcliTouchedResourceKindNames.ProjectSettings;
-    }
-
-    private static bool IsKnownReadPostconditionSurface (string surface)
-    {
-        return surface is IpcExecuteReadPostconditionSurfaceNames.AssetSearch
-            or IpcExecuteReadPostconditionSurfaceNames.GuidPath
-            or IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite;
-    }
-
-    private static bool IsKnownPostReadSourceKind (string sourceKind)
-    {
-        return sourceKind is IpcExecutePostReadSourceKindNames.Edit
-            or IpcExecutePostReadSourceKindNames.Operation
-            or IpcExecutePostReadSourceKindNames.Refresh;
-    }
-
-    private static bool IsKnownPostReadCommit (string commit)
-    {
-        return commit is IpcExecutePostReadCommitNames.None
-            or IpcExecutePostReadCommitNames.Context
-            or IpcExecutePostReadCommitNames.Project;
-    }
-
-    private static bool IsKnownExpectedPostState (string expectedPostState)
-    {
-        return expectedPostState is IpcExecuteExpectedPostStateNames.Deterministic
-            or IpcExecuteExpectedPostStateNames.Unavailable;
+        value = default;
+        return owner.TryGetProperty(propertyName, out var propertyElement)
+            && propertyElement.ValueKind == JsonValueKind.String
+            && ContractLiteralCodec.TryParse(propertyElement.GetString(), out value);
     }
 
     private static VerifyFromInputReadResult Failure (

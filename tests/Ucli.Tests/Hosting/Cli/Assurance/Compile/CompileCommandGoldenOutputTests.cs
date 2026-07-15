@@ -1,7 +1,4 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.CompileCommandTestData;
@@ -18,7 +15,7 @@ public sealed class CompileCommandGoldenOutputTests
     public async Task Compile_WithDefaultOrSupportedFormat_WritesOnlyFinalCommandResult (string? format)
     {
         var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput())));
-        var command = new CompileCommand(service, CommandResultTestWriter.Create());
+        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
             format: format,
@@ -35,7 +32,7 @@ public sealed class CompileCommandGoldenOutputTests
     public async Task Compile_WithCompileErrorOutput_ReturnsOkEnvelopeWithFailureExitCodeAndMatchesGolden ()
     {
         var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput(errorCount: 1))));
-        var command = new CompileCommand(service, CommandResultTestWriter.Create());
+        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.CompileAsync(
             cancellationToken: CancellationToken.None));
@@ -45,9 +42,11 @@ public sealed class CompileCommandGoldenOutputTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Compile,
-            IpcProtocol.StatusOk,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
             1);
-        Assert.Equal(CompileVerdictValues.Fail, outputJson.RootElement.GetProperty("payload").GetProperty("verdict").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(AssuranceVerdict.Fail),
+            outputJson.RootElement.GetProperty("payload").GetProperty("verdict").GetString());
 
         JsonGoldenFileAssert.Matches(
             CliOutputGoldenFiles.GetPath("compile", "compile-error.json"),

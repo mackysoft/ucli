@@ -1,3 +1,6 @@
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
+
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 
 /// <summary> Represents one persisted build-run artifact reference. </summary>
@@ -7,4 +10,4 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 internal sealed record BuildArtifactRef (
     BuildArtifactKind Kind,
     string Path,
-    string Digest);
+    Sha256Digest Digest);

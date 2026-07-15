@@ -1,31 +1,25 @@
 using System.Text.Json;
+using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Semantics;
 
 /// <summary> Validates compile-specific semantic invariants inside the common assurance payload shape. </summary>
-internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemanticInvariantRule
+internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceClaimInvariantRule
 {
-    /// <inheritdoc />
-    public void ValidatePayload (
-        JsonElement payload,
-        List<AssuranceSemanticInvariantViolation> violations)
-    {
-        ArgumentNullException.ThrowIfNull(violations);
-    }
-
     /// <inheritdoc />
     public void ValidateClaim (
         JsonElement payload,
         JsonElement claimElement,
         string claimPath,
-        string claimId,
+        UcliCode claimId,
         List<AssuranceSemanticInvariantViolation> violations)
     {
         ArgumentNullException.ThrowIfNull(violations);
 
-        if (!IsCompileClaim(claimId) || !IsCompilePayload(payload))
+        if (!CompileClaimCodes.All.Contains(claimId) || !IsCompilePayload(payload))
         {
             return;
         }
@@ -36,17 +30,17 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
             return;
         }
 
-        if (CompileClaimCodes.UnityCompileNoErrors.EqualsValue(claimId))
+        if (CompileClaimCodes.UnityCompileNoErrors == claimId)
         {
             ValidateVerifier(payload, violations);
             ValidateRefresh(compileElement, violations);
             ValidateCompileNoErrorsClaim(compileElement, claimElement, claimPath, violations);
         }
-        else if (CompileClaimCodes.UnityDomainReloadSettled.EqualsValue(claimId))
+        else if (CompileClaimCodes.UnityDomainReloadSettled == claimId)
         {
             ValidateDomainReloadClaim(compileElement, claimElement, claimPath, violations);
         }
-        else if (CompileClaimCodes.UnityLifecycleReadyAfterCompile.EqualsValue(claimId))
+        else if (CompileClaimCodes.UnityLifecycleReadyAfterCompile == claimId)
         {
             ValidateLifecycleClaim(compileElement, claimElement, claimPath, violations);
         }
@@ -67,7 +61,8 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
             var verifierPath = $"$.verifiers[{index}]";
             if (verifierElement.ValueKind == JsonValueKind.Object
                 && TryReadString(verifierElement, "id", out var id)
-                && string.Equals(id, "compile", StringComparison.Ordinal))
+                && AssuranceVerifierId.TryCreate(id, out var verifierId)
+                && verifierId == CompileService.VerifierId)
             {
                 ValidateEffects(verifierElement, verifierPath, violations);
                 ValidatePrimaryClaims(verifierElement, verifierPath, violations);
@@ -77,7 +72,7 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
             index++;
         }
 
-        AddViolation(violations, "$.verifiers", "Compile payload must contain verifier id 'compile'.");
+        AddViolation(violations, "$.verifiers", $"Compile payload must contain verifier id '{CompileService.VerifierId}'.");
     }
 
     private static void ValidateEffects (
@@ -92,12 +87,20 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
             return;
         }
 
-        var effects = effectsElement
-            .EnumerateArray()
-            .Where(static item => item.ValueKind == JsonValueKind.String)
-            .Select(static item => item.GetString() ?? string.Empty)
-            .ToArray();
-        if (!effects.SequenceEqual(CompileEffectValues.All, StringComparer.Ordinal))
+        var effects = new List<AssuranceEffect>();
+        foreach (var effectElement in effectsElement.EnumerateArray())
+        {
+            if (effectElement.ValueKind != JsonValueKind.String
+                || !ContractLiteralCodec.TryParse(effectElement.GetString(), out AssuranceEffect effect))
+            {
+                AddViolation(violations, effectsPath, "Compile verifier effects contain an unsupported value.");
+                return;
+            }
+
+            effects.Add(effect);
+        }
+
+        if (!effects.SequenceEqual(AssuranceEffectSets.Compile))
         {
             AddViolation(violations, effectsPath, "Compile verifier effects must be assetDatabaseRefresh, scriptCompilation, domainReload.");
         }
@@ -142,8 +145,7 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
             return;
         }
 
-        if (!string.Equals(origin, CompileEffectValues.AssetDatabaseRefresh, StringComparison.Ordinal)
-            && !string.Equals(origin, "diagnosticsRead", StringComparison.Ordinal))
+        if (!ContractLiteralCodec.TryParse(origin, out CompileRefreshOrigin _))
         {
             AddViolation(violations, BuildPropertyPath(refreshPath, "origin"), "Compile refresh origin must distinguish assetDatabaseRefresh from diagnosticsRead.");
         }
@@ -160,17 +162,18 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
             return;
         }
 
-        if (!TryReadString(claimElement, "status", out var status))
+        if (!TryReadString(claimElement, "status", out var statusLiteral)
+            || !ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status))
         {
             return;
         }
 
-        if (errorCount > 0 && !string.Equals(status, CompileClaimStatusValues.Failed, StringComparison.Ordinal))
+        if (errorCount > 0 && status != AssuranceClaimStatus.Failed)
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_COMPILE_NO_ERRORS must fail when diagnostics.errorCount is greater than zero.");
         }
 
-        if (errorCount == 0 && !string.Equals(status, CompileClaimStatusValues.Passed, StringComparison.Ordinal))
+        if (errorCount == 0 && status != AssuranceClaimStatus.Passed)
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_COMPILE_NO_ERRORS must pass when diagnostics.errorCount is zero.");
         }
@@ -197,7 +200,8 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
         }
 
         if (TryReadBoolean(domainReloadElement, "settled", out var settled)
-            && TryReadString(claimElement, "status", out var status)
+            && TryReadString(claimElement, "status", out var statusLiteral)
+            && ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status)
             && !IsExpectedBooleanClaimStatus(settled, status))
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_DOMAIN_RELOAD_SETTLED must match domainReload.settled.");
@@ -229,7 +233,8 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
         }
 
         if (TryReadBoolean(lifecycleElement, "canAcceptExecutionRequests", out var canAcceptExecutionRequests)
-            && TryReadString(claimElement, "status", out var status)
+            && TryReadString(claimElement, "status", out var statusLiteral)
+            && ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status)
             && !IsExpectedBooleanClaimStatus(canAcceptExecutionRequests, status))
         {
             AddViolation(violations, BuildPropertyPath(claimPath, "status"), "UNITY_LIFECYCLE_READY_AFTER_COMPILE must match lifecycle.canAcceptExecutionRequests.");
@@ -238,11 +243,11 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
 
     private static bool IsExpectedBooleanClaimStatus (
         bool evidencePassed,
-        string status)
+        AssuranceClaimStatus status)
     {
         return evidencePassed
-            ? string.Equals(status, CompileClaimStatusValues.Passed, StringComparison.Ordinal)
-            : string.Equals(status, CompileClaimStatusValues.Failed, StringComparison.Ordinal);
+            ? status == AssuranceClaimStatus.Passed
+            : status == AssuranceClaimStatus.Failed;
     }
 
     private static bool TryReadDiagnostics (
@@ -264,13 +269,6 @@ internal sealed class CompileAssuranceSemanticInvariantRule : IAssuranceSemantic
         }
 
         return errorCountElement.TryGetInt32(out errorCount);
-    }
-
-    private static bool IsCompileClaim (string claimId)
-    {
-        return CompileClaimCodes.UnityCompileNoErrors.EqualsValue(claimId)
-            || CompileClaimCodes.UnityDomainReloadSettled.EqualsValue(claimId)
-            || CompileClaimCodes.UnityLifecycleReadyAfterCompile.EqualsValue(claimId);
     }
 
     private static bool IsCompilePayload (JsonElement payload)

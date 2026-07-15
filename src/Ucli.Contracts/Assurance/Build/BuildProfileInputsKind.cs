@@ -7,9 +7,9 @@ public enum BuildProfileInputsKind
 {
     /// <summary> Uses build inputs declared directly in the profile. </summary>
     [UcliContractLiteral("explicit")]
-    Explicit = 0,
+    Explicit = 1,
 
     /// <summary> Uses a Unity Build Profile asset selected by project-relative path. </summary>
     [UcliContractLiteral("unityBuildProfile")]
-    UnityBuildProfile = 1,
+    UnityBuildProfile = 2,
 }

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
 
@@ -74,8 +75,8 @@ public sealed class BuildServiceArtifactAccountingTests
             });
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(reportResult),
-                ContractLiteralCodec.ToValue(completionReason),
+                reportResult,
+                completionReason,
                 errorCount: 1),
             artifactStore: artifactStore);
 

@@ -1,7 +1,5 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
-using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.CompileCommandTestData;
@@ -23,7 +21,7 @@ public sealed class CompileCommandProgressTests
                 cancellationToken);
             return CompileExecutionResult.Success(CreateOutput());
         });
-        var command = new CompileCommand(service, CommandResultTestWriter.Create());
+        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
             format: "json",
@@ -53,7 +51,7 @@ public sealed class CompileCommandProgressTests
                 cancellationToken);
             return CompileExecutionResult.Success(CreateOutput());
         });
-        var command = new CompileCommand(service, CommandResultTestWriter.Create());
+        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.CompileAsync(
             cancellationToken: CancellationToken.None));

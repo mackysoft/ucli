@@ -27,6 +27,17 @@ public sealed class ReadyAssuranceSemanticInvariantValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithUnknownVerifierKind_ReturnsKindPath ()
+    {
+        var payload = CreateReadyPayload(verifiers: [CreateVerifier(kind: "external")]);
+
+        var result = ValidateReadyPayload(payload);
+
+        AssertViolationPath(result, "$.verifiers[0].kind");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithReadyClaimMissingValidity_ReturnsValidityPath ()
     {
         var result = ValidateReadyPayload(CreateReadyExecutionPayload(includeValidity: false));

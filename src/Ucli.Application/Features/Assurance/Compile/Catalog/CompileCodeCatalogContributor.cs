@@ -41,7 +41,7 @@ internal sealed class CompileCodeCatalogContributor : ICodeCatalogContributor
     {
         return new CodeCatalogDescriptor(
             Code: code,
-            Kind: CodeCatalogKindValues.Claim,
+            Kind: CodeCatalogKind.Claim,
             Category: "compile",
             Summary: summary,
             Meaning: summary,

@@ -83,8 +83,7 @@ internal static class ReadyServiceTestSupport
             IpcPayloadCodec.SerializeToElement(CreateReadyPingResponse(
                 lifecycleState,
                 projectFingerprint)),
-            [],
-            HasFailureStatus: false));
+            []));
     }
 
     public static IpcUnityEditorObservation CreateReadyPingResponse (
@@ -113,8 +112,9 @@ internal static class ReadyServiceTestSupport
                     IsPlayingOrWillChangePlaymode: false)),
             observedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
             actionRequired: lifecycleState == IpcEditorLifecycleState.CompileFailed
-                ? DaemonDiagnosisActionRequiredValues.FixCompileErrors
-                : null);
+                ? DaemonDiagnosisActionRequired.FixCompileErrors
+                : null,
+            primaryDiagnostic: null);
     }
 
     public static StartupFailureDetail CreateStartupFailureDetail ()
@@ -135,9 +135,9 @@ internal static class ReadyServiceTestSupport
                 ArtifactPath: null,
                 RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
             Diagnosis: new DaemonDiagnosisOutput(
-                Reason: "unityScriptCompilationFailed",
+                Reason: DaemonDiagnosisReason.UnityScriptCompilationFailed,
                 Message: "Unity startup is blocked.",
-                ReportedBy: "cli",
+                ReportedBy: DaemonDiagnosisReportedBy.Cli,
                 IsInferred: true,
                 UpdatedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:06+00:00"),
                 ProcessId: 1234,
@@ -145,9 +145,9 @@ internal static class ReadyServiceTestSupport
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: "fixCompileErrors",
+                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: "compiler",
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                     Code: "CS0246",
                     File: "Assets/Scripts/Broken.cs",
                     Line: 10,

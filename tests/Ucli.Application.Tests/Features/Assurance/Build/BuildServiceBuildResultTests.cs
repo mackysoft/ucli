@@ -14,13 +14,11 @@ public sealed class BuildServiceBuildResultTests
         IpcBuildReportResult reportResult,
         IpcBuildLogCompletionReason completionReason)
     {
-        var reportResultLiteral = ContractLiteralCodec.ToValue(reportResult);
-        var completionReasonLiteral = ContractLiteralCodec.ToValue(completionReason);
         using var tempDirectory = CreateArtifactDirectoryScope();
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                reportResultLiteral,
-                completionReasonLiteral,
+                reportResult,
+                completionReason,
                 errorCount: 1),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
@@ -28,10 +26,10 @@ public sealed class BuildServiceBuildResultTests
 
         Assert.True(result.IsSuccess);
         var output = result.Output!;
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Fail), output.Verdict);
-        Assert.Equal(reportResultLiteral, output.Build.Summary.Result);
-        Assert.Equal(completionReasonLiteral, output.Build.Logs.CompletionReason);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildClaimStatus.Passed), FindClaim(output, BuildClaimCodes.UnityBuildCompleted).Status);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildClaimStatus.Failed), FindClaim(output, BuildClaimCodes.UnityBuildSucceeded).Status);
+        Assert.Equal(AssuranceVerdict.Fail, output.Verdict);
+        Assert.Equal(reportResult, output.Build.Summary.Result);
+        Assert.Equal(completionReason, output.Build.Logs.CompletionReason);
+        Assert.Equal(AssuranceClaimStatus.Passed, FindClaim(output, BuildClaimCodes.UnityBuildCompleted).Status);
+        Assert.Equal(AssuranceClaimStatus.Failed, FindClaim(output, BuildClaimCodes.UnityBuildSucceeded).Status);
     }
 }

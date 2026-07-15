@@ -1,6 +1,6 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -112,9 +112,13 @@ public sealed class FileBuildRunArtifactStorePrepareTests
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-layout");
         var (store, paths) = PrepareArtifacts(scope);
-        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(paths.RunnerOutputDirectory, "standaloneLinux64", out var layout));
+        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(
+            paths.RunnerOutputDirectory,
+            BuildTargetStableName.StandaloneLinux64,
+            androidAppBundle: false,
+            out var layout));
 
-        var result = store.PrepareBuildPipelineOutputLayout(paths, "standaloneLinux64", layout!);
+        var result = store.PrepareBuildPipelineOutputLayout(paths, BuildTargetStableName.StandaloneLinux64, layout!);
 
         Assert.True(result.IsSuccess);
         Assert.True(Directory.Exists(Path.GetDirectoryName(layout!.LocationPathName)));
@@ -128,10 +132,14 @@ public sealed class FileBuildRunArtifactStorePrepareTests
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-collision");
         var (store, paths) = PrepareArtifacts(scope);
-        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(paths.RunnerOutputDirectory, "standaloneLinux64", out var layout));
+        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(
+            paths.RunnerOutputDirectory,
+            BuildTargetStableName.StandaloneLinux64,
+            androidAppBundle: false,
+            out var layout));
         WriteUtf8(layout!.LocationPathName, "existing player");
 
-        var result = store.PrepareBuildPipelineOutputLayout(paths, "standaloneLinux64", layout);
+        var result = store.PrepareBuildPipelineOutputLayout(paths, BuildTargetStableName.StandaloneLinux64, layout);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -145,10 +153,14 @@ public sealed class FileBuildRunArtifactStorePrepareTests
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-parent-blocked");
         var (store, paths) = PrepareArtifacts(scope);
-        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(paths.RunnerOutputDirectory, "standaloneLinux64", out var layout));
+        Assert.True(IpcBuildOutputLayoutResolver.TryResolve(
+            paths.RunnerOutputDirectory,
+            BuildTargetStableName.StandaloneLinux64,
+            androidAppBundle: false,
+            out var layout));
         WriteUtf8(Path.Combine(paths.RunnerOutputDirectory, "player"), "blocking file");
 
-        var result = store.PrepareBuildPipelineOutputLayout(paths, "standaloneLinux64", layout!);
+        var result = store.PrepareBuildPipelineOutputLayout(paths, BuildTargetStableName.StandaloneLinux64, layout!);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
@@ -163,10 +175,10 @@ public sealed class FileBuildRunArtifactStorePrepareTests
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-player-unsupported");
         var (store, paths) = PrepareArtifacts(scope);
         var layout = new IpcBuildOutputLayout(
-            Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+            Shape: IpcBuildOutputLayoutShape.File,
             LocationPathName: Path.Combine(paths.RunnerOutputDirectory, "player", "Player"));
 
-        var result = store.PrepareBuildPipelineOutputLayout(paths, "switch", layout);
+        var result = store.PrepareBuildPipelineOutputLayout(paths, BuildTargetStableName.Switch, layout);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);

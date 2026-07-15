@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -36,11 +37,11 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 runnerResult: CreateExecuteMethodRunnerResult(
-                    status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed),
+                    status: IpcBuildReportResult.Failed,
                     outputs: [],
                     errorCount: 1,
                     warningCount: 0),
@@ -66,8 +67,8 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 omitReport: true),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
@@ -153,11 +154,11 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
         var result = await ExecuteWithExecuteMethodRunnerResultAsync(
             CreateExecuteMethodRunnerResult(
-                status: ContractLiteralCodec.ToValue(runnerStatus),
+                status: runnerStatus,
                 outputs: [],
                 errorCount: runnerStatus == IpcBuildReportResult.Failed ? 1 : 0,
                 warningCount: 0),
-            ContractLiteralCodec.ToValue(completionReason),
+            completionReason,
             artifactStore);
 
         Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
@@ -176,12 +177,14 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
         int errorCount,
         int warningCount)
     {
-        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
-            CreateExecuteMethodRunnerResult(
-                status: status,
-                durationMilliseconds: durationMilliseconds,
-                errorCount: errorCount,
-                warningCount: warningCount));
+        var result = status == "unsupported"
+            ? await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(
+                static payload => payload["runnerResult"]!["status"] = "unsupported")
+            : await ExecuteWithExecuteMethodRunnerResultAsync(
+                CreateExecuteMethodRunnerResult(
+                    durationMilliseconds: durationMilliseconds,
+                    errorCount: errorCount,
+                    warningCount: warningCount));
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -192,14 +195,18 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithInvalidExecuteMethodDiagnostics_ReturnsBuildRunnerResultInvalid ()
     {
-        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
-            CreateExecuteMethodRunnerResult(diagnostics:
-            [
-                new IpcBuildRunnerDiagnostic(
-                    Severity: "verbose",
-                    Code: "diagnostic",
-                    Message: "Unsupported severity"),
-            ]));
+        var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(payload =>
+        {
+            payload["runnerResult"]!["diagnostics"] = new JsonArray
+            {
+                new JsonObject
+                {
+                    ["severity"] = "verbose",
+                    ["code"] = "diagnostic",
+                    ["message"] = "Unsupported severity",
+                },
+            };
+        });
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);

@@ -1,5 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Assurance.Build;
@@ -38,12 +40,18 @@ public sealed class BuildRunProgressEventNamesTests
     {
         var json = IpcPayloadCodec.SerializeToElement(new BuildProgressEntry(
             RunId: RunId,
-            ProfileDigest: new string('a', 64),
-            Phase: "completed",
-            RunnerKind: "buildPipeline",
-            RunnerStatus: "succeeded",
-            Verdict: "pass",
-            ReportRefs: ["build", "buildReport", "buildOutputManifest", "buildLog"],
+            ProfileDigest: Sha256Digest.Parse(new string('a', 64)),
+            Phase: BuildRunProgressPhase.Completed,
+            RunnerKind: BuildRunnerKind.BuildPipeline,
+            RunnerStatus: IpcBuildReportResult.Succeeded,
+            Verdict: AssuranceVerdict.Pass,
+            ReportRefs:
+            [
+                BuildArtifactKind.Build,
+                BuildArtifactKind.BuildReport,
+                BuildArtifactKind.BuildOutputManifest,
+                BuildArtifactKind.BuildLog,
+            ],
             ErrorCode: null));
 
         Assert.Equal(RunIdText, json.GetProperty("runId").GetString());
@@ -58,15 +66,30 @@ public sealed class BuildRunProgressEventNamesTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void BuildProgressEntry_WithNullProfileDigest_ThrowsArgumentNullException ()
+    {
+        Assert.Throws<ArgumentNullException>(() => new BuildProgressEntry(
+            RunId: RunId,
+            ProfileDigest: null!,
+            Phase: BuildRunProgressPhase.Started,
+            RunnerKind: null,
+            RunnerStatus: null,
+            Verdict: null,
+            ReportRefs: [],
+            ErrorCode: null));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void BuildLogEntry_SerializesFinalCamelCaseShape ()
     {
         var json = IpcPayloadCodec.SerializeToElement(new BuildLogEntry(
             RunId: RunId,
             TimestampUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-            Level: "warning",
+            Level: BuildLogEntryLevel.Warning,
             Message: "sample warning",
             Cursor: "stream-1:42",
-            Source: "unityLog"));
+            Source: BuildLogEntrySource.UnityLog));
 
         Assert.Equal(RunIdText, json.GetProperty("runId").GetString());
         Assert.Equal("warning", json.GetProperty("level").GetString());
@@ -75,22 +98,77 @@ public sealed class BuildRunProgressEventNamesTests
         Assert.Equal("unityLog", json.GetProperty("source").GetString());
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("defaultTimestamp")]
+    [InlineData("nonUtcTimestamp")]
+    [InlineData("emptyMessage")]
+    [InlineData("emptyCursor")]
+    [InlineData("oversizedMessage")]
+    public void BuildLogEntry_WithInvalidValue_ThrowsArgumentException (string invalidValue)
+    {
+        var timestampUtc = DateTimeOffset.Parse("2026-06-12T00:00:00+00:00");
+        var message = "sample warning";
+        string? cursor = "stream-1:42";
+
+        switch (invalidValue)
+        {
+            case "defaultTimestamp":
+                timestampUtc = default;
+                break;
+            case "nonUtcTimestamp":
+                timestampUtc = new DateTimeOffset(2026, 6, 12, 9, 0, 0, TimeSpan.FromHours(9));
+                break;
+            case "emptyMessage":
+                message = " ";
+                break;
+            case "emptyCursor":
+                cursor = string.Empty;
+                break;
+            case "oversizedMessage":
+                message = new string('x', BuildLogEntryLimits.MaxMessageUtf8Bytes + 1);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(invalidValue), invalidValue, null);
+        }
+
+        Assert.Throws<ArgumentException>(() => new BuildLogEntry(
+            RunId: RunId,
+            TimestampUtc: timestampUtc,
+            Level: BuildLogEntryLevel.Warning,
+            Message: message,
+            Cursor: cursor,
+            Source: BuildLogEntrySource.UnityLog));
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void BuildDiagnosticEntry_SerializesFinalCamelCaseShape ()
     {
         var json = IpcPayloadCodec.SerializeToElement(new BuildDiagnosticEntry(
             RunId: RunId,
-            Code: "BUILD_PROGRESS_DROPPED",
-            Severity: "warning",
+            Code: new UcliCode("BUILD_PROGRESS_DROPPED"),
+            Severity: UcliDiagnosticSeverity.Warning,
             Message: "progress dropped",
-            Phase: "runnerInvocation"));
+            Phase: BuildRunProgressPhase.RunnerInvocation));
 
         Assert.Equal(RunIdText, json.GetProperty("runId").GetString());
         Assert.Equal("BUILD_PROGRESS_DROPPED", json.GetProperty("code").GetString());
         Assert.Equal("warning", json.GetProperty("severity").GetString());
         Assert.Equal("progress dropped", json.GetProperty("message").GetString());
         Assert.Equal("runnerInvocation", json.GetProperty("phase").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void BuildDiagnosticEntry_WithNullCode_ThrowsArgumentNullException ()
+    {
+        Assert.Throws<ArgumentNullException>(() => new BuildDiagnosticEntry(
+            RunId: RunId,
+            Code: null!,
+            Severity: UcliDiagnosticSeverity.Warning,
+            Message: "progress dropped",
+            Phase: BuildRunProgressPhase.RunnerInvocation));
     }
 
 }

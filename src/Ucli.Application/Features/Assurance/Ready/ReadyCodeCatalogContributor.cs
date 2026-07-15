@@ -40,7 +40,7 @@ internal sealed class ReadyCodeCatalogContributor : ICodeCatalogContributor
     {
         return new CodeCatalogDescriptor(
             Code: code,
-            Kind: CodeCatalogKindValues.Claim,
+            Kind: CodeCatalogKind.Claim,
             Category: "ready",
             Summary: summary,
             Meaning: summary,

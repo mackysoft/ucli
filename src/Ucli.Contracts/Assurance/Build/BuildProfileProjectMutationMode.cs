@@ -7,13 +7,13 @@ public enum BuildProfileProjectMutationMode
 {
     /// <summary> Forbids project mutations during the build run. </summary>
     [UcliContractLiteral("forbid")]
-    Forbid = 0,
+    Forbid = 1,
 
     /// <summary> Audits project mutations without blocking the build verdict. </summary>
     [UcliContractLiteral("audit")]
-    Audit = 1,
+    Audit = 2,
 
     /// <summary> Allows project mutations and records an audit trail. </summary>
     [UcliContractLiteral("allowWithAudit")]
-    AllowWithAudit = 2,
+    AllowWithAudit = 3,
 }

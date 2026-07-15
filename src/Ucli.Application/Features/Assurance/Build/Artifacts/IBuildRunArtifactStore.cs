@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
@@ -13,7 +14,7 @@ internal interface IBuildRunArtifactStore
     /// <summary> Prepares the command-derived BuildPipeline output layout before runner invocation. </summary>
     BuildRunArtifactPreparationResult PrepareBuildPipelineOutputLayout (
         BuildRunArtifactPaths paths,
-        string buildTarget,
+        BuildTargetStableName buildTarget,
         IpcBuildOutputLayout outputLayout);
 
     /// <summary> Accounts Unity-generated artifacts and writes the output manifest. </summary>

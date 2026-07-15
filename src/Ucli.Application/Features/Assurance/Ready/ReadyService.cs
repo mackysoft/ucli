@@ -1,9 +1,11 @@
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
@@ -16,8 +18,12 @@ internal sealed class ReadyService : IReadyService
     private const string AssetLookupReadinessActionRequired =
         "Run `ucli query assets find --pathPrefix Assets --limit 1 --readIndexMode disabled` to refresh asset lookup readIndex artifacts.";
 
-    private static readonly IReadOnlyDictionary<string, ReadyReportOutput> EmptyReports =
-        new Dictionary<string, ReadyReportOutput>(StringComparer.Ordinal);
+    private static readonly AssuranceVerifierId LifecycleVerifierId = new("ready.lifecycle");
+
+    private static readonly AssuranceVerifierId ReadIndexVerifierId = new("ready.readIndex");
+
+    private static readonly IReadOnlyDictionary<string, AssuranceReportReference> EmptyReports =
+        new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal);
 
     private static readonly IReadOnlyList<ReadyResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<ReadyResidualRiskOutput>();
@@ -320,12 +326,12 @@ internal sealed class ReadyService : IReadyService
         }
 
         var response = executionResult.Response!;
-        if (response.HasFailureStatus || response.Errors.Count != 0)
+        if (response.Errors.Count != 0)
         {
-            var firstError = response.Errors.FirstOrDefault();
+            var firstError = response.Errors[0];
             return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.FromCode(
-                firstError?.Code,
-                firstError?.Message ?? $"Unity ping failed with status '{response.FailureStatus}'."));
+                firstError.Code,
+                firstError.Message));
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcUnityEditorObservation pingResponse, out var payloadError))
@@ -354,13 +360,13 @@ internal sealed class ReadyService : IReadyService
             return ReadyLifecycleProbeResult.Success(lifecycle, readinessDecision);
         }
 
-        if (!readinessDecision.ErrorCode.HasValue || !readinessDecision.ErrorCode.Value.IsValid)
+        if (readinessDecision.ErrorCode is null)
         {
             return ReadyLifecycleProbeResult.FailureResult(ApplicationFailure.InternalError(
                 "Unity readiness decision did not provide an error code."));
         }
 
-        var errorCode = readinessDecision.ErrorCode.Value;
+        var errorCode = readinessDecision.ErrorCode;
         if (UnityEditorReadinessPolicy.IsReadinessFailureCode(errorCode))
         {
             return ReadyLifecycleProbeResult.Success(lifecycle, readinessDecision);
@@ -379,11 +385,9 @@ internal sealed class ReadyService : IReadyService
         var artifacts = new List<ReadyReadIndexArtifactOutput>
         {
             await ReadArtifactAsync(
-                    "ops.catalog",
+                    ReadyReadIndexArtifactName.OpsCatalog,
                     IndexFreshnessTarget.OpsCatalog,
                     cancellationToken => readIndexArtifactReader.ReadOpsCatalogAsync(unityProject, cancellationToken),
-                    static value => value.SourceInputsHash,
-                    static value => value.GeneratedAtUtc,
                     unityProject,
                     mode,
                     required: true,
@@ -391,11 +395,9 @@ internal sealed class ReadyService : IReadyService
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false),
             await ReadArtifactAsync(
-                    "asset-search.lookup",
+                    ReadyReadIndexArtifactName.AssetSearchLookup,
                     IndexFreshnessTarget.AssetSearchLookup,
                     cancellationToken => readIndexArtifactReader.ReadAssetSearchLookupAsync(unityProject, cancellationToken),
-                    static value => value.SourceInputsHash,
-                    static value => value.GeneratedAtUtc,
                     unityProject,
                     mode,
                     required: true,
@@ -403,11 +405,9 @@ internal sealed class ReadyService : IReadyService
                     cancellationToken: cancellationToken)
                 .ConfigureAwait(false),
             await ReadArtifactAsync(
-                    "guid-path.lookup",
+                    ReadyReadIndexArtifactName.GuidPathLookup,
                     IndexFreshnessTarget.GuidPathLookup,
                     cancellationToken => readIndexArtifactReader.ReadGuidPathLookupAsync(unityProject, cancellationToken),
-                    static value => value.SourceInputsHash,
-                    static value => value.GeneratedAtUtc,
                     unityProject,
                     mode,
                     required: true,
@@ -420,87 +420,67 @@ internal sealed class ReadyService : IReadyService
     }
 
     private async ValueTask<ReadyReadIndexArtifactOutput> ReadArtifactAsync<T> (
-        string name,
+        ReadyReadIndexArtifactName name,
         IndexFreshnessTarget target,
         Func<CancellationToken, ValueTask<ReadIndexArtifactReadResult<T>>> readAsync,
-        Func<T, string?> getSourceInputsHash,
-        Func<T, DateTimeOffset> getGeneratedAtUtc,
         ResolvedUnityProjectContext unityProject,
         ReadIndexMode mode,
         bool required,
         string actionRequired,
         CancellationToken cancellationToken)
-        where T : class
+        where T : class, IReadIndexArtifactSnapshot
     {
         var result = await readAsync(cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess)
         {
-            return CreateFailedReadIndexArtifact(name, result.Error!, required: required, actionRequired: actionRequired);
+            return ReadyReadIndexArtifactOutput.Failed(
+                name,
+                required,
+                result.Error!.Code,
+                result.Error.Message,
+                actionRequired);
         }
 
         var value = result.Value!;
-        var sourceInputsHash = getSourceInputsHash(value);
         var freshnessResult = await readIndexFreshnessEvaluator.ObserveAsync(
                 unityProject,
                 target,
-                sourceInputsHash,
+                value.SourceInputsHash,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!freshnessResult.IsSuccess)
         {
-            return CreateFailedReadIndexArtifact(
+            return ReadyReadIndexArtifactOutput.FailedWithSnapshot(
                 name,
-                freshnessResult.Error!,
-                freshnessResult.Freshness,
-                sourceInputsHash,
-                getGeneratedAtUtc(value),
                 required,
+                freshnessResult.Freshness,
+                value.SourceInputsHash,
+                value.GeneratedAtUtc,
+                freshnessResult.Error!.Code,
+                freshnessResult.Error.Message,
                 actionRequired);
         }
 
         var constrainedFreshnessResult = IndexFreshnessPolicy.ApplyModeConstraint(mode, freshnessResult.Freshness);
         if (!constrainedFreshnessResult.IsSuccess)
         {
-            return CreateFailedReadIndexArtifact(
+            return ReadyReadIndexArtifactOutput.FailedWithSnapshot(
                 name,
-                constrainedFreshnessResult.Error!,
-                constrainedFreshnessResult.Freshness,
-                sourceInputsHash,
-                getGeneratedAtUtc(value),
                 required,
+                constrainedFreshnessResult.Freshness,
+                value.SourceInputsHash,
+                value.GeneratedAtUtc,
+                constrainedFreshnessResult.Error!.Code,
+                constrainedFreshnessResult.Error.Message,
                 actionRequired);
         }
 
-        return new ReadyReadIndexArtifactOutput(
-            Name: name,
-            Status: ReadyReadIndexArtifactStatusValues.Available,
-            Required: required,
-            Freshness: ReadIndexAccessUtilities.DescribeFreshness(constrainedFreshnessResult.Freshness),
-            SourceInputsHash: sourceInputsHash,
-            GeneratedAtUtc: getGeneratedAtUtc(value));
-    }
-
-    private static ReadyReadIndexArtifactOutput CreateFailedReadIndexArtifact (
-        string name,
-        IndexServiceError error,
-        IndexFreshness? freshness = null,
-        string? sourceInputsHash = null,
-        DateTimeOffset? generatedAtUtc = null,
-        bool required = true,
-        string? actionRequired = null)
-    {
-        ArgumentNullException.ThrowIfNull(error);
-
-        return new ReadyReadIndexArtifactOutput(
-            Name: name,
-            Status: ReadyReadIndexArtifactStatusValues.Failed,
-            Required: required,
-            Freshness: freshness.HasValue ? ReadIndexAccessUtilities.DescribeFreshness(freshness.Value) : null,
-            SourceInputsHash: sourceInputsHash,
-            GeneratedAtUtc: generatedAtUtc,
-            Code: error.Code.Value,
-            Message: error.Message,
-            ActionRequired: actionRequired);
+        return ReadyReadIndexArtifactOutput.Available(
+            name,
+            required,
+            constrainedFreshnessResult.Freshness,
+            value.SourceInputsHash,
+            value.GeneratedAtUtc);
     }
 
     private static ReadyExecutionOutput CreateOutput (
@@ -513,15 +493,18 @@ internal sealed class ReadyService : IReadyService
         ReadyReadIndexObservation readIndexObservation)
     {
         var claimId = ReadyClaimCodes.ForTarget(target);
-        var targetValue = ReadyTargetCodec.ToValue(target);
-        var resolvedMode = ResolveResolvedModeValue(target, executionTarget);
-        var sessionKind = ResolveSessionKindValue(target, executionTarget);
+        var targetValue = ContractLiteralCodec.ToValue(target);
+        var requestedModeValue = AssuranceExecutionModeCodec.ToRequestedMode(requestedMode);
+        var resolvedMode = ResolveResolvedMode(target, executionTarget);
+        var sessionKind = ResolveSessionKind(target, executionTarget);
         var validity = CreateValidity(target, executionTarget, lifecycleProbeResult.Decision.IsReady);
         var evidence = CreateEvidence(lifecycleProbeResult, readIndexObservation);
         var claimStatus = ResolveClaimStatus(lifecycleProbeResult.Decision, readIndexObservation);
         var coverage = ResolveClaimCoverage(readIndexObservation);
-        var verdict = RecalculateVerdict(claimStatus, coverage);
-        var verifierId = target == ReadyTarget.ReadIndex ? "ready.readIndex" : "ready.lifecycle";
+        var verdict = AssuranceVerdictCalculator.Calculate(
+            [new AssuranceVerdictClaimState(claimStatus, coverage, Required: true, HasBlockingResidualRisk: false)],
+            Array.Empty<AssuranceVerdictResidualRiskState>());
+        var verifierId = target == ReadyTarget.ReadIndex ? ReadIndexVerifierId : LifecycleVerifierId;
         var claim = new ReadyClaimOutput(
             Id: claimId,
             Status: claimStatus,
@@ -533,8 +516,8 @@ internal sealed class ReadyService : IReadyService
             {
                 ["kind"] = "unityReady",
                 ["target"] = targetValue,
-                ["requestedMode"] = AssuranceExecutionModeCodec.ToRequestedModeValue(requestedMode),
-                ["resolvedMode"] = resolvedMode,
+                ["requestedMode"] = ContractLiteralCodec.ToValue(requestedModeValue),
+                ["resolvedMode"] = ContractLiteralCodec.ToValue(resolvedMode),
                 ["sessionKind"] = sessionKind,
             },
             Validity: validity,
@@ -548,17 +531,15 @@ internal sealed class ReadyService : IReadyService
             [
                 new ReadyVerifierOutput(
                     Id: verifierId,
-                    Kind: verifierId,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: [claimId],
-                    Effects: []),
+                    PrimaryClaims: [claimId]),
             ],
             Claims: [claim],
             Reports: EmptyReports,
             ResidualRisks: EmptyResidualRisks,
-            Target: targetValue,
-            RequestedMode: AssuranceExecutionModeCodec.ToRequestedModeValue(requestedMode),
+            Target: target,
+            RequestedMode: requestedModeValue,
             ResolvedMode: resolvedMode,
             SessionKind: sessionKind,
             TimeoutMilliseconds: checked((int)timeout.TotalMilliseconds),
@@ -566,22 +547,22 @@ internal sealed class ReadyService : IReadyService
             ReadIndex: readIndexObservation.Output);
     }
 
-    private static string ResolveResolvedModeValue (
+    private static AssuranceResolvedExecutionMode ResolveResolvedMode (
         ReadyTarget target,
         UnityExecutionTarget executionTarget)
     {
         return target == ReadyTarget.ReadIndex
-            ? AssuranceExecutionModeCodec.NotApplicable
-            : AssuranceExecutionModeCodec.ToResolvedModeValue(executionTarget);
+            ? AssuranceResolvedExecutionMode.NotApplicable
+            : AssuranceExecutionModeCodec.ToResolvedMode(executionTarget);
     }
 
-    private static string ResolveSessionKindValue (
+    private static AssuranceSessionKind ResolveSessionKind (
         ReadyTarget target,
         UnityExecutionTarget executionTarget)
     {
         return target == ReadyTarget.ReadIndex
-            ? AssuranceSessionKindValues.ArtifactOnly
-            : AssuranceExecutionModeCodec.ToSessionKindValue(executionTarget);
+            ? AssuranceSessionKind.ArtifactOnly
+            : AssuranceExecutionModeCodec.ToSessionKind(executionTarget);
     }
 
     private static ReadyClaimValidityOutput CreateValidity (
@@ -591,12 +572,12 @@ internal sealed class ReadyService : IReadyService
     {
         if (target == ReadyTarget.ReadIndex)
         {
-            return new ReadyClaimValidityOutput(ReadyValidityKindValues.ProbeOnly, GuaranteesReusableSession: false);
+            return new ReadyClaimValidityOutput(ReadyValidityKind.ProbeOnly, GuaranteesReusableSession: false);
         }
 
         return executionTarget == UnityExecutionTarget.Daemon
-            ? new ReadyClaimValidityOutput(ReadyValidityKindValues.SessionBound, isReady)
-            : new ReadyClaimValidityOutput(ReadyValidityKindValues.ProbeOnly, GuaranteesReusableSession: false);
+            ? new ReadyClaimValidityOutput(ReadyValidityKind.SessionBound, isReady)
+            : new ReadyClaimValidityOutput(ReadyValidityKind.ProbeOnly, GuaranteesReusableSession: false);
     }
 
     private static IReadOnlyList<ReadyEvidenceOutput> CreateEvidence (
@@ -632,54 +613,36 @@ internal sealed class ReadyService : IReadyService
         return evidence;
     }
 
-    private static string ResolveClaimStatus (
+    private static AssuranceClaimStatus ResolveClaimStatus (
         UnityReadinessDecision lifecycleDecision,
         ReadyReadIndexObservation readIndexObservation)
     {
         if (lifecycleDecision.IsFailure || readIndexObservation.HasFailure)
         {
-            return ReadyClaimStatusValues.Failed;
+            return AssuranceClaimStatus.Failed;
         }
 
         if (!lifecycleDecision.IsReady || readIndexObservation.IsDisabled)
         {
-            return ReadyClaimStatusValues.Indeterminate;
+            return AssuranceClaimStatus.Indeterminate;
         }
 
-        return ReadyClaimStatusValues.Passed;
+        return AssuranceClaimStatus.Passed;
     }
 
-    private static string ResolveClaimCoverage (ReadyReadIndexObservation readIndexObservation)
+    private static AssuranceCoverage ResolveClaimCoverage (ReadyReadIndexObservation readIndexObservation)
     {
         return readIndexObservation.IsDisabled
-            ? ReadyCoverageValues.None
-            : ReadyCoverageValues.Full;
-    }
-
-    private static string RecalculateVerdict (
-        string claimStatus,
-        string coverage)
-    {
-        if (string.Equals(claimStatus, ReadyClaimStatusValues.Failed, StringComparison.Ordinal))
-        {
-            return ReadyVerdictValues.Fail;
-        }
-
-        if (!string.Equals(claimStatus, ReadyClaimStatusValues.Passed, StringComparison.Ordinal)
-            || !string.Equals(coverage, ReadyCoverageValues.Full, StringComparison.Ordinal))
-        {
-            return ReadyVerdictValues.Incomplete;
-        }
-
-        return ReadyVerdictValues.Pass;
+            ? AssuranceCoverage.None
+            : AssuranceCoverage.Full;
     }
 
     private static string CreateStatement (
         ReadyTarget target,
-        string claimStatus)
+        AssuranceClaimStatus claimStatus)
     {
-        var targetValue = ReadyTargetCodec.ToValue(target);
-        return string.Equals(claimStatus, ReadyClaimStatusValues.Passed, StringComparison.Ordinal)
+        var targetValue = ContractLiteralCodec.ToValue(target);
+        return claimStatus == AssuranceClaimStatus.Passed
             ? $"Unity is ready for {targetValue}."
             : $"Unity readiness for {targetValue} is not guaranteed.";
     }

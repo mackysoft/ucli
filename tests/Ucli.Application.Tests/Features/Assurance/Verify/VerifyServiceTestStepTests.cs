@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -48,14 +47,14 @@ public sealed class VerifyServiceTestStepTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Pass, result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
         VerifyStepInvocationAssert.TestRunRequestedWithPlatform(
             testRunService,
             TestRunPlatform.EditMode);
         Assert.True(result.Output.Reports.ContainsKey("test.summary"));
         var claim = Assert.Single(result.Output.Claims);
-        Assert.Equal(VerifyClaimCodes.UnityTestsPassed.Value, claim.Id);
-        Assert.Equal(VerifyClaimStatusValues.Passed, claim.Status);
+        Assert.Equal(VerifyClaimCodes.UnityTestsPassed, claim.Id);
+        Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
         Assert.True(claim.Required);
     }
 
@@ -94,10 +93,10 @@ public sealed class VerifyServiceTestStepTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Fail, result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
         var claim = Assert.Single(result.Output.Claims);
-        Assert.Equal(VerifyClaimCodes.UnityTestsPassed.Value, claim.Id);
-        Assert.Equal(VerifyClaimStatusValues.Failed, claim.Status);
+        Assert.Equal(VerifyClaimCodes.UnityTestsPassed, claim.Id);
+        Assert.Equal(AssuranceClaimStatus.Failed, claim.Status);
         Assert.True(claim.Required);
     }
 

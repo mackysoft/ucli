@@ -14,13 +14,17 @@ internal sealed class CompileCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
+    private readonly CliStreamEntryWriterFactory streamEntryWriterFactory;
+
     /// <summary> Initializes a new instance of the <see cref="CompileCommand" /> class. </summary>
     public CompileCommand (
         ICompileService compileService,
-        ICommandResultWriter commandResultWriter)
+        ICommandResultWriter commandResultWriter,
+        CliStreamEntryWriterFactory streamEntryWriterFactory)
     {
         this.compileService = compileService ?? throw new ArgumentNullException(nameof(compileService));
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
+        this.streamEntryWriterFactory = streamEntryWriterFactory ?? throw new ArgumentNullException(nameof(streamEntryWriterFactory));
     }
 
     /// <summary> Executes the compile command and emits the JSON result contract. </summary>
@@ -68,7 +72,7 @@ internal sealed class CompileCommand
 
         var progressSink = new CliCommandProgressSink(
             formatResult.Format,
-            new CliStreamEntryWriter(UcliCommandNames.Compile),
+            streamEntryWriterFactory.Create(UcliCommandNames.Compile),
             new CompileProgressTextProjector());
         var executionResult = await compileService.ExecuteAsync(
                 new CompileCommandInput(

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
 
@@ -10,12 +11,16 @@ public sealed record CompileRefreshStartedEntry
     [JsonConstructor]
     public CompileRefreshStartedEntry (
         Guid RunId,
-        string RefreshOrigin,
+        CompileRefreshOrigin RefreshOrigin,
         string ObservationSource)
     {
         if (RunId == Guid.Empty)
         {
             throw new ArgumentException("Run id must not be empty.", nameof(RunId));
+        }
+        if (!ContractLiteralCodec.IsDefined(RefreshOrigin))
+        {
+            throw new ArgumentOutOfRangeException(nameof(RefreshOrigin), RefreshOrigin, "Compile refresh origin must be defined.");
         }
 
         this.RunId = RunId;
@@ -25,7 +30,7 @@ public sealed record CompileRefreshStartedEntry
 
     public Guid RunId { get; }
 
-    public string RefreshOrigin { get; }
+    public CompileRefreshOrigin RefreshOrigin { get; }
 
     public string ObservationSource { get; }
 }

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Assurance.Build;
+
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 
 /// <summary> Represents inputs needed to account non-metadata build-run artifacts. </summary>
@@ -9,7 +11,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 /// <param name="AllowEmptyOutputManifest"> Whether no existing output sources may produce a valid empty manifest. </param>
 internal sealed record BuildRunArtifactAccountingRequest (
     BuildRunArtifactPaths Paths,
-    string BuildTarget,
+    BuildTargetStableName BuildTarget,
     string UnityBuildTarget,
     BuildReportSourceEntry? BuildReport,
     IReadOnlyList<BuildOutputSourceEntry> OutputSources,

@@ -1,89 +1,64 @@
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 
 /// <summary> Represents build inputs resolved from a build profile. </summary>
-internal sealed class ResolvedBuildInputs
+internal abstract class ResolvedBuildInputs
 {
-    private ResolvedBuildInputs (
-        BuildProfileInputsKind kind,
-        ResolvedBuildTarget? buildTarget,
-        ResolvedBuildScenes? scenes,
-        ResolvedBuildOptions? options,
-        string? unityBuildProfilePath)
+    private ResolvedBuildInputs ()
     {
-        Kind = kind;
-        BuildTarget = buildTarget;
-        Scenes = scenes;
-        Options = options;
-        UnityBuildProfilePath = unityBuildProfilePath;
     }
 
-    /// <summary> Gets the build input kind. </summary>
-    public BuildProfileInputsKind Kind { get; }
+    /// <summary> Gets the build input kind represented by this variant. </summary>
+    public abstract BuildProfileInputsKind Kind { get; }
 
-    /// <summary> Gets the resolved explicit build target when available. </summary>
-    public ResolvedBuildTarget? BuildTarget { get; }
-
-    /// <summary> Gets the resolved explicit scenes when available. </summary>
-    public ResolvedBuildScenes? Scenes { get; }
-
-    /// <summary> Gets the resolved explicit build options when available. </summary>
-    public ResolvedBuildOptions? Options { get; }
-
-    /// <summary> Gets the Unity Build Profile asset path when available. </summary>
-    public string? UnityBuildProfilePath { get; }
-
-    /// <summary> Creates resolved explicit build inputs. </summary>
-    public static ResolvedBuildInputs Explicit (
-        ResolvedBuildTarget buildTarget,
-        ResolvedBuildScenes scenes,
-        ResolvedBuildOptions options)
+    /// <summary> Represents build inputs declared directly in the build profile. </summary>
+    public sealed class Explicit : ResolvedBuildInputs
     {
-        ArgumentNullException.ThrowIfNull(buildTarget);
-        ArgumentNullException.ThrowIfNull(scenes);
-        ArgumentNullException.ThrowIfNull(options);
-        return new ResolvedBuildInputs(
-            BuildProfileInputsKind.Explicit,
-            buildTarget,
-            scenes,
-            options,
-            null);
+        /// <summary> Initializes explicit build inputs. </summary>
+        public Explicit (
+            BuildTargetStableName buildTarget,
+            ResolvedBuildScenes scenes,
+            ResolvedBuildOptions options)
+        {
+            if (!ContractLiteralCodec.IsDefined(buildTarget))
+            {
+                throw new ArgumentOutOfRangeException(nameof(buildTarget), buildTarget, "Build target must be defined.");
+            }
+
+            BuildTarget = buildTarget;
+            Scenes = scenes ?? throw new ArgumentNullException(nameof(scenes));
+            Options = options ?? throw new ArgumentNullException(nameof(options));
+        }
+
+        /// <inheritdoc />
+        public override BuildProfileInputsKind Kind => BuildProfileInputsKind.Explicit;
+
+        /// <summary> Gets the build target. </summary>
+        public BuildTargetStableName BuildTarget { get; }
+
+        /// <summary> Gets the scene selection. </summary>
+        public ResolvedBuildScenes Scenes { get; }
+
+        /// <summary> Gets the build options. </summary>
+        public ResolvedBuildOptions Options { get; }
     }
 
-    /// <summary> Creates resolved Unity Build Profile asset inputs. </summary>
-    public static ResolvedBuildInputs UnityBuildProfile (string path)
+    /// <summary> Represents inputs selected from a Unity Build Profile asset. </summary>
+    public sealed class UnityBuildProfile : ResolvedBuildInputs
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        return new ResolvedBuildInputs(
-            BuildProfileInputsKind.UnityBuildProfile,
-            null,
-            null,
-            null,
-            path);
-    }
+        /// <summary> Initializes Unity Build Profile inputs. </summary>
+        public UnityBuildProfile (UnityBuildProfileAssetPath path)
+        {
+            Path = path ?? throw new ArgumentNullException(nameof(path));
+        }
 
-    /// <summary> Gets the resolved explicit build target or throws when the input kind does not provide one. </summary>
-    public ResolvedBuildTarget RequireBuildTarget ()
-    {
-        return BuildTarget ?? throw new InvalidOperationException("Build target is only available for explicit build inputs.");
-    }
+        /// <inheritdoc />
+        public override BuildProfileInputsKind Kind => BuildProfileInputsKind.UnityBuildProfile;
 
-    /// <summary> Gets the resolved explicit scene input or throws when the input kind does not provide one. </summary>
-    public ResolvedBuildScenes RequireScenes ()
-    {
-        return Scenes ?? throw new InvalidOperationException("Build scenes are only available for explicit build inputs.");
-    }
-
-    /// <summary> Gets the resolved explicit build options or throws when the input kind does not provide them. </summary>
-    public ResolvedBuildOptions RequireOptions ()
-    {
-        return Options ?? throw new InvalidOperationException("Build options are only available for explicit build inputs.");
-    }
-
-    /// <summary> Gets the Unity Build Profile asset path or throws when the input kind does not provide one. </summary>
-    public string RequireUnityBuildProfilePath ()
-    {
-        return UnityBuildProfilePath ?? throw new InvalidOperationException("Unity Build Profile path is only available for unityBuildProfile inputs.");
+        /// <summary> Gets the Unity Build Profile asset path. </summary>
+        public UnityBuildProfileAssetPath Path { get; }
     }
 }

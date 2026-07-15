@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using System.Text;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -59,7 +58,7 @@ internal static class FileBuildRunArtifactStoreTestSupport
             : outputSourcePaths;
         return new BuildRunArtifactAccountingRequest(
             paths,
-            "standaloneLinux64",
+            BuildTargetStableName.StandaloneLinux64,
             "StandaloneLinux64",
             buildReportSource,
             sourcePaths.Select(static path => BuildOutputSourceEntry.FromAbsolutePath(path)).ToArray(),
@@ -72,7 +71,7 @@ internal static class FileBuildRunArtifactStoreTestSupport
     {
         return new BuildRunArtifactAccountingRequest(
             paths,
-            "standaloneLinux64",
+            BuildTargetStableName.StandaloneLinux64,
             "StandaloneLinux64",
             BuildReportSourceEntry.FromRunnerOutputRelativePath(buildReportSourcePath),
             Array.Empty<BuildOutputSourceEntry>(),
@@ -83,7 +82,7 @@ internal static class FileBuildRunArtifactStoreTestSupport
     {
         return new IpcBuildReportArtifact(
             SchemaVersion: 1,
-            Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            Result: IpcBuildReportResult.Succeeded,
             UnityBuildTarget: "StandaloneLinux64",
             OutputPath: Path.Combine(paths.RunnerOutputDirectory, "build"),
             DurationMilliseconds: 2500,

@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Infrastructure.Text;
 
@@ -39,10 +39,11 @@ internal sealed class VerifyProgressTextProjector : ICliCommandProgressTextProje
         string status)
     {
         var required = entry.Required ? "true" : "false";
-        var length = checked(7 + entry.Kind.Length + 10 + required.Length + 1 + status.Length);
+        var kind = ContractLiteralCodec.ToValue(entry.Kind);
+        var length = checked(7 + kind.Length + 10 + required.Length + 1 + status.Length);
         return string.Create(
             length,
-            (entry.Kind, Required: required, Status: status),
+            (Kind: kind, Required: required, Status: status),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
@@ -57,13 +58,16 @@ internal sealed class VerifyProgressTextProjector : ICliCommandProgressTextProje
 
     private static string CreateDiagnosticTextLine (VerifyDiagnosticEntry entry)
     {
-        var stepKind = entry.StepKind ?? string.Empty;
-        var hasStep = !string.IsNullOrWhiteSpace(stepKind);
+        var stepKind = entry.StepKind.HasValue
+            ? ContractLiteralCodec.ToValue(entry.StepKind.Value)
+            : string.Empty;
+        var severity = ContractLiteralCodec.ToValue(entry.Severity);
+        var hasStep = stepKind.Length != 0;
         var length = checked(
             17
             + (hasStep ? 6 + stepKind.Length : 0)
             + 1
-            + entry.Severity.Length
+            + severity.Length
             + 1
             + entry.Code.Length
             + 2
@@ -71,7 +75,7 @@ internal sealed class VerifyProgressTextProjector : ICliCommandProgressTextProje
 
         return string.Create(
             length,
-            (HasStep: hasStep, StepKind: stepKind, entry.Severity, entry.Code, entry.Message),
+            (HasStep: hasStep, StepKind: stepKind, Severity: severity, entry.Code, entry.Message),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);

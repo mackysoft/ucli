@@ -34,7 +34,7 @@ public sealed class BuildServiceExecuteMethodRunnerArtifactValidationTests
                     BuildErrorCodes.BuildRunnerResultInvalid))));
         var result = await ExecuteWithExecuteMethodRunnerResultAsync(
             CreateExecuteMethodRunnerResult(outputs: ["missing-player"]),
-            "completed",
+            IpcBuildLogCompletionReason.Completed,
             artifactStore);
 
         Assert.False(result.IsSuccess);
@@ -68,7 +68,7 @@ public sealed class BuildServiceExecuteMethodRunnerArtifactValidationTests
                     BuildErrorCodes.BuildReportMissing))));
         var result = await ExecuteWithExecuteMethodRunnerResultAsync(
             CreateExecuteMethodRunnerResult(buildReport: new IpcBuildRunnerResultBuildReport("reports/build-report.json")),
-            "completed",
+            IpcBuildLogCompletionReason.Completed,
             artifactStore);
 
         Assert.False(result.IsSuccess);
@@ -89,7 +89,7 @@ public sealed class BuildServiceExecuteMethodRunnerArtifactValidationTests
                     BuildErrorCodes.BuildReportMissing))));
         var result = await ExecuteWithExecuteMethodRunnerResultAsync(
             CreateExecuteMethodRunnerResult(buildReport: new IpcBuildRunnerResultBuildReport("reports/build-report.json")),
-            "completed",
+            IpcBuildLogCompletionReason.Completed,
             artifactStore);
 
         Assert.False(result.IsSuccess);

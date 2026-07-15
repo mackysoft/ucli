@@ -50,12 +50,12 @@ public sealed class BuildProfileResolverDigestTests
 
         var first = BuildProfileResolver.ResolveJson(CompactJson).Profile!;
         var second = BuildProfileResolver.ResolveJson(ReorderedJson).Profile!;
-        var expectedDigest = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(CompactJson));
+        var expectedDigest = Sha256Digest.Compute(Encoding.UTF8.GetBytes(CompactJson));
 
         Assert.Equal(first.Digest, second.Digest);
         Assert.Equal(expectedDigest, first.Digest);
-        Assert.Matches("^[0-9a-f]{64}$", first.Digest);
-        Assert.False(first.Digest.StartsWith("sha256:", StringComparison.Ordinal));
+        Assert.Matches("^[0-9a-f]{64}$", first.Digest.ToString());
+        Assert.False(first.Digest.ToString().StartsWith("sha256:", StringComparison.Ordinal));
     }
 
     [Fact]

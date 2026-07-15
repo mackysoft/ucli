@@ -11,7 +11,7 @@ internal static class BuildServiceExecuteMethodRunnerTestSupport
 {
     public static async Task<BuildExecutionResult> ExecuteWithExecuteMethodRunnerResultAsync (
         IpcBuildRunnerResultArtifact runnerResult,
-        string completionReason,
+        IpcBuildLogCompletionReason completionReason,
         StubBuildRunArtifactStore artifactStore,
         bool writeRunnerResultOutputs = true,
         bool writeRunnerBuildReportSource = true,
@@ -39,7 +39,7 @@ internal static class BuildServiceExecuteMethodRunnerTestSupport
 
     public static async Task<BuildExecutionResult> ExecuteWithExecuteMethodRunnerResultAsync (
         IpcBuildRunnerResultArtifact runnerResult,
-        string completionReason = "completed",
+        IpcBuildLogCompletionReason completionReason = IpcBuildLogCompletionReason.Completed,
         bool writeRunnerResultOutputs = true,
         bool writeRunnerBuildReportSource = true,
         string? runnerBuildReportSourceJson = null)
@@ -70,7 +70,7 @@ internal static class BuildServiceExecuteMethodRunnerTestSupport
     {
         using var tempDirectory = CreateArtifactDirectoryScope();
         var runnerResult = CreateExecuteMethodRunnerResult(
-            status: ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed),
+            status: IpcBuildReportResult.Failed,
             outputs: [],
             errorCount: 1,
             warningCount: 0);
@@ -93,17 +93,16 @@ internal static class BuildServiceExecuteMethodRunnerTestSupport
                     buildReportSourceJson: null);
                 var result = CreateBuildResponseResult(
                     runnerResult.Status,
-                    ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed),
+                    IpcBuildLogCompletionReason.Failed,
                     runnerResult.ErrorCount,
-                    reportOutputPath: buildRunPayload.OutputPath,
+                    reportOutputPath: buildRunPayload.Request.OutputPath,
                     runnerResult: runnerResult,
                     omitReport: true);
                 var response = result.Response!;
                 using var document = JsonDocument.Parse(mutatePayloadJson(response.Payload.GetRawText()));
-                return UnityRequestExecutionResult.Success(response with
-                {
-                    Payload = document.RootElement.Clone(),
-                });
+                return UnityRequestExecutionResult.Success(new UnityRequestResponse(
+                    document.RootElement.Clone(),
+                    response.Errors));
             }),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
@@ -111,7 +110,7 @@ internal static class BuildServiceExecuteMethodRunnerTestSupport
     }
 
     public static IpcBuildRunnerResultArtifact CreateExecuteMethodRunnerResult (
-        string? status = null,
+        IpcBuildReportResult status = IpcBuildReportResult.Succeeded,
         IReadOnlyList<string>? outputs = null,
         IpcBuildRunnerResultBuildReport? buildReport = null,
         long durationMilliseconds = 2500,
@@ -120,16 +119,14 @@ internal static class BuildServiceExecuteMethodRunnerTestSupport
         IReadOnlyList<IpcBuildRunnerDiagnostic>? diagnostics = null)
     {
         return new IpcBuildRunnerResultArtifact(
-            Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
-            Status: status ?? ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            Source: IpcBuildRunnerResultSource.UcliBuildRunnerResult,
+            Status: status,
             DurationMilliseconds: durationMilliseconds,
             ErrorCount: errorCount,
             WarningCount: warningCount,
-            Diagnostics: diagnostics ?? [])
-        {
-            Outputs = outputs ?? ["player.txt"],
-            BuildReport = buildReport,
-        };
+            Diagnostics: diagnostics ?? [],
+            Outputs: outputs ?? ["player.txt"],
+            BuildReport: buildReport);
     }
 
     public static void MutateInvalidRunnerResultShape (

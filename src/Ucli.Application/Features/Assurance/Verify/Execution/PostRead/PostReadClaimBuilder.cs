@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Execution.PostRea
 /// <summary> Builds post-read verifier claims from normalized <c>verify --from</c> input. </summary>
 internal static class PostReadClaimBuilder
 {
-    internal const string VerifierId = "postRead";
+    internal static readonly AssuranceVerifierId VerifierId = new("postRead");
 
     private static readonly IReadOnlyList<VerifyResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<VerifyResidualRiskOutput>();
@@ -18,9 +18,9 @@ internal static class PostReadClaimBuilder
     public static PostReadClaimSet BuildMissingInput ()
     {
         var claim = CreatePostReadClaim(
-            VerifyClaimCodes.ReadSurfaceSafe.Value,
-            VerifyClaimStatusValues.Unverified,
-            VerifyCoverageValues.None,
+            VerifyClaimCodes.ReadSurfaceSafe,
+            AssuranceClaimStatus.Unverified,
+            AssuranceCoverage.None,
             required: true,
             "No --from input was provided for required post-read verification.",
             new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -44,7 +44,10 @@ internal static class PostReadClaimBuilder
         var claims = new List<VerifyClaimOutput>();
         var residualRisks = new List<VerifyResidualRiskOutput>();
         var diagnostics = fromInput.OpResults.SelectMany(static result => result.Diagnostics).ToArray();
-        var neutralEvidence = CreatePostReadEvidence(fromInput, diagnostics.Length, IpcExecuteDiagnosticCoverageImpactNames.None);
+        var neutralEvidence = CreatePostReadEvidence(
+            fromInput,
+            diagnostics.Length,
+            VerifyDiagnosticImpact.None);
 
         var persistenceResults = fromInput.OpResults
             .Where(static result => result.Changed
@@ -58,11 +61,11 @@ internal static class PostReadClaimBuilder
             var persistenceEvidence = CreatePostReadEvidence(fromInput, persistenceDiagnostics.Count, ResolveDiagnosticImpact(persistenceDiagnostics));
             var touchedCount = persistenceResults.Sum(static result => result.TouchedCount);
             claims.Add(CreatePostReadClaim(
-                VerifyClaimCodes.PersistenceUnitTouched.Value,
-                touchedCount > 0 || string.Equals(persistenceStatus, VerifyClaimStatusValues.Failed, StringComparison.Ordinal)
+                VerifyClaimCodes.PersistenceUnitTouched,
+                touchedCount > 0 || persistenceStatus == AssuranceClaimStatus.Failed
                     ? persistenceStatus
-                    : VerifyClaimStatusValues.Indeterminate,
-                touchedCount > 0 ? persistenceCoverage : VerifyCoverageValues.None,
+                    : AssuranceClaimStatus.Indeterminate,
+                touchedCount > 0 ? persistenceCoverage : AssuranceCoverage.None,
                 required: profileRequired,
                 touchedCount > 0
                     ? "Touched persistence units were observed from the input result."
@@ -84,7 +87,7 @@ internal static class PostReadClaimBuilder
             var readCoverage = ResolveDiagnosticCoverage(readDiagnostics);
             var readEvidence = CreatePostReadEvidence(fromInput, readDiagnostics.Length, ResolveDiagnosticImpact(readDiagnostics));
             claims.Add(CreatePostReadClaim(
-                VerifyClaimCodes.ReadSurfaceSafe.Value,
+                VerifyClaimCodes.ReadSurfaceSafe,
                 readStatus,
                 readCoverage,
                 required: profileRequired,
@@ -112,7 +115,7 @@ internal static class PostReadClaimBuilder
             var deterministicCoverage = ResolveDiagnosticCoverage(deterministicDiagnostics);
             var deterministicEvidence = CreatePostReadEvidence(fromInput, deterministicDiagnostics.Count, ResolveDiagnosticImpact(deterministicDiagnostics));
             claims.Add(CreatePostReadClaim(
-                VerifyClaimCodes.PostMutationObserved.Value,
+                VerifyClaimCodes.PostMutationObserved,
                 deterministicStatus,
                 deterministicCoverage,
                 required: profileRequired,
@@ -127,9 +130,9 @@ internal static class PostReadClaimBuilder
         else if (fromInput.OpResults.Any(static result => result.Applied || result.Changed))
         {
             claims.Add(CreatePostReadClaim(
-                VerifyClaimCodes.PostMutationObserved.Value,
-                VerifyClaimStatusValues.OutOfScope,
-                VerifyCoverageValues.None,
+                VerifyClaimCodes.PostMutationObserved,
+                AssuranceClaimStatus.OutOfScope,
+                AssuranceCoverage.None,
                 required: false,
                 "Expected post-mutation state is not deterministic from the input result alone.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -153,9 +156,9 @@ internal static class PostReadClaimBuilder
         if (claims.Count == 0 && profileRequired)
         {
             claims.Add(CreatePostReadClaim(
-                VerifyClaimCodes.PostMutationObserved.Value,
-                VerifyClaimStatusValues.Unverified,
-                VerifyCoverageValues.None,
+                VerifyClaimCodes.PostMutationObserved,
+                AssuranceClaimStatus.Unverified,
+                AssuranceCoverage.None,
                 required: true,
                 "No mutation completion evidence was available in the input result.",
                 new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -185,7 +188,7 @@ internal static class PostReadClaimBuilder
             return false;
         }
 
-        var boundOpIds = new HashSet<string>(StringComparer.Ordinal);
+        var boundOpIds = new HashSet<IpcExecuteStepId>();
         foreach (var result in persistenceResults)
         {
             boundOpIds.Add(result.OpId);
@@ -198,13 +201,13 @@ internal static class PostReadClaimBuilder
 
         return opResults.Any(result =>
             !boundOpIds.Contains(result.OpId)
-            && !string.Equals(ResolveDiagnosticImpact(result.Diagnostics), IpcExecuteDiagnosticCoverageImpactNames.None, StringComparison.Ordinal));
+            && ResolveDiagnosticImpact(result.Diagnostics) != VerifyDiagnosticImpact.None);
     }
 
     private static VerifyEvidenceOutput[] CreatePostReadEvidence (
         VerifyFromInput fromInput,
         int diagnosticCount,
-        string diagnosticImpact)
+        VerifyDiagnosticImpact diagnosticImpact)
     {
         return
         [
@@ -224,9 +227,9 @@ internal static class PostReadClaimBuilder
     }
 
     private static VerifyClaimOutput CreatePostReadClaim (
-        string id,
-        string status,
-        string coverage,
+        UcliCode id,
+        AssuranceClaimStatus status,
+        AssuranceCoverage coverage,
         bool required,
         string statement,
         IReadOnlyDictionary<string, object?> subject,
@@ -244,65 +247,44 @@ internal static class PostReadClaimBuilder
             ResidualRisks: EmptyResidualRisks);
     }
 
-    private static string ResolveDiagnosticStatus (IReadOnlyList<VerifyFromDiagnostic> diagnostics)
+    private static AssuranceClaimStatus ResolveDiagnosticStatus (IReadOnlyList<VerifyFromDiagnostic> diagnostics)
     {
-        if (diagnostics.Any(static diagnostic => string.Equals(
-                diagnostic.Severity,
-                IpcExecuteDiagnosticSeverityNames.Error,
-                StringComparison.Ordinal)))
+        if (diagnostics.Any(static diagnostic => diagnostic.Severity == UcliDiagnosticSeverity.Error))
         {
-            return VerifyClaimStatusValues.Failed;
+            return AssuranceClaimStatus.Failed;
         }
 
-        return diagnostics.Any(static diagnostic => string.Equals(
-                diagnostic.CoverageImpact,
-                IpcExecuteDiagnosticCoverageImpactNames.Indeterminate,
-                StringComparison.Ordinal))
-            ? VerifyClaimStatusValues.Indeterminate
-            : VerifyClaimStatusValues.Passed;
+        return diagnostics.Any(static diagnostic => diagnostic.CoverageImpact == IpcExecuteDiagnosticCoverageImpact.Indeterminate)
+            ? AssuranceClaimStatus.Indeterminate
+            : AssuranceClaimStatus.Passed;
     }
 
-    private static string ResolveDiagnosticCoverage (IReadOnlyList<VerifyFromDiagnostic> diagnostics)
+    private static AssuranceCoverage ResolveDiagnosticCoverage (IReadOnlyList<VerifyFromDiagnostic> diagnostics)
     {
-        if (diagnostics.Any(static diagnostic => string.Equals(
-                diagnostic.CoverageImpact,
-                IpcExecuteDiagnosticCoverageImpactNames.Indeterminate,
-                StringComparison.Ordinal)))
+        if (diagnostics.Any(static diagnostic => diagnostic.CoverageImpact == IpcExecuteDiagnosticCoverageImpact.Indeterminate))
         {
-            return VerifyCoverageValues.None;
+            return AssuranceCoverage.None;
         }
 
-        return diagnostics.Any(static diagnostic => string.Equals(
-                diagnostic.CoverageImpact,
-                IpcExecuteDiagnosticCoverageImpactNames.Partial,
-                StringComparison.Ordinal))
-            ? VerifyCoverageValues.Partial
-            : VerifyCoverageValues.Full;
+        return diagnostics.Any(static diagnostic => diagnostic.CoverageImpact == IpcExecuteDiagnosticCoverageImpact.Partial)
+            ? AssuranceCoverage.Partial
+            : AssuranceCoverage.Full;
     }
 
-    private static string ResolveDiagnosticImpact (IReadOnlyList<VerifyFromDiagnostic> diagnostics)
+    private static VerifyDiagnosticImpact ResolveDiagnosticImpact (IReadOnlyList<VerifyFromDiagnostic> diagnostics)
     {
-        if (diagnostics.Any(static diagnostic => string.Equals(
-                diagnostic.Severity,
-                IpcExecuteDiagnosticSeverityNames.Error,
-                StringComparison.Ordinal)))
+        if (diagnostics.Any(static diagnostic => diagnostic.Severity == UcliDiagnosticSeverity.Error))
         {
-            return IpcExecuteDiagnosticSeverityNames.Error;
+            return VerifyDiagnosticImpact.Error;
         }
 
-        if (diagnostics.Any(static diagnostic => string.Equals(
-                diagnostic.CoverageImpact,
-                IpcExecuteDiagnosticCoverageImpactNames.Indeterminate,
-                StringComparison.Ordinal)))
+        if (diagnostics.Any(static diagnostic => diagnostic.CoverageImpact == IpcExecuteDiagnosticCoverageImpact.Indeterminate))
         {
-            return IpcExecuteDiagnosticCoverageImpactNames.Indeterminate;
+            return VerifyDiagnosticImpact.Indeterminate;
         }
 
-        return diagnostics.Any(static diagnostic => string.Equals(
-                diagnostic.CoverageImpact,
-                IpcExecuteDiagnosticCoverageImpactNames.Partial,
-                StringComparison.Ordinal))
-            ? IpcExecuteDiagnosticCoverageImpactNames.Partial
-            : IpcExecuteDiagnosticCoverageImpactNames.None;
+        return diagnostics.Any(static diagnostic => diagnostic.CoverageImpact == IpcExecuteDiagnosticCoverageImpact.Partial)
+            ? VerifyDiagnosticImpact.Partial
+            : VerifyDiagnosticImpact.None;
     }
 }

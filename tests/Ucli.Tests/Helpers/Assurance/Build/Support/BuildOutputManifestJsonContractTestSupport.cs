@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Tests.Helpers.Assurance.Build;
 
@@ -8,6 +9,12 @@ internal static class BuildOutputManifestJsonContractTestSupport
     public static BuildOutputManifestContentJsonContract ReadContent (JsonElement root)
     {
         var targetElement = root.GetProperty("target");
+        var stableNameLiteral = targetElement.GetProperty("stableName").GetString();
+        if (!ContractLiteralCodec.TryParse<BuildTargetStableName>(stableNameLiteral, out var stableName))
+        {
+            throw new InvalidDataException($"Unsupported build target stable name: {stableNameLiteral}.");
+        }
+
         var entryElements = root.GetProperty("entries");
         var entries = new List<BuildOutputManifestEntryJsonContract>(entryElements.GetArrayLength());
         foreach (var entry in entryElements.EnumerateArray())
@@ -28,13 +35,13 @@ internal static class BuildOutputManifestJsonContractTestSupport
                 file.GetProperty("sourcePath").GetString()!,
                 file.GetProperty("artifactPath").GetString()!,
                 file.GetProperty("sizeBytes").GetInt64(),
-                file.GetProperty("sha256").GetString()!));
+                Sha256Digest.Parse(file.GetProperty("sha256").GetString()!)));
         }
 
         return new BuildOutputManifestContentJsonContract(
             root.GetProperty("schemaVersion").GetInt32(),
             new BuildOutputManifestTargetJsonContract(
-                targetElement.GetProperty("stableName").GetString()!,
+                stableName,
                 targetElement.GetProperty("unityBuildTarget").GetString()!),
             entries,
             root.GetProperty("entryCount").GetInt32(),

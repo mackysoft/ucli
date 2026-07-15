@@ -58,7 +58,7 @@ internal sealed class VerifyCodeCatalogContributor : ICodeCatalogContributor
     {
         return new CodeCatalogDescriptor(
             Code: code,
-            Kind: CodeCatalogKindValues.Claim,
+            Kind: CodeCatalogKind.Claim,
             Category: "verify",
             Summary: summary,
             Meaning: summary,
@@ -77,7 +77,7 @@ internal sealed class VerifyCodeCatalogContributor : ICodeCatalogContributor
     {
         return new CodeCatalogDescriptor(
             Code: code,
-            Kind: CodeCatalogKindValues.Risk,
+            Kind: CodeCatalogKind.Risk,
             Category: "verify",
             Summary: summary,
             Meaning: summary,

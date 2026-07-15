@@ -1,12 +1,11 @@
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
-using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Execution;
 
 /// <summary> Collects verifier outputs while one verify profile is executing. </summary>
 internal sealed class VerifyPacketBuilder
 {
-    private readonly Dictionary<string, VerifyReportOutput> reports = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, AssuranceReportReference> reports = new(StringComparer.Ordinal);
     private readonly List<VerifyVerifierOutput> verifiers = [];
     private readonly List<VerifyClaimOutput> claims = [];
     private readonly List<VerifyResidualRiskOutput> residualRisks = [];
@@ -18,18 +17,18 @@ internal sealed class VerifyPacketBuilder
     public IReadOnlyList<VerifyClaimOutput> Claims => claims;
 
     /// <summary> Gets collected reports. </summary>
-    public IReadOnlyDictionary<string, VerifyReportOutput> Reports => reports;
+    public IReadOnlyDictionary<string, AssuranceReportReference> Reports => reports;
 
     /// <summary> Gets collected payload-level residual risks. </summary>
     public IReadOnlyList<VerifyResidualRiskOutput> ResidualRisks => residualRisks;
 
     /// <summary> Gets a value indicating whether logs should be collected for a non-passing claim. </summary>
     public bool HasNonPassingClaim => claims.Any(static claim =>
-        string.Equals(claim.Status, VerifyClaimStatusValues.Failed, StringComparison.Ordinal)
-        || string.Equals(claim.Status, VerifyClaimStatusValues.Indeterminate, StringComparison.Ordinal)
-        || string.Equals(claim.Status, VerifyClaimStatusValues.Unverified, StringComparison.Ordinal)
+        claim.Status is AssuranceClaimStatus.Failed
+            or AssuranceClaimStatus.Indeterminate
+            or AssuranceClaimStatus.Unverified
         || (claim.Required
-            && !string.Equals(claim.Coverage, VerifyCoverageValues.Full, StringComparison.Ordinal)));
+            && claim.Coverage != AssuranceCoverage.Full));
 
     /// <summary> Adds one verifier output. </summary>
     /// <param name="verifier"> The verifier output. </param>
@@ -60,7 +59,7 @@ internal sealed class VerifyPacketBuilder
     /// <param name="report"> The report output. </param>
     public void AddReport (
         string key,
-        VerifyReportOutput report)
+        AssuranceReportReference report)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
         ArgumentNullException.ThrowIfNull(report);

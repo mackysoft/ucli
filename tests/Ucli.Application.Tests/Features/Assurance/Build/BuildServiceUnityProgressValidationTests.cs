@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
 
@@ -9,20 +9,12 @@ public sealed class BuildServiceUnityProgressValidationTests
     public static TheoryData<string, object> InvalidProgressFrames => new()
     {
         {
-            "invalid-progress-phase",
-            CreateProgressFrame(
-                BuildRunProgressEventNames.ReadinessCompleted,
-                RunId,
-                ResolveProfileDigest(),
-                "invalidPhase")
-        },
-        {
             "mismatched-profile-digest",
             CreateProgressFrame(
                 BuildRunProgressEventNames.ReadinessCompleted,
                 RunId,
-                new string('f', 64),
-                "readiness")
+                Sha256Digest.Parse(new string('f', 64)),
+                BuildRunProgressPhase.Readiness)
         },
         {
             "mismatched-event-phase",
@@ -30,7 +22,7 @@ public sealed class BuildServiceUnityProgressValidationTests
                 BuildRunProgressEventNames.ReadinessCompleted,
                 RunId,
                 ResolveProfileDigest(),
-                "runnerInvocation")
+                BuildRunProgressPhase.RunnerInvocation)
         },
         {
             "missing-log-timestamp",
@@ -64,8 +56,8 @@ public sealed class BuildServiceUnityProgressValidationTests
     private static UnityRequestProgressFrame CreateProgressFrame (
         string eventName,
         Guid runId,
-        string profileDigest,
-        string phase)
+        Sha256Digest profileDigest,
+        BuildRunProgressPhase phase)
     {
         return new UnityRequestProgressFrame(
             eventName,
@@ -86,12 +78,14 @@ public sealed class BuildServiceUnityProgressValidationTests
     {
         return new UnityRequestProgressFrame(
             BuildRunProgressEventNames.LogEntry,
-            IpcPayloadCodec.SerializeToElement(new BuildLogEntry(
-                RunId: RunId,
-                TimestampUtc: timestampUtc,
-                Level: "info",
-                Message: message,
-                Cursor: null,
-                Source: "unityLog")));
+            IpcPayloadCodec.SerializeToElement(new
+            {
+                runId = RunId,
+                timestampUtc,
+                level = "info",
+                message,
+                cursor = (string?)null,
+                source = "unityLog",
+            }));
     }
 }

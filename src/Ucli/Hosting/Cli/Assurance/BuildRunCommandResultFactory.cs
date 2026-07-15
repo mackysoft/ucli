@@ -1,8 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Projection;
@@ -56,8 +54,8 @@ internal static class BuildRunCommandResultFactory
         return new CommandResult(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.BuildRun,
-            Status: IpcProtocol.StatusOk,
-            ExitCode: ContractLiteralCodec.Matches(output.Verdict, BuildVerdict.Pass)
+            Status: CommandResultStatus.Ok,
+            ExitCode: output.Verdict == AssuranceVerdict.Pass
                 ? (int)CliExitCode.Success
                 : 1,
             Message: executionResult.Message,

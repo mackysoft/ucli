@@ -18,6 +18,20 @@ public sealed class ReadyAssuranceSemanticInvariantValidatorReferenceTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithInvalidVerifierIdentifiers_ReturnsIdentifierPaths ()
+    {
+        var payload = CreateReadyPayload(
+            verifiers: [CreateVerifier(id: " ready")],
+            claims: [CreateClaim(verifierRef: " ready")]);
+
+        var result = ValidateReadyPayload(payload);
+
+        AssertViolationPath(result, "$.verifiers[0].id");
+        AssertViolationPath(result, "$.claims[0].verifierRef");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithUnresolvedReportAndEvidenceReferences_ReturnsReferencePaths ()
     {
         var payload = CreateReadyPayload(
@@ -43,5 +57,20 @@ public sealed class ReadyAssuranceSemanticInvariantValidatorReferenceTests
         var result = ValidateReadyPayload(payload);
 
         AssertViolationPath(result, "$.reports.ready-log");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithInvalidReportDigest_ReturnsDigestPath ()
+    {
+        var payload = CreateReadyPayload(
+            reports: new Dictionary<string, object>(StringComparer.Ordinal)
+            {
+                ["ready-log"] = CreateReport(digest: "not-a-digest"),
+            });
+
+        var result = ValidateReadyPayload(payload);
+
+        AssertViolationPath(result, "$.reports.ready-log.digest");
     }
 }

@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance.Build;
 
@@ -38,7 +39,7 @@ internal sealed class BuildOutputManifestJsonContractWriter : IJsonContractWrite
     /// <summary> Calculates the manifest digest from canonical content excluding <c>manifestDigest</c>. </summary>
     /// <param name="content"> The manifest content without <c>manifestDigest</c>. </param>
     /// <returns> The lowercase SHA-256 digest. </returns>
-    public string CalculateManifestDigest (BuildOutputManifestContentJsonContract content)
+    public Sha256Digest CalculateManifestDigest (BuildOutputManifestContentJsonContract content)
     {
         if (content == null)
         {
@@ -68,7 +69,7 @@ internal sealed class BuildOutputManifestJsonContractWriter : IJsonContractWrite
 
     private static string WriteJson (
         BuildOutputManifestContentJsonContract content,
-        string? manifestDigest,
+        Sha256Digest? manifestDigest,
         bool includeManifestDigest,
         JsonWriterOptions writerOptions,
         bool ensureTrailingNewline)
@@ -80,7 +81,7 @@ internal sealed class BuildOutputManifestJsonContractWriter : IJsonContractWrite
             writer.WriteNumber("schemaVersion", content.SchemaVersion);
             writer.WritePropertyName("target");
             writer.WriteStartObject();
-            writer.WriteString("stableName", content.Target.StableName);
+            writer.WriteString("stableName", ContractLiteralCodec.ToValue(content.Target.StableName));
             writer.WriteString("unityBuildTarget", content.Target.UnityBuildTarget);
             writer.WriteEndObject();
             writer.WritePropertyName("entries");
@@ -110,14 +111,14 @@ internal sealed class BuildOutputManifestJsonContractWriter : IJsonContractWrite
                 writer.WriteString("sourcePath", file.SourcePath);
                 writer.WriteString("artifactPath", file.ArtifactPath);
                 writer.WriteNumber("sizeBytes", file.SizeBytes);
-                writer.WriteString("sha256", file.Sha256);
+                writer.WriteString("sha256", file.Sha256.ToString());
                 writer.WriteEndObject();
             }
 
             writer.WriteEndArray();
             if (includeManifestDigest)
             {
-                writer.WriteString("manifestDigest", manifestDigest);
+                writer.WriteString("manifestDigest", manifestDigest!.ToString());
             }
 
             writer.WriteEndObject();
@@ -149,7 +150,7 @@ internal sealed class BuildOutputManifestJsonContractWriter : IJsonContractWrite
         return Encoding.UTF8.GetString(stream.ToArray());
     }
 
-    private static string ComputeUtf8Sha256 (string text)
+    private static Sha256Digest ComputeUtf8Sha256 (string text)
     {
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         AppendUtf8(hash, text.AsSpan());

@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Contracts.Configuration;
 
@@ -22,18 +21,18 @@ public sealed class ReadyServiceReadIndexTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
-        Assert.Equal(ReadyVerdictValues.Pass, output.Verdict);
-        Assert.Equal(AssuranceExecutionModeCodec.NotApplicable, output.ResolvedMode);
-        Assert.Equal(AssuranceSessionKindValues.ArtifactOnly, output.SessionKind);
+        Assert.Equal(AssuranceVerdict.Pass, output.Verdict);
+        Assert.Equal(AssuranceResolvedExecutionMode.NotApplicable, output.ResolvedMode);
+        Assert.Equal(AssuranceSessionKind.ArtifactOnly, output.SessionKind);
         Assert.Null(output.Lifecycle);
         Assert.NotNull(output.ReadIndex);
-        Assert.Equal("allowStale", output.ReadIndex.Mode);
+        Assert.Equal(ReadyReadIndexMode.AllowStale, output.ReadIndex.Mode);
         Assert.Equal(
-            ["ops.catalog", "asset-search.lookup", "guid-path.lookup"],
+            [ReadyReadIndexArtifactName.OpsCatalog, ReadyReadIndexArtifactName.AssetSearchLookup, ReadyReadIndexArtifactName.GuidPathLookup],
             output.ReadIndex.Artifacts.Select(static artifact => artifact.Name));
         Assert.All(output.ReadIndex.Artifacts, static artifact => Assert.True(artifact.Required));
         var claim = Assert.Single(output.Claims);
-        Assert.Equal(ReadyValidityKindValues.ProbeOnly, claim.Validity.Kind);
+        Assert.Equal(ReadyValidityKind.ProbeOnly, claim.Validity.Kind);
         Assert.False(claim.Validity.GuaranteesReusableSession);
     }
 
@@ -48,16 +47,16 @@ public sealed class ReadyServiceReadIndexTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<ReadyExecutionOutput>(result.Output);
-        Assert.Equal(ReadyVerdictValues.Fail, output.Verdict);
+        Assert.Equal(AssuranceVerdict.Fail, output.Verdict);
         var claim = Assert.Single(output.Claims);
-        Assert.Equal(ReadyClaimStatusValues.Failed, claim.Status);
+        Assert.Equal(AssuranceClaimStatus.Failed, claim.Status);
 
         var artifact = Assert.Single(
             output.ReadIndex!.Artifacts,
-            static artifact => string.Equals(artifact.Name, "asset-search.lookup", StringComparison.Ordinal));
+            static artifact => artifact.Name == ReadyReadIndexArtifactName.AssetSearchLookup);
         Assert.True(artifact.Required);
-        Assert.Equal(ReadyReadIndexArtifactStatusValues.Failed, artifact.Status);
-        Assert.Equal(ReadIndexErrorCodes.ReadIndexBootstrapFailed.Value, artifact.Code);
+        Assert.Equal(ReadyReadIndexArtifactStatus.Failed, artifact.Status);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexBootstrapFailed, artifact.Code);
         Assert.Contains("query assets find", artifact.ActionRequired, StringComparison.Ordinal);
     }
 }

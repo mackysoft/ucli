@@ -1,7 +1,7 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Assurance.Compile;
 
 namespace MackySoft.Ucli.Tests.Features.Assurance.Compile;
@@ -128,7 +128,7 @@ public sealed class FileCompileRunArtifactReaderTests
         var primaryDiagnostic = errorCount == 0
             ? null
             : new IpcPrimaryDiagnostic(
-                Kind: "compiler",
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS1002",
                 File: "Assets/Broken.cs",
                 Line: 4,
@@ -142,7 +142,7 @@ public sealed class FileCompileRunArtifactReaderTests
             StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
             CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),
             Refresh: new IpcCompileSummary.RefreshEvidence(
-                Origin: "assetDatabaseRefresh",
+                Origin: CompileRefreshOrigin.AssetDatabaseRefresh,
                 Requested: true,
                 StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                 CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),
@@ -180,7 +180,7 @@ public sealed class FileCompileRunArtifactReaderTests
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:03Z"),
-                ActionRequired: canAcceptExecutionRequests ? null : "fixCompileErrors",
+                ActionRequired: canAcceptExecutionRequests ? null : DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: primaryDiagnostic));
     }
 

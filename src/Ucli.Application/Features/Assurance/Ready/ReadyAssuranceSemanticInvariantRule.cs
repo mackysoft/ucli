@@ -1,30 +1,23 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Semantics;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
 /// <summary> Validates ready-specific semantic invariants inside the common assurance payload shape. </summary>
-internal sealed class ReadyAssuranceSemanticInvariantRule : IAssuranceSemanticInvariantRule
+internal sealed class ReadyAssuranceSemanticInvariantRule : IAssuranceClaimInvariantRule
 {
-    /// <inheritdoc />
-    public void ValidatePayload (
-        JsonElement payload,
-        List<AssuranceSemanticInvariantViolation> violations)
-    {
-        ArgumentNullException.ThrowIfNull(violations);
-    }
-
     /// <inheritdoc />
     public void ValidateClaim (
         JsonElement payload,
         JsonElement claimElement,
         string claimPath,
-        string claimId,
+        UcliCode claimId,
         List<AssuranceSemanticInvariantViolation> violations)
     {
         ArgumentNullException.ThrowIfNull(violations);
 
-        if (!IsReadyClaim(claimId) || !IsReadyPayload(payload))
+        if (!ReadyClaimCodes.All.Contains(claimId) || !IsReadyPayload(payload))
         {
             return;
         }
@@ -36,13 +29,13 @@ internal sealed class ReadyAssuranceSemanticInvariantRule : IAssuranceSemanticIn
             return;
         }
 
-        if (!TryReadRequiredString(validityElement, "kind", validityPath, violations, out var kind))
+        if (!TryReadRequiredString(validityElement, "kind", validityPath, violations, out var kindLiteral))
         {
             return;
         }
 
-        if (!string.Equals(kind, ReadyValidityKindValues.SessionBound, StringComparison.Ordinal)
-            && !string.Equals(kind, ReadyValidityKindValues.ProbeOnly, StringComparison.Ordinal))
+        var hasDefinedKind = ContractLiteralCodec.TryParse(kindLiteral, out ReadyValidityKind kind);
+        if (!hasDefinedKind)
         {
             AddViolation(violations, BuildPropertyPath(validityPath, "kind"), "Ready claim validity kind must be sessionBound or probeOnly.");
         }
@@ -55,7 +48,7 @@ internal sealed class ReadyAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
 
         var guaranteesReusableSession = guaranteeElement.GetBoolean();
-        if (string.Equals(kind, ReadyValidityKindValues.ProbeOnly, StringComparison.Ordinal) && guaranteesReusableSession)
+        if (hasDefinedKind && kind == ReadyValidityKind.ProbeOnly && guaranteesReusableSession)
         {
             AddViolation(violations, BuildPropertyPath(validityPath, "guaranteesReusableSession"), "Probe-only ready validity must not guarantee a reusable session.");
         }
@@ -66,22 +59,20 @@ internal sealed class ReadyAssuranceSemanticInvariantRule : IAssuranceSemanticIn
         }
     }
 
-    private static bool IsReadyClaim (string claimId)
-    {
-        return ReadyClaimCodes.UnityReadyExecution.EqualsValue(claimId)
-            || ReadyClaimCodes.UnityReadyMutation.EqualsValue(claimId)
-            || ReadyClaimCodes.UnityReadyTest.EqualsValue(claimId)
-            || ReadyClaimCodes.UnityReadyReadIndex.EqualsValue(claimId);
-    }
-
     private static bool IsAutoOneshotReadyPayload (JsonElement payload)
     {
         return payload.TryGetProperty("requestedMode", out var requestedModeElement)
             && requestedModeElement.ValueKind == JsonValueKind.String
-            && string.Equals(requestedModeElement.GetString(), AssuranceExecutionModeCodec.Auto, StringComparison.Ordinal)
+            && ContractLiteralCodec.TryParse(
+                requestedModeElement.GetString(),
+                out AssuranceRequestedExecutionMode requestedMode)
+            && requestedMode == AssuranceRequestedExecutionMode.Auto
             && payload.TryGetProperty("resolvedMode", out var resolvedModeElement)
             && resolvedModeElement.ValueKind == JsonValueKind.String
-            && string.Equals(resolvedModeElement.GetString(), AssuranceExecutionModeCodec.Oneshot, StringComparison.Ordinal);
+            && ContractLiteralCodec.TryParse(
+                resolvedModeElement.GetString(),
+                out AssuranceResolvedExecutionMode resolvedMode)
+            && resolvedMode == AssuranceResolvedExecutionMode.Oneshot;
     }
 
     private static bool IsReadyPayload (JsonElement payload)

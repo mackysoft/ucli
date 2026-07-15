@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Storage;
+
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
 /// <summary> Represents one machine-readable diagnostic selected as ready lifecycle evidence. </summary>
@@ -8,7 +10,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 /// <param name="Column"> The one-based diagnostic column number when available. </param>
 /// <param name="Message"> The diagnostic message when available. </param>
 internal sealed record ReadyPrimaryDiagnosticOutput (
-    string Kind,
+    DaemonDiagnosisPrimaryDiagnosticKind Kind,
     string? Code,
     string? File,
     int? Line,

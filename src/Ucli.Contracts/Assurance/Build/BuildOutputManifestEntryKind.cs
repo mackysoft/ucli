@@ -7,9 +7,9 @@ internal enum BuildOutputManifestEntryKind
 {
     /// <summary> The source entry was a regular file. </summary>
     [UcliContractLiteral("file")]
-    File = 0,
+    File = 1,
 
     /// <summary> The source entry was a directory. </summary>
     [UcliContractLiteral("directory")]
-    Directory = 1,
+    Directory = 2,
 }

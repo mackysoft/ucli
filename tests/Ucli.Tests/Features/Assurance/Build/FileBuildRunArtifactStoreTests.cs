@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance.Build;
@@ -37,9 +36,9 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal(BuildArtifactKind.BuildReport, result.BuildReport!.Kind);
         Assert.Equal(BuildArtifactKind.BuildOutputManifest, result.BuildOutputManifest.Kind);
         Assert.Equal(BuildArtifactKind.BuildLog, result.BuildLog.Kind);
-        Assert.Equal(Sha256LowerHex.Compute(buildLogBytes), result.BuildLog.Digest);
+        Assert.Equal(Sha256Digest.Compute(buildLogBytes), result.BuildLog.Digest);
         var buildReportBytes = await File.ReadAllBytesAsync(paths.BuildReportJsonPath, CancellationToken.None);
-        Assert.Equal(Sha256LowerHex.Compute(buildReportBytes), result.BuildReport.Digest);
+        Assert.Equal(Sha256Digest.Compute(buildReportBytes), result.BuildReport.Digest);
 
         var metadataWriteResult = await store.WriteMetadataAsync(
             new BuildRunMetadataWriteRequest(
@@ -88,7 +87,7 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal(2, outputRoot.GetProperty("entryCount").GetInt32());
         Assert.Equal(3, outputRoot.GetProperty("fileCount").GetInt32());
         Assert.Equal(aConfigBytes.Length + zConfigBytes.Length + playerBytes.Length, outputRoot.GetProperty("totalBytes").GetInt64());
-        Assert.Equal(result.OutputManifest.ManifestDigest, outputRoot.GetProperty("manifestDigest").GetString());
+        Assert.Equal(result.OutputManifest.ManifestDigest.ToString(), outputRoot.GetProperty("manifestDigest").GetString());
         Assert.Equal(2, result.OutputManifest.EntryCount);
         Assert.Equal(3, result.OutputManifest.FileCount);
         Assert.Equal(aConfigBytes.Length + zConfigBytes.Length + playerBytes.Length, result.OutputManifest.TotalBytes);
@@ -115,13 +114,13 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal(Sha256LowerHex.Compute(playerBytes), files[2].GetProperty("sha256").GetString());
         await AssertFileSha256Async(
             Path.Combine(paths.ArtifactOutputDirectory, "output-0001", "Data", "a-config.json"),
-            files[0].GetProperty("sha256").GetString()!);
+            Sha256Digest.Parse(files[0].GetProperty("sha256").GetString()!));
         await AssertFileSha256Async(
             Path.Combine(paths.ArtifactOutputDirectory, "output-0001", "Data", "z-config.json"),
-            files[1].GetProperty("sha256").GetString()!);
+            Sha256Digest.Parse(files[1].GetProperty("sha256").GetString()!));
         await AssertFileSha256Async(
             Path.Combine(paths.ArtifactOutputDirectory, "output-0002", "Game.x86_64"),
-            files[2].GetProperty("sha256").GetString()!);
+            Sha256Digest.Parse(files[2].GetProperty("sha256").GetString()!));
         var recalculatedManifestDigest = new BuildOutputManifestJsonContractWriter().CalculateManifestDigest(
             BuildOutputManifestJsonContractTestSupport.ReadContent(outputRoot));
         Assert.Equal(recalculatedManifestDigest, result.OutputManifest.ManifestDigest);
@@ -150,22 +149,22 @@ public sealed class FileBuildRunArtifactStoreTests
         var artifacts = buildRoot.GetProperty("artifacts");
         Assert.Equal(
             [
-                GetArtifactKey(BuildArtifactKind.BuildReport),
-                GetArtifactKey(BuildArtifactKind.BuildOutputManifest),
-                GetArtifactKey(BuildArtifactKind.BuildLog),
+                ContractLiteralCodec.ToValue(BuildArtifactKind.BuildReport),
+                ContractLiteralCodec.ToValue(BuildArtifactKind.BuildOutputManifest),
+                ContractLiteralCodec.ToValue(BuildArtifactKind.BuildLog),
             ],
             artifacts.EnumerateObject().Select(static property => property.Name).ToArray());
-        Assert.False(artifacts.TryGetProperty(GetArtifactKey(BuildArtifactKind.Build), out _));
+        Assert.False(artifacts.TryGetProperty(ContractLiteralCodec.ToValue(BuildArtifactKind.Build), out _));
         AssertArtifactRef(
-            artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildReport)),
+            artifacts.GetProperty(ContractLiteralCodec.ToValue(BuildArtifactKind.BuildReport)),
             UcliStoragePathNames.BuildReportFileName,
             result.BuildReport.Digest);
         AssertArtifactRef(
-            artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildOutputManifest)),
+            artifacts.GetProperty(ContractLiteralCodec.ToValue(BuildArtifactKind.BuildOutputManifest)),
             UcliStoragePathNames.BuildOutputManifestFileName,
             result.BuildOutputManifest.Digest);
         AssertArtifactRef(
-            artifacts.GetProperty(GetArtifactKey(BuildArtifactKind.BuildLog)),
+            artifacts.GetProperty(ContractLiteralCodec.ToValue(BuildArtifactKind.BuildLog)),
             UcliStoragePathNames.BuildLogFileName,
             result.BuildLog.Digest);
         await AssertFileSha256Async(paths.BuildJsonPath, buildRef.Digest);
@@ -254,9 +253,9 @@ public sealed class FileBuildRunArtifactStoreTests
         var (store, paths) = PrepareArtifacts(scope);
         var accounting = new BuildRunArtifactAccountingResult(
             BuildReport: null,
-            BuildOutputManifest: new BuildArtifactRef(BuildArtifactKind.BuildOutputManifest, "output-manifest.json", new string('a', 64)),
-            BuildLog: new BuildArtifactRef(BuildArtifactKind.BuildLog, "build.log", new string('b', 64)),
-            OutputManifest: new BuildOutputManifestSummary(new string('c', 64), 0, 0, 0));
+            BuildOutputManifest: new BuildArtifactRef(BuildArtifactKind.BuildOutputManifest, "output-manifest.json", Sha256Digest.Parse(new string('a', 64))),
+            BuildLog: new BuildArtifactRef(BuildArtifactKind.BuildLog, "build.log", Sha256Digest.Parse(new string('b', 64))),
+            OutputManifest: new BuildOutputManifestSummary(Sha256Digest.Parse(new string('c', 64)), 0, 0, 0));
 
         var result = await store.WriteMetadataAsync(
             new BuildRunMetadataWriteRequest(
@@ -296,33 +295,29 @@ public sealed class FileBuildRunArtifactStoreTests
     private static void AssertArtifactRef (
         JsonElement artifact,
         string expectedPath,
-        string expectedDigest)
+        Sha256Digest expectedDigest)
     {
         Assert.Equal(expectedPath, artifact.GetProperty("path").GetString());
-        Assert.Equal(expectedDigest, artifact.GetProperty("digest").GetString());
+        Assert.Equal(expectedDigest.ToString(), artifact.GetProperty("digest").GetString());
         AssertLowerSha256(expectedDigest);
     }
 
-    private static string GetArtifactKey (BuildArtifactKind kind)
+    private static void AssertLowerSha256 (Sha256Digest sha256)
     {
-        return ContractLiteralCodec.ToValue(kind);
-    }
-
-    private static void AssertLowerSha256 (string sha256)
-    {
-        Assert.Equal(64, sha256.Length);
-        Assert.All(sha256, static c => Assert.True(
+        var value = sha256.ToString();
+        Assert.Equal(64, value.Length);
+        Assert.All(value, static c => Assert.True(
             (c >= '0' && c <= '9') || (c >= 'a' && c <= 'f'),
             $"Character '{c}' is not lowercase hexadecimal."));
     }
 
     private static async ValueTask AssertFileSha256Async (
         string path,
-        string expectedDigest)
+        Sha256Digest expectedDigest)
     {
         Assert.Equal(
             expectedDigest,
-            Sha256LowerHex.Compute(await File.ReadAllBytesAsync(path, CancellationToken.None)));
+            Sha256Digest.Compute(await File.ReadAllBytesAsync(path, CancellationToken.None)));
     }
 
 }

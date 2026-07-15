@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -42,16 +42,16 @@ internal static class BuildRunCliOutputContractTestSupport
         switch (caseName)
         {
             case "missing-report-ref":
-                payloadNode["reports"]!.AsObject().Remove(BuildReportRefs.BuildReport);
+                payloadNode["reports"]!.AsObject().Remove(ContractLiteralCodec.ToValue(BuildArtifactKind.BuildReport));
                 break;
             case "digest-only-entry":
-                payloadNode["reports"]![BuildReportRefs.BuildLog]!.AsObject().Remove("path");
+                payloadNode["reports"]![ContractLiteralCodec.ToValue(BuildArtifactKind.BuildLog)]!.AsObject().Remove("path");
                 break;
             case "invalid-digest":
-                payloadNode["reports"]![BuildReportRefs.BuildLog]!["digest"] = "sha256:dddd";
+                payloadNode["reports"]![ContractLiteralCodec.ToValue(BuildArtifactKind.BuildLog)]!["digest"] = "sha256:dddd";
                 break;
             case "manifest-ref-mismatch":
-                payloadNode["build"]!["output"]!["manifestRef"] = BuildReportRefs.Build;
+                payloadNode["build"]!["output"]!["manifestRef"] = ContractLiteralCodec.ToValue(BuildArtifactKind.Build);
                 break;
             default:
                 throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown invalid build invariant case.");

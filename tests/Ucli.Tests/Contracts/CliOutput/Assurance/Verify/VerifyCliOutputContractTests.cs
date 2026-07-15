@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Assurance;
 
 namespace MackySoft.Ucli.Tests;
@@ -19,7 +18,9 @@ public sealed class VerifyCliOutputContractTests
 
         var result = CliAssuranceSemanticInvariantValidatorFactory.CreateVerifyValidator().Validate(payload);
 
-        Assert.Equal(IpcProtocol.StatusOk, root.GetProperty("status").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
+            root.GetProperty("status").GetString());
         Assert.True(
             result.IsValid,
             string.Join(Environment.NewLine, result.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));
@@ -32,7 +33,9 @@ public sealed class VerifyCliOutputContractTests
         using var document = CliOutputGoldenFiles.ReadJsonDocument("verify", "profile-conflict-error.json");
         var root = document.RootElement;
 
-        Assert.Equal(IpcProtocol.StatusError, root.GetProperty("status").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            root.GetProperty("status").GetString());
         Assert.Equal(3, root.GetProperty("exitCode").GetInt32());
         Assert.Equal("INVALID_ARGUMENT", root.GetProperty("errors")[0].GetProperty("code").GetString());
         Assert.True(root.GetProperty("payload").TryGetProperty("project", out _));

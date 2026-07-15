@@ -1,9 +1,8 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceExecuteMethodRunnerTestSupport;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
@@ -39,8 +38,8 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         using var tempDirectory = CreateArtifactDirectoryScope();
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
         var requestExecutor = CreateBuildResponseExecutor(
-            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            IpcBuildReportResult.Succeeded,
+            IpcBuildLogCompletionReason.Completed,
             errorCount: 0,
             runnerResult: CreateExecuteMethodRunnerResult(),
             omitReport: true);
@@ -85,15 +84,15 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         Assert.False(accountingRequest.AllowEmptyOutputManifest);
 
         var output = result.Output!;
-        Assert.Equal("executeMethod", output.Build.Runner.Kind);
+        Assert.Equal(BuildRunnerKind.ExecuteMethod, output.Build.Runner.Kind);
         Assert.Equal("Build.Entry.Run", output.Build.Runner.Method);
-        Assert.Equal("ucliBuildRunnerResult", output.Build.RunnerResult.Source);
+        Assert.Equal(IpcBuildRunnerResultSource.UcliBuildRunnerResult, output.Build.RunnerResult.Source);
         Assert.Equal(output.Build.RunnerResult.Status, output.Build.Summary.Result);
         Assert.Equal(["UCLI_MODE"], output.Build.Runner.Invocation.Environment.Variables);
         Assert.Equal(["UCLI_SECRET"], output.Build.Runner.Invocation.Environment.Secrets);
         Assert.Null(output.Build.Summary.ReportRef);
-        Assert.False(output.Reports.ContainsKey(BuildReportRefs.BuildReport));
-        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildReportAccounted.Value);
+        Assert.False(output.Reports.ContainsKey(BuildArtifactKind.BuildReport));
+        Assert.DoesNotContain(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildReportAccounted);
         Assert.DoesNotContain(EnvironmentValue, JsonSerializer.Serialize(output, PayloadSerializerOptions));
         Assert.DoesNotContain(SecretValue, JsonSerializer.Serialize(output, PayloadSerializerOptions));
         var semanticResult = CreateBuildSemanticInvariantValidator().Validate(JsonSerializer.SerializeToElement(output, PayloadSerializerOptions));
@@ -116,8 +115,12 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         BuildProgressAssert.ExecuteMethodRunnerKindPreserved(progressSink);
         Assert.Equal("executeMethod", artifactStore.WrittenMetadata!.Runner.GetProperty("kind").GetString());
         Assert.Equal(JsonValueKind.Null, artifactStore.WrittenMetadata.Runner.GetProperty("outputLayout").ValueKind);
-        Assert.Equal(output.Build.RunnerResult.Source, artifactStore.WrittenMetadata.RunnerResult.GetProperty("source").GetString());
-        Assert.Equal(output.Build.RunnerResult.Status, artifactStore.WrittenMetadata.RunnerResult.GetProperty("status").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(output.Build.RunnerResult.Source),
+            artifactStore.WrittenMetadata.RunnerResult.GetProperty("source").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(output.Build.RunnerResult.Status),
+            artifactStore.WrittenMetadata.RunnerResult.GetProperty("status").GetString());
         Assert.Equal(
             ["UCLI_MODE"],
             artifactStore.WrittenMetadata.Runner.GetProperty("invocation").GetProperty("environment").GetProperty("variables").EnumerateArray().Select(static item => item.GetString()!).ToArray());
@@ -139,8 +142,8 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 runnerResult: CreateExecuteMethodRunnerResult(buildReport: new IpcBuildRunnerResultBuildReport("reports/build-report.json")),
                 omitReport: true),
@@ -153,9 +156,9 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         Assert.NotNull(accountingRequest.BuildReport);
         Assert.Equal("reports/build-report.json", accountingRequest.BuildReport.RunnerOutputRelativePath);
         var output = result.Output!;
-        Assert.Equal(BuildReportRefs.BuildReport, output.Build.Summary.ReportRef);
-        Assert.True(output.Reports.ContainsKey(BuildReportRefs.BuildReport));
-        var reportClaim = Assert.Single(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildReportAccounted.Value);
+        Assert.Equal(BuildArtifactKind.BuildReport, output.Build.Summary.ReportRef);
+        Assert.True(output.Reports.ContainsKey(BuildArtifactKind.BuildReport));
+        var reportClaim = Assert.Single(output.Claims, static claim => claim.Id == BuildClaimCodes.UnityBuildReportAccounted);
         Assert.False(reportClaim.Required);
         var semanticResult = CreateBuildSemanticInvariantValidator().Validate(JsonSerializer.SerializeToElement(output, PayloadSerializerOptions));
         Assert.True(semanticResult.IsValid, string.Join(Environment.NewLine, semanticResult.Violations.Select(static violation => $"{violation.Path}: {violation.Message}")));

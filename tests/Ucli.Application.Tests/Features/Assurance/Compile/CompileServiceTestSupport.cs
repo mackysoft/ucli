@@ -17,7 +17,7 @@ internal static class CompileServiceTestSupport
         IProjectContextResolver? projectContextResolver = null,
         IUnityExecutionModeDecisionService? modeDecisionService = null,
         IUnityRequestExecutor? unityRequestExecutor = null,
-        IRunIdGenerator? runIdGenerator = null,
+        IGuidGenerator? runIdGenerator = null,
         ICompileRunArtifactStore? artifactStore = null,
         TimeProvider? timeProvider = null)
     {
@@ -29,7 +29,7 @@ internal static class CompileServiceTestSupport
                 UnityExecutionTarget.Oneshot,
                 TimeSpan.FromSeconds(10)))),
             unityRequestExecutor ?? new RecordingUnityRequestExecutor(CreateCompileResponseResult(CreateSummary())),
-            runIdGenerator ?? new StubRunIdGenerator(RunId),
+            runIdGenerator ?? new StaticGuidGenerator(RunId),
             artifactStore ?? new StubCompileRunArtifactStore(),
             timeProvider ?? TimeProvider.System);
     }
@@ -38,8 +38,7 @@ internal static class CompileServiceTestSupport
     {
         return UnityRequestExecutionResult.Success(new UnityRequestResponse(
             IpcPayloadCodec.SerializeToElement(new IpcCompileResponse(summary)),
-            [],
-            HasFailureStatus: false));
+            []));
     }
 
     public static IpcCompileSummary CreateSummary (
@@ -50,7 +49,7 @@ internal static class CompileServiceTestSupport
         var primaryDiagnostic = errorCount == 0
             ? null
             : new IpcPrimaryDiagnostic(
-                Kind: "compiler",
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS1002",
                 File: "Assets/Broken.cs",
                 Line: 4,
@@ -64,7 +63,7 @@ internal static class CompileServiceTestSupport
             StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
             CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),
             Refresh: new IpcCompileSummary.RefreshEvidence(
-                Origin: "assetDatabaseRefresh",
+                Origin: CompileRefreshOrigin.AssetDatabaseRefresh,
                 Requested: true,
                 StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                 CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),
@@ -106,16 +105,16 @@ internal static class CompileServiceTestSupport
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:03Z"),
-                ActionRequired: canAcceptExecutionRequests ? null : "fixCompileErrors",
+                ActionRequired: canAcceptExecutionRequests ? null : DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: primaryDiagnostic));
     }
 
     public static StartupFailureDetail CreateCompilerStartupFailure ()
     {
         return CreateStartupFailure(
-            DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            DaemonDiagnosisReason.UnityScriptCompilationFailed,
             new DaemonPrimaryDiagnosticOutput(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS0246",
                 File: "Assets/Broken.cs",
                 Line: 10,
@@ -124,13 +123,13 @@ internal static class CompileServiceTestSupport
     }
 
     public static StartupFailureDetail CreateStartupFailure (
-        string reason,
+        DaemonDiagnosisReason reason,
         DaemonPrimaryDiagnosticOutput? primaryDiagnostic)
     {
         return new StartupFailureDetail(
             Startup: new DaemonStartupObservationOutput(
                 StartupStatus: DaemonStartupStatus.Blocked,
-                StartupBlockingReason: string.Equals(reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal)
+                StartupBlockingReason: reason == DaemonDiagnosisReason.UnityScriptCompilationFailed
                     ? DaemonStartupBlockingReason.Compile
                     : DaemonStartupBlockingReason.PackageResolution,
                 LaunchAttemptId: null,
@@ -146,10 +145,10 @@ internal static class CompileServiceTestSupport
                 RetryDisposition: DaemonStartupRetryDisposition.ManualActionRequired),
             Diagnosis: new DaemonDiagnosisOutput(
                 Reason: reason,
-                Message: string.Equals(reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal)
+                Message: reason == DaemonDiagnosisReason.UnityScriptCompilationFailed
                     ? "Unity script compilation failed."
                     : "Unity package resolution failed.",
-                ReportedBy: "unityLog",
+                ReportedBy: DaemonDiagnosisReportedBy.Cli,
                 IsInferred: true,
                 UpdatedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),
                 ProcessId: 1234,
@@ -157,9 +156,9 @@ internal static class CompileServiceTestSupport
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                 UnityLogPath: "/workspace/UnityProject/Logs/Editor.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: string.Equals(reason, DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, StringComparison.Ordinal)
-                    ? DaemonDiagnosisActionRequiredValues.FixCompileErrors
-                    : DaemonDiagnosisActionRequiredValues.ResolvePackages,
+                ActionRequired: reason == DaemonDiagnosisReason.UnityScriptCompilationFailed
+                    ? DaemonDiagnosisActionRequired.FixCompileErrors
+                    : DaemonDiagnosisActionRequired.ResolvePackages,
                 PrimaryDiagnostic: primaryDiagnostic),
             RetryDisposition: DaemonStartupRetryDisposition.ManualActionRequired,
             SafeToRetryImmediately: false);
