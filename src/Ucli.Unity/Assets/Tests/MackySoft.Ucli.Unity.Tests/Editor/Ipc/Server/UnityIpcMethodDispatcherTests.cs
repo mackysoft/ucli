@@ -577,7 +577,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     new { checkpoint = "before" },
                     cancellation.Token);
                 Assert.That(pendingResult.IsSuccess, Is.True, pendingResult.ErrorMessage);
-                await Task.Yield();
                 return CreateSuccessResponse(request.RequestId);
             });
             var dispatcher = new UnityIpcMethodDispatcher(
@@ -603,6 +602,50 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(store.PendingWriteCallCount, Is.EqualTo(1));
             Assert.That(store.CompletedWriteCallCount, Is.EqualTo(1));
             Assert.That(store.CompletedResponse.RequestId, Is.EqualTo(request.RequestId));
+            Assert.That(store.CompletedResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Dispatch_WhenRecoverableHandlerReturnsPlayModeTimeoutBeforeLaneObservesExecutionDeadline_PersistsAndReturnsTerminalResponse () => UniTask.ToCoroutine(async () =>
+        {
+            var executor = new HoldResultUntilCancellationExecutor();
+            var store = new StubRecoverableIpcOperationStore();
+            var handler = new StubRecoverableMethodHandler(UnityIpcMethod.PlayEnter, static async (request, context, cancellation) =>
+            {
+                var pendingResult = await context.MarkPendingAsync(
+                    new { checkpoint = "before" },
+                    cancellation.Token);
+                Assert.That(pendingResult.IsSuccess, Is.True, pendingResult.ErrorMessage);
+                return UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    PlayModeErrorCodes.PlayModeTransitionTimeout,
+                    "Play Mode transition reached its deadline.",
+                    null);
+            });
+            var dispatcher = new UnityIpcMethodDispatcher(
+                new IUnityIpcMethodHandler[] { handler },
+                executor,
+                executor,
+                store,
+                NoOpDaemonLogger.Instance);
+            var request = CreateRequest(
+                Guid.NewGuid(),
+                UnityIpcMethod.PlayEnter,
+                new IpcPlayEnterRequest(),
+                requestDuration: TimeSpan.FromMilliseconds(500));
+
+            var response = await TestAwaiter.WaitAsync(
+                DispatchAsync(dispatcher, request, CancellationToken.None).AsUniTask(),
+                "Recoverable Play Mode timeout",
+                AsyncWaitTimeout);
+
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(PlayModeErrorCodes.PlayModeTransitionTimeout));
+            Assert.That(store.PendingWriteCallCount, Is.EqualTo(1));
+            Assert.That(store.CompletedWriteCallCount, Is.EqualTo(1));
+            Assert.That(store.CompletedResponse, Is.SameAs(response));
         });
 
         [UnityTest]
