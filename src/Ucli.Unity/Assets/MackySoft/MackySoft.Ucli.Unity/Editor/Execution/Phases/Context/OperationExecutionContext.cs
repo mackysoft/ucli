@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -29,8 +31,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly RequestAttributedChangeRegistry requestAttributedChangeRegistry = new RequestAttributedChangeRegistry();
 
-        private readonly Dictionary<string, Dictionary<RequestLocalObjectIdentity, Dictionary<string, PrefabOverridePropertyChange>>> prefabOverridePropertyChanges =
-            new Dictionary<string, Dictionary<RequestLocalObjectIdentity, Dictionary<string, PrefabOverridePropertyChange>>>(StringComparer.Ordinal);
+        private readonly Dictionary<IpcExecuteStepId, Dictionary<RequestLocalObjectIdentity, Dictionary<string, PrefabOverridePropertyChange>>> prefabOverridePropertyChanges =
+            new Dictionary<IpcExecuteStepId, Dictionary<RequestLocalObjectIdentity, Dictionary<string, PrefabOverridePropertyChange>>>();
 
         private readonly DeletedGlobalObjectIdRegistry deletedGlobalObjectIdRegistry = new DeletedGlobalObjectIdRegistry();
 
@@ -56,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="resource"> The logical owner resource associated with the temporary object. </param>
         /// <param name="sourceTrackingKey"> The optional source identity used to synchronize request-local state. </param>
         internal void SetTemporaryAlias (
-            string alias,
+            RequestLocalAliasIdentity alias,
             UnityEngine.Object unityObject,
             OperationResource resource,
             RequestLocalObjectIdentity? sourceTrackingKey = null)
@@ -75,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="state"> The tracked alias state when found. </param>
         /// <returns> <see langword="true" /> when temporary alias exists; otherwise <see langword="false" />. </returns>
         internal bool TryGetTemporaryAliasState (
-            string alias,
+            RequestLocalAliasIdentity alias,
             out TemporaryAliasRegistry.TemporaryAliasState state)
         {
             return temporaryAliasRegistry.TryGetState(alias, out state);
@@ -366,7 +368,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             switch (resource.Kind)
             {
-                case OperationTouchKind.Scene:
+                case UcliTouchedResourceKind.Scene:
                     if (TryResolveTemporarySceneGlobalObjectId(resource.Path, unityObject, out var sceneGlobalObjectId))
                     {
                         trackingKey = RequestLocalObjectIdentity.FromGlobalObjectId(sceneGlobalObjectId);
@@ -382,7 +384,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                     break;
 
-                case OperationTouchKind.Prefab:
+                case UcliTouchedResourceKind.Prefab:
                     if (TryResolveTemporaryPrefabGlobalObjectId(resource.Path, unityObject, out var prefabGlobalObjectId))
                     {
                         trackingKey = RequestLocalObjectIdentity.FromGlobalObjectId(prefabGlobalObjectId);
@@ -678,7 +680,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="valueHashAfterSet"> The normalized property value hash observed after the set that is being recorded. </param>
         /// <param name="requiresExplicitPrefabAssetMutation"> Whether apply/revert must use the explicit target Prefab asset because Unity Prefab instance linkage is unavailable for this request-attributed change. </param>
         internal void RecordPrefabOverridePropertyChange (
-            string editStepId,
+            IpcExecuteStepId editStepId,
             RequestLocalObjectIdentity targetKey,
             string propertyPath,
             bool wasPrefabOverrideBeforeRequest,
@@ -723,7 +725,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="change"> The recorded change when the method returns <see langword="true" />; otherwise the default value. </param>
         /// <returns> <see langword="true" /> when a change was recorded for the same edit step, target, and property path; otherwise <see langword="false" />. </returns>
         internal bool TryGetPrefabOverridePropertyChange (
-            string editStepId,
+            IpcExecuteStepId editStepId,
             RequestLocalObjectIdentity targetKey,
             string propertyPath,
             out PrefabOverridePropertyChange change)
@@ -747,7 +749,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The validation error when the method returns <see langword="false" />; otherwise an empty string. </param>
         /// <returns> <see langword="true" /> when at least one effective change is selected and all requested paths are eligible; otherwise <see langword="false" />. </returns>
         internal bool TryCollectPrefabOverridePropertyChanges (
-            string editStepId,
+            IpcExecuteStepId editStepId,
             RequestLocalObjectIdentity targetKey,
             IReadOnlyList<string>? requestedPropertyPaths,
             out IReadOnlyList<PrefabOverridePropertyChange> changes,
@@ -1031,7 +1033,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="unityObject"> The current temporary asset instance. </param>
         internal void SetPlannedAsset (
             string assetPath,
-            string ownerExecutionKey,
+            OperationExecutionKey ownerExecutionKey,
             UnityEngine.Object unityObject)
         {
             plannedAssetRegistry.SetPlannedAsset(assetPath, ownerExecutionKey, unityObject, temporaryAliasRegistry);

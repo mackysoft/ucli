@@ -1,33 +1,35 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
 
+#nullable enable
+
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
-    /// <summary> Represents one parsed <c>ucli.resolve</c> selector. </summary>
-    internal readonly struct ResolveSelector
+    /// <summary> Represents one validated <c>ucli.resolve</c> selector. </summary>
+    internal sealed class ResolveSelector
     {
         /// <summary>
-        /// Initializes a new instance of the <see cref="ResolveSelector" /> struct.
+        /// Initializes a new instance of the <see cref="ResolveSelector" /> class.
         /// </summary>
         /// <param name="kind"> The resolved selector kind. </param>
         /// <param name="globalObjectId"> The GlobalObjectId selector literal. </param>
-        /// <param name="assetGuid"> The asset GUID selector literal. </param>
+        /// <param name="assetGuid"> The asset GUID selector value. </param>
         /// <param name="assetPath"> The asset path selector literal. </param>
         /// <param name="projectAssetPath"> The project-scoped asset path selector literal. </param>
         /// <param name="scenePath"> The scene path selector literal. </param>
         /// <param name="prefabPath"> The prefab path selector literal. </param>
         /// <param name="hierarchyPath"> The hierarchy path selector literal. </param>
         /// <param name="componentType"> The optional component type selector literal. </param>
-        public ResolveSelector (
+        private ResolveSelector (
             ResolveSelectorKind kind,
             UnityGlobalObjectId? globalObjectId,
-            string? assetGuid,
-            string? assetPath,
-            string? projectAssetPath,
-            string? scenePath,
-            string? prefabPath,
-            string? hierarchyPath,
-            string? componentType)
+            Guid? assetGuid,
+            UnityAssetPath? assetPath,
+            ProjectSettingsAssetPath? projectAssetPath,
+            SceneAssetPath? scenePath,
+            PrefabAssetPath? prefabPath,
+            UnityHierarchyPath? hierarchyPath,
+            UnityComponentTypeId? componentType)
         {
             Kind = kind;
             GlobalObjectId = globalObjectId;
@@ -51,39 +53,39 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public UnityGlobalObjectId? GlobalObjectId { get; }
 
         /// <summary>
-        /// Gets the asset GUID literal. <see langword="null" /> for selectors that do not target an asset GUID.
+        /// Gets the asset GUID. <see langword="null" /> for selectors that do not target an asset GUID.
         /// </summary>
-        public string? AssetGuid { get; }
+        public Guid? AssetGuid { get; }
 
         /// <summary>
         /// Gets the asset path literal. <see langword="null" /> for selectors that do not target an asset path.
         /// </summary>
-        public string? AssetPath { get; }
+        public UnityAssetPath? AssetPath { get; }
 
         /// <summary>
         /// Gets the project-scoped asset path literal. <see langword="null" /> for selectors that do not target a project asset path.
         /// </summary>
-        public string? ProjectAssetPath { get; }
+        public ProjectSettingsAssetPath? ProjectAssetPath { get; }
 
         /// <summary>
         /// Gets the scene asset path. <see langword="null" /> for non-scene selectors.
         /// </summary>
-        public string? ScenePath { get; }
+        public SceneAssetPath? ScenePath { get; }
 
         /// <summary>
         /// Gets the prefab asset path. <see langword="null" /> for non-prefab selectors.
         /// </summary>
-        public string? PrefabPath { get; }
+        public PrefabAssetPath? PrefabPath { get; }
 
         /// <summary>
         /// Gets the hierarchy path inside the scene or prefab. <see langword="null" /> for non-hierarchy selectors.
         /// </summary>
-        public string? HierarchyPath { get; }
+        public UnityHierarchyPath? HierarchyPath { get; }
 
         /// <summary>
         /// Gets the optional component type selector. <see langword="null" /> for GameObject or non-hierarchy selectors.
         /// </summary>
-        public string? ComponentType { get; }
+        public UnityComponentTypeId? ComponentType { get; }
 
         /// <summary>
         /// Creates one GlobalObjectId selector.
@@ -112,10 +114,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <summary>
         /// Creates one asset-GUID selector.
         /// </summary>
-        /// <param name="assetGuid"> The asset GUID literal. </param>
+        /// <param name="assetGuid"> The non-empty asset GUID. </param>
         /// <returns> One selector that resolves by asset GUID. </returns>
-        public static ResolveSelector FromAssetGuid (string assetGuid)
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="assetGuid" /> is <see cref="Guid.Empty" />. </exception>
+        public static ResolveSelector FromAssetGuid (Guid assetGuid)
         {
+            if (assetGuid == Guid.Empty)
+            {
+                throw new ArgumentException("Asset GUID must not be empty.", nameof(assetGuid));
+            }
+
             return new ResolveSelector(
                 kind: ResolveSelectorKind.AssetGuid,
                 globalObjectId: null,
@@ -133,8 +141,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// </summary>
         /// <param name="assetPath"> The asset path literal. </param>
         /// <returns> One selector that resolves by asset path. </returns>
-        public static ResolveSelector FromAssetPath (string assetPath)
+        public static ResolveSelector FromAssetPath (UnityAssetPath assetPath)
         {
+            if (assetPath == null)
+            {
+                throw new ArgumentNullException(nameof(assetPath));
+            }
+
             return new ResolveSelector(
                 kind: ResolveSelectorKind.AssetPath,
                 globalObjectId: null,
@@ -152,8 +165,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// </summary>
         /// <param name="projectAssetPath"> The project-scoped asset path literal. </param>
         /// <returns> One selector that resolves by project-scoped asset path. </returns>
-        public static ResolveSelector FromProjectAssetPath (string projectAssetPath)
+        public static ResolveSelector FromProjectAssetPath (ProjectSettingsAssetPath projectAssetPath)
         {
+            if (projectAssetPath == null)
+            {
+                throw new ArgumentNullException(nameof(projectAssetPath));
+            }
+
             return new ResolveSelector(
                 kind: ResolveSelectorKind.ProjectAssetPath,
                 globalObjectId: null,
@@ -174,10 +192,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="componentType"> The optional component type selector. <see langword="null" /> selects the GameObject. </param>
         /// <returns> One selector that resolves inside the specified scene. </returns>
         public static ResolveSelector FromSceneHierarchy (
-            string scenePath,
-            string hierarchyPath,
-            string? componentType)
+            SceneAssetPath scenePath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType)
         {
+            if (scenePath == null)
+            {
+                throw new ArgumentNullException(nameof(scenePath));
+            }
+
+            if (hierarchyPath == null)
+            {
+                throw new ArgumentNullException(nameof(hierarchyPath));
+            }
+
             return new ResolveSelector(
                 kind: componentType == null
                     ? ResolveSelectorKind.SceneHierarchyPath
@@ -200,10 +228,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="componentType"> The optional component type selector. <see langword="null" /> selects the GameObject. </param>
         /// <returns> One selector that resolves inside the specified prefab. </returns>
         public static ResolveSelector FromPrefabHierarchy (
-            string prefabPath,
-            string hierarchyPath,
-            string? componentType)
+            PrefabAssetPath prefabPath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType)
         {
+            if (prefabPath == null)
+            {
+                throw new ArgumentNullException(nameof(prefabPath));
+            }
+
+            if (hierarchyPath == null)
+            {
+                throw new ArgumentNullException(nameof(hierarchyPath));
+            }
+
             return new ResolveSelector(
                 kind: componentType == null
                     ? ResolveSelectorKind.PrefabHierarchyPath

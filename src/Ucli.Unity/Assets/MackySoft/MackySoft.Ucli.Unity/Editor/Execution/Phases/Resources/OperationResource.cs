@@ -1,5 +1,6 @@
 using System;
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
 
@@ -10,12 +11,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     {
         private const string ProjectSettingsRootPrefix = "ProjectSettings/";
 
+        /// <summary> Initializes one resource owner from its kind and project-relative path. </summary>
+        /// <param name="kind"> The resource kind. </param>
+        /// <param name="path"> The project-relative path to normalize. </param>
+        /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="kind" /> is not defined by the touched-resource contract. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="path" /> is not a valid project-relative path. </exception>
         public OperationResource (
-            OperationTouchKind kind,
+            UcliTouchedResourceKind kind,
             string path)
         {
+            if (!ContractLiteralCodec.IsDefined(kind))
+            {
+                throw new ArgumentOutOfRangeException(nameof(kind), kind, "Operation resource kind is not supported.");
+            }
+
+            if (!RelativePathContract.TryNormalize(path, out var normalizedPath))
+            {
+                throw new ArgumentException("Operation resource path must be a valid project-relative path.", nameof(path));
+            }
+
             Kind = kind;
-            Path = path;
+            Path = normalizedPath;
         }
 
         /// <summary> Creates one persistent asset owner resource from a Unity asset path. </summary>
@@ -23,14 +39,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> The normalized asset owner resource. </returns>
         public static OperationResource PersistentAsset (string assetPath)
         {
-            var normalizedAssetPath = PathStringNormalizer.ToSlashSeparated(assetPath);
+            if (!RelativePathContract.TryNormalize(assetPath, out var normalizedAssetPath))
+            {
+                throw new ArgumentException("Persistent asset path must be a valid project-relative path.", nameof(assetPath));
+            }
+
             var kind = normalizedAssetPath.StartsWith(ProjectSettingsRootPrefix, StringComparison.Ordinal)
-                ? OperationTouchKind.ProjectSettings
-                : OperationTouchKind.Asset;
+                ? UcliTouchedResourceKind.ProjectSettings
+                : UcliTouchedResourceKind.Asset;
             return new OperationResource(kind, normalizedAssetPath);
         }
 
-        public OperationTouchKind Kind { get; }
+        public UcliTouchedResourceKind Kind { get; }
 
         public string Path { get; }
 

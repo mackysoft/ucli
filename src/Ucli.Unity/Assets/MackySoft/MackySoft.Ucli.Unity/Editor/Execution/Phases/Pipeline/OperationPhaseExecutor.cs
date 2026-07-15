@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Runtime;
 
 #nullable enable
 
@@ -23,21 +24,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer;
 
+        private readonly IUnityMutationLaneControl mutationLaneControl;
+
         /// <summary> Initializes a new instance of the <see cref="OperationPhaseExecutor" /> class. </summary>
         /// <param name="planPassExecutor"> The validate/plan pass executor dependency. </param>
         /// <param name="callPassExecutor"> The call pass executor dependency. </param>
         /// <param name="planTokenCoordinator"> The plan-token coordination dependency. </param>
+        /// <param name="dangerousOperationCallAuthorizer"> The dangerous-operation call authorization dependency. </param>
+        /// <param name="mutationLaneControl"> The explicit Unity mutation lifetime dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
         public OperationPhaseExecutor (
             IOperationPlanPassExecutor planPassExecutor,
             IOperationCallPassExecutor callPassExecutor,
             IPlanTokenCoordinator planTokenCoordinator,
-            IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer)
+            IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer,
+            IUnityMutationLaneControl mutationLaneControl)
         {
             this.planPassExecutor = planPassExecutor ?? throw new ArgumentNullException(nameof(planPassExecutor));
             this.callPassExecutor = callPassExecutor ?? throw new ArgumentNullException(nameof(callPassExecutor));
             this.planTokenCoordinator = planTokenCoordinator ?? throw new ArgumentNullException(nameof(planTokenCoordinator));
             this.dangerousOperationCallAuthorizer = dangerousOperationCallAuthorizer ?? throw new ArgumentNullException(nameof(dangerousOperationCallAuthorizer));
+            this.mutationLaneControl = mutationLaneControl ?? throw new ArgumentNullException(nameof(mutationLaneControl));
         }
 
         /// <summary> Executes one normalized request through the specified command phase-flow. </summary>
@@ -157,7 +164,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     });
             }
 
-            var callPassResult = await callPassExecutor.ExecuteAsync(planPassResult.PreparedOperations, executionContext, cancellationToken);
+            var mutationActivity = mutationLaneControl.BeginMutation();
+            CallPassResult callPassResult;
+            try
+            {
+                callPassResult = await callPassExecutor.ExecuteAsync(
+                    planPassResult.PreparedOperations,
+                    executionContext,
+                    cancellationToken);
+            }
+            finally
+            {
+                mutationActivity.Complete();
+            }
+
             return callPassResult.IsSuccess
                 ? PhaseExecutionTrace.Success(planPassResult.CompiledSteps, callPassResult.OperationTraces)
                 : PhaseExecutionTrace.Failure(planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);
@@ -219,13 +239,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < sourceSteps.Count; i++)
             {
                 var sourceStep = sourceSteps[i];
-                var kind = sourceStep.Kind ?? IpcExecuteStepKind.Op;
+                var kind = sourceStep.Kind!.Value;
                 steps[i] = new NormalizedRequestStep(
-                    Id: sourceStep.Id ?? string.Empty,
+                    Id: sourceStep.Id!,
                     Kind: kind,
                     OperationName: kind == IpcExecuteStepKind.Edit
                         ? "edit"
-                        : sourceStep.OperationName ?? string.Empty,
+                        : sourceStep.OperationName!,
                     PrimitiveCount: 0);
             }
 

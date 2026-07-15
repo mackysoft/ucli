@@ -124,7 +124,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                             continue;
                         }
 
-                        ensuredComponentDescriptions.Add(new GameObjectComponentDescriptionResult(ensuredComponent.GetType().FullName));
+                        ensuredComponentDescriptions.Add(new GameObjectComponentDescriptionResult(
+                            new UnityComponentTypeId(ensuredComponent.GetType().FullName!)));
                     }
                 }
             }
@@ -134,7 +135,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var componentIndex = 0; componentIndex < components.Length; componentIndex++)
             {
                 var component = components[componentIndex];
-                componentDescriptions[componentIndex] = new GameObjectComponentDescriptionResult(component != null ? component.GetType().FullName : null);
+                componentDescriptions[componentIndex] = new GameObjectComponentDescriptionResult(
+                    component != null
+                        ? new UnityComponentTypeId(component.GetType().FullName!)
+                        : null);
             }
 
             if (ensuredComponentDescriptions == null)

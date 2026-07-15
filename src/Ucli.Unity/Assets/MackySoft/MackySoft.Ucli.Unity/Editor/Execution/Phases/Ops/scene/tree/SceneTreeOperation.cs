@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -23,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Returns the hierarchy tree for a Unity scene.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene path and observe the selected hierarchy source without applying mutation.",
                 callSemantics: "Read the scene hierarchy without applying mutation.",
@@ -109,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         : null);
                 var windowedRoots = SceneTreeWindowProjector.Apply(roots, validationState.WindowOptions);
                 var tree = new SceneTreeResult(
-                    new SceneAssetPath(validationState.ScenePath),
+                    args.Path,
                     windowedRoots.Items,
                     validationState.SceneLease.CreateSourceState(),
                     windowedRoots.Window);
@@ -136,17 +137,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (args.Depth < 0)
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
-                    operation.Id,
-                    "Operation 'args.depth' must be greater than or equal to 0.");
-                return false;
-            }
+            var windowOptions = BoundedWindowOptions.CreateBounded(args.Limit, args.Cursor);
 
-            var windowOptions = BoundedWindowOptionsNormalizer.NormalizeValidated(args.Limit, args.Cursor);
-
-            var scenePath = args.Path?.Value ?? string.Empty;
+            var scenePath = args.Path.Value;
             SceneSourceLease sceneLease;
             string sceneErrorMessage;
             var acquired = allowTemporaryState

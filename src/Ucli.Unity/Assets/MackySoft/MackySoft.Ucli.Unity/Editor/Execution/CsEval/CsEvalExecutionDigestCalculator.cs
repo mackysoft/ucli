@@ -1,6 +1,8 @@
 using System;
 using System.Text;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 using Microsoft.CodeAnalysis.CSharp;
 
 #nullable enable
@@ -12,7 +14,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     {
         public static Sha256Digest Compute (
             Sha256Digest sourceDigest,
-            string sourceKind,
+            UcliCodeSourceFormKind sourceKind,
             string wrapperVersion,
             string referenceIdentity)
         {
@@ -26,7 +28,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 "\n",
                 "ucli.cs.eval",
                 sourceDigest,
-                sourceKind,
+                ContractLiteralCodec.ToValue(sourceKind),
                 wrapperVersion,
                 CsEvalEntryPointName.RequiredSignature,
                 roslynVersion,

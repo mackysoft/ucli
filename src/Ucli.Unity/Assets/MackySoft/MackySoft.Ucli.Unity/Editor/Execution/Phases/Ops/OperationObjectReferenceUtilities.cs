@@ -60,6 +60,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out UnityObjectResolutionState resolution,
             out string errorMessage)
         {
+            if (reference == null)
+            {
+                throw new ArgumentNullException(nameof(reference));
+            }
+
             if (executionContext == null)
             {
                 throw new ArgumentNullException(nameof(executionContext));
@@ -153,27 +158,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            var alias = reference.Alias!;
             switch (resolutionPolicy)
             {
                 case ReferenceResolutionPolicy.LiveOnly:
                     return false;
 
                 case ReferenceResolutionPolicy.AllowTemporaryAliases:
-                    return !executionContext.AliasStore.TryGet(reference.Alias!, out _)
-                        && executionContext.TryGetTemporaryAliasState(reference.Alias!, out temporaryAliasState);
+                    return !executionContext.AliasStore.TryGet(alias, out _)
+                        && executionContext.TryGetTemporaryAliasState(alias, out temporaryAliasState);
 
                 case ReferenceResolutionPolicy.AllowTemporaryState:
-                    if (!executionContext.TryGetTemporaryAliasState(reference.Alias!, out temporaryAliasState))
+                    if (!executionContext.TryGetTemporaryAliasState(alias, out temporaryAliasState))
                     {
                         return false;
                     }
 
                     if (temporaryAliasState.SourceTrackingKey != null
-                        && executionContext.AliasStore.TryGet(reference.Alias!, out var stableGlobalObjectId)
+                        && executionContext.AliasStore.TryGet(alias, out var stableGlobalObjectId)
                         && !temporaryAliasState.SourceTrackingKey.Equals(
                             RequestLocalObjectIdentity.FromGlobalObjectId(stableGlobalObjectId)))
                     {
-                        errorMessage = $"Reference alias has inconsistent stable and request-local source identities: {reference.Alias}.";
+                        errorMessage = $"Reference alias has inconsistent stable and request-local source identities: {alias.Alias}.";
                         temporaryAliasState = default;
                         return false;
                     }

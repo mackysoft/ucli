@@ -80,7 +80,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         @var = "parent",
                     },
                 },
-                alias: "created");
+                alias: "created",
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
@@ -109,10 +110,11 @@ namespace MackySoft.Ucli.Unity.Tests
             context.SetTemporaryAlias(
                 "target",
                 temporaryTarget,
-                new OperationResource(OperationTouchKind.Scene, "Assets/OtherScene.unity"));
+                new OperationResource(UcliTouchedResourceKind.Scene, "Assets/OtherScene.unity"));
 
             var result = GoOperationUtilities.TryResolveEditableGameObject(
-                UnityObjectReference.FromAlias("target"),
+                UnityObjectReference.FromAlias(
+                    RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias("target"))),
                 context,
                 (OperationObjectReferenceUtilities.ReferenceResolutionPolicy)resolutionPolicyValue,
                 out var resolution,
@@ -182,7 +184,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(root.transform.childCount, Is.EqualTo(0));
-            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.True);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(UcliTouchedResourceKind.Scene, scenePath)), Is.True);
             AssertReadInvalidations(
                 result,
                 (OperationReadInvalidationSurface.SceneTreeLite, scenePath.Replace('\\', '/')));
@@ -223,7 +225,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(result, applied: true, changed: true);
             Assert.That(child.transform.parent, Is.SameAs(container.transform));
-            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.True);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(UcliTouchedResourceKind.Scene, scenePath)), Is.True);
             AssertReadInvalidations(
                 result,
                 (OperationReadInvalidationSurface.SceneTreeLite, scenePath.Replace('\\', '/')));
@@ -289,7 +291,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     {
                         @var = "parent",
                     },
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             using var executionContext = new OperationExecutionContext();
             var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
@@ -363,7 +366,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         @var = "target",
                     },
                     depth = 1,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
@@ -606,7 +610,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         @var = "target",
                     },
                     depth = -1,
-                });
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
 
             using var executionContext = new OperationExecutionContext();
             var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
@@ -1154,7 +1159,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(reparentResult.Applied, Is.False);
             Assert.That(reparentResult.Changed, Is.False);
             Assert.That(reparentResult.Touched, Is.Empty);
-            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.False);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(UcliTouchedResourceKind.Scene, scenePath)), Is.False);
         });
 
         [UnityTest]
@@ -1193,7 +1198,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(reparentResult.Applied, Is.True);
             Assert.That(reparentResult.Changed, Is.False);
             Assert.That(reparentResult.Touched, Is.Empty);
-            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.False);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(UcliTouchedResourceKind.Scene, scenePath)), Is.False);
             Assert.That(child.transform.parent, Is.SameAs(root.transform));
         });
 
@@ -1271,11 +1276,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var description = GameObjectDescriptionBuilder.Build(root, depth: 1);
 
             Assert.That(description.Name, Is.EqualTo("Root"));
-            Assert.That(description.Components.Select(static component => component.TypeName), Does.Contain(typeof(Transform).FullName));
-            Assert.That(description.Components.Select(static component => component.TypeName), Does.Contain(typeof(BoxCollider).FullName));
+            Assert.That(description.Components.Select(static component => component.TypeName?.Value), Does.Contain(typeof(Transform).FullName));
+            Assert.That(description.Components.Select(static component => component.TypeName?.Value), Does.Contain(typeof(BoxCollider).FullName));
             Assert.That(description.Children.Count, Is.EqualTo(1));
             Assert.That(description.Children[0].Name, Is.EqualTo("Child"));
-            Assert.That(description.Children[0].Components.Select(static component => component.TypeName), Does.Contain(typeof(SphereCollider).FullName));
+            Assert.That(description.Children[0].Components.Select(static component => component.TypeName?.Value), Does.Contain(typeof(SphereCollider).FullName));
             Assert.That(description.Children[0].Children.Count, Is.EqualTo(0));
         }
 
@@ -1287,12 +1292,18 @@ namespace MackySoft.Ucli.Unity.Tests
             NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Op)
         {
             return new NormalizedOperation(
-                Id: opId,
+                ExecutionKey: sourceKind == NormalizedOperation.SourceStepKind.Edit
+                    ? OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId(opId), primitiveIndex: 0)
+                    : OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: opName,
                 Args: JsonSerializer.SerializeToElement(args),
-                As: alias,
+                As: alias == null
+                    ? null
+                    : RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias(alias)),
                 Expect: null,
-                SourceKind: sourceKind);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
         }
 
         private static void AssertInvalidArgument (
@@ -1302,16 +1313,16 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.Not.Null);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(result.Failure.OpId, Is.EqualTo(expectedOperationId));
+            Assert.That(result.Failure.OpId?.Value, Is.EqualTo(expectedOperationId));
         }
 
         private static void AssertSuccess (
             OperationPhaseStepResult result,
             bool applied,
             bool changed,
-            OperationTouchKind? expectedTouchKind = OperationTouchKind.Scene)
+            UcliTouchedResourceKind? expectedTouchKind = UcliTouchedResourceKind.Scene)
         {
-            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(result.IsSuccess, Is.True, result.Failure?.Message);
             Assert.That(result.Applied, Is.EqualTo(applied));
             Assert.That(result.Changed, Is.EqualTo(changed));
             if (!expectedTouchKind.HasValue)

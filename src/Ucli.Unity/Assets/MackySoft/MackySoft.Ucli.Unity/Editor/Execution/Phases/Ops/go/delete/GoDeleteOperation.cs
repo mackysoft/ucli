@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Deletes a GameObject from a scene or prefab hierarchy.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the GameObject target and report the expected hierarchy impact without creating preview state or mutating live Unity state.",
                 callSemantics: "Delete the GameObject from live Unity state and leave saving to explicit save operations.",
@@ -143,7 +143,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             state = default;
             failure = null;
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out var errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(
+                    args.Target,
+                    "args.target",
+                    operation.AliasReferences,
+                    out var targetReference,
+                    out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -180,7 +185,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             out string errorMessage)
         {
-            if (resource.Kind != OperationTouchKind.Prefab)
+            if (resource.Kind != UcliTouchedResourceKind.Prefab)
             {
                 errorMessage = string.Empty;
                 return true;
@@ -249,7 +254,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             switch (resource.Kind)
             {
-                case OperationTouchKind.Scene:
+                case UcliTouchedResourceKind.Scene:
                     if (executionContext.TryResolveTemporarySceneSourceObject(resource.Path, unityObject, out var sourceSceneObject)
                         && sourceSceneObject != null
                         && UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(sourceSceneObject, out var sourceSceneGlobalObjectId))
@@ -259,7 +264,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                     break;
 
-                case OperationTouchKind.Prefab:
+                case UcliTouchedResourceKind.Prefab:
                     if (executionContext.TryResolveTemporaryPrefabSourceObject(resource.Path, unityObject, out var sourcePrefabObject)
                         && sourcePrefabObject != null
                         && UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(sourcePrefabObject, out var sourcePrefabGlobalObjectId))

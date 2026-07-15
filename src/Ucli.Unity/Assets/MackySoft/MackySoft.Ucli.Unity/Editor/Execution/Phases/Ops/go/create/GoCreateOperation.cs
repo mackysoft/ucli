@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Creates a GameObject in a scene or under an existing parent.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the parent target and compute preview hierarchy changes without persisting project data.",
                 callSemantics: "Create the GameObject in live Unity state and leave saving to explicit save operations.",
@@ -196,11 +196,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     args.Name,
                     scene,
                     parent: null,
-                    new OperationResource(OperationTouchKind.Scene, args.Scene.Value));
+                    new OperationResource(UcliTouchedResourceKind.Scene, args.Scene.Value));
                 return true;
             }
 
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Parent, "args.parent", out var parentReference, out var parentErrorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(
+                    args.Parent,
+                    "args.parent",
+                    operation.AliasReferences,
+                    out var parentReference,
+                    out var parentErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, parentErrorMessage);
                 return false;
@@ -244,7 +249,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     out errorMessage);
             }
 
-            if (validationState.Resource.Kind != OperationTouchKind.Scene)
+            if (validationState.Resource.Kind != UcliTouchedResourceKind.Scene)
             {
                 errorMessage = $"GameObject could not be projected into request-local plan state: {validationState.Resource.Path}.";
                 return false;
@@ -284,7 +289,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="createdGameObject"> The created GameObject. </param>
         /// <param name="resource"> The owner resource for the created GameObject. </param>
         private static void StoreAliasIfNeeded (
-            string? alias,
+            RequestLocalAliasIdentity? alias,
             OperationExecutionContext executionContext,
             GameObject createdGameObject,
             OperationResource resource)

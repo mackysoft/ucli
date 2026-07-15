@@ -59,6 +59,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             [NotNullWhen(true)] out UnityGlobalObjectId? stableObjectId,
             out string errorMessage)
         {
+            if (selector == null)
+            {
+                throw new ArgumentNullException(nameof(selector));
+            }
+
             if (executionContext == null)
             {
                 throw new ArgumentNullException(nameof(executionContext));
@@ -138,6 +143,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             [NotNullWhen(true)] out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
+            if (selector == null)
+            {
+                throw new ArgumentNullException(nameof(selector));
+            }
+
             return TryResolveCore(
                 selector,
                 executionContext,
@@ -168,9 +178,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolveSceneStableReference (
-            string scenePath,
-            string hierarchyPath,
-            string? componentType,
+            SceneAssetPath scenePath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out UnityGlobalObjectId? stableObjectId,
@@ -178,7 +188,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             stableObjectId = null;
             if (allowTemporaryState
-                && executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene))
+                && executionContext.TryGetTemporaryScene(scenePath.Value, out var temporaryScene))
             {
                 if (!TryResolveSceneTargetFromScene(
                         temporaryScene,
@@ -193,7 +203,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 if (TryCreateGlobalObjectIdFromTemporarySceneTarget(
-                        scenePath,
+                        scenePath.Value,
                         temporaryTarget!,
                         executionContext,
                         out stableObjectId))
@@ -206,7 +216,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out _, out errorMessage))
+            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath.Value, out _, out errorMessage))
             {
                 return false;
             }
@@ -220,9 +230,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolvePrefabStableReference (
-            string prefabPath,
-            string hierarchyPath,
-            string? componentType,
+            PrefabAssetPath prefabPath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out UnityGlobalObjectId? stableObjectId,
@@ -230,7 +240,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             stableObjectId = null;
             if (allowTemporaryState
-                && executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot)
+                && executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath.Value, out var temporaryPrefabRoot)
                 && temporaryPrefabRoot != null)
             {
                 if (!TryResolvePrefabTargetFromRoot(
@@ -246,7 +256,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 if (TryCreateGlobalObjectIdFromTemporaryPrefabTarget(
-                        prefabPath,
+                        prefabPath.Value,
                         temporaryTarget!,
                         executionContext,
                         out stableObjectId))
@@ -259,7 +269,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var prefabStage, out _))
+            if (PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath.Value, out var prefabStage, out _))
             {
                 var prefabContentsRoot = prefabStage!.prefabContentsRoot;
                 if (prefabContentsRoot == null)
@@ -286,7 +296,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return true;
                 }
 
-                if (TryCreateGlobalObjectIdFromPrefabMirrorSource(prefabPath, openedStageTarget!, out stableObjectId, out _))
+                if (TryCreateGlobalObjectIdFromPrefabMirrorSource(prefabPath.Value, openedStageTarget!, out stableObjectId, out _))
                 {
                     errorMessage = string.Empty;
                     return true;
@@ -336,11 +346,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         out errorMessage);
 
                 case ResolveSelectorKind.AssetGuid:
-                    return TryResolveAssetObjectFromGuid(selector.AssetGuid!, out unityObject, out errorMessage);
+                    return TryResolveAssetObjectFromGuid(selector.AssetGuid!.Value, out unityObject, out errorMessage);
 
                 case ResolveSelectorKind.AssetPath:
                     return TryResolveAssetObjectFromPath(
-                        selector.AssetPath!,
+                        selector.AssetPath!.Value,
                         executionContext,
                         allowTemporaryState,
                         out unityObject,
@@ -348,7 +358,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 case ResolveSelectorKind.ProjectAssetPath:
                     return TryResolveAssetObjectFromPath(
-                        selector.ProjectAssetPath!,
+                        selector.ProjectAssetPath!.Value,
                         executionContext,
                         allowTemporaryState,
                         out unityObject,
@@ -402,8 +412,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolveSceneGameObject (
-            string scenePath,
-            string hierarchyPath,
+            SceneAssetPath scenePath,
+            UnityHierarchyPath hierarchyPath,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out GameObject? gameObject,
@@ -411,17 +421,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             gameObject = null;
             if (allowTemporaryState
-                && executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene))
+                && executionContext.TryGetTemporaryScene(scenePath.Value, out var temporaryScene))
             {
-                return SceneHierarchyPathResolver.TryResolveSceneObject(temporaryScene, hierarchyPath, out gameObject, out errorMessage);
+                return SceneHierarchyPathResolver.TryResolveSceneObject(temporaryScene, hierarchyPath.Value, out gameObject, out errorMessage);
             }
 
-            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out errorMessage))
+            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath.Value, out var loadedScene, out errorMessage))
             {
                 return false;
             }
 
-            return SceneHierarchyPathResolver.TryResolveSceneObject(loadedScene, hierarchyPath, out gameObject, out errorMessage);
+            return SceneHierarchyPathResolver.TryResolveSceneObject(loadedScene, hierarchyPath.Value, out gameObject, out errorMessage);
         }
 
         /// <summary>
@@ -436,9 +446,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The resolution error message when failed. </param>
         /// <returns> <see langword="true" /> when selector resolution succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryResolveSceneTarget (
-            string scenePath,
-            string hierarchyPath,
-            string? componentType,
+            SceneAssetPath scenePath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
@@ -478,9 +488,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The resolution error message when failed. </param>
         /// <returns> <see langword="true" /> when selector resolution succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryResolvePrefabTarget (
-            string prefabPath,
-            string hierarchyPath,
-            string? componentType,
+            PrefabAssetPath prefabPath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
@@ -504,21 +514,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolvePrefabTargetFromRoot (
             GameObject prefabRootOrTarget,
-            string hierarchyPath,
-            string? componentType,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
             unityObject = null;
-            GameObject? gameObject;
-            if (string.IsNullOrEmpty(hierarchyPath))
-            {
-                gameObject = prefabRootOrTarget;
-                errorMessage = string.Empty;
-            }
-            else if (!PrefabHierarchyPathResolver.TryResolve(prefabRootOrTarget, hierarchyPath, out gameObject, out errorMessage))
+            if (!PrefabHierarchyPathResolver.TryResolve(
+                    prefabRootOrTarget,
+                    hierarchyPath.Value,
+                    out var gameObject,
+                    out errorMessage))
             {
                 return false;
             }
@@ -532,7 +540,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!ComponentOperationUtilities.TryResolveComponentSelector(
                     gameObject!,
-                    componentType,
+                    componentType.Value,
                     executionContext,
                     allowTemporaryState,
                     out var resolution,
@@ -562,15 +570,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveSceneTargetFromScene (
             UnityEngine.SceneManagement.Scene scene,
-            string hierarchyPath,
-            string? componentType,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
             unityObject = null;
-            if (!SceneHierarchyPathResolver.TryResolveSceneObject(scene, hierarchyPath, out var gameObject, out errorMessage))
+            if (!SceneHierarchyPathResolver.TryResolveSceneObject(scene, hierarchyPath.Value, out var gameObject, out errorMessage))
             {
                 return false;
             }
@@ -586,9 +594,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolvePrefabAssetTarget (
-            string prefabPath,
-            string hierarchyPath,
-            string? componentType,
+            PrefabAssetPath prefabPath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
@@ -609,14 +617,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolveOpenedPrefabStageTarget (
-            string prefabPath,
-            string hierarchyPath,
-            string? componentType,
+            PrefabAssetPath prefabPath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
             unityObject = null;
-            if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var prefabStage, out _))
+            if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath.Value, out var prefabStage, out _))
             {
                 errorMessage = string.Empty;
                 return false;
@@ -640,8 +648,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolvePrefabGameObject (
-            string prefabPath,
-            string hierarchyPath,
+            PrefabAssetPath prefabPath,
+            UnityHierarchyPath hierarchyPath,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out GameObject? gameObject,
@@ -649,13 +657,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             gameObject = null;
             if (allowTemporaryState
-                && executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot)
+                && executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath.Value, out var temporaryPrefabRoot)
                 && temporaryPrefabRoot != null)
             {
-                return PrefabHierarchyPathResolver.TryResolve(temporaryPrefabRoot, hierarchyPath, out gameObject, out errorMessage);
+                return PrefabHierarchyPathResolver.TryResolve(temporaryPrefabRoot, hierarchyPath.Value, out gameObject, out errorMessage);
             }
 
-            if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var prefabStage, out _))
+            if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath.Value, out var prefabStage, out _))
             {
                 errorMessage = $"Prefab is not opened: {prefabPath}. Use 'ucli.prefab.open' first.";
                 return false;
@@ -668,15 +676,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            return PrefabHierarchyPathResolver.TryResolve(prefabContentsRoot, hierarchyPath, out gameObject, out errorMessage);
+            return PrefabHierarchyPathResolver.TryResolve(prefabContentsRoot, hierarchyPath.Value, out gameObject, out errorMessage);
         }
 
         private static bool TryResolvePrefabAssetRoot (
-            string prefabPath,
+            PrefabAssetPath prefabPath,
             out GameObject? prefabAssetRoot,
             out string errorMessage)
         {
-            prefabAssetRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            prefabAssetRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath.Value);
             if (prefabAssetRoot == null)
             {
                 errorMessage = $"Prefab path could not be resolved to a prefab asset: {prefabPath}.";
@@ -969,12 +977,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolveAssetObjectFromGuid (
-            string assetGuid,
+            Guid assetGuid,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
             unityObject = null;
-            var assetPath = AssetDatabase.GUIDToAssetPath(assetGuid);
+            var assetPath = AssetDatabase.GUIDToAssetPath(assetGuid.ToString("N"));
             if (string.IsNullOrWhiteSpace(assetPath))
             {
                 errorMessage = $"Asset GUID could not be resolved: {assetGuid}.";
@@ -1020,8 +1028,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveTargetObjectOrComponent (
             GameObject gameObject,
-            string hierarchyPath,
-            string? componentType,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
@@ -1037,7 +1045,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!ComponentOperationUtilities.TryResolveComponentSelector(
                     gameObject,
-                    componentType,
+                    componentType.Value,
                     executionContext,
                     allowTemporaryState,
                     out var resolution,

@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Operations;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -23,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         public CsEvalPreparedSource CreateCompilationUnit (string source)
         {
             return new CsEvalPreparedSource(
-                CsEvalSourceKindValues.CompilationUnit,
+                UcliCodeSourceFormKind.CompilationUnit,
                 source,
                 NoWrapperVersion);
         }
@@ -75,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             var containsAwait = ContainsAwaitExpression(root);
             var wrappedSource = CreateWrappedSource(userUsings, bodyText, bodyLine, isExpression, shouldAppendNullReturn, containsAwait);
             preparedSource = new CsEvalPreparedSource(
-                CsEvalSourceKindValues.Snippet,
+                UcliCodeSourceFormKind.Snippet,
                 wrappedSource,
                 containsAwait ? AsyncSnippetWrapperVersion : SnippetWrapperVersion);
             return true;

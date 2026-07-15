@@ -1,3 +1,5 @@
+using System;
+
 #nullable enable
 
 using MackySoft.Ucli.Contracts;
@@ -9,18 +11,31 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
     /// <param name="Code"> The machine-readable error code. </param>
     /// <param name="Message"> The user-facing error message. </param>
     /// <param name="OpId"> The related operation identifier when available; otherwise <see langword="null" />. </param>
-    internal sealed record ExecuteRequestNormalizationError (
-        UcliCode Code,
-        string Message,
-        string? OpId)
+    internal sealed record ExecuteRequestNormalizationError
     {
+        internal ExecuteRequestNormalizationError (
+            UcliCode Code,
+            string Message,
+            IpcExecuteStepId? OpId)
+        {
+            this.Code = Code ?? throw new ArgumentNullException(nameof(Code));
+            this.Message = Message;
+            this.OpId = OpId;
+        }
+
+        public UcliCode Code { get; }
+
+        public string Message { get; }
+
+        public IpcExecuteStepId? OpId { get; }
+
         /// <summary> Creates one invalid argument error. </summary>
         /// <param name="message"> The user-facing error message. </param>
         /// <param name="opId"> The related operation identifier when available; otherwise <see langword="null" />. </param>
         /// <returns> One normalization error with <see cref="UcliCoreErrorCodes.InvalidArgument" /> code. </returns>
         internal static ExecuteRequestNormalizationError InvalidArgument (
             string message,
-            string? opId)
+            IpcExecuteStepId? opId)
         {
             return new ExecuteRequestNormalizationError(
                 Code: UcliCoreErrorCodes.InvalidArgument,

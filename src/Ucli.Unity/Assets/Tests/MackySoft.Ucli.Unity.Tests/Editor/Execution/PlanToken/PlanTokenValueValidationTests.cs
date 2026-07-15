@@ -22,6 +22,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private const string ValidNonce = "AAAAAAAAAAAAAAAAAAAAAA";
 
+        private const string ValidPayloadSegment = "cGF5bG9hZA";
+
         private static readonly PlanTokenNonce ValidNonceValue = ParseNonce(ValidNonce);
 
         [Test]
@@ -46,8 +48,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var issuedAtUtc = new DateTimeOffset(2026, 7, 13, 1, 2, 3, TimeSpan.Zero);
 
             var exception = Assert.Throws<ArgumentNullException>(() => new PlanTokenPayload(
-                version: 1,
-                keyId: "v1",
                 projectFingerprint: null!,
                 requestDigest: RequestDigest,
                 compiledExecutionDigest: CompiledExecutionDigest,
@@ -113,26 +113,43 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void CreateSignedToken_WhenPayloadKeyIdIsUnsupported_ThrowsArgumentException ()
+        public void CompactCodec_WhenPayloadKeyIdIsUnsupported_RejectsToken ()
         {
-            var payload = CreatePayload(keyId: "v2");
+            var properties = CreateValidPayloadProperties();
+            properties["kid"] = "v2";
 
-            var exception = Assert.Throws<ArgumentException>(() =>
-                PlanTokenCompactCodec.CreateSignedToken(new byte[32], payload));
+            var token = CreateUnsignedToken(properties);
 
-            Assert.That(exception!.ParamName, Is.EqualTo("payload"));
+            Assert.That(PlanTokenCompactCodec.TryDecodeToken(token, out _), Is.False);
         }
 
         [Test]
         [Category("Size.Small")]
-        public void CreateSignedToken_WhenPayloadVersionIsUnsupported_ThrowsArgumentException ()
+        public void CompactCodec_WhenPayloadVersionIsUnsupported_RejectsToken ()
         {
-            var payload = CreatePayload(version: PlanTokenCompactCodec.TokenVersion + 1);
+            var properties = CreateValidPayloadProperties();
+            properties["v"] = PlanTokenCompactCodec.TokenVersion + 1;
 
-            var exception = Assert.Throws<ArgumentException>(() =>
-                PlanTokenCompactCodec.CreateSignedToken(new byte[32], payload));
+            var token = CreateUnsignedToken(properties);
 
-            Assert.That(exception!.ParamName, Is.EqualTo("payload"));
+            Assert.That(PlanTokenCompactCodec.TryDecodeToken(token, out _), Is.False);
+        }
+
+        [TestCase("issuedAtUtc", "2026-07-13T01:02:03Z")]
+        [TestCase("expiresAtUtc", "2026-07-13T01:17:03Z")]
+        [TestCase("issuedAtUtc", "2026-07-13T10:02:03.0000000+09:00")]
+        [TestCase("expiresAtUtc", "2026-07-13T10:17:03.0000000+09:00")]
+        [Category("Size.Small")]
+        public void CompactCodec_WhenTimestampIsNotCanonicalUtc_RejectsToken (
+            string propertyName,
+            string timestamp)
+        {
+            var properties = CreateValidPayloadProperties();
+            properties[propertyName] = timestamp;
+
+            var token = CreateUnsignedToken(properties);
+
+            Assert.That(PlanTokenCompactCodec.TryDecodeToken(token, out _), Is.False);
         }
 
         [Test]
@@ -273,8 +290,6 @@ namespace MackySoft.Ucli.Unity.Tests
             var issuedAtUtc = new DateTimeOffset(2026, 7, 13, 1, 2, 3, TimeSpan.Zero);
 
             var exception = Assert.Throws<ArgumentNullException>(() => new PlanTokenPayload(
-                version: 1,
-                keyId: "v1",
                 projectFingerprint: ProjectFingerprintTestFactory.Create("plan-token-payload"),
                 requestDigest: RequestDigest,
                 compiledExecutionDigest: CompiledExecutionDigest,
@@ -284,6 +299,138 @@ namespace MackySoft.Ucli.Unity.Tests
                 nonce: null!));
 
             Assert.That(exception!.ParamName, Is.EqualTo("nonce"));
+        }
+
+        [TestCase("issuedAtUtc")]
+        [TestCase("expiresAtUtc")]
+        [Category("Size.Small")]
+        public void Payload_WhenTimestampUsesNonUtcOffset_ThrowsArgumentException (string parameterName)
+        {
+            var issuedAtUtc = new DateTimeOffset(2026, 7, 13, 1, 2, 3, TimeSpan.Zero);
+            var expiresAtUtc = issuedAtUtc.AddMinutes(15);
+            if (parameterName == "issuedAtUtc")
+            {
+                issuedAtUtc = issuedAtUtc.ToOffset(TimeSpan.FromHours(9));
+            }
+            else
+            {
+                expiresAtUtc = expiresAtUtc.ToOffset(TimeSpan.FromHours(9));
+            }
+
+            var exception = Assert.Throws<ArgumentException>(() => new PlanTokenPayload(
+                projectFingerprint: ProjectFingerprintTestFactory.Create("plan-token-payload-non-utc"),
+                requestDigest: RequestDigest,
+                compiledExecutionDigest: CompiledExecutionDigest,
+                stateFingerprint: StateFingerprint,
+                issuedAtUtc: issuedAtUtc,
+                expiresAtUtc: expiresAtUtc,
+                nonce: ValidNonceValue));
+
+            Assert.That(exception!.ParamName, Is.EqualTo(parameterName));
+        }
+
+        [TestCase("issuedAtUtc")]
+        [TestCase("expiresAtUtc")]
+        [Category("Size.Small")]
+        public void Payload_WhenTimestampIsDefault_ThrowsArgumentException (string parameterName)
+        {
+            var issuedAtUtc = new DateTimeOffset(2026, 7, 13, 1, 2, 3, TimeSpan.Zero);
+            var expiresAtUtc = issuedAtUtc.AddMinutes(15);
+            if (parameterName == "issuedAtUtc")
+            {
+                issuedAtUtc = default;
+            }
+            else
+            {
+                expiresAtUtc = default;
+            }
+
+            var exception = Assert.Throws<ArgumentException>(() => new PlanTokenPayload(
+                projectFingerprint: ProjectFingerprintTestFactory.Create("plan-token-payload-default-time"),
+                requestDigest: RequestDigest,
+                compiledExecutionDigest: CompiledExecutionDigest,
+                stateFingerprint: StateFingerprint,
+                issuedAtUtc: issuedAtUtc,
+                expiresAtUtc: expiresAtUtc,
+                nonce: ValidNonceValue));
+
+            Assert.That(exception!.ParamName, Is.EqualTo(parameterName));
+        }
+
+        [TestCase(0)]
+        [TestCase(-1)]
+        [Category("Size.Small")]
+        public void Payload_WhenExpirationDoesNotFollowIssue_ThrowsArgumentException (int expirationOffsetMinutes)
+        {
+            var issuedAtUtc = new DateTimeOffset(2026, 7, 13, 1, 2, 3, TimeSpan.Zero);
+
+            var exception = Assert.Throws<ArgumentException>(() => new PlanTokenPayload(
+                projectFingerprint: ProjectFingerprintTestFactory.Create("plan-token-payload-expiration"),
+                requestDigest: RequestDigest,
+                compiledExecutionDigest: CompiledExecutionDigest,
+                stateFingerprint: StateFingerprint,
+                issuedAtUtc: issuedAtUtc,
+                expiresAtUtc: issuedAtUtc.AddMinutes(expirationOffsetMinutes),
+                nonce: ValidNonceValue));
+
+            Assert.That(exception!.ParamName, Is.EqualTo("expiresAtUtc"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void DecodedToken_Create_WhenPayloadIsNull_ThrowsArgumentNullException ()
+        {
+            var exception = Assert.Throws<ArgumentNullException>(() =>
+                PlanTokenDecodedToken.Create(ValidPayloadSegment, new byte[32], null!));
+
+            Assert.That(exception!.ParamName, Is.EqualTo("payload"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void DecodedToken_Create_WhenPayloadSegmentIsNull_ThrowsArgumentNullException ()
+        {
+            var exception = Assert.Throws<ArgumentNullException>(() =>
+                PlanTokenDecodedToken.Create(null!, new byte[32], CreatePayload()));
+
+            Assert.That(exception!.ParamName, Is.EqualTo("payloadSegment"));
+        }
+
+        [TestCase("")]
+        [TestCase("payload")]
+        [TestCase("cGF5bG9hZA=")]
+        [Category("Size.Small")]
+        public void DecodedToken_Create_WhenPayloadSegmentIsNotCanonical_ThrowsArgumentException (string payloadSegment)
+        {
+            var exception = Assert.Throws<ArgumentException>(() =>
+                PlanTokenDecodedToken.Create(payloadSegment, new byte[32], CreatePayload()));
+
+            Assert.That(exception!.ParamName, Is.EqualTo("payloadSegment"));
+        }
+
+        [TestCase(0)]
+        [TestCase(31)]
+        [TestCase(33)]
+        [Category("Size.Small")]
+        public void DecodedToken_Create_WhenSignatureLengthIsInvalid_ThrowsArgumentException (int signatureLength)
+        {
+            var exception = Assert.Throws<ArgumentException>(() =>
+                PlanTokenDecodedToken.Create(ValidPayloadSegment, new byte[signatureLength], CreatePayload()));
+
+            Assert.That(exception!.ParamName, Is.EqualTo("signatureBytes"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void DecodedToken_Create_SnapshotsCallerOwnedSignatureBytes ()
+        {
+            var signatureBytes = new byte[32];
+            signatureBytes[0] = 1;
+            var decodedToken = PlanTokenDecodedToken.Create(ValidPayloadSegment, signatureBytes, CreatePayload());
+
+            signatureBytes[0] = 2;
+
+            Assert.That(decodedToken.SignatureBytes[0], Is.EqualTo(1));
         }
 
         [Test]
@@ -368,14 +515,10 @@ namespace MackySoft.Ucli.Unity.Tests
             return PlanTokenCompactCodec.CreateSignedToken(signingKey ?? new byte[32], CreatePayload());
         }
 
-        private static PlanTokenPayload CreatePayload (
-            string? keyId = null,
-            int version = PlanTokenCompactCodec.TokenVersion)
+        private static PlanTokenPayload CreatePayload ()
         {
             var issuedAtUtc = new DateTimeOffset(2026, 7, 13, 1, 2, 3, TimeSpan.Zero);
             return new PlanTokenPayload(
-                version: version,
-                keyId: keyId ?? PlanTokenCompactCodec.TokenKeyId,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("plan-token-roundtrip"),
                 requestDigest: RequestDigest,
                 compiledExecutionDigest: CompiledExecutionDigest,

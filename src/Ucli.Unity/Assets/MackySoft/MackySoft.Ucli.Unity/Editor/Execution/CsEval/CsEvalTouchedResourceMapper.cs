@@ -17,30 +17,30 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             if (context.TouchedResourcesTruncated)
             {
                 return new CsEvalTouchedResources(
-                    CsEvalTouchedResourceStateValues.Unknown,
+                    CsEvalTouchedResourceState.Unknown,
                     declared: null);
             }
 
             if (context.DeclaredNoTouchedResources)
             {
                 return new CsEvalTouchedResources(
-                    CsEvalTouchedResourceStateValues.None,
+                    CsEvalTouchedResourceState.None,
                     declared: null);
             }
 
             if (context.TouchedResources.Count == 0)
             {
                 return new CsEvalTouchedResources(
-                    CsEvalTouchedResourceStateValues.Unknown,
+                    CsEvalTouchedResourceState.Unknown,
                     declared: null);
             }
 
             var declared = context.TouchedResources
-                .OrderBy(static resource => resource.Kind, StringComparer.Ordinal)
+                .OrderBy(static resource => resource.Kind)
                 .ThenBy(static resource => resource.Path, StringComparer.Ordinal)
                 .ToArray();
             return new CsEvalTouchedResources(
-                CsEvalTouchedResourceStateValues.Declared,
+                CsEvalTouchedResourceState.Declared,
                 declared);
         }
 
@@ -51,28 +51,18 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 return Array.Empty<OperationTouch>();
             }
 
-            var touchesByKey = new SortedDictionary<string, OperationTouch>(StringComparer.Ordinal);
+            var touches = new HashSet<OperationTouch>();
             for (var i = 0; i < context.TouchedResources.Count; i++)
             {
                 var declared = context.TouchedResources[i];
-                var kind = MapKind(declared.Kind);
-                var key = declared.Kind + "\n" + declared.Path;
-                touchesByKey[key] = new OperationTouch(kind, declared.Path, Guid: null);
+                touches.Add(new OperationTouch(declared.Kind, declared.Path, assetGuid: null));
             }
 
-            return touchesByKey.Values.ToArray();
+            return touches
+                .OrderBy(static touch => touch.Kind)
+                .ThenBy(static touch => touch.Path, StringComparer.Ordinal)
+                .ToArray();
         }
 
-        private static OperationTouchKind MapKind (string kind)
-        {
-            return kind switch
-            {
-                UcliTouchedResourceKindNames.Scene => OperationTouchKind.Scene,
-                UcliTouchedResourceKindNames.Prefab => OperationTouchKind.Prefab,
-                UcliTouchedResourceKindNames.Asset => OperationTouchKind.Asset,
-                UcliTouchedResourceKindNames.ProjectSettings => OperationTouchKind.ProjectSettings,
-                _ => OperationTouchKind.Unknown,
-            };
-        }
     }
 }

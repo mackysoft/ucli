@@ -168,7 +168,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static void SyncDirtyStateChanges (
             IReadOnlyDictionary<string, bool> beforeState,
             IReadOnlyDictionary<string, bool> afterState,
-            OperationTouchKind touchKind,
+            UcliTouchedResourceKind touchKind,
             ICollection<OperationTouch> touched,
             OperationExecutionContext executionContext)
         {
@@ -192,8 +192,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(executionContext));
             }
 
-            if (touchKind != OperationTouchKind.Scene
-                && touchKind != OperationTouchKind.Prefab)
+            if (touchKind != UcliTouchedResourceKind.Scene
+                && touchKind != UcliTouchedResourceKind.Prefab)
             {
                 throw new ArgumentOutOfRangeException(nameof(touchKind), touchKind, "Dirty-state syncing supports only scene and prefab resources.");
             }
@@ -206,13 +206,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                if (touchKind == OperationTouchKind.Scene)
+                if (touchKind == UcliTouchedResourceKind.Scene)
                 {
-                    touched.Add(OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, pair.Key)));
+                    touched.Add(OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Scene, pair.Key)));
                 }
                 else
                 {
-                    touched.Add(OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, pair.Key)));
+                    touched.Add(OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Prefab, pair.Key)));
                 }
 
                 var resource = new OperationResource(touchKind, pair.Key);
@@ -242,7 +242,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 if (touchedByPath.TryGetValue(touchedResource.Path, out var existing)
-                    && existing.Guid != null)
+                    && existing.AssetGuid.HasValue)
                 {
                     continue;
                 }
@@ -282,10 +282,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (normalizedPath.StartsWith(ProjectSettingsRootPrefix, StringComparison.Ordinal))
             {
-                touchedResource = new OperationTouch(
-                    Kind: OperationTouchKind.ProjectSettings,
-                    Path: normalizedPath,
-                    Guid: null);
+                touchedResource = OperationResourceUtilities.CreateTouch(
+                    new OperationResource(UcliTouchedResourceKind.ProjectSettings, normalizedPath));
                 return true;
             }
 
@@ -294,39 +292,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            touchedResource = new OperationTouch(
-                Kind: ResolveAssetTouchKind(normalizedPath),
-                Path: normalizedPath,
-                Guid: ResolveAssetGuid(normalizedPath));
+            touchedResource = OperationResourceUtilities.CreateTouch(
+                new OperationResource(ResolveAssetTouchKind(normalizedPath), normalizedPath));
             return true;
         }
 
         /// <summary> Resolves one asset touch kind from its project-relative path. </summary>
         /// <param name="assetPath"> The asset path. </param>
         /// <returns> The touched resource kind. </returns>
-        private static OperationTouchKind ResolveAssetTouchKind (string assetPath)
+        private static UcliTouchedResourceKind ResolveAssetTouchKind (string assetPath)
         {
             if (UnityAssetPathContract.IsNormalizedSceneAssetPath(assetPath))
             {
-                return OperationTouchKind.Scene;
+                return UcliTouchedResourceKind.Scene;
             }
 
             if (UnityAssetPathContract.IsNormalizedPrefabAssetPath(assetPath))
             {
-                return OperationTouchKind.Prefab;
+                return UcliTouchedResourceKind.Prefab;
             }
 
-            return OperationTouchKind.Asset;
+            return UcliTouchedResourceKind.Asset;
         }
 
-        /// <summary> Resolves one asset guid when the asset currently exists. </summary>
-        /// <param name="assetPath"> The asset path. </param>
-        /// <returns> The asset guid when available; otherwise <see langword="null" />. </returns>
-        private static string? ResolveAssetGuid (string assetPath)
-        {
-            var assetGuid = AssetDatabase.AssetPathToGUID(assetPath);
-            return string.IsNullOrWhiteSpace(assetGuid) ? null : assetGuid;
-        }
 
     }
 }

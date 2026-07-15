@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -17,9 +18,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static OperationTouch CreateTouch (OperationResource resource)
         {
             return new OperationTouch(
-                Kind: resource.Kind,
-                Path: resource.Path,
-                Guid: ResolveGuid(resource));
+                kind: resource.Kind,
+                path: resource.Path,
+                assetGuid: ResolveAssetGuid(resource));
         }
 
         /// <summary> Creates one stable touched-resource list from owner resources. </summary>
@@ -37,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 var touch = CreateTouch(resources[index]);
                 if (touchesByPath.TryGetValue(touch.Path, out var existing)
-                    && existing.Guid != null)
+                    && existing.AssetGuid.HasValue)
                 {
                     continue;
                 }
@@ -79,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (executionContext.TryResolveTemporaryPrefabPath(gameObject, out var temporaryPrefabPath))
             {
-                resource = new OperationResource(OperationTouchKind.Prefab, temporaryPrefabPath);
+                resource = new OperationResource(UcliTouchedResourceKind.Prefab, temporaryPrefabPath);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -88,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (prefabStage != null
                 && !string.IsNullOrWhiteSpace(prefabStage.assetPath))
             {
-                resource = new OperationResource(OperationTouchKind.Prefab, prefabStage.assetPath);
+                resource = new OperationResource(UcliTouchedResourceKind.Prefab, prefabStage.assetPath);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -98,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 && scene.isLoaded
                 && executionContext.TryResolveTemporaryScenePath(scene, out var previewScenePath))
             {
-                resource = new OperationResource(OperationTouchKind.Scene, previewScenePath);
+                resource = new OperationResource(UcliTouchedResourceKind.Scene, previewScenePath);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -107,7 +108,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 && scene.isLoaded
                 && !string.IsNullOrWhiteSpace(scene.path))
             {
-                resource = new OperationResource(OperationTouchKind.Scene, scene.path);
+                resource = new OperationResource(UcliTouchedResourceKind.Scene, scene.path);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -136,15 +137,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return TryResolveOwnerResource(component.gameObject, executionContext, out resource, out errorMessage);
         }
 
-        private static string? ResolveGuid (OperationResource resource)
+        private static Guid? ResolveAssetGuid (OperationResource resource)
         {
-            if (resource.Kind == OperationTouchKind.ProjectSettings)
+            if (resource.Kind == UcliTouchedResourceKind.ProjectSettings)
             {
                 return null;
             }
 
-            var guid = AssetDatabase.AssetPathToGUID(resource.Path);
-            return string.IsNullOrWhiteSpace(guid) ? null : guid;
+            var assetGuidText = AssetDatabase.AssetPathToGUID(resource.Path);
+            if (string.IsNullOrEmpty(assetGuidText))
+            {
+                return null;
+            }
+
+            if (!Guid.TryParseExact(assetGuidText, "N", out var assetGuid)
+                || assetGuid == Guid.Empty)
+            {
+                throw new InvalidOperationException(
+                    $"Unity returned an invalid asset GUID for '{resource.Path}'.");
+            }
+
+            return assetGuid;
         }
     }
 }

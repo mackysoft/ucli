@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Moves a GameObject under a new parent GameObject.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate source and parent targets, then report the expected hierarchy impact without creating preview state or mutating live Unity state.",
                 callSemantics: "Reparent the GameObject in live Unity state and leave saving to explicit save operations.",
@@ -174,13 +174,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             state = default;
             failure = null;
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out var errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(
+                    args.Target,
+                    "args.target",
+                    operation.AliasReferences,
+                    out var targetReference,
+                    out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Parent, "args.parent", out var parentReference, out errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(
+                    args.Parent,
+                    "args.parent",
+                    operation.AliasReferences,
+                    out var parentReference,
+                    out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;

@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
-using System.IO;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -57,9 +57,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var directoryPath = Path.GetDirectoryName(prefabPath.Value);
-            if (string.IsNullOrWhiteSpace(directoryPath)
-                || !AssetDatabase.IsValidFolder(directoryPath))
+            var directoryPath = UnityAssetPathUtility.ResolveDirectoryPath(prefabPath.Value);
+            if (!AssetDatabase.IsValidFolder(directoryPath))
             {
                 errorMessage = $"Prefab path directory does not exist: {prefabPath.Value}.";
                 return false;

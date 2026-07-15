@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Reverts request-attributed Prefab instance property overrides on the live scene object.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate that selected property overrides came from this request and were not pre-existing.",
                 callSemantics: "Revert selected live Prefab instance property overrides to the explicit Prefab asset value.",

@@ -24,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Assigns serialized property values on a component target.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the component target and serialized property values, then compute preview changes without persisting project data.",
                 callSemantics: "Apply serialized property values to the live component and leave saving to explicit save operations.",
@@ -79,7 +79,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 bindingState.Sets,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
-                operation.AllowRequestLocalAliases,
+                operation,
                 out var changed,
                 out var changedPropertyPaths,
                 out var applyErrorMessage))
@@ -153,7 +153,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 bindingState.Sets,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
-                operation.AllowRequestLocalAliases,
+                operation,
                 out var changed,
                 out var changedPropertyPaths,
                 out var applyErrorMessage))
@@ -167,7 +167,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     bindingState.Sets,
                     executionContext,
                     OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
-                    operation.AllowRequestLocalAliases,
+                    operation,
                     out _,
                     out var commitErrorMessage))
             {
@@ -207,7 +207,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validatedTargetState = default;
             failure = null;
-            if (!SerializedObjectSetArgumentsCodec.TryParse(args, out var arguments, out var errorMessage))
+            if (!SerializedObjectSetArgumentsCodec.TryParse(
+                    args,
+                    operation.AliasReferences,
+                    out var arguments,
+                    out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -318,7 +322,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private static TargetBinding CreateShadowTargetBinding (
             ComponentSandboxRegistry.ComponentShadowState componentShadowState,
             RequestLocalObjectIdentity sourceTrackingKey,
-            string? alias,
+            RequestLocalAliasIdentity? alias,
             OperationExecutionContext executionContext)
         {
             var component = componentShadowState.Component;
@@ -348,7 +352,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             bindingState = default;
             failure = null;
-            if (!SerializedObjectSetArgumentsCodec.TryParse(args, out var arguments, out var errorMessage))
+            if (!SerializedObjectSetArgumentsCodec.TryParse(
+                    args,
+                    operation.AliasReferences,
+                    out var arguments,
+                    out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -382,7 +390,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             Component component,
             OperationResource resource,
             RequestLocalObjectIdentity sourceTrackingKey,
-            string? alias,
+            RequestLocalAliasIdentity? alias,
             OperationExecutionContext executionContext)
         {
             return new TargetBinding(
@@ -410,14 +418,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static void RecordPrefabOverridePropertyChanges (
-            string editStepId,
+            IpcExecuteStepId editStepId,
             TargetBinding binding,
             IReadOnlyList<string> changedPropertyPaths,
             IReadOnlyDictionary<string, PrefabOverridePropertyStateSnapshot>? prefabOverrideStatesBeforeApply,
             Component finalComponent,
             OperationExecutionContext executionContext)
         {
-            if (binding.Resource.Kind != OperationTouchKind.Scene
+            if (binding.Resource.Kind != UcliTouchedResourceKind.Scene
                 || changedPropertyPaths.Count == 0
                 || finalComponent == null)
             {
@@ -457,7 +465,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolvePropertyStateBeforeRequest (
-            string editStepId,
+            IpcExecuteStepId editStepId,
             RequestLocalObjectIdentity targetKey,
             string propertyPath,
             IReadOnlyDictionary<string, PrefabOverridePropertyStateSnapshot>? statesBeforeApply,
@@ -489,7 +497,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             bool allowExplicitPrefabAssetMutation)
         {
-            if (binding.Resource.Kind != OperationTouchKind.Scene
+            if (binding.Resource.Kind != UcliTouchedResourceKind.Scene
                 || !TryResolvePrefabOverrideStateComponent(
                     binding,
                     executionContext,
@@ -506,7 +514,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             serializedObject.UpdateIfRequiredOrScript();
             for (var i = 0; i < assignments.Count; i++)
             {
-                var propertyPath = assignments[i].Path;
+                var propertyPath = assignments[i].Path.Value;
                 if (statesByPath.ContainsKey(propertyPath))
                 {
                     continue;
@@ -595,7 +603,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 RequestLocalObjectIdentity prefabOverrideTargetKey,
                 GameObject ownerGameObject,
                 RequestLocalObjectIdentity ownerGameObjectTrackingKey,
-                string? alias)
+                RequestLocalAliasIdentity? alias)
             {
                 Component = component;
                 Resource = resource;
@@ -621,7 +629,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public RequestLocalObjectIdentity OwnerGameObjectTrackingKey { get; }
 
-            public string? Alias { get; }
+            public RequestLocalAliasIdentity? Alias { get; }
         }
 
         private readonly struct PrefabOverridePropertyStateSnapshot

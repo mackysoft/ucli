@@ -17,8 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class CompSchemaOperation : UcliOperation<ComponentTypeArgs, IndexSchemaEntryJsonContract>
     {
-        private readonly ComponentSchemaExtractor schemaExtractor =
-            new ComponentSchemaExtractor(new IndexSchemaPropertyCollector());
+        private readonly ComponentSchemaExtractor schemaExtractor = new ComponentSchemaExtractor();
 
         public override UcliOperationMetadata Metadata { get; } = UcliOperationMetadata.Create<ComponentTypeArgs, IndexSchemaEntryJsonContract>(
             operationName: UcliPrimitiveOperationNames.CompSchema,
@@ -26,7 +25,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Returns the serialized schema for a component type.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the component type and observe serialized property metadata without applying mutation.",
                 callSemantics: "Read serialized schema metadata for the requested component type without applying mutation.",
@@ -50,51 +49,40 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return Task.FromResult(OperationPhaseStepResult.Success(applied: false, changed: false));
         }
 
-        protected override async Task<OperationPhaseStepResult> PlanAsync (
+        protected override Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             ComponentTypeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteAsync(operation, args, cancellationToken);
+            return Task.FromResult(Execute(operation, args));
         }
 
-        protected override async Task<OperationPhaseStepResult> CallAsync (
+        protected override Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             ComponentTypeArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteAsync(operation, args, cancellationToken);
+            return Task.FromResult(Execute(operation, args));
         }
 
-        private async Task<OperationPhaseStepResult> ExecuteAsync (
+        private OperationPhaseStepResult Execute (
             NormalizedOperation operation,
-            ComponentTypeArgs args,
-            CancellationToken cancellationToken)
+            ComponentTypeArgs args)
         {
             if (!TryValidateArguments(operation, args, out var validationState, out var failure))
             {
                 return failure!;
             }
 
-            var extractionResult = await schemaExtractor.ExtractAsync(
-                new[] { validationState.ComponentType },
-                cancellationToken);
-            if (extractionResult.Entries.Count == 0)
-            {
-                return OperationPhaseStepResult.Failed(new OperationFailure(
-                    Code: UcliCoreErrorCodes.InternalError,
-                    Message: $"Schema could not be extracted for type '{validationState.ComponentType.FullName}'.",
-                    OpId: operation.Id));
-            }
-
+            var schemaEntry = schemaExtractor.Extract(validationState.ComponentType);
             return OperationPhaseStepResult.Success(
                 applied: false,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(extractionResult.Entries[0]));
+                result: IpcPayloadCodec.SerializeToElement(schemaEntry));
         }
 
         private static bool TryValidateArguments (
@@ -105,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validationState = default;
             failure = null;
-            var typeId = args.Type?.Value ?? string.Empty;
+            var typeId = args.Type.Value;
             if (!ComponentTypeResolver.TryResolveComponentType(typeId, out var componentType, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);

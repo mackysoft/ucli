@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Index;
 using UnityEditor;
@@ -143,9 +144,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var persistedAssetGuid = AssetDatabase.AssetPathToGUID(assetPath);
-            var assetGuid = string.IsNullOrEmpty(persistedAssetGuid)
-                ? null
-                : persistedAssetGuid;
+            Guid? assetGuid = null;
+            if (!string.IsNullOrEmpty(persistedAssetGuid))
+            {
+                if (!Guid.TryParseExact(persistedAssetGuid, "N", out var parsedAssetGuid)
+                    || parsedAssetGuid == Guid.Empty)
+                {
+                    throw new InvalidOperationException($"Unity returned an invalid asset GUID for '{assetPath}'.");
+                }
+
+                assetGuid = parsedAssetGuid;
+            }
 
             matchesByAssetPath[assetPath] = new SearchMatch(
                 assetPath,
@@ -160,7 +169,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string assetPath)
         {
             return criteria.PathPrefix == null
-                   || assetPath.StartsWith(criteria.PathPrefix, StringComparison.Ordinal);
+                   || UnityAssetPathContract.IsSameOrDescendantAssetPath(criteria.PathPrefix.Value, assetPath);
         }
 
         private static bool MatchesType (
@@ -189,7 +198,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public SearchCriteria (
                 Type? typeFilter,
-                string? pathPrefix,
+                UnityAssetPathPrefix? pathPrefix,
                 string? nameContains)
             {
                 TypeFilter = typeFilter;
@@ -199,7 +208,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public Type? TypeFilter { get; }
 
-            public string? PathPrefix { get; }
+            public UnityAssetPathPrefix? PathPrefix { get; }
 
             public string? NameContains { get; }
         }
@@ -208,7 +217,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public SearchMatch (
                 string assetPath,
-                string? assetGuid,
+                Guid? assetGuid,
                 string name,
                 string typeId)
             {
@@ -217,9 +226,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     throw new ArgumentException("Asset path must not be empty or whitespace.", nameof(assetPath));
                 }
 
-                if (assetGuid != null && string.IsNullOrWhiteSpace(assetGuid))
+                if (assetGuid == Guid.Empty)
                 {
-                    throw new ArgumentException("Asset GUID must not be whitespace.", nameof(assetGuid));
+                    throw new ArgumentException("Asset GUID must not be empty.", nameof(assetGuid));
                 }
 
                 if (string.IsNullOrWhiteSpace(name))
@@ -240,7 +249,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public string AssetPath { get; }
 
-            public string? AssetGuid { get; }
+            public Guid? AssetGuid { get; }
 
             public string Name { get; }
 

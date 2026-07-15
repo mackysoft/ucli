@@ -52,8 +52,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
             Assert.That(executeCount, Is.EqualTo(1));
-            Assert.That(firstResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
-            Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(firstResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
+            Assert.That(secondResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
             Assert.That(GetMarker(secondResponse), Is.EqualTo("first"));
         });
 
@@ -95,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(executeCount, Is.EqualTo(1));
             Assert.That(conflictCount, Is.EqualTo(1));
-            Assert.That(conflictResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(conflictResponse.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(conflictResponse.Errors.Count, Is.EqualTo(1));
             Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.RequestIdConflict));
         });
@@ -268,7 +268,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 Assert.That(conflictExecutionCount, Is.EqualTo(0));
-                Assert.That(conflictResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(conflictResponse.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(conflictResponse.Errors.Count, Is.EqualTo(1));
                 Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.RequestIdConflict));
             }
@@ -367,8 +367,8 @@ namespace MackySoft.Ucli.Unity.Tests
             using var secondDocument = JsonDocument.Parse(
                 "{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"protocolVersion\":1,\"ops\":[{\"args\":{\"a\":1,\"b\":2},\"op\":\"__RESOLVE_OP__\",\"id\":\"op-1\"}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, firstDocument.RootElement.Clone());
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, secondDocument.RootElement.Clone());
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, firstDocument.RootElement.Clone());
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, secondDocument.RootElement.Clone());
 
             var firstFingerprint = ExecuteRequestFingerprintCalculator.Create(firstRequest);
             var secondFingerprint = ExecuteRequestFingerprintCalculator.Create(secondRequest);
@@ -383,11 +383,11 @@ namespace MackySoft.Ucli.Unity.Tests
             using var document = JsonDocument.Parse(
                 "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 PlanToken = "token-1",
             };
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 PlanToken = "token-2",
             };
@@ -405,11 +405,11 @@ namespace MackySoft.Ucli.Unity.Tests
             using var document = JsonDocument.Parse(
                 "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 AllowDangerous = false,
             };
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 AllowDangerous = true,
             };
@@ -427,11 +427,11 @@ namespace MackySoft.Ucli.Unity.Tests
             using var document = JsonDocument.Parse(
                 "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 AllowPlayMode = false,
             };
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 AllowPlayMode = true,
             };
@@ -449,11 +449,11 @@ namespace MackySoft.Ucli.Unity.Tests
             using var document = JsonDocument.Parse(
                 "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 PlanToken = "token-1",
             };
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 PlanToken = " token-1 ",
             };
@@ -471,11 +471,11 @@ namespace MackySoft.Ucli.Unity.Tests
             using var document = JsonDocument.Parse(
                 "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 FailFast = false,
             };
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 FailFast = true,
             };
@@ -493,7 +493,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new IpcResponse(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
-                status: IpcProtocol.StatusOk,
+                status: IpcResponseStatus.Ok,
                 payload: JsonSerializer.SerializeToElement(new { marker }),
                 errors: Array.Empty<IpcError>());
         }
@@ -503,7 +503,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new IpcResponse(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
-                status: IpcProtocol.StatusError,
+                status: IpcResponseStatus.Error,
                 payload: JsonSerializer.SerializeToElement(new { opResults = Array.Empty<object>() }),
                 errors: new[]
                 {

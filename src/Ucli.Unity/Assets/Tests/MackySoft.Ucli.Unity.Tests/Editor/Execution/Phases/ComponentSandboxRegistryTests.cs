@@ -1,6 +1,8 @@
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
+using MackySoft.Ucli.Unity.Execution.Requests;
 using NUnit.Framework;
 using UnityEngine;
 
@@ -28,12 +30,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 var ownerKeyB = RequestLocalObjectIdentity.FromUnityObject(ownerB);
                 var sourceKeyA = RequestLocalObjectIdentity.FromUnityObject(sourceA);
                 var sourceKeyB = RequestLocalObjectIdentity.FromUnityObject(sourceB);
-                var resource = new OperationResource(OperationTouchKind.Scene, "Assets/Scene.unity");
+                var resource = new OperationResource(UcliTouchedResourceKind.Scene, "Assets/Scene.unity");
 
                 registry.SetEnsuredComponent(ownerKeyA, typeof(CompOperationTestComponent), sourceA, ownerA, resource);
                 registry.SetEnsuredComponent(ownerKeyB, typeof(CompOperationTestComponent), sourceB, ownerB, resource);
-                aliases.Set("component-a", sourceA, resource, sourceKeyA, ownerKeyA);
-                aliases.Set("component-b", sourceB, resource, sourceKeyB, ownerKeyB);
+                var aliasAIdentity = RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias("component-a"));
+                var aliasBIdentity = RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias("component-b"));
+                aliases.Set(aliasAIdentity, sourceA, resource, sourceKeyA, ownerKeyA);
+                aliases.Set(aliasBIdentity, sourceB, resource, sourceKeyB, ownerKeyB);
                 Object.DestroyImmediate(sourceA);
                 Object.DestroyImmediate(sourceB);
 
@@ -46,9 +50,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(
                     registry.TryGetEnsuredComponentState(ownerKeyB, typeof(CompOperationTestComponent), out _),
                     Is.False);
-                Assert.That(aliases.TryGetState("component-a", out var aliasA), Is.True);
+                Assert.That(aliases.TryGetState(aliasAIdentity, out var aliasA), Is.True);
                 Assert.That(aliasA.UnityObject, Is.SameAs(replacement));
-                Assert.That(aliases.TryGetState("component-b", out _), Is.False);
+                Assert.That(aliases.TryGetState(aliasBIdentity, out _), Is.False);
             }
             finally
             {
@@ -73,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var shadow = shadowHost.AddComponent<CompOperationTestComponent>();
                 var sourceKey = RequestLocalObjectIdentity.FromUnityObject(source);
                 var ownerKey = RequestLocalObjectIdentity.FromUnityObject(owner);
-                var resource = new OperationResource(OperationTouchKind.Scene, "Assets/Scene.unity");
+                var resource = new OperationResource(UcliTouchedResourceKind.Scene, "Assets/Scene.unity");
                 registry.SetComponentShadow(sourceKey, shadow, source, owner, ownerKey, resource, aliases);
 
                 Object.DestroyImmediate(owner);
@@ -102,7 +106,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var component = componentHost.AddComponent<CompOperationTestComponent>();
                 var ownerKey = RequestLocalObjectIdentity.FromUnityObject(owner);
-                var resource = new OperationResource(OperationTouchKind.Scene, "Assets/Scene.unity");
+                var resource = new OperationResource(UcliTouchedResourceKind.Scene, "Assets/Scene.unity");
                 registry.SetEnsuredComponent(
                     ownerKey,
                     typeof(CompOperationTestComponent),

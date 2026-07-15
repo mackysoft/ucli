@@ -45,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertAssetSuccess(result, applied: false, changed: true, assetPath);
             Assert.That(result.Persisted, Is.False);
             Assert.That(context.TryGetTemporaryAliasState("created", out var aliasState), Is.True);
-            Assert.That(aliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Asset));
+            Assert.That(aliasState.Resource.Kind, Is.EqualTo(UcliTouchedResourceKind.Asset));
             Assert.That(aliasState.Resource.Path, Is.EqualTo(assetPath));
             Assert.That(aliasState.UnityObject, Is.TypeOf<AssetOperationTestAsset>());
         });
@@ -163,33 +163,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Set_Validate_WhenSetItemIsNull_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
-        {
-            var operation = new AssetSetOperation();
-            var requestOperation = CreateOperation(
-                opId: "op-set",
-                opName: UcliPrimitiveOperationNames.AssetSet,
-                args: new
-                {
-                    target = new
-                    {
-                        @var = "target",
-                    },
-                    sets = new object?[]
-                    {
-                        null,
-                    },
-                });
-
-            using var executionContext = new OperationExecutionContext();
-            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
-
-            AssertInvalidArgument(result, "op-set");
-            Assert.That(result.Failure!.Message, Does.Contain("args.sets[0]").And.Contain("must be an object"));
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
         public IEnumerator Create_Validate_WhenTypeIsNotScriptableObject_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetCreateOperation();
@@ -257,7 +230,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
                     path = assetPath,
                 },
-                executionKey: "op-create#p0");
+                executionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-create"), primitiveIndex: 0));
             var secondRequest = CreateOperation(
                 opId: "op-create",
                 opName: UcliPrimitiveOperationNames.AssetCreate,
@@ -266,13 +239,47 @@ namespace MackySoft.Ucli.Unity.Tests
                     type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
                     path = assetPath,
                 },
-                executionKey: "op-create#p1");
+                executionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-create"), primitiveIndex: 1));
 
             var firstResult = await operation.PlanAsync(firstRequest, context, CancellationToken.None);
             var secondResult = await operation.ValidateAsync(secondRequest, context, CancellationToken.None);
 
             AssertAssetSuccess(firstResult, applied: false, changed: true, assetPath);
             AssertInvalidArgument(secondResult, "op-create");
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Create_Validate_WhenRawStepIdMatchesLegacyEditExecutionKey_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetCreateOperation();
+            using var scope = new EditorTestScope();
+            var assetPath = scope.CreateAssetPath(nameof(AssetOperationTests));
+            var context = scope.CreateExecutionContext();
+            var editPrimitiveRequest = CreateOperation(
+                opId: "a",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
+                args: new
+                {
+                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                    path = assetPath,
+                },
+                executionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("a"), primitiveIndex: 0));
+            var rawStepRequest = CreateOperation(
+                opId: "a#p0",
+                opName: UcliPrimitiveOperationNames.AssetCreate,
+                args: new
+                {
+                    type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
+                    path = assetPath,
+                },
+                executionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("a#p0")));
+
+            var firstResult = await operation.PlanAsync(editPrimitiveRequest, context, CancellationToken.None);
+            var secondResult = await operation.ValidateAsync(rawStepRequest, context, CancellationToken.None);
+
+            AssertAssetSuccess(firstResult, applied: false, changed: true, assetPath);
+            AssertInvalidArgument(secondResult, "a#p0");
         });
 
         [UnityTest]
@@ -336,7 +343,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertAssetSuccess(setResult, applied: false, changed: true, assetPath);
             AssertQuerySuccess(schemaResult, applied: false);
             Assert.That(context.TryGetTemporaryAliasState("created", out var aliasState), Is.True);
-            Assert.That(aliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Asset));
+            Assert.That(aliasState.Resource.Kind, Is.EqualTo(UcliTouchedResourceKind.Asset));
             Assert.That(aliasState.Resource.Path, Is.EqualTo(assetPath));
             Assert.That(aliasState.UnityObject, Is.TypeOf<AssetOperationTestAsset>());
             var temporaryAsset = (AssetOperationTestAsset)aliasState.UnityObject!;
@@ -410,7 +417,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertAssetSuccess(setResult, applied: false, changed: true, assetPath);
             AssertQuerySuccess(schemaResult, applied: false);
             Assert.That(context.TryGetPlannedAssetState(assetPath, out var plannedAssetState), Is.True);
-            Assert.That(plannedAssetState.OwnerExecutionKey, Is.EqualTo("op-create"));
+            Assert.That(plannedAssetState.OwnerExecutionKey, Is.EqualTo(createRequest.ExecutionKey));
             Assert.That(plannedAssetState.UnityObject, Is.TypeOf<AssetOperationTestAsset>());
             var temporaryAsset = (AssetOperationTestAsset)plannedAssetState.UnityObject!;
             Assert.That(temporaryAsset.IntegerValue, Is.EqualTo(99));
@@ -829,15 +836,20 @@ namespace MackySoft.Ucli.Unity.Tests
             string opName,
             object args,
             string? alias = null,
-            string? executionKey = null)
+            OperationExecutionKey? executionKey = null)
         {
             return new NormalizedOperation(
-                Id: opId,
+                ExecutionKey: executionKey
+                    ?? OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId(opId), primitiveIndex: 0),
                 Op: opName,
                 Args: JsonSerializer.SerializeToElement(args),
-                As: alias,
+                As: alias == null
+                    ? null
+                    : RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias(alias)),
                 Expect: null,
-                InternalExecutionKey: executionKey);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
         }
 
         private static void AssertInvalidArgument (
@@ -847,7 +859,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.Not.Null);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(result.Failure.OpId, Is.EqualTo(expectedOperationId));
+            Assert.That(result.Failure.OpId?.Value, Is.EqualTo(expectedOperationId));
         }
 
         private static void AssertAssetSuccess (
@@ -860,7 +872,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Applied, Is.EqualTo(applied));
             Assert.That(result.Changed, Is.EqualTo(changed));
             Assert.That(result.Touched.Count, Is.EqualTo(1));
-            Assert.That(result.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Asset));
+            Assert.That(result.Touched[0].Kind, Is.EqualTo(UcliTouchedResourceKind.Asset));
             Assert.That(result.Touched[0].Path, Is.EqualTo(assetPath));
             Assert.That(result.Failure, Is.Null);
         }

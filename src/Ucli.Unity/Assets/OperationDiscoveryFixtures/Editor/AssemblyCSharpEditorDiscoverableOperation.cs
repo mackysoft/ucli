@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Operations;
@@ -25,7 +26,7 @@ namespace MackySoft.Ucli.Unity.OperationDiscoveryFixtures
                 UcliOperationResultContract.NoResult("This fixture does not emit operation-specific result data."),
                 new UcliOperationAssuranceContract(
                     sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                    touchedKinds: Array.Empty<string>(),
+                    touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                     planMode: UcliOperationPlanMode.ValidationOnly,
                     planSemantics: "Validate that the fixture operation can be registered.",
                     callSemantics: "Return success without reading or mutating Unity state.",

@@ -2,6 +2,7 @@ using System;
 using Microsoft.CodeAnalysis.CSharp;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -12,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     {
         public CsEvalCompilationResult (
             Sha256Digest sourceDigest,
-            string? sourceKind,
+            UcliCodeSourceFormKind? sourceKind,
             string? resolvedEntryPoint,
             CsEvalEntryPointName? entryPointName,
             Sha256Digest executionDigest,
@@ -34,7 +35,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         public Sha256Digest SourceDigest { get; }
 
-        public string? SourceKind { get; }
+        public UcliCodeSourceFormKind? SourceKind { get; }
 
         public string? ResolvedEntryPoint { get; }
 

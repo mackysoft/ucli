@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Applies request-attributed Prefab instance property overrides to an explicit Prefab asset.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.PrefabContentMutation, UcliOperationSideEffect.PrefabSave },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the request-attributed property override set and target Prefab asset without persisting it.",
                 callSemantics: "Apply the selected Prefab instance property overrides to the explicit Prefab asset.",
@@ -203,7 +203,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             return new[]
             {
-                OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, prefabPath)),
+                OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Prefab, prefabPath)),
             };
         }
 

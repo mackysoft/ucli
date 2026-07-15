@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
 using UnityEngine;
 
@@ -26,6 +27,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             [NotNullWhen(true)] out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
+            if (reference == null)
+            {
+                throw new ArgumentNullException(nameof(reference));
+            }
+
             if (executionContext == null)
             {
                 throw new ArgumentNullException(nameof(executionContext));
@@ -43,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 case UnityObjectReferenceKind.Selector:
                     return ResolveReferenceResolver.TryResolveUnityObject(
-                        reference.Selector,
+                        reference.Selector!,
                         executionContext,
                         allowTemporaryState,
                         out unityObject,
@@ -133,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The resolution error message when resolution fails. </param>
         /// <returns> <see langword="true" /> when resolution succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryResolveAlias (
-            string alias,
+            RequestLocalAliasIdentity alias,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
@@ -142,7 +148,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             unityObject = null;
             if (!executionContext.AliasStore.TryGet(alias, out var globalObjectId))
             {
-                errorMessage = $"Reference alias was not found: {alias}.";
+                errorMessage = $"Reference alias was not found: {alias.Alias}.";
                 return false;
             }
 

@@ -31,8 +31,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         // room for the JSON field names and delimiters.
         internal const int MaximumPayloadSegmentLength = 1024;
 
-        private const int SignatureByteLength = 32;
-
         private const int SignatureSegmentLength = 43;
 
         private const string CanonicalHeaderJson = "{\"alg\":\"" + TokenAlgorithm
@@ -54,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <param name="payload"> The token payload values. </param>
         /// <returns> A compact token accepted by <see cref="TryDecodeToken" />. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="signingKey" /> or <paramref name="payload" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when the signing key is shorter than 32 bytes, or the payload uses unsupported values or cannot fit in the accepted compact-token boundary. </exception>
+        /// <exception cref="ArgumentException"> Thrown when the signing key is shorter than 32 bytes or the payload cannot fit in the accepted compact-token boundary. </exception>
         public static string CreateSignedToken (
             byte[] signingKey,
             PlanTokenPayload payload)
@@ -64,20 +62,6 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             if (payload == null)
             {
                 throw new ArgumentNullException(nameof(payload));
-            }
-
-            if (payload.Version != TokenVersion)
-            {
-                throw new ArgumentException(
-                    $"Plan-token payload version must be {TokenVersion}.",
-                    nameof(payload));
-            }
-
-            if (!string.Equals(payload.KeyId, TokenKeyId, StringComparison.Ordinal))
-            {
-                throw new ArgumentException(
-                    $"Plan-token payload key identifier must be '{TokenKeyId}'.",
-                    nameof(payload));
             }
 
             var payloadBytes = CreatePayloadJsonBytes(payload);
@@ -116,7 +100,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
             if (!Base64UrlCodec.TryDecode(payloadSegment, out var payloadBytes)
                 || !Base64UrlCodec.TryDecode(signatureSegment, out var signatureBytes)
-                || signatureBytes.Length != SignatureByteLength)
+                || signatureBytes.Length != PlanTokenDecodedToken.SignatureByteLength)
             {
                 return false;
             }
@@ -126,25 +110,11 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 return false;
             }
 
-            decodedToken = new PlanTokenDecodedToken(
-                PayloadSegment: payloadSegment,
-                SignatureBytes: signatureBytes,
-                Payload: payload);
+            decodedToken = PlanTokenDecodedToken.Create(
+                payloadSegment,
+                signatureBytes,
+                payload);
             return true;
-        }
-
-        /// <summary> Determines whether token header and payload use supported values. </summary>
-        /// <param name="decodedToken"> The decoded token model. </param>
-        /// <returns> <see langword="true" /> when token values are supported; otherwise <see langword="false" />. </returns>
-        public static bool IsSupported (PlanTokenDecodedToken decodedToken)
-        {
-            if (decodedToken == null)
-            {
-                throw new ArgumentNullException(nameof(decodedToken));
-            }
-
-            return string.Equals(decodedToken.Payload.KeyId, TokenKeyId, StringComparison.Ordinal)
-                && decodedToken.Payload.Version == TokenVersion;
         }
 
         /// <summary> Verifies compact-token signature against one signing key. </summary>
@@ -166,7 +136,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
 
             var signingInput = CanonicalHeaderSegment + "." + decodedToken.PayloadSegment;
             var expectedSignature = ComputeSignature(signingInput, signingKey);
-            return CryptographicOperations.FixedTimeEquals(expectedSignature, decodedToken.SignatureBytes.Span);
+            return CryptographicOperations.FixedTimeEquals(expectedSignature, decodedToken.SignatureBytes);
         }
 
         /// <summary> Creates compact-token payload JSON bytes. </summary>
@@ -178,14 +148,14 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             using (var writer = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = false }))
             {
                 writer.WriteStartObject();
-                writer.WriteNumber("v", payload.Version);
-                writer.WriteString("kid", payload.KeyId);
+                writer.WriteNumber("v", TokenVersion);
+                writer.WriteString("kid", TokenKeyId);
                 writer.WriteString("projectFingerprint", payload.ProjectFingerprint.ToString());
                 writer.WriteString("requestDigest", payload.RequestDigest.ToString());
                 writer.WriteString("compiledExecutionDigest", payload.CompiledExecutionDigest.ToString());
                 writer.WriteString("stateFingerprint", payload.StateFingerprint.ToString());
-                writer.WriteString("issuedAtUtc", payload.IssuedAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
-                writer.WriteString("expiresAtUtc", payload.ExpiresAtUtc.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
+                writer.WriteString("issuedAtUtc", payload.IssuedAtUtc.ToString("O", CultureInfo.InvariantCulture));
+                writer.WriteString("expiresAtUtc", payload.ExpiresAtUtc.ToString("O", CultureInfo.InvariantCulture));
                 writer.WriteString("nonce", payload.Nonce.ToString());
                 writer.WriteEndObject();
                 writer.Flush();
@@ -295,39 +265,20 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
                 var expiresAt = PlanTokenJsonUtilities.TryReadString(root, "expiresAtUtc");
                 var nonce = PlanTokenJsonUtilities.TryReadString(root, "nonce");
 
-                if (string.IsNullOrWhiteSpace(kid)
+                if (version != TokenVersion
+                    || !string.Equals(kid, TokenKeyId, StringComparison.Ordinal)
                     || !ProjectFingerprint.TryParse(projectFingerprint, out var parsedProjectFingerprint)
                     || !Sha256Digest.TryParse(requestDigest, out var parsedRequestDigest)
                     || !Sha256Digest.TryParse(compiledExecutionDigest, out var parsedCompiledExecutionDigest)
                     || !Sha256Digest.TryParse(stateFingerprint, out var parsedStateFingerprint)
-                    || string.IsNullOrWhiteSpace(issuedAt)
-                    || string.IsNullOrWhiteSpace(expiresAt)
+                    || !TryReadCanonicalUtcTimestamp(issuedAt, out var issuedAtUtc)
+                    || !TryReadCanonicalUtcTimestamp(expiresAt, out var expiresAtUtc)
                     || !PlanTokenNonce.TryParse(nonce, out var parsedNonce))
                 {
                     return false;
                 }
 
-                if (!DateTimeOffset.TryParse(
-                    issuedAt,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                    out var issuedAtUtc))
-                {
-                    return false;
-                }
-
-                if (!DateTimeOffset.TryParse(
-                    expiresAt,
-                    CultureInfo.InvariantCulture,
-                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
-                    out var expiresAtUtc))
-                {
-                    return false;
-                }
-
                 payload = new PlanTokenPayload(
-                    version: version,
-                    keyId: kid!,
                     projectFingerprint: parsedProjectFingerprint,
                     requestDigest: parsedRequestDigest,
                     compiledExecutionDigest: parsedCompiledExecutionDigest,
@@ -343,5 +294,23 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             }
         }
 
+        private static bool TryReadCanonicalUtcTimestamp (
+            string? value,
+            out DateTimeOffset timestamp)
+        {
+            timestamp = default;
+            return DateTimeOffset.TryParseExact(
+                    value,
+                    "O",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out timestamp)
+                && timestamp != default
+                && timestamp.Offset == TimeSpan.Zero
+                && string.Equals(
+                    value,
+                    timestamp.ToString("O", CultureInfo.InvariantCulture),
+                    StringComparison.Ordinal);
+        }
     }
 }

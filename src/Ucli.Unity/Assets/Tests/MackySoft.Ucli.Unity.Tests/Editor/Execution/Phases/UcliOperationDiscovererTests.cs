@@ -610,11 +610,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var catalogEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.CsEval);
             Assert.That(catalogEntry.PlayModeSupport, Is.EqualTo("allowed"));
             Assert.That(describeContract.CodeContract, Is.Not.Null);
-            Assert.That(describeContract.CodeContract!.Language, Is.EqualTo("csharp"));
+            Assert.That(describeContract.CodeContract!.Language, Is.EqualTo(UcliCodeLanguage.CSharp));
             Assert.That(describeContract.CodeContract.EntryPoint!.MatchRule, Does.Contain("exactly one"));
             Assert.That(describeContract.CodeContract.SourceForms!.Count, Is.EqualTo(2));
-            Assert.That(describeContract.CodeContract.SourceForms![0].Kind, Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
-            Assert.That(describeContract.CodeContract.SourceForms[1].Kind, Is.EqualTo(CsEvalSourceKindValues.Snippet));
+            Assert.That(describeContract.CodeContract.SourceForms![0].Kind, Is.EqualTo(UcliCodeSourceFormKind.CompilationUnit));
+            Assert.That(describeContract.CodeContract.SourceForms[1].Kind, Is.EqualTo(UcliCodeSourceFormKind.Snippet));
             Assert.That(describeContract.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
             Assert.That(describeContract.Assurance, Is.Not.Null);
             Assert.That(describeContract.Assurance!.PlanSemantics, Does.Contain("without invoking user code"));
@@ -671,9 +671,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(sceneOpenEntry.ResultContract, Is.Not.Null);
             Assert.That(sceneOpenEntry.ResultContract!.Emitted, Is.False);
             Assert.That(sceneOpenEntry.Assurance, Is.Not.Null);
-            Assert.That(sceneOpenEntry.Assurance!.SideEffects, Does.Contain("editorStateChange"));
-            Assert.That(sceneOpenEntry.Assurance.SideEffects, Does.Contain("opensSceneInEditor"));
-            Assert.That(sceneOpenEntry.Assurance!.PlanMode, Is.EqualTo("observesLiveUnity"));
+            Assert.That(sceneOpenEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffect.EditorStateChange));
+            Assert.That(sceneOpenEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.OpensSceneInEditor));
+            Assert.That(sceneOpenEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanMode.ObservesLiveUnity));
             Assert.That(sceneOpenEntry.Assurance.PlanSemantics, Does.Contain("scene path"));
             Assert.That(sceneOpenEntry.Assurance.CallSemantics, Does.Contain("Open the requested scene"));
             Assert.That(sceneOpenEntry.Assurance.TouchedContract, Does.Contain("observed editor context"));
@@ -681,21 +681,21 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var goDeleteEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoDelete);
             Assert.That(goDeleteEntry.Assurance, Is.Not.Null);
-            Assert.That(goDeleteEntry.Assurance!.PlanMode, Is.EqualTo("observesLiveUnity"));
+            Assert.That(goDeleteEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanMode.ObservesLiveUnity));
 
             var goReparentEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoReparent);
             Assert.That(goReparentEntry.Assurance, Is.Not.Null);
-            Assert.That(goReparentEntry.Assurance!.PlanMode, Is.EqualTo("observesLiveUnity"));
+            Assert.That(goReparentEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanMode.ObservesLiveUnity));
 
             var projectRefreshEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.ProjectRefresh);
             Assert.That(projectRefreshEntry.Kind, Is.EqualTo("command"));
             Assert.That(projectRefreshEntry.Assurance, Is.Not.Null);
-            Assert.That(projectRefreshEntry.Assurance!.SideEffects, Does.Contain("assetDatabaseRefresh"));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("assetImport"));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("scriptCompilation"));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("domainReload"));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("assetContentMutation"));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("assetSave"));
+            Assert.That(projectRefreshEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffect.AssetDatabaseRefresh));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.AssetImport));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.ScriptCompilation));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.DomainReload));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.AssetContentMutation));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.AssetSave));
             Assert.That(projectRefreshEntry.Assurance.MayDirty, Is.True);
             Assert.That(projectRefreshEntry.Assurance.MayPersist, Is.True);
             Assert.That(projectRefreshEntry.Assurance.ReadPostconditionContract, Does.Contain("readIndex"));
@@ -738,7 +738,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var entry = FindCatalogEntry(snapshot.RequestValidationCatalog.Operations!, UcliPrimitiveOperationNames.PrefabRevertOverrides);
             Assert.That(entry.Exposure, Is.EqualTo("editLoweringOnly"));
             Assert.That(entry.Assurance, Is.Not.Null);
-            Assert.That(entry.Assurance!.TouchedKinds, Does.Contain(UcliTouchedResourceKindNames.Scene));
+            Assert.That(entry.Assurance!.TouchedKinds, Does.Contain(UcliTouchedResourceKind.Scene));
             Assert.That(entry.Assurance.TouchedContract, Does.Contain("scene resource"));
             Assert.That(entry.Assurance.ReadPostconditionContract, Does.Contain("Scene tree"));
         }
@@ -982,16 +982,28 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public bool IsBusy => throw new InvalidOperationException("Operation discovery must not inspect mutation-lane state.");
 
-            public bool IsPoisoned => throw new InvalidOperationException("Operation discovery must not inspect mutation-lane state.");
+            public bool HasUnfinishedWork => throw new InvalidOperationException("Operation discovery must not inspect mutation-lane state.");
 
-            public void Poison (string reason)
+            public bool IsQuarantined => throw new InvalidOperationException("Operation discovery must not inspect mutation-lane state.");
+
+            public IUnityMutationActivity BeginMutation ()
             {
                 throw new InvalidOperationException("Operation discovery must not mutate mutation-lane state.");
             }
 
-            public bool TrySealAdmissionWhenIdle (out IDisposable admissionSeal)
+            public void Quarantine (string reason, Task mutationCompletion)
             {
                 throw new InvalidOperationException("Operation discovery must not mutate mutation-lane state.");
+            }
+
+            public bool TrySealAdmissionForRetirement (out IDisposable admissionSeal)
+            {
+                throw new InvalidOperationException("Operation discovery must not mutate mutation-lane state.");
+            }
+
+            public Task WaitForRetirementAsync ()
+            {
+                throw new InvalidOperationException("Operation discovery must not inspect mutation-lane state.");
             }
         }
 
@@ -1324,7 +1336,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ValidationOnly,
                 planSemantics: "Validate arguments without applying mutation.",
                 callSemantics: "Read Unity state without applying mutation.",
@@ -1338,7 +1350,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Create request-local preview state before approval.",
                 callSemantics: "Apply the requested operation.",
@@ -1352,7 +1364,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.RuntimeStateMutation },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate Play Mode runtime state before mutation.",
                 callSemantics: "Apply a Play Mode runtime-state mutation.",

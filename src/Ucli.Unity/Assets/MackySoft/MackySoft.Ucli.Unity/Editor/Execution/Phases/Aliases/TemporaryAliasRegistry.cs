@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEngine;
 
 #nullable enable
@@ -10,8 +10,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Tracks plan-time alias bindings independently from other temporary execution state. </summary>
     internal sealed class TemporaryAliasRegistry
     {
-        private readonly Dictionary<string, TemporaryAliasValue> valuesByAlias =
-            new Dictionary<string, TemporaryAliasValue>(StringComparer.Ordinal);
+        private readonly Dictionary<RequestLocalAliasIdentity, TemporaryAliasValue> valuesByAlias =
+            new Dictionary<RequestLocalAliasIdentity, TemporaryAliasValue>();
 
         /// <summary> Stores or replaces one request-local alias binding. </summary>
         /// <param name="alias"> The validated alias name. </param>
@@ -20,13 +20,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="sourceTrackingKey"> The optional semantic source identity used for replacement and deletion synchronization. </param>
         /// <param name="ownerTrackingKey"> The optional semantic owner identity for a component alias. </param>
         public void Set (
-            string alias,
+            RequestLocalAliasIdentity alias,
             UnityEngine.Object unityObject,
             OperationResource resource,
             RequestLocalObjectIdentity? sourceTrackingKey,
             RequestLocalObjectIdentity? ownerTrackingKey)
         {
-            ValidateAlias(alias);
+            if (alias == null)
+            {
+                throw new ArgumentNullException(nameof(alias));
+            }
+
             if (unityObject == null)
             {
                 throw new ArgumentNullException(nameof(unityObject));
@@ -37,11 +41,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         public bool TryGetState (
-            string alias,
+            RequestLocalAliasIdentity alias,
             out TemporaryAliasState state)
         {
             state = default;
-            if (string.IsNullOrWhiteSpace(alias))
+            if (alias == null)
             {
                 return false;
             }
@@ -82,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             ValidateResource(resource, nameof(resource));
 
-            List<string>? aliasesToSynchronize = null;
+            List<RequestLocalAliasIdentity>? aliasesToSynchronize = null;
             foreach (var pair in valuesByAlias)
             {
                 if (pair.Value.SourceTrackingKey == null
@@ -91,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                aliasesToSynchronize ??= new List<string>();
+                aliasesToSynchronize ??= new List<RequestLocalAliasIdentity>();
                 aliasesToSynchronize.Add(pair.Key);
             }
 
@@ -129,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(sourceTrackingKeys));
             }
 
-            List<string>? aliasesToRemove = null;
+            List<RequestLocalAliasIdentity>? aliasesToRemove = null;
             foreach (var pair in valuesByAlias)
             {
                 var belongsToDeletedOwner = pair.Value.OwnerTrackingKey != null
@@ -141,7 +145,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                aliasesToRemove ??= new List<string>();
+                aliasesToRemove ??= new List<RequestLocalAliasIdentity>();
                 aliasesToRemove.Add(pair.Key);
             }
 
@@ -173,7 +177,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             ValidateResource(resource, nameof(resource));
 
-            List<string>? aliasesToSynchronize = null;
+            List<RequestLocalAliasIdentity>? aliasesToSynchronize = null;
             foreach (var pair in valuesByAlias)
             {
                 if (!ReferenceEquals(pair.Value.UnityObject, sourceUnityObject))
@@ -181,7 +185,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                aliasesToSynchronize ??= new List<string>();
+                aliasesToSynchronize ??= new List<RequestLocalAliasIdentity>();
                 aliasesToSynchronize.Add(pair.Key);
             }
 
@@ -205,19 +209,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public void Clear ()
         {
             valuesByAlias.Clear();
-        }
-
-        private static void ValidateAlias (string alias)
-        {
-            if (string.IsNullOrWhiteSpace(alias))
-            {
-                throw new ArgumentException("Alias must not be null, empty, or whitespace.", nameof(alias));
-            }
-
-            if (StringValueValidator.HasOuterWhitespace(alias))
-            {
-                throw new ArgumentException("Alias must not contain leading or trailing whitespace.", nameof(alias));
-            }
         }
 
         private static void ValidateResource (

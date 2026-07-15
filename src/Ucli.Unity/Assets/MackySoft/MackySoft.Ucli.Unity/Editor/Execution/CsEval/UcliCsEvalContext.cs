@@ -15,6 +15,10 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
     {
         private const string ProjectSettingsRootPrefix = "ProjectSettings/";
 
+        private const string TruncationSuffix = "...";
+
+        private const int TruncationSuffixUtf8ByteCount = 3;
+
         private readonly List<CsEvalLogEntry> logs = new List<CsEvalLogEntry>();
 
         private readonly List<CsEvalTouchedResourceDeclaration> touchedResources = new List<CsEvalTouchedResourceDeclaration>();
@@ -30,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         [UcliDescription("Records an informational eval log entry.")]
         public void Log ([UcliDescription("Log message text.")] string message)
         {
-            AddLog(CsEvalLogLevelValues.Log, message);
+            AddLog(CsEvalLogLevel.Log, message);
         }
 
         /// <summary> Records a warning eval log entry. </summary>
@@ -38,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         [UcliDescription("Records a warning eval log entry.")]
         public void LogWarning ([UcliDescription("Log message text.")] string message)
         {
-            AddLog(CsEvalLogLevelValues.Warning, message);
+            AddLog(CsEvalLogLevel.Warning, message);
         }
 
         /// <summary> Records an error eval log entry. </summary>
@@ -46,7 +50,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         [UcliDescription("Records an error eval log entry.")]
         public void LogError ([UcliDescription("Log message text.")] string message)
         {
-            AddLog(CsEvalLogLevelValues.Error, message);
+            AddLog(CsEvalLogLevel.Error, message);
         }
 
         /// <summary> Declares that the eval call did not touch Unity resources. </summary>
@@ -73,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             }
 
             AddTouchedResource(
-                UcliTouchedResourceKindNames.Asset,
+                UcliTouchedResourceKind.Asset,
                 normalizedPath);
         }
 
@@ -83,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         public void DeclareTouchedScene ([UcliDescription("Project-relative scene asset path.")] string path)
         {
             AddTouchedResource(
-                UcliTouchedResourceKindNames.Scene,
+                UcliTouchedResourceKind.Scene,
                 NormalizeDeclaredSceneAssetPath(path));
         }
 
@@ -93,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         public void DeclareTouchedPrefab ([UcliDescription("Project-relative prefab asset path.")] string path)
         {
             AddTouchedResource(
-                UcliTouchedResourceKindNames.Prefab,
+                UcliTouchedResourceKind.Prefab,
                 NormalizeDeclaredPrefabAssetPath(path));
         }
 
@@ -103,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         public void DeclareTouchedProjectSettings ([UcliDescription("Project-relative ProjectSettings path.")] string path)
         {
             AddTouchedResource(
-                UcliTouchedResourceKindNames.ProjectSettings,
+                UcliTouchedResourceKind.ProjectSettings,
                 NormalizeDeclaredPath(path, ProjectSettingsRootPrefix));
         }
 
@@ -116,7 +120,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         internal bool TouchedResourcesTruncated => touchedResourcesTruncated;
 
         private void AddLog (
-            string level,
+            CsEvalLogLevel level,
             string message)
         {
             if (string.IsNullOrWhiteSpace(message))
@@ -199,7 +203,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         }
 
         private void AddTouchedResource (
-            string kind,
+            UcliTouchedResourceKind kind,
             string path)
         {
             if (declaredNoTouchedResources)
@@ -225,7 +229,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 return;
             }
 
-            logs.Add(new CsEvalLogEntry(CsEvalLogLevelValues.Warning, message));
+            logs.Add(new CsEvalLogEntry(CsEvalLogLevel.Warning, message));
         }
 
         private void SetLogsTruncated ()
@@ -236,7 +240,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             }
 
             logsTruncated = true;
-            var warning = new CsEvalLogEntry(CsEvalLogLevelValues.Warning, "C# eval logs were truncated.");
+            var warning = new CsEvalLogEntry(CsEvalLogLevel.Warning, "C# eval logs were truncated.");
             if (logs.Count == 0)
             {
                 logs.Add(warning);
@@ -255,22 +259,52 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 return value;
             }
 
-            var builder = new StringBuilder(value.Length);
+            var contentByteLimit = maxBytes - TruncationSuffixUtf8ByteCount;
+            var prefixLength = 0;
             var bytes = 0;
-            for (var i = 0; i < value.Length; i++)
+            while (prefixLength < value.Length)
             {
-                var characterBytes = Encoding.UTF8.GetByteCount(value.Substring(i, 1));
-                if (bytes + characterBytes > maxBytes)
+                var character = value[prefixLength];
+                var characterLength = char.IsHighSurrogate(character)
+                    && prefixLength + 1 < value.Length
+                    && char.IsLowSurrogate(value[prefixLength + 1])
+                        ? 2
+                        : 1;
+                var characterBytes = characterLength == 2
+                    ? 4
+                    : GetUtf8ByteCount(character);
+                if (bytes + characterBytes > contentByteLimit)
                 {
                     break;
                 }
 
-                builder.Append(value[i]);
+                prefixLength += characterLength;
                 bytes += characterBytes;
             }
 
-            builder.Append("...");
-            return builder.ToString();
+            return string.Create(
+                prefixLength + TruncationSuffix.Length,
+                (Value: value, PrefixLength: prefixLength),
+                static (destination, state) =>
+                {
+                    state.Value.AsSpan(0, state.PrefixLength).CopyTo(destination);
+                    TruncationSuffix.AsSpan().CopyTo(destination[state.PrefixLength..]);
+                });
+        }
+
+        private static int GetUtf8ByteCount (char character)
+        {
+            if (character <= '\u007F')
+            {
+                return 1;
+            }
+
+            if (character <= '\u07FF')
+            {
+                return 2;
+            }
+
+            return 3;
         }
     }
 }

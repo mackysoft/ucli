@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEngine;
 
 #nullable enable
@@ -15,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         public void SetPlannedAsset (
             string assetPath,
-            string ownerExecutionKey,
+            OperationExecutionKey ownerExecutionKey,
             UnityEngine.Object unityObject,
             TemporaryAliasRegistry temporaryAliasRegistry)
         {
@@ -29,9 +30,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(unityObject));
             }
 
-            if (string.IsNullOrWhiteSpace(ownerExecutionKey))
+            if (ownerExecutionKey == null)
             {
-                throw new ArgumentException("Owner execution key must not be null, empty, or whitespace.", nameof(ownerExecutionKey));
+                throw new ArgumentNullException(nameof(ownerExecutionKey));
             }
 
             if (temporaryAliasRegistry == null)
@@ -111,14 +112,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         private readonly struct PlannedAssetValue
         {
             public PlannedAssetValue (
-                string ownerExecutionKey,
+                OperationExecutionKey ownerExecutionKey,
                 UnityEngine.Object unityObject)
             {
                 OwnerExecutionKey = ownerExecutionKey;
                 UnityObject = unityObject;
             }
 
-            public string OwnerExecutionKey { get; }
+            public OperationExecutionKey OwnerExecutionKey { get; }
 
             public UnityEngine.Object UnityObject { get; }
         }
@@ -127,7 +128,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         internal readonly struct PlannedAssetState
         {
             public PlannedAssetState (
-                string ownerExecutionKey,
+                OperationExecutionKey ownerExecutionKey,
                 string assetPath,
                 UnityEngine.Object unityObject)
             {
@@ -137,7 +138,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             /// <summary> Gets the execution key of the operation that reserved the planned asset path. </summary>
-            public string OwnerExecutionKey { get; }
+            public OperationExecutionKey OwnerExecutionKey { get; }
 
             /// <summary> Gets the normalized asset path reserved for the planned asset. </summary>
             public string AssetPath { get; }

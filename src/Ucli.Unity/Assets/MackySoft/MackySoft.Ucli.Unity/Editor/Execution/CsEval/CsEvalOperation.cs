@@ -92,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     compilation.SourceKind,
                     compilation.ResolvedEntryPoint,
                     compilation.ExecutionDigest,
-                    new CsEvalCompileResult(CsEvalCompileStatusValues.Failed, emitDiagnostics),
+                    new CsEvalCompileResult(CsEvalCompileStatus.Failed, emitDiagnostics),
                     durationMilliseconds: null,
                     logs: null,
                     returnValue: null,
@@ -148,7 +148,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     method.ReturnType,
                     returnObject,
                     cancellationToken,
-                    mutationLaneControl.Poison);
+                    mutationLaneControl.Quarantine);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -211,10 +211,10 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 },
                 touchedKinds: new[]
                 {
-                    UcliTouchedResourceKindNames.Scene,
-                    UcliTouchedResourceKindNames.Prefab,
-                    UcliTouchedResourceKindNames.Asset,
-                    UcliTouchedResourceKindNames.ProjectSettings,
+                    UcliTouchedResourceKind.Scene,
+                    UcliTouchedResourceKind.Prefab,
+                    UcliTouchedResourceKind.Asset,
+                    UcliTouchedResourceKind.ProjectSettings,
                 },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Compile the supplied C# source and validate the required entry point without invoking user code.",
@@ -239,10 +239,10 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 new[]
                 {
                     new UcliCodeSourceFormContract(
-                        CsEvalSourceKindValues.CompilationUnit,
+                        UcliCodeSourceFormKind.CompilationUnit,
                         "Complete C# compilation unit containing using directives, namespace or type declarations, and exactly one public static Run(UcliCsEvalContext context) method with a supported synchronous or task-like return type."),
                     new UcliCodeSourceFormContract(
-                        CsEvalSourceKindValues.Snippet,
+                        UcliCodeSourceFormKind.Snippet,
                         "Run method body snippet. Leading using directives, statements, await expressions, explicit return, no return, and one expression are accepted; snippets without return produce null."),
                 },
                 new[] { typeof(UcliCsEvalContext) });
@@ -328,7 +328,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private static bool IsChanged (CsEvalTouchedResources touchedResources)
         {
-            return !string.Equals(touchedResources.State, CsEvalTouchedResourceStateValues.None, StringComparison.Ordinal);
+            return touchedResources.State != CsEvalTouchedResourceState.None;
         }
 
         private static IReadOnlyList<OperationReadInvalidation> CreateReadInvalidations ()

@@ -249,7 +249,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         }
 
         private static bool TryValidatePlayModeEditStep (
-            string stepId,
+            IpcExecuteStepId stepId,
             IpcEditStepContract editStep,
             out ExecuteRequestNormalizationError error)
         {
@@ -301,7 +301,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             var violation = IpcExecuteArgumentsContractViolationClassifier.Classify(readError);
-            var stepId = violation.StepId ?? string.Empty;
+            var stepId = violation.StepId!;
             return violation.Kind switch
             {
                 IpcExecuteArgumentsContractViolationKind.ArgumentsMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(

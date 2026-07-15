@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Finds project assets by type, path prefix, or name substring.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate asset query arguments and observe matching project assets without applying mutation.",
                 callSemantics: "Read matching project assets and emit bounded result data without applying mutation.",
@@ -84,7 +84,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var match = windowedMatches.Items[i];
                 payloadMatches[i] = new AssetsFindMatch(
                     assetPath: new UnityAssetPath(match.AssetPath),
-                    assetGuid: match.AssetGuid == null ? null : new UnityAssetGuid(match.AssetGuid),
+                    assetGuid: match.AssetGuid,
                     name: match.Name,
                     typeId: new UnityTypeId(match.TypeId));
             }
@@ -106,7 +106,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (args.Type == null
                 && args.PathPrefix == null
-                && string.IsNullOrWhiteSpace(args.NameContains))
+                && args.NameContains == null)
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
@@ -133,22 +133,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
-            var normalizedPathPrefix = args.PathPrefix?.Value;
-
-            if (args.NameContains != null && string.IsNullOrWhiteSpace(args.NameContains))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
-                    operation.Id,
-                    "Operation 'args.nameContains' must not be empty or whitespace.");
-                return false;
-            }
-
-            var windowOptions = BoundedWindowOptionsNormalizer.NormalizeValidated(args.Limit, args.Cursor);
+            var windowOptions = BoundedWindowOptions.CreateBounded(args.Limit, args.Cursor);
 
             validationState = new ValidationState(
                 new AssetsFindSearchEngine.SearchCriteria(
                     typeFilter,
-                    normalizedPathPrefix,
+                    args.PathPrefix,
                     args.NameContains),
                 windowOptions);
             return true;

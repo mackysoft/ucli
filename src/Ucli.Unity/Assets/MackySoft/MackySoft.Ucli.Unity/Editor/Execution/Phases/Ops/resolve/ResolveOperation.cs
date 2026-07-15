@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -20,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate selector structure and resolve the referenced Unity object without applying mutation.",
                 callSemantics: "Resolve the selector against live Unity state and emit a GlobalObjectId without applying mutation.",
@@ -122,7 +123,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="executionContext"> The execution context that owns the alias store. </param>
         /// <param name="globalObjectId"> The resolved reference value. </param>
         private static void StoreAliasIfNeeded (
-            string? alias,
+            RequestLocalAliasIdentity? alias,
             OperationExecutionContext executionContext,
             UnityGlobalObjectId globalObjectId)
         {
@@ -136,7 +137,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryValidateSupportedSelector (
             ResolveSelector selector,
-            string operationId,
+            IpcExecuteStepId operationId,
             out OperationPhaseStepResult? failure)
         {
             failure = null;

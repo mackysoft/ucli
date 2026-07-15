@@ -75,7 +75,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             state = default;
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(
+                    args.Target,
+                    "args.target",
+                    operation.AliasReferences,
+                    out var targetReference,
+                    out errorMessage))
             {
                 return false;
             }
@@ -92,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var component = componentResolution.Component!;
-            if (componentResolution.Resource.Kind != OperationTouchKind.Scene)
+            if (componentResolution.Resource.Kind != UcliTouchedResourceKind.Scene)
             {
                 errorMessage = "Prefab override actions require a scene component target.";
                 return false;
@@ -631,9 +636,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             if (targetReference.Kind == UnityObjectReferenceKind.Selector
-                && !string.IsNullOrEmpty(targetReference.Selector.HierarchyPath))
+                && targetReference.Selector!.HierarchyPath != null)
             {
-                hierarchyPath = targetReference.Selector.HierarchyPath!;
+                hierarchyPath = targetReference.Selector.HierarchyPath.Value;
                 errorMessage = string.Empty;
                 return true;
             }
@@ -731,7 +736,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             var serializedObject = new SerializedObject(assetComponent);
             serializedObject.UpdateIfRequiredOrScript();
-            var assetResource = new OperationResource(OperationTouchKind.Prefab, targetAssetPath);
+            var assetResource = new OperationResource(UcliTouchedResourceKind.Prefab, targetAssetPath);
             for (var i = 0; i < changes.Count; i++)
             {
                 var propertyPath = changes[i].PropertyPath;

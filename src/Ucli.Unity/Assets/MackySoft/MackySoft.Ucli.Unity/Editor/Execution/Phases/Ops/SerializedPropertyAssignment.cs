@@ -1,4 +1,6 @@
+using System;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
 
@@ -8,14 +10,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     internal readonly struct SerializedPropertyAssignment
     {
         public SerializedPropertyAssignment (
-            string path,
+            SerializedPropertyPath path,
             JsonElement value)
         {
-            Path = path;
+            Path = path ?? throw new ArgumentNullException(nameof(path));
+            if (value.ValueKind == JsonValueKind.Undefined)
+            {
+                throw new ArgumentException("Serialized property value must be defined.", nameof(value));
+            }
+
             Value = value.Clone();
         }
 
-        public string Path { get; }
+        public SerializedPropertyPath Path { get; }
 
         public JsonElement Value { get; }
     }

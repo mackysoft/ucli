@@ -15,25 +15,25 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             Type declaredReturnType,
             object? invocationReturnValue,
             CancellationToken cancellationToken,
-            Action<string> poisonMutationLane)
+            Action<string, Task> quarantineMutationLane)
         {
-            if (poisonMutationLane == null)
+            if (quarantineMutationLane == null)
             {
-                throw new ArgumentNullException(nameof(poisonMutationLane));
+                throw new ArgumentNullException(nameof(quarantineMutationLane));
             }
 
             // Preserve the Unity synchronization context for subsequent result serialization,
             // because JSON serialization may execute user-defined public getters.
             if (declaredReturnType == typeof(Task))
             {
-                await AwaitTaskAsync(GetRequiredTask(invocationReturnValue, declaredReturnType), cancellationToken, poisonMutationLane);
+                await AwaitTaskAsync(GetRequiredTask(invocationReturnValue, declaredReturnType), cancellationToken, quarantineMutationLane);
                 return null;
             }
 
             if (IsGenericTask(declaredReturnType))
             {
                 var task = GetRequiredTask(invocationReturnValue, declaredReturnType);
-                await AwaitTaskAsync(task, cancellationToken, poisonMutationLane);
+                await AwaitTaskAsync(task, cancellationToken, quarantineMutationLane);
                 return GetTaskResult(task);
             }
 
@@ -44,14 +44,14 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     throw new CsEvalEntryPointReturnValueResolutionException("Entry point returned null for ValueTask.");
                 }
 
-                await AwaitTaskAsync(((ValueTask)invocationReturnValue).AsTask(), cancellationToken, poisonMutationLane);
+                await AwaitTaskAsync(((ValueTask)invocationReturnValue).AsTask(), cancellationToken, quarantineMutationLane);
                 return null;
             }
 
             if (IsGenericValueTask(declaredReturnType))
             {
                 var task = ConvertValueTaskToTask(declaredReturnType, invocationReturnValue);
-                await AwaitTaskAsync(task, cancellationToken, poisonMutationLane);
+                await AwaitTaskAsync(task, cancellationToken, quarantineMutationLane);
                 return GetTaskResult(task);
             }
 
@@ -62,11 +62,11 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         private static async Task AwaitTaskAsync (
             Task task,
             CancellationToken cancellationToken,
-            Action<string> poisonMutationLane)
+            Action<string, Task> quarantineMutationLane)
         {
             if (cancellationToken.IsCancellationRequested)
             {
-                await AwaitCancellationQuiescenceAsync(task, poisonMutationLane).ConfigureAwait(false);
+                await AwaitCancellationQuiescenceAsync(task, quarantineMutationLane).ConfigureAwait(false);
                 cancellationToken.ThrowIfCancellationRequested();
             }
 
@@ -86,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 var completedTask = await Task.WhenAny(task, cancellationSource.Task);
                 if (!ReferenceEquals(completedTask, task))
                 {
-                    await AwaitCancellationQuiescenceAsync(task, poisonMutationLane).ConfigureAwait(false);
+                    await AwaitCancellationQuiescenceAsync(task, quarantineMutationLane).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
                 }
             }
@@ -97,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private static async Task AwaitCancellationQuiescenceAsync (
             Task task,
-            Action<string> poisonMutationLane)
+            Action<string, Task> quarantineMutationLane)
         {
             ObserveFault(task);
             var didQuiesce = await UnityMutationCancellationPolicy
@@ -105,8 +105,9 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 .ConfigureAwait(false);
             if (!didQuiesce)
             {
-                poisonMutationLane(
-                    "A C# eval task remained active after request cancellation and may still mutate Unity state.");
+                quarantineMutationLane(
+                    "A C# eval task remained active after request cancellation and may still mutate Unity state.",
+                    task);
             }
         }
 

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
 
@@ -11,8 +11,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Stores operation alias values resolved during one request execution. </summary>
     internal sealed class OperationAliasStore
     {
-        private readonly Dictionary<string, UnityGlobalObjectId> globalObjectIdsByAlias =
-            new Dictionary<string, UnityGlobalObjectId>(StringComparer.Ordinal);
+        private readonly Dictionary<RequestLocalAliasIdentity, UnityGlobalObjectId> globalObjectIdsByAlias =
+            new Dictionary<RequestLocalAliasIdentity, UnityGlobalObjectId>();
 
         /// <summary> Stores or replaces one resolved reference for the specified alias. </summary>
         /// <param name="alias"> The alias name. </param>
@@ -20,17 +20,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <exception cref="ArgumentException"> Thrown when <paramref name="alias" /> is null, empty, whitespace, or contains outer whitespace. </exception>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="globalObjectId" /> is <see langword="null" />. </exception>
         public void Set (
-            string alias,
+            RequestLocalAliasIdentity alias,
             UnityGlobalObjectId globalObjectId)
         {
-            if (string.IsNullOrWhiteSpace(alias))
+            if (alias == null)
             {
-                throw new ArgumentException("Alias must not be null, empty, or whitespace.", nameof(alias));
-            }
-
-            if (StringValueValidator.HasOuterWhitespace(alias))
-            {
-                throw new ArgumentException("Alias must not contain leading or trailing whitespace.", nameof(alias));
+                throw new ArgumentNullException(nameof(alias));
             }
 
             if (globalObjectId == null)
@@ -46,10 +41,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="globalObjectId"> The resolved identity when found. </param>
         /// <returns> <see langword="true" /> when alias exists; otherwise <see langword="false" />. </returns>
         public bool TryGet (
-            string alias,
+            RequestLocalAliasIdentity alias,
             [NotNullWhen(true)] out UnityGlobalObjectId? globalObjectId)
         {
-            if (string.IsNullOrWhiteSpace(alias))
+            if (alias == null)
             {
                 globalObjectId = null;
                 return false;

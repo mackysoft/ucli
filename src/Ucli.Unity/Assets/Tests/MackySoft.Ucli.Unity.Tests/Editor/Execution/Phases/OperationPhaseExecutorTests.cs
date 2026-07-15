@@ -18,6 +18,7 @@ using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.PlanToken;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -75,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var targetKey = RequestLocalObjectIdentity.FromGlobalObjectId(
                 new UnityGlobalObjectId("GlobalObjectId_V1-2-0123456789abcdef0123456789abcdef-123-0"));
             executionContext.RecordPrefabOverridePropertyChange(
-                "edit-step-a",
+                new IpcExecuteStepId("edit-step-a"),
                 targetKey,
                 "m_Text",
                 wasPrefabOverrideBeforeRequest: false,
@@ -84,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 requiresExplicitPrefabAssetMutation: false);
 
             var result = executionContext.TryCollectPrefabOverridePropertyChanges(
-                "edit-step-b",
+                new IpcExecuteStepId("edit-step-b"),
                 targetKey,
                 requestedPropertyPaths: null,
                 out var changes,
@@ -103,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var targetKey = RequestLocalObjectIdentity.FromGlobalObjectId(
                 new UnityGlobalObjectId("GlobalObjectId_V1-2-0123456789abcdef0123456789abcdef-123-0"));
             executionContext.RecordPrefabOverridePropertyChange(
-                "edit-step-a",
+                new IpcExecuteStepId("edit-step-a"),
                 targetKey,
                 "m_Text",
                 wasPrefabOverrideBeforeRequest: false,
@@ -112,7 +113,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 requiresExplicitPrefabAssetMutation: false);
 
             var result = executionContext.TryCollectPrefabOverridePropertyChanges(
-                "edit-step-a",
+                new IpcExecuteStepId("edit-step-a"),
                 targetKey,
                 requestedPropertyPaths: null,
                 out var changes,
@@ -126,22 +127,93 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void PersistenceReportingPolicy_WhenSceneReportingIsSuppressed_PreservesNonScenePersistence ()
+        public void PersistenceReportingPolicy_WhenAllReportingIsEnabled_PreservesResultInstance ()
         {
             var operation = new NormalizedOperation(
-                Id: "op-create-prefab",
-                Op: UcliPrimitiveOperationNames.PrefabCreate,
+                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-save")),
+                Op: UcliPrimitiveOperationNames.AssetSave,
                 Args: JsonSerializer.SerializeToElement(new { }),
                 As: null,
                 Expect: null,
-                SuppressScenePersistenceReporting: true);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
             var result = OperationPhaseStepResult.Success(
                     applied: true,
                     changed: true,
                     touched: new[]
                     {
-                        OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, "Assets/Scene.unity")),
-                        OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, "Assets/Prefab.prefab")),
+                        OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Asset, "Assets/Value.asset")),
+                    })
+                .WithPersistence()
+                .WithReadInvalidations(new[]
+                {
+                    new OperationReadInvalidation(OperationReadInvalidationSurface.AssetSearch, null),
+                });
+
+            var reported = OperationPhaseExecutionUtilities.ApplyPersistenceReportingPolicy(operation, result);
+
+            Assert.That(reported, Is.SameAs(result));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void PersistenceReportingPolicy_WhenAllReportingIsSuppressed_RemovesPersistenceObservations ()
+        {
+            var operation = new NormalizedOperation(
+                ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("edit-step"), primitiveIndex: 0),
+                Op: UcliPrimitiveOperationNames.CompSet,
+                Args: JsonSerializer.SerializeToElement(new { }),
+                As: null,
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.SuppressAll,
+                AllowExplicitPrefabAssetMutation: false);
+            var resultPayload = JsonSerializer.SerializeToElement(new { value = 1 });
+            var result = OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Scene, "Assets/Scene.unity")),
+                    },
+                    result: resultPayload)
+                .WithPersistence()
+                .WithReadInvalidations(new[]
+                {
+                    new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, "Assets/Scene.unity"),
+                });
+
+            var reported = OperationPhaseExecutionUtilities.ApplyPersistenceReportingPolicy(operation, result);
+
+            Assert.That(reported.Applied, Is.True);
+            Assert.That(reported.Changed, Is.True);
+            Assert.That(reported.Result, Is.EqualTo(result.Result));
+            Assert.That(reported.Touched, Is.Empty);
+            Assert.That(reported.ReadInvalidations, Is.Empty);
+            Assert.That(reported.Persisted, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void PersistenceReportingPolicy_WhenSceneReportingIsSuppressed_PreservesNonScenePersistence ()
+        {
+            var operation = new NormalizedOperation(
+                ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-create-prefab"), primitiveIndex: 0),
+                Op: UcliPrimitiveOperationNames.PrefabCreate,
+                Args: JsonSerializer.SerializeToElement(new { }),
+                As: null,
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.SuppressScene,
+                AllowExplicitPrefabAssetMutation: false);
+            var result = OperationPhaseStepResult.Success(
+                    applied: true,
+                    changed: true,
+                    touched: new[]
+                    {
+                        OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Scene, "Assets/Scene.unity")),
+                        OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Prefab, "Assets/Prefab.prefab")),
                     })
                 .WithPersistence()
                 .WithReadInvalidations(new[]
@@ -154,7 +226,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(filtered.Persisted, Is.True);
             Assert.That(filtered.Touched.Count, Is.EqualTo(1));
-            Assert.That(filtered.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(filtered.Touched[0].Kind, Is.EqualTo(UcliTouchedResourceKind.Prefab));
             Assert.That(filtered.ReadInvalidations.Count, Is.EqualTo(1));
             Assert.That(filtered.ReadInvalidations[0].Surface, Is.EqualTo(OperationReadInvalidationSurface.AssetSearch));
         }
@@ -247,7 +319,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var operation = new AliasReferenceTypedOperation();
             using var executionContext = new OperationExecutionContext();
             var normalizedOperation = new NormalizedOperation(
-                Id: "op-alias",
+                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-alias")),
                 Op: "ucli.tests.alias-reference",
                 Args: JsonSerializer.SerializeToElement(new
                 {
@@ -258,7 +330,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null,
-                AllowRequestLocalAliases: false);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
 
             var result = await operation.ValidateAsync(normalizedOperation, executionContext, CancellationToken.None);
 
@@ -277,7 +351,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var operation = new AliasReferenceTypedOperation();
             using var executionContext = new OperationExecutionContext();
             var normalizedOperation = new NormalizedOperation(
-                Id: "op-alias",
+                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-alias")),
                 Op: "ucli.tests.alias-reference",
                 Args: JsonSerializer.SerializeToElement(new
                 {
@@ -290,7 +364,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null,
-                AllowRequestLocalAliases: false);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
 
             var result = await operation.ValidateAsync(normalizedOperation, executionContext, CancellationToken.None);
 
@@ -322,7 +398,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
             Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
             CollectionAssert.AreEqual(
-                new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
+                new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
                 trace.OperationTraces[0].Contracts!.TouchedKinds);
         });
 
@@ -364,7 +440,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.OperationTraces[0].Contracts!.OperationKind, Is.EqualTo(UcliOperationKind.Mutation));
             Assert.That(trace.OperationTraces[0].Contracts!.MayDirty, Is.True);
             CollectionAssert.AreEqual(
-                new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
+                new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
                 trace.OperationTraces[0].Contracts!.TouchedKinds);
         });
 
@@ -416,7 +492,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Failed(
-                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", "op-1"),
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", new IpcExecuteStepId("op-1")),
                     applied: true,
                     changed: true).WithPersistence());
             var executor = CreateExecutor(operation);
@@ -537,7 +613,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.IsSuccess, Is.False);
             Assert.That(trace.Errors.Count, Is.EqualTo(1));
             Assert.That(trace.Errors[0].Code.Value, Is.EqualTo("OPERATION_NOT_ALLOWED"));
-            Assert.That(trace.Errors[0].OpId, Is.EqualTo("op-1"));
+            Assert.That(trace.Errors[0].OpId?.Value, Is.EqualTo("op-1"));
             Assert.That(trace.OperationTraces[0].Phase, Is.EqualTo(OperationPhase.Validate));
             CollectionAssert.IsEmpty(operation.CalledPhases);
         });
@@ -769,23 +845,27 @@ namespace MackySoft.Ucli.Unity.Tests
             var planPassResult = new PlanPassResult(
                 CompiledSteps: new[]
                 {
-                    new NormalizedRequestStep("edit-1", IpcExecuteStepKind.Edit, "edit", 1),
+                    new NormalizedRequestStep(
+                        new IpcExecuteStepId("edit-1"),
+                        IpcExecuteStepKind.Edit,
+                        "edit",
+                        1),
                 },
                 CompiledDigestPayloadUtf8: CreateCompiledDigestPayloadUtf8(),
                 OperationTraces: new[]
                 {
                     new OperationPhaseTrace(
-                        OpId: "edit-1",
+                        OpId: new IpcExecuteStepId("edit-1"),
                         Op: "edit",
                         Phase: OperationPhase.Validate,
                         Applied: false,
                         Changed: false,
                         Touched: Array.Empty<OperationTouch>(),
-                        Failure: new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1")),
+                        Failure: new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", new IpcExecuteStepId("edit-1"))),
                 },
                 Errors: new[]
                 {
-                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1"),
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", new IpcExecuteStepId("edit-1")),
                 },
                 PreparedOperations: Array.Empty<PreparedOperation>());
             var executor = new OperationPhaseExecutor(
@@ -798,7 +878,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         PlanTokenErrorCodes.StateChangedSincePlan,
                         "Compiled execution changed since plan token issuance.",
                         null))),
-                CreateDangerousOperationCallAuthorizer());
+                CreateDangerousOperationCallAuthorizer(),
+                new ImmediateUnityMutationLaneControl());
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Call compile failure should map to compiled execution drift");
 
@@ -806,7 +887,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.Errors.Count, Is.EqualTo(1));
             Assert.That(trace.Errors[0].Code, Is.EqualTo(PlanTokenErrorCodes.StateChangedSincePlan));
             Assert.That(trace.Errors[0].Message, Is.EqualTo("Compiled execution changed since plan token issuance."));
-            Assert.That(trace.Errors[0].OpId, Is.EqualTo("edit-1"));
+            Assert.That(trace.Errors[0].OpId?.Value, Is.EqualTo("edit-1"));
             Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
             Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(PlanTokenErrorCodes.StateChangedSincePlan));
             Assert.That(trace.OperationTraces[0].Failure!.Message, Is.EqualTo("Compiled execution changed since plan token issuance."));
@@ -823,23 +904,27 @@ namespace MackySoft.Ucli.Unity.Tests
             var planPassResult = new PlanPassResult(
                 CompiledSteps: new[]
                 {
-                    new NormalizedRequestStep("edit-1", IpcExecuteStepKind.Edit, "edit", 1),
+                    new NormalizedRequestStep(
+                        new IpcExecuteStepId("edit-1"),
+                        IpcExecuteStepKind.Edit,
+                        "edit",
+                        1),
                 },
                 CompiledDigestPayloadUtf8: CreateCompiledDigestPayloadUtf8(),
                 OperationTraces: new[]
                 {
                     new OperationPhaseTrace(
-                        OpId: "edit-1",
+                        OpId: new IpcExecuteStepId("edit-1"),
                         Op: "edit",
                         Phase: OperationPhase.Validate,
                         Applied: false,
                         Changed: false,
                         Touched: Array.Empty<OperationTouch>(),
-                        Failure: new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1")),
+                        Failure: new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", new IpcExecuteStepId("edit-1"))),
                 },
                 Errors: new[]
                 {
-                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", "edit-1"),
+                    new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "selection no longer resolves.", new IpcExecuteStepId("edit-1")),
                 },
                 PreparedOperations: Array.Empty<PreparedOperation>());
             var coordinator = new StubPlanTokenCoordinator(
@@ -850,7 +935,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 new StubPlanPassExecutor(planPassResult),
                 new OperationCallPassExecutor(),
                 coordinator,
-                CreateDangerousOperationCallAuthorizer());
+                CreateDangerousOperationCallAuthorizer(),
+                new ImmediateUnityMutationLaneControl());
 
             var trace = await ExecuteAsync(executor, PhaseExecutionCommand.Call, request, "Legacy-compatible token should preserve compile failure");
 
@@ -858,7 +944,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(trace.Errors.Count, Is.EqualTo(1));
             Assert.That(trace.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(trace.Errors[0].Message, Is.EqualTo("selection no longer resolves."));
-            Assert.That(trace.Errors[0].OpId, Is.EqualTo("edit-1"));
+            Assert.That(trace.Errors[0].OpId?.Value, Is.EqualTo("edit-1"));
             Assert.That(trace.OperationTraces[0].Failure, Is.Not.Null);
             Assert.That(trace.OperationTraces[0].Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
             Assert.That(trace.OperationTraces[0].Failure!.Message, Is.EqualTo("selection no longer resolves."));
@@ -870,7 +956,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenValidateFails_MarksRemainingOperationsAsSkipped () => UniTask.ToCoroutine(async () =>
         {
             var failingOperation = new RecordingPhaseOperation(
-                validateResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "invalid", "op-1")),
+                validateResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "invalid", new IpcExecuteStepId("op-1"))),
                 planResult: OperationPhaseStepResult.Success(),
                 callResult: OperationPhaseStepResult.Success());
             var skippedOperation = new RecordingPhaseOperation(
@@ -902,7 +988,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var failingOperation = new RecordingPhaseOperation(
                 validateResult: OperationPhaseStepResult.Success(),
-                planResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "plan failed", "op-1")),
+                planResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "plan failed", new IpcExecuteStepId("op-1"))),
                 callResult: OperationPhaseStepResult.Success());
             var skippedOperation = new RecordingPhaseOperation(
                 validateResult: OperationPhaseStepResult.Success(),
@@ -933,7 +1019,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var failingOperation = new RecordingPhaseOperation(
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
-                callResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", "op-1")));
+                callResult: OperationPhaseStepResult.Failed(new OperationFailure(UcliCoreErrorCodes.InvalidArgument, "call failed", new IpcExecuteStepId("op-1"))));
             var skippedOperation = new RecordingPhaseOperation(
                 validateResult: OperationPhaseStepResult.Success(),
                 planResult: OperationPhaseStepResult.Success(),
@@ -1016,9 +1102,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(issueResult.PlanToken, Is.Not.Null.And.Not.Empty);
             Assert.That(PlanTokenCompactCodec.TryDecodeToken(issueResult.PlanToken!, out var decodedToken), Is.True);
             Assert.That(decodedToken, Is.Not.Null);
-            Assert.That(decodedToken!.Payload.KeyId, Is.EqualTo(PlanTokenCompactCodec.TokenKeyId));
-            Assert.That(decodedToken.Payload.Version, Is.EqualTo(PlanTokenCompactCodec.TokenVersion));
-            Assert.That(PlanTokenCompactCodec.IsSupported(decodedToken), Is.True);
+            var payloadSegment = issueResult.PlanToken!.Split('.')[1];
+            Assert.That(Base64UrlCodec.TryDecode(payloadSegment, out var payloadBytes), Is.True);
+            using var payloadDocument = JsonDocument.Parse(payloadBytes);
+            Assert.That(payloadDocument.RootElement.GetProperty("kid").GetString(), Is.EqualTo(PlanTokenCompactCodec.TokenKeyId));
+            Assert.That(payloadDocument.RootElement.GetProperty("v").GetInt32(), Is.EqualTo(PlanTokenCompactCodec.TokenVersion));
         }
 
         [Test]
@@ -1171,55 +1259,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void ValidateCall_WhenTouchedPathHasLeadingWhitespace_DoesNotTrackTrimmedSiblingPath ()
-        {
-            using var scope = new PlanTokenTestScope();
-            var touchedPath = " Assets/Scenes/Main.unity";
-            var siblingPath = "Assets/Scenes/Main.unity";
-            var touchedAbsolutePath = Path.Combine(scope.ProjectRoot, touchedPath.Replace('/', Path.DirectorySeparatorChar));
-            var siblingAbsolutePath = Path.Combine(scope.ProjectRoot, siblingPath.Replace('/', Path.DirectorySeparatorChar));
-
-            var touchedDirectoryPath = Path.GetDirectoryName(touchedAbsolutePath);
-            if (!string.IsNullOrWhiteSpace(touchedDirectoryPath))
-            {
-                Directory.CreateDirectory(touchedDirectoryPath);
-            }
-
-            var siblingDirectoryPath = Path.GetDirectoryName(siblingAbsolutePath);
-            if (!string.IsNullOrWhiteSpace(siblingDirectoryPath))
-            {
-                Directory.CreateDirectory(siblingDirectoryPath);
-            }
-
-            File.WriteAllText(touchedAbsolutePath, "touched-before");
-            File.WriteAllText(siblingAbsolutePath, "sibling-before");
-
-            var environment = scope.CreateEnvironment();
-            var coordinator = new PlanTokenCoordinator(environment);
-            var request = CreateRequest(
-                operations: new[] { ("op-1", UcliPrimitiveOperationNames.Resolve) },
-                planToken: null,
-                canonicalPayloadJson: "{\"ops\":[],\"protocolVersion\":1}");
-            var traces = CreatePlanTraceWithTouched(scope.ProjectRoot, touchedPath);
-
-            var issueResult = coordinator.Issue(request, traces, CreateCompiledDigestPayloadUtf8());
-            Assert.That(issueResult.IsSuccess, Is.True);
-
-            File.WriteAllText(siblingAbsolutePath, "sibling-after");
-            File.SetLastWriteTimeUtc(siblingAbsolutePath, DateTime.UtcNow.AddMinutes(2));
-
-            var validationRequest = request with
-            {
-                PlanToken = issueResult.PlanToken,
-            };
-            var validationResult = coordinator.ValidateCall(validationRequest, traces, CreateCompiledDigestPayloadUtf8());
-
-            Assert.That(validationResult.IsSuccess, Is.True);
-            Assert.That(validationResult.Failure, Is.Null);
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public void ValidateCall_WhenKeyFileIsCorrupted_RegeneratesKeyAndRejectsOldToken ()
         {
             using var scope = new PlanTokenTestScope();
@@ -1304,6 +1343,71 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallSucceeds_CompletesMutationBeforeReturning () => UniTask.ToCoroutine(async () =>
+        {
+            var mutationLane = new ImmediateUnityMutationLaneControl();
+            var executor = CreateCallPassTestExecutor(
+                new StubCallPassExecutor(_ => Task.FromResult(CreateSuccessfulCallPassResult())),
+                mutationLane);
+            var trace = await TestAwaiter.WaitAsync(
+                executor.ExecuteAsync(PhaseExecutionCommand.Call, CreateRequest()).AsUniTask(),
+                "Successful call completion",
+                AsyncWaitTimeout);
+
+            Assert.That(trace.IsSuccess, Is.True);
+            Assert.That(mutationLane.CompleteCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallThrows_CompletesMutationBeforePropagatingException () => UniTask.ToCoroutine(async () =>
+        {
+            var mutationLane = new ImmediateUnityMutationLaneControl();
+            var executor = CreateCallPassTestExecutor(
+                new StubCallPassExecutor(_ => Task.FromException<CallPassResult>(
+                    new InvalidOperationException("call failed"))),
+                mutationLane);
+
+            var exception = await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(
+                async () => await executor.ExecuteAsync(PhaseExecutionCommand.Call, CreateRequest()),
+                "Call failure propagation",
+                AsyncWaitTimeout);
+
+            Assert.That(exception.Message, Is.EqualTo("call failed"));
+            Assert.That(mutationLane.CompleteCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Execute_WhenCallIsCanceled_CompletesMutationBeforePublishingCancellation () => UniTask.ToCoroutine(async () =>
+        {
+            using var cancellationTokenSource = new CancellationTokenSource();
+            var callStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var mutationLane = new ImmediateUnityMutationLaneControl();
+            var executor = CreateCallPassTestExecutor(
+                new StubCallPassExecutor(async cancellationToken =>
+                {
+                    callStarted.TrySetResult(true);
+                    await Task.Delay(Timeout.Infinite, cancellationToken);
+                    return CreateSuccessfulCallPassResult();
+                }),
+                mutationLane);
+            var executionTask = executor.ExecuteAsync(
+                PhaseExecutionCommand.Call,
+                CreateRequest(),
+                cancellationTokenSource.Token);
+
+            await TestAwaiter.WaitAsync(callStarted.Task.AsUniTask(), "Call start", AsyncWaitTimeout);
+            cancellationTokenSource.Cancel();
+            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(
+                async () => await executionTask.AsUniTask(),
+                "Call cancellation propagation",
+                AsyncWaitTimeout);
+            Assert.That(mutationLane.CompleteCount, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Execute_WhenCallAwaitsAsynchronously_ContinuesNextOperationOnUnityMainThread () => UniTask.ToCoroutine(async () =>
         {
             var expectedThreadId = Thread.CurrentThread.ManagedThreadId;
@@ -1361,12 +1465,40 @@ namespace MackySoft.Ucli.Unity.Tests
                     new ExecuteRequestCompiler(operationRegistry)),
                 new OperationCallPassExecutor(),
                 planTokenCoordinator,
-                dangerousOperationCallAuthorizer);
+                dangerousOperationCallAuthorizer,
+                new ImmediateUnityMutationLaneControl());
         }
 
         private static DangerousOperationCallAuthorizer CreateDangerousOperationCallAuthorizer ()
         {
             return new DangerousOperationCallAuthorizer(new DefaultPlanTokenEnvironment());
+        }
+
+        private static OperationPhaseExecutor CreateCallPassTestExecutor (
+            IOperationCallPassExecutor callPassExecutor,
+            IUnityMutationLaneControl mutationLaneControl)
+        {
+            return new OperationPhaseExecutor(
+                new StubPlanPassExecutor(new PlanPassResult(
+                    CompiledSteps: Array.Empty<NormalizedRequestStep>(),
+                    CompiledDigestPayloadUtf8: CreateCompiledDigestPayloadUtf8(),
+                    OperationTraces: Array.Empty<OperationPhaseTrace>(),
+                    Errors: Array.Empty<OperationFailure>(),
+                    PreparedOperations: Array.Empty<PreparedOperation>())),
+                callPassExecutor,
+                new StubPlanTokenCoordinator(
+                    issueResultFactory: _ => throw new InvalidOperationException("Issue should not be called."),
+                    requestValidationResultFactory: _ => PlanTokenValidationResult.Success(),
+                    validationResultFactory: _ => PlanTokenValidationResult.Success()),
+                CreateDangerousOperationCallAuthorizer(),
+                mutationLaneControl);
+        }
+
+        private static CallPassResult CreateSuccessfulCallPassResult ()
+        {
+            return new CallPassResult(
+                OperationTraces: Array.Empty<OperationPhaseTrace>(),
+                Errors: Array.Empty<OperationFailure>());
         }
 
         private static UniTask<PhaseExecutionTrace> ExecuteAsync (
@@ -1424,7 +1556,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UcliOperationAssuranceContract(
                 sideEffects: sideEffects ?? CreateSideEffects(policy),
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ValidationOnly,
                 planSemantics: "Validate arguments without applying mutation.",
                 callSemantics: "Read Unity state without applying mutation.",
@@ -1440,7 +1572,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UcliOperationAssuranceContract(
                 sideEffects: CreateMutableSideEffects(policy),
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate arguments and prepare mutation without applying it.",
                 callSemantics: "Apply test mutation state.",
@@ -1491,7 +1623,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var operation = operations[i];
                 sourceSteps.Add(new IpcExecuteStepContract(
                     Kind: IpcExecuteStepKind.Op,
-                    Id: operation.OpId,
+                    Id: new IpcExecuteStepId(operation.OpId),
                     OperationName: operation.Op,
                     Element: JsonSerializer.SerializeToElement(new
                     {
@@ -1520,7 +1652,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     new IpcExecuteStepContract(
                         Kind: IpcExecuteStepKind.Edit,
-                        Id: stepId,
+                        Id: new IpcExecuteStepId(stepId),
                         OperationName: null,
                         Element: document.RootElement.Clone()),
                 },
@@ -1536,11 +1668,14 @@ namespace MackySoft.Ucli.Unity.Tests
             object args)
         {
             return new NormalizedOperation(
-                operationId,
+                OperationExecutionKey.ForRawStep(new IpcExecuteStepId(operationId)),
                 operationName,
                 JsonSerializer.SerializeToElement(args),
                 As: null,
-                Expect: null);
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
         }
 
         private static NormalizedExecuteRequest CreateRequest (
@@ -1572,14 +1707,17 @@ namespace MackySoft.Ucli.Unity.Tests
             return new[]
             {
                 new OperationPhaseTrace(
-                    OpId: "op-1",
+                    OpId: new IpcExecuteStepId("op-1"),
                     Op: UcliPrimitiveOperationNames.Resolve,
                     Phase: OperationPhase.Plan,
                     Applied: false,
                     Changed: false,
                     Touched: new[]
                     {
-                        new OperationTouch(OperationTouchKind.Scene, relativePath, "11111111111111111111111111111111"),
+                        new OperationTouch(
+                            UcliTouchedResourceKind.Scene,
+                            relativePath,
+                            Guid.ParseExact("11111111111111111111111111111111", "N")),
                     },
                     Failure: null),
             };
@@ -1663,6 +1801,24 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return Task.FromResult(result);
+            }
+        }
+
+        private sealed class StubCallPassExecutor : IOperationCallPassExecutor
+        {
+            private readonly Func<CancellationToken, Task<CallPassResult>> execute;
+
+            public StubCallPassExecutor (Func<CancellationToken, Task<CallPassResult>> execute)
+            {
+                this.execute = execute ?? throw new ArgumentNullException(nameof(execute));
+            }
+
+            public Task<CallPassResult> ExecuteAsync (
+                IReadOnlyList<PreparedOperation> preparedOperations,
+                OperationExecutionContext executionContext,
+                CancellationToken cancellationToken = default)
+            {
+                return execute(cancellationToken);
             }
         }
 
@@ -2006,7 +2162,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class StatefulPhaseOperation : IUcliOperation
         {
-            private string lastPlannedOperationId = string.Empty;
+            private IpcExecuteStepId? lastPlannedOperationId;
 
             public UcliOperationMetadata Metadata { get; } = new UcliOperationMetadata(
                 operationName: "ucli.tests.stateful",
@@ -2041,7 +2197,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                if (!string.Equals(lastPlannedOperationId, operation.Id, StringComparison.Ordinal))
+                if (lastPlannedOperationId != operation.Id)
                 {
                     return Task.FromResult(OperationPhaseStepResult.Failed(new OperationFailure(
                         Code: UcliCoreErrorCodes.InternalError,

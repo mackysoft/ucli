@@ -249,7 +249,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 source.Description,
                 CopyInputs(source.Inputs),
                 CopyResultContract(source.ResultContract),
-                CopyAssurance(source.Assurance),
+                source.Assurance,
                 CopyCodeContract(source.CodeContract));
         }
 
@@ -356,25 +356,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 source.Description);
         }
 
-        private static UcliOperationAssuranceContract? CopyAssurance (UcliOperationAssuranceContract? source)
-        {
-            if (source == null)
-            {
-                return null;
-            }
-
-            return new UcliOperationAssuranceContract(
-                CopyStrings(source.SideEffects),
-                CopyStrings(source.TouchedKinds),
-                source.PlanMode,
-                source.PlanSemantics,
-                source.CallSemantics,
-                source.TouchedContract,
-                source.ReadPostconditionContract,
-                source.FailureSemantics,
-                CopyStrings(source.DangerousNotes));
-        }
-
         private static UcliOperationCodeContract? CopyCodeContract (UcliOperationCodeContract? source)
         {
             if (source == null)
@@ -400,7 +381,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 source.Signature,
                 source.MatchRule,
                 source.RequiredStatic,
-                CopyStrings(source.ParameterTypes),
+                CopyValues(source.ParameterTypes),
                 source.ReturnValue);
         }
 
@@ -483,14 +464,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return parameters;
         }
 
-        private static IReadOnlyList<string>? CopyStrings (IReadOnlyList<string>? source)
+        private static IReadOnlyList<T>? CopyValues<T> (IReadOnlyList<T>? source)
         {
             if (source == null)
             {
                 return null;
             }
 
-            var values = new string[source.Count];
+            var values = new T[source.Count];
             for (var i = 0; i < source.Count; i++)
             {
                 values[i] = source[i];

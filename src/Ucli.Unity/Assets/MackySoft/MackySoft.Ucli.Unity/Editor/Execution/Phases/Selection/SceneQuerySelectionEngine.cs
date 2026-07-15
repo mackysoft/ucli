@@ -294,8 +294,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             return new OperationDiagnostic(
                 Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
-                Severity: IpcExecuteDiagnosticSeverityNames.Warning,
-                CoverageImpact: IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                Severity: UcliDiagnosticSeverity.Warning,
+                CoverageImpact: IpcExecuteDiagnosticCoverageImpact.Partial,
                 Message: "Scene query skipped GameObjects whose names contain '/' because hierarchyPath cannot represent them.");
         }
 

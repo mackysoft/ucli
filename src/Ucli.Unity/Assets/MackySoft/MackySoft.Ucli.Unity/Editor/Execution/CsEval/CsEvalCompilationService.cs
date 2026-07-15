@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Operations;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.Emit;
@@ -105,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     .Select(CsEvalDiagnosticMapper.Map))
                 .ToList();
 
-            if (diagnostics.Any(static diagnostic => string.Equals(diagnostic.Severity, "error", StringComparison.Ordinal)))
+            if (diagnostics.Any(static diagnostic => diagnostic.Severity == UcliDiagnosticSeverity.Error))
             {
                 return CreateFailure(
                     sourceDigest,
@@ -139,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 entryPointName.DisplayName,
                 entryPointName,
                 executionDigest,
-                new CsEvalCompileResult(CsEvalCompileStatusValues.Succeeded, diagnostics),
+                new CsEvalCompileResult(CsEvalCompileStatus.Succeeded, diagnostics),
                 compilation,
                 isSuccess: true,
                 failureMessage: null);
@@ -190,7 +192,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private static CsEvalCompilationResult CreateFailure (
             Sha256Digest sourceDigest,
-            string? sourceKind,
+            UcliCodeSourceFormKind? sourceKind,
             string? resolvedEntryPoint,
             CsEvalEntryPointName? entryPointName,
             Sha256Digest executionDigest,
@@ -204,7 +206,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 resolvedEntryPoint,
                 entryPointName,
                 executionDigest,
-                new CsEvalCompileResult(CsEvalCompileStatusValues.Failed, diagnostics),
+                new CsEvalCompileResult(CsEvalCompileStatus.Failed, diagnostics),
                 compilation,
                 isSuccess: false,
                 failureMessage: failureMessage);

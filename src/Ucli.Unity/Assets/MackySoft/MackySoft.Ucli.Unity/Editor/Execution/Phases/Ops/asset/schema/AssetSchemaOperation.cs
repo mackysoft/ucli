@@ -17,8 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     [UcliOperation]
     internal sealed class AssetSchemaOperation : UcliOperation<AssetSchemaArgs, IndexSchemaEntryJsonContract>
     {
-        private readonly AssetSchemaExtractor assetSchemaExtractor =
-            new AssetSchemaExtractor(new IndexSchemaPropertyCollector());
+        private readonly AssetSchemaExtractor assetSchemaExtractor = new AssetSchemaExtractor();
 
         private readonly AssetTargetSchemaBuilder targetSchemaBuilder = new AssetTargetSchemaBuilder();
 
@@ -28,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Returns the serialized schema for an asset type or existing asset target.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the asset schema target and observe serialized property metadata without applying mutation.",
                 callSemantics: "Read serialized schema metadata for the requested asset target without applying mutation.",
@@ -49,42 +48,39 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 : failure!);
         }
 
-        protected override async Task<OperationPhaseStepResult> PlanAsync (
+        protected override Task<OperationPhaseStepResult> PlanAsync (
             NormalizedOperation operation,
             AssetSchemaArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteAsync(
+            return Task.FromResult(Execute(
                 operation,
                 args,
                 executionContext,
-                allowTemporaryState: true,
-                cancellationToken);
+                allowTemporaryState: true));
         }
 
-        protected override async Task<OperationPhaseStepResult> CallAsync (
+        protected override Task<OperationPhaseStepResult> CallAsync (
             NormalizedOperation operation,
             AssetSchemaArgs args,
             OperationExecutionContext executionContext,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await ExecuteAsync(
+            return Task.FromResult(Execute(
                 operation,
                 args,
                 executionContext,
-                allowTemporaryState: false,
-                cancellationToken);
+                allowTemporaryState: false));
         }
 
-        private async Task<OperationPhaseStepResult> ExecuteAsync (
+        private OperationPhaseStepResult Execute (
             NormalizedOperation operation,
             AssetSchemaArgs args,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
-            CancellationToken cancellationToken)
+            bool allowTemporaryState)
         {
             if (!TryValidate(operation, args, executionContext, allowTemporaryState, out var validationState, out var failure))
             {
@@ -93,21 +89,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (validationState.AssetType != null)
             {
-                var extractionResult = await assetSchemaExtractor.ExtractAsync(
-                    new[] { validationState.AssetType },
-                    cancellationToken);
-                if (extractionResult.Entries.Count == 0)
-                {
-                    return OperationPhaseStepResult.Failed(new OperationFailure(
-                        Code: UcliCoreErrorCodes.InternalError,
-                        Message: $"Schema could not be extracted for type '{validationState.AssetType.FullName}'.",
-                        OpId: operation.Id));
-                }
-
+                var schemaEntry = assetSchemaExtractor.Extract(validationState.AssetType);
                 return OperationPhaseStepResult.Success(
                     applied: false,
                     changed: false,
-                    result: IpcPayloadCodec.SerializeToElement(extractionResult.Entries[0]));
+                    result: IpcPayloadCodec.SerializeToElement(schemaEntry));
             }
 
             return OperationPhaseStepResult.Success(
@@ -139,7 +125,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out var errorMessage)
+            if (!UnityObjectReferenceContractMapper.TryMap(
+                    args.Target,
+                    "args.target",
+                    operation.AliasReferences,
+                    out var targetReference,
+                    out var errorMessage)
                 || !TryResolveTargetAsset(targetReference, executionContext, allowTemporaryState, out var unityObject, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);

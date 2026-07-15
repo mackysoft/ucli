@@ -38,10 +38,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 },
                 touchedKinds: new[]
                 {
-                    UcliTouchedResourceKindNames.Scene,
-                    UcliTouchedResourceKindNames.Prefab,
-                    UcliTouchedResourceKindNames.Asset,
-                    UcliTouchedResourceKindNames.ProjectSettings,
+                    UcliTouchedResourceKind.Scene,
+                    UcliTouchedResourceKind.Prefab,
+                    UcliTouchedResourceKind.Asset,
+                    UcliTouchedResourceKind.ProjectSettings,
                 },
                 planMode: UcliOperationPlanMode.ValidationOnly,
                 planSemantics: "Validate that AssetDatabase refresh can be requested; plan does not run import or observe refreshed project state.",
@@ -116,13 +116,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             ProjectOperationUtilities.SyncDirtyStateChanges(
                 beforeSceneDirtyState,
                 afterSceneDirtyState,
-                OperationTouchKind.Scene,
+                UcliTouchedResourceKind.Scene,
                 touched,
                 executionContext);
             ProjectOperationUtilities.SyncDirtyStateChanges(
                 beforePrefabDirtyState,
                 afterPrefabDirtyState,
-                OperationTouchKind.Prefab,
+                UcliTouchedResourceKind.Prefab,
                 touched,
                 executionContext);
             var deduplicatedTouched = DeduplicateTouched(touched);
@@ -193,8 +193,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var touch = touched[i];
                 switch (touch.Kind)
                 {
-                    case OperationTouchKind.ProjectSettings:
-                    case OperationTouchKind.Asset:
+                    case UcliTouchedResourceKind.ProjectSettings:
+                    case UcliTouchedResourceKind.Asset:
                         executionContext.MarkRequestAttributedChange(new OperationResource(touch.Kind, touch.Path));
                         break;
                 }
@@ -208,7 +208,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 var current = touched[i];
                 if (touchedByPath.TryGetValue(current.Path, out var existing)
-                    && existing.Guid != null)
+                    && existing.AssetGuid.HasValue)
                 {
                     continue;
                 }

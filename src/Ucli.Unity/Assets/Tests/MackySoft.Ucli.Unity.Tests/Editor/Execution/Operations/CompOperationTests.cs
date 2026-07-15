@@ -174,7 +174,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var root = new GameObject("Root");
             EditorSceneManager.SaveScene(scene, scenePath);
             var context = scope.CreateExecutionContext();
-            var resource = new OperationResource(OperationTouchKind.Scene, scenePath);
+            var resource = new OperationResource(UcliTouchedResourceKind.Scene, scenePath);
             var ownerTrackingKey = context.CreateGameObjectTrackingKey(root, resource);
             var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
             var ensureRequest = CreateOperation(
@@ -342,33 +342,6 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: true, changed: false, scenePath);
             Assert.That(context.AliasStore.TryGet("ensured", out var resolvedReference), Is.True);
             Assert.That(resolvedReference!.Value, Is.EqualTo(UnityObjectReferenceResolver.CreateGlobalObjectId(first).Value));
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator Set_Validate_WhenSetItemIsNull_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
-        {
-            var operation = new CompSetOperation();
-            var requestOperation = CreateOperation(
-                opId: "op-set",
-                opName: UcliPrimitiveOperationNames.CompSet,
-                args: new
-                {
-                    target = new
-                    {
-                        @var = "target",
-                    },
-                    sets = new object?[]
-                    {
-                        null,
-                    },
-                });
-
-            using var executionContext = new OperationExecutionContext();
-            var result = await operation.ValidateAsync(requestOperation, executionContext, CancellationToken.None);
-
-            AssertInvalidArgument(result, "op-set");
-            Assert.That(result.Failure!.Message, Does.Contain("args.sets[0]").And.Contain("must be an object"));
         });
 
         [UnityTest]
@@ -774,7 +747,7 @@ namespace MackySoft.Ucli.Unity.Tests
             child.transform.SetParent(root.transform, worldPositionStays: false);
 
             var context = scope.CreateExecutionContext();
-            var resource = new OperationResource(OperationTouchKind.Scene, scenePath);
+            var resource = new OperationResource(UcliTouchedResourceKind.Scene, scenePath);
             context.SetTemporaryAlias("host", target, resource);
             context.SetTemporaryAlias("child", child, resource);
             Assert.That(context.AliasStore.TryGet("host", out _), Is.False);
@@ -822,7 +795,7 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
 
             var context = scope.CreateExecutionContext();
-            var resource = new OperationResource(OperationTouchKind.Scene, scenePath);
+            var resource = new OperationResource(UcliTouchedResourceKind.Scene, scenePath);
             context.SetTemporaryAlias("child", child, resource);
 
             var requestOperation = CreateOperation(
@@ -848,7 +821,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     },
                 },
-                allowRequestLocalAliases: false);
+                sourceKind: NormalizedOperation.SourceStepKind.Op);
 
             var result = await operation.CallAsync(requestOperation, context, CancellationToken.None);
 
@@ -969,33 +942,22 @@ namespace MackySoft.Ucli.Unity.Tests
             var root = new GameObject("Root");
             var target = root.AddComponent<CompOperationTestComponent>();
             EditorSceneManager.SaveScene(scene, scenePath);
-            var assignmentsJson = JsonSerializer.SerializeToElement(new object[]
+            var assignments = new[]
             {
-                new
-                {
-                    path = "integerValue",
-                    value = 42,
-                },
-            });
-            Assert.That(SerializedObjectSetArgumentsCodec.TryParse(
-                JsonSerializer.SerializeToElement(new
-                {
-                    target = new
-                    {
-                        scene = scenePath,
-                        hierarchyPath = "Root",
-                    },
-                    sets = assignmentsJson,
-                }),
-                out var parsedArguments,
-                out var parseErrorMessage), Is.True, parseErrorMessage);
+                new SerializedPropertyAssignment(
+                    new SerializedPropertyPath("integerValue"),
+                    JsonSerializer.SerializeToElement(42)),
+            };
 
             var result = SerializedObjectValueApplier.TryApply(
                 target,
-                parsedArguments.Sets,
+                assignments,
                 scope.CreateExecutionContext(),
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly,
-                allowRequestLocalAliases: true,
+                CreateOperation(
+                    opId: "op-set",
+                    opName: UcliPrimitiveOperationNames.CompSet,
+                    args: new { }),
                 out var changed,
                 out var errorMessage);
 
@@ -1019,10 +981,11 @@ namespace MackySoft.Ucli.Unity.Tests
             context.SetTemporaryAlias(
                 "target",
                 target,
-                new OperationResource(OperationTouchKind.Scene, "Assets/OtherScene.unity"));
+                new OperationResource(UcliTouchedResourceKind.Scene, "Assets/OtherScene.unity"));
 
             var result = ComponentOperationUtilities.TryResolveComponent(
-                UnityObjectReference.FromAlias("target"),
+                UnityObjectReference.FromAlias(
+                    RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias("target"))),
                 context,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
                 out var resolutionState,
@@ -1572,17 +1535,21 @@ namespace MackySoft.Ucli.Unity.Tests
             string opName,
             object args,
             string? alias = null,
-            bool allowRequestLocalAliases = true,
-            NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Op)
+            NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Edit)
         {
             return new NormalizedOperation(
-                Id: opId,
+                ExecutionKey: sourceKind == NormalizedOperation.SourceStepKind.Edit
+                    ? OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId(opId), primitiveIndex: 0)
+                    : OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: opName,
                 Args: JsonSerializer.SerializeToElement(args),
-                As: alias,
+                As: alias == null
+                    ? null
+                    : RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias(alias)),
                 Expect: null,
-                AllowRequestLocalAliases: allowRequestLocalAliases,
-                SourceKind: sourceKind);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
         }
 
         private static void AssertInvalidArgument (
@@ -1592,7 +1559,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.Not.Null);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(result.Failure.OpId, Is.EqualTo(expectedOperationId));
+            Assert.That(result.Failure.OpId?.Value, Is.EqualTo(expectedOperationId));
         }
 
         private static void AssertSuccess (
@@ -1605,7 +1572,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Applied, Is.EqualTo(applied));
             Assert.That(result.Changed, Is.EqualTo(changed));
             Assert.That(result.Touched.Count, Is.EqualTo(1));
-            Assert.That(result.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Scene));
+            Assert.That(result.Touched[0].Kind, Is.EqualTo(UcliTouchedResourceKind.Scene));
             Assert.That(result.Touched[0].Path, Is.EqualTo(scenePath));
             Assert.That(result.Failure, Is.Null);
         }

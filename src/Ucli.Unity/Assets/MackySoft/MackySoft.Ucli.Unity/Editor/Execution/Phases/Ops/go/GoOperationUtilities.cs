@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -130,7 +131,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new System.ArgumentNullException(nameof(executionContext));
             }
 
-            if (resource.Kind != OperationTouchKind.Scene)
+            if (resource.Kind != UcliTouchedResourceKind.Scene)
             {
                 return;
             }
@@ -199,7 +200,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             switch (resource.Kind)
             {
-                case OperationTouchKind.Scene:
+                case UcliTouchedResourceKind.Scene:
                     if (executionContext.TryGetTemporaryScene(resource.Path, out var temporaryScene)
                         && gameObject.scene == temporaryScene)
                     {
@@ -209,7 +210,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                     break;
 
-                case OperationTouchKind.Prefab:
+                case UcliTouchedResourceKind.Prefab:
                     if (executionContext.TryGetTemporaryPrefabContentsRoot(resource.Path, out var prefabContentsRoot)
                         && prefabContentsRoot != null
                         && gameObject.scene == prefabContentsRoot.scene)
@@ -242,7 +243,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             switch (resource.Kind)
             {
-                case OperationTouchKind.Scene:
+                case UcliTouchedResourceKind.Scene:
                     if (executionContext.TryGetTemporaryScene(resource.Path, out _))
                     {
                         errorMessage = string.Empty;
@@ -256,7 +257,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                     return executionContext.TryEnsureSceneExecutionSession(resource.Path, out errorMessage);
 
-                case OperationTouchKind.Prefab:
+                case UcliTouchedResourceKind.Prefab:
                     if (executionContext.TryGetTemporaryPrefabContentsRoot(resource.Path, out var prefabContentsRoot)
                         && prefabContentsRoot != null)
                     {

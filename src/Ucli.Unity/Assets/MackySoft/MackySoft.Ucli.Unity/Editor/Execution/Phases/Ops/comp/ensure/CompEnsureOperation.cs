@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Ensures that a GameObject has a component of the requested type.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the target GameObject and component type, then compute preview changes without persisting project data.",
                 callSemantics: "Add the component to live Unity state when missing and leave saving to explicit save operations.",
@@ -184,7 +184,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validationState = default;
             failure = null;
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out var errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(
+                    args.Target,
+                    "args.target",
+                    operation.AliasReferences,
+                    out var targetReference,
+                    out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -210,7 +215,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var componentTypeId = args.Type?.Value ?? string.Empty;
+            var componentTypeId = args.Type.Value;
             if (!ComponentTypeResolver.TryResolveComponentType(componentTypeId, out var resolvedComponentType, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
@@ -244,7 +249,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static void StoreAliasIfNeeded (
-            string? alias,
+            RequestLocalAliasIdentity? alias,
             OperationExecutionContext executionContext,
             Component component,
             OperationResource resource)

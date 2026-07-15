@@ -1,4 +1,7 @@
+using System;
+using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
 
@@ -9,18 +12,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     {
         public static bool TryMap (
             ResolveSelectorArgs args,
-            out ResolveSelector selector,
+            [NotNullWhen(true)] out ResolveSelector? selector,
             out string errorMessage)
         {
             return TryMapSelector(
                 args.GlobalObjectId,
-                args.AssetGuid?.Value,
-                args.AssetPath?.Value,
-                args.ProjectAssetPath?.Value,
-                args.Scene?.Value,
-                args.Prefab?.Value,
-                args.HierarchyPath?.Value,
-                args.ComponentType?.Value,
+                args.AssetGuid,
+                args.AssetPath,
+                args.ProjectAssetPath,
+                args.Scene,
+                args.Prefab,
+                args.HierarchyPath,
+                args.ComponentType,
                 out selector,
                 out errorMessage);
         }
@@ -28,20 +31,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static bool TryMap (
             GameObjectReferenceArgs args,
             string propertyPath,
-            out UnityObjectReference reference,
+            OperationAliasReferenceMap aliasReferences,
+            [NotNullWhen(true)] out UnityObjectReference? reference,
             out string errorMessage)
         {
             return TryMapReference(
-                args.Alias?.Value,
+                args.Alias,
                 args.GlobalObjectId,
                 assetGuid: null,
                 assetPath: null,
                 projectAssetPath: null,
-                args.Scene?.Value,
-                args.Prefab?.Value,
-                args.HierarchyPath?.Value,
+                args.Scene,
+                args.Prefab,
+                args.HierarchyPath,
                 componentType: null,
                 propertyPath,
+                aliasReferences,
                 out reference,
                 out errorMessage);
         }
@@ -49,20 +54,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static bool TryMap (
             SceneGameObjectReferenceArgs args,
             string propertyPath,
-            out UnityObjectReference reference,
+            OperationAliasReferenceMap aliasReferences,
+            [NotNullWhen(true)] out UnityObjectReference? reference,
             out string errorMessage)
         {
             return TryMapReference(
-                args.Alias?.Value,
+                args.Alias,
                 args.GlobalObjectId,
                 assetGuid: null,
                 assetPath: null,
                 projectAssetPath: null,
-                args.Scene?.Value,
+                args.Scene,
                 prefabPath: null,
-                args.HierarchyPath?.Value,
+                args.HierarchyPath,
                 componentType: null,
                 propertyPath,
+                aliasReferences,
                 out reference,
                 out errorMessage);
         }
@@ -70,20 +77,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static bool TryMap (
             ComponentReferenceArgs args,
             string propertyPath,
-            out UnityObjectReference reference,
+            OperationAliasReferenceMap aliasReferences,
+            [NotNullWhen(true)] out UnityObjectReference? reference,
             out string errorMessage)
         {
             return TryMapReference(
-                args.Alias?.Value,
+                args.Alias,
                 args.GlobalObjectId,
                 assetGuid: null,
                 assetPath: null,
                 projectAssetPath: null,
-                args.Scene?.Value,
-                args.Prefab?.Value,
-                args.HierarchyPath?.Value,
-                args.ComponentType?.Value,
+                args.Scene,
+                args.Prefab,
+                args.HierarchyPath,
+                args.ComponentType,
                 propertyPath,
+                aliasReferences,
                 out reference,
                 out errorMessage);
         }
@@ -91,42 +100,50 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static bool TryMap (
             AssetReferenceArgs args,
             string propertyPath,
-            out UnityObjectReference reference,
+            OperationAliasReferenceMap aliasReferences,
+            [NotNullWhen(true)] out UnityObjectReference? reference,
             out string errorMessage)
         {
             return TryMapReference(
-                args.Alias?.Value,
+                args.Alias,
                 args.GlobalObjectId,
-                args.AssetGuid?.Value,
-                args.AssetPath?.Value,
-                args.ProjectAssetPath?.Value,
+                args.AssetGuid,
+                args.AssetPath,
+                args.ProjectAssetPath,
                 scenePath: null,
                 prefabPath: null,
                 hierarchyPath: null,
                 componentType: null,
                 propertyPath,
+                aliasReferences,
                 out reference,
                 out errorMessage);
         }
 
         private static bool TryMapReference (
-            string? alias,
+            UcliPlanAlias? alias,
             UnityGlobalObjectId? globalObjectId,
-            string? assetGuid,
-            string? assetPath,
-            string? projectAssetPath,
-            string? scenePath,
-            string? prefabPath,
-            string? hierarchyPath,
-            string? componentType,
+            Guid? assetGuid,
+            UnityAssetPath? assetPath,
+            ProjectSettingsAssetPath? projectAssetPath,
+            SceneAssetPath? scenePath,
+            PrefabAssetPath? prefabPath,
+            UnityHierarchyPath? hierarchyPath,
+            UnityComponentTypeId? componentType,
             string propertyPath,
-            out UnityObjectReference reference,
+            OperationAliasReferenceMap aliasReferences,
+            [NotNullWhen(true)] out UnityObjectReference? reference,
             out string errorMessage)
         {
-            reference = default;
+            reference = null;
+            if (aliasReferences == null)
+            {
+                throw new ArgumentNullException(nameof(aliasReferences));
+            }
+
             if (alias != null)
             {
-                reference = UnityObjectReference.FromAlias(alias);
+                reference = UnityObjectReference.FromAlias(aliasReferences.Resolve(alias));
                 errorMessage = string.Empty;
                 return true;
             }
@@ -153,17 +170,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryMapSelector (
             UnityGlobalObjectId? globalObjectId,
-            string? assetGuid,
-            string? assetPath,
-            string? projectAssetPath,
-            string? scenePath,
-            string? prefabPath,
-            string? hierarchyPath,
-            string? componentType,
-            out ResolveSelector selector,
+            Guid? assetGuid,
+            UnityAssetPath? assetPath,
+            ProjectSettingsAssetPath? projectAssetPath,
+            SceneAssetPath? scenePath,
+            PrefabAssetPath? prefabPath,
+            UnityHierarchyPath? hierarchyPath,
+            UnityComponentTypeId? componentType,
+            [NotNullWhen(true)] out ResolveSelector? selector,
             out string errorMessage)
         {
-            selector = default;
+            selector = null;
             if (globalObjectId != null)
             {
                 selector = ResolveSelector.FromGlobalObjectId(globalObjectId);
@@ -173,7 +190,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (assetGuid != null)
             {
-                selector = ResolveSelector.FromAssetGuid(assetGuid);
+                selector = ResolveSelector.FromAssetGuid(assetGuid.Value);
                 errorMessage = string.Empty;
                 return true;
             }

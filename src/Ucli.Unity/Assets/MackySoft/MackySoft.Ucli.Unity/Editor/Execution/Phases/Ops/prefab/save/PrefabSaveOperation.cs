@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Saves an opened or previewed prefab asset.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.PrefabSave },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the prefab path and observe whether the opened or previewed prefab has save-relevant changes.",
                 callSemantics: "Persist the opened or previewed prefab asset when dirty or request-attributed changes exist.",
@@ -64,7 +64,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            var resource = new OperationResource(OperationTouchKind.Prefab, resolutionState.PrefabPath);
+            var resource = new OperationResource(UcliTouchedResourceKind.Prefab, resolutionState.PrefabPath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
             var hasDirtyPrefab = resolutionState.PrefabContentsRoot.scene.isDirty;
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -93,7 +93,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            var resource = new OperationResource(OperationTouchKind.Prefab, resolutionState.PrefabPath);
+            var resource = new OperationResource(UcliTouchedResourceKind.Prefab, resolutionState.PrefabPath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
             var hasDirtyPrefab = resolutionState.PrefabContentsRoot.scene.isDirty;
             if (!hasRequestAttributedChange && !hasDirtyPrefab)

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
@@ -23,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Finds objects or components in a scene by hierarchy path prefix and component type.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene query and observe the selected scene context without applying mutation.",
                 callSemantics: "Read selection candidates from the scene hierarchy without applying mutation.",
@@ -109,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out OperationPhaseStepResult? failure)
         {
             failure = null;
-            scenePath = args.Scene?.Value ?? string.Empty;
+            scenePath = args.Scene.Value;
             queryArguments = new SceneQuerySelectionEngine.QueryArguments(
                 args.PathPrefix?.Value,
                 args.ComponentType?.Value);
@@ -139,7 +140,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var match = matches[i];
                 var componentType = match.ComponentType;
                 payloadMatches[i] = new SceneQueryMatch(
-                    kind: match.TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component ? "component" : "gameObject",
+                    kind: match.TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component
+                        ? UcliOperationReferenceTargetKind.Component
+                        : UcliOperationReferenceTargetKind.GameObject,
                     hierarchyPath: new UnityHierarchyPath(match.HierarchyPath),
                     componentType: componentType == null
                         ? null

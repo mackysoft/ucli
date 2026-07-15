@@ -84,7 +84,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             NormalizedRequestStep step)
         {
             writer.WriteStartObject();
-            writer.WriteString("id", step.Id);
+            writer.WriteString("id", step.Id.Value);
             writer.WriteString("kind", step.Kind == IpcExecuteStepKind.Op ? "op" : "edit");
             writer.WriteString("op", step.OperationName);
             writer.WriteNumber("primitiveCount", step.PrimitiveCount);
@@ -96,21 +96,59 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             NormalizedOperation operation)
         {
             writer.WriteStartObject();
-            writer.WriteString("id", operation.Id);
-            if (!string.IsNullOrWhiteSpace(operation.InternalExecutionKey)
-                && !string.Equals(operation.InternalExecutionKey, operation.Id, StringComparison.Ordinal))
+            writer.WritePropertyName("executionKey");
+            writer.WriteStartObject();
+            writer.WriteString(
+                "kind",
+                operation.ExecutionKey.IsEditPrimitive ? "editPrimitive" : "rawStep");
+            writer.WriteString("stepId", operation.ExecutionKey.StepId.Value);
+            if (operation.ExecutionKey.IsEditPrimitive)
             {
-                writer.WriteString("internalExecutionKey", operation.InternalExecutionKey);
+                writer.WriteNumber("primitiveIndex", operation.ExecutionKey.PrimitiveIndex);
             }
 
+            writer.WriteEndObject();
+
             writer.WriteString("op", operation.Op);
-            if (!string.IsNullOrWhiteSpace(operation.As))
+            if (operation.As != null)
             {
-                writer.WriteString("as", operation.As);
+                writer.WritePropertyName("as");
+                if (operation.As is RequestLocalAliasIdentity.EditActionAliasIdentity editActionAlias)
+                {
+                    WriteEditActionAlias(writer, editActionAlias);
+                }
+                else
+                {
+                    writer.WriteStringValue(operation.As.Alias.Value);
+                }
+            }
+
+            if (operation.AliasReferences.InternalAliasCount > 0)
+            {
+                writer.WritePropertyName("aliasReferences");
+                writer.WriteStartArray();
+                for (var i = 0; i < operation.AliasReferences.InternalAliasCount; i++)
+                {
+                    WriteEditActionAlias(writer, operation.AliasReferences[i]);
+                }
+
+                writer.WriteEndArray();
             }
 
             writer.WritePropertyName("args");
             CanonicalRequestWriter.WriteCanonicalJsonValue(writer, operation.Args);
+            writer.WriteEndObject();
+        }
+
+        private static void WriteEditActionAlias (
+            Utf8JsonWriter writer,
+            RequestLocalAliasIdentity.EditActionAliasIdentity alias)
+        {
+            writer.WriteStartObject();
+            writer.WriteString("kind", "editAction");
+            writer.WriteString("stepId", alias.StepId.Value);
+            writer.WriteNumber("branchIndex", alias.BranchIndex);
+            writer.WriteString("alias", alias.Alias.Value);
             writer.WriteEndObject();
         }
     }

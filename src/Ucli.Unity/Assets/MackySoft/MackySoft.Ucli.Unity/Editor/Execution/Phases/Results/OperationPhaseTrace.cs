@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -16,7 +17,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <param name="Touched"> The touched persistence-unit list. </param>
     /// <param name="Failure"> The operation failure details; otherwise <see langword="null" />. </param>
     internal sealed record OperationPhaseTrace (
-        string OpId,
+        IpcExecuteStepId OpId,
         string Op,
         OperationPhase Phase,
         bool Applied,
@@ -43,12 +44,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="OperationKind"> The declared operation kind. </param>
         /// <param name="MayDirty"> Whether the operation may dirty Unity objects or project state. </param>
         /// <param name="MayPersist"> Whether the operation may persist project files. </param>
-        /// <param name="TouchedKinds"> The touched-resource kind literals that may be reported. </param>
+        /// <param name="TouchedKinds"> The touched-resource kinds that may be reported. </param>
         public sealed record ContractFacts (
             UcliOperationKind OperationKind,
             bool MayDirty,
             bool MayPersist,
-            IReadOnlyList<string> TouchedKinds)
+            IReadOnlyList<UcliTouchedResourceKind> TouchedKinds)
         {
             /// <summary> Creates a facts snapshot from one operation metadata instance. </summary>
             /// <param name="metadata"> The operation metadata. </param>
@@ -65,7 +66,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     OperationKind: metadata.Kind,
                     MayDirty: assurance?.MayDirty ?? false,
                     MayPersist: assurance?.MayPersist ?? false,
-                    TouchedKinds: assurance?.TouchedKinds ?? System.Array.Empty<string>());
+                    TouchedKinds: assurance?.TouchedKinds ?? System.Array.Empty<UcliTouchedResourceKind>());
             }
         }
     }

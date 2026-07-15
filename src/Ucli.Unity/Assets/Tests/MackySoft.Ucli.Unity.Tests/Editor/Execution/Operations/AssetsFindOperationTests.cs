@@ -1,10 +1,10 @@
 using System;
-using MackySoft.Ucli.Contracts;
 using System.Collections;
 using System.Collections.Generic;
 using System.Text.Json;
 using System.Threading;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -21,6 +21,19 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class AssetsFindOperationTests
     {
+        [Test]
+        [Category("Size.Small")]
+        public void SearchMatch_WhenAssetGuidIsEmpty_ThrowsArgumentException ()
+        {
+            var exception = Assert.Throws<ArgumentException>(() => new AssetsFindSearchEngine.SearchMatch(
+                "Assets/Data/A.asset",
+                Guid.Empty,
+                "A",
+                "UnityEngine.ScriptableObject, UnityEngine.CoreModule"));
+
+            Assert.That(exception!.ParamName, Is.EqualTo("assetGuid"));
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Validate_WhenNoConditionIsSpecified_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
@@ -148,6 +161,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var secondPath = $"Assets/aaa_assets_find_{token}.asset";
             _ = CreateTrackedScriptableAsset<AssetOperationTestAsset>(scope, firstPath, $"Sort-{token}-B");
             _ = CreateTrackedScriptableAsset<AssetOperationTestAsset>(scope, secondPath, $"Sort-{token}-A");
+            var expectedSecondGuid = Guid.ParseExact(AssetDatabase.AssetPathToGUID(secondPath), "N").ToString("D");
             var requestOperation = CreateOperation(
                 opId: "op-find",
                 args: new
@@ -166,9 +180,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var liveMatches = GetMatches(callResult);
             Assert.That(plannedMatches.Count, Is.EqualTo(2));
             Assert.That(plannedMatches[0].AssetPath, Is.EqualTo(secondPath));
+            Assert.That(plannedMatches[0].AssetGuid, Is.EqualTo(expectedSecondGuid));
             Assert.That(plannedMatches[1].AssetPath, Is.EqualTo(firstPath));
             Assert.That(liveMatches.Count, Is.EqualTo(2));
             Assert.That(liveMatches[0].AssetPath, Is.EqualTo(secondPath));
+            Assert.That(liveMatches[0].AssetGuid, Is.EqualTo(expectedSecondGuid));
             Assert.That(liveMatches[1].AssetPath, Is.EqualTo(firstPath));
             var window = GetWindow(planResult);
             Assert.That(window.GetProperty("limit").GetInt32(), Is.EqualTo(BoundedWindowConstants.DefaultLimit));
@@ -267,6 +283,30 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Call_WhenPathPrefixSharesOnlyTextPrefix_ExcludesSiblingAsset () => UniTask.ToCoroutine(async () =>
+        {
+            var operation = new AssetsFindOperation();
+            using var scope = new EditorTestScope();
+            var token = Guid.NewGuid().ToString("N");
+            var pathPrefix = $"Assets/assets-find-prefix-{token}";
+            var siblingPath = $"{pathPrefix}-sibling.asset";
+            _ = CreateTrackedScriptableAsset<AssetOperationTestAsset>(scope, siblingPath, $"Sibling-{token}");
+            var requestOperation = CreateOperation(
+                opId: "op-find",
+                args: new
+                {
+                    pathPrefix,
+                });
+
+            var result = await operation.CallAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
+
+            AssertQuerySuccess(result, applied: false);
+            var matches = GetMatches(result);
+            Assert.That(matches, Is.Empty);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator Plan_WhenFiltersAreCombined_ReturnsIntersectionOnly () => UniTask.ToCoroutine(async () =>
         {
             var operation = new AssetsFindOperation();
@@ -283,7 +323,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     type = IndexTypeIdFormatter.Format(typeof(AssetOperationTestAsset)),
-                    pathPrefix = $"Assets/assets-find-filter-{token}",
+                    pathPrefix = matchingPath,
                     nameContains = "Needle",
                 });
 
@@ -318,7 +358,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opId: "op-find",
                 args: new
                 {
-                    pathPrefix = $"Assets/assets-find-planned-call-{token}",
+                    pathPrefix = assetPath,
                 });
 
             var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
@@ -351,7 +391,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 opId: "op-find",
                 args: new
                 {
-                    pathPrefix = $"Assets/assets-find-planned-{token}",
+                    pathPrefix = assetPath,
                 });
 
             var createResult = await createOperation.PlanAsync(createRequest, context, CancellationToken.None);
@@ -498,8 +538,10 @@ namespace MackySoft.Ucli.Unity.Tests
             using var scope = new EditorTestScope();
             var token = Guid.NewGuid().ToString("N");
             var pathPrefix = $"Assets/assets-find-main-assets-{token}";
-            var prefabPath = $"{pathPrefix}-prefab.prefab";
-            var scenePath = $"{pathPrefix}-scene.unity";
+            scope.TrackAsset(pathPrefix);
+            AssetDatabase.CreateFolder("Assets", $"assets-find-main-assets-{token}");
+            var prefabPath = $"{pathPrefix}/main.prefab";
+            var scenePath = $"{pathPrefix}/main.unity";
             CreateTrackedPrefabAsset(scope, prefabPath, $"Prefab-{token}");
             CreateTrackedSceneAsset(scope, scenePath);
             var requestOperation = CreateOperation(
@@ -598,12 +640,14 @@ namespace MackySoft.Ucli.Unity.Tests
             string opName = UcliPrimitiveOperationNames.AssetsFind)
         {
             return new NormalizedOperation(
-                Id: opId,
+                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: opName,
                 Args: JsonSerializer.SerializeToElement(args),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: null);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
         }
 
         private static IReadOnlyList<AssetMatchSnapshot> GetMatches (OperationPhaseStepResult result)
@@ -638,7 +682,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.Not.Null);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(result.Failure.OpId, Is.EqualTo(expectedOperationId));
+            Assert.That(result.Failure.OpId?.Value, Is.EqualTo(expectedOperationId));
         }
 
         private static void AssertQuerySuccess (

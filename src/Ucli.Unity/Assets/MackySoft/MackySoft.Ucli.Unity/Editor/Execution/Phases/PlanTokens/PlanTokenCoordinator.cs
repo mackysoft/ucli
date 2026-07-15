@@ -72,8 +72,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var issuedAtUtc = environment.UtcNow;
                 var expiresAtUtc = issuedAtUtc.Add(DefaultTokenTtl);
                 var payload = new PlanTokenPayload(
-                    version: PlanTokenCompactCodec.TokenVersion,
-                    keyId: PlanTokenCompactCodec.TokenKeyId,
                     projectFingerprint: snapshot.ProjectFingerprint,
                     requestDigest: requestDigest,
                     compiledExecutionDigest: compiledExecutionDigest,
@@ -239,12 +237,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!PlanTokenCompactCodec.TryDecodeToken(planToken, out var parsedToken))
             {
                 failure = CreateInvalidTokenFailure("Plan token format is invalid.");
-                return false;
-            }
-
-            if (!PlanTokenCompactCodec.IsSupported(parsedToken))
-            {
-                failure = CreateInvalidTokenFailure("Plan token header values are not supported.");
                 return false;
             }
 

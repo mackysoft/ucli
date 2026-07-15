@@ -5,14 +5,24 @@ using System;
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one plan-token issuance result. </summary>
-    /// <param name="PlanToken"> The issued token string when issuance succeeded. </param>
-    /// <param name="Failure"> The failure details when issuance failed. </param>
-    internal sealed record PlanTokenIssueResult (
-        string? PlanToken,
-        OperationFailure? Failure)
+    internal sealed class PlanTokenIssueResult
     {
+        private PlanTokenIssueResult (
+            string? planToken,
+            OperationFailure? failure)
+        {
+            PlanToken = planToken;
+            Failure = failure;
+        }
+
         /// <summary> Gets a value indicating whether issuance succeeded. </summary>
-        public bool IsSuccess => Failure is null && !string.IsNullOrWhiteSpace(PlanToken);
+        public bool IsSuccess => Failure == null;
+
+        /// <summary> Gets the issued token when issuance succeeded; otherwise <see langword="null" />. </summary>
+        public string? PlanToken { get; }
+
+        /// <summary> Gets the issuance failure when issuance failed; otherwise <see langword="null" />. </summary>
+        public OperationFailure? Failure { get; }
 
         /// <summary> Creates a successful issuance result. </summary>
         /// <param name="planToken"> The issued token. </param>

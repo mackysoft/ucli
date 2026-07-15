@@ -1,14 +1,17 @@
 #nullable enable
 
+using System;
+using MackySoft.Ucli.Unity.Execution.Requests;
+
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
-    /// <summary> Represents one parsed Unity-object reference used by operation arguments. </summary>
-    internal readonly struct UnityObjectReference
+    /// <summary> Represents one validated Unity-object reference used by operation arguments. </summary>
+    internal sealed class UnityObjectReference
     {
-        public UnityObjectReference (
+        private UnityObjectReference (
             UnityObjectReferenceKind kind,
-            string? alias,
-            ResolveSelector selector)
+            RequestLocalAliasIdentity? alias,
+            ResolveSelector? selector)
         {
             Kind = kind;
             Alias = alias;
@@ -17,20 +20,30 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         public UnityObjectReferenceKind Kind { get; }
 
-        public string? Alias { get; }
+        public RequestLocalAliasIdentity? Alias { get; }
 
-        public ResolveSelector Selector { get; }
+        public ResolveSelector? Selector { get; }
 
-        public static UnityObjectReference FromAlias (string alias)
+        public static UnityObjectReference FromAlias (RequestLocalAliasIdentity alias)
         {
+            if (alias == null)
+            {
+                throw new ArgumentNullException(nameof(alias));
+            }
+
             return new UnityObjectReference(
                 kind: UnityObjectReferenceKind.Alias,
                 alias: alias,
-                selector: default);
+                selector: null);
         }
 
         public static UnityObjectReference FromSelector (ResolveSelector selector)
         {
+            if (selector == null)
+            {
+                throw new ArgumentNullException(nameof(selector));
+            }
+
             return new UnityObjectReference(
                 kind: UnityObjectReferenceKind.Selector,
                 alias: null,

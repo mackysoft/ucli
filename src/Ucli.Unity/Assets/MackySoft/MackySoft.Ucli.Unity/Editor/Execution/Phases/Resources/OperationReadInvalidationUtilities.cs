@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 #nullable enable
@@ -64,7 +65,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         public static IReadOnlyList<OperationReadInvalidation>? CreateSceneTreeLiteForSceneResource (OperationResource resource)
         {
-            return resource.Kind == OperationTouchKind.Scene
+            return resource.Kind == UcliTouchedResourceKind.Scene
                 ? CreateSceneTreeLite(resource.Path)
                 : null;
         }
@@ -78,8 +79,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var touch = touched[i];
                 switch (touch.Kind)
                 {
-                    case OperationTouchKind.Asset:
-                    case OperationTouchKind.Prefab:
+                    case UcliTouchedResourceKind.Asset:
+                    case UcliTouchedResourceKind.Prefab:
                         if (!includesAssetSearch)
                         {
                             invalidations.AddRange(CreateAssetSearchOnly());
@@ -88,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                         break;
 
-                    case OperationTouchKind.Scene:
+                    case UcliTouchedResourceKind.Scene:
                         invalidations.AddRange(CreateSceneTreeLite(touch.Path));
                         break;
                 }
@@ -107,8 +108,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var touch = touched[i];
                 switch (touch.Kind)
                 {
-                    case OperationTouchKind.Asset:
-                    case OperationTouchKind.Prefab:
+                    case UcliTouchedResourceKind.Asset:
+                    case UcliTouchedResourceKind.Prefab:
                         if (!includesAssetLookupInvalidation)
                         {
                             invalidations.AddRange(CreateAssetSearchAndGuidPath());
@@ -117,7 +118,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                         break;
 
-                    case OperationTouchKind.Scene:
+                    case UcliTouchedResourceKind.Scene:
                         if (scenePaths.Add(touch.Path))
                         {
                             invalidations.AddRange(CreateSceneTreeLite(touch.Path));
@@ -139,7 +140,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < callbackTouched.Count; i++)
             {
                 var touch = callbackTouched[i];
-                if (touch.Kind == OperationTouchKind.ProjectSettings)
+                if (touch.Kind == UcliTouchedResourceKind.ProjectSettings)
                 {
                     continue;
                 }
@@ -153,7 +154,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             for (var i = 0; i < touched.Count; i++)
             {
-                if (touched[i].Kind != OperationTouchKind.Scene)
+                if (touched[i].Kind != UcliTouchedResourceKind.Scene)
                 {
                     continue;
                 }
