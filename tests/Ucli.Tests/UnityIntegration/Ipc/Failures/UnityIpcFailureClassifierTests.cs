@@ -45,10 +45,25 @@ public sealed class UnityIpcFailureClassifierTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void FromDaemonDispatchException_WithSocketException_ReturnsDaemonNotRunning ()
+    public void FromDaemonDispatchException_WithUntypedSocketException_ReturnsInternalError ()
     {
         var failure = UnityIpcFailureClassifier.FromDaemonDispatchException(
             new SocketException((int)SocketError.ConnectionRefused),
+            TimeSpan.FromSeconds(1));
+
+        Assert.Equal(UcliCoreErrorCodes.InternalError, failure.Code);
+        Assert.Equal(ApplicationOutcome.ToolError, ApplicationFailure.FromCode(failure.Code, failure.Message).Outcome);
+        Assert.Contains("Failed to execute Unity daemon IPC request.", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void FromDaemonDispatchException_WithConnectException_ReturnsDaemonNotRunning ()
+    {
+        var failure = UnityIpcFailureClassifier.FromDaemonDispatchException(
+            new IpcConnectException(
+                "IPC connection failed before the request was sent.",
+                new SocketException((int)SocketError.AddressNotAvailable)),
             TimeSpan.FromSeconds(1));
 
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, failure.Code);
@@ -108,6 +123,35 @@ public sealed class UnityIpcFailureClassifierTests
         Assert.Equal(UnityRequestFailureKind.General, failure.FailureKind);
         Assert.Equal(ApplicationOutcome.ToolError, ApplicationFailure.FromCode(failure.Code, failure.Message).Outcome);
         Assert.Contains("Failed to execute Unity oneshot IPC request. boom", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void FromOneshotDispatchException_WithConnectException_ReturnsInternalError ()
+    {
+        var failure = UnityIpcFailureClassifier.FromOneshotDispatchException(
+            new IpcConnectException(
+                "IPC connection failed before the request was sent.",
+                new IOException("Named pipe connection failed.")),
+            TimeSpan.FromSeconds(1));
+
+        Assert.Equal(UcliCoreErrorCodes.InternalError, failure.Code);
+        Assert.Equal(UnityRequestFailureKind.General, failure.FailureKind);
+        Assert.Contains("IPC connection failed before the request was sent.", failure.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void FromOneshotDispatchException_WithConnectTimeout_ReturnsIpcTimeout ()
+    {
+        var failure = UnityIpcFailureClassifier.FromOneshotDispatchException(
+            new IpcConnectTimeoutException(
+                "IPC connection timed out before the request was sent."),
+            TimeSpan.FromMilliseconds(750));
+
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, failure.Code);
+        Assert.Equal(UnityRequestFailureKind.General, failure.FailureKind);
+        Assert.Contains("750 milliseconds", failure.Message, StringComparison.Ordinal);
     }
 
     [Fact]

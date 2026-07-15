@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
+using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -16,7 +17,10 @@ internal static class UnityDaemonIpcClientTestSupport
 
     public static UnityIpcDispatchRequest CreateDispatchRequest ()
     {
-        return new UnityIpcDispatchRequest(UnityIpcMethod.OpsRead, CreateDispatchPayload());
+        return new UnityIpcDispatchRequest(
+            UnityIpcMethod.OpsRead,
+            CreateDispatchPayload(),
+            UnityBatchmodeLaunchOptions.Default);
     }
 
     public static IpcResponse CreateResponse (Guid requestId)
@@ -24,7 +28,7 @@ internal static class UnityDaemonIpcClientTestSupport
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             payload: EmptyPayload(),
             errors: Array.Empty<IpcError>());
     }
@@ -34,7 +38,7 @@ internal static class UnityDaemonIpcClientTestSupport
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
-            status: IpcProtocol.StatusError,
+            status: IpcResponseStatus.Error,
             payload: CreateDispatchPayload(),
             errors:
             [
@@ -76,7 +80,7 @@ internal static class UnityDaemonIpcClientTestSupport
         UnityRequestResponse? actual)
     {
         Assert.NotNull(actual);
-        Assert.False(actual!.HasFailureStatus);
+        Assert.Empty(actual!.Errors);
         Assert.Equal(expected.Payload.GetRawText(), actual.Payload.GetRawText());
         Assert.Equal(expected.Errors.Count, actual.Errors.Count);
         for (var i = 0; i < expected.Errors.Count; i++)
@@ -114,6 +118,7 @@ internal static class UnityDaemonIpcClientTestSupport
             primaryDiagnostic: null,
             serverVersion: null,
             editorInstanceId: session.EditorInstanceId
-                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)));
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+            recoveryLease: null);
     }
 }

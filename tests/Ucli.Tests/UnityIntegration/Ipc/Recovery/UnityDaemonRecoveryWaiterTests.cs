@@ -1,7 +1,5 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 
@@ -85,8 +83,11 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var observation = CreateObservation(
             session,
-            IpcEditorLifecycleState.DomainReloading,
-            editorInstanceId: OtherEditorInstanceId);
+            IpcEditorLifecycleState.Recovering,
+            editorInstanceId: OtherEditorInstanceId,
+            recoveryLease: new DaemonLifecycleRecoveryLease(
+                session.SessionGenerationId,
+                timeProvider.GetUtcNow() + DaemonLifecycleObservationTimings.DomainReloadRecoveryLeaseDuration));
         var waiter = CreateWaiter(
             session,
             observation,
@@ -126,6 +127,104 @@ public sealed class UnityDaemonRecoveryWaiterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task DelayIfRecoveringAsync_WhenRecoveryLeaseIsActiveBeyondFreshnessWindow_DelaysAndReturnsTrue ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var session = DaemonSessionTestFactory.CreateEditorInstance();
+        var observedAtUtc = timeProvider.GetUtcNow()
+            - DaemonLifecycleObservationTimings.FreshnessWindow
+            - TimeSpan.FromSeconds(1);
+        var observation = CreateObservation(
+            session,
+            IpcEditorLifecycleState.Recovering,
+            observedAtUtc: observedAtUtc,
+            recoveryLease: new DaemonLifecycleRecoveryLease(
+                session.SessionGenerationId,
+                timeProvider.GetUtcNow() + DaemonLifecycleObservationTimings.DomainReloadRecoveryLeaseDuration));
+        var waiter = CreateWaiter(
+            session,
+            observation,
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
+
+        var delayTask = waiter.DelayIfRecoveringAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                deadline,
+                CancellationToken.None)
+            .AsTask();
+        Assert.False(delayTask.IsCompleted);
+
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(retryDelay);
+
+        Assert.True(await delayTask);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DelayIfRecoveringAsync_WhenRecoveryLeaseIsExpired_ReturnsFalseWithoutDelay ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var session = DaemonSessionTestFactory.CreateEditorInstance();
+        var observedAtUtc = timeProvider.GetUtcNow()
+            - DaemonLifecycleObservationTimings.FreshnessWindow
+            - TimeSpan.FromSeconds(1);
+        var observation = CreateObservation(
+            session,
+            IpcEditorLifecycleState.Recovering,
+            observedAtUtc: observedAtUtc,
+            recoveryLease: new DaemonLifecycleRecoveryLease(
+                session.SessionGenerationId,
+                timeProvider.GetUtcNow() - TimeSpan.FromTicks(1)));
+        var waiter = CreateWaiter(
+            session,
+            observation,
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
+
+        var result = await waiter.DelayIfRecoveringAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            deadline,
+            CancellationToken.None);
+
+        Assert.False(result);
+        Assert.Equal(0, timeProvider.ActiveTimerCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task DelayIfRecoveringAsync_WhenRecoveryLeaseSessionGenerationDiffers_ReturnsFalseWithoutDelay ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var session = DaemonSessionTestFactory.CreateEditorInstance();
+        var observedAtUtc = timeProvider.GetUtcNow()
+            - DaemonLifecycleObservationTimings.FreshnessWindow
+            - TimeSpan.FromSeconds(1);
+        var observation = CreateObservation(
+            session,
+            IpcEditorLifecycleState.Recovering,
+            observedAtUtc: observedAtUtc,
+            recoveryLease: new DaemonLifecycleRecoveryLease(
+                Guid.NewGuid(),
+                timeProvider.GetUtcNow() + TimeSpan.FromSeconds(30)));
+        var waiter = CreateWaiter(
+            session,
+            observation,
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
+
+        var result = await waiter.DelayIfRecoveringAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            deadline,
+            CancellationToken.None);
+
+        Assert.False(result);
+        Assert.Equal(0, timeProvider.ActiveTimerCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task DelayIfRecoveringAsync_WhenSessionEditorInstanceIdIsMissing_ReturnsFalseWithoutDelay ()
     {
         var timeProvider = new ManualTimeProvider();
@@ -153,7 +252,12 @@ public sealed class UnityDaemonRecoveryWaiterTests
         var session = DaemonSessionTestFactory.CreateEditorInstance();
         var waiter = CreateWaiter(
             session,
-            CreateObservation(session, IpcEditorLifecycleState.Recovering),
+            CreateObservation(
+                session,
+                IpcEditorLifecycleState.Recovering,
+                recoveryLease: new DaemonLifecycleRecoveryLease(
+                    session.SessionGenerationId,
+                    timeProvider.GetUtcNow() + TimeSpan.FromSeconds(30))),
             DaemonProcessIdentityAssessmentStatus.DifferentProcess);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider);
 
@@ -282,7 +386,8 @@ public sealed class UnityDaemonRecoveryWaiterTests
         IpcEditorLifecycleState lifecycleState,
         DateTimeOffset? processStartedAtUtc = null,
         Guid? editorInstanceId = null,
-        DateTimeOffset? observedAtUtc = null)
+        DateTimeOffset? observedAtUtc = null,
+        DaemonLifecycleRecoveryLease? recoveryLease = null)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
@@ -303,7 +408,8 @@ public sealed class UnityDaemonRecoveryWaiterTests
             serverVersion: null,
             editorInstanceId: editorInstanceId
                 ?? session.EditorInstanceId
-                ?? throw new InvalidOperationException("A valid Editor instance identifier is required by the test observation."));
+                ?? throw new InvalidOperationException("A valid Editor instance identifier is required by the test observation."),
+            recoveryLease: recoveryLease);
     }
 
     private interface IBlockingReadOperation

@@ -3,6 +3,7 @@ namespace MackySoft.Ucli.Tests.Ipc;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 
 public sealed class UnityIpcRequestBuilderBasicPayloadTests
 {
@@ -15,9 +16,27 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         var method = (UnityIpcMethod)value;
 
         var exception = Assert.Throws<ArgumentOutOfRangeException>(() =>
-            new UnityIpcDispatchRequest(method, IpcPayloadCodec.SerializeToElement(new { })));
+            new UnityIpcDispatchRequest(
+                method,
+                IpcPayloadCodec.SerializeToElement(new { }),
+                UnityBatchmodeLaunchOptions.Default));
 
         Assert.Equal("method", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityIpcDispatchRequest_WhenNonBuildMethodHasActiveBuildProfile_ThrowsArgumentException ()
+    {
+        var launchOptions = new UnityBatchmodeLaunchOptions(
+            new UnityBuildProfileAssetPath("Assets/BuildProfiles/LinuxPlayer.asset"));
+
+        var exception = Assert.Throws<ArgumentException>(() => new UnityIpcDispatchRequest(
+            UnityIpcMethod.OpsRead,
+            IpcPayloadCodec.SerializeToElement(new { }),
+            launchOptions));
+
+        Assert.Equal("launchOptions", exception.ParamName);
     }
 
     [Fact]
@@ -66,10 +85,16 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         Assert.True(request.IsRecoverable);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest payload, out _));
         Assert.Equal(RunIdTestValues.Compile, payload.RunId);
-        Assert.Null(payload.TimeoutMilliseconds);
-        Assert.Equal(
-            [IpcEditorLifecycleState.CompileFailed, IpcEditorLifecycleState.SafeMode],
-            request.AllowedStartupLifecycleStates);
+        Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
+        Assert.True(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
+            request.Method,
+            IpcEditorLifecycleState.CompileFailed));
+        Assert.True(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
+            request.Method,
+            IpcEditorLifecycleState.SafeMode));
+        Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
+            request.Method,
+            IpcEditorLifecycleState.Ready));
     }
 
     [Fact]
@@ -82,34 +107,37 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
 
         Assert.Equal(UnityIpcMethod.PlayStatus, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayStatusRequest _, out _));
-        Assert.Empty(request.AllowedStartupLifecycleStates);
+        Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
+            request.Method,
+            IpcEditorLifecycleState.SafeMode));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Build_WithScreenshotCapture_CreatesScreenshotCapturePayload ()
     {
+        var captureId = Guid.Parse("ab66cdfa-d4bd-49bd-b727-a1201d4426f4");
         var builder = new UnityIpcRequestBuilder();
 
         var request = builder.Build(new UnityRequestPayload.ScreenshotCapture(
-            Target: IpcScreenshotTarget.Game,
-            RequestedWidth: 1920,
-            RequestedHeight: 1080,
-            StagingPath: "/tmp/ucli-screenshot.raw",
-            TimeoutMilliseconds: 30000));
+            new IpcScreenshotCaptureRequest(
+                CaptureId: captureId,
+                Target: IpcScreenshotTarget.Game,
+                RequestedWidth: 1920,
+                RequestedHeight: 1080)));
 
         Assert.Equal(UnityIpcMethod.ScreenshotCapture, request.Method);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcScreenshotCaptureRequest payload, out _));
+        Assert.Equal(captureId, payload.CaptureId);
         Assert.Equal(IpcScreenshotTarget.Game, payload.Target);
         Assert.Equal(1920, payload.RequestedWidth);
         Assert.Equal(1080, payload.RequestedHeight);
-        Assert.Equal("/tmp/ucli-screenshot.raw", payload.StagingPath);
-        Assert.Equal(30000, payload.TimeoutMilliseconds);
-        var dispatchPayload = request.CreatePayload(TimeSpan.FromMilliseconds(1250));
-        Assert.True(IpcPayloadCodec.TryDeserialize(dispatchPayload, out IpcScreenshotCaptureRequest dispatchRequest, out _));
-        Assert.Equal(1250, dispatchRequest.TimeoutMilliseconds);
+        Assert.False(request.Payload.TryGetProperty("stagingPath", out _));
+        Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
         Assert.False(request.IsRecoverable);
-        Assert.Empty(request.AllowedStartupLifecycleStates);
+        Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
+            request.Method,
+            IpcEditorLifecycleState.SafeMode));
     }
 
     [Fact]
@@ -118,14 +146,15 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
     {
         var builder = new UnityIpcRequestBuilder();
 
-        var request = builder.Build(new UnityRequestPayload.PlayEnter(1500));
+        var request = builder.Build(new UnityRequestPayload.PlayEnter());
 
         Assert.Equal(UnityIpcMethod.PlayEnter, request.Method);
         Assert.True(request.IsRecoverable);
-        Assert.Equal(TimeSpan.FromMilliseconds(1000), request.RecoverableResponseAttemptTimeout);
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayEnterRequest payload, out _));
-        Assert.Equal(1500, payload.TimeoutMilliseconds);
-        Assert.Empty(request.AllowedStartupLifecycleStates);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayEnterRequest _, out _));
+        Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
+        Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
+            request.Method,
+            IpcEditorLifecycleState.SafeMode));
     }
 
     [Fact]
@@ -134,13 +163,14 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
     {
         var builder = new UnityIpcRequestBuilder();
 
-        var request = builder.Build(new UnityRequestPayload.PlayExit(2500));
+        var request = builder.Build(new UnityRequestPayload.PlayExit());
 
         Assert.Equal(UnityIpcMethod.PlayExit, request.Method);
         Assert.True(request.IsRecoverable);
-        Assert.Equal(TimeSpan.FromMilliseconds(1000), request.RecoverableResponseAttemptTimeout);
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayExitRequest payload, out _));
-        Assert.Equal(2500, payload.TimeoutMilliseconds);
-        Assert.Empty(request.AllowedStartupLifecycleStates);
+        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayExitRequest _, out _));
+        Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
+        Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
+            request.Method,
+            IpcEditorLifecycleState.SafeMode));
     }
 }

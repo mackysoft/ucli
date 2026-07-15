@@ -29,7 +29,9 @@ internal static class IpcUnityEditorObservationTestFactory
                     IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
-            observedAtUtc: observedAtUtc ?? DateTimeOffset.UnixEpoch);
+            observedAtUtc: observedAtUtc ?? DateTimeOffset.UnixEpoch,
+            actionRequired: null,
+            primaryDiagnostic: null);
     }
 
     private static IpcCompileState ResolveCompileState (IpcEditorLifecycleState lifecycleState)

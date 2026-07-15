@@ -41,6 +41,7 @@ internal sealed class UnityDaemonRecoveryWaiter
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
 
         var recoveryReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
@@ -100,12 +101,11 @@ internal sealed class UnityDaemonRecoveryWaiter
         }
 
         var observation = lifecycleReadResult.Observation!;
-        return observation.IsRecovering
-            && DaemonLifecycleObservationAvailability.IsUsableForEditorInstanceSession(
-                observation,
-                session,
-                processIdentityAssessor,
-                timeProvider);
+        return DaemonLifecycleObservationAvailability.IsUsableForRecovery(
+            observation,
+            session,
+            processIdentityAssessor,
+            timeProvider);
     }
 
     private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)

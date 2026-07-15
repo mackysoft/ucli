@@ -1,207 +1,53 @@
 namespace MackySoft.Ucli.Tests.Ipc;
 
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Testing;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
-using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
-using static MackySoft.Ucli.Tests.Ipc.UnityIpcRequestBuilderTestSupport;
 
-public sealed class UnityIpcRequestFactoryTimeoutTests
+public sealed class UnityIpcRequestFactoryDeadlineTests
 {
+    private static readonly DateTimeOffset RequestDeadlineUtc = new(
+        2030,
+        1,
+        2,
+        3,
+        4,
+        5,
+        TimeSpan.Zero);
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(0)]
     [InlineData(999)]
     public void UnityIpcRequestFactory_WhenMethodIsUndefined_ThrowsArgumentOutOfRangeException (int value)
     {
-        var exception = Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcRequestFactory.Create(
+        _ = Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcRequestFactory.Create(
             IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
             (UnityIpcMethod)value,
             IpcPayloadCodec.SerializeToElement(new { }),
             Guid.NewGuid(),
-            IpcResponseMode.Single));
-
-        Assert.Equal("method", exception.ParamName);
+            IpcResponseMode.Single,
+            RequestDeadlineUtc,
+            requestDeadlineRemainingMilliseconds: 1234));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UnityIpcRequestFactory_WithCompileDispatchTimeout_InjectsTimeoutPayload ()
+    public void UnityIpcRequestFactory_WithRequestDeadline_PreservesDeadlineOnEnvelope ()
     {
-        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.Compile(RunIdTestValues.Compile));
+        var payload = IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(RunIdTestValues.Compile));
 
         var request = UnityIpcRequestFactory.Create(
             IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
-            dispatchRequest.Method,
-            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
+            UnityIpcMethod.Compile,
+            payload,
             Guid.NewGuid(),
-            dispatchRequest.ResponseMode);
+            IpcResponseMode.Single,
+            RequestDeadlineUtc,
+            requestDeadlineRemainingMilliseconds: 1234);
 
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest compileRequest, out _));
-        Assert.Equal(RunIdTestValues.Compile, compileRequest.RunId);
-        Assert.Equal(1234, compileRequest.TimeoutMilliseconds);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void UnityIpcRequestFactory_WithScreenshotDispatchTimeout_InjectsTimeoutPayload ()
-    {
-        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.ScreenshotCapture(
-            Target: IpcScreenshotTarget.Game,
-            RequestedWidth: null,
-            RequestedHeight: null,
-            StagingPath: "/tmp/ucli-screenshot.raw",
-            TimeoutMilliseconds: 30000));
-
-        var request = UnityIpcRequestFactory.Create(
-            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
-            dispatchRequest.Method,
-            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
-            Guid.NewGuid(),
-            dispatchRequest.ResponseMode);
-
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcScreenshotCaptureRequest screenshotRequest, out _));
-        Assert.Equal(1234, screenshotRequest.TimeoutMilliseconds);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void UnityIpcRequestFactory_WithPlayEnterDispatchTimeout_InjectsTimeoutPayload ()
-    {
-        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.PlayEnter(30000));
-
-        var request = UnityIpcRequestFactory.Create(
-            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
-            dispatchRequest.Method,
-            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
-            Guid.NewGuid(),
-            dispatchRequest.ResponseMode);
-
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayEnterRequest playEnterRequest, out _));
-        Assert.Equal(1234, playEnterRequest.TimeoutMilliseconds);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void UnityIpcRequestFactory_WithPlayExitDispatchTimeout_InjectsTimeoutPayload ()
-    {
-        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.PlayExit(30000));
-
-        var request = UnityIpcRequestFactory.Create(
-            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
-            dispatchRequest.Method,
-            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
-            Guid.NewGuid(),
-            dispatchRequest.ResponseMode);
-
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayExitRequest playExitRequest, out _));
-        Assert.Equal(1234, playExitRequest.TimeoutMilliseconds);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void UnityIpcRequestFactory_WithTestRunDispatchTimeout_InjectsTimeoutPayload ()
-    {
-        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.TestRun(
-            TestRunPlatformCodec.EditMode,
-            TestFilter: null,
-            TestCategories: [],
-            AssemblyNames: [],
-            TestSettingsPath: null,
-            ResultsXmlPath: "/tmp/results.xml",
-            EditorLogPath: "/tmp/editor.log",
-            FailFast: false,
-            RunId: RunIdTestValues.Test));
-
-        var request = UnityIpcRequestFactory.Create(
-            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
-            dispatchRequest.Method,
-            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
-            Guid.NewGuid(),
-            dispatchRequest.ResponseMode);
-
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcTestRunRequest testRunRequest, out _));
-        Assert.Equal(RunIdTestValues.Test, testRunRequest.RunId);
-        Assert.Equal(1234, testRunRequest.TimeoutMilliseconds);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void UnityIpcRequestFactory_WithBuildRunDispatchTimeout_InjectsTimeoutPayload ()
-    {
-        var dispatchRequest = new UnityIpcRequestBuilder().Build(CreateExplicitBuildRunPayload(
-            outputLayout: new IpcBuildOutputLayout(
-                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
-                LocationPathName: "/tmp/ucli/output/player/Player"),
-            development: false));
-
-        var request = UnityIpcRequestFactory.Create(
-            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
-            dispatchRequest.Method,
-            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
-            Guid.NewGuid(),
-            dispatchRequest.ResponseMode);
-
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest buildRunRequest, out _));
-        Assert.Equal(RunIdTestValues.Build, buildRunRequest.RunId);
-        Assert.Equal(1234, buildRunRequest.TimeoutMilliseconds);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void UnityIpcRequestFactory_WithExecuteDispatchTimeout_InjectsTimeoutPayload ()
-    {
-        var executeArguments = IpcPayloadCodec.SerializeToElement(new
-        {
-            protocolVersion = IpcProtocol.CurrentVersion,
-            steps = Array.Empty<object>(),
-        });
-        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.ExecuteJson(
-            UcliCommandIds.Call,
-            executeArguments,
-            FailFast: false,
-            AllowDangerous: true));
-
-        var request = UnityIpcRequestFactory.Create(
-            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
-            dispatchRequest.Method,
-            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
-            Guid.NewGuid(),
-            dispatchRequest.ResponseMode);
-
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcExecuteRequest executeRequest, out _));
-        Assert.Equal(UcliCommandIds.Call.Name, executeRequest.Command);
-        Assert.True(executeRequest.AllowDangerous);
-        Assert.Equal(1234, executeRequest.TimeoutMilliseconds);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void UnityIpcRequestFactory_WithExecuteOperationDispatchTimeout_InjectsTimeoutPayload ()
-    {
-        var args = IpcPayloadCodec.SerializeToElement(new
-        {
-            path = "Assets/Test.prefab",
-        });
-        var dispatchRequest = new UnityIpcRequestBuilder().Build(new UnityRequestPayload.ExecuteOperation(
-            UcliCommandIds.Call,
-            "op-1",
-            UcliPrimitiveOperationNames.Resolve,
-            args,
-            FailFast: false,
-            AllowDangerous: true));
-
-        var request = UnityIpcRequestFactory.Create(
-            IpcSessionTokenTestFactory.CreateFromDiscriminator(1),
-            dispatchRequest.Method,
-            dispatchRequest.CreatePayload(TimeSpan.FromMilliseconds(1234)),
-            Guid.NewGuid(),
-            dispatchRequest.ResponseMode);
-
-        Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcExecuteRequest executeRequest, out _));
-        Assert.Equal(UcliCommandIds.Call.Name, executeRequest.Command);
-        Assert.True(executeRequest.AllowDangerous);
-        Assert.Equal(1234, executeRequest.TimeoutMilliseconds);
+        Assert.Equal(RequestDeadlineUtc, request.RequestDeadlineUtc);
+        Assert.Equal(1234, request.RequestDeadlineRemainingMilliseconds);
+        Assert.Equal(payload.GetRawText(), request.Payload.GetRawText());
+        Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
     }
 }

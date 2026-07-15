@@ -1,10 +1,10 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
 using MackySoft.Ucli.Tests.Helpers.Unity;
@@ -116,8 +116,8 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             request => new IpcStreamFrame(
                 IpcProtocol.CurrentVersion,
                 request.RequestId,
-                IpcStreamFrameKinds.Progress,
-                "ops.progress",
+                IpcStreamFrameKind.Progress,
+                "test.progress",
                 EmptyPayload(),
                 response: null));
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
@@ -136,12 +136,18 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             CreateClients(daemonTransportClient, oneshotTransportClient, sessionConnectionProvider, launcher));
 
         var result = await executor.ExecuteAsync(
-            UcliCommandIds.Ops,
+            UcliCommandIds.TestRun,
             UnityExecutionMode.Auto,
             DefaultTimeout,
             UcliConfig.CreateDefault(),
             ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath),
-            CreateOpsReadPayload(),
+            new UnityRequestPayload.TestRun(
+                TestRunPlatform.EditMode,
+                testFilter: null,
+                testCategories: [],
+                assemblyNames: [],
+                failFast: false,
+                runId: RunIdTestValues.Test),
             (frame, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -155,11 +161,58 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             daemonTransportClient,
             oneshotTransportClient,
             launcher,
-            UnityIpcMethod.OpsRead);
+            UnityIpcMethod.TestRun);
         Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), request.ResponseMode);
         var progressFrame = Assert.Single(progressFrames);
-        Assert.Equal("ops.progress", progressFrame.Event);
+        Assert.Equal("test.progress", progressFrame.Event);
         Assert.Equal(JsonValueKind.Object, progressFrame.Payload.ValueKind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ExecuteStreaming_WhenMethodDoesNotSupportStreaming_RejectsBeforeTargetResolution ()
+    {
+        var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException(
+            "Unsupported streaming dispatch must not call the daemon transport."));
+        var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException(
+            "Unsupported streaming dispatch must not call the oneshot transport."));
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(
+            UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
+        var modeDecisionService = new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
+            new UnityExecutionModeDecision(
+                UnityExecutionMode.Auto,
+                true,
+                UnityExecutionTarget.Daemon,
+                DefaultTimeout)))
+        {
+            OnDecide = static _ => throw new Xunit.Sdk.XunitException(
+                "Unsupported streaming dispatch must be rejected before target resolution."),
+        };
+        var executor = CreateExecutor(
+            modeDecisionService,
+            new RecordingDaemonPingInfoClient(),
+            new RecordingUnityUcliPluginLocator(),
+            CreateClients(
+                daemonTransportClient,
+                oneshotTransportClient,
+                new UnexpectedDaemonSessionConnectionProvider(
+                    "Unsupported streaming dispatch must not resolve a daemon session."),
+                launcher));
+
+        var result = await executor.ExecuteAsync(
+            UcliCommandIds.Ops,
+            UnityExecutionMode.Auto,
+            DefaultTimeout,
+            UcliConfig.CreateDefault(),
+            ResolvedUnityProjectContextTestFactory.Create(),
+            CreateOpsReadPayload(),
+            (_, _) => ValueTask.CompletedTask);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Empty(daemonTransportClient.Requests);
+        Assert.Empty(oneshotTransportClient.Requests);
+        Assert.Empty(launcher.Invocations);
     }
 
     [Fact]

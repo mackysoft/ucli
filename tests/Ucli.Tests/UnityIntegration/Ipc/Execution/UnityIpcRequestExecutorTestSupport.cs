@@ -28,7 +28,7 @@ internal static class UnityIpcRequestExecutorTestSupport
                 sessionConnectionProvider,
                 recoveryWaiter: null,
                 timeProvider: TimeProvider.System),
-            new UnityOneshotIpcClient(
+            UnityOneshotIpcClientTestSupport.CreateClient(
                 launcher,
                 oneshotTransportClient,
                 new StubProjectLifecycleLockProvider(),
@@ -50,7 +50,7 @@ internal static class UnityIpcRequestExecutorTestSupport
                 new UnityIpcPluginVerifier(pluginLocator)),
             new UnityIpcClientSelector(clients),
             new UnityDaemonReadinessGate(daemonPingInfoClient, timeProvider ?? TimeProvider.System),
-            timeProvider);
+            timeProvider ?? TimeProvider.System);
     }
 
     public static UnityRequestPayload.OpsRead CreateOpsReadPayload ()
@@ -77,7 +77,7 @@ internal static class UnityIpcRequestExecutorTestSupport
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             payload: EmptyPayload(),
             errors: Array.Empty<IpcError>());
     }
@@ -90,7 +90,7 @@ internal static class UnityIpcRequestExecutorTestSupport
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            status: IpcProtocol.StatusError,
+            status: IpcResponseStatus.Error,
             payload: EmptyPayload(),
             errors:
             [
@@ -108,7 +108,7 @@ internal static class UnityIpcRequestExecutorTestSupport
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             payload: payload,
             errors: Array.Empty<IpcError>());
     }
@@ -134,7 +134,7 @@ internal static class UnityIpcRequestExecutorTestSupport
         UnityRequestResponse? actual)
     {
         Assert.NotNull(actual);
-        Assert.False(actual!.HasFailureStatus);
+        Assert.Empty(actual!.Errors);
         Assert.Equal(expected.Payload.GetRawText(), actual.Payload.GetRawText());
         Assert.Equal(expected.Errors.Count, actual.Errors.Count);
         for (var i = 0; i < expected.Errors.Count; i++)

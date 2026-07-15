@@ -47,7 +47,7 @@ public sealed class UnityIpcRequestBuilderExecuteTests
 
         var request = builder.Build(new UnityRequestPayload.ExecuteOperation(
             UcliCommandIds.Call,
-            "op-1",
+            new IpcExecuteStepId("op-1"),
             "asset.create",
             args,
             FailFast: false,

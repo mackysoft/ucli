@@ -51,7 +51,7 @@ internal static class UnityIpcExecutionPathAssert
             launcher);
     }
 
-    public static IpcRequest DaemonRequestDispatchedOnly (
+    public static IpcRequestEnvelope DaemonRequestDispatchedOnly (
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
         RecordingUnityBatchmodeProcessLauncher launcher,
@@ -63,7 +63,7 @@ internal static class UnityIpcExecutionPathAssert
         return request;
     }
 
-    public static IpcRequest DaemonFailFastReadinessOpsReadDispatchedOnly (
+    public static IpcRequestEnvelope DaemonFailFastReadinessOpsReadDispatchedOnly (
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
         RecordingUnityBatchmodeProcessLauncher launcher)
@@ -77,7 +77,7 @@ internal static class UnityIpcExecutionPathAssert
         return request;
     }
 
-    public static IpcRequest DaemonRequestDispatchedOnlyWithoutPluginVerification (
+    public static IpcRequestEnvelope DaemonRequestDispatchedOnlyWithoutPluginVerification (
         RecordingUnityUcliPluginLocator pluginLocator,
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
@@ -92,7 +92,7 @@ internal static class UnityIpcExecutionPathAssert
             expectedMethod);
     }
 
-    public static IpcRequest DaemonStreamingRequestDispatchedOnly (
+    public static IpcRequestEnvelope DaemonStreamingRequestDispatchedOnly (
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
         RecordingUnityBatchmodeProcessLauncher launcher,
@@ -105,7 +105,7 @@ internal static class UnityIpcExecutionPathAssert
         return request;
     }
 
-    public static IReadOnlyList<IpcRequest> DaemonRequestsDispatchedOnly (
+    public static IReadOnlyList<IpcRequestEnvelope> DaemonRequestsDispatchedOnly (
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
         RecordingUnityBatchmodeProcessLauncher launcher,
@@ -116,7 +116,7 @@ internal static class UnityIpcExecutionPathAssert
         return requests;
     }
 
-    public static IReadOnlyList<IpcRequest> DaemonFailFastReadinessOpsReadRedispatchedOnly (
+    public static IReadOnlyList<IpcRequestEnvelope> DaemonFailFastReadinessOpsReadRedispatchedOnly (
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
         RecordingUnityBatchmodeProcessLauncher launcher)
@@ -131,7 +131,7 @@ internal static class UnityIpcExecutionPathAssert
         return requests;
     }
 
-    public static IReadOnlyList<IpcRequest> OneshotExecutionStartedOnly (
+    public static IReadOnlyList<IpcRequestEnvelope> OneshotExecutionStartedOnly (
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
         RecordingUnityBatchmodeProcessLauncher launcher,
@@ -143,7 +143,7 @@ internal static class UnityIpcExecutionPathAssert
         return requests;
     }
 
-    private static void AssertFailFastReadinessOpsReadRequest (IpcRequest request)
+    private static void AssertFailFastReadinessOpsReadRequest (IpcRequestEnvelope request)
     {
         Assert.True(IpcPayloadCodec.TryDeserialize(
             request.Payload,

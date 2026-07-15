@@ -68,7 +68,8 @@ internal static class UnityIpcFailureClassifier
             return Timeout($"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.");
         }
 
-        if (DaemonProbeExceptionClassifier.IsNotRunning(exception))
+        if (exception is IpcConnectException
+            || DaemonProbeExceptionClassifier.IsNotRunning(exception))
         {
             return FromCodeAndMessage(
                 UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,

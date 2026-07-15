@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
@@ -29,7 +28,7 @@ public sealed class UnityGuiEditorProcessLauncherTests
                 "-logFile",
                 "/repo/.ucli/logs/unity.log",
                 IpcGuiBootstrapArgumentNames.Target,
-                IpcGuiBootstrapTargetValues.Daemon,
+                "daemon",
                 IpcGuiBootstrapArgumentNames.OwnerProcessId,
                 "123",
                 IpcGuiBootstrapArgumentNames.CanShutdownProcess,

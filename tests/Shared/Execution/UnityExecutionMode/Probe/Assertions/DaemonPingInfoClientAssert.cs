@@ -63,8 +63,7 @@ internal static class DaemonPingInfoClientAssert
         RecordingDaemonPingInfoClient pingInfoClient,
         ResolvedUnityProjectContext expectedUnityProject,
         DaemonSession expectedSession,
-        int expectedCount,
-        CancellationToken expectedCancellationToken)
+        int expectedCount)
     {
         Assert.Equal(expectedCount, pingInfoClient.Invocations.Count);
         Assert.All(pingInfoClient.Invocations, invocation =>
@@ -72,7 +71,7 @@ internal static class DaemonPingInfoClientAssert
             Assert.Equal(expectedUnityProject, invocation.UnityProject);
             Assert.Equal(expectedSession, invocation.Session);
             Assert.Equal(expectedSession.SessionToken.GetEncodedValue(), invocation.SessionToken);
-            Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
+            Assert.True(invocation.CancellationToken.CanBeCanceled);
         });
     }
 

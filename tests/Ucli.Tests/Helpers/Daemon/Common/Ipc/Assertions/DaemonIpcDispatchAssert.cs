@@ -9,7 +9,7 @@ internal static class DaemonIpcDispatchAssert
         Assert.Empty(transportClient.Requests);
     }
 
-    public static IpcRequest SingleDispatchSentToEndpoint (
+    public static IpcRequestEnvelope SingleDispatchSentToEndpoint (
         RecordingIpcTransportClient transportClient,
         string expectedEndpointAddress,
         UnityIpcMethod expectedMethod,
@@ -20,7 +20,7 @@ internal static class DaemonIpcDispatchAssert
         return SingleDispatchSent(transportClient, expectedMethod, expectedSessionToken);
     }
 
-    public static IpcRequest SingleDispatchSentToEndpointWithTimeout (
+    public static IpcRequestEnvelope SingleDispatchSentToEndpointWithTimeout (
         RecordingIpcTransportClient transportClient,
         string expectedEndpointAddress,
         UnityIpcMethod expectedMethod,
@@ -36,7 +36,7 @@ internal static class DaemonIpcDispatchAssert
         return request;
     }
 
-    public static IpcRequest SingleDispatchSent (
+    public static IpcRequestEnvelope SingleDispatchSent (
         RecordingIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod,
         string expectedSessionToken)
@@ -46,7 +46,7 @@ internal static class DaemonIpcDispatchAssert
         return request;
     }
 
-    public static IpcRequest SingleDispatchPreservedCallerTimeoutBudget (
+    public static IpcRequestEnvelope SingleDispatchPreservedCallerTimeoutBudget (
         RecordingIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod,
         string expectedSessionToken,
@@ -60,7 +60,7 @@ internal static class DaemonIpcDispatchAssert
         return request;
     }
 
-    public static IpcRequest SingleStreamingDispatchSent (
+    public static IpcRequestEnvelope SingleStreamingDispatchSent (
         RecordingIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod,
         string expectedSessionToken)
@@ -73,7 +73,7 @@ internal static class DaemonIpcDispatchAssert
         return request;
     }
 
-    public static IpcRequest SingleDispatchAttempted (
+    public static IpcRequestEnvelope SingleDispatchAttempted (
         RecordingIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod)
     {
@@ -82,7 +82,7 @@ internal static class DaemonIpcDispatchAssert
         return request;
     }
 
-    public static IpcRequest SingleStreamingDispatchAttempted (
+    public static IpcRequestEnvelope SingleStreamingDispatchAttempted (
         RecordingIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod)
     {
@@ -93,7 +93,7 @@ internal static class DaemonIpcDispatchAssert
         return request;
     }
 
-    public static IReadOnlyList<IpcRequest> RecoveredDispatchesWithReloadedSessionToken (
+    public static IReadOnlyList<IpcRequestEnvelope> RecoveredDispatchesWithReloadedSessionToken (
         RecordingIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod,
         string firstSessionToken,
@@ -104,26 +104,7 @@ internal static class DaemonIpcDispatchAssert
         return requests;
     }
 
-    public static Guid RecoverableDispatchRetriedWithReloadedSessionTokenAndAttemptTimeout (
-        RecordingIpcTransportClient transportClient,
-        UnityIpcMethod expectedMethod,
-        string firstSessionToken,
-        string recoveredSessionToken,
-        TimeSpan expectedAttemptTimeout)
-    {
-        var requests = RecoveredDispatchesWithReloadedSessionToken(
-            transportClient,
-            expectedMethod,
-            firstSessionToken,
-            recoveredSessionToken);
-        Assert.Collection(
-            transportClient.Timeouts,
-            timeout => Assert.Equal(expectedAttemptTimeout, timeout),
-            timeout => Assert.Equal(expectedAttemptTimeout, timeout));
-        return IpcRequestAssert.SingleRequestId(requests);
-    }
-
-    public static IReadOnlyList<IpcRequest> RecoveredStreamingDispatchesWithReloadedSessionToken (
+    public static IReadOnlyList<IpcRequestEnvelope> RecoveredStreamingDispatchesWithReloadedSessionToken (
         RecordingIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod,
         string firstSessionToken,
@@ -138,7 +119,7 @@ internal static class DaemonIpcDispatchAssert
         return requests;
     }
 
-    public static IReadOnlyList<IpcRequest> RetriedDispatchesWithSameRequestId (
+    public static IReadOnlyList<IpcRequestEnvelope> RetriedDispatchesWithSameRequestId (
         RecordingIpcTransportClient transportClient,
         UnityIpcMethod expectedMethod,
         int maximumAttempts = int.MaxValue)

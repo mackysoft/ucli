@@ -38,11 +38,11 @@ internal sealed class RecordingUnityIpcClient : IUnityIpcClient
     public ValueTask<UnityRequestExecutionResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var invocation = new Invocation(unityProject, dispatchRequest, timeout, cancellationToken);
+        var invocation = new Invocation(unityProject, dispatchRequest, deadline, cancellationToken);
         invocations.Add(invocation);
         return ValueTask.FromResult(DequeueResult());
     }
@@ -50,13 +50,13 @@ internal sealed class RecordingUnityIpcClient : IUnityIpcClient
     public ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(onProgressFrame);
         cancellationToken.ThrowIfCancellationRequested();
-        var invocation = new Invocation(unityProject, dispatchRequest, timeout, cancellationToken);
+        var invocation = new Invocation(unityProject, dispatchRequest, deadline, cancellationToken);
         invocations.Add(invocation);
         streamingInvocations.Add(invocation);
         return ValueTask.FromResult(DequeueResult());
@@ -75,6 +75,6 @@ internal sealed class RecordingUnityIpcClient : IUnityIpcClient
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         UnityIpcDispatchRequest DispatchRequest,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
         CancellationToken CancellationToken);
 }

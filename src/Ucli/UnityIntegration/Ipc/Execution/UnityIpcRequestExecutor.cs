@@ -1,8 +1,10 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 
@@ -32,13 +34,13 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
         UnityIpcExecutionTargetResolver targetResolver,
         UnityIpcClientSelector clientSelector,
         UnityDaemonReadinessGate daemonReadinessGate,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.requestBuilder = requestBuilder ?? throw new ArgumentNullException(nameof(requestBuilder));
         this.targetResolver = targetResolver ?? throw new ArgumentNullException(nameof(targetResolver));
         this.clientSelector = clientSelector ?? throw new ArgumentNullException(nameof(clientSelector));
         this.daemonReadinessGate = daemonReadinessGate ?? throw new ArgumentNullException(nameof(daemonReadinessGate));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -53,11 +55,11 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
     {
         ValidateExecutionInputs(command, timeout, config, unityProject, payload, cancellationToken);
         var dispatchRequest = requestBuilder.Build(payload);
-        var budget = UnityIpcExecutionBudget.Start(timeout, timeProvider);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var targetResolution = await targetResolver.ResolveAsync(
                 mode,
                 unityProject,
-                budget,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!targetResolution.IsSuccess)
@@ -73,13 +75,13 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
                     unityProject,
                     dispatchRequest,
                     opsReadRequest!,
-                    budget,
+                    deadline,
                     unityIpcClient,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
-        if (!budget.TryGetRemainingTimeout(out var requestTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.Timeout(
                 "Timed out before Unity IPC request dispatch could begin."));
@@ -88,7 +90,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
         return await unityIpcClient.SendAsync(
                 unityProject,
                 dispatchRequest,
-                requestTimeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -107,18 +109,18 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
         ArgumentNullException.ThrowIfNull(onProgressFrame);
         ValidateExecutionInputs(command, timeout, config, unityProject, payload, cancellationToken);
 
-        var dispatchRequest = requestBuilder.Build(payload).WithResponseMode(IpcResponseMode.Stream);
-        if (dispatchRequest.IsRecoverable)
+        var dispatchRequest = requestBuilder.Build(payload);
+        if (!UnityIpcMethodCapabilities.SupportsStreaming(dispatchRequest.Method))
         {
             return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
-                $"Streaming IPC dispatch does not support recoverable request replay: {dispatchRequest.Method}."));
+                $"IPC method does not support streaming: {ContractLiteralCodec.ToValue(dispatchRequest.Method)}."));
         }
 
-        var budget = UnityIpcExecutionBudget.Start(timeout, timeProvider);
+        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var targetResolution = await targetResolver.ResolveAsync(
                 mode,
                 unityProject,
-                budget,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!targetResolution.IsSuccess)
@@ -126,7 +128,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
             return UnityRequestExecutionResult.Failure(targetResolution.Failure!);
         }
 
-        if (!budget.TryGetRemainingTimeout(out var requestTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.Timeout(
                 "Timed out before Unity IPC request dispatch could begin."));
@@ -136,7 +138,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
         return await unityIpcClient.SendStreamingAsync(
                 unityProject,
                 dispatchRequest,
-                requestTimeout,
+                deadline,
                 (frame, progressCancellationToken) => onProgressFrame(
                     new UnityRequestProgressFrame(frame.Event!, frame.Payload),
                     progressCancellationToken),
@@ -152,11 +154,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
         UnityRequestPayload payload,
         CancellationToken cancellationToken)
     {
-        if (!command.IsValid)
-        {
-            throw new ArgumentException("Command name is invalid.", nameof(command));
-        }
-
+        ArgumentNullException.ThrowIfNull(command);
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(payload);
