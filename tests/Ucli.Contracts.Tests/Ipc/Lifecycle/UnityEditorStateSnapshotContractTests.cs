@@ -112,19 +112,25 @@ public sealed class UnityEditorStateSnapshotContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UnityEditorObservationConstructor_WhenObservedAtUtcIsDefault_ThrowsArgumentOutOfRangeException ()
+    public void UnityEditorObservationConstructor_WhenObservedAtUtcIsNotCanonicalUtc_ThrowsArgumentException ()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        foreach (var invalidTimestamp in new[]
+                 {
+                     default,
+                     new DateTimeOffset(2026, 7, 15, 9, 0, 0, TimeSpan.FromHours(9)),
+                 })
         {
-            _ = new IpcUnityEditorObservation(
+            var exception = Assert.Throws<ArgumentException>(() => new IpcUnityEditorObservation(
                 "server",
                 "unity",
                 ProjectFingerprint,
                 CreateState(),
-                default,
+                invalidTimestamp,
                 actionRequired: null,
-                primaryDiagnostic: null);
-        });
+                primaryDiagnostic: null));
+
+            Assert.Equal("observedAtUtc", exception.ParamName);
+        }
     }
 
     [Theory]

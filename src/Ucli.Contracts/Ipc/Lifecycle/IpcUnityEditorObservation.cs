@@ -15,9 +15,9 @@ public sealed record IpcUnityEditorObservation
     /// <param name="observedAtUtc"> The non-default observation timestamp. </param>
     /// <param name="actionRequired"> The optional action required to resolve the lifecycle blocker. </param>
     /// <param name="primaryDiagnostic"> The optional primary lifecycle diagnostic. </param>
-    /// <exception cref="ArgumentException"> Thrown when a required version has no content. </exception>
+    /// <exception cref="ArgumentException"> Thrown when a required version has no content or <paramref name="observedAtUtc" /> is not a non-default UTC timestamp. </exception>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> or <paramref name="state" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="observedAtUtc" /> is the default value or <paramref name="actionRequired" /> is undefined. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="actionRequired" /> is undefined. </exception>
     [JsonConstructor]
     public IpcUnityEditorObservation (
         string serverVersion,
@@ -38,14 +38,6 @@ public sealed record IpcUnityEditorObservation
             throw new ArgumentException("Unity version must not be empty.", nameof(unityVersion));
         }
 
-        if (observedAtUtc == default)
-        {
-            throw new ArgumentOutOfRangeException(
-                nameof(observedAtUtc),
-                observedAtUtc,
-                "Observation timestamp must be specified.");
-        }
-
         if (actionRequired.HasValue && !ContractLiteralCodec.IsDefined(actionRequired.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(actionRequired), actionRequired, "Unsupported daemon diagnosis action.");
@@ -55,7 +47,7 @@ public sealed record IpcUnityEditorObservation
         UnityVersion = unityVersion;
         ProjectFingerprint = ContractArgumentGuard.RequireNotNull(projectFingerprint, nameof(projectFingerprint));
         State = state ?? throw new ArgumentNullException(nameof(state));
-        ObservedAtUtc = observedAtUtc;
+        ObservedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(observedAtUtc, nameof(observedAtUtc));
         ActionRequired = actionRequired;
         PrimaryDiagnostic = primaryDiagnostic;
     }

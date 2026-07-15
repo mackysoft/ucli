@@ -159,6 +159,19 @@ public sealed class RunIdInvariantTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void ArtifactsSession_WhenStartedAtUtcIsNotCanonicalUtc_ThrowsArgumentException ()
+    {
+        var paths = new ArtifactPaths("artifacts", "meta", "xml", "log", "results", "summary");
+        var exception = Assert.Throws<ArgumentException>(() => new ArtifactsSession(
+            Guid.NewGuid(),
+            paths,
+            new DateTimeOffset(2026, 7, 15, 9, 0, 0, TimeSpan.FromHours(9))));
+
+        Assert.Equal("startedAtUtc", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TestRunServiceResult_WhenRunIdIsEmpty_ThrowsArgumentException ()
     {
         var exception = Assert.Throws<ArgumentException>(() => TestRunServiceResult.Pass(

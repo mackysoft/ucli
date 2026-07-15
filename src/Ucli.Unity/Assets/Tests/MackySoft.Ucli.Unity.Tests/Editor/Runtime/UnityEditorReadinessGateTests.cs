@@ -94,11 +94,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void UnityEditorObservationConstructor_WhenObservedAtUtcIsDefault_ThrowsArgumentOutOfRangeException ()
+        public void UnityEditorObservationConstructor_WhenObservedAtUtcIsNotCanonicalUtc_ThrowsArgumentException ()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
+            var invalidTimestamps = new[]
             {
-                _ = new UnityEditorObservation(
+                default(DateTimeOffset),
+                new DateTimeOffset(2026, 7, 15, 9, 0, 0, TimeSpan.FromHours(9)),
+            };
+            foreach (var invalidTimestamp in invalidTimestamps)
+            {
+                var exception = Assert.Throws<ArgumentException>(() => new UnityEditorObservation(
                     new UnityEditorStateSnapshot(
                         editorMode: DaemonEditorMode.Batchmode,
                         lifecycleState: IpcEditorLifecycleState.Ready,
@@ -109,8 +114,10 @@ namespace MackySoft.Ucli.Unity.Tests
                             Transition: IpcPlayModeTransition.None,
                             IsPlaying: false,
                             IsPlayingOrWillChangePlaymode: false)),
-                    default);
-            });
+                    invalidTimestamp));
+
+                Assert.That(exception.ParamName, Is.EqualTo("observedAtUtc"));
+            }
         }
 
         [TestCase(IpcEditorLifecycleState.Starting, true)]

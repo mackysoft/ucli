@@ -21,7 +21,7 @@ internal sealed record ArtifactsSession
 
         RunId = runId;
         Paths = paths ?? throw new ArgumentNullException(nameof(paths));
-        StartedAtUtc = startedAtUtc;
+        StartedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(startedAtUtc, nameof(startedAtUtc));
     }
 
     /// <summary> Gets the non-empty test run identifier. </summary>

@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
@@ -13,16 +14,8 @@ namespace MackySoft.Ucli.Unity.Runtime
             DateTimeOffset observedAtUtc,
             IpcPrimaryDiagnostic primaryDiagnostic = null)
         {
-            if (observedAtUtc == default)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(observedAtUtc),
-                    observedAtUtc,
-                    "Observation timestamp must be specified.");
-            }
-
             State = state ?? throw new ArgumentNullException(nameof(state));
-            ObservedAtUtc = observedAtUtc;
+            ObservedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(observedAtUtc, nameof(observedAtUtc));
             PrimaryDiagnostic = primaryDiagnostic;
         }
 
