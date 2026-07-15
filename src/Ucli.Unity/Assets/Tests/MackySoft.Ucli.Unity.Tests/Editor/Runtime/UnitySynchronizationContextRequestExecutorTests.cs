@@ -505,8 +505,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 return Task.FromResult(1);
             });
 
-            await TestAwaiter.WaitAsync(
-                UniTask.WaitUntil(() => executor.IsQuarantined),
+            await TestAwaiter.WaitUntilAsync(
+                () => executor.IsQuarantined,
                 "Automatic quarantine for an unfinished mutation",
                 AsyncWaitTimeout);
 

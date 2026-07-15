@@ -79,8 +79,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     executeRequestDispatcher.CancellationObserved,
                     "Disconnected Execute request cancellation",
                     SignalWaitTimeout);
-                await TestAwaiter.WaitAsync(
-                    UniTask.WaitUntil(() => mutationExecutor.IsQuarantined),
+                await TestAwaiter.WaitUntilAsync(
+                    () => mutationExecutor.IsQuarantined,
                     "Mutation-lane quarantine after Execute disconnect",
                     SignalWaitTimeout);
 

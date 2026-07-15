@@ -332,8 +332,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(serviceProvider.DisposeCallCount, Is.Zero);
 
                 mutationLane.CompleteRetirement();
-                await TestAwaiter.WaitAsync(
-                    UniTask.WaitUntil(() => serviceProvider.DisposeCallCount == 1),
+                await TestAwaiter.WaitUntilAsync(
+                    () => serviceProvider.DisposeCallCount == 1,
                     "Deferred failed-start resource release",
                     TimeSpan.FromSeconds(5));
                 Assert.That(logCapture.DisposeCallCount, Is.EqualTo(1));
@@ -380,8 +380,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(serviceProvider.DisposeCallCount, Is.Zero);
 
                 controlPlaneLifetime.CompleteRetirement();
-                await TestAwaiter.WaitAsync(
-                    UniTask.WaitUntil(() => serviceProvider.DisposeCallCount == 1),
+                await TestAwaiter.WaitUntilAsync(
+                    () => serviceProvider.DisposeCallCount == 1,
                     "Deferred failed-start control-plane resource release",
                     TimeSpan.FromSeconds(5));
                 Assert.That(logCapture.DisposeCallCount, Is.EqualTo(1));
@@ -475,8 +475,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     oldStopTask,
                     "Old sidecar writer retirement",
                     TimeSpan.FromSeconds(5));
-                await TestAwaiter.WaitAsync(
-                    UniTask.WaitUntil(() => stoppingStateField.GetValue(null) == null),
+                await TestAwaiter.WaitUntilAsync(
+                    () => stoppingStateField.GetValue(null) == null,
                     "Old GUI generation fence release",
                     TimeSpan.FromSeconds(5));
 
@@ -625,8 +625,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(stoppedSafely, Is.True);
             Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
-            await TestAwaiter.WaitAsync(
-                UniTask.WaitUntil(() => persistence.DeleteCount == 3),
+            await TestAwaiter.WaitUntilAsync(
+                () => persistence.DeleteCount == 3,
                 "Owned sidecar invalidation retries",
                 TimeSpan.FromSeconds(5));
         });
