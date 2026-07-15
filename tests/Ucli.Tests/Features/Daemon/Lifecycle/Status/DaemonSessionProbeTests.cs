@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 

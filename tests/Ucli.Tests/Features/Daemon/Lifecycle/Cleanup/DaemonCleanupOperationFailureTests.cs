@@ -1,5 +1,3 @@
-using MackySoft.Tests;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -64,7 +62,7 @@ public sealed class DaemonCleanupOperationFailureTests
         var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-lock-timeout")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(DaemonCleanupStatus.Failed, result.Status);
+        Assert.Null(result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
         Assert.Contains("lifecycle lock", error.Message, StringComparison.OrdinalIgnoreCase);

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 namespace MackySoft.Ucli.TestSupport;
@@ -40,13 +39,20 @@ internal sealed class RecordingDaemonGuiSessionRegistrationAwaiter : IDaemonGuiS
     public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DateTimeOffset? expectedProcessStartedAtUtc = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        _ = deadline.TryGetRemainingTimeout(out var remainingTimeout);
 
-        invocations.Add(new Invocation(unityProject, expectedProcessId, timeout, expectedProcessStartedAtUtc, cancellationToken));
+        invocations.Add(new Invocation(
+            unityProject,
+            expectedProcessId,
+            deadline,
+            remainingTimeout,
+            expectedProcessStartedAtUtc,
+            cancellationToken));
         OnWaitForSession?.Invoke();
         onWait?.Invoke(invocations.Count);
         return ValueTask.FromResult(Results.Count > 0 ? Results.Dequeue() : Result);
@@ -60,7 +66,8 @@ internal sealed class RecordingDaemonGuiSessionRegistrationAwaiter : IDaemonGuiS
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         int ExpectedProcessId,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
+        TimeSpan RemainingTimeout,
         DateTimeOffset? ExpectedProcessStartedAtUtc,
         CancellationToken CancellationToken);
 }

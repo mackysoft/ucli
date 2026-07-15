@@ -17,16 +17,20 @@ internal sealed class DaemonStartCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
+    private readonly CliStreamEntryWriterFactory streamEntryWriterFactory;
+
     /// <summary> Initializes a new instance of the DaemonStartCommand class. </summary>
     /// <param name="daemonStartService"> The daemon-start service dependency. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
     /// <exception cref="ArgumentNullException"> Thrown when daemonStartService is null. </exception>
     public DaemonStartCommand (
         IDaemonStartService daemonStartService,
-        ICommandResultWriter commandResultWriter)
+        ICommandResultWriter commandResultWriter,
+        CliStreamEntryWriterFactory streamEntryWriterFactory)
     {
         this.daemonStartService = daemonStartService ?? throw new ArgumentNullException(nameof(daemonStartService));
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
+        this.streamEntryWriterFactory = streamEntryWriterFactory ?? throw new ArgumentNullException(nameof(streamEntryWriterFactory));
     }
 
     /// <summary> Executes the daemon start command and emits the JSON result contract. </summary>
@@ -91,7 +95,7 @@ internal sealed class DaemonStartCommand
 
         var progressSink = new CliCommandProgressSink(
             formatResult.Format,
-            new CliStreamEntryWriter(UcliCommandNames.DaemonStart),
+            streamEntryWriterFactory.Create(UcliCommandNames.DaemonStart),
             new DaemonStartProgressTextProjector());
 
         var executionResult = await daemonStartService.StartAsync(
@@ -123,7 +127,7 @@ internal sealed class DaemonStartCommand
                 message: "uCLI daemon start completed.",
                 payload: new
                 {
-                    startStatus = DaemonCommandOutputProjector.ToStartStatus(output.StartStatus),
+                    startStatus = ContractLiteralCodec.ToValue(output.StartStatus),
                     daemonStatus = ContractLiteralCodec.ToValue(output.DaemonStatus),
                     lifecycleState = output.LifecycleState,
                     blockingReason = output.BlockingReason,

@@ -15,6 +15,10 @@ internal sealed class RecordingDaemonLaunchSessionService : IDaemonLaunchSession
 
     public DaemonLaunchSessionWriteResult? UpdateProcessIdResult { get; set; }
 
+    public Func<ResolvedUnityProjectContext, DaemonEditorMode, CancellationToken, ValueTask<DaemonLaunchSessionWriteResult>>? InitializeHandler { get; set; }
+
+    public Func<ResolvedUnityProjectContext, DaemonSession, int?, DateTimeOffset?, CancellationToken, ValueTask<DaemonLaunchSessionWriteResult>>? UpdateProcessIdHandler { get; set; }
+
     public IReadOnlyList<InitializeInvocation> InitializeInvocations => initializeInvocations;
 
     public IReadOnlyList<UpdateProcessIdInvocation> UpdateProcessIdInvocations => updateProcessIdInvocations;
@@ -25,6 +29,11 @@ internal sealed class RecordingDaemonLaunchSessionService : IDaemonLaunchSession
         CancellationToken cancellationToken = default)
     {
         initializeInvocations.Add(new InitializeInvocation(unityProject, editorMode, cancellationToken));
+        if (InitializeHandler is not null)
+        {
+            return InitializeHandler(unityProject, editorMode, cancellationToken);
+        }
+
         return ValueTask.FromResult(InitializeResult);
     }
 
@@ -36,6 +45,16 @@ internal sealed class RecordingDaemonLaunchSessionService : IDaemonLaunchSession
         CancellationToken cancellationToken = default)
     {
         updateProcessIdInvocations.Add(new UpdateProcessIdInvocation(unityProject, session, processId, processStartedAtUtc, cancellationToken));
+        if (UpdateProcessIdHandler is not null)
+        {
+            return UpdateProcessIdHandler(
+                unityProject,
+                session,
+                processId,
+                processStartedAtUtc,
+                cancellationToken);
+        }
+
         if (UpdateProcessIdResult is not null)
         {
             return ValueTask.FromResult(UpdateProcessIdResult);
@@ -43,6 +62,7 @@ internal sealed class RecordingDaemonLaunchSessionService : IDaemonLaunchSession
 
         var updatedSession = processId is int pid
             ? new DaemonSession(
+                session.SessionGenerationId,
                 session.SessionToken,
                 session.ProjectFingerprint,
                 session.IssuedAtUtc,

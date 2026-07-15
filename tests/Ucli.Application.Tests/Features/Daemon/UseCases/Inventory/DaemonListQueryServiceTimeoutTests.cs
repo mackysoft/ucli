@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;

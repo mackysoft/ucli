@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
@@ -105,11 +104,11 @@ public sealed class DaemonCommandExecutionContextResolverTests
                 projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"))));
         var resolver = new DaemonCommandExecutionContextResolver(initStatusContextResolver);
 
-        await Assert.ThrowsAsync<ArgumentException>(async () =>
+        await Assert.ThrowsAsync<ArgumentNullException>(async () =>
         {
             await TestAwaiter.WaitAsync(
                 resolver.ResolveAsync(
-                    timeoutCommand: default,
+                    timeoutCommand: null!,
                     projectPath: null,
                     timeoutMilliseconds: null,
                     cancellationToken: CancellationToken.None).AsTask(),

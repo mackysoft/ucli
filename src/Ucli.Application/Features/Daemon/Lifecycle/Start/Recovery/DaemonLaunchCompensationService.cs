@@ -68,14 +68,14 @@ internal sealed class DaemonLaunchCompensationService : IDaemonLaunchCompensatio
 
         try
         {
-            if (!deadline.TryGetRemainingTimeout(out var stopTimeout))
+            if (!deadline.TryGetRemainingTimeout(out _))
             {
                 return CreateTimeoutFailure();
             }
 
             var stopResult = await processTerminationService.EnsureStoppedAsync(
                     target,
-                    stopTimeout,
+                    deadline,
                     operationCancellationToken)
                 .ConfigureAwait(false);
             if (!stopResult.IsSuccess)

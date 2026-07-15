@@ -26,6 +26,7 @@ internal static class DaemonLaunchServiceBatchmodeReadinessFailureTestSupport
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var startedAtUtc = processStartedAtUtc ?? DefaultProcessStartedAtUtc;
+        var timeProvider = new ManualTimeProvider(startedAtUtc);
         var updatedSession = DaemonSessionTestFactory.Create(
             processId: processId,
             sessionToken: LaunchSessionToken,
@@ -56,6 +57,7 @@ internal static class DaemonLaunchServiceBatchmodeReadinessFailureTestSupport
             launcher,
             readinessProbe,
             resolvedCompensationService,
+            timeProvider,
             resolvedDiagnosisStore,
             launchAttemptStore: resolvedLaunchAttemptStore);
 
@@ -71,6 +73,7 @@ internal static class DaemonLaunchServiceBatchmodeReadinessFailureTestSupport
             resolvedCompensationService,
             resolvedDiagnosisStore,
             resolvedLaunchAttemptStore,
+            timeProvider,
             service);
     }
 
@@ -88,6 +91,7 @@ internal static class DaemonLaunchServiceBatchmodeReadinessFailureTestSupport
             RecordingDaemonLaunchCompensationService compensationService,
             RecordingDaemonDiagnosisStore diagnosisStore,
             RecordingDaemonLaunchAttemptStore launchAttemptStore,
+            TimeProvider timeProvider,
             DaemonLaunchService service)
         {
             Context = context;
@@ -101,6 +105,7 @@ internal static class DaemonLaunchServiceBatchmodeReadinessFailureTestSupport
             CompensationService = compensationService;
             DiagnosisStore = diagnosisStore;
             LaunchAttemptStore = launchAttemptStore;
+            TimeProvider = timeProvider;
             Service = service;
         }
 
@@ -126,13 +131,15 @@ internal static class DaemonLaunchServiceBatchmodeReadinessFailureTestSupport
 
         public RecordingDaemonLaunchAttemptStore LaunchAttemptStore { get; }
 
+        public TimeProvider TimeProvider { get; }
+
         public DaemonLaunchService Service { get; }
 
         public ValueTask<DaemonStartResult> LaunchAsync (CancellationToken cancellationToken = default)
         {
             return Service.LaunchAsync(
                 Context,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider),
                 DaemonEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: cancellationToken);

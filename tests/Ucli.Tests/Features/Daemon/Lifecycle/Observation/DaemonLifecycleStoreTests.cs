@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -11,6 +10,8 @@ namespace MackySoft.Ucli.Tests.Daemon;
 public sealed class DaemonLifecycleStoreTests
 {
     private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+    private static readonly Guid SidecarGenerationId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     [Fact]
     [Trait("Size", "Small")]
@@ -35,10 +36,12 @@ public sealed class DaemonLifecycleStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "invalid-action-required");
         var store = new DaemonLifecycleStore();
-        await WriteContractAsync(
+        var json = JsonNode.Parse(DaemonLifecycleJsonContractSerializer.Serialize(CreateContract()))!.AsObject();
+        json["actionRequired"] = "unknownAction";
+        await WriteRawJsonAsync(
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint-invalid"),
-            CreateContract(actionRequired: "unknownAction"));
+            json.ToJsonString());
 
         var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), CancellationToken.None);
 
@@ -54,16 +57,19 @@ public sealed class DaemonLifecycleStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "invalid-primary-diagnostic-kind");
         var store = new DaemonLifecycleStore();
-        await WriteContractAsync(
-            scope.FullPath,
-            ProjectFingerprintTestFactory.Create("fingerprint-invalid"),
-            CreateContract(primaryDiagnostic: new IpcPrimaryDiagnostic(
-                Kind: "unknownDiagnosticKind",
+        var contract = CreateContract(primaryDiagnostic: new IpcPrimaryDiagnostic(
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS1739",
                 File: "Assets/Foo.cs",
                 Line: 74,
                 Column: 17,
-                Message: "Missing parameter")));
+                Message: "Missing parameter"));
+        var json = JsonNode.Parse(DaemonLifecycleJsonContractSerializer.Serialize(contract))!.AsObject();
+        json["primaryDiagnostic"]!.AsObject()["kind"] = "unknownDiagnosticKind";
+        await WriteRawJsonAsync(
+            scope.FullPath,
+            ProjectFingerprintTestFactory.Create("fingerprint-invalid"),
+            json.ToJsonString());
 
         var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), CancellationToken.None);
 
@@ -83,7 +89,7 @@ public sealed class DaemonLifecycleStoreTests
             scope.FullPath,
             ProjectFingerprintTestFactory.Create("fingerprint-diagnostic"),
             CreateContract(primaryDiagnostic: new IpcPrimaryDiagnostic(
-                Kind: $" {DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler} ",
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: " CS1739 ",
                 File: " Assets/Foo.cs ",
                 Line: 74,
@@ -94,7 +100,7 @@ public sealed class DaemonLifecycleStoreTests
 
         Assert.True(readResult.IsSuccess);
         var diagnostic = Assert.IsType<IpcPrimaryDiagnostic>(readResult.Observation!.PrimaryDiagnostic);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, diagnostic.Kind);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, diagnostic.Kind);
         Assert.Equal("CS1739", diagnostic.Code);
         Assert.Equal("Assets/Foo.cs", diagnostic.File);
         Assert.Equal(74, diagnostic.Line);
@@ -163,12 +169,45 @@ public sealed class DaemonLifecycleStoreTests
         Assert.Equal(3, readResult.Observation.State.Generations.PlayModeGeneration);
     }
 
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Read_WhenLifecycleJsonContainsRecoveryLease_PreservesTypedLease ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "recovery-lease");
+        var store = new DaemonLifecycleStore();
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-recovery-lease");
+        var observedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero);
+        var recoveryLease = new DaemonLifecycleRecoveryLease(
+            Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            observedAtUtc + TimeSpan.FromMinutes(5));
+        var recoveringState = new UnityEditorStateSnapshot(
+            editorMode: DaemonEditorMode.Gui,
+            lifecycleState: IpcEditorLifecycleState.Recovering,
+            compileState: IpcCompileState.Ready,
+            generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
+            playMode: new IpcPlayModeSnapshot(
+                IpcPlayModeState.Stopped,
+                IpcPlayModeTransition.None,
+                IsPlaying: false,
+                IsPlayingOrWillChangePlaymode: false));
+        await WriteContractAsync(
+            scope.FullPath,
+            projectFingerprint,
+            CreateContract(state: recoveringState, recoveryLease: recoveryLease));
+
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+
+        Assert.True(readResult.IsSuccess);
+        Assert.Equal(recoveryLease, readResult.Observation!.RecoveryLease);
+    }
+
     private static DaemonLifecycleJsonContract CreateContract (
         UnityEditorStateSnapshot? state = null,
-        string? actionRequired = DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+        DaemonDiagnosisActionRequired? actionRequired = DaemonDiagnosisActionRequired.FixCompileErrors,
         IpcPrimaryDiagnostic? primaryDiagnostic = null,
         string? serverVersion = null,
-        Guid? editorInstanceId = null)
+        Guid? editorInstanceId = null,
+        DaemonLifecycleRecoveryLease? recoveryLease = null)
     {
         return new DaemonLifecycleJsonContract(
             processId: 1234,
@@ -186,8 +225,10 @@ public sealed class DaemonLifecycleStoreTests
             observedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
             actionRequired: actionRequired,
             primaryDiagnostic: primaryDiagnostic,
+            sidecarGenerationId: SidecarGenerationId,
             serverVersion: serverVersion,
-            editorInstanceId: editorInstanceId ?? EditorInstanceId);
+            editorInstanceId: editorInstanceId ?? EditorInstanceId,
+            recoveryLease: recoveryLease);
     }
 
     private static async Task WriteContractAsync (

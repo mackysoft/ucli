@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 
 /// <summary> Represents one daemon registration observation returned by <c>daemon list</c>. </summary>
@@ -49,6 +51,6 @@ internal sealed record DaemonListItemOutput (
     IpcUnityGenerationSnapshot? Generations,
     bool? CanAcceptExecutionRequests,
     DateTimeOffset? ObservedAtUtc,
-    string? ActionRequired,
+    DaemonDiagnosisActionRequired? ActionRequired,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic,
     DaemonDiagnosisOutput? Diagnosis);

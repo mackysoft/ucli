@@ -5,6 +5,8 @@ namespace MackySoft.Ucli.TestSupport;
 
 internal static class DaemonSessionTestFactory
 {
+    public static readonly Guid DefaultSessionGenerationId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
     public static readonly Guid DefaultEditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     public static DaemonSession Create (
@@ -19,9 +21,11 @@ internal static class DaemonSessionTestFactory
         string endpointAddress = "ucli-daemon-endpoint",
         DateTimeOffset? processStartedAtUtc = null,
         int? ownerProcessId = 9876,
-        Guid? editorInstanceId = null)
+        Guid? editorInstanceId = null,
+        Guid? sessionGenerationId = null)
     {
         return new DaemonSession(
+            sessionGenerationId ?? DefaultSessionGenerationId,
             IpcSessionTokenTestFactory.Create(sessionToken),
             projectFingerprint ?? ProjectFingerprintTestFactory.Create("fingerprint"),
             issuedAtUtc ?? new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),

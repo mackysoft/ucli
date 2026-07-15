@@ -1,8 +1,6 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -23,13 +21,12 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor()),
-            new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new DaemonCompensationOperationOwner());
 
         var result = await service.CleanupInvalidSessionArtifactsAsync(
             context,
             readResult,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -69,10 +66,13 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonInvalidSessionCleanupSafetyEvaluator(processIdentityAssessor),
-            new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new DaemonCompensationOperationOwner());
 
-        var result = await service.CleanupInvalidSessionArtifactsAsync(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupInvalidSessionArtifactsAsync(
+            context,
+            readResult,
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
@@ -112,10 +112,13 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonInvalidSessionCleanupSafetyEvaluator(processIdentityAssessor),
-            new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new DaemonCompensationOperationOwner());
 
-        var result = await service.CleanupInvalidSessionArtifactsAsync(context, readResult, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupInvalidSessionArtifactsAsync(
+            context,
+            readResult,
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         DaemonCleanupInvocationAssert.AssertSessionArtifactsInvalidatedWithoutProcessTermination(
@@ -144,10 +147,13 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor()),
-            new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new DaemonCompensationOperationOwner());
 
-        var result = await service.CleanupStaleSessionArtifactsAsync(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupStaleSessionArtifactsAsync(
+            context,
+            session,
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         DaemonCleanupInvocationAssert.AssertProcessTerminationAttemptedThenArtifactsInvalidated(
@@ -186,10 +192,13 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor()),
-            new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new DaemonCompensationOperationOwner());
 
-        var result = await service.CleanupStaleSessionArtifactsAsync(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupStaleSessionArtifactsAsync(
+            context,
+            session,
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         DaemonCleanupInvocationAssert.AssertSessionArtifactsInvalidatedWithoutProcessTermination(
@@ -221,10 +230,13 @@ public sealed class DaemonSessionCleanupServiceTests
             processTerminationService,
             artifactCleaner,
             new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor()),
-            new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new DaemonCompensationOperationOwner());
 
-        var result = await service.CleanupStaleSessionArtifactsAsync(context, session, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await service.CleanupStaleSessionArtifactsAsync(
+            context,
+            session,
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedError, result.Error);
@@ -272,8 +284,7 @@ public sealed class DaemonSessionCleanupServiceTests
             },
             artifactCleaner,
             new DaemonInvalidSessionCleanupSafetyEvaluator(new RecordingDaemonProcessIdentityAssessor()),
-            owner,
-            timeProvider);
+            owner);
         var cleanupTask = invalidSession
             ? service.CleanupInvalidSessionArtifactsAsync(
                     context,
@@ -282,13 +293,13 @@ public sealed class DaemonSessionCleanupServiceTests
                             context.ProjectFingerprint,
                             processId: session.ProcessId,
                             processStartedAtUtc: session.ProcessStartedAtUtc)),
-                    timeout,
+                    ExecutionDeadline.Start(timeout, timeProvider),
                     CancellationToken.None)
                 .AsTask()
             : service.CleanupStaleSessionArtifactsAsync(
                     context,
                     session,
-                    timeout,
+                    ExecutionDeadline.Start(timeout, timeProvider),
                     CancellationToken.None)
                 .AsTask();
 

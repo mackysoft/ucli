@@ -39,6 +39,7 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
 
         return ProbeCoreAsync(
             unityProject,
@@ -62,6 +63,7 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
         ArgumentNullException.ThrowIfNull(sessionToken);
 
         return ProbeCoreAsync(
@@ -125,9 +127,13 @@ internal sealed class DaemonCleanupReachabilityProbe : IDaemonCleanupReachabilit
         {
             return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.SessionAuthenticationRejected);
         }
-        catch (SocketException exception) when (DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(exception))
+        catch (IpcConnectException exception) when (DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(exception))
         {
             return DaemonCleanupReachabilityProbeResult.NotRunning();
+        }
+        catch (IpcConnectException)
+        {
+            return DaemonCleanupReachabilityProbeResult.Uncertain(DaemonCleanupReachabilityUncertainReason.TransportError);
         }
         catch (SocketException)
         {

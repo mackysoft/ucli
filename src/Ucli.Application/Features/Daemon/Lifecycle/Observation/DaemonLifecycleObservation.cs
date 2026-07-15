@@ -1,4 +1,6 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 
@@ -10,39 +12,47 @@ internal sealed record DaemonLifecycleObservation
         DateTimeOffset processStartedAtUtc,
         UnityEditorStateSnapshot state,
         DateTimeOffset observedAtUtc,
-        string? actionRequired,
+        DaemonDiagnosisActionRequired? actionRequired,
         IpcPrimaryDiagnostic? primaryDiagnostic,
         string? serverVersion,
-        Guid editorInstanceId)
+        Guid editorInstanceId,
+        DaemonLifecycleRecoveryLease? recoveryLease)
     {
         if (processId <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(processId), processId, "Process identifier must be positive.");
         }
 
-        if (processStartedAtUtc == default)
+        var validatedProcessStartedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(
+            processStartedAtUtc,
+            nameof(processStartedAtUtc));
+        var validatedState = state ?? throw new ArgumentNullException(nameof(state));
+        var validatedObservedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(observedAtUtc, nameof(observedAtUtc));
+        var validatedEditorInstanceId = ContractArgumentGuard.RequireNonEmptyGuid(editorInstanceId, nameof(editorInstanceId));
+
+        if (actionRequired.HasValue && !ContractLiteralCodec.IsDefined(actionRequired.Value))
         {
-            throw new ArgumentOutOfRangeException(nameof(processStartedAtUtc), processStartedAtUtc, "Process start timestamp must be specified.");
+            throw new ArgumentOutOfRangeException(nameof(actionRequired), actionRequired, "Unsupported daemon diagnosis action.");
         }
 
-        if (observedAtUtc == default)
+        if (recoveryLease is not null
+            && (validatedState.LifecycleState != IpcEditorLifecycleState.Recovering
+                || recoveryLease.ExpiresAtUtc <= validatedObservedAtUtc))
         {
-            throw new ArgumentOutOfRangeException(nameof(observedAtUtc), observedAtUtc, "Observation timestamp must be specified.");
-        }
-
-        if (editorInstanceId == Guid.Empty)
-        {
-            throw new ArgumentException("Editor instance identifier must not be empty.", nameof(editorInstanceId));
+            throw new ArgumentException(
+                "Recovery lease requires a recovering observation and an expiration after its observation timestamp.",
+                nameof(recoveryLease));
         }
 
         ProcessId = processId;
-        ProcessStartedAtUtc = processStartedAtUtc;
-        State = state ?? throw new ArgumentNullException(nameof(state));
-        ObservedAtUtc = observedAtUtc;
+        ProcessStartedAtUtc = validatedProcessStartedAtUtc;
+        State = validatedState;
+        ObservedAtUtc = validatedObservedAtUtc;
         ActionRequired = actionRequired;
         PrimaryDiagnostic = primaryDiagnostic;
         ServerVersion = serverVersion;
-        EditorInstanceId = editorInstanceId;
+        EditorInstanceId = validatedEditorInstanceId;
+        RecoveryLease = recoveryLease;
     }
 
     public int ProcessId { get; }
@@ -53,7 +63,7 @@ internal sealed record DaemonLifecycleObservation
 
     public DateTimeOffset ObservedAtUtc { get; }
 
-    public string? ActionRequired { get; }
+    public DaemonDiagnosisActionRequired? ActionRequired { get; }
 
     public IpcPrimaryDiagnostic? PrimaryDiagnostic { get; }
 
@@ -62,6 +72,9 @@ internal sealed record DaemonLifecycleObservation
 
     /// <summary> Gets the Unity Editor process instance identifier that survives domain reloads within the process. </summary>
     public Guid EditorInstanceId { get; }
+
+    /// <summary> Gets the bounded domain-reload recovery lease, when the observation was written before reload. </summary>
+    public DaemonLifecycleRecoveryLease? RecoveryLease { get; }
 
     /// <summary> Gets the blocking reason required by the observed lifecycle state. </summary>
     public IpcEditorBlockingReason? BlockingReason =>

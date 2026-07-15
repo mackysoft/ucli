@@ -134,7 +134,7 @@ internal sealed class DaemonStartProgressEmitter :
     /// <inheritdoc />
     public ValueTask EmitSessionRegisteredAsync (
         DaemonSession session,
-        string? launchAttemptId,
+        Guid? launchAttemptId,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -147,7 +147,7 @@ internal sealed class DaemonStartProgressEmitter :
     /// <inheritdoc />
     public ValueTask EmitEndpointRegisteredAsync (
         DaemonSession session,
-        string? launchAttemptId,
+        Guid? launchAttemptId,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -243,7 +243,7 @@ internal sealed class DaemonStartProgressEmitter :
 
     private static DaemonStartStartupProgressObservation CreateSessionObservation (
         DaemonSession session,
-        string? launchAttemptId)
+        Guid? launchAttemptId)
     {
         return new DaemonStartStartupProgressObservation(
             LaunchAttemptId: launchAttemptId,

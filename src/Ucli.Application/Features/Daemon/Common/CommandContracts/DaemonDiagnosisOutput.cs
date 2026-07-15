@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 
@@ -15,16 +16,84 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 /// <param name="StartupPhase"> The normalized startup phase associated with the diagnosis when available; otherwise <see langword="null" />. </param>
 /// <param name="ActionRequired"> The normalized user action required to resolve the diagnosis when available; otherwise <see langword="null" />. </param>
 /// <param name="PrimaryDiagnostic"> The primary machine-readable diagnostic associated with this diagnosis when available; otherwise <see langword="null" />. </param>
-internal sealed record DaemonDiagnosisOutput (
-    string Reason,
-    string Message,
-    string ReportedBy,
-    bool IsInferred,
-    DateTimeOffset UpdatedAtUtc,
-    int? ProcessId,
-    string? EditorInstancePath,
-    DateTimeOffset? ProcessStartedAtUtc = null,
-    string? UnityLogPath = null,
-    DaemonDiagnosisStartupPhase? StartupPhase = null,
-    string? ActionRequired = null,
-    DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null);
+internal sealed record DaemonDiagnosisOutput
+{
+    public DaemonDiagnosisOutput (
+        DaemonDiagnosisReason Reason,
+        string Message,
+        DaemonDiagnosisReportedBy ReportedBy,
+        bool IsInferred,
+        DateTimeOffset UpdatedAtUtc,
+        int? ProcessId,
+        string? EditorInstancePath,
+        DateTimeOffset? ProcessStartedAtUtc,
+        string? UnityLogPath,
+        DaemonDiagnosisStartupPhase? StartupPhase,
+        DaemonDiagnosisActionRequired? ActionRequired,
+        DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic)
+    {
+        if (!ContractLiteralCodec.IsDefined(Reason))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Reason), Reason, "Unsupported daemon diagnosis reason.");
+        }
+
+        ArgumentException.ThrowIfNullOrWhiteSpace(Message);
+
+        if (!ContractLiteralCodec.IsDefined(ReportedBy))
+        {
+            throw new ArgumentOutOfRangeException(nameof(ReportedBy), ReportedBy, "Unsupported daemon diagnosis reporter.");
+        }
+
+        if (UpdatedAtUtc == default)
+        {
+            throw new ArgumentOutOfRangeException(nameof(UpdatedAtUtc), UpdatedAtUtc, "Diagnosis update time must be specified.");
+        }
+
+        if (StartupPhase.HasValue && !ContractLiteralCodec.IsDefined(StartupPhase.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(StartupPhase), StartupPhase, "Unsupported daemon diagnosis startup phase.");
+        }
+
+        if (ActionRequired.HasValue && !ContractLiteralCodec.IsDefined(ActionRequired.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(ActionRequired), ActionRequired, "Unsupported daemon diagnosis action.");
+        }
+
+        this.Reason = Reason;
+        this.Message = Message;
+        this.ReportedBy = ReportedBy;
+        this.IsInferred = IsInferred;
+        this.UpdatedAtUtc = UpdatedAtUtc;
+        this.ProcessId = ProcessId;
+        this.EditorInstancePath = EditorInstancePath;
+        this.ProcessStartedAtUtc = ProcessStartedAtUtc;
+        this.UnityLogPath = UnityLogPath;
+        this.StartupPhase = StartupPhase;
+        this.ActionRequired = ActionRequired;
+        this.PrimaryDiagnostic = PrimaryDiagnostic;
+    }
+
+    public DaemonDiagnosisReason Reason { get; }
+
+    public string Message { get; }
+
+    public DaemonDiagnosisReportedBy ReportedBy { get; }
+
+    public bool IsInferred { get; }
+
+    public DateTimeOffset UpdatedAtUtc { get; }
+
+    public int? ProcessId { get; }
+
+    public string? EditorInstancePath { get; }
+
+    public DateTimeOffset? ProcessStartedAtUtc { get; }
+
+    public string? UnityLogPath { get; }
+
+    public DaemonDiagnosisStartupPhase? StartupPhase { get; }
+
+    public DaemonDiagnosisActionRequired? ActionRequired { get; }
+
+    public DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic { get; }
+}

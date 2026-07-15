@@ -33,7 +33,9 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
                     IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
-            observedAtUtc: DateTimeOffset.UnixEpoch);
+            observedAtUtc: DateTimeOffset.UnixEpoch,
+            actionRequired: null,
+            primaryDiagnostic: null);
         var daemonStatusOperation = new RecordingDaemonStatusOperation(
             DaemonStatusResult.Running(session, pingResponse, persistedDiagnosis));
         var service = CreateService(resolver, daemonStatusOperation);
@@ -81,9 +83,11 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
                     IpcPlayModeTransition.None,
                     IsPlaying: true,
                     IsPlayingOrWillChangePlaymode: true)),
-            observedAtUtc: DateTimeOffset.UnixEpoch);
+            observedAtUtc: DateTimeOffset.UnixEpoch,
+            actionRequired: null,
+            primaryDiagnostic: null);
         var daemonStatusOperation = new RecordingDaemonStatusOperation(
-            DaemonStatusResult.Running(session, pingResponse));
+            DaemonStatusResult.Running(session, pingResponse, diagnosis: null));
         var service = CreateService(resolver, daemonStatusOperation);
 
         var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);

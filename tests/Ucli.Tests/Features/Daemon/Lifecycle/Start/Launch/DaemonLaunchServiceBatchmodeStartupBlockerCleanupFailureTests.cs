@@ -46,7 +46,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
     public async Task Launch_WhenBatchmodeClassifiedBlockerCleanupFails_RecordsUnknownProcessAction ()
     {
         var primaryDiagnostic = new DaemonPrimaryDiagnostic(
-            Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+            Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
             Code: "CS1002",
             File: "Assets/Foo.cs",
             Line: 42,
@@ -72,9 +72,9 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerCleanupFailureTest
             processId: scenario.ProcessId,
             processStartedAtUtc: scenario.ProcessStartedAtUtc);
         Assert.NotNull(result.Diagnosis);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
         Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, result.Diagnosis.StartupPhase);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, result.Diagnosis.ActionRequired);
+        Assert.Equal(DaemonDiagnosisActionRequired.FixCompileErrors, result.Diagnosis.ActionRequired);
         Assert.Equal(primaryDiagnostic, result.Diagnosis.PrimaryDiagnostic);
         Assert.NotNull(result.Startup);
         Assert.Equal(DaemonStartupProcessAction.Unknown, result.Startup!.ProcessAction);

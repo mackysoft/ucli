@@ -5,12 +5,85 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
 using MackySoft.Ucli.Tests.Helpers.Unity;
 using static DaemonStartupReadinessProbeTestSupport;
 
 public sealed class DaemonStartupReadinessProbeTimeoutTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenPingIgnoresCancellation_ReturnsAtDeadlineAndRejectsLateSuccess ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pingCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pingCompletion = new TaskCompletionSource<IpcUnityEditorObservation>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pingFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pingClient = new RecordingDaemonPingInfoClient
+        {
+            PingAndReadHandler = async (_, _, _, _, cancellationToken) =>
+            {
+                _ = cancellationToken.UnsafeRegister(
+                    static state => ((TaskCompletionSource)state!).TrySetResult(),
+                    pingCancellationObserved);
+                pingStarted.TrySetResult();
+                try
+                {
+                    return await pingCompletion.Task.ConfigureAwait(false);
+                }
+                finally
+                {
+                    pingFinished.TrySetResult();
+                }
+            },
+        };
+        var probe = CreateProbe(
+            pingClient,
+            new UnexpectedUnityLogReader("A deadline-expired ping must not inspect the Unity log."));
+        var timeout = TimeSpan.FromMilliseconds(500);
+        var resultTask = probe.WaitUntilReadyAsync(
+                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
+                    ProjectFingerprintTestFactory.Create("fingerprint-readiness-non-cooperative-ping")),
+                ExecutionDeadline.Start(timeout, timeProvider),
+                cancellationToken: CancellationToken.None)
+            .AsTask();
+
+        try
+        {
+            await TestAwaiter.WaitAsync(pingStarted.Task, "Non-cooperative startup readiness ping", SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(
+                timeProvider.WaitForTimerDueWithinAsync(timeout),
+                "Startup readiness ping deadline timer",
+                SignalWaitTimeout);
+            timeProvider.Advance(timeout);
+
+            var result = await TestAwaiter.WaitAsync(
+                resultTask,
+                "Non-cooperative startup readiness ping deadline result",
+                SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(
+                pingCancellationObserved.Task,
+                "Non-cooperative startup readiness ping cancellation",
+                SignalWaitTimeout);
+
+            Assert.False(result.IsReady);
+            Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+
+            pingCompletion.TrySetResult(CreatePingPayload());
+            await TestAwaiter.WaitAsync(pingFinished.Task, "Late startup readiness ping completion", SignalWaitTimeout);
+            Assert.False((await resultTask).IsReady);
+        }
+        finally
+        {
+            pingCompletion.TrySetResult(CreatePingPayload());
+            await TestAwaiter.WaitAsync(pingFinished.Task, "Startup readiness ping cleanup", SignalWaitTimeout);
+        }
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenProjectLockPreflightIgnoresCancellation_ReturnsAtDeadline ()
@@ -27,15 +100,15 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
             },
         };
         var probe = CreateProbe(
-            new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused)),
+            new RecordingDaemonPingInfoClient(
+                IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused)),
             new UnexpectedUnityLogReader("A timed-out project-lock preflight must not read the Unity log."),
-            timeProvider: timeProvider,
             projectLockPreflightService: preflightService);
         var timeout = TimeSpan.FromSeconds(1);
 
         var resultTask = probe.WaitUntilReadyAsync(
                 ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-preflight-timeout")),
-                timeout,
+                ExecutionDeadline.Start(timeout, timeProvider),
                 cancellationToken: CancellationToken.None)
             .AsTask();
         await preflightStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -64,7 +137,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         var logReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var logReadCompletion = new TaskCompletionSource<UnityLogReadResult>(TaskCreationOptions.RunContinuationsAsynchronously);
         var pingClient = new RecordingDaemonPingInfoClient(
-            new SocketException((int)SocketError.ConnectionRefused));
+            IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused));
         var logReader = new RecordingUnityLogReader
         {
             ReadAsyncHandler = (_, _, _, _) =>
@@ -73,12 +146,12 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
                 return new ValueTask<UnityLogReadResult>(logReadCompletion.Task);
             },
         };
-        var probe = CreateProbe(pingClient, logReader, timeProvider: timeProvider);
+        var probe = CreateProbe(pingClient, logReader);
         var timeout = TimeSpan.FromSeconds(1);
 
         var resultTask = probe.WaitUntilReadyAsync(
                 ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-log-timeout")),
-                timeout,
+                ExecutionDeadline.Start(timeout, timeProvider),
                 cancellationToken: CancellationToken.None)
             .AsTask();
         await logReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -110,7 +183,8 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         var pingClient = new RecordingDaemonPingInfoClient
         {
             PingAndReadHandler = static (_, _, _, _, _) =>
-                ValueTask.FromException<IpcUnityEditorObservation>(new SocketException((int)SocketError.ConnectionRefused)),
+                ValueTask.FromException<IpcUnityEditorObservation>(
+                    IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused)),
         };
         var logReader = new RecordingUnityLogReader
         {
@@ -125,12 +199,12 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
             },
         };
         var timeProvider = new ManualTimeProvider();
-        var probe = CreateProbe(pingClient, logReader, timeProvider: timeProvider);
+        var probe = CreateProbe(pingClient, logReader);
         var timeout = TimeSpan.FromMilliseconds(20);
 
         var resultTask = probe.WaitUntilReadyAsync(
                 ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-timeout")),
-                timeout,
+                ExecutionDeadline.Start(timeout, timeProvider),
                 cancellationToken: CancellationToken.None)
             .AsTask();
         await pingClient.WaitForFirstInvocationAsync(
@@ -161,7 +235,7 @@ public sealed class DaemonStartupReadinessProbeTimeoutTests
         };
         var logReader = new UnexpectedUnityLogReader("Probe timeout should not inspect the Unity log.");
         var timeProvider = new ManualTimeProvider();
-        var probe = CreateProbe(pingClient, logReader, timeProvider: timeProvider);
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await WaitUntilStartupDeadlineAsync(
             probe,

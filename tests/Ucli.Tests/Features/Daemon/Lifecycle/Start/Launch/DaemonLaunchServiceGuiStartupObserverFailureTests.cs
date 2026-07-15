@@ -1,7 +1,5 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
@@ -17,6 +15,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-gui-wait-progress-cancel"));
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 11, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         const int processId = 7641;
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
@@ -43,6 +42,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             new RecordingUnityDaemonProcessLauncher(),
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             new RecordingDaemonDiagnosisStore(),
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver);
@@ -50,7 +50,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => service.LaunchAsync(
                     context,
-                    TimeSpan.FromMilliseconds(500),
+                    ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
                     DaemonEditorMode.Gui,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     progressObserver,
@@ -72,6 +72,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-gui-endpoint-progress-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 11, 0, 0, 2, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         const int processId = 7642;
         var registeredSession = DaemonSessionTestFactory.Create(
             processId,
@@ -105,6 +106,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             new RecordingUnityDaemonProcessLauncher(),
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             new RecordingDaemonDiagnosisStore(),
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver);
@@ -112,7 +114,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         var actualFailure = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.LaunchAsync(
                     context,
-                    TimeSpan.FromMilliseconds(500),
+                    ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
                     DaemonEditorMode.Gui,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     progressObserver,
@@ -134,6 +136,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-gui-progress-cleanup-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 11, 0, 0, 3, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         const int processId = 7643;
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
@@ -156,13 +159,14 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             new RecordingUnityDaemonProcessLauncher(),
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             new RecordingDaemonDiagnosisStore(),
             unityGuiEditorProcessLauncher: guiLauncher);
 
         var actualFailure = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.LaunchAsync(
                     context,
-                    TimeSpan.FromMilliseconds(500),
+                    ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
                     DaemonEditorMode.Gui,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     progressObserver,
@@ -183,6 +187,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-cancel"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(7654, processStartedAtUtc),
@@ -203,6 +208,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             new RecordingUnityDaemonProcessLauncher(),
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             new RecordingDaemonDiagnosisStore(),
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver,
@@ -211,7 +217,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(
             () => service.LaunchAsync(
                     context,
-                    TimeSpan.FromMilliseconds(500),
+                    ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
                     DaemonEditorMode.Gui,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     cancellationToken: cancellationTokenSource.Token)
@@ -228,11 +234,11 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenCanceledCleanupIgnoresDeadline_RethrowsAndBlocksSuccessorLaunchUntilCleanupQuiesces ()
     {
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 03, 12, 0, 0, 2, TimeSpan.Zero));
         var compensationOperationOwner = new DaemonCompensationOperationOwner();
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-owned-cancel"));
-        var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 2, TimeSpan.Zero);
+        var processStartedAtUtc = timeProvider.GetUtcNow();
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(7655, processStartedAtUtc),
@@ -263,15 +269,15 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             new RecordingUnityDaemonProcessLauncher(),
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             new RecordingDaemonDiagnosisStore(),
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver,
-            compensationOperationOwner: compensationOperationOwner,
-            timeProvider: timeProvider);
+            compensationOperationOwner: compensationOperationOwner);
 
         var canceledLaunchTask = service.LaunchAsync(
                 context,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
                 DaemonEditorMode.Gui,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: cancellationTokenSource.Token)
@@ -289,7 +295,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
 
         var successorLaunchTask = service.LaunchAsync(
                 context,
-                TimeSpan.FromMilliseconds(100),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), timeProvider),
                 DaemonEditorMode.Gui,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
@@ -322,6 +328,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-observer-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var startupError = ExecutionError.InternalError("observer failed");
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
@@ -338,6 +345,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
             new RecordingUnityDaemonProcessLauncher(),
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             new RecordingDaemonDiagnosisStore(),
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver,
@@ -345,7 +353,7 @@ public sealed class DaemonLaunchServiceGuiStartupObserverFailureTests
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

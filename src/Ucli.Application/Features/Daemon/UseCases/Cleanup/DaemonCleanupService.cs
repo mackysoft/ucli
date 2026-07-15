@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
 
@@ -54,12 +53,11 @@ internal sealed class DaemonCleanupService : IDaemonCleanupService
             .ConfigureAwait(false);
         if (!cleanupResult.IsSuccess)
         {
-            return DaemonCleanupExecutionResult.Failure(cleanupResult.Error ?? ExecutionError.InternalError(
-                "Daemon cleanup operation failed without structured error details."));
+            return DaemonCleanupExecutionResult.Failure(cleanupResult.Error);
         }
 
         var output = new DaemonCleanupExecutionOutput(
-            CleanupStatus: cleanupResult.Status,
+            CleanupStatus: cleanupResult.Status.Value,
             SkipReason: cleanupResult.SkipReason,
             DeletedLaunchAttemptCount: cleanupResult.DeletedLaunchAttemptCount,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds));

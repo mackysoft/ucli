@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
@@ -43,7 +42,7 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Auto,
             progressObserver,
@@ -104,7 +103,7 @@ public sealed class DaemonGuiEditorAttachServiceAttachTests
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Terminate,
             progressObserver,

@@ -155,6 +155,7 @@ public sealed class DaemonLifecycleObservationMatcherTests
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
-            editorInstanceId: editorInstanceId);
+            editorInstanceId: editorInstanceId,
+            recoveryLease: null);
     }
 }

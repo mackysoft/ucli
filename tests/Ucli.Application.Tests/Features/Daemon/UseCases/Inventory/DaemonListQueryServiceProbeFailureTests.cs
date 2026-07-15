@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
@@ -179,7 +178,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var session = CreateGuiSession(ProjectFingerprintTestFactory.Create("fp-current"), processId: 2101);
         var lifecycleStore = CreateRecoveringLifecycleStore(session, now);
-        var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc);
+        var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc!.Value);
         var service = CreateSingleWorktreeService(
             currentProject,
             DaemonSessionReadResultTestFactory.Found(session),
@@ -207,7 +206,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var session = CreateGuiSession(ProjectFingerprintTestFactory.Create("fp-current"), processId: 2201);
         var lifecycleStore = CreateRecoveringLifecycleStore(session, now);
-        var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc);
+        var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc!.Value);
         var service = CreateSingleWorktreeService(
             currentProject,
             DaemonSessionReadResultTestFactory.Found(session),
@@ -240,7 +239,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         var lifecycleStore = CreateRecoveringLifecycleStore(
             session,
             now - DaemonLifecycleObservationTimings.FreshnessWindow - TimeSpan.FromMilliseconds(1));
-        var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc);
+        var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(session.ProcessStartedAtUtc!.Value);
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var service = CreateSingleWorktreeService(
             currentProject,
@@ -259,7 +258,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         Assert.Equal(DaemonListItemState.Stale, item.State);
         Assert.Equal(DaemonListItemReason.StaleSession, item.Reason);
         AssertUnreachableLifecycle(item);
-        Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, item.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReason.ExternalTerminationSuspected, item.Diagnosis!.Reason);
         Assert.Empty(processIdentityAssessor.Invocations);
     }
 
@@ -272,7 +271,7 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-stale",
             processId: 2200);
-        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested);
+        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReason.ShutdownRequested);
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
             OnRead = (_, _) => DaemonDiagnosisReadResult.Success(diagnosis),
@@ -335,13 +334,13 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         Assert.Equal(DaemonListItemState.Stale, item.State);
         Assert.Equal(DaemonListItemReason.StaleSession, item.Reason);
         Assert.NotNull(item.Diagnosis);
-        Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, item.Diagnosis!.Reason);
-        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, item.Diagnosis.ReportedBy);
+        Assert.Equal(DaemonDiagnosisReason.ExternalTerminationSuspected, item.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReportedBy.Cli, item.Diagnosis.ReportedBy);
         Assert.True(item.Diagnosis.IsInferred);
         Assert.Equal(session.ProcessId, item.Diagnosis.ProcessId);
         DaemonDiagnosisStoreAssert.WrittenOnceWithReason(
             diagnosisStore,
-            DaemonDiagnosisReasonValues.ExternalTerminationSuspected);
+            DaemonDiagnosisReason.ExternalTerminationSuspected);
     }
 
     [Fact]
@@ -409,7 +408,8 @@ public sealed class DaemonListQueryServiceProbeFailureTests
                 primaryDiagnostic: null,
                 serverVersion: null,
                 editorInstanceId: session.EditorInstanceId
-                    ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)))),
+                    ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+                recoveryLease: null)),
         };
     }
 

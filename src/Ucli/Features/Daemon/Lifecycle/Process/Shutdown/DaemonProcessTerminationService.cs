@@ -16,33 +16,26 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
 
     private readonly DaemonProcessIdentityAssessor daemonProcessIdentityAssessor;
 
-    private readonly TimeProvider timeProvider;
-
     /// <summary> Initializes a new instance of the <see cref="DaemonProcessTerminationService" /> class. </summary>
     /// <param name="daemonProcessIdentityAssessor"> The daemon process-identity assessor dependency. </param>
-    /// <param name="timeProvider"> The time provider used for process termination deadlines. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-    public DaemonProcessTerminationService (
-        DaemonProcessIdentityAssessor daemonProcessIdentityAssessor,
-        TimeProvider timeProvider)
+    public DaemonProcessTerminationService (DaemonProcessIdentityAssessor daemonProcessIdentityAssessor)
     {
         this.daemonProcessIdentityAssessor = daemonProcessIdentityAssessor ?? throw new ArgumentNullException(nameof(daemonProcessIdentityAssessor));
-        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Ensures daemon process is stopped before timeout expires. </summary>
     /// <param name="target"> The daemon process termination target when available. </param>
-    /// <param name="timeout"> The process termination timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="deadline"> The deadline shared by the owning stop or cleanup workflow. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The process termination result. </returns>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
         DaemonProcessTerminationTarget? target,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
         if (target is null)
         {
@@ -84,7 +77,6 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
                     throw new ArgumentOutOfRangeException(nameof(identityAssessment), identityAssessment.Status, "Unsupported daemon process identity assessment status.");
             }
 
-            var deadline = ExecutionDeadline.Start(timeout, timeProvider);
             // NOTE: Stop may have already sent a shutdown IPC request; Unity needs a few seconds to
             // complete its own shutdown path and remove Temp/UnityLockfile before SIGTERM is used.
             if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
@@ -95,7 +87,12 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
 
             var passiveExitWaitTimeout = GetPassiveExitWaitTimeout(remainingTimeout);
             if (passiveExitWaitTimeout > TimeSpan.Zero
-                && await WaitUntilExitedAsync(process, passiveExitWaitTimeout, cancellationToken).ConfigureAwait(false))
+                && await WaitUntilExitedAsync(
+                        process,
+                        passiveExitWaitTimeout,
+                        deadline.Clock,
+                        cancellationToken)
+                    .ConfigureAwait(false))
             {
                 return DaemonSessionStoreOperationResult.Success();
             }
@@ -168,6 +165,7 @@ internal sealed class DaemonProcessTerminationService : IDaemonProcessTerminatio
     private async ValueTask<bool> WaitUntilExitedAsync (
         DiagnosticsProcess process,
         TimeSpan timeout,
+        TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Projection;
-using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 
@@ -68,38 +67,20 @@ internal sealed class DaemonStatusService : IDaemonStatusService
             .ConfigureAwait(false);
         if (!statusResult.IsSuccess)
         {
-            return DaemonStatusExecutionResult.Failure(statusResult.Error ?? ExecutionError.InternalError(
-                "Daemon status operation failed without structured error details."));
+            return DaemonStatusExecutionResult.Failure(statusResult.Error);
         }
 
-        if (!IsSupportedDaemonStatus(statusResult.Status))
-        {
-            return DaemonStatusExecutionResult.Failure(ExecutionError.InternalError(
-                $"Daemon status returned unsupported status: {statusResult.Status}."));
-        }
-
-        var daemonObservation = StatusDaemonObservationCodec.CreateWithoutPing(statusResult.Status);
-        var diagnosis = statusResult.Status == DaemonStatusKind.Running
+        var status = statusResult.Status.Value;
+        var daemonObservation = StatusDaemonObservationCodec.CreateWithoutPing(status);
+        var diagnosis = status == DaemonStatusKind.Running
             ? null
             : statusResult.Diagnosis;
 
-        if (statusResult.Status == DaemonStatusKind.Running)
+        if (status == DaemonStatusKind.Running)
         {
-            if (statusResult.Session is null)
-            {
-                return DaemonStatusExecutionResult.Failure(ExecutionError.InternalError(
-                    "Daemon status is running but daemon session is missing."));
-            }
-
-            if (statusResult.PingResponse is null)
-            {
-                return DaemonStatusExecutionResult.Failure(ExecutionError.InternalError(
-                    "Daemon status is running but daemon ping response is missing."));
-            }
-
             daemonObservation = StatusDaemonObservationCodec.CreateFromPing(
-                statusResult.Status,
-                statusResult.PingResponse);
+                status,
+                statusResult.PingResponse!);
         }
 
         var output = new DaemonStatusExecutionOutput(
@@ -145,10 +126,4 @@ internal sealed class DaemonStatusService : IDaemonStatusService
             Diagnosis: daemonDiagnosisOutputMapper.ToOutput(launchAttempt.Diagnosis));
     }
 
-    private static bool IsSupportedDaemonStatus (DaemonStatusKind status)
-    {
-        return status is DaemonStatusKind.Running
-            or DaemonStatusKind.NotRunning
-            or DaemonStatusKind.Stale;
-    }
 }

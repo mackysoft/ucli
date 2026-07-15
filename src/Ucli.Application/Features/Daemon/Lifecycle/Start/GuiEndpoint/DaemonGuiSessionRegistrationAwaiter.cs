@@ -12,35 +12,30 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
 
     private readonly IDaemonReachabilityClassifier reachabilityClassifier;
 
-    private readonly TimeProvider timeProvider;
-
     /// <summary> Initializes a new instance of the <see cref="DaemonGuiSessionRegistrationAwaiter" /> class. </summary>
     public DaemonGuiSessionRegistrationAwaiter (
         IDaemonSessionStore daemonSessionStore,
         IDaemonPingInfoClient daemonPingInfoClient,
-        IDaemonReachabilityClassifier reachabilityClassifier,
-        TimeProvider timeProvider)
+        IDaemonReachabilityClassifier reachabilityClassifier)
     {
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
-        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
     public async ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DateTimeOffset? expectedProcessStartedAtUtc = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(expectedProcessId, 0);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -97,7 +92,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                     $"Timed out while waiting for GUI daemon session registration. ProcessId={expectedProcessId}."));
             }
 
-            await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)
+            await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), deadline.Clock, cancellationToken)
                 .ConfigureAwait(false);
         }
     }
@@ -119,13 +114,27 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
             var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
                 ? remainingTimeout
                 : DaemonTimeouts.ProbeAttemptTimeoutCap;
-            var pingResponse = await daemonPingInfoClient.PingSessionAndReadAsync(
-                    unityProject,
-                    session,
-                    attemptTimeout,
-                    validateProjectFingerprint: false,
-                    cancellationToken: cancellationToken)
+            var attemptDeadline = remainingTimeout <= DaemonTimeouts.ProbeAttemptTimeoutCap
+                ? deadline
+                : deadline.CreateCappedDeadline(DaemonTimeouts.ProbeAttemptTimeoutCap);
+            var pingOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                    attemptDeadline,
+                    cancellationToken,
+                    $"Timed out before probing GUI daemon session. ProcessId={session.ProcessId}.",
+                    $"Timed out while probing GUI daemon session. ProcessId={session.ProcessId}.",
+                    token => daemonPingInfoClient.PingSessionAndReadAsync(
+                        unityProject,
+                        session,
+                        attemptTimeout,
+                        validateProjectFingerprint: false,
+                        cancellationToken: token))
                 .ConfigureAwait(false);
+            if (!pingOperation.IsSuccess)
+            {
+                return null;
+            }
+
+            var pingResponse = pingOperation.Value!;
             var lifecycleObservation = pingResponse;
 
             return pingResponse.ProjectFingerprint == unityProject.ProjectFingerprint

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
@@ -21,7 +20,7 @@ public sealed class DaemonStartCommandProgressTests
                 blockingReason: IpcEditorBlockingReason.Compile,
                 canAcceptExecutionRequests: false)),
             EmitSampleDaemonStartProgressAsync);
-        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.StartAsync(
@@ -69,7 +68,7 @@ public sealed class DaemonStartCommandProgressTests
                 blockingReason: IpcEditorBlockingReason.Compile,
                 canAcceptExecutionRequests: false)),
             EmitSampleSupervisorProgressAsync);
-        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.StartAsync(
@@ -138,7 +137,7 @@ public sealed class DaemonStartCommandProgressTests
                     blockingReason: IpcEditorBlockingReason.Compile,
                     canAcceptExecutionRequests: false)),
                 EmitSampleDaemonStartProgressAsync);
-            var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+            var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
             CommandExecutionState.Reset();
             var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.StartAsync(
@@ -162,7 +161,7 @@ public sealed class DaemonStartCommandProgressTests
         var service = new RecordingDaemonStartService(
             DaemonStartExecutionResult.Success(CreateSuccessOutput()),
             EmitUnknownStartedDaemonStartProgressAsync);
-        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.StartAsync(
@@ -185,7 +184,7 @@ public sealed class DaemonStartCommandProgressTests
                 blockingReason: IpcEditorBlockingReason.Compile,
                 canAcceptExecutionRequests: false)),
             EmitSampleSupervisorProgressAsync);
-        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.StartAsync(
@@ -196,13 +195,13 @@ public sealed class DaemonStartCommandProgressTests
         var lines = result.StdErr.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(4, lines.Length);
         Assert.Equal(
-            $"daemon start endpoint project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 startupStatus=waitingForEndpoint startupPhase=endpointRegistration waiting",
+            $"daemon start endpoint project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=01234567-89ab-cdef-0123-456789abcdef startupStatus=waitingForEndpoint startupPhase=endpointRegistration waiting",
             lines[0]);
         Assert.Equal(
-            $"daemon start blocker project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 startupStatus=blocked startupBlockingReason=compile startupPhase=endpointRegistration retryDisposition=retryAfterFix errorCode=DAEMON_STARTUP_BLOCKED detected",
+            $"daemon start blocker project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=01234567-89ab-cdef-0123-456789abcdef startupStatus=blocked startupBlockingReason=compile startupPhase=endpointRegistration retryDisposition=retryAfterFix errorCode=DAEMON_STARTUP_BLOCKED detected",
             lines[1]);
         Assert.Equal(
-            $"daemon start endpoint project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=attempt-1 registered",
+            $"daemon start endpoint project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode owner=cli canShutdownProcess=true pid=1234 launchAttempt=01234567-89ab-cdef-0123-456789abcdef registered",
             lines[2]);
         Assert.Equal(
             $"daemon start lifecycle project={expectedProjectFingerprint} timeoutMs=1234 editorMode=batchmode lifecycleState=compiling blockingReason=compile canAcceptExecutionRequests=false observed",

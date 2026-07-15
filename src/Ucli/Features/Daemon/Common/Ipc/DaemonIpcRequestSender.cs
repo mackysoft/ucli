@@ -1,4 +1,4 @@
-using System.Net.Sockets;
+using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
@@ -6,6 +6,8 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
+using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -40,21 +42,26 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
     /// <inheritdoc />
     public async ValueTask<DaemonIpcSendResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
-        Func<IpcSessionToken, IpcRequest> createRequest,
+        UnityIpcMethod method,
+        JsonElement payload,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentNullException.ThrowIfNull(createRequest);
+        if (!ContractLiteralCodec.IsDefined(method))
+        {
+            throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
+        }
+
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         ExecutionDeadline? endpointAbsenceRetryDeadline = null;
-        var sessionTokenRefreshAttempted = false;
+        ExecutionDeadline? sessionPublicationRetryDeadline = null;
         IpcSessionToken? rejectedSessionToken = null;
         IpcResponse? sessionTokenRejection = null;
-        IpcRequest? request = null;
+        var requestId = Guid.NewGuid();
 
         while (true)
         {
@@ -77,6 +84,29 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
             var sessionConnectionResult = sessionConnectionResolution.ConnectionResult!;
             if (!sessionConnectionResult.IsSuccess)
             {
+                if (rejectedSessionToken is not null
+                    && sessionConnectionResult.IsSessionNotAvailable)
+                {
+                    var publicationRetryDecision = await DelayForSessionPublicationAsync(
+                            unityProject,
+                            deadline,
+                            sessionPublicationRetryDeadline,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    sessionPublicationRetryDeadline = publicationRetryDecision.SessionPublicationRetryDeadline;
+                    if (publicationRetryDecision.ShouldRetry)
+                    {
+                        continue;
+                    }
+
+                    if (deadline.IsExpired)
+                    {
+                        return CreateDeadlineExceededResult(timeout);
+                    }
+
+                    return DaemonIpcSendResult.Success(sessionTokenRejection!);
+                }
+
                 var recoveryDelayConsumed = recoveryWaiter != null
                     && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false);
                 if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
@@ -105,47 +135,66 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
                 if (rejectedSessionToken is not null
                     && sessionConnection.SessionToken.Equals(rejectedSessionToken))
                 {
+                    var publicationRetryDecision = await DelayForSessionPublicationAsync(
+                            unityProject,
+                            deadline,
+                            sessionPublicationRetryDeadline,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    sessionPublicationRetryDeadline = publicationRetryDecision.SessionPublicationRetryDeadline;
+                    if (publicationRetryDecision.ShouldRetry)
+                    {
+                        continue;
+                    }
+
+                    if (deadline.IsExpired)
+                    {
+                        return CreateDeadlineExceededResult(timeout);
+                    }
+
                     return DaemonIpcSendResult.Success(sessionTokenRejection!);
                 }
 
                 isSessionTokenReplay = rejectedSessionToken is not null;
-                request ??= createRequest(sessionConnection.SessionToken);
-                var requestForSession = sessionConnection.SessionToken.Matches(request.SessionToken)
-                        ? request
-                        : new IpcRequest(
-                            request.ProtocolVersion,
-                            request.RequestId,
-                            sessionConnection.SessionToken.GetEncodedValue(),
-                            request.Method,
-                            request.Payload,
-                            request.ResponseMode);
+                if (!deadline.TryGetRemainingMilliseconds(out var requestDeadlineRemainingMilliseconds))
+                {
+                    return CreateDeadlineExceededResult(timeout);
+                }
+
+                var request = UnityIpcRequestFactory.Create(
+                    sessionConnection.SessionToken,
+                    method,
+                    payload,
+                    requestId,
+                    IpcResponseMode.Single,
+                    deadline.UtcDeadline,
+                    requestDeadlineRemainingMilliseconds);
                 var response = await transportClient.SendAsync(
                         sessionConnection.Endpoint,
-                        requestForSession,
+                        request,
                         remainingTimeout,
                         cancellationToken)
                     .ConfigureAwait(false);
-                if (IsSessionTokenInvalid(response) && !sessionTokenRefreshAttempted)
+                if (IsSessionTokenInvalid(response) && rejectedSessionToken is null)
                 {
-                    sessionTokenRefreshAttempted = true;
                     rejectedSessionToken = sessionConnection.SessionToken;
                     sessionTokenRejection = response;
-                    if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
-                    {
-                        return CreateDeadlineExceededResult(timeout);
-                    }
-
-                    await TimeProviderDelay.DelayAsync(
-                            GetRetryDelay(remainingTimeout),
-                            timeProvider,
+                    var publicationRetryDecision = await DelayForSessionPublicationAsync(
+                            unityProject,
+                            deadline,
+                            sessionPublicationRetryDeadline,
                             cancellationToken)
                         .ConfigureAwait(false);
-                    if (!deadline.TryGetRemainingTimeout(out _))
+                    sessionPublicationRetryDeadline = publicationRetryDecision.SessionPublicationRetryDeadline;
+                    if (publicationRetryDecision.ShouldRetry)
+                    {
+                        continue;
+                    }
+
+                    if (deadline.IsExpired)
                     {
                         return CreateDeadlineExceededResult(timeout);
                     }
-
-                    continue;
                 }
 
                 return DaemonIpcSendResult.Success(response);
@@ -154,11 +203,7 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
             {
                 throw;
             }
-            catch (TimeoutException)
-            {
-                return CreateDeadlineExceededResult(timeout);
-            }
-            catch (SocketException exception) when (DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(exception))
+            catch (Exception exception) when (DaemonIpcConnectionFailureClassifier.IsRetryableBeforeRequestWrite(exception))
             {
                 if (isSessionTokenReplay)
                 {
@@ -181,6 +226,10 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
 
                     return DaemonIpcSendResult.Failure(CreateDaemonSessionNotAvailableError());
                 }
+            }
+            catch (TimeoutException)
+            {
+                return CreateDeadlineExceededResult(timeout);
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
@@ -240,6 +289,44 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
         return false;
     }
 
+    private async ValueTask<(bool ShouldRetry, ExecutionDeadline? SessionPublicationRetryDeadline)> DelayForSessionPublicationAsync (
+        ResolvedUnityProjectContext unityProject,
+        ExecutionDeadline deadline,
+        ExecutionDeadline? sessionPublicationRetryDeadline,
+        CancellationToken cancellationToken)
+    {
+        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+        {
+            return (false, sessionPublicationRetryDeadline);
+        }
+
+        var recoveryDelayConsumed = recoveryWaiter != null
+            && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false);
+        if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+        {
+            return (false, sessionPublicationRetryDeadline);
+        }
+
+        if (recoveryDelayConsumed)
+        {
+            return (true, sessionPublicationRetryDeadline);
+        }
+
+        var effectivePublicationRetryDeadline = sessionPublicationRetryDeadline
+            ?? deadline.CreateCappedDeadline(DaemonTimeouts.SessionPublicationRetryTimeout);
+        if (!effectivePublicationRetryDeadline.TryGetRemainingTimeout(out var publicationRemainingTimeout))
+        {
+            return (false, effectivePublicationRetryDeadline);
+        }
+
+        await TimeProviderDelay.DelayAsync(
+                GetRetryDelay(GetShorterTimeout(remainingTimeout, publicationRemainingTimeout)),
+                timeProvider,
+                cancellationToken)
+            .ConfigureAwait(false);
+        return (true, effectivePublicationRetryDeadline);
+    }
+
     private async ValueTask<(bool ShouldRetry, ExecutionDeadline? EndpointAbsenceRetryDeadline)> ShouldRetryEndpointAbsenceAsync (
         ResolvedUnityProjectContext unityProject,
         ExecutionDeadline deadline,
@@ -264,7 +351,7 @@ internal sealed class DaemonIpcRequestSender : IDaemonIpcRequestSender
         }
 
         var effectiveEndpointAbsenceRetryDeadline = endpointAbsenceRetryDeadline
-            ?? ExecutionDeadline.Start(GetEndpointAbsenceRetryTimeout(remainingTimeout), timeProvider);
+            ?? deadline.CreateCappedDeadline(GetEndpointAbsenceRetryTimeout(remainingTimeout));
         if (!effectiveEndpointAbsenceRetryDeadline.TryGetRemainingTimeout(out var endpointAbsenceRemainingTimeout))
         {
             return (false, effectiveEndpointAbsenceRetryDeadline);

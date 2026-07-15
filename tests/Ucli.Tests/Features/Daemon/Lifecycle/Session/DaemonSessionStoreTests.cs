@@ -250,6 +250,49 @@ public sealed class DaemonSessionStoreTests
         Assert.Contains("maximum size", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData(SessionTimestamp.IssuedAtUtc, "issuedAtUtc")]
+    [InlineData(SessionTimestamp.ProcessStartedAtUtc, "processStartedAtUtc")]
+    [Trait("Size", "Medium")]
+    public async Task Read_WhenSessionTimestampHasNonZeroOffset_ReturnsInvalidArgument (
+        SessionTimestamp timestamp,
+        string expectedParameterName)
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "non-utc-timestamp");
+        var store = new DaemonSessionStore();
+        var projectFingerprint = ProjectFingerprintTestFactory.Create($"fingerprint-non-utc-{expectedParameterName}");
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: projectFingerprint);
+        var contract = DaemonSessionContractMapper.ToContract(session);
+        var nonUtcTimestamp = new DateTimeOffset(2026, 7, 13, 9, 0, 0, TimeSpan.FromHours(9));
+        var invalidContract = timestamp switch
+        {
+            SessionTimestamp.IssuedAtUtc => contract with
+            {
+                IssuedAtUtc = nonUtcTimestamp,
+            },
+            SessionTimestamp.ProcessStartedAtUtc => contract with
+            {
+                ProcessStartedAtUtc = nonUtcTimestamp,
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(timestamp), timestamp, null),
+        };
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        await File.WriteAllTextAsync(
+            sessionPath,
+            DaemonSessionJsonContractSerializer.Serialize(invalidContract),
+            CancellationToken.None);
+
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        Assert.False(readResult.Exists);
+        Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains(expectedParameterName, error.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Size", "Medium")]
     public async Task Read_WhenEditorInstanceIdIsNotGuid_ReturnsInvalidArgument ()
@@ -259,6 +302,7 @@ public sealed class DaemonSessionStoreTests
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-non-guid-editor-instance-id");
         var session = DaemonSessionTestFactory.Create(
             projectFingerprint: projectFingerprint,
+            editorMode: DaemonEditorMode.Gui,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
@@ -362,6 +406,12 @@ public sealed class DaemonSessionStoreTests
     {
         return DaemonSessionJsonContractSerializer.Serialize(
             DaemonSessionContractMapper.ToContract(session));
+    }
+
+    public enum SessionTimestamp
+    {
+        IssuedAtUtc,
+        ProcessStartedAtUtc,
     }
 
 }

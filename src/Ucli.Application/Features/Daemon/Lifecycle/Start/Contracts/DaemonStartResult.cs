@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 
@@ -132,6 +133,11 @@ internal sealed record DaemonStartResult
         DaemonStatusKind daemonStatus = DaemonStatusKind.NotRunning)
     {
         ArgumentNullException.ThrowIfNull(error);
+        if (!ContractLiteralCodec.IsDefined(daemonStatus))
+        {
+            throw new ArgumentOutOfRangeException(nameof(daemonStatus), daemonStatus, "Daemon status must have a contract literal.");
+        }
+
         return new DaemonStartResult(
             DaemonStartStatus.Failed,
             null,

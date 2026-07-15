@@ -5,10 +5,6 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 /// <summary> Defines daemon cleanup skip reasons. </summary>
 internal enum DaemonCleanupSkipReason
 {
-    /// <summary> Indicates no skip reason applies. </summary>
-    [UcliContractLiteralIgnore]
-    None = 0,
-
     /// <summary> Indicates cleanup was skipped because daemon is running. </summary>
     [UcliContractLiteral("running")]
     Running = 1,

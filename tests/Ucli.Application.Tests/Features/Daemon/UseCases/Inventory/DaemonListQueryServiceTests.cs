@@ -117,7 +117,9 @@ public sealed class DaemonListQueryServiceTests
                     IpcPlayModeTransition.None,
                     IsPlaying: true,
                     IsPlayingOrWillChangePlaymode: true)),
-            observedAtUtc: DateTimeOffset.UnixEpoch);
+            observedAtUtc: DateTimeOffset.UnixEpoch,
+            actionRequired: null,
+            primaryDiagnostic: null);
         var service = CreateSingleWorktreeService(
             currentProject,
             DaemonSessionReadResultTestFactory.Found(session),

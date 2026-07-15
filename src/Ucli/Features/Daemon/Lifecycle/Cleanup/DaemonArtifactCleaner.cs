@@ -267,9 +267,7 @@ internal sealed class DaemonArtifactCleaner : IDaemonArtifactCleaner
         DaemonSession currentSession,
         DaemonSession expectedSession)
     {
-        return currentSession.SessionToken == expectedSession.SessionToken
-            && currentSession.IssuedAtUtc == expectedSession.IssuedAtUtc
-            && currentSession.ProjectFingerprint == expectedSession.ProjectFingerprint;
+        return currentSession.SessionGenerationId == expectedSession.SessionGenerationId;
     }
 
     private static bool MatchesStoppedProcess (

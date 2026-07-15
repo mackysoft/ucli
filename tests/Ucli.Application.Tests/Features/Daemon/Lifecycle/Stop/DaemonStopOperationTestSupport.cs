@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;

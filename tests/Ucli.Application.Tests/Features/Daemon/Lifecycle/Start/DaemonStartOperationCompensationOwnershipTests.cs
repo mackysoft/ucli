@@ -1,7 +1,5 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStartOperationTestSupport;
 
@@ -55,7 +53,7 @@ public sealed class DaemonStartOperationCompensationOwnershipTests
 
         var startTask = operation.StartAsync(
                 context,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
                 editorMode: DaemonEditorMode.Batchmode,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)

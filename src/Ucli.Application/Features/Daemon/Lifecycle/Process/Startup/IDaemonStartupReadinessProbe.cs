@@ -5,13 +5,13 @@ internal interface IDaemonStartupReadinessProbe
 {
     /// <summary> Waits until daemon startup registers an endpoint and returns one lifecycle snapshot, or fails when timeout expires or startup fails. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The startup endpoint-registration timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="deadline"> The deadline shared by the daemon-start workflow. </param>
     /// <param name="daemonProcessId"> The launched Unity daemon process identifier when available. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The endpoint-registration probe result. </returns>
     ValueTask<DaemonStartupReadinessProbeResult> WaitUntilReadyAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         int? daemonProcessId = null,
         CancellationToken cancellationToken = default);
 }

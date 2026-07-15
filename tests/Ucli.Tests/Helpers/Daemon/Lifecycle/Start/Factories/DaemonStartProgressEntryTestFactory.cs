@@ -8,13 +8,15 @@ internal static class DaemonStartProgressEntryTestFactory
 
     public static readonly DateTimeOffset SampleStartedAtUtc = new(2026, 03, 12, 1, 2, 0, TimeSpan.Zero);
 
+    public static readonly Guid SampleLaunchAttemptId = Guid.Parse("01234567-89ab-cdef-0123-456789abcdef");
+
     public static DaemonStartStartupObservationProgressEntry CreateStartupObservation (
         DaemonStartProgressPayloadKind payloadKind = DaemonStartProgressPayloadKind.StartupObservation,
         ProjectFingerprint? projectFingerprint = null,
         int timeoutMilliseconds = 1234,
         DaemonEditorMode editorMode = DaemonEditorMode.Batchmode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto,
-        string? launchAttemptId = "attempt-1",
+        Guid? launchAttemptId = null,
         DaemonSessionOwnerKind ownerKind = DaemonSessionOwnerKind.Cli,
         bool canShutdownProcess = true,
         int? processId = 1234,

@@ -22,51 +22,44 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
 
     private readonly DaemonCompensationOperationOwner compensationOperationOwner;
 
-    private readonly TimeProvider timeProvider;
-
     /// <summary> Initializes a new instance of the <see cref="DaemonStartupReadinessProbe" /> class. </summary>
     /// <param name="daemonPingInfoClient"> The daemon ping-info client dependency. </param>
     /// <param name="unityLogReader"> The Unity log-reader dependency. </param>
     /// <param name="unityProjectLockPreflightService"> The Unity project lock preflight service dependency. </param>
     /// <param name="compensationOperationOwner"> The owner for project-lock mutations that outlive the startup deadline. </param>
-    /// <param name="timeProvider"> The time provider used for timeout-budget accounting and retry delays. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartupReadinessProbe (
         IDaemonPingInfoClient daemonPingInfoClient,
         IUnityLogReader unityLogReader,
         IUnityProjectLockPreflightService unityProjectLockPreflightService,
-        DaemonCompensationOperationOwner compensationOperationOwner,
-        TimeProvider timeProvider)
+        DaemonCompensationOperationOwner compensationOperationOwner)
     {
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
         this.unityLogReader = unityLogReader ?? throw new ArgumentNullException(nameof(unityLogReader));
         this.unityProjectLockPreflightService = unityProjectLockPreflightService ?? throw new ArgumentNullException(nameof(unityProjectLockPreflightService));
         this.compensationOperationOwner = compensationOperationOwner ?? throw new ArgumentNullException(nameof(compensationOperationOwner));
-        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Waits until daemon startup accepts execution requests, or fails when timeout expires or startup reaches one non-waitable lifecycle state. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The startup readiness timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="deadline"> The deadline shared by the daemon-start workflow. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The readiness probe result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<DaemonStartupReadinessProbeResult> WaitUntilReadyAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         int? daemonProcessId = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
         if (daemonProcessId is int pid && pid <= 0)
         {
             throw new ArgumentOutOfRangeException(nameof(daemonProcessId), daemonProcessId, "Daemon process id must be greater than zero.");
         }
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -105,21 +98,32 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
             {
                 return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
-                    $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
+                    $"Timed out while waiting for daemon startup. Timeout={deadline.Timeout.TotalMilliseconds:0}ms."));
             }
 
             var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
                 ? remainingTimeout
                 : DaemonTimeouts.ProbeAttemptTimeoutCap;
+            var attemptDeadline = remainingTimeout <= DaemonTimeouts.ProbeAttemptTimeoutCap
+                ? deadline
+                : deadline.CreateCappedDeadline(DaemonTimeouts.ProbeAttemptTimeoutCap);
             try
             {
-                var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
-                        unityProject,
-                        attemptTimeout,
-                        validateProjectFingerprint: true,
-                        cancellationToken: cancellationToken)
+                var pingOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                        attemptDeadline,
+                        cancellationToken,
+                        "Timed out before probing daemon startup readiness.",
+                        "Timed out while probing daemon startup readiness.",
+                        token => daemonPingInfoClient.PingAndReadAsync(
+                            unityProject,
+                            attemptTimeout,
+                            validateProjectFingerprint: true,
+                            cancellationToken: token))
                     .ConfigureAwait(false);
-                return DaemonStartupReadinessProbeResult.Ready(pingResponse);
+                if (pingOperation.IsSuccess)
+                {
+                    return DaemonStartupReadinessProbeResult.Ready(pingOperation.Value!);
+                }
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -127,14 +131,6 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
             }
             catch (TimeoutException)
             {
-                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
-                {
-                    return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
-                        $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
-                }
-
-                await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)
-                    .ConfigureAwait(false);
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
@@ -150,7 +146,7 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                 if (startupFailure.DeadlineExpired)
                 {
                     return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
-                        $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
+                        $"Timed out while waiting for daemon startup. Timeout={deadline.Timeout.TotalMilliseconds:0}ms."));
                 }
 
                 if (startupFailure.Error is not null)
@@ -159,21 +155,21 @@ internal sealed class DaemonStartupReadinessProbe : IDaemonStartupReadinessProbe
                         startupFailure.Error,
                         startupFailure.Classification);
                 }
-
-                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
-                {
-                    return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
-                        $"Timed out while waiting for daemon startup. Timeout={timeout.TotalMilliseconds:0}ms."));
-                }
-
-                await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), timeProvider, cancellationToken)
-                    .ConfigureAwait(false);
             }
             catch (Exception exception)
             {
                 return DaemonStartupReadinessProbeResult.Failure(ExecutionError.InternalError(
                     $"Failed while probing daemon startup readiness. {exception.Message}"));
             }
+
+            if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
+            {
+                return DaemonStartupReadinessProbeResult.Failure(ExecutionError.Timeout(
+                    $"Timed out while waiting for daemon startup. Timeout={deadline.Timeout.TotalMilliseconds:0}ms."));
+            }
+
+            await TimeProviderDelay.DelayAsync(GetRetryDelay(remainingTimeout), deadline.Clock, cancellationToken)
+                .ConfigureAwait(false);
         }
     }
 

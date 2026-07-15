@@ -34,7 +34,7 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Null(result.Error);
@@ -70,9 +70,9 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
-        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        Assert.Null(result.Status);
         Assert.Equal(shutdownError, result.Error);
         DaemonShutdownClientAssert.EndpointShutdownAttempted(shutdownClient, context, session);
         AssertProcessTerminationAndArtifactCleanupSkipped(processTerminationService, artifactCleaner);
@@ -104,7 +104,7 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Null(result.Error);

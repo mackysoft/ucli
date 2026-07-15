@@ -21,6 +21,7 @@ internal static class DaemonSessionStoreAssert
         DaemonEditorMode expectedEditorMode)
     {
         var session = SingleSessionWrittenFor(sessionStore, expectedUnityProject);
+        Assert.NotEqual(Guid.Empty, session.SessionGenerationId);
         Assert.Equal(expectedUnityProject.ProjectFingerprint, session.ProjectFingerprint);
         Assert.Equal(expectedEditorMode, session.EditorMode);
         Assert.Null(session.ProcessId);
@@ -36,6 +37,7 @@ internal static class DaemonSessionStoreAssert
         DateTimeOffset expectedProcessStartedAtUtc)
     {
         var session = SingleSessionWrittenFor(sessionStore, expectedUnityProject);
+        Assert.Equal(expectedBaseSession.SessionGenerationId, session.SessionGenerationId);
         Assert.Equal(expectedBaseSession.SessionToken, session.SessionToken);
         Assert.Equal(expectedBaseSession.ProjectFingerprint, session.ProjectFingerprint);
         Assert.Equal(expectedBaseSession.IssuedAtUtc, session.IssuedAtUtc);

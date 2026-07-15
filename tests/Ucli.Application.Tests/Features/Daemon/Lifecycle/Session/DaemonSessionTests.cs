@@ -5,14 +5,46 @@ namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonSessionTests
 {
+    private static readonly Guid SessionGenerationId = Guid.Parse("22222222-2222-2222-2222-222222222222");
     private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
     private static readonly ProjectFingerprint Fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenSessionGenerationIdIsEmpty_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => DaemonSessionTestFactory.Create(
+            sessionGenerationId: Guid.Empty));
+
+        Assert.Equal("sessionGenerationId", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenIssuedAtUtcHasNonZeroOffset_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => DaemonSessionTestFactory.Create(
+            issuedAtUtc: new DateTimeOffset(2026, 7, 13, 9, 0, 0, TimeSpan.FromHours(9))));
+
+        Assert.Equal("issuedAtUtc", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenProcessStartedAtUtcHasNonZeroOffset_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => DaemonSessionTestFactory.Create(
+            processStartedAtUtc: new DateTimeOffset(2026, 7, 13, 9, 0, 1, TimeSpan.FromHours(9))));
+
+        Assert.Equal("processStartedAtUtc", exception.ParamName);
+    }
 
     [Fact]
     [Trait("Size", "Small")]
     public void Constructor_WhenProjectFingerprintIsNull_ThrowsArgumentNullException ()
     {
         var exception = Assert.Throws<ArgumentNullException>(() => new DaemonSession(
+            SessionGenerationId,
             IpcSessionTokenTestFactory.Create("null-project-fingerprint"),
             null!,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
@@ -22,7 +54,8 @@ public sealed class DaemonSessionTests
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint"),
             processId: 1234,
             processStartedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
-            ownerProcessId: 5678));
+            ownerProcessId: 5678,
+            editorInstanceId: null));
 
         Assert.Equal("projectFingerprint", exception.ParamName);
     }
@@ -34,6 +67,7 @@ public sealed class DaemonSessionTests
         var token = IpcSessionTokenTestFactory.Create("incomplete-process-identity");
 
         var exception = Assert.Throws<ArgumentException>(() => new DaemonSession(
+            SessionGenerationId,
             token,
             Fingerprint,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
@@ -43,7 +77,8 @@ public sealed class DaemonSessionTests
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint"),
             processId: 1234,
             processStartedAtUtc: null,
-            ownerProcessId: 5678));
+            ownerProcessId: 5678,
+            editorInstanceId: null));
 
         Assert.Equal("processStartedAtUtc", exception.ParamName);
     }
@@ -55,6 +90,7 @@ public sealed class DaemonSessionTests
         var token = IpcSessionTokenTestFactory.Create("unsafe-user-owned-session");
 
         var exception = Assert.Throws<ArgumentException>(() => new DaemonSession(
+            SessionGenerationId,
             token,
             Fingerprint,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
@@ -64,7 +100,8 @@ public sealed class DaemonSessionTests
             new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint"),
             processId: null,
             processStartedAtUtc: null,
-            ownerProcessId: 5678));
+            ownerProcessId: 5678,
+            editorInstanceId: EditorInstanceId));
 
         Assert.Equal("ownerKind", exception.ParamName);
     }
@@ -81,9 +118,20 @@ public sealed class DaemonSessionTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Constructor_WhenBatchmodeSessionHasEditorInstanceId_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => DaemonSessionTestFactory.Create(
+            editorInstanceId: EditorInstanceId));
+
+        Assert.Equal("editorInstanceId", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Constructor_WhenUserOwnedSessionHasNoEditorInstanceId_ThrowsArgumentException ()
     {
         var exception = Assert.Throws<ArgumentException>(() => new DaemonSession(
+            SessionGenerationId,
             IpcSessionTokenTestFactory.Create("user-owned-without-editor-instance-id"),
             Fingerprint,
             new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
@@ -113,6 +161,7 @@ public sealed class DaemonSessionTests
     }
 
     [Theory]
+    [InlineData(SessionDifference.SessionGenerationId)]
     [InlineData(SessionDifference.SessionToken)]
     [InlineData(SessionDifference.ProjectFingerprint)]
     [InlineData(SessionDifference.IssuedAtUtc)]
@@ -129,6 +178,8 @@ public sealed class DaemonSessionTests
     {
         var sessions = difference switch
         {
+            SessionDifference.SessionGenerationId => (CreateComparableSession(), CreateComparableSession(
+                sessionGenerationId: Guid.Parse("33333333-3333-3333-3333-333333333333"))),
             SessionDifference.SessionToken => (CreateComparableSession(), CreateComparableSession(sessionToken: "other-session-token")),
             SessionDifference.ProjectFingerprint => (CreateComparableSession(), CreateComparableSession(
                 projectFingerprint: ProjectFingerprintTestFactory.Create("other-project-fingerprint"))),
@@ -157,6 +208,7 @@ public sealed class DaemonSessionTests
     }
 
     private static DaemonSession CreateComparableSession (
+        Guid? sessionGenerationId = null,
         string sessionToken = "same-session-token",
         ProjectFingerprint? projectFingerprint = null,
         DateTimeOffset? issuedAtUtc = null,
@@ -170,6 +222,7 @@ public sealed class DaemonSessionTests
         Guid? editorInstanceId = null)
     {
         return DaemonSessionTestFactory.Create(
+            sessionGenerationId: sessionGenerationId,
             processId: processId,
             sessionToken: sessionToken,
             projectFingerprint: projectFingerprint ?? ProjectFingerprintTestFactory.Create("same-project-fingerprint"),
@@ -181,11 +234,14 @@ public sealed class DaemonSessionTests
             endpointAddress: endpointAddress,
             processStartedAtUtc: processStartedAtUtc ?? new DateTimeOffset(2026, 7, 12, 23, 59, 59, TimeSpan.Zero),
             ownerProcessId: ownerProcessId,
-            editorInstanceId: editorInstanceId ?? EditorInstanceId);
+            editorInstanceId: editorInstanceId ?? (editorMode == DaemonEditorMode.Batchmode
+                ? null
+                : EditorInstanceId));
     }
 
     public enum SessionDifference
     {
+        SessionGenerationId,
         SessionToken,
         ProjectFingerprint,
         IssuedAtUtc,

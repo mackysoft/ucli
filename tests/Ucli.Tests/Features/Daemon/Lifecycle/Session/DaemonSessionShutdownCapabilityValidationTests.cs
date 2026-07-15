@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -22,6 +21,7 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
             $$"""
             {
               "schemaVersion": {{DaemonSessionStorageContract.CurrentSchemaVersion}},
+              "sessionGenerationId": "11111111-1111-1111-1111-111111111111",
               "sessionToken": "{{sessionToken}}",
               "projectFingerprint": "{{projectFingerprint}}",
               "issuedAtUtc": "2026-01-01T00:00:00+00:00",

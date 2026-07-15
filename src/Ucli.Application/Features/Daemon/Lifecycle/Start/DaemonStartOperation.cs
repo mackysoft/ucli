@@ -66,17 +66,16 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
     /// <summary> Starts daemon lifecycle for the specified Unity project context. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The daemon startup timeout. </param>
+    /// <param name="deadline"> The deadline shared by all normal daemon-start phases. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
     /// <param name="progressObserver"> The optional observer for supervisor-internal start progress. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon start result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<DaemonStartResult> StartAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
@@ -84,9 +83,8 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
         {
             return DaemonStartResult.Failure(CreateTimeoutError("Timed out before daemon start workflow began."));
@@ -192,7 +190,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
             if (readResult.Exists)
             {
-                if (!deadline.TryGetRemainingTimeout(out var existingSessionGateTimeout))
+                if (!deadline.TryGetRemainingTimeout(out _))
                 {
                     return CreateFailure(
                         CreateTimeoutError("Timed out while probing existing daemon session."),
@@ -202,7 +200,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 var existingSessionGateResult = await daemonExistingSessionGateService.TryHandleExistingSessionAsync(
                         unityProject,
                         readResult.Session!,
-                        existingSessionGateTimeout,
+                        deadline,
                         editorMode,
                         progressObserver,
                         cancellationToken)
@@ -247,7 +245,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return CreateFailure(readResult.Error!, diagnosisCleanupError);
         }
 
-        if (!deadline.TryGetRemainingTimeout(out var invalidSessionCleanupTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return CreateFailure(
                 CreateTimeoutError("Timed out while preparing invalid daemon-session cleanup."),
@@ -257,7 +255,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         var cleanupResult = await daemonSessionCleanupService.CleanupInvalidSessionArtifactsAsync(
                 unityProject,
                 readResult,
-                invalidSessionCleanupTimeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!cleanupResult.IsSuccess)
@@ -285,7 +283,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         IDaemonStartProgressObserver? progressObserver,
         CancellationToken cancellationToken)
     {
-        if (!deadline.TryGetRemainingTimeout(out var attachTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return CreateFailure(
                 CreateTimeoutError("Timed out before existing GUI Editor attach could start."),
@@ -294,7 +292,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
         var attachResult = await daemonGuiEditorAttachService.TryAttachExistingGuiEditorAsync(
                 unityProject,
-                attachTimeout,
+                deadline,
                 editorMode,
                 onStartupBlocked,
                 progressObserver,
@@ -305,7 +303,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return CreateResult(attachResult, diagnosisCleanupError);
         }
 
-        if (!deadline.TryGetRemainingTimeout(out var launchTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return CreateFailure(
                 CreateTimeoutError("Timed out before daemon launch could start."),
@@ -319,7 +317,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
         var launchResult = await daemonLaunchService.LaunchAsync(
                 unityProject,
-                launchTimeout,
+                deadline,
                 launchEditorMode,
                 onStartupBlocked,
                 progressObserver,

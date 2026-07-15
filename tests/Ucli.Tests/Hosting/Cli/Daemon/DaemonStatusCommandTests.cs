@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
@@ -94,9 +93,9 @@ public sealed class DaemonStatusCommandTests
     public async Task Status_WhenLastLaunchAttemptExists_WritesLastLaunchAttemptPayload ()
     {
         var diagnosis = new DaemonDiagnosisOutput(
-            Reason: DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
+            Reason: DaemonDiagnosisReason.GuiEndpointNotRegistered,
             Message: "GUI endpoint was not registered.",
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            ReportedBy: DaemonDiagnosisReportedBy.Cli,
             IsInferred: true,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 6, TimeSpan.Zero),
             ProcessId: 1234,
@@ -104,15 +103,15 @@ public sealed class DaemonStatusCommandTests
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
             PrimaryDiagnostic: null);
         var launchAttempt = new DaemonLaunchAttemptOutput(
-            LaunchAttemptId: "20260312_040500Z_00abcdef",
+            LaunchAttemptId: Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
             StartupStatus: DaemonStartupStatus.Timeout,
             StartupBlockingReason: DaemonStartupBlockingReason.EndpointNotRegistered,
             RetryDisposition: DaemonStartupRetryDisposition.RetryImmediately,
             ProcessAction: DaemonStartupProcessAction.Kept,
-            ArtifactPath: "/repo/.ucli/local/fingerprints/fp/launch-attempts/20260312_040500Z_00abcdef/startup-diagnosis.json",
+            ArtifactPath: "/repo/.ucli/local/fingerprints/fp/launch-attempts/0123456789abcdef0123456789abcdef/startup-diagnosis.json",
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 6, TimeSpan.Zero),
             ProcessId: 1234,
@@ -134,7 +133,8 @@ public sealed class DaemonStatusCommandTests
                 LastLaunchAttempt: launchAttempt,
                 ObservedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 6, 0, TimeSpan.Zero),
                 ActionRequired: null,
-                PrimaryDiagnostic: null)));
+                PrimaryDiagnostic: null,
+                PlayMode: null)));
         var command = new DaemonStatusCommand(service, CommandResultTestWriter.Create());
 
         CommandExecutionState.Reset();
@@ -149,21 +149,21 @@ public sealed class DaemonStatusCommandTests
             .HasProperty("payload", payload => payload
                 .HasString("daemonStatus", "notRunning")
                 .HasProperty("lastLaunchAttempt", attemptJson => attemptJson
-                    .HasString("launchAttemptId", "20260312_040500Z_00abcdef")
+                    .HasString("launchAttemptId", "01234567-89ab-cdef-0123-456789abcdef")
                     .HasString("startupStatus", "timeout")
                     .HasString("startupBlockingReason", "endpointNotRegistered")
                     .HasString("retryDisposition", "retryImmediately")
                     .HasString("processAction", "kept")
-                    .HasString("artifactPath", "/repo/.ucli/local/fingerprints/fp/launch-attempts/20260312_040500Z_00abcdef/startup-diagnosis.json")
+                    .HasString("artifactPath", "/repo/.ucli/local/fingerprints/fp/launch-attempts/0123456789abcdef0123456789abcdef/startup-diagnosis.json")
                     .HasString("unityLogPath", "/repo/.ucli/local/fingerprints/fp/unity.log")
                     .HasString("updatedAtUtc", "2026-03-12T04:05:06+00:00")
                     .HasInt32("processId", 1234)
                     .HasString("processStartedAtUtc", "2026-03-12T04:05:00+00:00")
                     .HasProperty("diagnosis", diagnosisJson => diagnosisJson
-                        .HasString("reason", DaemonDiagnosisReasonValues.GuiEndpointNotRegistered)
+                        .HasString("reason", ContractLiteralCodec.ToValue(DaemonDiagnosisReason.GuiEndpointNotRegistered))
                         .HasString("unityLogPath", "/repo/.ucli/local/fingerprints/fp/unity.log")
                         .HasString("startupPhase", ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration))
-                        .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.InspectUnityLog))));
+                        .HasString("actionRequired", ContractLiteralCodec.ToValue(DaemonDiagnosisActionRequired.InspectUnityLog)))));
 
         var payloadJson = outputJson.RootElement.GetProperty("payload");
         Assert.False(payloadJson.TryGetProperty("runtimeKind", out _));

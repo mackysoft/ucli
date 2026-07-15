@@ -13,7 +13,7 @@ internal sealed class UnexpectedDaemonGuiRebootstrapClient : IDaemonGuiRebootstr
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         DateTimeOffset? expectedProcessStartedAtUtc,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException(reason);

@@ -14,7 +14,7 @@ internal static class DaemonCleanupInvocationAssert
         Assert.Equal(processStartedAtUtc, target.ProcessStartedAtUtc);
         if (timeout.HasValue)
         {
-            Assert.Equal(timeout.Value, invocation.Timeout);
+            Assert.Equal(timeout.Value, invocation.Deadline.Timeout);
         }
     }
 

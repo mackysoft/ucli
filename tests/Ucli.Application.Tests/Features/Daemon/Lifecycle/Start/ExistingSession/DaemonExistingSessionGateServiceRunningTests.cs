@@ -17,7 +17,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running")),
             session,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -43,7 +43,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-capped")),
             session,
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -65,7 +65,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-compiling")),
             session,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -88,7 +88,7 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
         var result = await service.TryHandleExistingSessionAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-mismatch")),
             session,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: DaemonEditorMode.Gui,
             cancellationToken: CancellationToken.None);
 

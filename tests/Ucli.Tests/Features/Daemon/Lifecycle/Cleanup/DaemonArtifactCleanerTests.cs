@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -494,12 +493,14 @@ public sealed class DaemonArtifactCleanerTests
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "successor-session");
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-successor");
         var expectedSession = DaemonSessionTestFactory.Create(
-            sessionToken: "retired-session-token",
+            sessionGenerationId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            sessionToken: "shared-session-token",
             projectFingerprint: projectFingerprint);
         var successorSession = DaemonSessionTestFactory.Create(
-            sessionToken: "successor-session-token",
+            sessionGenerationId: Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            sessionToken: "shared-session-token",
             projectFingerprint: projectFingerprint,
-            issuedAtUtc: expectedSession.IssuedAtUtc.AddSeconds(1));
+            issuedAtUtc: expectedSession.IssuedAtUtc);
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResultTestFactory.Found(successorSession),

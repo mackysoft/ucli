@@ -12,7 +12,7 @@ internal sealed class UnexpectedDaemonGuiSessionRegistrationAwaiter : IDaemonGui
     public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DateTimeOffset? expectedProcessStartedAtUtc = null,
         CancellationToken cancellationToken = default)
     {

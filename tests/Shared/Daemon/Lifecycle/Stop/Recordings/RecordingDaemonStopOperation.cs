@@ -17,22 +17,24 @@ internal sealed class RecordingDaemonStopOperation : IDaemonStopOperation
 
     public DaemonStopResult StopResult { get; set; } = DaemonStopResult.Stopped();
 
-    public Func<ResolvedUnityProjectContext, TimeSpan, CancellationToken, ValueTask<DaemonStopResult>>? StopHandler { get; set; }
+    public Func<ResolvedUnityProjectContext, ExecutionDeadline, CancellationToken, ValueTask<DaemonStopResult>>? StopHandler { get; set; }
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<DaemonStopResult> StopAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
+        _ = deadline.TryGetRemainingTimeout(out var remainingTimeout);
 
-        invocations.Add(new Invocation(unityProject, timeout, cancellationToken));
+        invocations.Add(new Invocation(unityProject, deadline, remainingTimeout, cancellationToken));
         if (StopHandler is not null)
         {
-            return StopHandler(unityProject, timeout, cancellationToken);
+            return StopHandler(unityProject, deadline, cancellationToken);
         }
 
         return ValueTask.FromResult(StopResult);
@@ -40,6 +42,7 @@ internal sealed class RecordingDaemonStopOperation : IDaemonStopOperation
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
+        TimeSpan RemainingTimeout,
         CancellationToken CancellationToken);
 }

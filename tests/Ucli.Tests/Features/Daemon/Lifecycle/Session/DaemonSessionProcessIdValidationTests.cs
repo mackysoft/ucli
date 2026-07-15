@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -22,6 +21,7 @@ public sealed class DaemonSessionProcessIdValidationTests
             $$"""
             {
               "schemaVersion": {{DaemonSessionStorageContract.CurrentSchemaVersion}},
+              "sessionGenerationId": "11111111-1111-1111-1111-111111111111",
               "sessionToken": "{{sessionToken}}",
               "projectFingerprint": "{{projectFingerprint}}",
               "issuedAtUtc": "2026-01-01T00:00:00+00:00",
@@ -60,6 +60,7 @@ public sealed class DaemonSessionProcessIdValidationTests
             $$"""
             {
               "schemaVersion": {{DaemonSessionStorageContract.CurrentSchemaVersion}},
+              "sessionGenerationId": "11111111-1111-1111-1111-111111111111",
               "sessionToken": "{{sessionToken}}",
               "projectFingerprint": "{{projectFingerprint}}",
               "issuedAtUtc": "2026-01-01T00:00:00+00:00",
@@ -102,6 +103,7 @@ public sealed class DaemonSessionProcessIdValidationTests
         var validSession = DaemonSessionTestFactory.Create();
 
         Assert.Throws<ArgumentException>(() => new DaemonSession(
+            validSession.SessionGenerationId,
             validSession.SessionToken,
             ProjectFingerprintTestFactory.Create("fingerprint-missing-process-started-at-write"),
             validSession.IssuedAtUtc,
@@ -111,6 +113,7 @@ public sealed class DaemonSessionProcessIdValidationTests
             validSession.Endpoint,
             processId: 1234,
             processStartedAtUtc: null,
-            ownerProcessId: validSession.OwnerProcessId));
+            ownerProcessId: validSession.OwnerProcessId,
+            editorInstanceId: validSession.EditorInstanceId));
     }
 }

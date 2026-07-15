@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -7,22 +8,46 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 
 /// <summary> Represents the result of daemon status query operation. </summary>
-/// <param name="Status"> The daemon status outcome. </param>
-/// <param name="Session"> The daemon session metadata when available. </param>
-/// <param name="Diagnosis"> The daemon diagnosis metadata when available. </param>
-/// <param name="Error"> The structured error when status query fails. </param>
-/// <param name="PingResponse"> The ping payload when <paramref name="Status" /> is <see cref="DaemonStatusKind.Running" />. </param>
-/// <param name="LastLaunchAttempt"> The most recent session-less launch attempt when available. </param>
-internal sealed record DaemonStatusResult (
-    DaemonStatusKind Status,
-    DaemonSession? Session,
-    DaemonDiagnosis? Diagnosis,
-    ExecutionError? Error,
-    IpcUnityEditorObservation? PingResponse,
-    DaemonLaunchAttempt? LastLaunchAttempt = null)
+internal sealed record DaemonStatusResult
 {
+    private DaemonStatusResult (
+        DaemonStatusKind? status,
+        DaemonSession? session,
+        DaemonDiagnosis? diagnosis,
+        ExecutionError? error,
+        IpcUnityEditorObservation? pingResponse,
+        DaemonLaunchAttempt? lastLaunchAttempt)
+    {
+        Status = status;
+        Session = session;
+        Diagnosis = diagnosis;
+        Error = error;
+        PingResponse = pingResponse;
+        LastLaunchAttempt = lastLaunchAttempt;
+    }
+
+    /// <summary> Gets the daemon status outcome for a successful query; otherwise <see langword="null" />. </summary>
+    public DaemonStatusKind? Status { get; }
+
+    /// <summary> Gets the daemon session metadata when available. </summary>
+    public DaemonSession? Session { get; }
+
+    /// <summary> Gets the daemon diagnosis metadata when available. </summary>
+    public DaemonDiagnosis? Diagnosis { get; }
+
+    /// <summary> Gets the structured error when status query fails. </summary>
+    public ExecutionError? Error { get; }
+
+    /// <summary> Gets the ping payload for a running daemon; otherwise <see langword="null" />. </summary>
+    public IpcUnityEditorObservation? PingResponse { get; }
+
+    /// <summary> Gets the most recent session-less launch attempt when available. </summary>
+    public DaemonLaunchAttempt? LastLaunchAttempt { get; }
+
     /// <summary> Gets a value indicating whether daemon status query succeeded. </summary>
-    public bool IsSuccess => Status != DaemonStatusKind.Failed && Error is null;
+    [MemberNotNullWhen(true, nameof(Status))]
+    [MemberNotNullWhen(false, nameof(Error))]
+    public bool IsSuccess => Status.HasValue;
 
     /// <summary> Creates a running result. </summary>
     /// <param name="session"> The current daemon session metadata. </param>
@@ -33,22 +58,20 @@ internal sealed record DaemonStatusResult (
     public static DaemonStatusResult Running (
         DaemonSession session,
         IpcUnityEditorObservation pingResponse,
-        DaemonDiagnosis? diagnosis = null)
+        DaemonDiagnosis? diagnosis)
     {
         ArgumentNullException.ThrowIfNull(session);
         ArgumentNullException.ThrowIfNull(pingResponse);
-        return new DaemonStatusResult(DaemonStatusKind.Running, session, diagnosis, null, pingResponse);
+        return new DaemonStatusResult(
+            DaemonStatusKind.Running,
+            session,
+            diagnosis,
+            error: null,
+            pingResponse,
+            lastLaunchAttempt: null);
     }
 
     /// <summary> Creates a not-running result. </summary>
-    /// <param name="diagnosis"> The persisted daemon diagnosis metadata when available. </param>
-    /// <returns> The not-running result. </returns>
-    public static DaemonStatusResult NotRunning (DaemonDiagnosis? diagnosis = null)
-    {
-        return new DaemonStatusResult(DaemonStatusKind.NotRunning, null, diagnosis, null, PingResponse: null);
-    }
-
-    /// <summary> Creates a not-running result with the most recent launch attempt. </summary>
     /// <param name="diagnosis"> The persisted daemon diagnosis metadata when available. </param>
     /// <param name="lastLaunchAttempt"> The most recent session-less launch attempt when available. </param>
     /// <returns> The not-running result. </returns>
@@ -57,12 +80,12 @@ internal sealed record DaemonStatusResult (
         DaemonLaunchAttempt? lastLaunchAttempt)
     {
         return new DaemonStatusResult(
-            Status: DaemonStatusKind.NotRunning,
-            Session: null,
-            Diagnosis: diagnosis,
-            Error: null,
-            PingResponse: null,
-            LastLaunchAttempt: lastLaunchAttempt);
+            status: DaemonStatusKind.NotRunning,
+            session: null,
+            diagnosis,
+            error: null,
+            pingResponse: null,
+            lastLaunchAttempt);
     }
 
     /// <summary> Creates a stale-session result. </summary>
@@ -72,10 +95,16 @@ internal sealed record DaemonStatusResult (
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="session" /> is <see langword="null" />. </exception>
     public static DaemonStatusResult Stale (
         DaemonSession session,
-        DaemonDiagnosis? diagnosis = null)
+        DaemonDiagnosis? diagnosis)
     {
         ArgumentNullException.ThrowIfNull(session);
-        return new DaemonStatusResult(DaemonStatusKind.Stale, session, diagnosis, null, PingResponse: null);
+        return new DaemonStatusResult(
+            DaemonStatusKind.Stale,
+            session,
+            diagnosis,
+            error: null,
+            pingResponse: null,
+            lastLaunchAttempt: null);
     }
 
     /// <summary> Creates a failed status-query result. </summary>
@@ -85,6 +114,12 @@ internal sealed record DaemonStatusResult (
     public static DaemonStatusResult Failure (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return new DaemonStatusResult(DaemonStatusKind.Failed, null, null, error, PingResponse: null);
+        return new DaemonStatusResult(
+            status: null,
+            session: null,
+            diagnosis: null,
+            error,
+            pingResponse: null,
+            lastLaunchAttempt: null);
     }
 }

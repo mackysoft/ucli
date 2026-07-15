@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -11,7 +12,7 @@ internal static class DaemonDiagnosisStoreAssert
 
     public static DaemonDiagnosis WrittenOnceWithReason (
         RecordingDaemonDiagnosisStore diagnosisStore,
-        string expectedReason)
+        DaemonDiagnosisReason expectedReason)
     {
         var diagnosis = WrittenOnce(diagnosisStore);
         Assert.Equal(expectedReason, diagnosis.Reason);

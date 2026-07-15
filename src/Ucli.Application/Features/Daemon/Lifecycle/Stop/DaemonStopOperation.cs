@@ -52,21 +52,19 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
 
     /// <summary> Stops daemon lifecycle for the specified Unity project context. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The daemon stop timeout. </param>
+    /// <param name="deadline"> The deadline shared by all normal daemon-stop phases. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon stop result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<DaemonStopResult> StopAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
         {
             return DaemonStopResult.Failure(CreateTimeoutError("Timed out before daemon stop workflow began."));
@@ -137,8 +135,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
             }
 
             var session = readResult.Session!;
-            var stopCapability = DaemonSessionTerminationPolicy.ResolveStopCapability(session);
-            if (stopCapability == DaemonSessionTerminationPolicy.StopCapability.EndpointOnly)
+            if (!session.CanShutdownProcess)
             {
                 return await StopEndpointOnlySessionAsync(
                         unityProject,
@@ -148,19 +145,13 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
                     .ConfigureAwait(false);
             }
 
-            if (stopCapability != DaemonSessionTerminationPolicy.StopCapability.ProcessShutdown)
-            {
-                return DaemonStopResult.Failure(ExecutionError.InvalidArgument(
-                    "Daemon session does not allow process shutdown."));
-            }
-
-            if (!deadline.TryGetRemainingTimeout(out var shutdownTimeout))
+            if (!deadline.TryGetRemainingTimeout(out _))
             {
                 return DaemonStopResult.Failure(CreateTimeoutError(
                     "Timed out before daemon shutdown request could be sent."));
             }
 
-            var shutdownResult = await shutdownClient.SendShutdownAsync(unityProject, session, shutdownTimeout, cancellationToken).ConfigureAwait(false);
+            var shutdownResult = await shutdownClient.SendShutdownAsync(unityProject, session, deadline, cancellationToken).ConfigureAwait(false);
 
             if (shutdownResult.IsNotRunning)
             {
@@ -224,7 +215,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        if (!deadline.TryGetRemainingTimeout(out var shutdownTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return DaemonStopResult.Failure(CreateTimeoutError(
                 "Timed out before daemon endpoint shutdown request could be sent."));
@@ -233,7 +224,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         var shutdownResult = await shutdownClient.SendShutdownAsync(
                 unityProject,
                 session,
-                shutdownTimeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!shutdownResult.IsSuccess && !shutdownResult.IsNotRunning)
@@ -297,7 +288,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         var hasTerminationTarget = DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out var target);
         if (hasTerminationTarget)
         {
-            if (!compensationDeadline.TryGetRemainingTimeout(out var processTerminationTimeout))
+            if (!compensationDeadline.TryGetRemainingTimeout(out _))
             {
                 return DaemonSessionStoreOperationResult.Failure(CreateTimeoutError(
                     "Timed out before daemon process termination could begin."));
@@ -305,7 +296,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
 
             var stopProcessResult = await processTerminationService.EnsureStoppedAsync(
                     target,
-                    processTerminationTimeout,
+                    compensationDeadline,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!stopProcessResult.IsSuccess)

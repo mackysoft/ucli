@@ -27,7 +27,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerProjectionTests
         Assert.Equal(scenario.ProcessStartedAtUtc, result.Startup.StartedAtUtc);
         Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup.ProcessAction);
         Assert.NotNull(result.Startup.ArtifactPath);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
         DaemonLaunchInvocationAssert.LaunchCompensationAttempted(
             scenario.CompensationService,
             scenario.Context,

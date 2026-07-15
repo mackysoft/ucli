@@ -75,7 +75,7 @@ internal static class DaemonStartOperationInvocationAssert
     {
         var invocation = Assert.Single(cleanupService.StaleSessionInvocations);
         Assert.Equal(expectedSession, invocation.Session);
-        Assert.True(invocation.Timeout < maximumTimeout);
+        Assert.True(invocation.RemainingTimeout < maximumTimeout);
     }
 
     public static RecordingDaemonExistingSessionGateService.Invocation ExistingSessionGateAttempted (
@@ -94,7 +94,7 @@ internal static class DaemonStartOperationInvocationAssert
             Assert.Equal(expectedSession, invocation.Session);
         }
 
-        Assert.True(invocation.Timeout > TimeSpan.Zero);
+        Assert.True(invocation.Deadline.Timeout > TimeSpan.Zero);
         return invocation;
     }
 
@@ -138,7 +138,7 @@ internal static class DaemonStartOperationInvocationAssert
             Assert.Equal(expectedUnityProject, invocation.UnityProject);
         }
 
-        Assert.True(invocation.Timeout > TimeSpan.Zero);
+        Assert.True(invocation.Deadline.Timeout > TimeSpan.Zero);
         return invocation;
     }
 
@@ -164,7 +164,7 @@ internal static class DaemonStartOperationInvocationAssert
             Assert.Equal(expectedUnityProject, invocation.UnityProject);
         }
 
-        Assert.True(invocation.Timeout > TimeSpan.Zero);
+        Assert.True(invocation.Deadline.Timeout > TimeSpan.Zero);
         if (expectedEditorMode.HasValue)
         {
             Assert.Equal(expectedEditorMode.Value, invocation.EditorMode);

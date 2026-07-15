@@ -1,5 +1,3 @@
-using MackySoft.Tests;
-
 namespace MackySoft.Ucli.Application.Tests;
 
 internal static class DaemonReachabilityProbeAssert

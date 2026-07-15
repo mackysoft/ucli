@@ -12,6 +12,7 @@ internal static class DaemonInvalidSessionEvidenceTestFactory
     {
         var contract = new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+            SessionGenerationId: Guid.Empty,
             SessionToken: "raw-token-is-intentionally-not-projected",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: default,
@@ -24,7 +25,8 @@ internal static class DaemonInvalidSessionEvidenceTestFactory
             ProcessStartedAtUtc: processStartedAtUtc ?? (processId is null
                 ? null
                 : new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero)),
-            OwnerProcessId: 9876);
+            OwnerProcessId: 9876,
+            EditorInstanceId: null);
         return new DaemonInvalidSessionEvidence(contract);
     }
 }

@@ -1,5 +1,4 @@
 using System.Net.Sockets;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -117,7 +116,9 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
                 ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
-                new SocketException((int)SocketError.AccessDenied)),
+                new IpcConnectException(
+                    "IPC connection failed before the request was sent.",
+                    new SocketException((int)SocketError.AccessDenied))),
             artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-access-denied")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
@@ -141,7 +142,9 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
                 ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
-                new SocketException((int)SocketError.AddressNotAvailable)),
+                new IpcConnectException(
+                    "IPC connection failed before the request was sent.",
+                    new SocketException((int)SocketError.AddressNotAvailable))),
             artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-address-not-available")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
@@ -212,7 +215,9 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
                 ReadResult = DaemonSessionReadResult.Missing(),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
-                new SocketException((int)SocketError.AddressNotAvailable)),
+                new IpcConnectException(
+                    "IPC connection failed before the request was sent.",
+                    new SocketException((int)SocketError.AddressNotAvailable))),
             artifactCleaner: artifactCleaner);
 
         var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-none-address-not-available")), TimeSpan.FromMilliseconds(500), CancellationToken.None);

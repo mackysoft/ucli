@@ -13,7 +13,7 @@ internal sealed class UnexpectedDaemonStopOperation : IDaemonStopOperation
 
     public ValueTask<DaemonStopResult> StopAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException(reason);

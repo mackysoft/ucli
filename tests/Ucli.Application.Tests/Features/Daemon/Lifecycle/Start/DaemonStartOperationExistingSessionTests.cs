@@ -25,7 +25,7 @@ public sealed class DaemonStartOperationExistingSessionTests
 
         var result = await operation.StartAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-existing")),
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -64,7 +64,7 @@ public sealed class DaemonStartOperationExistingSessionTests
 
         var result = await operation.StartAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-existing-priority")),
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -96,7 +96,7 @@ public sealed class DaemonStartOperationExistingSessionTests
 
         var result = await operation.StartAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-existing-editor-mode")),
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: DaemonEditorMode.Batchmode,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -133,7 +133,7 @@ public sealed class DaemonStartOperationExistingSessionTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -183,7 +183,7 @@ public sealed class DaemonStartOperationExistingSessionTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -219,7 +219,7 @@ public sealed class DaemonStartOperationExistingSessionTests
 
         var result = await operation.StartAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-existing-failed")),
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

@@ -94,12 +94,12 @@ internal static class DaemonListQueryServiceTestSupport
 
     public static DaemonDiagnosis CreateDiagnosis (
         DaemonSession session,
-        string reason)
+        DaemonDiagnosisReason reason)
     {
         return new DaemonDiagnosis(
             Reason: reason,
             Message: $"diagnosis:{reason}",
-            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            ReportedBy: DaemonDiagnosisReportedBy.Unity,
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 1, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
@@ -108,9 +108,9 @@ internal static class DaemonListQueryServiceTestSupport
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
             UnityLogPath: "/repo/.ucli/local/fingerprints/fp-current/unity.log",
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit,
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.ProcessExit,
                 Code: null,
                 File: null,
                 Line: null,
@@ -174,14 +174,19 @@ internal static class DaemonListQueryServiceTestSupport
                 }
 
                 var diagnosis = new DaemonDiagnosis(
-                    Reason: DaemonDiagnosisReasonValues.ExternalTerminationSuspected,
+                    Reason: DaemonDiagnosisReason.ExternalTerminationSuspected,
                     Message: "Daemon process is no longer alive and no persisted diagnosis matched the current session.",
-                    ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+                    ReportedBy: DaemonDiagnosisReportedBy.Cli,
                     IsInferred: true,
                     UpdatedAtUtc: DateTimeOffset.UtcNow,
                     ProcessId: processId,
                     EditorInstancePath: null,
-                    SessionIssuedAtUtc: session.IssuedAtUtc);
+                    SessionIssuedAtUtc: session.IssuedAtUtc,
+                    ProcessStartedAtUtc: null,
+                    UnityLogPath: null,
+                    StartupPhase: null,
+                    ActionRequired: null,
+                    PrimaryDiagnostic: null);
 
                 await daemonDiagnosisStore.WriteAsync(
                         unityProject.RepositoryRoot,

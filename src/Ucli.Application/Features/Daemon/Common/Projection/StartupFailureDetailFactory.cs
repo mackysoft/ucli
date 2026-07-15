@@ -23,7 +23,7 @@ internal static class StartupFailureDetailFactory
         var diagnosis = new DaemonDiagnosisOutput(
             Reason: classification.Reason,
             Message: message,
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            ReportedBy: DaemonDiagnosisReportedBy.Cli,
             IsInferred: true,
             UpdatedAtUtc: updatedAtUtc,
             ProcessId: processId,
@@ -66,9 +66,9 @@ internal static class StartupFailureDetailFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
         var diagnosis = new DaemonDiagnosisOutput(
-            Reason: DaemonDiagnosisReasonValues.StartupFailed,
+            Reason: DaemonDiagnosisReason.StartupFailed,
             Message: message,
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            ReportedBy: DaemonDiagnosisReportedBy.Cli,
             IsInferred: true,
             UpdatedAtUtc: updatedAtUtc,
             ProcessId: processId,
@@ -111,9 +111,9 @@ internal static class StartupFailureDetailFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
         var diagnosis = new DaemonDiagnosisOutput(
-            Reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
+            Reason: DaemonDiagnosisReason.EditorExitedBeforeBootstrap,
             Message: message,
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            ReportedBy: DaemonDiagnosisReportedBy.Cli,
             IsInferred: true,
             UpdatedAtUtc: updatedAtUtc,
             ProcessId: processId,

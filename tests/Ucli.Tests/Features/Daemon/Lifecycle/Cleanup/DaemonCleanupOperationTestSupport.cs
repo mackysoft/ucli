@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Daemon;
 
@@ -37,7 +38,9 @@ internal static class DaemonCleanupOperationTestSupport
 
     public static RecordingDaemonPingClient CreateNotRunningPingClient ()
     {
-        return CreateFailingPingClient(new SocketException((int)SocketError.ConnectionRefused));
+        return CreateFailingPingClient(new IpcConnectException(
+            "IPC connection was refused before the request was sent.",
+            new SocketException((int)SocketError.ConnectionRefused)));
     }
 
     public static RecordingDaemonPingClient CreateFailingPingClient (Exception exception)

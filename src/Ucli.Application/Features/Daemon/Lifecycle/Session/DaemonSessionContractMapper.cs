@@ -85,6 +85,7 @@ internal static class DaemonSessionContractMapper
         {
             var endpoint = new IpcEndpoint(transportKind, contract.EndpointAddress!);
             session = new DaemonSession(
+                contract.SessionGenerationId,
                 sessionToken,
                 contract.ProjectFingerprint,
                 contract.IssuedAtUtc,
@@ -116,6 +117,7 @@ internal static class DaemonSessionContractMapper
 
         return new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+            SessionGenerationId: session.SessionGenerationId,
             SessionToken: session.SessionToken.GetEncodedValue(),
             ProjectFingerprint: session.ProjectFingerprint,
             IssuedAtUtc: session.IssuedAtUtc,
@@ -126,10 +128,8 @@ internal static class DaemonSessionContractMapper
             EndpointAddress: session.Endpoint.Address,
             ProcessId: session.ProcessId,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
-            OwnerProcessId: session.OwnerProcessId)
-        {
-            EditorInstanceId = session.EditorInstanceId,
-        };
+            OwnerProcessId: session.OwnerProcessId,
+            EditorInstanceId: session.EditorInstanceId);
     }
 
     private static ExecutionError Invalid (string reason, string sourceDescription)

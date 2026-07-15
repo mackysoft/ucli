@@ -16,47 +16,41 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
 
     private readonly DaemonCompensationOperationOwner compensationOperationOwner;
 
-    private readonly TimeProvider timeProvider;
-
     /// <summary> Initializes a new instance of the <see cref="DaemonSessionCleanupService" /> class. </summary>
     /// <param name="processTerminationService"> The process-termination service dependency. </param>
     /// <param name="artifactCleaner"> The daemon artifact-cleaner dependency. </param>
     /// <param name="invalidSessionCleanupSafetyEvaluator"> The invalid-session cleanup safety-evaluator dependency. </param>
     /// <param name="compensationOperationOwner"> The owner of cleanup mutations that outlive their caller. </param>
-    /// <param name="timeProvider"> The time provider used for cleanup deadline accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonSessionCleanupService (
         IDaemonProcessTerminationService processTerminationService,
         IDaemonArtifactCleaner artifactCleaner,
         IDaemonInvalidSessionCleanupSafetyEvaluator invalidSessionCleanupSafetyEvaluator,
-        DaemonCompensationOperationOwner compensationOperationOwner,
-        TimeProvider timeProvider)
+        DaemonCompensationOperationOwner compensationOperationOwner)
     {
         this.processTerminationService = processTerminationService ?? throw new ArgumentNullException(nameof(processTerminationService));
         this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
         this.invalidSessionCleanupSafetyEvaluator = invalidSessionCleanupSafetyEvaluator ?? throw new ArgumentNullException(nameof(invalidSessionCleanupSafetyEvaluator));
         this.compensationOperationOwner = compensationOperationOwner ?? throw new ArgumentNullException(nameof(compensationOperationOwner));
-        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Cleans invalid-session artifacts from daemon-session read results. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="readResult"> The failed daemon-session read result. </param>
-    /// <param name="timeout"> The timeout shared by process termination and artifact cleanup. </param>
+    /// <param name="deadline"> The deadline shared by process termination and artifact cleanup. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="readResult" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionReadResult readResult,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(readResult);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
         if (invalidSessionCleanupSafetyEvaluator.RequiresUnsafeSkip(readResult.InvalidEvidence))
         {
@@ -64,7 +58,6 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
                 "Daemon session is invalid and cannot be safely replaced because its process identity could not be proven inactive."));
         }
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var executionResult = await compensationOperationOwner.ExecuteAsync(
                 unityProject,
                 DaemonOperationLane.LifecycleCompensation,
@@ -86,23 +79,21 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
     /// <summary> Cleans stale-session artifacts from existing daemon session metadata. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The existing daemon session metadata. </param>
-    /// <param name="timeout"> The timeout shared by process termination and artifact cleanup. </param>
+    /// <param name="deadline"> The deadline shared by process termination and artifact cleanup. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cleanup operation result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="session" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(session);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var executionResult = await compensationOperationOwner.ExecuteAsync(
                 unityProject,
                 DaemonOperationLane.LifecycleCompensation,
@@ -187,14 +178,14 @@ internal sealed class DaemonSessionCleanupService : IDaemonSessionCleanupService
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return CreateTimeoutFailure("Timed out before invalid or stale daemon process termination could begin.");
         }
 
         return await processTerminationService.EnsureStoppedAsync(
                 target,
-                remainingTimeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
     }

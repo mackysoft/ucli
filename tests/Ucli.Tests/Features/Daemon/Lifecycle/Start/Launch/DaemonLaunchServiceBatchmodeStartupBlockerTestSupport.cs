@@ -22,6 +22,7 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var updatedSession = DaemonSessionTestFactory.Create(
             processId: processId,
             sessionToken: LaunchSessionToken,
@@ -52,6 +53,7 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
             launcher,
             readinessProbe,
             compensationService,
+            timeProvider,
             diagnosisStore,
             launchAttemptStore: launchAttemptStore);
 
@@ -66,6 +68,7 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
             compensationService,
             diagnosisStore,
             launchAttemptStore,
+            timeProvider,
             service);
     }
 
@@ -74,11 +77,11 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
     {
         return new DaemonStartupFailureClassification(
             startupBlockingReason: DaemonStartupBlockingReason.Compile,
-            reason: DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+            reason: DaemonDiagnosisReason.UnityScriptCompilationFailed,
             retryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
             message: CompileBlockerMessage,
             startupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-            actionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            actionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
             primaryDiagnostic: primaryDiagnostic);
     }
 
@@ -95,6 +98,7 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
             RecordingDaemonLaunchCompensationService compensationService,
             RecordingDaemonDiagnosisStore diagnosisStore,
             RecordingDaemonLaunchAttemptStore launchAttemptStore,
+            TimeProvider timeProvider,
             DaemonLaunchService service)
         {
             Context = context;
@@ -107,6 +111,7 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
             CompensationService = compensationService;
             DiagnosisStore = diagnosisStore;
             LaunchAttemptStore = launchAttemptStore;
+            TimeProvider = timeProvider;
             Service = service;
         }
 
@@ -130,6 +135,8 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
 
         public RecordingDaemonLaunchAttemptStore LaunchAttemptStore { get; }
 
+        public TimeProvider TimeProvider { get; }
+
         public DaemonLaunchService Service { get; }
 
         public ValueTask<DaemonStartResult> LaunchAsync (
@@ -137,7 +144,7 @@ internal static class DaemonLaunchServiceBatchmodeStartupBlockerTestSupport
         {
             return Service.LaunchAsync(
                 Context,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider),
                 DaemonEditorMode.Batchmode,
                 onStartupBlocked,
                 cancellationToken: CancellationToken.None);

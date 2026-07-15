@@ -18,7 +18,9 @@ public sealed class DaemonStatusServiceProjectionTests
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var diagnosis = DaemonDiagnosisTestFactory.Create();
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning(diagnosis));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning(
+            diagnosis,
+            lastLaunchAttempt: null));
         var service = CreateService(
             resolver,
             daemonStatusOperation);
@@ -67,7 +69,7 @@ public sealed class DaemonStatusServiceProjectionTests
     private static DaemonLaunchAttempt CreateTimedOutLaunchAttempt (DaemonDiagnosis diagnosis)
     {
         return new DaemonLaunchAttempt(
-            LaunchAttemptId: "20260312_000000Z_00000001",
+            LaunchAttemptId: Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
             StartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero),
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 5, TimeSpan.Zero),
             StartupStatus: DaemonStartupStatus.Timeout,
@@ -78,7 +80,7 @@ public sealed class DaemonStatusServiceProjectionTests
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero),
             UnityLogPath: "/tmp/repo-root/.ucli/local/fingerprints/fingerprint/unity.log",
-            ArtifactPath: "/tmp/repo-root/.ucli/local/fingerprints/fingerprint/launch-attempts/20260312_000000Z_00000001/startup-diagnosis.json",
+            ArtifactPath: "/tmp/repo-root/.ucli/local/fingerprints/fingerprint/launch-attempts/0123456789abcdef0123456789abcdef/startup-diagnosis.json",
             Diagnosis: diagnosis);
     }
 }

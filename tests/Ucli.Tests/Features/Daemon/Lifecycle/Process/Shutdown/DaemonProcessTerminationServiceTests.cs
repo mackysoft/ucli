@@ -14,7 +14,7 @@ public sealed class DaemonProcessTerminationServiceTests
 
         var result = await service.EnsureStoppedAsync(
             target: null,
-            timeout: TimeSpan.FromMilliseconds(100),
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -30,7 +30,7 @@ public sealed class DaemonProcessTerminationServiceTests
 
         var result = await service.EnsureStoppedAsync(
             target: CreateTarget(currentProcessId, processStartedAtUtc: null),
-            timeout: TimeSpan.FromMilliseconds(100),
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -48,7 +48,7 @@ public sealed class DaemonProcessTerminationServiceTests
 
         var result = await service.EnsureStoppedAsync(
             target: CreateTarget(currentProcess.Id, DateTimeOffset.UtcNow.AddHours(1)),
-            timeout: TimeSpan.FromMilliseconds(100),
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -80,7 +80,7 @@ public sealed class DaemonProcessTerminationServiceTests
 
             var result = await service.EnsureStoppedAsync(
                 CreateTarget(process.Id, processStartedAtUtc),
-                TimeSpan.FromSeconds(10),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(10), TimeProvider.System),
                 CancellationToken.None);
 
             Assert.True(result.IsSuccess);
@@ -115,7 +115,7 @@ public sealed class DaemonProcessTerminationServiceTests
 
             var result = await service.EnsureStoppedAsync(
                 CreateTarget(process.Id, processStartedAtUtc),
-                TimeSpan.FromSeconds(15),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(15), TimeProvider.System),
                 CancellationToken.None);
 
             Assert.True(result.IsSuccess);
@@ -150,7 +150,7 @@ public sealed class DaemonProcessTerminationServiceTests
 
             var result = await service.EnsureStoppedAsync(
                 CreateTarget(process.Id, processStartedAtUtc),
-                TimeSpan.FromSeconds(10),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(10), TimeProvider.System),
                 CancellationToken.None);
 
             Assert.True(result.IsSuccess);
@@ -164,9 +164,7 @@ public sealed class DaemonProcessTerminationServiceTests
 
     private static DaemonProcessTerminationService CreateService ()
     {
-        return new DaemonProcessTerminationService(
-            new DaemonProcessIdentityAssessor(),
-            TimeProvider.System);
+        return new DaemonProcessTerminationService(new DaemonProcessIdentityAssessor());
     }
 
     private static DaemonProcessTerminationTarget CreateTarget (

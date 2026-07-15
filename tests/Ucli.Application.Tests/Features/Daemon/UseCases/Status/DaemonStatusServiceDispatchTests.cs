@@ -13,7 +13,9 @@ public sealed class DaemonStatusServiceDispatchTests
         var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 2300);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning(
+            diagnosis: null,
+            lastLaunchAttempt: null));
         var service = CreateService(
             resolver,
             daemonStatusOperation);

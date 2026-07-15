@@ -37,12 +37,11 @@ public sealed class DaemonGuiStartupObserverTests
         };
         var logReader = new UnexpectedUnityLogReader(
             "Session registration success should not read the Unity log.");
-        var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess();
+        var processIdentityAssessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(DateTimeOffset.UtcNow);
         var observer = new DaemonGuiStartupObserver(
             awaiter,
             logReader,
-            processIdentityAssessor,
-            new ManualTimeProvider());
+            processIdentityAssessor);
         var processStartedAtUtc = DateTimeOffset.UtcNow;
 
         var result = await observer.WaitForStartupAsync(
@@ -50,7 +49,7 @@ public sealed class DaemonGuiStartupObserverTests
             processId: 4321,
             processStartedAtUtc: processStartedAtUtc,
             unityLogPath: "/tmp/unity.log",
-            timeout: TimeSpan.FromMilliseconds(500),
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -65,6 +64,7 @@ public sealed class DaemonGuiStartupObserverTests
     [Trait("Size", "Small")]
     public async Task WaitForStartup_WhenTimeoutExceedsProbeAttemptCap_PassesProbeAttemptCapToSessionAwaiter ()
     {
+        var timeProvider = new ManualTimeProvider();
         var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter
         {
             NextResult = CreateSuccessfulWaitResult(DaemonSessionTestFactory.Create(
@@ -78,15 +78,14 @@ public sealed class DaemonGuiStartupObserverTests
         var observer = new DaemonGuiStartupObserver(
             awaiter,
             new UnexpectedUnityLogReader("Session registration success should not read the Unity log."),
-            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(),
-            TimeProvider.System);
+            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(DateTimeOffset.UtcNow));
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-session")),
             processId: 4321,
             processStartedAtUtc: DateTimeOffset.UtcNow,
             unityLogPath: "/tmp/unity.log",
-            timeout: TimeSpan.FromSeconds(5),
+            deadline: ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -115,15 +114,14 @@ public sealed class DaemonGuiStartupObserverTests
         var observer = new DaemonGuiStartupObserver(
             awaiter,
             logReader,
-            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(),
-            new ManualTimeProvider());
+            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(DateTimeOffset.UtcNow));
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-compiler")),
             processId: Environment.ProcessId,
             processStartedAtUtc: processStartedAtUtc,
             unityLogPath: "/tmp/unity.log",
-            timeout: TimeSpan.FromMilliseconds(500),
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsBlocked);
@@ -131,12 +129,12 @@ public sealed class DaemonGuiStartupObserverTests
         var classification = blockerObservation.Classification;
         Assert.Equal(DaemonStartupBlockingReason.Compile, classification.StartupBlockingReason);
         Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, classification.Reason);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, classification.ActionRequired);
+        Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, classification.Reason);
+        Assert.Equal(DaemonDiagnosisActionRequired.FixCompileErrors, classification.ActionRequired);
         Assert.Equal(processStartedAtUtc, blockerObservation.ProcessStartedAtUtc);
         var primaryDiagnostic = Assert.IsType<DaemonPrimaryDiagnostic>(classification.PrimaryDiagnostic);
         Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, classification.StartupPhase);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, primaryDiagnostic.Kind);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, primaryDiagnostic.Kind);
         Assert.Equal("CS1739", primaryDiagnostic.Code);
         Assert.Equal("Assets/Foo.cs", primaryDiagnostic.File);
         Assert.Equal(74, primaryDiagnostic.Line);
@@ -149,43 +147,43 @@ public sealed class DaemonGuiStartupObserverTests
     [InlineData(
         "An error occurred while resolving packages:\nProject has invalid dependencies:\ncom.example.missing: Package cannot be found\n",
         DaemonStartupBlockingReason.PackageResolution,
-        DaemonDiagnosisReasonValues.UnityPackageResolutionFailed,
+        DaemonDiagnosisReason.UnityPackageResolutionFailed,
         DaemonStartupRetryDisposition.RetryAfterFix,
         DaemonDiagnosisStartupPhase.PackageResolution,
-        DaemonDiagnosisActionRequiredValues.ResolvePackages,
-        DaemonDiagnosisPrimaryDiagnosticKindValues.PackageResolution)]
+        DaemonDiagnosisActionRequired.ResolvePackages,
+        DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution)]
     [InlineData(
         "Unity Editor entered Safe Mode and is waiting for user action.\n",
         DaemonStartupBlockingReason.SafeMode,
-        DaemonDiagnosisReasonValues.EditorUserActionRequired,
+        DaemonDiagnosisReason.EditorUserActionRequired,
         DaemonStartupRetryDisposition.ManualActionRequired,
         DaemonDiagnosisStartupPhase.UserAction,
-        DaemonDiagnosisActionRequiredValues.ResolveUnityDialog,
-        DaemonDiagnosisPrimaryDiagnosticKindValues.UnityDialog)]
+        DaemonDiagnosisActionRequired.ResolveUnityDialog,
+        DaemonDiagnosisPrimaryDiagnosticKind.UnityDialog)]
     [InlineData(
         "Could not load file or assembly 'MackySoft.Ucli.Infrastructure'\n",
         DaemonStartupBlockingReason.UcliPlugin,
-        DaemonDiagnosisReasonValues.UcliPluginDependencyMissing,
+        DaemonDiagnosisReason.UcliPluginDependencyMissing,
         DaemonStartupRetryDisposition.RetryAfterFix,
         DaemonDiagnosisStartupPhase.ScriptCompilation,
-        DaemonDiagnosisActionRequiredValues.ResolvePackages,
-        DaemonDiagnosisPrimaryDiagnosticKindValues.PluginDependency)]
+        DaemonDiagnosisActionRequired.ResolvePackages,
+        DaemonDiagnosisPrimaryDiagnosticKind.PluginDependency)]
     [InlineData(
         "Multiple precompiled assemblies with the same name Newtonsoft.Json.dll included on the current platform.\n",
         DaemonStartupBlockingReason.PrecompiledAssemblyConflict,
-        DaemonDiagnosisReasonValues.PrecompiledAssemblyConflict,
+        DaemonDiagnosisReason.PrecompiledAssemblyConflict,
         DaemonStartupRetryDisposition.RetryAfterFix,
         DaemonDiagnosisStartupPhase.ScriptCompilation,
-        DaemonDiagnosisActionRequiredValues.FixCompileErrors,
-        DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler)]
+        DaemonDiagnosisActionRequired.FixCompileErrors,
+        DaemonDiagnosisPrimaryDiagnosticKind.Compiler)]
     public async Task WaitForStartup_WhenClassifiedStartupBlockerAppearsInLog_ReturnsExpectedBlocker (
         string logText,
         DaemonStartupBlockingReason expectedStartupBlockingReason,
-        string expectedReason,
+        DaemonDiagnosisReason expectedReason,
         DaemonStartupRetryDisposition expectedRetryDisposition,
         DaemonDiagnosisStartupPhase expectedStartupPhase,
-        string expectedActionRequired,
-        string expectedPrimaryDiagnosticKind)
+        DaemonDiagnosisActionRequired expectedActionRequired,
+        DaemonDiagnosisPrimaryDiagnosticKind expectedPrimaryDiagnosticKind)
     {
         var awaiter = new RecordingDaemonGuiSessionRegistrationAwaiter
         {
@@ -199,15 +197,14 @@ public sealed class DaemonGuiStartupObserverTests
         var observer = new DaemonGuiStartupObserver(
             awaiter,
             logReader,
-            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(),
-            new ManualTimeProvider());
+            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(DateTimeOffset.UtcNow));
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create($"fingerprint-gui-observer-{expectedReason}")),
             processId: Environment.ProcessId,
             processStartedAtUtc: processStartedAtUtc,
             unityLogPath: "/tmp/unity.log",
-            timeout: TimeSpan.FromMilliseconds(500),
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsBlocked);
@@ -236,23 +233,19 @@ public sealed class DaemonGuiStartupObserverTests
         };
         var processIdentityAssessor = new RecordingDaemonProcessIdentityAssessor
         {
-            Assessment = new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.NotRunning,
-                ObservedStartTimeUtc: null,
-                Error: null),
+            Assessment = DaemonProcessIdentityAssessment.NotRunning(),
         };
         var observer = new DaemonGuiStartupObserver(
             awaiter,
             logReader,
-            processIdentityAssessor,
-            new ManualTimeProvider());
+            processIdentityAssessor);
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-exit")),
             processId: int.MaxValue,
             processStartedAtUtc: processStartedAtUtc,
             unityLogPath: "/tmp/unity.log",
-            timeout: TimeSpan.FromMilliseconds(500),
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsBlocked);
@@ -260,9 +253,9 @@ public sealed class DaemonGuiStartupObserverTests
         var classification = blockerObservation.Classification;
         Assert.Equal(DaemonStartupBlockingReason.ProcessExit, classification.StartupBlockingReason);
         Assert.Equal(DaemonStartupRetryDisposition.Unknown, classification.RetryDisposition);
-        Assert.Equal(DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap, classification.Reason);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, classification.ActionRequired);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisReason.EditorExitedBeforeBootstrap, classification.Reason);
+        Assert.Equal(DaemonDiagnosisActionRequired.InspectUnityLog, classification.ActionRequired);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.ProcessExit, classification.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -284,23 +277,19 @@ public sealed class DaemonGuiStartupObserverTests
         };
         var processIdentityAssessor = new RecordingDaemonProcessIdentityAssessor
         {
-            Assessment = new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.NotRunning,
-                ObservedStartTimeUtc: null,
-                Error: null),
+            Assessment = DaemonProcessIdentityAssessment.NotRunning(),
         };
         var observer = new DaemonGuiStartupObserver(
             awaiter,
             logReader,
-            processIdentityAssessor,
-            new ManualTimeProvider());
+            processIdentityAssessor);
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-exit-with-log")),
             processId: int.MaxValue,
             processStartedAtUtc: processStartedAtUtc,
             unityLogPath: "/tmp/unity.log",
-            timeout: TimeSpan.FromMilliseconds(500),
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsBlocked);
@@ -308,8 +297,8 @@ public sealed class DaemonGuiStartupObserverTests
         var classification = blockerObservation.Classification;
         Assert.Equal(DaemonStartupBlockingReason.Compile, classification.StartupBlockingReason);
         Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, classification.Reason);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, classification.Reason);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, classification.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -327,15 +316,14 @@ public sealed class DaemonGuiStartupObserverTests
         var observer = new DaemonGuiStartupObserver(
             awaiter,
             logReader,
-            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(),
-            timeProvider);
+            RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(DateTimeOffset.UtcNow));
 
         var result = await observer.WaitForStartupAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-observer-unclassified-timeout")),
             processId: Environment.ProcessId,
             processStartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero),
             unityLogPath: "/tmp/unity.log",
-            timeout: TimeSpan.FromMilliseconds(10),
+            deadline: ExecutionDeadline.Start(TimeSpan.FromMilliseconds(10), timeProvider),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsSuccess);

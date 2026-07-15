@@ -48,6 +48,7 @@ internal sealed class DaemonCompensationOperationOwner
         string timeoutMessage)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
         ArgumentException.ThrowIfNullOrWhiteSpace(timeoutMessage);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -121,6 +122,7 @@ internal sealed class DaemonCompensationOperationOwner
         Func<TimeSpan, CancellationToken, ValueTask<T>> operation)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
         ArgumentException.ThrowIfNullOrWhiteSpace(beforeTimeoutMessage);
         ArgumentException.ThrowIfNullOrWhiteSpace(operationTimeoutMessage);
         ArgumentNullException.ThrowIfNull(operation);
@@ -363,7 +365,7 @@ internal sealed class DaemonCompensationOperationOwner
         }
 
         return new OwnedOperationKey(
-            Path.GetFullPath(unityProject.UnityProjectRoot),
+            unityProject.UnityProjectRoot,
             unityProject.ProjectFingerprint,
             lane);
     }

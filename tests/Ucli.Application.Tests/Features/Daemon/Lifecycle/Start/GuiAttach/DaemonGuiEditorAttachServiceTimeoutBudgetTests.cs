@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
@@ -34,7 +33,7 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
 
         var resultTask = service.TryAttachExistingGuiEditorAsync(
                 DaemonGuiEditorAttachServiceTestSupport.UnityProject,
-                timeout,
+                ExecutionDeadline.Start(timeout, timeProvider),
                 editorMode: null,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
@@ -88,7 +87,7 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
 
         var resultTask = service.TryAttachExistingGuiEditorAsync(
                 DaemonGuiEditorAttachServiceTestSupport.UnityProject,
-                timeout,
+                ExecutionDeadline.Start(timeout, timeProvider),
                 editorMode: null,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
@@ -139,7 +138,7 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             DaemonGuiEditorAttachServiceTestSupport.UnityProject,
-            TimeSpan.FromMilliseconds(1000),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(1000), timeProvider),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -189,9 +188,10 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
             new DaemonCompensationOperationOwner(),
             timeProvider);
 
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(1000), timeProvider);
         var result = await service.TryAttachExistingGuiEditorAsync(
             DaemonGuiEditorAttachServiceTestSupport.UnityProject,
-            TimeSpan.FromMilliseconds(1000),
+            deadline,
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -208,5 +208,7 @@ public sealed class DaemonGuiEditorAttachServiceTimeoutBudgetTests
             marker.ProcessId,
             DaemonGuiEditorAttachServiceTestSupport.ProbeProcessStartedAtUtc,
             TimeSpan.FromMilliseconds(600));
+        Assert.Same(deadline, Assert.Single(rebootstrapClient.Invocations).Deadline);
+        Assert.Same(deadline, awaiter.Invocations[1].Deadline);
     }
 }

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
@@ -25,6 +24,7 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         var invalidContract = new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+            SessionGenerationId: Guid.Empty,
             SessionToken: "tampered-invalid-token",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: processStartedAtUtc,
@@ -35,7 +35,8 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
             EndpointAddress: "tampered-endpoint",
             ProcessId: 3131,
             ProcessStartedAtUtc: processStartedAtUtc,
-            OwnerProcessId: 4141);
+            OwnerProcessId: 4141,
+            EditorInstanceId: null);
         await File.WriteAllTextAsync(
             sessionPath,
             DaemonSessionJsonContractSerializer.Serialize(invalidContract) + Environment.NewLine,
@@ -68,8 +69,7 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
             new DaemonInvalidSessionCleanupSafetyEvaluator(
                 new RecordingDaemonProcessIdentityAssessor(
                     DaemonProcessIdentityAssessmentStatus.DifferentProcess)),
-            new DaemonCompensationOperationOwner(),
-            new ManualTimeProvider());
+            new DaemonCompensationOperationOwner());
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(
             unityProjectRoot: "/tmp/unity-project",
             repositoryRoot: scope.FullPath,
@@ -78,7 +78,7 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
         var cleanupResult = await service.CleanupInvalidSessionArtifactsAsync(
             unityProject,
             invalidObservation,
-            TimeSpan.FromSeconds(1),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), new ManualTimeProvider()),
             CancellationToken.None);
         var currentSessionResult = await sessionStore.ReadAsync(
             scope.FullPath,
@@ -99,7 +99,7 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
 
         public ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
             DaemonProcessTerminationTarget? target,
-            TimeSpan timeout,
+            ExecutionDeadline deadline,
             CancellationToken cancellationToken = default)
         {
             WasCalled = true;

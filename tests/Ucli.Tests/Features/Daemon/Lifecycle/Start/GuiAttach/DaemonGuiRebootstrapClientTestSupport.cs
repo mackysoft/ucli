@@ -1,7 +1,6 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
@@ -17,8 +16,7 @@ internal static class DaemonGuiRebootstrapClientTestSupport
     {
         return new DaemonGuiRebootstrapClient(
             new GuiSupervisorManifestStore(),
-            transportClient,
-            new ManualTimeProvider());
+            transportClient);
     }
 
     public static GuiSupervisorManifestJsonContract CreateManifest ()

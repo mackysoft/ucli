@@ -12,8 +12,4 @@ internal enum DaemonCleanupStatus
     /// <summary> Indicates cleanup was intentionally skipped for safety. </summary>
     [UcliContractLiteral("skipped")]
     Skipped = 1,
-
-    /// <summary> Indicates cleanup failed. </summary>
-    [UcliContractLiteralIgnore]
-    Failed = 2,
 }

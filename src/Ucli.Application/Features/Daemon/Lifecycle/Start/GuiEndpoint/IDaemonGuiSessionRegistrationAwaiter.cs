@@ -7,7 +7,7 @@ internal interface IDaemonGuiSessionRegistrationAwaiter
     ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DateTimeOffset? expectedProcessStartedAtUtc = null,
         CancellationToken cancellationToken = default);
 }

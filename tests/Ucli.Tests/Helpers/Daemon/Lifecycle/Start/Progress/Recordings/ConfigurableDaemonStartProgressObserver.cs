@@ -30,7 +30,7 @@ internal sealed class ConfigurableDaemonStartProgressObserver : IDaemonStartProg
 
     public ValueTask EmitSessionRegisteredAsync (
         DaemonSession session,
-        string? launchAttemptId,
+        Guid? launchAttemptId,
         CancellationToken cancellationToken)
     {
         return EmitAsync(DaemonStartProgressEvent.SessionRegistered, cancellationToken);
@@ -38,7 +38,7 @@ internal sealed class ConfigurableDaemonStartProgressObserver : IDaemonStartProg
 
     public ValueTask EmitEndpointRegisteredAsync (
         DaemonSession session,
-        string? launchAttemptId,
+        Guid? launchAttemptId,
         CancellationToken cancellationToken)
     {
         return EmitAsync(DaemonStartProgressEvent.EndpointRegistered, cancellationToken);

@@ -21,16 +21,12 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
 
     private readonly IIpcTransportClient transportClient;
 
-    private readonly TimeProvider timeProvider;
-
     public DaemonGuiRebootstrapClient (
         IGuiSupervisorManifestStore manifestStore,
-        IIpcTransportClient transportClient,
-        TimeProvider timeProvider)
+        IIpcTransportClient transportClient)
     {
         this.manifestStore = manifestStore ?? throw new ArgumentNullException(nameof(manifestStore));
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
-        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -38,19 +34,21 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         DateTimeOffset? expectedProcessStartedAtUtc,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(expectedProcessId, 0);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var canReloadAfterTokenRejection = true;
         IpcSessionToken? rejectedSessionToken = null;
         IpcResponse? sessionTokenRejection = null;
-        IpcRequest? request = null;
+        var requestId = Guid.NewGuid();
+        var requestPayload = IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(
+            ProjectFingerprint: unityProject.ProjectFingerprint,
+            ReplaceExistingSession: true));
 
         while (true)
         {
@@ -117,33 +115,36 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                     return CreateTimeoutResult("Timed out before GUI supervisor rebootstrap request could begin.");
                 }
 
-                request ??= UnityIpcRequestFactory.Create(
-                    sessionToken!,
-                    UnityIpcMethod.GuiRebootstrap,
-                    IpcPayloadCodec.SerializeToElement(new IpcGuiRebootstrapRequest(
-                        ProjectFingerprint: unityProject.ProjectFingerprint,
-                        ReplaceExistingSession: true)),
-                    Guid.NewGuid(),
-                    IpcResponseMode.Single);
-                var requestForManifest = sessionToken!.Matches(request.SessionToken)
-                        ? request
-                        : UnityIpcRequestFactory.Create(
-                            sessionToken,
-                            UnityIpcMethod.GuiRebootstrap,
-                            request.Payload,
-                            request.RequestId,
-                            IpcResponseMode.Single);
-                var response = await transportClient.SendAsync(
-                        endpoint!,
-                        requestForManifest,
-                        requestTimeout,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (deadline.IsExpired)
+                if (!deadline.TryGetRemainingMilliseconds(out var requestDeadlineRemainingMilliseconds))
                 {
-                    return CreateTimeoutResult("Timed out while requesting GUI supervisor rebootstrap.");
+                    return CreateTimeoutResult("Timed out before GUI supervisor rebootstrap request could begin.");
                 }
 
+                var request = UnityIpcRequestFactory.Create(
+                    sessionToken!,
+                    UnityIpcMethod.GuiRebootstrap,
+                    requestPayload,
+                    requestId,
+                    IpcResponseMode.Single,
+                    deadline.UtcDeadline,
+                    requestDeadlineRemainingMilliseconds);
+                var sendOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                        deadline,
+                        cancellationToken,
+                        "Timed out before GUI supervisor rebootstrap request could begin.",
+                        "Timed out while requesting GUI supervisor rebootstrap.",
+                        token => transportClient.SendAsync(
+                            endpoint!,
+                            request,
+                            requestTimeout,
+                            token))
+                    .ConfigureAwait(false);
+                if (!sendOperation.IsSuccess)
+                {
+                    return CreateTimeoutResult(sendOperation.Error!.Message);
+                }
+
+                var response = sendOperation.Value!;
                 if (IsSessionTokenInvalid(response) && canReloadAfterTokenRejection)
                 {
                     canReloadAfterTokenRejection = false;
@@ -152,7 +153,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                     continue;
                 }
 
-                if (IpcResponseFailureReader.TryRead(response, out _, out _))
+                if (IpcResponseFailureReader.TryRead(response, out _))
                 {
                     return CreateResponseFailureResult(response);
                 }
@@ -189,7 +190,7 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
 
     private static DaemonGuiRebootstrapRequestResult CreateResponseFailureResult (IpcResponse response)
     {
-        _ = IpcResponseFailureReader.TryRead(response, out var firstError, out _);
+        _ = IpcResponseFailureReader.TryRead(response, out var firstError);
         return DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
             firstError?.Message ?? "GUI supervisor rebootstrap request failed.",
             DaemonErrorCodes.DaemonEndpointNotRegistered));

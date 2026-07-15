@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
 
@@ -34,7 +35,7 @@ internal sealed record DaemonStatusExecutionOutput (
     DaemonSessionOutput? Session,
     DaemonDiagnosisOutput? Diagnosis,
     DaemonLaunchAttemptOutput? LastLaunchAttempt,
-    DateTimeOffset? ObservedAtUtc = null,
-    string? ActionRequired = null,
-    DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null,
-    IpcPlayModeSnapshot? PlayMode = null);
+    DateTimeOffset? ObservedAtUtc,
+    DaemonDiagnosisActionRequired? ActionRequired,
+    DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic,
+    IpcPlayModeSnapshot? PlayMode);

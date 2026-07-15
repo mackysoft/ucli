@@ -19,6 +19,6 @@ internal static class DaemonStartServiceTestSupport
             pluginVerifier,
             new DaemonSessionOutputMapper(),
             new DaemonDiagnosisOutputMapper(),
-            timeProvider);
+            timeProvider ?? TimeProvider.System);
     }
 }

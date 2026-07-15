@@ -32,7 +32,7 @@ public sealed class DaemonGuiRebootstrapClientSupervisorFailureTests
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            timeout,
+            ExecutionDeadline.Start(timeout, TimeProvider.System),
             CancellationToken.None);
 
         AssertUnavailableAfterIpc(result, transportClient, manifest, unityProject.ProjectFingerprint, timeout);
@@ -64,7 +64,7 @@ public sealed class DaemonGuiRebootstrapClientSupervisorFailureTests
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            timeout,
+            ExecutionDeadline.Start(timeout, TimeProvider.System),
             CancellationToken.None);
 
         AssertUnavailableAfterIpc(result, transportClient, manifest, unityProject.ProjectFingerprint, timeout);
@@ -94,7 +94,7 @@ public sealed class DaemonGuiRebootstrapClientSupervisorFailureTests
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            timeout,
+            ExecutionDeadline.Start(timeout, TimeProvider.System),
             CancellationToken.None);
 
         AssertUnavailableAfterIpc(result, transportClient, manifest, unityProject.ProjectFingerprint, timeout);

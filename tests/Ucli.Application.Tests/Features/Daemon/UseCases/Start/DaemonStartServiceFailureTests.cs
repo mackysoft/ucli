@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
@@ -91,11 +90,9 @@ public sealed class DaemonStartServiceFailureTests
         {
             EnsureRunningResult = DaemonStartResult.Failure(
                 ExecutionError.Timeout("start failed", ExecutionErrorCodes.IpcTimeout),
-                DaemonDiagnosisTestFactory.Create() with
-                {
-                    Reason = DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
-                    EditorInstancePath = "/tmp/unity-project/Library/EditorInstance.json",
-                }),
+                DaemonDiagnosisTestFactory.Create(
+                    reason: DaemonDiagnosisReason.GuiEndpointNotRegistered,
+                    editorInstancePath: "/tmp/unity-project/Library/EditorInstance.json")),
         };
         var diagnosis = supervisorProjectGateway.EnsureRunningResult.Diagnosis!;
         var service = DaemonStartServiceTestSupport.CreateService(resolver, supervisorProjectGateway);
@@ -122,9 +119,16 @@ public sealed class DaemonStartServiceFailureTests
         var startup = new DaemonStartupObservation(
             StartupStatus: DaemonStartupStatus.Blocked,
             StartupBlockingReason: DaemonStartupBlockingReason.Compile,
-            LaunchAttemptId: "20260312_040500Z_00abcdef",
+            LaunchAttemptId: Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
             ProcessAction: DaemonStartupProcessAction.Kept,
-            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix);
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
+            EditorMode: null,
+            OwnerKind: null,
+            CanShutdownProcess: null,
+            ProcessId: null,
+            StartedAtUtc: null,
+            ElapsedMilliseconds: null,
+            ArtifactPath: null);
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
         {
             EnsureRunningResult = DaemonStartResult.Failure(

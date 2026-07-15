@@ -22,7 +22,7 @@ public sealed class DaemonSessionDiagnosisResolverTests
             projectFingerprint: unityProject.ProjectFingerprint,
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock");
-        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested);
+        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReason.ShutdownRequested);
         var diagnosisStore = new UnexpectedDaemonDiagnosisStore("Matching persisted diagnosis should be returned without writing diagnosis.");
         var resolver = new DaemonSessionDiagnosisResolver(diagnosisStore);
 
@@ -44,10 +44,20 @@ public sealed class DaemonSessionDiagnosisResolverTests
             projectFingerprint: unityProject.ProjectFingerprint,
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock");
-        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested) with
-        {
-            ProcessStartedAtUtc = session.ProcessStartedAtUtc!.Value.AddSeconds(-1),
-        };
+        var diagnosis = new DaemonDiagnosis(
+            Reason: DaemonDiagnosisReason.ShutdownRequested,
+            Message: "diagnosis:shutdownRequested",
+            ReportedBy: DaemonDiagnosisReportedBy.Unity,
+            IsInferred: false,
+            UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 1, 0, 0, TimeSpan.Zero),
+            ProcessId: session.ProcessId,
+            EditorInstancePath: null,
+            SessionIssuedAtUtc: session.IssuedAtUtc,
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc!.Value.AddSeconds(-1),
+            UnityLogPath: null,
+            StartupPhase: null,
+            ActionRequired: null,
+            PrimaryDiagnostic: null);
         var diagnosisStore = new UnexpectedDaemonDiagnosisStore("Live process with mismatched diagnosis should not write diagnosis.");
         var resolver = new DaemonSessionDiagnosisResolver(diagnosisStore);
 
@@ -79,13 +89,13 @@ public sealed class DaemonSessionDiagnosisResolverTests
             endpointAddress: "/tmp/ucli.sock");
         var mismatchedDiagnosis = CreateDiagnosis(
             mismatchedSession,
-            DaemonDiagnosisReasonValues.ShutdownRequested);
+            DaemonDiagnosisReason.ShutdownRequested);
 
         var result = await resolver.ResolveForSessionAsync(unityProject, session, mismatchedDiagnosis, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, result!.Reason);
-        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, result.ReportedBy);
+        Assert.Equal(DaemonDiagnosisReason.ExternalTerminationSuspected, result!.Reason);
+        Assert.Equal(DaemonDiagnosisReportedBy.Cli, result.ReportedBy);
         Assert.True(result.IsInferred);
         Assert.Equal(session.ProcessId, result.ProcessId);
         Assert.Equal(session.IssuedAtUtc, result.SessionIssuedAtUtc);
@@ -137,8 +147,8 @@ public sealed class DaemonSessionDiagnosisResolverTests
         var result = await resolver.ResolveForSessionAsync(unityProject, session, persistedDiagnosis: null, CancellationToken.None);
 
         Assert.NotNull(result);
-        Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, result!.Reason);
-        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, result.ReportedBy);
+        Assert.Equal(DaemonDiagnosisReason.ExternalTerminationSuspected, result!.Reason);
+        Assert.Equal(DaemonDiagnosisReportedBy.Cli, result.ReportedBy);
         Assert.True(result.IsInferred);
         DaemonDiagnosisStoreAssert.DiagnosisWrittenFor(diagnosisStore, unityProject);
     }
@@ -174,18 +184,22 @@ public sealed class DaemonSessionDiagnosisResolverTests
 
     private static DaemonDiagnosis CreateDiagnosis (
         DaemonSession session,
-        string reason)
+        DaemonDiagnosisReason reason)
     {
         return new DaemonDiagnosis(
             Reason: reason,
             Message: $"diagnosis:{reason}",
-            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            ReportedBy: DaemonDiagnosisReportedBy.Unity,
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 1, 0, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
             EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc,
-            ProcessStartedAtUtc: session.ProcessStartedAtUtc);
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc,
+            UnityLogPath: null,
+            StartupPhase: null,
+            ActionRequired: null,
+            PrimaryDiagnostic: null);
     }
 
     private sealed class CancelingDaemonDiagnosisStore : IDaemonDiagnosisStore

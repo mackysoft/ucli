@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -120,8 +119,7 @@ public sealed class GuiSupervisorManifestStoreTests
         };
         var client = new DaemonGuiRebootstrapClient(
             new GuiSupervisorManifestStore(),
-            transportClient,
-            TimeProvider.System);
+            transportClient);
         var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             scope.FullPath,
             projectFingerprint);
@@ -130,7 +128,7 @@ public sealed class GuiSupervisorManifestStoreTests
             unityProject,
             expectedProcessId: 1234,
             expectedProcessStartedAtUtc: null,
-            TimeSpan.FromMilliseconds(50),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(50), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsAccepted);

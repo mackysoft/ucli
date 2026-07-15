@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -33,7 +32,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -73,7 +72,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -111,9 +110,8 @@ public sealed class DaemonStartOperationInvalidSessionTests
             processTerminationService,
             artifactCleaner,
             new DaemonInvalidSessionCleanupSafetyEvaluator(
-                RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess()),
-            new DaemonCompensationOperationOwner(),
-            timeProvider);
+                RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(DateTimeOffset.UtcNow)),
+            new DaemonCompensationOperationOwner());
         var launchService = new RecordingDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 3333, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
@@ -127,7 +125,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -164,7 +162,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
 
         var result = await operation.StartAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-path-invalid")),
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -24,7 +23,7 @@ public sealed class DaemonCleanupReachabilityProbeTests
         var unityProject = CreateFingerprintMatchedProject();
         var transportClient = new RecordingIpcTransportClient(request => CreateResponse(
             request,
-            IpcProtocol.StatusError,
+            IpcResponseStatus.Error,
             [
                 new IpcError(
                     errorCode,

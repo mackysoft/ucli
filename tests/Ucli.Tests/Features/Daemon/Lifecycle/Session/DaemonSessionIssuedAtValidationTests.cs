@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -21,6 +20,7 @@ public sealed class DaemonSessionIssuedAtValidationTests
             $$"""
             {
               "schemaVersion": {{DaemonSessionStorageContract.CurrentSchemaVersion}},
+              "sessionGenerationId": "11111111-1111-1111-1111-111111111111",
               "sessionToken": "{{sessionToken}}",
               "projectFingerprint": "{{projectFingerprint.ToString()}}",
               "editorMode": "batchmode",

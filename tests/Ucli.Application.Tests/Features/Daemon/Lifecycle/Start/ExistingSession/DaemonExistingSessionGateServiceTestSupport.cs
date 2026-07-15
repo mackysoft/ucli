@@ -1,6 +1,5 @@
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -10,14 +9,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 internal static class DaemonExistingSessionGateServiceTestSupport
 {
-    private static readonly DateTimeOffset DefaultUtcNow = new(
-        2026,
-        03,
-        12,
-        00,
-        00,
-        00,
-        TimeSpan.Zero);
+    private static readonly DateTimeOffset DefaultUtcNow = DateTimeOffset.UnixEpoch;
 
     public static DaemonExistingSessionGateService CreateService (
         IDaemonPingInfoClient? daemonPingInfoClient = null,
@@ -25,7 +17,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         IDaemonSessionCleanupService? cleanupService = null,
         IDaemonLifecycleStore? lifecycleStore = null,
         IDaemonProcessIdentityAssessor? processIdentityAssessor = null,
-        TimeProvider? timeProvider = null)
+        IDaemonSessionStore? daemonSessionStore = null)
     {
         return new DaemonExistingSessionGateService(
             daemonPingInfoClient: daemonPingInfoClient ?? new RecordingDaemonPingInfoClient(CreateReadyPingResponse()),
@@ -33,7 +25,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
             daemonSessionCleanupService: cleanupService ?? new RecordingDaemonSessionCleanupService(),
             daemonLifecycleStore: lifecycleStore ?? new RecordingDaemonLifecycleStore(),
             processIdentityAssessor: processIdentityAssessor ?? new RecordingDaemonProcessIdentityAssessor(),
-            timeProvider: timeProvider ?? new ManualTimeProvider(DefaultUtcNow));
+            daemonSessionStore: daemonSessionStore ?? new RecordingDaemonSessionStore());
     }
 
     public static DaemonLifecycleObservation CreateLifecycleObservation (
@@ -66,7 +58,8 @@ internal static class DaemonExistingSessionGateServiceTestSupport
             serverVersion: null,
             editorInstanceId: editorInstanceId
                 ?? session.EditorInstanceId
-                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)));
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+            recoveryLease: null);
     }
 
     public static DaemonSession CreateRecoveringGuiSession (
@@ -100,10 +93,8 @@ internal static class DaemonExistingSessionGateServiceTestSupport
     {
         return new RecordingDaemonProcessIdentityAssessor
         {
-            Assessment = new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-                session.ProcessStartedAtUtc,
-                Error: null),
+            Assessment = DaemonProcessIdentityAssessment.MatchingLiveProcess(
+                session.ProcessStartedAtUtc!.Value),
         };
     }
 

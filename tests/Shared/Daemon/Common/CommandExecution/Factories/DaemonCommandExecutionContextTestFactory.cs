@@ -24,13 +24,13 @@ internal static class DaemonCommandExecutionContextTestFactory
     {
         return new DaemonCommandExecutionContext(
             Context: new ProjectContext(
-                new ResolvedUnityProjectContext(
-                    UnityProjectRoot: unityProjectRoot,
-                    RepositoryRoot: repositoryRoot,
-                    ProjectFingerprint: projectFingerprint ?? ProjectFingerprint,
-                    PathSource: UnityProjectPathSource.CommandOption,
-                    PathSourceLabel: null,
-                    UnityVersion: unityVersion),
+                ResolvedUnityProjectContext.Create(
+                    unityProjectRoot: unityProjectRoot,
+                    repositoryRoot: repositoryRoot,
+                    projectFingerprint: projectFingerprint ?? ProjectFingerprint,
+                    pathSource: UnityProjectPathSource.CommandOption,
+                    pathSourceLabel: null,
+                    unityVersion: unityVersion),
                 UcliConfig.CreateDefault(),
                 configSource),
             Timeout: TimeSpan.FromMilliseconds(timeoutMilliseconds));

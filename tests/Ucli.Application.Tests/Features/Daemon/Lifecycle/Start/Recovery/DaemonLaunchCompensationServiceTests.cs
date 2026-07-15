@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 namespace MackySoft.Ucli.Application.Tests.Daemon;
@@ -44,7 +43,7 @@ public sealed class DaemonLaunchCompensationServiceTests
             context,
             processId: 2468,
             processStartedAtUtc: target.ProcessStartedAtUtc);
-        var terminationTimeout = Assert.Single(processTerminationService.Invocations).Timeout;
+        var terminationTimeout = Assert.Single(processTerminationService.Invocations).Deadline.Timeout;
         Assert.InRange(
             terminationTimeout,
             TimeSpan.Zero,
@@ -262,7 +261,7 @@ public sealed class DaemonLaunchCompensationServiceTests
             context,
             processId: 4040,
             processStartedAtUtc: target.ProcessStartedAtUtc);
-        var terminationTimeout = Assert.Single(processTerminationService.Invocations).Timeout;
+        var terminationTimeout = Assert.Single(processTerminationService.Invocations).Deadline.Timeout;
         Assert.InRange(
             terminationTimeout,
             TimeSpan.Zero,
@@ -300,7 +299,7 @@ public sealed class DaemonLaunchCompensationServiceTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
         Assert.Empty(artifactCleaner.Invocations);
-        Assert.Equal(TimeSpan.FromMilliseconds(250), Assert.Single(processTerminationService.Invocations).Timeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(250), Assert.Single(processTerminationService.Invocations).Deadline.Timeout);
     }
 
     private static DaemonProcessTerminationTarget CreateTarget (int processId)

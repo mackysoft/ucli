@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -76,7 +77,7 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
 
         return ExecutionError.Timeout(
             $"Timed out while waiting for {endpointOwnerDescription} endpoint registration. " +
-            $"reason={DaemonDiagnosisReasonValues.GuiEndpointNotRegistered} " +
+            $"reason={ContractLiteralCodec.ToValue(DaemonDiagnosisReason.GuiEndpointNotRegistered)} " +
             $"processId={processId}. " +
             waitError.Message,
             ExecutionErrorCodes.IpcTimeout);
@@ -94,9 +95,9 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(editorInstancePath);
 
         return new DaemonDiagnosis(
-            Reason: DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
+            Reason: DaemonDiagnosisReason.GuiEndpointNotRegistered,
             Message: message,
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            ReportedBy: DaemonDiagnosisReportedBy.Cli,
             IsInferred: true,
             UpdatedAtUtc: updatedAtUtc,
             ProcessId: processId,
@@ -105,7 +106,8 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
             ProcessStartedAtUtc: processStartedAtUtc,
             UnityLogPath: unityLogPath,
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog);
+            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
+            PrimaryDiagnostic: null);
     }
 
     private static ExecutionError CreateAugmentedPrimaryError (

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStopOperationTestSupport;
@@ -53,7 +52,7 @@ public sealed class DaemonStopOperationTimeoutTests
 
         var resultTask = operation.StopAsync(
                 unityProject,
-                timeout,
+                ExecutionDeadline.Start(timeout, timeProvider),
                 cancellationToken: CancellationToken.None)
             .AsTask();
         try

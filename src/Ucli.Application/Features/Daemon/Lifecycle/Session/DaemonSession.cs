@@ -7,6 +7,7 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 internal sealed record DaemonSession
 {
     /// <summary> Initializes validated daemon session metadata. </summary>
+    /// <param name="sessionGenerationId"> The non-empty identity of this session generation. </param>
     /// <param name="sessionToken"> The IPC authorization token. </param>
     /// <param name="projectFingerprint"> The project fingerprint associated with the session. </param>
     /// <param name="issuedAtUtc"> The UTC timestamp when the session was issued. </param>
@@ -22,6 +23,7 @@ internal sealed record DaemonSession
     /// <exception cref="ArgumentException"> Thrown when one value or value combination violates the daemon session contract. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when a process identifier is not positive. </exception>
     public DaemonSession (
+        Guid sessionGenerationId,
         IpcSessionToken sessionToken,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset issuedAtUtc,
@@ -32,17 +34,19 @@ internal sealed record DaemonSession
         int? processId,
         DateTimeOffset? processStartedAtUtc,
         int ownerProcessId,
-        Guid? editorInstanceId = null)
+        Guid? editorInstanceId)
     {
+        if (sessionGenerationId == Guid.Empty)
+        {
+            throw new ArgumentException("Daemon session generation identifier must not be empty.", nameof(sessionGenerationId));
+        }
+
         ArgumentNullException.ThrowIfNull(sessionToken);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentNullException.ThrowIfNull(endpoint);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(ownerProcessId);
 
-        if (issuedAtUtc == default)
-        {
-            throw new ArgumentException("Daemon session issue timestamp must not be the default value.", nameof(issuedAtUtc));
-        }
+        IssuedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(issuedAtUtc, nameof(issuedAtUtc));
 
         if (!Enum.IsDefined(editorMode))
         {
@@ -73,14 +77,20 @@ internal sealed record DaemonSession
                 nameof(processId));
         }
 
-        if (processStartedAtUtc == default(DateTimeOffset))
-        {
-            throw new ArgumentException("Daemon session process start timestamp must not be the default value.", nameof(processStartedAtUtc));
-        }
+        ProcessStartedAtUtc = processStartedAtUtc.HasValue
+            ? ContractArgumentGuard.RequireUtcTimestamp(processStartedAtUtc.Value, nameof(processStartedAtUtc))
+            : null;
 
         if (editorInstanceId == Guid.Empty)
         {
             throw new ArgumentException("Daemon session Editor instance identifier must not be empty.", nameof(editorInstanceId));
+        }
+
+        if (editorMode == DaemonEditorMode.Batchmode && editorInstanceId.HasValue)
+        {
+            throw new ArgumentException(
+                "Batchmode daemon sessions must not specify an Editor instance identifier.",
+                nameof(editorInstanceId));
         }
 
         if (editorMode == DaemonEditorMode.Batchmode
@@ -102,18 +112,20 @@ internal sealed record DaemonSession
                 nameof(editorInstanceId));
         }
 
+        SessionGenerationId = sessionGenerationId;
         SessionToken = sessionToken;
         ProjectFingerprint = projectFingerprint;
-        IssuedAtUtc = issuedAtUtc;
         EditorMode = editorMode;
         OwnerKind = ownerKind;
         CanShutdownProcess = canShutdownProcess;
         Endpoint = endpoint;
         ProcessId = processId;
-        ProcessStartedAtUtc = processStartedAtUtc;
         OwnerProcessId = ownerProcessId;
         EditorInstanceId = editorInstanceId;
     }
+
+    /// <summary> Gets the identity that remains stable for every persisted update of this session generation. </summary>
+    public Guid SessionGenerationId { get; }
 
     /// <summary> Gets the IPC authorization token. </summary>
     public IpcSessionToken SessionToken { get; }

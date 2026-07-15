@@ -7,13 +7,13 @@ internal interface IDaemonGuiRebootstrapClient
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="expectedProcessId"> The GUI Editor process identifier detected from <c>Library/EditorInstance.json</c>. </param>
     /// <param name="expectedProcessStartedAtUtc"> The validated GUI process start timestamp when available. </param>
-    /// <param name="timeout"> The timeout for manifest read and IPC request. </param>
+    /// <param name="deadline"> The deadline shared by the daemon-start workflow. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The rebootstrap request result. </returns>
     ValueTask<DaemonGuiRebootstrapRequestResult> RequestRebootstrapAsync (
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         DateTimeOffset? expectedProcessStartedAtUtc,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default);
 }

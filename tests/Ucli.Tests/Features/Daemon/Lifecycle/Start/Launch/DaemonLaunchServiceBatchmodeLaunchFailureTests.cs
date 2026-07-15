@@ -15,6 +15,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     public async Task Launch_WhenUnityLaunchFails_RunsCompensationAndReturnsLaunchFailure ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-fail"));
+        var timeProvider = new ManualTimeProvider();
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -41,12 +42,13 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             launcher,
             readinessProbe,
             compensationService,
+            timeProvider,
             diagnosisStore,
             launchAttemptStore: launchAttemptStore);
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -58,7 +60,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             launchSessionService,
             context);
         var diagnosis = DaemonDiagnosisStoreAssert.LatestDiagnosisWrittenFor(diagnosisStore, context);
-        Assert.Equal(DaemonDiagnosisReasonValues.StartupFailed, diagnosis.Reason);
+        Assert.Equal(DaemonDiagnosisReason.StartupFailed, diagnosis.Reason);
         Assert.Equal(launchError.Message, diagnosis.Message);
         Assert.Equal(initialSession.IssuedAtUtc, diagnosis.SessionIssuedAtUtc);
         Assert.Equal(diagnosis, result.Diagnosis);
@@ -77,6 +79,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     public async Task Launch_WhenCompensationFails_ReturnsInternalError ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-compensation-fail"));
+        var timeProvider = new ManualTimeProvider();
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -103,11 +106,12 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             launcher,
             readinessProbe,
             compensationService,
+            timeProvider,
             diagnosisStore);
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -123,7 +127,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Launch_WhenLaunchFailureOccursAfterDeadline_StillRunsCompensation ()
+    public async Task Launch_WhenLaunchFailureCompletesAfterDeadline_ReturnsTimeoutAndRunsOwnedCompensation ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-timeout-compensation"));
         var initialSession = DaemonSessionTestFactory.Create(
@@ -154,30 +158,31 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             launcher,
             readinessProbe,
             compensationService,
-            diagnosisStore,
-            timeProvider: timeProvider);
+            timeProvider,
+            diagnosisStore);
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(1),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(1), timeProvider),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
 
         Assert.Equal(DaemonStartStatus.Failed, result.Status);
-        Assert.Equal(launchError, result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
         DaemonLaunchInvocationAssert.LaunchCompensationAttemptedWithoutProcessTarget(
             compensationService,
             context,
             timeout: TimeSpan.FromSeconds(10));
-        DaemonDiagnosisStoreAssert.DiagnosisWrittenFor(diagnosisStore, context);
+        Assert.Empty(diagnosisStore.WriteInvocations);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Launch_WhenCancellationRequestedAfterLaunchFailure_StillRunsCompensation ()
+    public async Task Launch_WhenCancellationRequestedAfterLaunchFailure_RethrowsAfterOwnedCompensation ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-cancel-after-failure"));
+        var timeProvider = new ManualTimeProvider();
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -195,9 +200,12 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             NextResult = UnityDaemonLaunchResult.Failure(launchError),
         };
         var readinessProbe = new RecordingDaemonStartupReadinessProbe();
+        var cleanupStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
         var compensationService = new RecordingDaemonLaunchCompensationService
         {
             NextResult = DaemonSessionStoreOperationResult.Success(),
+            OnCleanup = () => cleanupStarted.TrySetResult(),
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var service = CreateService(
@@ -205,23 +213,25 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             launcher,
             readinessProbe,
             compensationService,
+            timeProvider,
             diagnosisStore);
 
-        var result = await service.LaunchAsync(
-            context,
-            TimeSpan.FromMilliseconds(500),
-            DaemonEditorMode.Batchmode,
-            DaemonStartupBlockedProcessPolicy.Auto,
-            cancellationToken: cancellationSource.Token);
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(
+            () => service.LaunchAsync(
+                    context,
+                    ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
+                    DaemonEditorMode.Batchmode,
+                    DaemonStartupBlockedProcessPolicy.Auto,
+                    cancellationToken: cancellationSource.Token)
+                .AsTask());
+        await cleanupStarted.Task.WaitAsync(AsyncWaitTimeout);
 
-        Assert.Equal(DaemonStartStatus.Failed, result.Status);
-        Assert.Equal(launchError, result.Error);
         Assert.True(cancellationSource.IsCancellationRequested);
         DaemonLaunchInvocationAssert.LaunchCompensationAttemptedWithoutProcessTarget(
             compensationService,
             context,
             timeout: TimeSpan.FromSeconds(10));
-        DaemonDiagnosisStoreAssert.DiagnosisWrittenFor(diagnosisStore, context);
+        Assert.Empty(diagnosisStore.WriteInvocations);
     }
 
     [Fact]
@@ -229,6 +239,7 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
     public async Task Launch_WhenDiagnosisWriteFails_ReturnsInternalError ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-diagnosis-fail"));
+        var timeProvider = new ManualTimeProvider();
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -258,11 +269,12 @@ public sealed class DaemonLaunchServiceBatchmodeLaunchFailureTests
             launcher,
             readinessProbe,
             compensationService,
+            timeProvider,
             diagnosisStore);
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

@@ -16,7 +16,7 @@ internal static class DaemonLaunchAttemptStoreAssert
     public static DaemonLaunchAttempt LaunchAttemptRecordedAndPrunedFor (
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
-        string expectedLaunchAttemptId,
+        Guid expectedLaunchAttemptId,
         DaemonStartupStatus expectedStartupStatus,
         DaemonStartupProcessAction expectedProcessAction)
     {
@@ -33,7 +33,7 @@ internal static class DaemonLaunchAttemptStoreAssert
     public static DaemonLaunchAttempt LaunchAttemptRecordedWithoutPruneFor (
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
-        string expectedLaunchAttemptId,
+        Guid expectedLaunchAttemptId,
         DaemonStartupStatus expectedStartupStatus,
         DaemonStartupProcessAction expectedProcessAction)
     {
@@ -50,7 +50,7 @@ internal static class DaemonLaunchAttemptStoreAssert
     public static DaemonLaunchAttempt SingleLaunchAttemptRecordedAndPrunedFor (
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
-        string expectedLaunchAttemptId,
+        Guid expectedLaunchAttemptId,
         DaemonStartupStatus expectedStartupStatus,
         DaemonStartupProcessAction expectedProcessAction)
     {
@@ -67,7 +67,7 @@ internal static class DaemonLaunchAttemptStoreAssert
     public static DaemonLaunchAttempt SingleLaunchAttemptRecordedWithoutPruneFor (
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
-        string expectedLaunchAttemptId,
+        Guid expectedLaunchAttemptId,
         DaemonStartupStatus expectedStartupStatus,
         DaemonStartupProcessAction expectedProcessAction)
     {
@@ -94,7 +94,7 @@ internal static class DaemonLaunchAttemptStoreAssert
     private static DaemonLaunchAttempt LaunchAttemptRecordedFor (
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
-        string expectedLaunchAttemptId,
+        Guid expectedLaunchAttemptId,
         DaemonStartupStatus expectedStartupStatus,
         DaemonStartupProcessAction expectedProcessAction)
     {

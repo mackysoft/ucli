@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -75,8 +76,10 @@ internal sealed class DaemonCleanupCommand
                 message: "uCLI daemon cleanup completed.",
                 payload: new
                 {
-                    cleanupStatus = DaemonCommandOutputProjector.ToCleanupStatus(output.CleanupStatus),
-                    skipReason = DaemonCommandOutputProjector.ToCleanupSkipReason(output.SkipReason),
+                    cleanupStatus = ContractLiteralCodec.ToValue(output.CleanupStatus),
+                    skipReason = output.SkipReason.HasValue
+                        ? ContractLiteralCodec.ToValue(output.SkipReason.Value)
+                        : null,
                     deletedLaunchAttemptCount = output.DeletedLaunchAttemptCount,
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                 });

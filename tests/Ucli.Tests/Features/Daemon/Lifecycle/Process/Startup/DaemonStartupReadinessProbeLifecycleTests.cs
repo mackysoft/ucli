@@ -1,6 +1,5 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
 using static DaemonStartupReadinessProbeTestSupport;
@@ -13,11 +12,11 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload());
         var logReader = new UnexpectedUnityLogReader("Ready ping success should not inspect the Unity log.");
-        var probe = CreateProbe(pingClient, logReader, timeProvider: new ManualTimeProvider());
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-success")),
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);
@@ -39,7 +38,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         var result = await probe.WaitUntilReadyAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-starting")),
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);
@@ -61,7 +60,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         var result = await probe.WaitUntilReadyAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-domain-reloading")),
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);
@@ -77,11 +76,11 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
             lifecycleState: IpcEditorLifecycleState.Compiling));
         var logReader = new UnexpectedUnityLogReader("Compiling lifecycle snapshot should not inspect the Unity log.");
-        var probe = CreateProbe(pingClient, logReader, timeProvider: new ManualTimeProvider());
+        var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-compiling")),
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);
@@ -109,7 +108,7 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
                 ProjectFingerprintTestFactory.Create(
                     $"fingerprint-readiness-{ContractLiteralCodec.ToValue(lifecycleState)}")),
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);

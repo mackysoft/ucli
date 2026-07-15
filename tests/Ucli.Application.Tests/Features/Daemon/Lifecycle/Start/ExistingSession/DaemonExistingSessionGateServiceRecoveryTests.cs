@@ -31,7 +31,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -43,10 +43,61 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             pingClient,
             context,
             session,
-            expectedCount: 2,
-            CancellationToken.None);
+            expectedCount: 2);
         Assert.All(pingClient.Invocations, invocation =>
             Assert.True(invocation.Timeout <= DaemonTimeouts.ProbeAttemptTimeoutCap));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryHandleExistingSession_WhenRecoveryPublishesReplacementSession_PingsReplacementToken ()
+    {
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
+            ProjectFingerprintTestFactory.Create("fingerprint-existing-token-rotation"));
+        var editorInstanceId = Guid.NewGuid();
+        var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
+            processId: 4020,
+            projectFingerprint: context.ProjectFingerprint,
+            editorInstanceId: editorInstanceId);
+        var replacementSession = DaemonSessionTestFactory.Create(
+            processId: session.ProcessId,
+            processStartedAtUtc: session.ProcessStartedAtUtc,
+            sessionToken: "replacement-token",
+            projectFingerprint: context.ProjectFingerprint,
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
+            canShutdownProcess: false,
+            endpointTransportKind: session.Endpoint.TransportKind,
+            endpointAddress: session.Endpoint.Address,
+            ownerProcessId: session.OwnerProcessId,
+            editorInstanceId: editorInstanceId,
+            sessionGenerationId: Guid.NewGuid());
+        var pingClient = new RecordingDaemonPingInfoClient(
+            new TimeoutException("recovering"),
+            DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
+        var sessionStore = new RecordingDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(replacementSession));
+        var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
+            daemonPingInfoClient: pingClient,
+            lifecycleStore: DaemonExistingSessionGateServiceTestSupport.CreateRecoveringLifecycleStore(session),
+            processIdentityAssessor: DaemonExistingSessionGateServiceTestSupport.CreateMatchingProcessIdentityAssessor(session),
+            daemonSessionStore: sessionStore);
+
+        var result = await service.TryHandleExistingSessionAsync(
+            context,
+            session,
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
+            editorMode: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
+        Assert.Equal(replacementSession, result.Session);
+        Assert.Collection(
+            pingClient.Invocations,
+            first => Assert.Equal(session.SessionToken.GetEncodedValue(), first.SessionToken),
+            second => Assert.Equal(replacementSession.SessionToken.GetEncodedValue(), second.SessionToken));
+        Assert.Single(sessionStore.ReadInvocations);
     }
 
     [Fact]
@@ -76,7 +127,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -109,13 +160,12 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
             daemonPingInfoClient: pingClient,
             lifecycleStore: lifecycleStore,
-            processIdentityAssessor: DaemonExistingSessionGateServiceTestSupport.CreateMatchingProcessIdentityAssessor(session),
-            timeProvider: timeProvider);
+            processIdentityAssessor: DaemonExistingSessionGateServiceTestSupport.CreateMatchingProcessIdentityAssessor(session));
 
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -145,7 +195,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -183,13 +233,12 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static exception => exception is InvalidOperationException),
             cleanupService: cleanupService,
             lifecycleStore: lifecycleStore,
-            processIdentityAssessor: processIdentityAssessor,
-            timeProvider: timeProvider);
+            processIdentityAssessor: processIdentityAssessor);
 
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -199,8 +248,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             pingClient,
             context,
             session,
-            expectedCount: 2,
-            CancellationToken.None);
+            expectedCount: 2);
         Assert.All(pingClient.Invocations, invocation =>
             Assert.True(invocation.Timeout <= DaemonTimeouts.ProbeAttemptTimeoutCap));
     }
@@ -231,13 +279,12 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static exception => exception is InvalidOperationException),
             cleanupService: cleanupService,
             lifecycleStore: lifecycleStore,
-            processIdentityAssessor: processIdentityAssessor,
-            timeProvider: timeProvider);
+            processIdentityAssessor: processIdentityAssessor);
 
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -247,8 +294,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             pingClient,
             context,
             session,
-            expectedCount: 2,
-            CancellationToken.None);
+            expectedCount: 2);
         Assert.All(pingClient.Invocations, invocation =>
             Assert.True(invocation.Timeout <= DaemonTimeouts.ProbeAttemptTimeoutCap));
     }
@@ -275,7 +321,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
             editorMode: DaemonEditorMode.Batchmode,
             cancellationToken: CancellationToken.None);
 
@@ -294,10 +340,16 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-recovery-batchmode"));
         var session = DaemonSessionTestFactory.Create(
             processId: 4014,
-            projectFingerprint: context.ProjectFingerprint,
-            editorInstanceId: Guid.NewGuid());
+            projectFingerprint: context.ProjectFingerprint);
         var cleanupService = new RecordingDaemonSessionCleanupService();
-        var lifecycleStore = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringLifecycleStore(session);
+        var lifecycleStore = new RecordingDaemonLifecycleStore
+        {
+            ReadResult = DaemonLifecycleObservationReadResult.Success(
+                DaemonExistingSessionGateServiceTestSupport.CreateLifecycleObservation(
+                    session,
+                    IpcEditorLifecycleState.Recovering,
+                    editorInstanceId: Guid.NewGuid())),
+        };
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(new TimeoutException("recovering")),
             cleanupService: cleanupService,
@@ -307,7 +359,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -343,13 +395,12 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             daemonPingInfoClient: pingClient,
             cleanupService: cleanupService,
             lifecycleStore: lifecycleStore,
-            processIdentityAssessor: processIdentityAssessor,
-            timeProvider: timeProvider);
+            processIdentityAssessor: processIdentityAssessor);
 
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -359,8 +410,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             pingClient,
             context,
             session,
-            expectedCount: 2,
-            CancellationToken.None);
+            expectedCount: 2);
         Assert.All(pingClient.Invocations, invocation =>
             Assert.True(invocation.Timeout <= DaemonTimeouts.ProbeAttemptTimeoutCap));
     }
@@ -393,7 +443,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         var result = await service.TryHandleExistingSessionAsync(
             context,
             session,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 

@@ -38,14 +38,14 @@ internal sealed class DaemonStartService : IDaemonStartService
         IUnityPluginVerifier unityPluginVerifier,
         IDaemonSessionOutputMapper daemonSessionOutputMapper,
         IDaemonDiagnosisOutputMapper daemonDiagnosisOutputMapper,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
         this.daemonProjectLifecycleGateway = daemonProjectLifecycleGateway ?? throw new ArgumentNullException(nameof(daemonProjectLifecycleGateway));
         this.unityPluginVerifier = unityPluginVerifier ?? throw new ArgumentNullException(nameof(unityPluginVerifier));
         this.daemonSessionOutputMapper = daemonSessionOutputMapper ?? throw new ArgumentNullException(nameof(daemonSessionOutputMapper));
         this.daemonDiagnosisOutputMapper = daemonDiagnosisOutputMapper ?? throw new ArgumentNullException(nameof(daemonDiagnosisOutputMapper));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Executes one daemon-start workflow. </summary>

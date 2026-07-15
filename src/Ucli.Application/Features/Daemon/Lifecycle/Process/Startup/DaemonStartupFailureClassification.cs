@@ -9,11 +9,11 @@ internal sealed record DaemonStartupFailureClassification
 {
     public DaemonStartupFailureClassification (
         DaemonStartupBlockingReason startupBlockingReason,
-        string reason,
+        DaemonDiagnosisReason reason,
         DaemonStartupRetryDisposition retryDisposition,
         string message,
         DaemonDiagnosisStartupPhase startupPhase,
-        string actionRequired,
+        DaemonDiagnosisActionRequired actionRequired,
         DaemonPrimaryDiagnostic? primaryDiagnostic)
     {
         if (!ContractLiteralCodec.IsDefined(startupBlockingReason))
@@ -40,9 +40,17 @@ internal sealed record DaemonStartupFailureClassification
                 "Unsupported startup phase.");
         }
 
-        ArgumentException.ThrowIfNullOrWhiteSpace(reason);
+        if (!ContractLiteralCodec.IsDefined(reason))
+        {
+            throw new ArgumentOutOfRangeException(nameof(reason), reason, "Unsupported daemon diagnosis reason.");
+        }
+
+        if (!ContractLiteralCodec.IsDefined(actionRequired))
+        {
+            throw new ArgumentOutOfRangeException(nameof(actionRequired), actionRequired, "Unsupported daemon diagnosis action.");
+        }
+
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        ArgumentException.ThrowIfNullOrWhiteSpace(actionRequired);
 
         StartupBlockingReason = startupBlockingReason;
         Reason = reason;
@@ -55,7 +63,7 @@ internal sealed record DaemonStartupFailureClassification
 
     public DaemonStartupBlockingReason StartupBlockingReason { get; }
 
-    public string Reason { get; }
+    public DaemonDiagnosisReason Reason { get; }
 
     public DaemonStartupRetryDisposition RetryDisposition { get; }
 
@@ -63,7 +71,7 @@ internal sealed record DaemonStartupFailureClassification
 
     public DaemonDiagnosisStartupPhase StartupPhase { get; }
 
-    public string ActionRequired { get; }
+    public DaemonDiagnosisActionRequired ActionRequired { get; }
 
     public DaemonPrimaryDiagnostic? PrimaryDiagnostic { get; }
 }

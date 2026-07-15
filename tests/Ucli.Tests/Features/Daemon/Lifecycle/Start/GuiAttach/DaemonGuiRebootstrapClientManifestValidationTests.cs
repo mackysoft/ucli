@@ -77,7 +77,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             unityProject,
             expectedProcessId: 1234,
             ProcessStartedAtUtc,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             CancellationToken.None);
 
         AssertUnavailableWithoutIpc(result, transportClient);
@@ -99,7 +99,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             unityProject,
             expectedProcessId: 5678,
             ProcessStartedAtUtc,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             CancellationToken.None);
 
         AssertUnavailableWithoutIpc(result, transportClient);
@@ -137,7 +137,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             unityProject,
             manifest.ProcessId,
             testCase.ExpectedProcessStartedAtUtc,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             CancellationToken.None);
 
         AssertUnavailableWithoutIpc(result, transportClient);
@@ -173,7 +173,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             unityProject,
             expectedProcessId: 1234,
             ProcessStartedAtUtc,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             CancellationToken.None);
 
         AssertUnavailableWithoutIpc(result, transportClient);

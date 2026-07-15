@@ -1,9 +1,7 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStopOperationTestSupport;
 using static MackySoft.Ucli.Application.Tests.DaemonCleanupInvocationAssert;
@@ -22,7 +20,7 @@ public sealed class DaemonStopOperationLifecycleTests
             lifecycleLockProvider: lockProvider,
             sessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()));
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.NotRunning, result.Status);
         ProjectLifecycleLockProviderAssert.LifecycleLockAcquiredFor(lockProvider, context);
@@ -42,10 +40,10 @@ public sealed class DaemonStopOperationLifecycleTests
 
         var result = await operation.StopAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-lock-timeout")),
-            DefaultTimeout,
+            ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()),
             CancellationToken.None);
 
-        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        Assert.Null(result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
         Assert.Contains("lifecycle lock", error.Message, StringComparison.OrdinalIgnoreCase);
@@ -85,10 +83,10 @@ public sealed class DaemonStopOperationLifecycleTests
 
         var result = await operation.StopAsync(
             context,
-            TimeSpan.FromMilliseconds(20),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(20), timeProvider),
             CancellationToken.None);
 
-        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        Assert.Null(result.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
         DaemonShutdownClientAssert.EndpointShutdownAttempted(shutdownClient, context, session);
@@ -144,7 +142,7 @@ public sealed class DaemonStopOperationLifecycleTests
 
         var firstStopTask = operation.StopAsync(
                 context,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
                 CancellationToken.None)
             .AsTask();
         await TestAwaiter.WaitAsync(
@@ -157,13 +155,13 @@ public sealed class DaemonStopOperationLifecycleTests
             firstStopTask,
             "Stop compensation deadline result",
             TimeSpan.FromSeconds(5));
-        Assert.Equal(DaemonStopStatus.Failed, firstResult.Status);
+        Assert.Null(firstResult.Status);
         Assert.Equal(ExecutionErrorKind.Timeout, firstResult.Error!.Kind);
         Assert.Equal(0, Assert.Single(lifecycleLeases).DisposeCount);
 
         var secondStopTask = operation.StopAsync(
                 context,
-                TimeSpan.FromMilliseconds(100),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), timeProvider),
                 CancellationToken.None)
             .AsTask();
         timeProvider.Advance(TimeSpan.FromMilliseconds(100));
@@ -171,7 +169,7 @@ public sealed class DaemonStopOperationLifecycleTests
             secondStopTask,
             "Successor stop admission result",
             TimeSpan.FromSeconds(5));
-        Assert.Equal(DaemonStopStatus.Failed, secondResult.Status);
+        Assert.Null(secondResult.Status);
         Assert.Equal(ExecutionErrorKind.Timeout, secondResult.Error!.Kind);
         Assert.Single(sessionStore.ReadInvocations);
         Assert.Equal(1, lifecycleLeases[1].DisposeCount);
@@ -231,7 +229,7 @@ public sealed class DaemonStopOperationLifecycleTests
 
         var stopTask = operation.StopAsync(
                 context,
-                TimeSpan.FromSeconds(1),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
                 cancellationTokenSource.Token)
             .AsTask();
 

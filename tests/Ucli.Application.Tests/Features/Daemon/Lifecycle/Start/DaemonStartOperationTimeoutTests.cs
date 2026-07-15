@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStartOperationTestSupport;
@@ -33,7 +32,7 @@ public sealed class DaemonStartOperationTimeoutTests
 
         var resultTask = operation.StartAsync(
                 unityProject,
-                timeout,
+                ExecutionDeadline.Start(timeout, timeProvider),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)

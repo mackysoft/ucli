@@ -1,4 +1,4 @@
-using MackySoft.Tests;
+using System.Text.Json.Nodes;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
@@ -17,7 +17,7 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "roundtrip");
         var store = new DaemonLaunchAttemptStore();
         var attempt = CreateAttempt(
-            "20260312_000000Z_00000001",
+            CreateLaunchAttemptId(1),
             scope.FullPath,
             DaemonStartupStatus.Blocked);
 
@@ -32,7 +32,7 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         Assert.Equal(attempt.UnityLogPath, actual.UnityLogPath);
         Assert.Equal(attempt.UnityLogPath, actual.Diagnosis.UnityLogPath);
         Assert.EndsWith(
-            Path.Combine("launch-attempts", attempt.LaunchAttemptId, "startup-diagnosis.json"),
+            Path.Combine("launch-attempts", attempt.LaunchAttemptId.ToString("N"), "startup-diagnosis.json"),
             actual.ArtifactPath,
             StringComparison.Ordinal);
         Assert.True(File.Exists(actual.ArtifactPath));
@@ -44,8 +44,8 @@ public sealed class DaemonLaunchAttemptStoreReadTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "completed-hidden");
         var store = new DaemonLaunchAttemptStore();
-        var failed = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, DaemonStartupStatus.Failed);
-        var completed = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, DaemonStartupStatus.Completed);
+        var failed = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
+        var completed = CreateAttempt(CreateLaunchAttemptId(2), scope.FullPath, DaemonStartupStatus.Completed);
 
         await WriteAttemptAsync(store, scope.FullPath, failed);
         await WriteAttemptAsync(store, scope.FullPath, completed);
@@ -64,12 +64,12 @@ public sealed class DaemonLaunchAttemptStoreReadTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task ReadLastFailure_WhenDirectoryTimestampIsNewer_UsesLaunchAttemptIdOrder ()
+    public async Task ReadLastFailure_WhenDirectoryTimestampIsNewer_UsesPersistedUpdatedAtOrder ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "stable-order");
         var store = new DaemonLaunchAttemptStore();
-        var older = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, DaemonStartupStatus.Failed);
-        var newer = CreateAttempt("20260312_000001Z_00000002", scope.FullPath, DaemonStartupStatus.Failed, minuteOffset: 1);
+        var older = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
+        var newer = CreateAttempt(CreateLaunchAttemptId(2), scope.FullPath, DaemonStartupStatus.Failed, minuteOffset: 1);
 
         await WriteAttemptAsync(store, scope.FullPath, newer);
         await WriteAttemptAsync(store, scope.FullPath, older);
@@ -88,29 +88,11 @@ public sealed class DaemonLaunchAttemptStoreReadTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task ReadLastFailure_WhenAttemptsShareSameSecond_UsesUpdatedAtOrder ()
-    {
-        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "same-second-order");
-        var store = new DaemonLaunchAttemptStore();
-        var older = CreateAttempt("20260312_000000Z_ffffffff", scope.FullPath, DaemonStartupStatus.Failed);
-        var newer = CreateAttempt("20260312_000000Z_00000000", scope.FullPath, DaemonStartupStatus.Failed, minuteOffset: 1);
-
-        await WriteAttemptAsync(store, scope.FullPath, older);
-        await WriteAttemptAsync(store, scope.FullPath, newer);
-
-        var readResult = await store.ReadLastFailureAsync(scope.FullPath, ProjectFingerprint, CancellationToken.None);
-
-        Assert.True(readResult.IsSuccess);
-        Assert.Equal(newer.LaunchAttemptId, readResult.LaunchAttempt!.LaunchAttemptId);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task ReadLastFailure_WhenStartupDiagnosisJsonIsInvalid_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "invalid-json");
         var store = new DaemonLaunchAttemptStore();
-        var attemptId = "20260312_000000Z_00000001";
+        var attemptId = CreateLaunchAttemptId(1);
         var diagnosisPath = UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
             scope.FullPath,
             ProjectFingerprint,
@@ -123,6 +105,35 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task ReadLastFailure_WhenContractIdentifierDiffersFromDirectoryIdentifier_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "mismatched-id");
+        var store = new DaemonLaunchAttemptStore();
+        var attempt = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
+        await WriteAttemptAsync(store, scope.FullPath, attempt);
+        var mismatchedId = CreateLaunchAttemptId(2);
+        var json = await File.ReadAllTextAsync(attempt.ArtifactPath, CancellationToken.None);
+        await File.WriteAllTextAsync(
+            attempt.ArtifactPath,
+            json.Replace(
+                attempt.LaunchAttemptId.ToString("D"),
+                mismatchedId.ToString("D"),
+                StringComparison.Ordinal),
+            CancellationToken.None);
+
+        var readResult = await store.ReadLastFailureAsync(
+            scope.FullPath,
+            ProjectFingerprint,
+            CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("does not match its directory", error.Message, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -139,7 +150,7 @@ public sealed class DaemonLaunchAttemptStoreReadTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "invalid-vocabulary");
         var store = new DaemonLaunchAttemptStore();
-        var attempt = CreateAttempt("20260312_000000Z_00000001", scope.FullPath, DaemonStartupStatus.Failed);
+        var attempt = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
         await WriteAttemptAsync(store, scope.FullPath, attempt);
         var json = await File.ReadAllTextAsync(attempt.ArtifactPath, CancellationToken.None);
         Assert.Contains(oldValue, json, StringComparison.Ordinal);
@@ -151,5 +162,73 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains(expectedMessage, error.Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(InvalidPersistedField.ProcessId, "processId")]
+    [InlineData(InvalidPersistedField.StartedAtOffset, "startedAtUtc")]
+    [InlineData(InvalidPersistedField.UpdatedAtOffset, "updatedAtUtc")]
+    [InlineData(InvalidPersistedField.ProcessStartedAtOffset, "processStartedAtUtc")]
+    [InlineData(InvalidPersistedField.UpdatedBeforeStarted, "updatedAtUtc")]
+    [InlineData(InvalidPersistedField.ProcessStartedAfterUpdated, "processStartedAtUtc")]
+    [Trait("Size", "Medium")]
+    public async Task ReadLastFailure_WhenPersistedRuntimeInvariantIsInvalid_ReturnsInvalidArgument (
+        InvalidPersistedField field,
+        string expectedMessage)
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "invalid-runtime-invariant");
+        var store = new DaemonLaunchAttemptStore();
+        var attempt = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
+        await WriteAttemptAsync(store, scope.FullPath, attempt);
+        var root = JsonNode.Parse(await File.ReadAllTextAsync(attempt.ArtifactPath, CancellationToken.None))!.AsObject();
+        MutateInvalidField(root, field);
+        await File.WriteAllTextAsync(attempt.ArtifactPath, root.ToJsonString(), CancellationToken.None);
+
+        var readResult = await store.ReadLastFailureAsync(scope.FullPath, ProjectFingerprint, CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains(expectedMessage, error.Message, StringComparison.Ordinal);
+    }
+
+    private static void MutateInvalidField (JsonObject root, InvalidPersistedField field)
+    {
+        var nonUtcTimestamp = new DateTimeOffset(2026, 3, 12, 9, 0, 0, TimeSpan.FromHours(9));
+        switch (field)
+        {
+            case InvalidPersistedField.ProcessId:
+                root["processId"] = 0;
+                return;
+            case InvalidPersistedField.StartedAtOffset:
+                root["startedAtUtc"] = JsonValue.Create(nonUtcTimestamp);
+                return;
+            case InvalidPersistedField.UpdatedAtOffset:
+                root["updatedAtUtc"] = JsonValue.Create(nonUtcTimestamp);
+                return;
+            case InvalidPersistedField.ProcessStartedAtOffset:
+                root["processStartedAtUtc"] = JsonValue.Create(nonUtcTimestamp);
+                return;
+            case InvalidPersistedField.UpdatedBeforeStarted:
+                root["updatedAtUtc"] = JsonValue.Create(
+                    new DateTimeOffset(2026, 3, 11, 23, 59, 59, TimeSpan.Zero));
+                return;
+            case InvalidPersistedField.ProcessStartedAfterUpdated:
+                root["processStartedAtUtc"] = JsonValue.Create(
+                    new DateTimeOffset(2026, 3, 12, 0, 0, 1, TimeSpan.Zero));
+                return;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(field), field, null);
+        }
+    }
+
+    public enum InvalidPersistedField
+    {
+        ProcessId,
+        StartedAtOffset,
+        UpdatedAtOffset,
+        ProcessStartedAtOffset,
+        UpdatedBeforeStarted,
+        ProcessStartedAfterUpdated,
     }
 }

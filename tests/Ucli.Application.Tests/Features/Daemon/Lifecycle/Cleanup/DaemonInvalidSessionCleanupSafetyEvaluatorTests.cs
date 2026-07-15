@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
@@ -26,7 +25,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
     public void RequiresUnsafeSkip_WhenFingerprintDoesNotMatchAndClaimedProcessIsLive_ReturnsTrueAfterIdentityAssessment ()
     {
         var evidence = CreateEvidence(ProjectFingerprintTestFactory.Create("fingerprint-other"));
-        var assessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess();
+        var assessor = RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(DateTimeOffset.UtcNow);
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
         var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(evidence);
@@ -64,15 +63,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
     {
         var status = Enum.Parse<DaemonProcessIdentityAssessmentStatus>(statusName);
         var evidence = CreateEvidence(ProjectFingerprintTestFactory.Create("fingerprint-current"));
-        var assessor = new RecordingDaemonProcessIdentityAssessor
-        {
-            Assessment = new DaemonProcessIdentityAssessment(
-                status,
-                ObservedStartTimeUtc: null,
-                status is DaemonProcessIdentityAssessmentStatus.DifferentProcess or DaemonProcessIdentityAssessmentStatus.Uncertain
-                    ? ExecutionError.InternalError("identity assessment did not prove a matching stopped process")
-                    : null),
-        };
+        var assessor = new RecordingDaemonProcessIdentityAssessor(status);
         var evaluator = new DaemonInvalidSessionCleanupSafetyEvaluator(assessor);
 
         var requiresUnsafeSkip = evaluator.RequiresUnsafeSkip(evidence);
@@ -102,6 +93,7 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
     {
         var contract = new DaemonSessionJsonContract(
             SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+            SessionGenerationId: Guid.Empty,
             SessionToken: "raw-secret-must-not-be-projected",
             ProjectFingerprint: projectFingerprint,
             IssuedAtUtc: default,
@@ -112,7 +104,8 @@ public sealed class DaemonInvalidSessionCleanupSafetyEvaluatorTests
             EndpointAddress: null,
             ProcessId: processId,
             ProcessStartedAtUtc: ProcessStartedAtUtc,
-            OwnerProcessId: null);
+            OwnerProcessId: null,
+            EditorInstanceId: null);
         return new DaemonInvalidSessionEvidence(contract);
     }
 }

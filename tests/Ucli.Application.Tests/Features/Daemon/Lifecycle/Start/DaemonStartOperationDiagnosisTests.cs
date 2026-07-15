@@ -1,8 +1,6 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStartOperationTestSupport;
 
@@ -29,7 +27,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -61,7 +59,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -94,7 +92,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -131,7 +129,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -178,7 +176,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var startTask = operation.StartAsync(
                 context,
-                TimeSpan.FromSeconds(5),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)

@@ -48,7 +48,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
     /// <inheritdoc />
     public async ValueTask<DaemonStartResult?> TryAttachExistingGuiEditorAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
@@ -56,9 +56,8 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         var markerReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
                 deadline,
                 cancellationToken,
@@ -122,10 +121,12 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         }
 
         await EmitWaitingForEndpointAsync(progressObserver, marker, probeResult.ProcessStartedAtUtc, cancellationToken).ConfigureAwait(false);
+        var initialProbeDeadline = deadline.CreateCappedDeadline(
+            GetInitialSessionProbeTimeout(waitTimeout));
         var initialWaitResult = await sessionRegistrationAwaiter.WaitForSessionAsync(
                 unityProject,
                 marker.ProcessId,
-                GetInitialSessionProbeTimeout(waitTimeout),
+                initialProbeDeadline,
                 expectedProcessStartedAtUtc: probeResult.ProcessStartedAtUtc,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -140,7 +141,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
             return DaemonStartResult.Failure(initialWaitResult.Error);
         }
 
-        if (!deadline.TryGetRemainingTimeout(out var rebootstrapTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return await CreateGuiEndpointNotRegisteredFailureAsync(
                     unityProject,
@@ -157,7 +158,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                 unityProject,
                 marker.ProcessId,
                 probeResult.ProcessStartedAtUtc,
-                rebootstrapTimeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!rebootstrapResult.IsAccepted)
@@ -173,7 +174,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                 .ConfigureAwait(false);
         }
 
-        if (!deadline.TryGetRemainingTimeout(out waitTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return await CreateGuiEndpointNotRegisteredFailureAsync(
                     unityProject,
@@ -189,7 +190,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         var waitResult = await sessionRegistrationAwaiter.WaitForSessionAsync(
                 unityProject,
                 marker.ProcessId,
-                waitTimeout,
+                deadline,
                 expectedProcessStartedAtUtc: probeResult.ProcessStartedAtUtc,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -227,6 +228,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
         cancellationToken.ThrowIfCancellationRequested();
         var result = await DaemonGuiRebootstrapUnavailableFailureFactory.CreateFailureAsync(
                 unityProject,
+                compensationOperationOwner,
                 daemonDiagnosisStore,
                 timeProvider,
                 marker.MarkerPath,

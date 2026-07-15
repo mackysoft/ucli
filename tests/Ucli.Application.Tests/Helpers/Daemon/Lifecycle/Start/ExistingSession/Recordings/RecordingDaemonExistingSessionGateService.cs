@@ -14,7 +14,7 @@ internal sealed class RecordingDaemonExistingSessionGateService : IDaemonExistin
     public ValueTask<DaemonStartResult?> TryHandleExistingSessionAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode? editorMode,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
@@ -23,14 +23,14 @@ internal sealed class RecordingDaemonExistingSessionGateService : IDaemonExistin
         ArgumentNullException.ThrowIfNull(session);
         cancellationToken.ThrowIfCancellationRequested();
 
-        invocations.Add(new Invocation(unityProject, session, timeout, editorMode, progressObserver, cancellationToken));
+        invocations.Add(new Invocation(unityProject, session, deadline, editorMode, progressObserver, cancellationToken));
         return ValueTask.FromResult(NextResult);
     }
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         DaemonSession Session,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
         DaemonEditorMode? EditorMode,
         IDaemonStartProgressObserver? ProgressObserver,
         CancellationToken CancellationToken);

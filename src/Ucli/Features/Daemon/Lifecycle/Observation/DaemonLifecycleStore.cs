@@ -52,7 +52,12 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             contract = DaemonLifecycleJsonContractSerializer.Deserialize(json)
                 ?? throw new JsonException("Daemon lifecycle JSON is null.");
         }
-        catch (Exception exception) when (exception is JsonException or ArgumentException)
+        catch (JsonException exception)
+        {
+            return DaemonLifecycleObservationReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon lifecycle JSON is invalid: {path}. Field={exception.Path ?? "$"}. {exception.Message}"));
+        }
+        catch (ArgumentException exception)
         {
             return DaemonLifecycleObservationReadResult.Failure(ExecutionError.InvalidArgument(
                 $"Daemon lifecycle JSON is invalid: {path}. {exception.Message}"));
@@ -105,13 +110,13 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
         observation = null;
         error = null;
 
-        if (contract.ProcessId is not int processId || processId <= 0)
+        if (contract.ProcessId is not int processId)
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle processId is invalid: {path}.");
             return false;
         }
 
-        if (contract.ProcessStartedAtUtc is not DateTimeOffset processStartedAtUtc || processStartedAtUtc == default)
+        if (contract.ProcessStartedAtUtc is not DateTimeOffset processStartedAtUtc)
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle processStartedAtUtc is invalid: {path}.");
             return false;
@@ -123,25 +128,18 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             return false;
         }
 
-        var actionRequired = StringValueNormalizer.TrimToNull(contract.ActionRequired);
-        if (actionRequired is not null && !DaemonDiagnosisActionRequiredValues.IsSupported(actionRequired))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon lifecycle actionRequired is invalid: {path}.");
-            return false;
-        }
-
         if (!TryValidatePrimaryDiagnostic(contract.PrimaryDiagnostic, path, out var primaryDiagnostic, out error))
         {
             return false;
         }
 
-        if (contract.ObservedAtUtc is not DateTimeOffset observedAtUtc || observedAtUtc == default)
+        if (contract.ObservedAtUtc is not DateTimeOffset observedAtUtc)
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle observedAtUtc is invalid: {path}.");
             return false;
         }
 
-        if (contract.EditorInstanceId is not Guid editorInstanceId || editorInstanceId == Guid.Empty)
+        if (contract.EditorInstanceId is not Guid editorInstanceId)
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle editorInstanceId is invalid: {path}.");
             return false;
@@ -152,10 +150,11 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             processStartedAtUtc: processStartedAtUtc,
             state: state,
             observedAtUtc: observedAtUtc,
-            actionRequired: actionRequired,
+            actionRequired: contract.ActionRequired,
             primaryDiagnostic: primaryDiagnostic,
             serverVersion: StringValueNormalizer.TrimToNull(contract.ServerVersion),
-            editorInstanceId: editorInstanceId);
+            editorInstanceId: editorInstanceId,
+            recoveryLease: contract.RecoveryLease);
         return true;
     }
 
@@ -172,8 +171,7 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
             return true;
         }
 
-        if (!StringValueNormalizer.TryTrimToNonEmpty(primaryDiagnostic.Kind, out var kind)
-            || !DaemonDiagnosisPrimaryDiagnosticKindValues.IsSupported(kind))
+        if (!primaryDiagnostic.Kind.HasValue)
         {
             error = ExecutionError.InvalidArgument($"Daemon lifecycle primaryDiagnostic.kind is invalid: {path}.");
             return false;
@@ -192,7 +190,7 @@ internal sealed class DaemonLifecycleStore : IDaemonLifecycleStore
         }
 
         normalizedDiagnostic = new IpcPrimaryDiagnostic(
-            Kind: kind,
+            Kind: primaryDiagnostic.Kind.Value,
             Code: StringValueNormalizer.TrimToNull(primaryDiagnostic.Code),
             File: StringValueNormalizer.TrimToNull(primaryDiagnostic.File),
             Line: primaryDiagnostic.Line,

@@ -31,7 +31,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -64,7 +64,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
@@ -99,7 +99,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
 
         var result = await operation.StartAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-no-session")),
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -124,7 +124,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
 
         var result = await operation.StartAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-gui-launch-mode")),
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

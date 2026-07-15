@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -21,7 +20,7 @@ public sealed class DaemonLaunchAttemptStoreSymlinkSafetyTests
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "read-file-symlink");
         using var targetScope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "read-file-symlink-target");
         var store = new DaemonLaunchAttemptStore();
-        var attemptId = "20260312_000000Z_00000001";
+        var attemptId = CreateLaunchAttemptId(1);
         var diagnosisPath = UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
             scope.FullPath,
             ProjectFingerprint,
@@ -53,7 +52,7 @@ public sealed class DaemonLaunchAttemptStoreSymlinkSafetyTests
         var store = new DaemonLaunchAttemptStore();
         var attemptsDirectory = UcliStoragePathResolver.ResolveLaunchAttemptsDirectory(scope.FullPath, ProjectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(attemptsDirectory)!);
-        var targetAttemptDirectory = Path.Combine(targetScope.FullPath, "20260312_000000Z_00000001");
+        var targetAttemptDirectory = Path.Combine(targetScope.FullPath, CreateLaunchAttemptId(1).ToString("N"));
         Directory.CreateDirectory(targetAttemptDirectory);
         Directory.CreateSymbolicLink(attemptsDirectory, targetScope.FullPath);
 
@@ -81,7 +80,7 @@ public sealed class DaemonLaunchAttemptStoreSymlinkSafetyTests
         Directory.CreateDirectory(attemptsDirectory);
         var targetAttemptDirectory = Path.Combine(targetScope.FullPath, "target-attempt");
         Directory.CreateDirectory(targetAttemptDirectory);
-        var attemptDirectory = Path.Combine(attemptsDirectory, "20260312_000000Z_00000001");
+        var attemptDirectory = Path.Combine(attemptsDirectory, CreateLaunchAttemptId(1).ToString("N"));
         Directory.CreateSymbolicLink(attemptDirectory, targetAttemptDirectory);
 
         var readResult = await store.ReadLastFailureAsync(scope.FullPath, ProjectFingerprint, CancellationToken.None);
@@ -108,7 +107,7 @@ public sealed class DaemonLaunchAttemptStoreSymlinkSafetyTests
         Directory.CreateDirectory(attemptsDirectory);
         var targetAttemptDirectory = Path.Combine(targetScope.FullPath, "target-attempt");
         Directory.CreateDirectory(targetAttemptDirectory);
-        var attemptDirectory = Path.Combine(attemptsDirectory, "20260312_000000Z_00000001");
+        var attemptDirectory = Path.Combine(attemptsDirectory, CreateLaunchAttemptId(1).ToString("N"));
         Directory.CreateSymbolicLink(attemptDirectory, targetAttemptDirectory);
 
         var pruneResult = await store.PruneAsync(scope.FullPath, ProjectFingerprint, keepCount: 0, CancellationToken.None);

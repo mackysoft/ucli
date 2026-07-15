@@ -10,7 +10,4 @@ internal enum DaemonStopStatus
 
     [UcliContractLiteral("notRunning")]
     NotRunning = 1,
-
-    [UcliContractLiteralIgnore]
-    Failed = 2,
 }

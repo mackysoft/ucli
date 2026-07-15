@@ -63,14 +63,13 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
         };
         var client = new DaemonGuiRebootstrapClient(
             manifestStore,
-            transportClient,
-            TimeProvider.System);
+            transportClient);
 
         var result = await client.RequestRebootstrapAsync(
             unityProject,
             initialManifest.ProcessId,
             ProcessStartedAtUtc,
-            TimeSpan.FromSeconds(1),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsAccepted);
@@ -105,14 +104,13 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
         };
         var client = new DaemonGuiRebootstrapClient(
             manifestStore,
-            transportClient,
-            TimeProvider.System);
+            transportClient);
 
         var result = await client.RequestRebootstrapAsync(
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            TimeSpan.FromSeconds(1),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsAccepted);
@@ -176,14 +174,13 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
         };
         var client = new DaemonGuiRebootstrapClient(
             manifestStore,
-            transportClient,
-            TimeProvider.System);
+            transportClient);
 
         var result = await client.RequestRebootstrapAsync(
             unityProject,
             initialManifest.ProcessId,
             ProcessStartedAtUtc,
-            TimeSpan.FromSeconds(1),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsAccepted);
@@ -207,13 +204,13 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             return ValueTask.FromResult<GuiSupervisorManifestJsonContract?>(manifest);
         });
         var transportClient = CreateAcceptingTransport(unityProject.ProjectFingerprint, manifest);
-        var client = new DaemonGuiRebootstrapClient(manifestStore, transportClient, timeProvider);
+        var client = new DaemonGuiRebootstrapClient(manifestStore, transportClient);
 
         var result = await client.RequestRebootstrapAsync(
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             CancellationToken.None);
 
         Assert.True(result.IsAccepted);
@@ -244,14 +241,14 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             SendHandler = (_, _, _, _) => throw new InvalidOperationException(
                 "A timed-out manifest read must not send a GUI rebootstrap request."),
         };
-        var client = new DaemonGuiRebootstrapClient(manifestStore, transportClient, timeProvider);
+        var client = new DaemonGuiRebootstrapClient(manifestStore, transportClient);
         var timeout = TimeSpan.FromSeconds(1);
 
         var resultTask = client.RequestRebootstrapAsync(
                 unityProject,
                 manifest.ProcessId,
                 ProcessStartedAtUtc,
-                timeout,
+                ExecutionDeadline.Start(timeout, timeProvider),
                 CancellationToken.None)
             .AsTask();
         await readStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -275,6 +272,52 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     }
 
     [Fact]
+    [Trait("Size", "Small")]
+    public async Task RequestRebootstrapAsync_WhenTransportIgnoresCancellation_ReturnsAtSharedDeadline ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var sendStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var sendCompletion = new TaskCompletionSource<IpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var manifest = CreateManifest();
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: manifest.ProjectFingerprint);
+        var manifestStore = new StubGuiSupervisorManifestStore(
+            _ => ValueTask.FromResult<GuiSupervisorManifestJsonContract?>(manifest));
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = (_, _, _, _) =>
+            {
+                sendStarted.TrySetResult();
+                return new ValueTask<IpcResponse>(sendCompletion.Task);
+            },
+        };
+        var client = new DaemonGuiRebootstrapClient(manifestStore, transportClient);
+        var timeout = TimeSpan.FromSeconds(1);
+
+        var resultTask = client.RequestRebootstrapAsync(
+                unityProject,
+                manifest.ProcessId,
+                ProcessStartedAtUtc,
+                ExecutionDeadline.Start(timeout, timeProvider),
+                CancellationToken.None)
+            .AsTask();
+        await sendStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        try
+        {
+            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
+            timeProvider.Advance(timeout);
+            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
+
+            Assert.False(result.IsAccepted);
+            Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+        }
+        finally
+        {
+            sendCompletion.TrySetException(new TimeoutException("Release non-cooperative rebootstrap transport."));
+        }
+    }
+
+    [Fact]
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestMatchesAndSupervisorAccepts_ReturnsAccepted ()
     {
@@ -292,7 +335,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            timeout,
+            ExecutionDeadline.Start(timeout, TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsAccepted);
@@ -330,7 +373,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            timeout,
+            ExecutionDeadline.Start(timeout, TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsAccepted);

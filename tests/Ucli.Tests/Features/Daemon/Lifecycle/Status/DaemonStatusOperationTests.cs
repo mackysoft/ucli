@@ -10,6 +10,7 @@ using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 
 public sealed class DaemonStatusOperationTests
 {
@@ -19,7 +20,7 @@ public sealed class DaemonStatusOperationTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-running"));
         var session = DaemonSessionTestFactory.Create(processId: 2001, projectFingerprint: context.ProjectFingerprint);
-        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested);
+        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReason.ShutdownRequested);
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResultTestFactory.Found(session),
@@ -126,7 +127,7 @@ public sealed class DaemonStatusOperationTests
         };
         Exception replacementFailure = probeTimesOut
             ? new TimeoutException("Replacement probe timed out.")
-            : new SocketException((int)SocketError.ConnectionRefused);
+            : IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused);
         var pingInfoClient = new RecordingDaemonPingInfoClient(
             new DaemonPingResponseException(
                 "The observed session token was replaced.",
@@ -197,7 +198,7 @@ public sealed class DaemonStatusOperationTests
             processId: Environment.ProcessId,
             projectFingerprint: context.ProjectFingerprint,
             issuedAtUtc: session.IssuedAtUtc.AddSeconds(-1));
-        var persistedDiagnosis = CreateDiagnosis(oldSession, DaemonDiagnosisReasonValues.StartupFailed);
+        var persistedDiagnosis = CreateDiagnosis(oldSession, DaemonDiagnosisReason.StartupFailed);
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResultTestFactory.Found(session),
@@ -235,7 +236,7 @@ public sealed class DaemonStatusOperationTests
         {
             ReadResult = DaemonSessionReadResultTestFactory.Found(session),
         };
-        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReasonValues.ShutdownRequested);
+        var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReason.ShutdownRequested);
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
             ReadResult = DaemonDiagnosisReadResult.Success(diagnosis),
@@ -246,7 +247,8 @@ public sealed class DaemonStatusOperationTests
             launchAttemptStore: new RecordingDaemonLaunchAttemptStore(),
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
-                new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused))),
+                new RecordingDaemonPingInfoClient(
+                    IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
             timeProvider: new ManualTimeProvider());
@@ -306,7 +308,8 @@ public sealed class DaemonStatusOperationTests
             launchAttemptStore: new RecordingDaemonLaunchAttemptStore(),
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
-                new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused))),
+                new RecordingDaemonPingInfoClient(
+                    IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new ThrowingDaemonSessionDiagnosisResolver(
                 new InvalidOperationException("diagnosis store failed")),
@@ -325,7 +328,7 @@ public sealed class DaemonStatusOperationTests
     public async Task GetStatus_WhenSessionDoesNotExist_ReturnsPersistedDiagnosisWithNotRunning ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-not-running"));
-        var diagnosis = CreateDiagnosis(DaemonSessionTestFactory.Create(processId: null, projectFingerprint: context.ProjectFingerprint), DaemonDiagnosisReasonValues.StartupFailed);
+        var diagnosis = CreateDiagnosis(DaemonSessionTestFactory.Create(processId: null, projectFingerprint: context.ProjectFingerprint), DaemonDiagnosisReason.StartupFailed);
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadResult = DaemonSessionReadResult.Missing(),
@@ -407,7 +410,8 @@ public sealed class DaemonStatusOperationTests
             launchAttemptStore: new RecordingDaemonLaunchAttemptStore(),
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
-                new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused))),
+                new RecordingDaemonPingInfoClient(
+                    IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
             timeProvider: new ManualTimeProvider());
@@ -417,8 +421,8 @@ public sealed class DaemonStatusOperationTests
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
         Assert.NotNull(result.Diagnosis);
-        Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, result.Diagnosis!.Reason);
-        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, result.Diagnosis.ReportedBy);
+        Assert.Equal(DaemonDiagnosisReason.ExternalTerminationSuspected, result.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReportedBy.Cli, result.Diagnosis.ReportedBy);
         Assert.True(result.Diagnosis.IsInferred);
         Assert.Equal(session.ProcessId, result.Diagnosis.ProcessId);
         Assert.Equal(session.IssuedAtUtc, result.Diagnosis.SessionIssuedAtUtc);
@@ -447,7 +451,8 @@ public sealed class DaemonStatusOperationTests
             launchAttemptStore: new RecordingDaemonLaunchAttemptStore(),
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
-                new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused))),
+                new RecordingDaemonPingInfoClient(
+                    IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
             timeProvider: new ManualTimeProvider());
@@ -457,8 +462,8 @@ public sealed class DaemonStatusOperationTests
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
         Assert.NotNull(result.Diagnosis);
-        Assert.Equal(DaemonDiagnosisReasonValues.ExternalTerminationSuspected, result.Diagnosis!.Reason);
-        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, result.Diagnosis.ReportedBy);
+        Assert.Equal(DaemonDiagnosisReason.ExternalTerminationSuspected, result.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReportedBy.Cli, result.Diagnosis.ReportedBy);
         Assert.True(result.Diagnosis.IsInferred);
         DaemonDiagnosisStoreAssert.DiagnosisWrittenFor(diagnosisStore, context);
     }
@@ -651,7 +656,8 @@ public sealed class DaemonStatusOperationTests
             launchAttemptStore: new RecordingDaemonLaunchAttemptStore(),
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
-                new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused))),
+                new RecordingDaemonPingInfoClient(
+                    IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
             timeProvider: timeProvider);
@@ -715,24 +721,29 @@ public sealed class DaemonStatusOperationTests
 
     private static DaemonDiagnosis CreateDiagnosis (
         DaemonSession session,
-        string reason)
+        DaemonDiagnosisReason reason)
     {
         return new DaemonDiagnosis(
             Reason: reason,
             Message: $"diagnosis:{reason}",
-            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            ReportedBy: DaemonDiagnosisReportedBy.Unity,
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
             EditorInstancePath: null,
-            SessionIssuedAtUtc: session.IssuedAtUtc);
+            SessionIssuedAtUtc: session.IssuedAtUtc,
+            ProcessStartedAtUtc: null,
+            UnityLogPath: null,
+            StartupPhase: null,
+            ActionRequired: null,
+            PrimaryDiagnostic: null);
     }
 
     private static DaemonLaunchAttempt CreateLaunchAttempt (ProjectFingerprint projectFingerprint)
     {
-        var diagnosis = CreateDiagnosis(DaemonSessionTestFactory.Create(processId: null, projectFingerprint: projectFingerprint), DaemonDiagnosisReasonValues.StartupFailed);
+        var diagnosis = CreateDiagnosis(DaemonSessionTestFactory.Create(processId: null, projectFingerprint: projectFingerprint), DaemonDiagnosisReason.StartupFailed);
         return new DaemonLaunchAttempt(
-            LaunchAttemptId: "20260312_000000Z_00000001",
+            LaunchAttemptId: Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
             StartedAtUtc: diagnosis.UpdatedAtUtc,
             UpdatedAtUtc: diagnosis.UpdatedAtUtc,
             StartupStatus: DaemonStartupStatus.Failed,

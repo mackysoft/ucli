@@ -43,7 +43,7 @@ internal static class DaemonLaunchInvocationAssert
         var invocation = Assert.Single(guiStartupObserver.Invocations);
         Assert.Equal(expectedUnityProject, invocation.UnityProject);
         Assert.Equal(expectedProcessId, invocation.ProcessId);
-        Assert.True(invocation.Timeout > TimeSpan.Zero);
+        Assert.True(invocation.Deadline.Timeout > TimeSpan.Zero);
         return invocation;
     }
 

@@ -14,15 +14,13 @@ internal static class DaemonStartupReadinessProbeTestSupport
         IDaemonPingInfoClient pingClient,
         IUnityLogReader logReader,
         UnityProjectLockFileProbeResult? lockFileProbeResult = null,
-        TimeProvider? timeProvider = null,
         IUnityProjectLockPreflightService? projectLockPreflightService = null)
     {
         return new DaemonStartupReadinessProbe(
             pingClient,
             logReader,
             projectLockPreflightService ?? CreateProjectLockPreflightService(lockFileProbeResult),
-            new DaemonCompensationOperationOwner(),
-            timeProvider ?? TimeProvider.System);
+            new DaemonCompensationOperationOwner());
     }
 
     public static async Task<DaemonStartupReadinessProbeResult> WaitUntilStartupDeadlineAsync (
@@ -35,7 +33,7 @@ internal static class DaemonStartupReadinessProbeTestSupport
         var timeout = TimeSpan.FromMilliseconds(20);
         var resultTask = probe.WaitUntilReadyAsync(
                 ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(projectFingerprint),
-                timeout,
+                ExecutionDeadline.Start(timeout, timeProvider),
                 cancellationToken: CancellationToken.None)
             .AsTask();
 

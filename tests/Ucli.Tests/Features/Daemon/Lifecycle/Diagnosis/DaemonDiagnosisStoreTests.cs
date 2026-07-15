@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Infrastructure.Storage;
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -55,41 +56,19 @@ public sealed class DaemonDiagnosisStoreTests
     }
 
     [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Write_WhenSessionIssuedAtUtcIsDefault_ReturnsInvalidArgument ()
+    [Trait("Size", "Small")]
+    public void Constructor_WhenSessionIssuedAtUtcIsDefault_ThrowsArgumentOutOfRangeException ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-diagnosis-store", "invalid-session-issued-at");
-        var store = new DaemonDiagnosisStore();
-        var diagnosis = CreateDiagnosis(processId: 1234) with
-        {
-            SessionIssuedAtUtc = default,
-        };
-
-        var writeResult = await store.WriteAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), diagnosis, CancellationToken.None);
-
-        Assert.False(writeResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(writeResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("sessionIssuedAtUtc", error.Message, StringComparison.Ordinal);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            CreateDiagnosis(processId: 1234, sessionIssuedAtUtc: default(DateTimeOffset)));
     }
 
     [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Write_WhenStartupPhaseIsUnknown_ReturnsInvalidArgument ()
+    [Trait("Size", "Small")]
+    public void Constructor_WhenStartupPhaseIsUndefined_ThrowsArgumentOutOfRangeException ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-diagnosis-store", "invalid-startup-phase");
-        var store = new DaemonDiagnosisStore();
-        var diagnosis = CreateDiagnosis(processId: 1234) with
-        {
-            StartupPhase = (DaemonDiagnosisStartupPhase)int.MaxValue,
-        };
-
-        var writeResult = await store.WriteAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), diagnosis, CancellationToken.None);
-
-        Assert.False(writeResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(writeResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("startupPhase", error.Message, StringComparison.Ordinal);
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            CreateDiagnosis(processId: 1234, startupPhase: (DaemonDiagnosisStartupPhase)0));
     }
 
     [Fact]
@@ -101,9 +80,9 @@ public sealed class DaemonDiagnosisStoreTests
         var diagnosisPath = UcliStoragePathResolver.ResolveDaemonDiagnosisPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"));
         Directory.CreateDirectory(Path.GetDirectoryName(diagnosisPath)!);
         var contract = new DaemonDiagnosisJsonContract(
-            Reason: DaemonDiagnosisReasonValues.ShutdownRequested,
+            Reason: DaemonDiagnosisReason.ShutdownRequested,
             Message: "daemon shutdown completed",
-            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            ReportedBy: DaemonDiagnosisReportedBy.Unity,
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             ProcessId: 1234,
@@ -111,18 +90,20 @@ public sealed class DaemonDiagnosisStoreTests
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
             UnityLogPath: null,
-            StartupPhase: ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.ScriptCompilation),
-            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
+            ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
             PrimaryDiagnostic: new DaemonDiagnosisPrimaryDiagnosticJsonContract(
-                Kind: "unknownDiagnosticKind",
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS1739",
                 File: "Assets/Foo.cs",
                 Line: 74,
                 Column: 17,
                 Message: "Missing parameter"));
+        var json = JsonNode.Parse(DaemonDiagnosisJsonContractSerializer.Serialize(contract))!.AsObject();
+        json["primaryDiagnostic"]!.AsObject()["kind"] = "unknownDiagnosticKind";
         await File.WriteAllTextAsync(
             diagnosisPath,
-            DaemonDiagnosisJsonContractSerializer.Serialize(contract) + Environment.NewLine,
+            json.ToJsonString() + Environment.NewLine,
             CancellationToken.None);
 
         var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), CancellationToken.None);
@@ -133,23 +114,26 @@ public sealed class DaemonDiagnosisStoreTests
         Assert.Contains("primaryDiagnostic.kind", error.Message, StringComparison.Ordinal);
     }
 
-    private static DaemonDiagnosis CreateDiagnosis (int? processId)
+    private static DaemonDiagnosis CreateDiagnosis (
+        int? processId,
+        DateTimeOffset? sessionIssuedAtUtc = null,
+        DaemonDiagnosisStartupPhase startupPhase = DaemonDiagnosisStartupPhase.ScriptCompilation)
     {
         return new DaemonDiagnosis(
-            Reason: DaemonDiagnosisReasonValues.ShutdownRequested,
+            Reason: DaemonDiagnosisReason.ShutdownRequested,
             Message: "daemon shutdown completed",
-            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            ReportedBy: DaemonDiagnosisReportedBy.Unity,
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
             ProcessId: processId,
             EditorInstancePath: null,
-            SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
+            SessionIssuedAtUtc: sessionIssuedAtUtc ?? new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero),
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
             UnityLogPath: "/repo/.ucli/local/fingerprints/fingerprint-roundtrip/unity.log",
-            StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-            ActionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+            StartupPhase: startupPhase,
+            ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS1739",
                 File: "Assets/Foo.cs",
                 Line: 74,

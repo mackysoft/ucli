@@ -87,7 +87,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         catch (JsonException exception)
         {
             return DaemonSessionReadResult.Invalid(ExecutionError.InvalidArgument(
-                    $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"),
+                    $"Daemon session JSON is invalid: {sessionPath}. Field={exception.Path ?? "$"}. {exception.Message}"),
                 invalidEvidence: null,
                 artifactIdentity);
         }

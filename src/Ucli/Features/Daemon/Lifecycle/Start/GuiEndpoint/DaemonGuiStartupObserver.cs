@@ -21,19 +21,15 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
 
     private readonly IDaemonProcessIdentityAssessor processIdentityAssessor;
 
-    private readonly TimeProvider timeProvider;
-
     /// <summary> Initializes a new instance of the <see cref="DaemonGuiStartupObserver" /> class. </summary>
     public DaemonGuiStartupObserver (
         IDaemonGuiSessionRegistrationAwaiter sessionRegistrationAwaiter,
         IUnityLogReader unityLogReader,
-        IDaemonProcessIdentityAssessor processIdentityAssessor,
-        TimeProvider timeProvider)
+        IDaemonProcessIdentityAssessor processIdentityAssessor)
     {
         this.sessionRegistrationAwaiter = sessionRegistrationAwaiter ?? throw new ArgumentNullException(nameof(sessionRegistrationAwaiter));
         this.unityLogReader = unityLogReader ?? throw new ArgumentNullException(nameof(unityLogReader));
         this.processIdentityAssessor = processIdentityAssessor ?? throw new ArgumentNullException(nameof(processIdentityAssessor));
-        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -42,16 +38,15 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
         int processId,
         DateTimeOffset processStartedAtUtc,
         string unityLogPath,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(processId, 0);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityLogPath);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -60,10 +55,12 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
                 return CreateTimeoutResult(processId);
             }
 
+            var observationAttemptDeadline = deadline.CreateCappedDeadline(
+                GetObservationAttemptTimeout(remainingTimeout));
             var sessionResult = await sessionRegistrationAwaiter.WaitForSessionAsync(
                     unityProject,
                     processId,
-                    GetObservationAttemptTimeout(remainingTimeout),
+                    observationAttemptDeadline,
                     expectedProcessStartedAtUtc: processStartedAtUtc,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -194,13 +191,13 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
         return new DaemonGuiStartupBlockerObservation(
             new DaemonStartupFailureClassification(
                 startupBlockingReason: DaemonStartupBlockingReason.ProcessExit,
-                reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
+                reason: DaemonDiagnosisReason.EditorExitedBeforeBootstrap,
                 retryDisposition: DaemonStartupRetryDisposition.Unknown,
                 message: message,
                 startupPhase: DaemonDiagnosisStartupPhase.ProcessExit,
-                actionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+                actionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
                 primaryDiagnostic: new DaemonPrimaryDiagnostic(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit,
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.ProcessExit,
                     Code: null,
                     File: null,
                     Line: null,

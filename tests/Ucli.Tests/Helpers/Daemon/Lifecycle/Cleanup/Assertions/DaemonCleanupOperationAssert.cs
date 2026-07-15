@@ -13,7 +13,7 @@ internal static class DaemonCleanupOperationAssert
     {
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonCleanupStatus.Completed, result.Status);
-        Assert.Equal(DaemonCleanupSkipReason.None, result.SkipReason);
+        Assert.Null(result.SkipReason);
         Assert.Equal(expectedDeletedLaunchAttemptCount, result.DeletedLaunchAttemptCount);
         Assert.Null(result.Error);
 
@@ -40,8 +40,8 @@ internal static class DaemonCleanupOperationAssert
         ExecutionErrorKind expectedErrorKind)
     {
         Assert.False(result.IsSuccess);
-        Assert.Equal(DaemonCleanupStatus.Failed, result.Status);
-        Assert.Equal(DaemonCleanupSkipReason.None, result.SkipReason);
+        Assert.Null(result.Status);
+        Assert.Null(result.SkipReason);
         Assert.Equal(0, result.DeletedLaunchAttemptCount);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(expectedErrorKind, error.Kind);

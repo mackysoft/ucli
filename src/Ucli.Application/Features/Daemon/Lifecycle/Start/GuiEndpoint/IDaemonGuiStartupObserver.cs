@@ -9,6 +9,6 @@ internal interface IDaemonGuiStartupObserver
         int processId,
         DateTimeOffset processStartedAtUtc,
         string unityLogPath,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default);
 }

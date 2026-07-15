@@ -15,10 +15,17 @@ internal sealed class RecordingDaemonGuiRebootstrapClient : IDaemonGuiRebootstra
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         DateTimeOffset? expectedProcessStartedAtUtc,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
-        invocations.Add(new Invocation(unityProject, expectedProcessId, expectedProcessStartedAtUtc, timeout, cancellationToken));
+        _ = deadline.TryGetRemainingTimeout(out var remainingTimeout);
+        invocations.Add(new Invocation(
+            unityProject,
+            expectedProcessId,
+            expectedProcessStartedAtUtc,
+            deadline,
+            remainingTimeout,
+            cancellationToken));
         OnRequest?.Invoke();
         return ValueTask.FromResult(Result);
     }
@@ -27,6 +34,7 @@ internal sealed class RecordingDaemonGuiRebootstrapClient : IDaemonGuiRebootstra
         ResolvedUnityProjectContext UnityProject,
         int ExpectedProcessId,
         DateTimeOffset? ExpectedProcessStartedAtUtc,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
+        TimeSpan RemainingTimeout,
         CancellationToken CancellationToken);
 }

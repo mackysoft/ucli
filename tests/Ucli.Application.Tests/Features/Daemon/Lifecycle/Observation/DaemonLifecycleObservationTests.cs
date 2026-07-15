@@ -19,7 +19,8 @@ public sealed class DaemonLifecycleObservationTests
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
-            editorInstanceId: EditorInstanceId));
+            editorInstanceId: EditorInstanceId,
+            recoveryLease: null));
     }
 
     [Theory]
@@ -35,20 +36,42 @@ public sealed class DaemonLifecycleObservationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Constructor_WhenProcessStartedAtUtcIsDefault_ThrowsArgumentOutOfRangeException ()
+    public void Constructor_WhenProcessStartedAtUtcIsDefault_ThrowsArgumentException ()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => CreateObservation(
+        var exception = Assert.Throws<ArgumentException>(() => CreateObservation(
             IpcEditorLifecycleState.Ready,
             processStartedAtUtc: new DateTimeOffset()));
+
+        Assert.Equal("processStartedAtUtc", exception.ParamName);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Constructor_WhenObservedAtUtcIsDefault_ThrowsArgumentOutOfRangeException ()
+    public void Constructor_WhenObservedAtUtcIsDefault_ThrowsArgumentException ()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() => CreateObservation(
+        var exception = Assert.Throws<ArgumentException>(() => CreateObservation(
             IpcEditorLifecycleState.Ready,
             observedAtUtc: new DateTimeOffset()));
+
+        Assert.Equal("observedAtUtc", exception.ParamName);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Constructor_WhenTimestampHasNonUtcOffset_ThrowsArgumentException (bool useProcessStartTimestamp)
+    {
+        var nonUtcTimestamp = new DateTimeOffset(2026, 7, 15, 12, 0, 0, TimeSpan.FromHours(9));
+
+        var exception = Assert.Throws<ArgumentException>(() => CreateObservation(
+            IpcEditorLifecycleState.Ready,
+            processStartedAtUtc: useProcessStartTimestamp ? nonUtcTimestamp : null,
+            observedAtUtc: useProcessStartTimestamp ? null : nonUtcTimestamp));
+
+        Assert.Equal(
+            useProcessStartTimestamp ? "processStartedAtUtc" : "observedAtUtc",
+            exception.ParamName);
     }
 
     [Fact]
@@ -63,9 +86,30 @@ public sealed class DaemonLifecycleObservationTests
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
-            editorInstanceId: Guid.Empty));
+            editorInstanceId: Guid.Empty,
+            recoveryLease: null));
 
         Assert.Equal("editorInstanceId", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenRecoveryLeaseIsAttachedToReadyObservation_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new DaemonLifecycleObservation(
+            processId: 1234,
+            processStartedAtUtc: DateTimeOffset.UnixEpoch,
+            state: CreateState(IpcEditorLifecycleState.Ready),
+            observedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(1),
+            actionRequired: null,
+            primaryDiagnostic: null,
+            serverVersion: null,
+            editorInstanceId: EditorInstanceId,
+            recoveryLease: new DaemonLifecycleRecoveryLease(
+                Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                DateTimeOffset.UnixEpoch.AddMinutes(1))));
+
+        Assert.Equal("recoveryLease", exception.ParamName);
     }
 
     [Fact]
@@ -95,7 +139,8 @@ public sealed class DaemonLifecycleObservationTests
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
-            editorInstanceId: EditorInstanceId);
+            editorInstanceId: EditorInstanceId,
+            recoveryLease: null);
     }
 
     private static UnityEditorStateSnapshot CreateState (IpcEditorLifecycleState lifecycleState)

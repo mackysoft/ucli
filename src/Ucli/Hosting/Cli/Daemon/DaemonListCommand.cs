@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Options;
@@ -80,7 +81,9 @@ internal sealed class DaemonListCommand
                     timeoutMilliseconds = output.TimeoutMilliseconds,
                     projectRelativePath = output.ProjectRelativePath,
                     isComplete = output.IsComplete,
-                    completionReason = DaemonCommandOutputProjector.ToListCompletionReason(output.CompletionReason),
+                    completionReason = output.CompletionReason.HasValue
+                        ? ContractLiteralCodec.ToValue(output.CompletionReason.Value)
+                        : null,
                     remainingWorktreeCount = output.RemainingWorktreeCount,
                     items = output.Items.Select(DaemonCommandOutputProjector.ToListItem).ToArray(),
                 });

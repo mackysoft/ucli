@@ -39,7 +39,7 @@ public sealed class DaemonGuiRebootstrapClientMalformedEndpointTests
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsAccepted);

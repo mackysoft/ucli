@@ -143,6 +143,7 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
         var startupBlockingReason = ToOptionalLiteral(entry.StartupBlockingReason);
         var startupPhase = ToOptionalLiteral(entry.StartupPhase);
         var retryDisposition = ToOptionalLiteral(entry.RetryDisposition);
+        var launchAttemptId = entry.LaunchAttemptId?.ToString("D");
         var length = checked(
             Prefix.Length
             + step.Length
@@ -154,7 +155,7 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             + SpanTextLength.GetOptionalStringLength(OwnerKindPrefix, ownerKind)
             + SpanTextLength.GetOptionalBoolLength(CanShutdownProcessPrefix, entry.CanShutdownProcess)
             + SpanTextLength.GetOptionalInvariantInt64Length(ProcessIdPrefix, entry.ProcessId)
-            + SpanTextLength.GetOptionalStringLength(LaunchAttemptIdPrefix, entry.LaunchAttemptId)
+            + SpanTextLength.GetOptionalStringLength(LaunchAttemptIdPrefix, launchAttemptId)
             + SpanTextLength.GetOptionalStringLength(StartupStatusPrefix, startupStatus)
             + SpanTextLength.GetOptionalStringLength(StartupBlockingReasonPrefix, startupBlockingReason)
             + SpanTextLength.GetOptionalStringLength(StartupPhasePrefix, startupPhase)
@@ -171,6 +172,7 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
                 projectFingerprint,
                 editorMode,
                 ownerKind,
+                launchAttemptId,
                 startupStatus,
                 startupBlockingReason,
                 startupPhase,
@@ -188,7 +190,7 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
                 writer.AppendOptional(OwnerKindPrefix, state.ownerKind);
                 writer.AppendOptionalBool(CanShutdownProcessPrefix, state.entry.CanShutdownProcess);
                 writer.AppendOptionalInvariant(ProcessIdPrefix, state.entry.ProcessId);
-                writer.AppendOptional(LaunchAttemptIdPrefix, state.entry.LaunchAttemptId);
+                writer.AppendOptional(LaunchAttemptIdPrefix, state.launchAttemptId);
                 writer.AppendOptional(StartupStatusPrefix, state.startupStatus);
                 writer.AppendOptional(StartupBlockingReasonPrefix, state.startupBlockingReason);
                 writer.AppendOptional(StartupPhasePrefix, state.startupPhase);

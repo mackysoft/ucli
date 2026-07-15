@@ -11,7 +11,7 @@ internal interface IDaemonGuiEditorAttachService
     /// </summary>
     ValueTask<DaemonStartResult?> TryAttachExistingGuiEditorAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,

@@ -41,6 +41,7 @@ internal sealed class DaemonSessionProbe
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(observedSession);
+        ArgumentNullException.ThrowIfNull(deadline);
 
         IpcUnityEditorObservation pingResponse;
         try

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -21,6 +20,7 @@ public sealed class DaemonLaunchServiceTests
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var startedSession = DaemonSessionTestFactory.Create(
             processId: 999,
             sessionToken: LaunchSessionToken,
@@ -48,11 +48,12 @@ public sealed class DaemonLaunchServiceTests
             launcher,
             readinessProbe,
             compensationService,
+            timeProvider,
             diagnosisStore);
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -82,6 +83,7 @@ public sealed class DaemonLaunchServiceTests
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var startedSession = DaemonSessionTestFactory.Create(
             processId: 999,
             sessionToken: LaunchSessionToken,
@@ -108,11 +110,12 @@ public sealed class DaemonLaunchServiceTests
             launcher,
             readinessProbe,
             new RecordingDaemonLaunchCompensationService(),
+            timeProvider,
             new RecordingDaemonDiagnosisStore());
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             progressObserver,
@@ -145,6 +148,7 @@ public sealed class DaemonLaunchServiceTests
             projectFingerprint: context.ProjectFingerprint,
             endpointAddress: LaunchEndpointAddress);
         var processStartedAtUtc = new DateTimeOffset(2026, 07, 11, 0, 0, 4, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         const int processId = 7644;
         var startedSession = DaemonSessionTestFactory.Create(
             processId: processId,
@@ -179,12 +183,13 @@ public sealed class DaemonLaunchServiceTests
             launcher,
             readinessProbe,
             compensationService,
+            timeProvider,
             new RecordingDaemonDiagnosisStore());
 
         var actualFailure = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.LaunchAsync(
                     context,
-                    TimeSpan.FromMilliseconds(500),
+                    ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
                     DaemonEditorMode.Batchmode,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     progressObserver,
@@ -206,6 +211,7 @@ public sealed class DaemonLaunchServiceTests
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
             ProjectFingerprintTestFactory.Create("fingerprint-batchmode-session-progress-fail"));
+        var timeProvider = new ManualTimeProvider();
         var initialSession = DaemonSessionTestFactory.Create(
             processId: null,
             sessionToken: LaunchSessionToken,
@@ -229,12 +235,13 @@ public sealed class DaemonLaunchServiceTests
             launcher,
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             new RecordingDaemonDiagnosisStore());
 
         var actualFailure = await Assert.ThrowsAsync<InvalidOperationException>(
             () => service.LaunchAsync(
                     context,
-                    TimeSpan.FromMilliseconds(500),
+                    ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
                     DaemonEditorMode.Batchmode,
                     DaemonStartupBlockedProcessPolicy.Auto,
                     progressObserver,
@@ -254,6 +261,7 @@ public sealed class DaemonLaunchServiceTests
     public async Task Launch_WhenSessionInitializationFails_ReturnsFailureWithoutLaunch ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-launch-init-fail"));
+        var timeProvider = new ManualTimeProvider();
         var expectedError = ExecutionError.InternalError("session init failed");
         var launchSessionService = new RecordingDaemonLaunchSessionService
         {
@@ -269,12 +277,13 @@ public sealed class DaemonLaunchServiceTests
             launcher,
             readinessProbe,
             compensationService,
+            timeProvider,
             diagnosisStore,
             launchAttemptStore: launchAttemptStore);
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -308,6 +317,7 @@ public sealed class DaemonLaunchServiceTests
             endpointAddress: LaunchEndpointAddress);
         var writeError = ExecutionError.InternalError("write failed");
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var launchSessionService = new RecordingDaemonLaunchSessionService
         {
             InitializeResult = DaemonLaunchSessionWriteResult.Success(initialSession),
@@ -329,12 +339,13 @@ public sealed class DaemonLaunchServiceTests
             launcher,
             readinessProbe,
             compensationService,
+            timeProvider,
             diagnosisStore,
             launchAttemptStore: launchAttemptStore);
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -406,19 +417,19 @@ public sealed class DaemonLaunchServiceTests
                 return new ValueTask<DaemonDiagnosisStoreOperationResult>(diagnosisNeverCompletes.Task);
             },
         };
-        var timeProvider = new ManualTimeProvider();
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var service = CreateService(
             launchSessionService,
             launcher,
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             diagnosisStore,
-            launchAttemptStore: new RecordingDaemonLaunchAttemptStore(),
-            timeProvider: timeProvider);
+            launchAttemptStore: new RecordingDaemonLaunchAttemptStore());
 
         var launchTask = service.LaunchAsync(
                 context,
-                TimeSpan.FromSeconds(30),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider),
                 DaemonEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)

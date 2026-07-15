@@ -23,7 +23,7 @@ public sealed class DaemonStartOperationLifecycleLockTests
 
         var result = await operation.StartAsync(
             ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-lock-timeout")),
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -52,7 +52,7 @@ public sealed class DaemonStartOperationLifecycleLockTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

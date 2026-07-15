@@ -6,6 +6,11 @@ internal static class DaemonTimeouts
     /// <summary> Gets the timeout cap for one daemon probe attempt. </summary>
     public static readonly TimeSpan ProbeAttemptTimeoutCap = TimeSpan.FromSeconds(1);
 
+    /// <summary>
+    /// Gets the retry window for observing a new session registration after a listener rejects the persisted token.
+    /// </summary>
+    public static readonly TimeSpan SessionPublicationRetryTimeout = TimeSpan.FromSeconds(2);
+
     /// <summary> Gets the timeout budget used when launch-failure compensation is enforced. </summary>
     public static readonly TimeSpan LaunchCompensationTimeout = TimeSpan.FromSeconds(10);
 
