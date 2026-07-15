@@ -3,7 +3,7 @@ using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Unity type identifier assignable to a Component type. </summary>
+/// <summary> Represents a Unity type identifier assignable to a Component type. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Unity type identifier assignable to a Component type.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]

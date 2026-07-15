@@ -5,7 +5,7 @@ using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Unity GlobalObjectId string used for exact object resolution. </summary>
+/// <summary> Represents a Unity GlobalObjectId string used for exact object resolution. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Unity GlobalObjectId string used for exact object resolution.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.GlobalObjectId)]

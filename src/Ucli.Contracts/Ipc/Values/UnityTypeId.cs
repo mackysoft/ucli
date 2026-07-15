@@ -4,7 +4,7 @@ using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Unity type identifier that must resolve in the project. </summary>
+/// <summary> Represents a Unity type identifier that must resolve in the project. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Unity type identifier that must resolve in the project.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]

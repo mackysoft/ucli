@@ -4,7 +4,7 @@ using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Project-relative path to a Unity scene under <c>Assets/</c> or <c>Packages/</c>. </summary>
+/// <summary> Represents a project-relative path to a Unity scene under <c>Assets/</c> or <c>Packages/</c>. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Project-relative path to a Unity scene under Assets or Packages.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]

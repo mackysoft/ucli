@@ -2,7 +2,7 @@ using System.Reflection;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.Contracts.Tests.Ipc.Operations.Contracts.Values;
+namespace MackySoft.Ucli.Contracts.Tests.Ipc.Values;
 
 public sealed class UcliStringValueTests
 {

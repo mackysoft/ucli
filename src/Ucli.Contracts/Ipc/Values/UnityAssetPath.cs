@@ -4,12 +4,12 @@ using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Project-relative path to a Unity asset. </summary>
+/// <summary> Represents a project-relative path to a Unity asset. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Project-relative path to a Unity asset.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.ProjectRelativePath)]
-public sealed class UnityAssetPath : UcliStringValue
+public sealed class UnityAssetPath : UcliStringValue, IComparable<UnityAssetPath>
 {
     /// <summary> Initializes a new instance of the <see cref="UnityAssetPath" /> class. </summary>
     /// <param name="value"> The project-relative asset path. </param>
@@ -17,12 +17,7 @@ public sealed class UnityAssetPath : UcliStringValue
     /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> does not identify an <c>Assets/</c> descendant. </exception>
     [JsonConstructor]
     public UnityAssetPath (string value)
-        : this(new ValidatedPath(UnityAssetPathContract.NormalizeAssetsDescendantPathOrThrow(value)))
-    {
-    }
-
-    private UnityAssetPath (ValidatedPath path)
-        : base(path.Value)
+        : base(UnityAssetPathContract.NormalizeAssetsDescendantPathOrThrow(value))
     {
     }
 
@@ -40,7 +35,7 @@ public sealed class UnityAssetPath : UcliStringValue
             return false;
         }
 
-        path = new UnityAssetPath(new ValidatedPath(normalizedPath));
+        path = new UnityAssetPath(normalizedPath);
         return true;
     }
 
@@ -55,17 +50,15 @@ public sealed class UnityAssetPath : UcliStringValue
             return false;
         }
 
-        path = new UnityAssetPath(new ValidatedPath(value));
+        path = new UnityAssetPath(value);
         return true;
     }
 
-    private readonly struct ValidatedPath
+    /// <inheritdoc />
+    public int CompareTo (UnityAssetPath? other)
     {
-        public ValidatedPath (string value)
-        {
-            Value = value;
-        }
-
-        public string Value { get; }
+        return other is null
+            ? 1
+            : string.CompareOrdinal(Value, other.Value);
     }
 }

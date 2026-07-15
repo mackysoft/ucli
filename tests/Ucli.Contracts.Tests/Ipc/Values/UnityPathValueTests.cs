@@ -1,7 +1,7 @@
 using System.Reflection;
 using MackySoft.Ucli.Contracts.Ipc;
 
-namespace MackySoft.Ucli.Contracts.Tests.Ipc.Operations.Contracts.Values;
+namespace MackySoft.Ucli.Contracts.Tests.Ipc.Values;
 
 public sealed class UnityPathValueTests
 {
@@ -146,5 +146,17 @@ public sealed class UnityPathValueTests
         Assert.Null(projectSettingsPath);
         Assert.False(UnityHierarchyPath.TryParse($"Root/{malformedCharacter}", out var hierarchyPath));
         Assert.Null(hierarchyPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityAssetPath_CompareTo_UsesCanonicalOrdinalOrder ()
+    {
+        var first = new UnityAssetPath("Assets/A.asset");
+        var second = new UnityAssetPath("Assets/a.asset");
+
+        Assert.True(first.CompareTo(second) < 0);
+        Assert.True(second.CompareTo(first) > 0);
+        Assert.Equal(0, first.CompareTo(new UnityAssetPath(first.Value)));
     }
 }

@@ -3,7 +3,7 @@ using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Path prefix that identifies the Unity <c>Assets</c> root or one of its descendants. </summary>
+/// <summary> Represents a path prefix that identifies the Unity <c>Assets</c> root or one of its descendants. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Path prefix that identifies the Unity Assets root or one of its descendants.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]

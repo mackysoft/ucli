@@ -4,7 +4,7 @@ using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Project-relative path to a Unity prefab asset. </summary>
+/// <summary> Represents a project-relative path to a Unity prefab asset. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Project-relative path to a Unity prefab asset.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]

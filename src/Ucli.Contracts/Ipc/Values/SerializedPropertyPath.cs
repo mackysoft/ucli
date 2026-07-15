@@ -3,7 +3,7 @@ using MackySoft.Ucli.Contracts.Operations;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Unity SerializedProperty path. </summary>
+/// <summary> Represents a Unity SerializedProperty path. </summary>
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Unity SerializedProperty path.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
