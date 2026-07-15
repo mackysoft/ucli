@@ -28,20 +28,17 @@ public sealed class DaemonShutdownClientTests
             new IpcShutdownResponse(Accepted: true, Message: "shutdown accepted")));
         var client = new DaemonShutdownClient(
             transportClient,
-            new QueuedDaemonSessionConnectionProvider(
-                CreateConnectionResult("daemon-token-1"),
-                CreateConnectionResult("daemon-token-1"),
-                CreateConnectionResult("daemon-token-2"),
-                CreateConnectionResult("daemon-token-3")),
-            recoveryWaiter: null,
-            timeProvider);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                CreateSessionReadResult("daemon-token-1"),
+                CreateSessionReadResult("daemon-token-1"),
+                CreateSessionReadResult("daemon-token-2"),
+                CreateSessionReadResult("daemon-token-3"))));
 
         var resultTask = client.SendShutdownAsync(
                 ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
                     ProjectFingerprintTestFactory.Create("fingerprint-shutdown-token-publication")),
-                DaemonSessionTestFactory.Create(
-                    sessionToken: "daemon-token-1",
-                    endpointAddress: "ucli-daemon-test-endpoint"),
+                CreateSession("daemon-token-1"),
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
@@ -81,26 +78,22 @@ public sealed class DaemonShutdownClientTests
                 "session rejected"));
         var client = new DaemonShutdownClient(
             transportClient,
-            new StaticDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token-1")),
-            recoveryWaiter: null,
-            timeProvider);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new RecordingDaemonSessionStore(CreateSessionReadResult("daemon-token-1"))));
 
         var resultTask = client.SendShutdownAsync(
                 ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
                     ProjectFingerprintTestFactory.Create("fingerprint-shutdown-token-not-rotated")),
-                DaemonSessionTestFactory.Create(
-                    sessionToken: "daemon-token-1",
-                    endpointAddress: "ucli-daemon-test-endpoint"),
+                CreateSession("daemon-token-1"),
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            resultTask,
-            TimeSpan.FromSeconds(3),
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        await timeProvider
+            .WaitForTimerDueWithinAsync(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
+            .WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
 
-        var result = await resultTask;
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.False(result.IsSuccess);
         Assert.False(result.IsNotRunning);
@@ -109,6 +102,59 @@ public sealed class DaemonShutdownClientTests
         Assert.Equal(
             DateTimeOffset.UnixEpoch + DaemonTimeouts.SessionPublicationRetryTimeout,
             timeProvider.GetUtcNow());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendShutdown_WhenReplacementSessionResolutionIgnoresCancellation_ReturnsRejectionAtPublicationDeadline ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new RecordingIpcTransportClient(
+            static request => IpcResponseTestFactory.CreateError(
+                request,
+                IpcSessionErrorCodes.SessionTokenInvalid,
+                "session rejected"));
+        var sessionStore = new NonCooperativeBlockingDaemonSessionStore(
+            blockOnCall: 1,
+            CreateSessionReadResult("daemon-token-2"));
+        var client = new DaemonShutdownClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                sessionStore));
+        var resultTask = client.SendShutdownAsync(
+                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
+                    ProjectFingerprintTestFactory.Create("fingerprint-shutdown-blocked-publication")),
+                CreateSession("daemon-token-1"),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+                CancellationToken.None)
+            .AsTask();
+        await sessionStore.Blocked.WaitAsync(TimeSpan.FromSeconds(1));
+
+        try
+        {
+            await timeProvider
+                .WaitForTimerDueWithinAsync(DaemonTimeouts.SessionPublicationRetryTimeout)
+                .WaitAsync(TimeSpan.FromSeconds(1));
+            timeProvider.Advance(DaemonTimeouts.SessionPublicationRetryTimeout);
+            var completedTask = await Task.WhenAny(resultTask, Task.Delay(TimeSpan.FromSeconds(1)));
+
+            Assert.Same(resultTask, completedTask);
+            var result = await resultTask;
+            Assert.False(result.IsSuccess);
+            Assert.False(result.IsNotRunning);
+            var error = Assert.IsType<ExecutionError>(result.Error);
+            Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+            Assert.Contains(IpcSessionErrorCodes.SessionTokenInvalid.Value, error.Message, StringComparison.Ordinal);
+            Assert.Single(transportClient.Requests);
+            Assert.Equal(
+                DateTimeOffset.UnixEpoch + DaemonTimeouts.SessionPublicationRetryTimeout,
+                timeProvider.GetUtcNow());
+        }
+        finally
+        {
+            sessionStore.Release();
+            await ObserveCompletionAsync(resultTask);
+        }
     }
 
     [Fact]
@@ -123,17 +169,14 @@ public sealed class DaemonShutdownClientTests
                 "session rejected"));
         var client = new DaemonShutdownClient(
             transportClient,
-            new StaticDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token-1")),
-            recoveryWaiter: null,
-            timeProvider);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new RecordingDaemonSessionStore(CreateSessionReadResult("daemon-token-1"))));
         var timeout = TimeSpan.FromMilliseconds(500);
 
         var resultTask = client.SendShutdownAsync(
                 ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
                     ProjectFingerprintTestFactory.Create("fingerprint-shutdown-token-deadline")),
-                DaemonSessionTestFactory.Create(
-                    sessionToken: "daemon-token-1",
-                    endpointAddress: "ucli-daemon-test-endpoint"),
+                CreateSession("daemon-token-1"),
                 ExecutionDeadline.Start(timeout, timeProvider),
                 CancellationToken.None)
             .AsTask();
@@ -152,12 +195,9 @@ public sealed class DaemonShutdownClientTests
         Assert.Equal(DateTimeOffset.UnixEpoch + timeout, timeProvider.GetUtcNow());
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task SendShutdown_WhenSuccessorAttemptDoesNotComplete_DoesNotTryThirdSession (
-        bool successorTokenRejected)
+    public async Task SendShutdown_WhenSuccessorSessionTokenIsRejected_FollowsNextPublishedGeneration ()
     {
         var timeProvider = new ManualTimeProvider();
         var attempt = 0;
@@ -169,12 +209,10 @@ public sealed class DaemonShutdownClientTests
                     request,
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "initial session rejected"),
-                2 when successorTokenRejected => IpcResponseTestFactory.CreateError(
+                2 => IpcResponseTestFactory.CreateError(
                     request,
                     IpcSessionErrorCodes.SessionTokenInvalid,
                     "successor session rejected"),
-                2 => throw new IpcResponseReadInterruptedException(
-                    new IOException("shutdown response was lost")),
                 _ => IpcResponseTestFactory.CreateSuccess(
                     request,
                     new IpcShutdownResponse(Accepted: true, Message: "shutdown accepted")),
@@ -182,18 +220,65 @@ public sealed class DaemonShutdownClientTests
         });
         var client = new DaemonShutdownClient(
             transportClient,
-            new QueuedDaemonSessionConnectionProvider(
-                CreateConnectionResult("daemon-token-2"),
-                CreateConnectionResult("daemon-token-3")),
-            recoveryWaiter: null,
-            timeProvider);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                CreateSessionReadResult("daemon-token-2"),
+                CreateSessionReadResult("daemon-token-3"))));
 
         var resultTask = client.SendShutdownAsync(
                 ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
                     ProjectFingerprintTestFactory.Create("fingerprint-shutdown-successor-terminal")),
-                DaemonSessionTestFactory.Create(
-                    sessionToken: "daemon-token-1",
-                    endpointAddress: "ucli-daemon-test-endpoint"),
+                CreateSession("daemon-token-1"),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+                CancellationToken.None)
+            .AsTask();
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            resultTask,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+
+        var result = await resultTask;
+
+        Assert.True(result.IsSuccess);
+        var requests = transportClient.Requests;
+        IpcRequestAssert.SessionTokens(
+            requests,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-3").GetEncodedValue());
+        _ = IpcRequestAssert.SingleRequestId(requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendShutdown_WhenSuccessorResponseIsInterrupted_DoesNotReplayAmbiguousRequest ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var attempt = 0;
+        var transportClient = new RecordingIpcTransportClient(request =>
+        {
+            return Interlocked.Increment(ref attempt) switch
+            {
+                1 => IpcResponseTestFactory.CreateError(
+                    request,
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "initial session rejected"),
+                _ => throw new IpcResponseReadInterruptedException(
+                    new IOException("shutdown response was lost")),
+            };
+        });
+        var client = new DaemonShutdownClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                CreateSessionReadResult("daemon-token-2"),
+                CreateSessionReadResult("daemon-token-3"))));
+
+        var resultTask = client.SendShutdownAsync(
+                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
+                    ProjectFingerprintTestFactory.Create("fingerprint-shutdown-interrupted-successor")),
+                CreateSession("daemon-token-1"),
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
@@ -218,6 +303,58 @@ public sealed class DaemonShutdownClientTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task SendShutdown_WhenSuccessorEndpointFailsBeforeWrite_FollowsNextPublishedGeneration ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var attempt = 0;
+        var transportClient = new RecordingIpcTransportClient(request =>
+        {
+            return Interlocked.Increment(ref attempt) switch
+            {
+                1 => IpcResponseTestFactory.CreateError(
+                    request,
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "initial session rejected"),
+                2 => throw new IpcConnectTimeoutException(
+                    "The successor endpoint timed out before the shutdown request was sent."),
+                _ => IpcResponseTestFactory.CreateSuccess(
+                    request,
+                    new IpcShutdownResponse(Accepted: true, Message: "shutdown accepted")),
+            };
+        });
+        var client = new DaemonShutdownClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                CreateSessionReadResult("daemon-token-2"),
+                CreateSessionReadResult("daemon-token-3"))));
+
+        var resultTask = client.SendShutdownAsync(
+                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
+                    ProjectFingerprintTestFactory.Create("fingerprint-shutdown-successor-connect")),
+                CreateSession("daemon-token-1"),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+                CancellationToken.None)
+            .AsTask();
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            resultTask,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+
+        var result = await resultTask;
+
+        Assert.True(result.IsSuccess);
+        IpcRequestAssert.SessionTokens(
+            transportClient.Requests,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-3").GetEncodedValue());
+        _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task SendShutdown_WhenTransportIgnoresCancellation_ReturnsAtSharedDeadline ()
     {
         var timeProvider = new ManualTimeProvider();
@@ -233,9 +370,8 @@ public sealed class DaemonShutdownClientTests
         };
         var client = new DaemonShutdownClient(
             transportClient,
-            new UnexpectedDaemonSessionConnectionProvider("A pending shutdown response must not resolve another daemon session."),
-            recoveryWaiter: null,
-            timeProvider);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new UnexpectedDaemonSessionStore("A pending shutdown response must not resolve another daemon session.")));
         var timeout = TimeSpan.FromSeconds(1);
 
         var resultTask = client.SendShutdownAsync(
@@ -273,9 +409,8 @@ public sealed class DaemonShutdownClientTests
         transportClient.EnqueueException(new TimeoutException("ipc timeout"));
         var client = new DaemonShutdownClient(
             transportClient,
-            new UnexpectedDaemonSessionConnectionProvider("A shutdown response timeout must not resolve another daemon session."),
-            recoveryWaiter: null,
-            TimeProvider.System);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new UnexpectedDaemonSessionStore("A shutdown response timeout must not resolve another daemon session.")));
 
         var result = await client.SendShutdownAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-shutdown-timeout")),
@@ -293,29 +428,51 @@ public sealed class DaemonShutdownClientTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendShutdown_WhenSocketConnectionIsRefused_ReturnsNotRunning ()
+    public async Task SendShutdown_WhenInitialEndpointRefusesConnection_FollowsPublishedSuccessor ()
     {
-        var transportClient = new RecordingIpcTransportClient(static _ => throw new InvalidOperationException("unexpected transport response"));
+        var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var transportClient = new RecordingIpcTransportClient(
+            static request => IpcResponseTestFactory.CreateSuccess(
+                request,
+                new IpcShutdownResponse(Accepted: true, Message: "shutdown accepted")));
         transportClient.EnqueueException(new IpcConnectException(
             "IPC connection was refused before the request was sent.",
             new SocketException((int)SocketError.ConnectionRefused)));
+        var initialSession = DaemonSessionTestFactory.CreateForToken(
+            "initial-token",
+            endpointTransportKind: IpcTransportKind.NamedPipe,
+            endpointAddress: "ucli-initial-endpoint");
+        var successorSession = DaemonSessionTestFactory.CreateForToken(
+            "successor-token",
+            endpointTransportKind: IpcTransportKind.NamedPipe,
+            endpointAddress: "ucli-successor-endpoint");
         var client = new DaemonShutdownClient(
             transportClient,
-            new UnexpectedDaemonSessionConnectionProvider("A refused shutdown connection must not resolve another daemon session."),
-            recoveryWaiter: null,
-            TimeProvider.System);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(successorSession))));
 
         var result = await client.SendShutdownAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-shutdown-not-running")),
-            DaemonSessionTestFactory.Create(
-                sessionToken: "session-token",
-                endpointAddress: "ucli-daemon-test-endpoint"),
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
+            initialSession,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
             CancellationToken.None);
 
-        Assert.False(result.IsSuccess);
-        Assert.True(result.IsNotRunning);
+        Assert.True(result.IsSuccess);
+        Assert.False(result.IsNotRunning);
         Assert.Null(result.Error);
+        IpcRequestAssert.SessionTokens(
+            transportClient.Requests,
+            initialSession.SessionToken.GetEncodedValue(),
+            successorSession.SessionToken.GetEncodedValue());
+        _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
+        Assert.Collection(
+            transportClient.Endpoints,
+            endpoint => Assert.Equal(initialSession.Endpoint, endpoint),
+            endpoint => Assert.Equal(successorSession.Endpoint, endpoint));
+        Assert.All(
+            transportClient.Requests,
+            request => Assert.Equal(startedAtUtc + TimeSpan.FromSeconds(5), request.RequestDeadlineUtc));
     }
 
     [Fact]
@@ -326,9 +483,8 @@ public sealed class DaemonShutdownClientTests
         transportClient.EnqueueException(new SocketException((int)SocketError.ConnectionReset));
         var client = new DaemonShutdownClient(
             transportClient,
-            new UnexpectedDaemonSessionConnectionProvider("A lost shutdown response must not resolve another daemon session."),
-            recoveryWaiter: null,
-            TimeProvider.System);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new UnexpectedDaemonSessionStore("A lost shutdown response must not resolve another daemon session.")));
 
         var result = await client.SendShutdownAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-shutdown-transport-error")),
@@ -357,9 +513,8 @@ public sealed class DaemonShutdownClientTests
         var timeProvider = new ManualTimeProvider(startedAtUtc);
         var client = new DaemonShutdownClient(
             transportClient,
-            new UnexpectedDaemonSessionConnectionProvider("A missing shutdown token is not a session-publication race."),
-            recoveryWaiter: null,
-            timeProvider);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new UnexpectedDaemonSessionStore("A missing shutdown token is not a session-publication race.")));
 
         var result = await client.SendShutdownAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-shutdown-auth-rejected")),
@@ -381,10 +536,28 @@ public sealed class DaemonShutdownClientTests
         Assert.Equal(startedAtUtc + TimeSpan.FromMilliseconds(500), request.RequestDeadlineUtc);
     }
 
-    private static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
+    private static DaemonSessionReadResult CreateSessionReadResult (string sessionToken)
     {
-        return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
-            IpcSessionTokenTestFactory.Create(sessionToken),
-            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-endpoint")));
+        return DaemonSessionReadResultTestFactory.FoundForToken(
+            sessionToken,
+            IpcTransportKind.NamedPipe,
+            "ucli-daemon-test-endpoint");
+    }
+
+    private static DaemonSession CreateSession (string sessionToken)
+    {
+        return DaemonSessionTestFactory.CreateForToken(
+            sessionToken,
+            IpcTransportKind.NamedPipe,
+            "ucli-daemon-test-endpoint");
+    }
+
+    private static async Task ObserveCompletionAsync (Task task)
+    {
+        var completedTask = await Task.WhenAny(task, Task.Delay(TimeSpan.FromSeconds(1)));
+        if (ReferenceEquals(completedTask, task))
+        {
+            _ = task.Exception;
+        }
     }
 }

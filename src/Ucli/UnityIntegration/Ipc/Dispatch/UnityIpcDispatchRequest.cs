@@ -5,6 +5,14 @@ using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 
+/// <summary> Defines the safety boundary for replaying one request after response delivery was interrupted. </summary>
+internal enum UnityIpcResponseReplayPolicy
+{
+    None,
+    StatelessAnyHostSuccessor,
+    DurableSameHostSuccessor,
+}
+
 /// <summary> Represents one IPC method dispatch request after application payload conversion. </summary>
 internal sealed record UnityIpcDispatchRequest
 {
@@ -41,8 +49,13 @@ internal sealed record UnityIpcDispatchRequest
     /// <summary> Gets the IPC payload element. </summary>
     public JsonElement Payload { get; }
 
-    /// <summary> Gets whether daemon dispatch may replay this request with the same request id after endpoint recovery. </summary>
-    public bool IsRecoverable => UnityIpcMethodCapabilities.SupportsRecoverableReplay(Method);
+    /// <summary> Gets whether this request may be replayed to the same host or any host serving the same project after response interruption. </summary>
+    public UnityIpcResponseReplayPolicy ResponseReplayPolicy =>
+        UnityIpcMethodCapabilities.SupportsRecoverableReplay(Method)
+            ? UnityIpcResponseReplayPolicy.DurableSameHostSuccessor
+            : UnityIpcMethodCapabilities.SupportsStatelessReadReplay(Method)
+                ? UnityIpcResponseReplayPolicy.StatelessAnyHostSuccessor
+                : UnityIpcResponseReplayPolicy.None;
 
     /// <summary> Gets the process launch options used when oneshot execution is selected. </summary>
     public UnityBatchmodeLaunchOptions LaunchOptions { get; }

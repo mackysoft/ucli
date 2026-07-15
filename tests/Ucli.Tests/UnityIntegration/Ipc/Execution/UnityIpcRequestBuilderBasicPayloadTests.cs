@@ -51,6 +51,9 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
             IncludeEditLoweringOnly: true));
 
         Assert.Equal(UnityIpcMethod.OpsRead, request.Method);
+        Assert.Equal(
+            UnityIpcResponseReplayPolicy.StatelessAnyHostSuccessor,
+            request.ResponseReplayPolicy);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcOpsReadRequest payload, out _));
         Assert.True(payload.FailFast);
         Assert.True(payload.RequireReadinessGate);
@@ -82,7 +85,9 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         var request = builder.Build(new UnityRequestPayload.Compile(RunIdTestValues.Compile));
 
         Assert.Equal(UnityIpcMethod.Compile, request.Method);
-        Assert.True(request.IsRecoverable);
+        Assert.Equal(
+            UnityIpcResponseReplayPolicy.DurableSameHostSuccessor,
+            request.ResponseReplayPolicy);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcCompileRequest payload, out _));
         Assert.Equal(RunIdTestValues.Compile, payload.RunId);
         Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
@@ -106,6 +111,9 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         var request = builder.Build(new UnityRequestPayload.PlayStatus());
 
         Assert.Equal(UnityIpcMethod.PlayStatus, request.Method);
+        Assert.Equal(
+            UnityIpcResponseReplayPolicy.StatelessAnyHostSuccessor,
+            request.ResponseReplayPolicy);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayStatusRequest _, out _));
         Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
             request.Method,
@@ -134,7 +142,7 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         Assert.Equal(1080, payload.RequestedHeight);
         Assert.False(request.Payload.TryGetProperty("stagingPath", out _));
         Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
-        Assert.False(request.IsRecoverable);
+        Assert.Equal(UnityIpcResponseReplayPolicy.None, request.ResponseReplayPolicy);
         Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
             request.Method,
             IpcEditorLifecycleState.SafeMode));
@@ -149,7 +157,9 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         var request = builder.Build(new UnityRequestPayload.PlayEnter());
 
         Assert.Equal(UnityIpcMethod.PlayEnter, request.Method);
-        Assert.True(request.IsRecoverable);
+        Assert.Equal(
+            UnityIpcResponseReplayPolicy.DurableSameHostSuccessor,
+            request.ResponseReplayPolicy);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayEnterRequest _, out _));
         Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
         Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
@@ -166,7 +176,9 @@ public sealed class UnityIpcRequestBuilderBasicPayloadTests
         var request = builder.Build(new UnityRequestPayload.PlayExit());
 
         Assert.Equal(UnityIpcMethod.PlayExit, request.Method);
-        Assert.True(request.IsRecoverable);
+        Assert.Equal(
+            UnityIpcResponseReplayPolicy.DurableSameHostSuccessor,
+            request.ResponseReplayPolicy);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPlayExitRequest _, out _));
         Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _));
         Assert.False(UnityIpcMethodCapabilities.AllowsStartupLifecycleState(

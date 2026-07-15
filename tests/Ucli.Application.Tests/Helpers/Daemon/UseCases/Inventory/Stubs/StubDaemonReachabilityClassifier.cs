@@ -18,4 +18,14 @@ internal sealed class StubDaemonReachabilityClassifier : IDaemonReachabilityClas
     {
         return false;
     }
+
+    public bool IsRetryableBeforeRequestWrite (Exception exception)
+    {
+        return false;
+    }
+
+    public bool IsRecoverableResponseInterruption (Exception exception)
+    {
+        return false;
+    }
 }

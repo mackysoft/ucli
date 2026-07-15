@@ -127,7 +127,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                 unityProject,
                 marker.ProcessId,
                 initialProbeDeadline,
-                expectedProcessStartedAtUtc: probeResult.ProcessStartedAtUtc,
+                expectedProcessStartedAtUtc: probeResult.ProcessStartedAtUtc!.Value,
                 cancellationToken)
             .ConfigureAwait(false);
         if (initialWaitResult.IsSuccess)
@@ -191,7 +191,7 @@ internal sealed class DaemonGuiEditorAttachService : IDaemonGuiEditorAttachServi
                 unityProject,
                 marker.ProcessId,
                 deadline,
-                expectedProcessStartedAtUtc: probeResult.ProcessStartedAtUtc,
+                expectedProcessStartedAtUtc: probeResult.ProcessStartedAtUtc!.Value,
                 cancellationToken)
             .ConfigureAwait(false);
         if (waitResult.IsSuccess)

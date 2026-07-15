@@ -31,6 +31,26 @@ public sealed class UnityIpcMethodCapabilitiesTests
         Assert.Equal(expected, UnityIpcMethodCapabilities.SupportsRecoverableReplay(method));
     }
 
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(UnityIpcMethod.Ping, true)]
+    [InlineData(UnityIpcMethod.OpsRead, true)]
+    [InlineData(UnityIpcMethod.IndexAssetsRead, true)]
+    [InlineData(UnityIpcMethod.IndexSceneTreeLiteRead, true)]
+    [InlineData(UnityIpcMethod.DaemonLogsRead, true)]
+    [InlineData(UnityIpcMethod.UnityLogsRead, true)]
+    [InlineData(UnityIpcMethod.PlayStatus, true)]
+    [InlineData(UnityIpcMethod.Execute, false)]
+    [InlineData(UnityIpcMethod.Compile, false)]
+    [InlineData(UnityIpcMethod.UnityConsoleClear, false)]
+    [InlineData(UnityIpcMethod.ScreenshotCapture, false)]
+    public void SupportsStatelessReadReplay_ReturnsMethodCapability (
+        UnityIpcMethod method,
+        bool expected)
+    {
+        Assert.Equal(expected, UnityIpcMethodCapabilities.SupportsStatelessReadReplay(method));
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void RecoverableReplayMethods_DoNotSupportStreaming ()
@@ -39,8 +59,9 @@ public sealed class UnityIpcMethodCapabilitiesTests
         {
             Assert.False(
                 UnityIpcMethodCapabilities.SupportsRecoverableReplay(method)
-                && UnityIpcMethodCapabilities.SupportsStreaming(method),
-                $"Method '{method}' cannot combine recoverable execution with connection-bound progress streaming.");
+                && (UnityIpcMethodCapabilities.SupportsStreaming(method)
+                    || UnityIpcMethodCapabilities.SupportsStatelessReadReplay(method)),
+                $"Method '{method}' cannot combine durable execution replay with streaming or stateless read replay.");
         }
     }
 
@@ -68,6 +89,7 @@ public sealed class UnityIpcMethodCapabilitiesTests
 
         Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcMethodCapabilities.SupportsStreaming(method));
         Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcMethodCapabilities.SupportsRecoverableReplay(method));
+        Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcMethodCapabilities.SupportsStatelessReadReplay(method));
         Assert.Throws<ArgumentOutOfRangeException>(() => UnityIpcMethodCapabilities.AllowsStartupLifecycleState(
             method,
             IpcEditorLifecycleState.Ready));

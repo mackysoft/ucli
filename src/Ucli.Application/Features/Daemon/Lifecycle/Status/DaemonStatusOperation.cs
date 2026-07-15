@@ -152,7 +152,7 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
                 : null;
             return DaemonStatusResult.Running(
                 probedSession,
-                probeResult.PingResponse!,
+                probeResult.PingResponse,
                 effectiveDiagnosis);
         }
 

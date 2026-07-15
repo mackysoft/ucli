@@ -23,7 +23,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
         var response = CreateSuccessResponse(Guid.NewGuid());
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => response);
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
-        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token"));
+        var sessionStore = new QueuedDaemonSessionStore(CreateSessionReadResult("daemon-token"));
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var modeDecisionService = new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(
             new UnityExecutionModeDecision(
@@ -38,7 +38,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             modeDecisionService,
             new RecordingDaemonPingInfoClient(),
             new RecordingUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, sessionConnectionProvider, launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionStore, launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -66,7 +66,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
         var response = CreateSuccessResponse(Guid.NewGuid());
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => response);
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
-        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token"));
+        var sessionStore = new QueuedDaemonSessionStore(CreateSessionReadResult("daemon-token"));
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var pluginLocator = new RecordingUnityUcliPluginLocator
         {
@@ -82,7 +82,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
                     DefaultTimeout))),
             new RecordingDaemonPingInfoClient(),
             pluginLocator,
-            CreateClients(daemonTransportClient, oneshotTransportClient, sessionConnectionProvider, launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionStore, launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -121,7 +121,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
                 EmptyPayload(),
                 response: null));
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
-        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token"));
+        var sessionStore = new QueuedDaemonSessionStore(CreateSessionReadResult("daemon-token"));
         var progressFrames = new List<UnityRequestProgressFrame>();
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var executor = CreateExecutor(
@@ -133,7 +133,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
                     DefaultTimeout))),
             new RecordingDaemonPingInfoClient(),
             new RecordingUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, sessionConnectionProvider, launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionStore, launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.TestRun,
@@ -195,7 +195,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new UnexpectedDaemonSessionConnectionProvider(
+                new UnexpectedDaemonSessionStore(
                     "Unsupported streaming dispatch must not resolve a daemon session."),
                 launcher));
 
@@ -239,7 +239,7 @@ public sealed class UnityIpcRequestExecutorDaemonDispatchTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new QueuedDaemonSessionConnectionProvider(DaemonSessionConnectionResolutionResult.SessionNotAvailable()),
+                new QueuedDaemonSessionStore(DaemonSessionReadResult.Missing()),
                 launcher));
 
         var result = await executor.ExecuteAsync(

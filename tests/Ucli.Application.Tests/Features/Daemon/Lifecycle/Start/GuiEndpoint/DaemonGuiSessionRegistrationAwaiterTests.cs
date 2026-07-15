@@ -11,6 +11,42 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
     private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
+    private static readonly DateTimeOffset DefaultExpectedProcessStartedAtUtc =
+        new(2026, 03, 05, 0, 0, 1, TimeSpan.Zero);
+
+    private static readonly IDaemonReachabilityClassifier RecoverableProbeFailureClassifier =
+        new DelegatingDaemonReachabilityClassifier(
+            isNotRunning: static _ => false,
+            isSessionTokenInvalid: static exception => exception is SessionTokenInvalidTestException,
+            isRetryableBeforeRequestWrite: static _ => false,
+            isRecoverableResponseInterruption: static exception => exception is ResponseInterruptedTestException);
+
+    public static TheoryData<DateTimeOffset> InvalidExpectedProcessStartedAtUtcValues => new()
+    {
+        default,
+        new DateTimeOffset(2026, 03, 05, 9, 0, 1, TimeSpan.FromHours(9)),
+    };
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(InvalidExpectedProcessStartedAtUtcValues))]
+    public async Task WaitForSession_WhenExpectedProcessStartTimeIsNotUtc_ThrowsArgumentException (
+        DateTimeOffset expectedProcessStartedAtUtc)
+    {
+        var awaiter = CreateAwaiter(
+            new UnexpectedDaemonSessionStore("Invalid process start time must stop before reading registration."),
+            new UnexpectedDaemonPingInfoClient("Invalid process start time must stop before pinging registration."));
+
+        var exception = await Assert.ThrowsAsync<ArgumentException>(async () => await awaiter.WaitForSessionAsync(
+            DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject,
+            expectedProcessId: 4321,
+            ExecutionDeadline.Start(WaitTimeout, TimeProvider.System),
+            expectedProcessStartedAtUtc,
+            CancellationToken.None));
+
+        Assert.Equal("expectedProcessStartedAtUtc", exception.ParamName);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task WaitForSession_WhenSessionAndPingMatch_ReturnsSuccess ()
@@ -26,11 +62,136 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             unityProject,
             expectedProcessId: 4321,
             ExecutionDeadline.Start(WaitTimeout, new ManualTimeProvider()),
+            expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc,
             cancellationToken: cancellationTokenSource.Token);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(session, result.Session);
         DaemonPingInfoClientAssert.GuiSessionPingRead(pingClient, unityProject, session);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitForSession_WhenSessionTokenRotates_ProbesValidatedSuccessorWithSameRequestId ()
+    {
+        var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
+        var observedSession = CreateGuiSession(
+            unityProject.ProjectFingerprint,
+            processId: 4321,
+            sessionToken: "observed-token",
+            sessionGenerationId: Guid.Parse("11111111-1111-1111-1111-111111111111"));
+        var successorSession = CreateGuiSession(
+            unityProject.ProjectFingerprint,
+            processId: 4321,
+            sessionToken: "successor-token",
+            sessionGenerationId: Guid.Parse("22222222-2222-2222-2222-222222222222"));
+        var sessionStore = new QueuedDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(observedSession),
+            DaemonSessionReadResultTestFactory.Found(successorSession));
+        var pingClient = new RecordingDaemonPingInfoClient(
+            new SessionTokenInvalidTestException(),
+            CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+        var awaiter = CreateAwaiter(
+            sessionStore,
+            pingClient,
+            RecoverableProbeFailureClassifier);
+
+        var result = await awaiter.WaitForSessionAsync(
+            unityProject,
+            expectedProcessId: 4321,
+            ExecutionDeadline.Start(WaitTimeout, TimeProvider.System),
+            DefaultExpectedProcessStartedAtUtc,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(successorSession, result.Session);
+        Assert.Collection(
+            pingClient.Invocations,
+            invocation => Assert.Equal(observedSession, invocation.Session),
+            invocation => Assert.Equal(successorSession, invocation.Session));
+        Assert.Single(pingClient.Invocations.Select(static invocation => invocation.RequestId).Distinct());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitForSession_WhenResponseIsInterrupted_ProbesValidatedSuccessorWithSameRequestId ()
+    {
+        var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
+        var observedSession = CreateGuiSession(
+            unityProject.ProjectFingerprint,
+            processId: 4321,
+            sessionToken: "observed-token",
+            sessionGenerationId: Guid.Parse("11111111-1111-1111-1111-111111111111"));
+        var successorSession = CreateGuiSession(
+            unityProject.ProjectFingerprint,
+            processId: 4321,
+            sessionToken: "successor-token",
+            sessionGenerationId: Guid.Parse("22222222-2222-2222-2222-222222222222"));
+        var sessionStore = new QueuedDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(observedSession),
+            DaemonSessionReadResultTestFactory.Found(successorSession));
+        var pingClient = new RecordingDaemonPingInfoClient(
+            new ResponseInterruptedTestException(),
+            CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+        var awaiter = CreateAwaiter(
+            sessionStore,
+            pingClient,
+            RecoverableProbeFailureClassifier);
+
+        var result = await awaiter.WaitForSessionAsync(
+            unityProject,
+            expectedProcessId: 4321,
+            ExecutionDeadline.Start(WaitTimeout, TimeProvider.System),
+            DefaultExpectedProcessStartedAtUtc,
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(successorSession, result.Session);
+        Assert.Single(pingClient.Invocations.Select(static invocation => invocation.RequestId).Distinct());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task WaitForSession_WhenResponseRecoveryFindsDifferentProcess_DoesNotAttachSuccessor ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
+        var observedSession = CreateGuiSession(
+            unityProject.ProjectFingerprint,
+            processId: 4321,
+            sessionGenerationId: Guid.Parse("11111111-1111-1111-1111-111111111111"));
+        var mismatchedSuccessor = CreateGuiSession(
+            unityProject.ProjectFingerprint,
+            processId: 9876,
+            sessionGenerationId: Guid.Parse("22222222-2222-2222-2222-222222222222"));
+        var sessionStore = new QueuedDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(observedSession),
+            DaemonSessionReadResultTestFactory.Found(mismatchedSuccessor));
+        var pingClient = new RecordingDaemonPingInfoClient(
+            new ResponseInterruptedTestException(),
+            CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+        var awaiter = CreateAwaiter(
+            sessionStore,
+            pingClient,
+            RecoverableProbeFailureClassifier);
+
+        var resultTask = awaiter.WaitForSessionAsync(
+                unityProject,
+                expectedProcessId: 4321,
+                ExecutionDeadline.Start(WaitTimeout, timeProvider),
+                DefaultExpectedProcessStartedAtUtc,
+                CancellationToken.None)
+            .AsTask();
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            resultTask,
+            WaitTimeout,
+            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var result = await resultTask;
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+        Assert.Equal(2, pingClient.Invocations.Count);
     }
 
     [Fact]
@@ -68,6 +229,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
                 unityProject,
                 expectedProcessId: 4321,
                 ExecutionDeadline.Start(WaitTimeout, timeProvider),
+                expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc,
                 cancellationToken: CancellationToken.None)
             .AsTask();
         try
@@ -112,7 +274,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
         var pingClient = new RecordingDaemonPingInfoClient
         {
-            PingAndReadHandler = async (_, _, _, _, cancellationToken) =>
+            PingSessionAndReadHandler = async (_, _, _, _, cancellationToken) =>
             {
                 _ = cancellationToken.UnsafeRegister(
                     static state => ((TaskCompletionSource)state!).TrySetResult(),
@@ -133,6 +295,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
                 unityProject,
                 expectedProcessId: 4321,
                 ExecutionDeadline.Start(WaitTimeout, timeProvider),
+                expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc,
                 cancellationToken: CancellationToken.None)
             .AsTask();
 
@@ -184,6 +347,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             unityProject,
             expectedProcessId: 4321,
             ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
+            expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc,
             cancellationToken: cancellationTokenSource.Token);
 
         Assert.True(result.IsSuccess);
@@ -216,7 +380,8 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var resultTask = awaiter.WaitForSessionAsync(
             unityProject,
             expectedProcessId: 4321,
-            ExecutionDeadline.Start(WaitTimeout, timeProvider)).AsTask();
+            ExecutionDeadline.Start(WaitTimeout, timeProvider),
+            expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
         await TestAwaiter.WaitAsync(firstRead.Task, "first session read", SignalWaitTimeout);
         await TestAwaiter.WaitAsync(
             timeProvider.WaitForTimerDueWithinAsync(WaitTimeout),
@@ -291,37 +456,6 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task WaitForSession_WhenPingProjectFingerprintDiffers_DoesNotAttach ()
-    {
-        var timeProvider = new ManualTimeProvider();
-        var pingObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var unityProject = DaemonCommandExecutionContextTestFactory.Create(1000).Context.UnityProject;
-        var session = CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321);
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
-        var pingClient = new RecordingDaemonPingInfoClient(CreatePingResponse(
-            ProjectFingerprintTestFactory.Create("other-fingerprint"),
-            DaemonEditorMode.Gui))
-        {
-            OnPingAndRead = () => pingObserved.TrySetResult(),
-        };
-        var awaiter = CreateAwaiter(sessionStore, pingClient);
-
-        var resultTask = awaiter.WaitForSessionAsync(
-            unityProject,
-            expectedProcessId: 4321,
-            ExecutionDeadline.Start(WaitTimeout, timeProvider)).AsTask();
-        await TestAwaiter.WaitAsync(pingObserved.Task, "first ping", TimeSpan.FromSeconds(5));
-        timeProvider.Advance(WaitTimeout);
-
-        var result = await TestAwaiter.WaitAsync(resultTask, "ping mismatch timeout", TimeSpan.FromSeconds(5));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
-        DaemonPingInfoClientAssert.GuiSessionPingAttempted(pingClient, unityProject, session);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task WaitForSession_WhenPingTimesOut_RetriesUntilOverallTimeout ()
     {
         var timeProvider = new ManualTimeProvider();
@@ -337,7 +471,8 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var resultTask = awaiter.WaitForSessionAsync(
             unityProject,
             expectedProcessId: 4321,
-            ExecutionDeadline.Start(WaitTimeout, timeProvider)).AsTask();
+            ExecutionDeadline.Start(WaitTimeout, timeProvider),
+            expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
         await TestAwaiter.WaitAsync(pingObserved.Task, "first timeout ping", TimeSpan.FromSeconds(5));
         timeProvider.Advance(WaitTimeout);
 
@@ -379,7 +514,8 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var resultTask = awaiter.WaitForSessionAsync(
             unityProject,
             expectedProcessId: 4321,
-            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider)).AsTask();
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+            expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
         await TestAwaiter.WaitAsync(firstPingObserved.Task, "first registration ping", TimeSpan.FromSeconds(5));
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
         await TestAwaiter.WaitAsync(
@@ -416,7 +552,8 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var resultTask = awaiter.WaitForSessionAsync(
             unityProject,
             expectedProcessId: 4321,
-            ExecutionDeadline.Start(WaitTimeout, timeProvider)).AsTask();
+            ExecutionDeadline.Start(WaitTimeout, timeProvider),
+            expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
         await TestAwaiter.WaitAsync(pingObserved.Task, "first reachability ping", TimeSpan.FromSeconds(5));
         timeProvider.Advance(WaitTimeout);
 
@@ -443,6 +580,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             unityProject,
             expectedProcessId: 4321,
             ExecutionDeadline.Start(WaitTimeout, new ManualTimeProvider()),
+            expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc,
             cancellationToken: cancellationTokenSource.Token);
 
         Assert.False(result.IsSuccess);
@@ -479,7 +617,8 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         var resultTask = awaiter.WaitForSessionAsync(
             unityProject,
             expectedProcessId: 4321,
-            ExecutionDeadline.Start(WaitTimeout, timeProvider)).AsTask();
+            ExecutionDeadline.Start(WaitTimeout, timeProvider),
+            expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc).AsTask();
         await TestAwaiter.WaitAsync(firstRead.Task, "first invalid session read", TimeSpan.FromSeconds(5));
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
         await TestAwaiter.WaitAsync(
@@ -499,10 +638,15 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         IDaemonPingInfoClient pingClient,
         IDaemonReachabilityClassifier? reachabilityClassifier = null)
     {
+        var effectiveReachabilityClassifier = reachabilityClassifier
+            ?? new StubDaemonReachabilityClassifier(_ => true);
         return new DaemonGuiSessionRegistrationAwaiter(
             sessionStore,
-            pingClient,
-            reachabilityClassifier ?? new StubDaemonReachabilityClassifier(_ => true));
+            new DaemonSessionProbe(
+                DaemonSessionAcquisitionCoordinatorTestFactory.Create(sessionStore),
+                pingClient,
+                effectiveReachabilityClassifier),
+            effectiveReachabilityClassifier);
     }
 
     private static DaemonSession CreateGuiSession (
@@ -510,14 +654,16 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
         int processId,
         DaemonEditorMode editorMode = DaemonEditorMode.Gui,
         DateTimeOffset? processStartedAtUtc = null,
-        string sessionToken = "secret-token")
+        string sessionToken = "secret-token",
+        Guid? sessionGenerationId = null)
     {
         return DaemonSessionTestFactory.Create(
             projectFingerprint: projectFingerprint,
             sessionToken: sessionToken,
             processId: processId,
             editorMode: editorMode,
-            processStartedAtUtc: processStartedAtUtc);
+            processStartedAtUtc: processStartedAtUtc,
+            sessionGenerationId: sessionGenerationId);
     }
 
     private static IpcUnityEditorObservation CreatePingResponse (
@@ -528,4 +674,13 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             editorMode: editorMode,
             projectFingerprint: projectFingerprint);
     }
+
+    private sealed class SessionTokenInvalidTestException : Exception
+    {
+    }
+
+    private sealed class ResponseInterruptedTestException : IOException
+    {
+    }
+
 }

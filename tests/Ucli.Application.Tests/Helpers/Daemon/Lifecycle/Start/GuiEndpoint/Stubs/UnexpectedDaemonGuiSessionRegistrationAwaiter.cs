@@ -13,7 +13,7 @@ internal sealed class UnexpectedDaemonGuiSessionRegistrationAwaiter : IDaemonGui
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         ExecutionDeadline deadline,
-        DateTimeOffset? expectedProcessStartedAtUtc = null,
+        DateTimeOffset expectedProcessStartedAtUtc,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException(reason);

@@ -3,9 +3,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Ipc;
-using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 
 namespace MackySoft.Ucli.Shared.Execution.UnityExecutionMode.Probe;
 
@@ -14,22 +11,17 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
 {
     private readonly IDaemonPingClient daemonPingClient;
 
-    private readonly UnityDaemonRecoveryWaiter? recoveryWaiter;
-
     private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="IpcDaemonReachabilityProbe" /> class. </summary>
     /// <param name="daemonPingClient"> The daemon ping client dependency. </param>
-    /// <param name="recoveryWaiter"> The daemon lifecycle recovery waiter dependency. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="daemonPingClient" /> is <see langword="null" />. </exception>
     public IpcDaemonReachabilityProbe (
         IDaemonPingClient daemonPingClient,
-        UnityDaemonRecoveryWaiter? recoveryWaiter,
         TimeProvider timeProvider)
     {
         this.daemonPingClient = daemonPingClient ?? throw new ArgumentNullException(nameof(daemonPingClient));
-        this.recoveryWaiter = recoveryWaiter;
         this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
@@ -50,36 +42,6 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
         cancellationToken.ThrowIfCancellationRequested();
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);
 
-        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint);
-
-        // NOTE:
-        // For Unix domain sockets, skip network probing when the socket file is absent.
-        // This avoids waiting for connection timeout when daemon is clearly not running.
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket
-            && !File.Exists(endpoint.Address))
-        {
-            if (recoveryWaiter == null)
-            {
-                return DaemonReachabilityProbeResult.NotRunning();
-            }
-
-            var recoveryDelayConsumed = await recoveryWaiter
-                .DelayIfRecoveringAsync(unityProject, deadline, cancellationToken)
-                .ConfigureAwait(false);
-            if (!deadline.TryGetRemainingTimeout(out _))
-            {
-                return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
-                    $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
-            }
-
-            if (!recoveryDelayConsumed)
-            {
-                return DaemonReachabilityProbeResult.NotRunning();
-            }
-        }
-
         if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
         {
             return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
@@ -95,16 +57,28 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
                     $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
             }
 
-            var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
-                ? remainingTimeout
-                : DaemonTimeouts.ProbeAttemptTimeoutCap;
             try
             {
-                await daemonPingClient.PingAsync(
-                        unityProject,
-                        attemptTimeout,
-                        cancellationToken: cancellationToken)
+                var pingOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                        deadline,
+                        cancellationToken,
+                        "Timed out before probing daemon reachability.",
+                        $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms.",
+                        async token =>
+                        {
+                            await daemonPingClient.PingAsync(
+                                    unityProject,
+                                    remainingTimeout,
+                                    cancellationToken: token)
+                                .ConfigureAwait(false);
+                            return true;
+                        })
                     .ConfigureAwait(false);
+                if (!pingOperation.IsSuccess)
+                {
+                    return DaemonReachabilityProbeResult.Failure(pingOperation.Error!);
+                }
+
                 return DaemonReachabilityProbeResult.Running();
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -113,19 +87,6 @@ internal sealed class IpcDaemonReachabilityProbe : IDaemonReachabilityProbe
             }
             catch (Exception exception) when (DaemonProbeExceptionClassifier.IsNotRunning(exception))
             {
-                var recoveryDelayConsumed = recoveryWaiter != null
-                    && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false);
-                if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
-                {
-                    return DaemonReachabilityProbeResult.Failure(ExecutionError.Timeout(
-                        $"Timed out while probing daemon reachability. Timeout={timeout.TotalMilliseconds:0}ms."));
-                }
-
-                if (recoveryDelayConsumed)
-                {
-                    continue;
-                }
-
                 return DaemonReachabilityProbeResult.NotRunning();
             }
             catch (TimeoutException)

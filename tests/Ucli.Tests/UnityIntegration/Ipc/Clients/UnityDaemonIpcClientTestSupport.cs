@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
-using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -49,24 +48,18 @@ internal static class UnityDaemonIpcClientTestSupport
             ]);
     }
 
-    public static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
+    public static DaemonSessionReadResult CreateSessionReadResult (string sessionToken)
     {
-        return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
-            IpcSessionTokenTestFactory.Create(sessionToken),
-            new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
+        return DaemonSessionReadResultTestFactory.FoundForToken(sessionToken);
     }
 
-    public static UnityDaemonRecoveryWaiter CreateRecoveryWaiter (
+    public static DaemonSessionRecoveryWaiter CreateRecoveryWaiter (
         DaemonSession session,
         TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
 
-        return new UnityDaemonRecoveryWaiter(
-            new RecordingDaemonSessionStore
-            {
-                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
-            },
+        return new DaemonSessionRecoveryWaiter(
             new RecordingDaemonLifecycleStore
             {
                 ReadResult = DaemonLifecycleObservationReadResult.Success(

@@ -133,14 +133,11 @@ internal sealed class UnityDaemonReadinessGate
                 return CreateDaemonTimeoutFailure(deadline.Timeout);
             }
 
-            var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
-                ? remainingTimeout
-                : DaemonTimeouts.ProbeAttemptTimeoutCap;
             try
             {
                 var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                         unityProject,
-                        attemptTimeout,
+                        remainingTimeout,
                         validateProjectFingerprint: true,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);

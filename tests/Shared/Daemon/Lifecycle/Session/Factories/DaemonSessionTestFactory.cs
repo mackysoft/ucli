@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -72,5 +74,19 @@ internal static class DaemonSessionTestFactory
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
             ownerProcessId: 9876,
             editorInstanceId: DefaultEditorInstanceId);
+    }
+
+    public static DaemonSession CreateForToken (
+        string sessionToken,
+        IpcTransportKind endpointTransportKind = IpcTransportKind.UnixDomainSocket,
+        string endpointAddress = "/tmp/ucli-session.sock")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
+        var digest = SHA256.HashData(Encoding.UTF8.GetBytes(sessionToken));
+        return Create(
+            sessionToken: sessionToken,
+            endpointTransportKind: endpointTransportKind,
+            endpointAddress: endpointAddress,
+            sessionGenerationId: new Guid(digest.AsSpan(0, 16)));
     }
 }

@@ -64,7 +64,8 @@ public sealed class DaemonStatusOperationTests
             processId: 2001,
             sessionToken: "refreshed-token",
             projectFingerprint: context.ProjectFingerprint,
-            issuedAtUtc: firstSession.IssuedAtUtc.AddSeconds(1));
+            issuedAtUtc: firstSession.IssuedAtUtc.AddSeconds(1),
+            sessionGenerationId: Guid.Parse("33333333-3333-3333-3333-333333333333"));
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadHandler = invocations => invocations.Count == 1
@@ -104,7 +105,7 @@ public sealed class DaemonStatusOperationTests
     [InlineData(true)]
     [InlineData(false)]
     [Trait("Size", "Small")]
-    public async Task GetStatus_WhenReplacementSessionProbeFails_AttributesStaleResultToReplacementSession (
+    public async Task GetStatus_WhenReplacementSessionProbeFailsAndNoSuccessorAppears_AttributesStaleResultToReplacementSession (
         bool probeTimesOut)
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
@@ -118,13 +119,12 @@ public sealed class DaemonStatusOperationTests
             sessionToken: "replacement-token",
             projectFingerprint: context.ProjectFingerprint,
             issuedAtUtc: observedSession.IssuedAtUtc.AddSeconds(1),
-            endpointAddress: "replacement-endpoint");
-        var sessionStore = new RecordingDaemonSessionStore
-        {
-            ReadHandler = invocations => invocations.Count == 1
-                ? DaemonSessionReadResultTestFactory.Found(observedSession)
-                : DaemonSessionReadResultTestFactory.Found(replacementSession),
-        };
+            endpointAddress: "replacement-endpoint",
+            sessionGenerationId: Guid.Parse("33333333-3333-3333-3333-333333333333"));
+        var sessionStore = new QueuedDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(observedSession),
+            DaemonSessionReadResultTestFactory.Found(replacementSession),
+            DaemonSessionReadResult.Missing());
         Exception replacementFailure = probeTimesOut
             ? new TimeoutException("Replacement probe timed out.")
             : IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused);
@@ -134,6 +134,7 @@ public sealed class DaemonStatusOperationTests
                 IpcSessionErrorCodes.SessionTokenInvalid),
             replacementFailure);
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
+        var timeProvider = new ManualTimeProvider();
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
@@ -141,13 +142,14 @@ public sealed class DaemonStatusOperationTests
             daemonSessionProbe: CreateSessionProbe(sessionStore, pingInfoClient),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: new ManualTimeProvider());
+            timeProvider: timeProvider);
 
-        var result = await operation.GetStatusAsync(
+        var result = await GetStatusAfterEndpointAvailabilityWindowAsync(
+            operation,
             context,
-            TimeSpan.FromMilliseconds(500),
-            CancellationToken.None);
+            timeProvider);
 
+        Assert.Null(result.Error);
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
         Assert.Equal(replacementSession, result.Session);
@@ -159,15 +161,15 @@ public sealed class DaemonStatusOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetStatus_WhenSessionPingTimesOut_ReturnsStale ()
+    public async Task GetStatus_WhenSessionPingTimesOutAndNoSuccessorAppears_ReturnsStale ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-timeout"));
         var session = DaemonSessionTestFactory.Create(processId: Environment.ProcessId, projectFingerprint: context.ProjectFingerprint);
-        var sessionStore = new RecordingDaemonSessionStore
-        {
-            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
-        };
+        var sessionStore = new QueuedDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(session),
+            DaemonSessionReadResult.Missing());
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
+        var timeProvider = new ManualTimeProvider();
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
@@ -177,9 +179,12 @@ public sealed class DaemonStatusOperationTests
                 new RecordingDaemonPingInfoClient(new TimeoutException("probe timeout"))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: new ManualTimeProvider());
+            timeProvider: timeProvider);
 
-        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await GetStatusAfterEndpointAvailabilityWindowAsync(
+            operation,
+            context,
+            timeProvider);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
@@ -190,7 +195,7 @@ public sealed class DaemonStatusOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetStatus_WhenSessionPingTimesOutWithMismatchedPersistedDiagnosis_DoesNotReturnStaleDiagnosis ()
+    public async Task GetStatus_WhenSessionPingTimesOutAndNoSuccessorAppearsWithMismatchedPersistedDiagnosis_DoesNotReturnStaleDiagnosis ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-timeout-mismatched-diagnosis"));
         var session = DaemonSessionTestFactory.Create(processId: Environment.ProcessId, projectFingerprint: context.ProjectFingerprint);
@@ -199,14 +204,14 @@ public sealed class DaemonStatusOperationTests
             projectFingerprint: context.ProjectFingerprint,
             issuedAtUtc: session.IssuedAtUtc.AddSeconds(-1));
         var persistedDiagnosis = CreateDiagnosis(oldSession, DaemonDiagnosisReason.StartupFailed);
-        var sessionStore = new RecordingDaemonSessionStore
-        {
-            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
-        };
+        var sessionStore = new QueuedDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(session),
+            DaemonSessionReadResult.Missing());
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
             ReadResult = DaemonDiagnosisReadResult.Success(persistedDiagnosis),
         };
+        var timeProvider = new ManualTimeProvider();
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
@@ -216,9 +221,12 @@ public sealed class DaemonStatusOperationTests
                 new RecordingDaemonPingInfoClient(new TimeoutException("probe timeout"))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: new ManualTimeProvider());
+            timeProvider: timeProvider);
 
-        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await GetStatusAfterEndpointAvailabilityWindowAsync(
+            operation,
+            context,
+            timeProvider);
 
         DaemonStatusOperationAssert.StaleSessionReturnedWithoutDiagnosisWrite(
             result,
@@ -228,19 +236,19 @@ public sealed class DaemonStatusOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetStatus_WhenSessionPingReturnsNotRunningException_ReturnsStale ()
+    public async Task GetStatus_WhenSessionEndpointRemainsUnavailable_ReturnsStale ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-stale"));
         var session = DaemonSessionTestFactory.Create(processId: 2003, projectFingerprint: context.ProjectFingerprint);
-        var sessionStore = new RecordingDaemonSessionStore
-        {
-            ReadResult = DaemonSessionReadResultTestFactory.Found(session),
-        };
+        var sessionStore = new QueuedDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(session),
+            DaemonSessionReadResult.Missing());
         var diagnosis = CreateDiagnosis(session, DaemonDiagnosisReason.ShutdownRequested);
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
             ReadResult = DaemonDiagnosisReadResult.Success(diagnosis),
         };
+        var timeProvider = new ManualTimeProvider();
         var operation = new DaemonStatusOperation(
             daemonSessionStore: sessionStore,
             daemonDiagnosisStore: diagnosisStore,
@@ -251,9 +259,12 @@ public sealed class DaemonStatusOperationTests
                     IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
-            timeProvider: new ManualTimeProvider());
+            timeProvider: timeProvider);
 
-        var result = await operation.GetStatusAsync(context, TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await GetStatusAfterEndpointAvailabilityWindowAsync(
+            operation,
+            context,
+            timeProvider);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStatusKind.Stale, result.Status);
@@ -309,7 +320,7 @@ public sealed class DaemonStatusOperationTests
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
                 new RecordingDaemonPingInfoClient(
-                    IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused))),
+                    new DaemonSessionNotAvailableException("Daemon session metadata became unavailable."))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new ThrowingDaemonSessionDiagnosisResolver(
                 new InvalidOperationException("diagnosis store failed")),
@@ -411,7 +422,7 @@ public sealed class DaemonStatusOperationTests
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
                 new RecordingDaemonPingInfoClient(
-                    IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused))),
+                    new DaemonSessionNotAvailableException("Daemon session metadata became unavailable."))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
             timeProvider: new ManualTimeProvider());
@@ -452,7 +463,7 @@ public sealed class DaemonStatusOperationTests
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
                 new RecordingDaemonPingInfoClient(
-                    IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused))),
+                    new DaemonSessionNotAvailableException("Daemon session metadata became unavailable."))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
             timeProvider: new ManualTimeProvider());
@@ -613,7 +624,7 @@ public sealed class DaemonStatusOperationTests
         };
         var pingInfoClient = new RecordingDaemonPingInfoClient
         {
-            PingAndReadHandler = async (_, _, _, _, cancellationToken) =>
+            PingSessionAndReadHandler = async (_, _, _, _, cancellationToken) =>
             {
                 pingStarted.TrySetResult();
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken).ConfigureAwait(false);
@@ -640,7 +651,7 @@ public sealed class DaemonStatusOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetStatus_WhenDiagnosisWriteStopsAfterUnreachablePing_ReturnsTimeout ()
+    public async Task GetStatus_WhenDiagnosisWriteStopsAfterSessionBecomesUnavailable_ReturnsTimeout ()
     {
         var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-status-diagnosis-write-timeout"));
         var session = DaemonSessionTestFactory.Create(processId: int.MaxValue, projectFingerprint: context.ProjectFingerprint);
@@ -657,7 +668,7 @@ public sealed class DaemonStatusOperationTests
             daemonSessionProbe: CreateSessionProbe(
                 sessionStore,
                 new RecordingDaemonPingInfoClient(
-                    IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused))),
+                    new DaemonSessionNotAvailableException("Daemon session metadata became unavailable."))),
             reachabilityClassifier: new DaemonReachabilityClassifier(),
             daemonSessionDiagnosisResolver: new DaemonSessionDiagnosisResolver(diagnosisStore),
             timeProvider: timeProvider);
@@ -709,12 +720,38 @@ public sealed class DaemonStatusOperationTests
         Assert.Equal(TimeSpan.FromMilliseconds(50), Assert.Single(pingInfoClient.Invocations).Timeout);
     }
 
+    private static async Task<DaemonStatusResult> GetStatusAfterEndpointAvailabilityWindowAsync (
+        DaemonStatusOperation operation,
+        ResolvedUnityProjectContext context,
+        ManualTimeProvider timeProvider)
+    {
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        var requestTimeout = DaemonTimeouts.ProbeAttemptTimeoutCap + TimeSpan.FromSeconds(1);
+        var resultTask = operation.GetStatusAsync(
+                context,
+                requestTimeout,
+                CancellationToken.None)
+            .AsTask();
+        var endpointAvailabilityWindow = Task.Delay(
+            DaemonTimeouts.ProbeAttemptTimeoutCap,
+            timeProvider);
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            endpointAvailabilityWindow,
+            DaemonTimeouts.ProbeAttemptTimeoutCap,
+            retryDelay);
+        return await TestAwaiter.WaitAsync(
+            resultTask,
+            "Daemon status endpoint availability result",
+            TimeSpan.FromSeconds(5));
+    }
+
     private static DaemonSessionProbe CreateSessionProbe (
         IDaemonSessionStore sessionStore,
         IDaemonPingInfoClient pingInfoClient)
     {
         return new DaemonSessionProbe(
-            sessionStore,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(sessionStore),
             pingInfoClient,
             new DaemonReachabilityClassifier());
     }

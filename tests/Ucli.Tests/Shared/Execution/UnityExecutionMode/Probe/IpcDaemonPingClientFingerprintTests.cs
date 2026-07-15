@@ -21,7 +21,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
                     projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
-            CreateResolvedSessionProvider(),
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateResolvedSessionStore("resolved-token")),
             TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
@@ -48,7 +48,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
                     projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
-            CreateResolvedSessionProvider(),
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateResolvedSessionStore("resolved-token")),
             TimeProvider.System);
 
         var result = await pingClient.PingAndReadAsync(

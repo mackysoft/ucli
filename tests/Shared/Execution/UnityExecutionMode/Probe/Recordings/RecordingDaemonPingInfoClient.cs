@@ -23,7 +23,9 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
 
     public Action? OnPingAndRead { get; set; }
 
-    public Func<ResolvedUnityProjectContext, TimeSpan, string?, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>>? PingAndReadHandler { get; set; }
+    public Func<ResolvedUnityProjectContext, TimeSpan, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>>? PingAndReadHandler { get; set; }
+
+    public Func<ResolvedUnityProjectContext, DaemonSession, ExecutionDeadline, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>>? PingSessionAndReadHandler { get; set; }
 
     public Task WaitForFirstInvocationAsync (
         string description,
@@ -41,7 +43,9 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
         return RecordPingAndRead(
             unityProject,
             timeout,
+            deadline: null,
             session: null,
+            requestId: null,
             validateProjectFingerprint,
             cancellationToken);
     }
@@ -49,15 +53,29 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
     public ValueTask<IpcUnityEditorObservation> PingSessionAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        TimeSpan timeout,
+        Guid requestId,
+        ExecutionDeadline deadline,
         bool validateProjectFingerprint,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(deadline);
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Daemon ping request identifier must not be empty.", nameof(requestId));
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out var timeout))
+        {
+            throw new TimeoutException("Timed out before recording the exact-session daemon ping.");
+        }
+
         return RecordPingAndRead(
             unityProject,
             timeout,
+            deadline,
             session,
+            requestId,
             validateProjectFingerprint,
             cancellationToken);
     }
@@ -65,7 +83,9 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
     private ValueTask<IpcUnityEditorObservation> RecordPingAndRead (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
+        ExecutionDeadline? deadline,
         DaemonSession? session,
+        Guid? requestId,
         bool validateProjectFingerprint,
         CancellationToken cancellationToken)
     {
@@ -75,18 +95,29 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
         invocations.Add(new Invocation(
             unityProject,
             timeout,
+            deadline,
             session,
+            requestId,
             validateProjectFingerprint,
             cancellationToken));
         firstInvocationObserved.TrySetResult(null);
         OnPingAndRead?.Invoke();
 
-        if (PingAndReadHandler is not null)
+        if (session is null && PingAndReadHandler is not null)
         {
             return PingAndReadHandler(
                 unityProject,
                 timeout,
-                session?.SessionToken.GetEncodedValue(),
+                validateProjectFingerprint,
+                cancellationToken);
+        }
+
+        if (session is not null && PingSessionAndReadHandler is not null)
+        {
+            return PingSessionAndReadHandler(
+                unityProject,
+                session,
+                deadline!,
                 validateProjectFingerprint,
                 cancellationToken);
         }
@@ -108,7 +139,9 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         TimeSpan Timeout,
+        ExecutionDeadline? Deadline,
         DaemonSession? Session,
+        Guid? RequestId,
         bool ValidateProjectFingerprint,
         CancellationToken CancellationToken)
     {

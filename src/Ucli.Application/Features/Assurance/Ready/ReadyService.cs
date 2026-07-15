@@ -245,14 +245,11 @@ internal sealed class ReadyService : IReadyService
                 return CreateDaemonProbeTimeoutResult(lastLifecycle, timeout);
             }
 
-            var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
-                ? remainingTimeout
-                : DaemonTimeouts.ProbeAttemptTimeoutCap;
             try
             {
                 var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                         unityProject,
-                        attemptTimeout,
+                        remainingTimeout,
                         validateProjectFingerprint: true,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);

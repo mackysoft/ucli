@@ -19,13 +19,18 @@ internal static class DaemonExistingSessionGateServiceTestSupport
         IDaemonProcessIdentityAssessor? processIdentityAssessor = null,
         IDaemonSessionStore? daemonSessionStore = null)
     {
+        var effectiveSessionStore = daemonSessionStore ?? new RecordingDaemonSessionStore();
+        var effectiveReachabilityClassifier = reachabilityClassifier
+            ?? new StubDaemonReachabilityClassifier(static _ => false);
         return new DaemonExistingSessionGateService(
-            daemonPingInfoClient: daemonPingInfoClient ?? new RecordingDaemonPingInfoClient(CreateReadyPingResponse()),
-            reachabilityClassifier: reachabilityClassifier ?? new StubDaemonReachabilityClassifier(static _ => false),
+            daemonSessionProbe: new DaemonSessionProbe(
+                DaemonSessionAcquisitionCoordinatorTestFactory.Create(effectiveSessionStore),
+                daemonPingInfoClient ?? new RecordingDaemonPingInfoClient(CreateReadyPingResponse()),
+                effectiveReachabilityClassifier),
+            reachabilityClassifier: effectiveReachabilityClassifier,
             daemonSessionCleanupService: cleanupService ?? new RecordingDaemonSessionCleanupService(),
             daemonLifecycleStore: lifecycleStore ?? new RecordingDaemonLifecycleStore(),
-            processIdentityAssessor: processIdentityAssessor ?? new RecordingDaemonProcessIdentityAssessor(),
-            daemonSessionStore: daemonSessionStore ?? new RecordingDaemonSessionStore());
+            processIdentityAssessor: processIdentityAssessor ?? new RecordingDaemonProcessIdentityAssessor());
     }
 
     public static DaemonLifecycleObservation CreateLifecycleObservation (

@@ -8,18 +8,18 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
 {
     private readonly IDaemonSessionStore daemonSessionStore;
 
-    private readonly IDaemonPingInfoClient daemonPingInfoClient;
+    private readonly DaemonSessionProbe daemonSessionProbe;
 
     private readonly IDaemonReachabilityClassifier reachabilityClassifier;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonGuiSessionRegistrationAwaiter" /> class. </summary>
     public DaemonGuiSessionRegistrationAwaiter (
         IDaemonSessionStore daemonSessionStore,
-        IDaemonPingInfoClient daemonPingInfoClient,
+        DaemonSessionProbe daemonSessionProbe,
         IDaemonReachabilityClassifier reachabilityClassifier)
     {
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
-        this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
+        this.daemonSessionProbe = daemonSessionProbe ?? throw new ArgumentNullException(nameof(daemonSessionProbe));
         this.reachabilityClassifier = reachabilityClassifier ?? throw new ArgumentNullException(nameof(reachabilityClassifier));
     }
 
@@ -28,13 +28,16 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         ExecutionDeadline deadline,
-        DateTimeOffset? expectedProcessStartedAtUtc = null,
+        DateTimeOffset expectedProcessStartedAtUtc,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(expectedProcessId, 0);
         ArgumentNullException.ThrowIfNull(deadline);
+        expectedProcessStartedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(
+            expectedProcessStartedAtUtc,
+            nameof(expectedProcessStartedAtUtc));
 
         while (true)
         {
@@ -77,6 +80,8 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                 var probeResult = await TryProbeSessionAsync(
                         unityProject,
                         session!,
+                        expectedProcessId,
+                        expectedProcessStartedAtUtc,
                         deadline,
                         cancellationToken)
                     .ConfigureAwait(false);
@@ -100,6 +105,8 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
     private async ValueTask<DaemonGuiSessionRegistrationWaitResult?> TryProbeSessionAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
+        int expectedProcessId,
+        DateTimeOffset expectedProcessStartedAtUtc,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
@@ -109,63 +116,51 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
                 $"Timed out before probing GUI daemon session. ProcessId={session.ProcessId}."));
         }
 
-        try
+        var attemptDeadline = remainingTimeout <= DaemonTimeouts.ProbeAttemptTimeoutCap
+            ? deadline
+            : deadline.CreateCappedDeadline(DaemonTimeouts.ProbeAttemptTimeoutCap);
+        var probeResult = await daemonSessionProbe.ProbeAsync(
+                unityProject,
+                session,
+                attemptDeadline,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (probeResult.IsSuccess)
         {
-            var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
-                ? remainingTimeout
-                : DaemonTimeouts.ProbeAttemptTimeoutCap;
-            var attemptDeadline = remainingTimeout <= DaemonTimeouts.ProbeAttemptTimeoutCap
-                ? deadline
-                : deadline.CreateCappedDeadline(DaemonTimeouts.ProbeAttemptTimeoutCap);
-            var pingOperation = await ExecutionDeadlineOperation.ExecuteAsync(
-                    attemptDeadline,
-                    cancellationToken,
-                    $"Timed out before probing GUI daemon session. ProcessId={session.ProcessId}.",
-                    $"Timed out while probing GUI daemon session. ProcessId={session.ProcessId}.",
-                    token => daemonPingInfoClient.PingSessionAndReadAsync(
-                        unityProject,
-                        session,
-                        attemptTimeout,
-                        validateProjectFingerprint: false,
-                        cancellationToken: token))
-                .ConfigureAwait(false);
-            if (!pingOperation.IsSuccess)
-            {
-                return null;
-            }
-
-            var pingResponse = pingOperation.Value!;
-            var lifecycleObservation = pingResponse;
-
-            return pingResponse.ProjectFingerprint == unityProject.ProjectFingerprint
+            var respondingSession = probeResult.Session;
+            var pingResponse = probeResult.PingResponse;
+            return MatchesExpectedGuiSession(
+                   respondingSession,
+                   unityProject,
+                   expectedProcessId,
+                   expectedProcessStartedAtUtc)
                    && pingResponse.State.EditorMode == DaemonEditorMode.Gui
-                ? DaemonGuiSessionRegistrationWaitResult.Success(session, lifecycleObservation)
+                ? DaemonGuiSessionRegistrationWaitResult.Success(respondingSession, pingResponse)
                 : null;
         }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+
+        if (probeResult.SessionReadFailure is not null)
         {
-            throw;
+            return probeResult.SessionReadFailure.FailureKind == DaemonSessionReadFailureKind.InvalidSession
+                ? null
+                : DaemonGuiSessionRegistrationWaitResult.Failure(probeResult.SessionReadFailure.Error!);
         }
-        catch (TimeoutException)
-        {
-            return null;
-        }
-        catch (Exception exception) when (reachabilityClassifier.IsNotRunning(exception))
-        {
-            return null;
-        }
-        catch (Exception exception)
-        {
-            return DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.InternalError(
-                $"Failed to probe GUI daemon session. {exception.Message}"));
-        }
+
+        var probeFailure = probeResult.ProbeFailure!;
+        return probeFailure is TimeoutException
+            || reachabilityClassifier.IsNotRunning(probeFailure)
+            || reachabilityClassifier.IsSessionTokenInvalid(probeFailure)
+            || reachabilityClassifier.IsRecoverableResponseInterruption(probeFailure)
+                ? null
+                : DaemonGuiSessionRegistrationWaitResult.Failure(ExecutionError.InternalError(
+                    $"Failed to probe GUI daemon session. {probeFailure.Message}"));
     }
 
     private static bool TryGetMatchingGuiSession (
         DaemonSessionReadResult readResult,
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
-        DateTimeOffset? expectedProcessStartedAtUtc,
+        DateTimeOffset expectedProcessStartedAtUtc,
         out DaemonSession? session)
     {
         session = null;
@@ -175,22 +170,38 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
         }
 
         var candidate = readResult.Session!;
+        if (!MatchesExpectedGuiSession(
+                candidate,
+                unityProject,
+                expectedProcessId,
+                expectedProcessStartedAtUtc))
+        {
+            return false;
+        }
+
+        session = candidate;
+        return true;
+    }
+
+    private static bool MatchesExpectedGuiSession (
+        DaemonSession candidate,
+        ResolvedUnityProjectContext unityProject,
+        int expectedProcessId,
+        DateTimeOffset expectedProcessStartedAtUtc)
+    {
         if (candidate.ProcessId != expectedProcessId)
         {
             return false;
         }
 
-        if (expectedProcessStartedAtUtc is not null)
+        if (candidate.ProcessStartedAtUtc is not DateTimeOffset candidateProcessStartedAtUtc)
         {
-            if (candidate.ProcessStartedAtUtc is not DateTimeOffset candidateProcessStartedAtUtc)
-            {
-                return false;
-            }
+            return false;
+        }
 
-            if (!DaemonProcessStartTimeMatcher.Matches(candidateProcessStartedAtUtc, expectedProcessStartedAtUtc.Value))
-            {
-                return false;
-            }
+        if (!DaemonProcessStartTimeMatcher.Matches(candidateProcessStartedAtUtc, expectedProcessStartedAtUtc))
+        {
+            return false;
         }
 
         if (candidate.ProjectFingerprint != unityProject.ProjectFingerprint)
@@ -203,7 +214,6 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
             return false;
         }
 
-        session = candidate;
         return true;
     }
 

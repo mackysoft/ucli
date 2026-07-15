@@ -40,7 +40,7 @@ internal sealed class RecordingDaemonGuiSessionRegistrationAwaiter : IDaemonGuiS
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
         ExecutionDeadline deadline,
-        DateTimeOffset? expectedProcessStartedAtUtc = null,
+        DateTimeOffset expectedProcessStartedAtUtc,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -68,6 +68,6 @@ internal sealed class RecordingDaemonGuiSessionRegistrationAwaiter : IDaemonGuiS
         int ExpectedProcessId,
         ExecutionDeadline Deadline,
         TimeSpan RemainingTimeout,
-        DateTimeOffset? ExpectedProcessStartedAtUtc,
+        DateTimeOffset ExpectedProcessStartedAtUtc,
         CancellationToken CancellationToken);
 }

@@ -1,55 +1,47 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Identity;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Shared.Context.Project;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 
-namespace MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
+namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
-/// <summary> Waits through a GUI daemon endpoint gap when lifecycle sidecar proves domain-reload recovery. </summary>
-internal sealed class UnityDaemonRecoveryWaiter
+/// <summary> Waits through an endpoint gap only while lifecycle state proves that the same GUI session is recovering. </summary>
+internal sealed class DaemonSessionRecoveryWaiter
 {
-    private readonly IDaemonSessionStore daemonSessionStore;
-
     private readonly IDaemonLifecycleStore daemonLifecycleStore;
 
     private readonly IDaemonProcessIdentityAssessor processIdentityAssessor;
 
-    /// <summary> Initializes a new instance of the <see cref="UnityDaemonRecoveryWaiter" /> class. </summary>
-    /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
-    /// <param name="daemonLifecycleStore"> The daemon lifecycle sidecar store dependency. </param>
-    /// <param name="processIdentityAssessor"> The daemon process identity assessor dependency. </param>
-    public UnityDaemonRecoveryWaiter (
-        IDaemonSessionStore daemonSessionStore,
+    /// <summary> Initializes the recovery evidence dependencies. </summary>
+    public DaemonSessionRecoveryWaiter (
         IDaemonLifecycleStore daemonLifecycleStore,
         IDaemonProcessIdentityAssessor processIdentityAssessor)
     {
-        this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
         this.processIdentityAssessor = processIdentityAssessor ?? throw new ArgumentNullException(nameof(processIdentityAssessor));
     }
 
-    /// <summary> Delays one retry interval when the persisted lifecycle proves daemon endpoint recovery is in progress. </summary>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="deadline"> The shared command deadline. </param>
-    /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> <see langword="true" /> when a recovery retry delay was consumed; otherwise <see langword="false" />. </returns>
+    /// <summary> Delays one retry interval when persisted lifecycle state proves that the known session is recovering. </summary>
     public async ValueTask<bool> DelayIfRecoveringAsync (
         ResolvedUnityProjectContext unityProject,
+        DaemonSession knownSession,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(knownSession);
         ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
 
+        var recoveryEvidenceDeadline = deadline.CreateCappedDeadline(
+            DaemonTimeouts.ProbeAttemptTimeoutCap);
         var recoveryReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
-                deadline,
+                recoveryEvidenceDeadline,
                 cancellationToken,
                 "Timed out before daemon recovery state could be read.",
                 "Timed out while reading daemon recovery state.",
-                token => IsRecoveringSessionAsync(unityProject, deadline.Clock, token))
+                token => IsRecoveringSessionAsync(
+                    unityProject,
+                    knownSession,
+                    deadline.Clock,
+                    token))
             .ConfigureAwait(false);
         if (!recoveryReadOperation.IsSuccess
             || !recoveryReadOperation.Value
@@ -68,28 +60,15 @@ internal sealed class UnityDaemonRecoveryWaiter
 
     private async ValueTask<bool> IsRecoveringSessionAsync (
         ResolvedUnityProjectContext unityProject,
+        DaemonSession knownSession,
         TimeProvider timeProvider,
         CancellationToken cancellationToken)
     {
-        var sessionReadResult = await daemonSessionStore.ReadAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!sessionReadResult.IsSuccess || !sessionReadResult.Exists)
+        if (knownSession.EditorMode != DaemonEditorMode.Gui)
         {
             return false;
         }
 
-        var session = sessionReadResult.Session!;
-        if (session.EditorMode != DaemonEditorMode.Gui)
-        {
-            return false;
-        }
-
-        // NOTE: A missing daemon endpoint is recoverable only when the lifecycle sidecar
-        // proves the same GUI session is inside domain-reload recovery. Other gaps remain
-        // ordinary DAEMON_NOT_RUNNING failures.
         var lifecycleReadResult = await daemonLifecycleStore.ReadAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
@@ -100,10 +79,9 @@ internal sealed class UnityDaemonRecoveryWaiter
             return false;
         }
 
-        var observation = lifecycleReadResult.Observation!;
         return DaemonLifecycleObservationAvailability.IsUsableForRecovery(
-            observation,
-            session,
+            lifecycleReadResult.Observation!,
+            knownSession,
             processIdentityAssessor,
             timeProvider);
     }

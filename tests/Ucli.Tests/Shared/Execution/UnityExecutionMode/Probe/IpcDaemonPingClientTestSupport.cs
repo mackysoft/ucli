@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 
@@ -16,9 +15,16 @@ internal static class IpcDaemonPingClientTestSupport
         return ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
     }
 
-    public static StaticDaemonSessionConnectionProvider CreateResolvedSessionProvider (string sessionToken = "resolved-token")
+    public static RecordingDaemonSessionStore CreateResolvedSessionStore (string sessionToken)
     {
-        return new StaticDaemonSessionConnectionProvider(CreateConnectionResult(sessionToken));
+        return new RecordingDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.FoundForToken(sessionToken));
+    }
+
+    public static UnexpectedDaemonSessionStore CreateUnexpectedSessionStore (
+        string reason)
+    {
+        return new UnexpectedDaemonSessionStore(reason);
     }
 
     public static RecordingIpcTransportClient CreateSuccessfulPingTransportClient ()
@@ -48,10 +54,4 @@ internal static class IpcDaemonPingClientTestSupport
             errors: errors);
     }
 
-    private static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
-    {
-        return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
-            IpcSessionTokenTestFactory.Create(sessionToken),
-            new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
-    }
 }

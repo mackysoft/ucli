@@ -42,7 +42,7 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new UnexpectedDaemonSessionConnectionProvider("Oneshot target should not resolve a daemon session."),
+                new UnexpectedDaemonSessionStore("Oneshot target should not resolve a daemon session."),
                 launcher));
 
         var result = await executor.ExecuteAsync(
@@ -89,7 +89,7 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new UnexpectedDaemonSessionConnectionProvider("Plugin verification failure should not resolve a daemon session."),
+                new UnexpectedDaemonSessionStore("Plugin verification failure should not resolve a daemon session."),
                 launcher));
 
         var result = await executor.ExecuteAsync(
@@ -139,7 +139,7 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new UnexpectedDaemonSessionConnectionProvider("Plugin timeout should not resolve a daemon session."),
+                new UnexpectedDaemonSessionStore("Plugin timeout should not resolve a daemon session."),
                 launcher));
 
         var result = await executor.ExecuteAsync(

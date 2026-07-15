@@ -28,7 +28,8 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             projectFingerprint: currentProject.ProjectFingerprint,
             issuedAtUtc: firstSession.IssuedAtUtc.AddSeconds(1),
             endpointAddress: "refreshed-endpoint",
-            processId: 2002);
+            processId: 2002,
+            sessionGenerationId: Guid.Parse("33333333-3333-3333-3333-333333333333"));
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadHandler = invocations => invocations.Count == 1
@@ -91,7 +92,8 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             projectFingerprint: currentProject.ProjectFingerprint,
             issuedAtUtc: observedSession.IssuedAtUtc.AddSeconds(1),
             endpointAddress: "replacement-endpoint",
-            processId: 2012);
+            processId: 2012,
+            sessionGenerationId: Guid.Parse("33333333-3333-3333-3333-333333333333"));
         var sessionStore = new RecordingDaemonSessionStore
         {
             ReadHandler = invocations => invocations.Count == 1
@@ -439,6 +441,16 @@ public sealed class DaemonListQueryServiceProbeFailureTests
         public bool IsSessionTokenInvalid (Exception exception)
         {
             return exception is SessionTokenInvalidTestException;
+        }
+
+        public bool IsRetryableBeforeRequestWrite (Exception exception)
+        {
+            return false;
+        }
+
+        public bool IsRecoverableResponseInterruption (Exception exception)
+        {
+            return false;
         }
     }
 }

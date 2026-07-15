@@ -18,16 +18,15 @@ internal static class UnityIpcRequestExecutorTestSupport
     public static IUnityIpcClient[] CreateClients (
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
-        IDaemonSessionConnectionProvider sessionConnectionProvider,
+        IDaemonSessionStore sessionStore,
         IUnityBatchmodeProcessLauncher launcher)
     {
         return
         [
             new UnityDaemonIpcClient(
                 daemonTransportClient,
-                sessionConnectionProvider,
-                recoveryWaiter: null,
-                timeProvider: TimeProvider.System),
+                DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                    sessionStore)),
             UnityOneshotIpcClientTestSupport.CreateClient(
                 launcher,
                 oneshotTransportClient,
@@ -122,11 +121,9 @@ internal static class UnityIpcRequestExecutorTestSupport
             projectFingerprint: projectFingerprint);
     }
 
-    public static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
+    public static DaemonSessionReadResult CreateSessionReadResult (string sessionToken)
     {
-        return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
-            IpcSessionTokenTestFactory.Create(sessionToken),
-            new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
+        return DaemonSessionReadResultTestFactory.FoundForToken(sessionToken);
     }
 
     public static void AssertSuccessfulUnityResponse (

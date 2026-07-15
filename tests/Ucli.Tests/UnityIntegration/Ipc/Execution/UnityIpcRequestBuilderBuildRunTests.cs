@@ -5,6 +5,7 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
 using static MackySoft.Ucli.Tests.Ipc.UnityIpcRequestBuilderTestSupport;
 
@@ -23,7 +24,7 @@ public sealed class UnityIpcRequestBuilderBuildRunTests
             development: true));
 
         Assert.Equal(UnityIpcMethod.BuildRun, request.Method);
-        Assert.False(request.IsRecoverable);
+        Assert.Equal(UnityIpcResponseReplayPolicy.None, request.ResponseReplayPolicy);
         Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcBuildRunRequest payload, out _));
         Assert.Equal(RunIdTestValues.Build, payload.RunId);
         Assert.Equal(BuildProfileInputsKind.Explicit, payload.InputKind);

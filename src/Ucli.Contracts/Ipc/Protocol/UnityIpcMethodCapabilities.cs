@@ -25,6 +25,22 @@ public static class UnityIpcMethodCapabilities
         return method is UnityIpcMethod.Compile or UnityIpcMethod.PlayEnter or UnityIpcMethod.PlayExit;
     }
 
+    /// <summary> Determines whether replaying a request after an interrupted response is intrinsically side-effect free. </summary>
+    /// <param name="method"> The defined Unity IPC method. </param>
+    /// <returns> <see langword="true" /> when replay cannot repeat a mutation; otherwise <see langword="false" />. </returns>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="method" /> is undefined. </exception>
+    public static bool SupportsStatelessReadReplay (UnityIpcMethod method)
+    {
+        EnsureDefined(method);
+        return method is UnityIpcMethod.Ping
+            or UnityIpcMethod.OpsRead
+            or UnityIpcMethod.IndexAssetsRead
+            or UnityIpcMethod.IndexSceneTreeLiteRead
+            or UnityIpcMethod.DaemonLogsRead
+            or UnityIpcMethod.UnityLogsRead
+            or UnityIpcMethod.PlayStatus;
+    }
+
     /// <summary> Determines whether a method may be dispatched while the oneshot editor reports a non-ready startup state. </summary>
     /// <param name="method"> The defined Unity IPC method. </param>
     /// <param name="lifecycleState"> The defined editor lifecycle state reported by the startup probe. </param>

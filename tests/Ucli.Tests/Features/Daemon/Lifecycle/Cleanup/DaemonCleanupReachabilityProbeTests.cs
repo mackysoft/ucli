@@ -30,11 +30,10 @@ public sealed class DaemonCleanupReachabilityProbeTests
                     "The endpoint returned a regular IPC error response.",
                     OpId: null),
             ]));
-        var sessionConnectionProvider = new UnexpectedDaemonSessionConnectionProvider(
-            "Cleanup endpoint probing without a session token must not resolve session metadata.");
         var pingClient = new IpcDaemonPingClient(
             transportClient,
-            sessionConnectionProvider,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateUnexpectedSessionStore(
+                "Cleanup endpoint probing without a session token must not resolve session metadata.")),
             TimeProvider.System);
         var probe = new DaemonCleanupReachabilityProbe(pingClient);
 
@@ -57,11 +56,10 @@ public sealed class DaemonCleanupReachabilityProbeTests
     {
         var unityProject = CreateFingerprintMatchedProject();
         var transportClient = CreateSuccessfulPingTransportClient();
-        var sessionConnectionProvider = new UnexpectedDaemonSessionConnectionProvider(
-            "Cleanup endpoint probing must not depend on readable session metadata.");
         var pingClient = new IpcDaemonPingClient(
             transportClient,
-            sessionConnectionProvider,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateUnexpectedSessionStore(
+                "Cleanup endpoint probing must not depend on readable session metadata.")),
             TimeProvider.System);
         var probe = new DaemonCleanupReachabilityProbe(pingClient);
 

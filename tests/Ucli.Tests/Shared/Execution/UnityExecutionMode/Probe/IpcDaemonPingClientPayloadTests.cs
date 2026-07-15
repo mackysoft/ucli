@@ -23,7 +23,7 @@ public sealed class IpcDaemonPingClientPayloadTests
                     compileState: IpcCompileState.Ready)));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
-            CreateResolvedSessionProvider(),
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateResolvedSessionStore("resolved-token")),
             TimeProvider.System);
 
         var result = await pingClient.PingAndReadAsync(
@@ -50,7 +50,7 @@ public sealed class IpcDaemonPingClientPayloadTests
                 Array.Empty<IpcError>()));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
-            CreateResolvedSessionProvider(),
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateResolvedSessionStore("resolved-token")),
             TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
@@ -86,7 +86,7 @@ public sealed class IpcDaemonPingClientPayloadTests
                 }));
         var pingClient = new IpcDaemonPingClient(
             unityIpcClient,
-            CreateResolvedSessionProvider(),
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateResolvedSessionStore("resolved-token")),
             TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>

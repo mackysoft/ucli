@@ -249,7 +249,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         {
             var observation = StatusDaemonObservationCodec.CreateFromPing(
                 DaemonStatusKind.Running,
-                probeResult.PingResponse!);
+                probeResult.PingResponse);
 
             return WorktreeObservationResult.Success(CreateItem(
                 worktree,

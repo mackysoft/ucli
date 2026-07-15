@@ -2,7 +2,6 @@ using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Git;
@@ -63,7 +62,7 @@ internal static class DaemonListQueryServiceTestSupport
             daemonSessionStore,
             daemonDiagnosisStore,
             new DaemonSessionProbe(
-                daemonSessionStore,
+                DaemonSessionAcquisitionCoordinatorTestFactory.Create(daemonSessionStore),
                 daemonPingClient,
                 daemonReachabilityClassifier),
             daemonReachabilityClassifier,
@@ -145,13 +144,13 @@ internal static class DaemonListQueryServiceTestSupport
     }
 
     public static RecordingDaemonPingInfoClient CreatePingClient (
-        Func<ResolvedUnityProjectContext, TimeSpan, string?, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>> handler)
+        Func<ResolvedUnityProjectContext, DaemonSession, ExecutionDeadline, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>> handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
 
         return new RecordingDaemonPingInfoClient
         {
-            PingAndReadHandler = handler,
+            PingSessionAndReadHandler = handler,
         };
     }
 

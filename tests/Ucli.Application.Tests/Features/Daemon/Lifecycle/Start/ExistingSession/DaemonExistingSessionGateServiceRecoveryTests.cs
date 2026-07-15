@@ -7,6 +7,13 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 public sealed class DaemonExistingSessionGateServiceRecoveryTests
 {
+    private static readonly IDaemonReachabilityClassifier RecoverableProbeFailureClassifier =
+        new DelegatingDaemonReachabilityClassifier(
+            isNotRunning: static _ => false,
+            isSessionTokenInvalid: static exception => exception is SessionTokenInvalidTestException,
+            isRetryableBeforeRequestWrite: static _ => false,
+            isRecoverableResponseInterruption: static exception => exception is ResponseInterruptedTestException);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenPingTimesOutDuringRecovery_WaitsForSameProcessAndReturnsAlreadyRunning ()
@@ -50,7 +57,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task TryHandleExistingSession_WhenRecoveryPublishesReplacementSession_PingsReplacementToken ()
+    public async Task TryHandleExistingSession_WhenSessionTokenRotates_PingsValidatedSuccessorWithSameRequestId ()
     {
         var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-existing-token-rotation"));
@@ -73,12 +80,13 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             editorInstanceId: editorInstanceId,
             sessionGenerationId: Guid.NewGuid());
         var pingClient = new RecordingDaemonPingInfoClient(
-            new TimeoutException("recovering"),
+            new SessionTokenInvalidTestException(),
             DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
         var sessionStore = new RecordingDaemonSessionStore(
             DaemonSessionReadResultTestFactory.Found(replacementSession));
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
             daemonPingInfoClient: pingClient,
+            reachabilityClassifier: RecoverableProbeFailureClassifier,
             lifecycleStore: DaemonExistingSessionGateServiceTestSupport.CreateRecoveringLifecycleStore(session),
             processIdentityAssessor: DaemonExistingSessionGateServiceTestSupport.CreateMatchingProcessIdentityAssessor(session),
             daemonSessionStore: sessionStore);
@@ -98,6 +106,92 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             first => Assert.Equal(session.SessionToken.GetEncodedValue(), first.SessionToken),
             second => Assert.Equal(replacementSession.SessionToken.GetEncodedValue(), second.SessionToken));
         Assert.Single(sessionStore.ReadInvocations);
+        Assert.Single(pingClient.Invocations.Select(static invocation => invocation.RequestId).Distinct());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryHandleExistingSession_WhenResponseIsInterrupted_PingsValidatedSuccessorWithSameRequestId ()
+    {
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
+            ProjectFingerprintTestFactory.Create("fingerprint-existing-response-recovery"));
+        var editorInstanceId = Guid.NewGuid();
+        var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
+            processId: 4021,
+            projectFingerprint: context.ProjectFingerprint,
+            editorInstanceId: editorInstanceId);
+        var successorSession = DaemonSessionTestFactory.Create(
+            processId: session.ProcessId,
+            processStartedAtUtc: session.ProcessStartedAtUtc,
+            sessionToken: "successor-token",
+            projectFingerprint: context.ProjectFingerprint,
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
+            canShutdownProcess: false,
+            endpointTransportKind: session.Endpoint.TransportKind,
+            endpointAddress: session.Endpoint.Address,
+            ownerProcessId: session.OwnerProcessId,
+            editorInstanceId: editorInstanceId,
+            sessionGenerationId: Guid.NewGuid());
+        var pingClient = new RecordingDaemonPingInfoClient(
+            new ResponseInterruptedTestException(),
+            DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
+        var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
+            daemonPingInfoClient: pingClient,
+            reachabilityClassifier: RecoverableProbeFailureClassifier,
+            daemonSessionStore: new RecordingDaemonSessionStore(
+                DaemonSessionReadResultTestFactory.Found(successorSession)));
+
+        var result = await service.TryHandleExistingSessionAsync(
+            context,
+            session,
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
+            editorMode: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
+        Assert.Equal(successorSession, result.Session);
+        Assert.Single(pingClient.Invocations.Select(static invocation => invocation.RequestId).Distinct());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryHandleExistingSession_WhenTokenRecoveryFindsDifferentProcess_DoesNotAcceptSuccessor ()
+    {
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
+            ProjectFingerprintTestFactory.Create("fingerprint-existing-successor-mismatch"));
+        var session = DaemonExistingSessionGateServiceTestSupport.CreateRecoveringGuiSession(
+            processId: 4022,
+            projectFingerprint: context.ProjectFingerprint,
+            editorInstanceId: Guid.NewGuid());
+        var mismatchedSuccessor = DaemonSessionTestFactory.Create(
+            processId: 9999,
+            sessionToken: "mismatched-successor-token",
+            projectFingerprint: context.ProjectFingerprint,
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
+            canShutdownProcess: false,
+            editorInstanceId: session.EditorInstanceId,
+            sessionGenerationId: Guid.NewGuid());
+        var pingClient = new RecordingDaemonPingInfoClient(
+            new SessionTokenInvalidTestException(),
+            DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
+        var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
+            daemonPingInfoClient: pingClient,
+            reachabilityClassifier: RecoverableProbeFailureClassifier,
+            daemonSessionStore: new RecordingDaemonSessionStore(
+                DaemonSessionReadResultTestFactory.Found(mismatchedSuccessor)));
+
+        var result = await service.TryHandleExistingSessionAsync(
+            context,
+            session,
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
+            editorMode: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Equal(2, pingClient.Invocations.Count);
     }
 
     [Fact]
@@ -451,5 +545,13 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
         Assert.Equal(DaemonStartStatus.Failed, result!.Status);
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+    }
+
+    private sealed class SessionTokenInvalidTestException : Exception
+    {
+    }
+
+    private sealed class ResponseInterruptedTestException : IOException
+    {
     }
 }

@@ -30,7 +30,7 @@ internal static class DaemonPingInfoClientAssert
         Assert.Equal(expectedUnityProject, invocation.UnityProject);
         Assert.Equal(expectedSession, invocation.Session);
         Assert.Equal(expectedSession.SessionToken.GetEncodedValue(), invocation.SessionToken);
-        Assert.False(invocation.ValidateProjectFingerprint);
+        Assert.True(invocation.ValidateProjectFingerprint);
         return invocation;
     }
 
@@ -55,7 +55,7 @@ internal static class DaemonPingInfoClientAssert
             Assert.Equal(expectedUnityProject, invocation.UnityProject);
             Assert.Equal(expectedSession, invocation.Session);
             Assert.Equal(expectedSession.SessionToken.GetEncodedValue(), invocation.SessionToken);
-            Assert.False(invocation.ValidateProjectFingerprint);
+            Assert.True(invocation.ValidateProjectFingerprint);
         });
     }
 
