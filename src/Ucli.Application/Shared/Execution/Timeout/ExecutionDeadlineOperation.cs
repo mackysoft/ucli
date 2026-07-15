@@ -12,7 +12,8 @@ internal static class ExecutionDeadlineOperation
     /// <param name="beforeTimeoutMessage"> The timeout message used when no budget remains before execution. </param>
     /// <param name="operationTimeoutMessage"> The timeout message used when execution exhausts the budget. </param>
     /// <param name="operation">
-    /// The operation to execute. Its late completion must be safe because a non-cooperative operation remains owned and observed after timeout.
+    /// The operation to execute. The delegate must return its asynchronous operation without blocking. Its late completion must be safe because a
+    /// non-cooperative operation remains owned and observed after timeout.
     /// </param>
     /// <returns> The operation value or a structured timeout error. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when one required argument is <see langword="null" />. </exception>
@@ -64,19 +65,10 @@ internal static class ExecutionDeadlineOperation
                 CancellationToken.None,
                 TaskContinuationOptions.ExecuteSynchronously,
                 TaskScheduler.Default);
-            var operationTask = Task.Run(
-                async () =>
-                {
-                    try
-                    {
-                        return await operation(operationCancellationTokenSource.Token).ConfigureAwait(false);
-                    }
-                    finally
-                    {
-                        completionSource.TrySetResult(CompletionKind.Operation);
-                    }
-                },
-                CancellationToken.None);
+            var operationTask = InvokeOperationAsync(
+                operation,
+                operationCancellationTokenSource.Token,
+                completionSource);
 
             // Each contender records its completion at the source. Await scheduling cannot reorder a
             // caller cancellation, deadline, or operation that completed while this continuation was delayed.
@@ -122,6 +114,21 @@ internal static class ExecutionDeadlineOperation
         Operation,
         Deadline,
         CallerCancellation,
+    }
+
+    private static async Task<T> InvokeOperationAsync<T> (
+        Func<CancellationToken, ValueTask<T>> operation,
+        CancellationToken cancellationToken,
+        TaskCompletionSource<CompletionKind> completionSource)
+    {
+        try
+        {
+            return await operation(cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            completionSource.TrySetResult(CompletionKind.Operation);
+        }
     }
 
     private static void ObserveAndDisposeAfterCompletion<T> (

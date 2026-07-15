@@ -28,61 +28,31 @@ public sealed class ExecutionDeadlineOperationTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task ExecuteAsync_WhenOperationBlocksBeforeReturningTask_ReturnsAtDeadline ()
+    public async Task ExecuteAsync_StartsOperationBeforeReturningPendingTask ()
     {
-        var timeProvider = new ManualTimeProvider();
-        var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var operationExited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var allowOperationToReturn = new ManualResetEventSlim();
-        var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
-        var operationCancellationToken = CancellationToken.None;
+        var operationCompletion = new TaskCompletionSource<string>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var operationStarted = false;
 
-        var executionTask = Task.Run(async () => await ExecutionDeadlineOperation.ExecuteAsync(
-            deadline,
-            CancellationToken.None,
-            "Deadline elapsed before operation.",
-            "Deadline elapsed during operation.",
-            cancellationToken =>
-            {
-                operationCancellationToken = cancellationToken;
-                operationEntered.TrySetResult();
-                try
+        var executionTask = ExecutionDeadlineOperation.ExecuteAsync(
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(1), new ManualTimeProvider()),
+                CancellationToken.None,
+                "Deadline elapsed before operation.",
+                "Deadline elapsed during operation.",
+                _ =>
                 {
-                    allowOperationToReturn.Wait();
-                    return ValueTask.FromResult("late value");
-                }
-                finally
-                {
-                    operationExited.TrySetResult();
-                }
-            }));
+                    operationStarted = true;
+                    return new ValueTask<string>(operationCompletion.Task);
+                })
+            .AsTask();
 
-        try
-        {
-            await TestAwaiter.WaitAsync(operationEntered.Task, "Blocking operation start", SignalWaitTimeout);
-            timeProvider.Advance(TimeSpan.FromSeconds(1));
-            var result = await TestAwaiter.WaitAsync(
-                executionTask,
-                "Blocking operation deadline result",
-                SignalWaitTimeout);
+        Assert.True(operationStarted);
 
-            Assert.False(result.IsSuccess);
-            Assert.Equal(ExecutionErrorKind.Timeout, result.Error?.Kind);
-            Assert.True(operationCancellationToken.IsCancellationRequested);
-        }
-        finally
-        {
-            allowOperationToReturn.Set();
-            _ = await TestAwaiter.WaitAsync(
-                executionTask,
-                "Blocking operation cleanup",
-                SignalWaitTimeout);
-            await TestAwaiter.WaitAsync(operationExited.Task, "Blocking operation exit", SignalWaitTimeout);
-            if (operationCancellationToken.CanBeCanceled)
-            {
-                await WaitForCancellationTokenSourceDisposalAsync(operationCancellationToken);
-            }
-        }
+        operationCompletion.TrySetResult("operation value");
+        var result = await executionTask.WaitAsync(SignalWaitTimeout);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("operation value", result.Value);
     }
 
     [Fact]
@@ -235,24 +205,24 @@ public sealed class ExecutionDeadlineOperationTests
     {
         var timeProvider = new ManualTimeProvider();
         var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        using var startRace = new ManualResetEventSlim();
+        var startRace = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var deadline = ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider);
         var executionTask = ExecutionDeadlineOperation.ExecuteAsync<string>(
                 deadline,
                 CancellationToken.None,
                 "Deadline elapsed before operation.",
                 "Deadline elapsed during operation.",
-                _ =>
+                async _ =>
                 {
                     operationEntered.TrySetResult();
-                    startRace.Wait();
+                    await startRace.Task.ConfigureAwait(false);
                     timeProvider.Advance(TimeSpan.FromSeconds(1));
                     throw new InvalidOperationException("fault immediately after expiring deadline");
                 })
             .AsTask();
         await operationEntered.Task.WaitAsync(SignalWaitTimeout);
 
-        startRace.Set();
+        startRace.TrySetResult();
 
         var result = await executionTask.WaitAsync(SignalWaitTimeout);
 
@@ -284,7 +254,7 @@ public sealed class ExecutionDeadlineOperationTests
     public async Task ExecuteAsync_WhenOperationWinsBeforeCallerCancellationSignal_DoesNotReverseToCancellation ()
     {
         using var callerCancellationTokenSource = new CancellationTokenSource();
-        using var allowOperationToReturn = new ManualResetEventSlim();
+        var allowOperationToReturn = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var allowCallerCancellationCallbackToReturn = new ManualResetEventSlim();
         var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var callerCancellationCallbackEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -294,7 +264,7 @@ public sealed class ExecutionDeadlineOperationTests
                 callerCancellationTokenSource.Token,
                 "Deadline elapsed before operation.",
                 "Deadline elapsed during operation.",
-                _operationCancellationToken =>
+                async _operationCancellationToken =>
                 {
                     _ = callerCancellationTokenSource.Token.Register(() =>
                     {
@@ -302,16 +272,20 @@ public sealed class ExecutionDeadlineOperationTests
                         allowCallerCancellationCallbackToReturn.Wait();
                     });
                     operationEntered.TrySetResult();
-                    allowOperationToReturn.Wait();
-                    return ValueTask.FromResult("operation value");
+                    await allowOperationToReturn.Task.ConfigureAwait(false);
+                    return "operation value";
                 })
             .AsTask();
 
         await operationEntered.Task.WaitAsync(SignalWaitTimeout);
-        var callerCancellationTask = Task.Run(callerCancellationTokenSource.Cancel);
+        var callerCancellationTask = Task.Factory.StartNew(
+            callerCancellationTokenSource.Cancel,
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
         await callerCancellationCallbackEntered.Task.WaitAsync(SignalWaitTimeout);
 
-        allowOperationToReturn.Set();
+        allowOperationToReturn.TrySetResult();
         ExecutionDeadlineOperationResult<string>? result = null;
         Exception? exception = null;
         try
@@ -339,7 +313,7 @@ public sealed class ExecutionDeadlineOperationTests
     {
         var timeProvider = new ManualTimeProvider();
         using var callerCancellationTokenSource = new CancellationTokenSource();
-        using var allowOperationToReturn = new ManualResetEventSlim();
+        var allowOperationToReturn = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var allowCallerCancellationCallbackToReturn = new ManualResetEventSlim();
         var operationEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var operationExited = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -350,7 +324,7 @@ public sealed class ExecutionDeadlineOperationTests
                 callerCancellationTokenSource.Token,
                 "Deadline elapsed before operation.",
                 "Deadline elapsed during operation.",
-                _operationCancellationToken =>
+                async _operationCancellationToken =>
                 {
                     _ = callerCancellationTokenSource.Token.Register(() =>
                     {
@@ -360,8 +334,8 @@ public sealed class ExecutionDeadlineOperationTests
                     operationEntered.TrySetResult();
                     try
                     {
-                        allowOperationToReturn.Wait();
-                        return ValueTask.FromResult("late value");
+                        await allowOperationToReturn.Task.ConfigureAwait(false);
+                        return "late value";
                     }
                     finally
                     {
@@ -371,7 +345,11 @@ public sealed class ExecutionDeadlineOperationTests
             .AsTask();
 
         await operationEntered.Task.WaitAsync(SignalWaitTimeout);
-        var callerCancellationTask = Task.Run(callerCancellationTokenSource.Cancel);
+        var callerCancellationTask = Task.Factory.StartNew(
+            callerCancellationTokenSource.Cancel,
+            CancellationToken.None,
+            TaskCreationOptions.LongRunning,
+            TaskScheduler.Default);
         await callerCancellationCallbackEntered.Task.WaitAsync(SignalWaitTimeout);
 
         timeProvider.Advance(TimeSpan.FromSeconds(1));
@@ -388,7 +366,7 @@ public sealed class ExecutionDeadlineOperationTests
         finally
         {
             allowCallerCancellationCallbackToReturn.Set();
-            allowOperationToReturn.Set();
+            allowOperationToReturn.TrySetResult();
             await callerCancellationTask.WaitAsync(SignalWaitTimeout);
             await operationExited.Task.WaitAsync(SignalWaitTimeout);
         }
