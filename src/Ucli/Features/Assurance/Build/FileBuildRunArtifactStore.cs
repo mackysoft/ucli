@@ -32,7 +32,11 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     private const int MacOsDeviceOffset = 0;
     private const int MacOsFileModeOffset = 4;
     private const int MacOsInodeOffset = 8;
+    private const string BuildRunAccountingLockFileName = ".account.lock";
+    private const string BuildRunPreparationLockFileName = ".prepare.lock";
 
+    private static readonly TimeSpan BuildRunAccountingLockTimeout = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan BuildRunPreparationLockTimeout = TimeSpan.FromSeconds(1);
     private static readonly string OutputEntryKindDirectory = ContractLiteralCodec.ToValue(BuildOutputManifestEntryKind.Directory);
     private static readonly string OutputEntryKindFile = ContractLiteralCodec.ToValue(BuildOutputManifestEntryKind.File);
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
@@ -57,8 +61,12 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         ArgumentNullException.ThrowIfNull(unityProject);
 
         BuildRunArtifactPaths paths;
+        string runDirectory;
         try
         {
+            runDirectory = UcliStoragePathResolver.ResolveBuildRunDirectory(
+                unityProject.RepositoryRoot,
+                runId);
             paths = ResolvePaths(unityProject.RepositoryRoot, runId);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
@@ -69,17 +77,21 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
         try
         {
-            if (File.Exists(paths.ArtifactsDirectory) || Directory.Exists(paths.ArtifactsDirectory))
-            {
-                return BuildRunArtifactPreparationResult.Failure(ExecutionError.InternalError(
-                    $"Build artifact directory already exists: {paths.ArtifactsDirectory}.",
-                    BuildErrorCodes.BuildArtifactWriteFailed));
-            }
+            var buildRunsDirectory = Path.GetDirectoryName(runDirectory)
+                ?? throw new InvalidOperationException(
+                    $"Build-runs directory could not be resolved: {runDirectory}");
+            var preparationLockPath = Path.Combine(
+                buildRunsDirectory,
+                BuildRunPreparationLockFileName);
+            using var preparationLock = FileExclusiveLock.Acquire(
+                preparationLockPath,
+                BuildRunPreparationLockTimeout,
+                CancellationToken.None);
 
-            if (File.Exists(paths.RunnerOutputDirectory) || Directory.Exists(paths.RunnerOutputDirectory))
+            if (File.Exists(runDirectory) || Directory.Exists(runDirectory))
             {
                 return BuildRunArtifactPreparationResult.Failure(ExecutionError.InternalError(
-                    $"Build runner output directory already exists: {paths.RunnerOutputDirectory}.",
+                    $"Build run directory already exists: {runDirectory}.",
                     BuildErrorCodes.BuildArtifactWriteFailed));
             }
 
@@ -92,7 +104,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             return BuildRunArtifactPreparationResult.Failure(ExecutionError.InvalidArgument(
                 $"Build artifact path is invalid. {exception.Message}"));
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or TimeoutException)
         {
             return BuildRunArtifactPreparationResult.Failure(ExecutionError.InternalError(
                 $"Failed to prepare build artifact directory. {exception.Message}",
@@ -162,13 +174,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        ArgumentNullException.ThrowIfNull(request.Paths);
-        if (!ContractLiteralCodec.IsDefined(request.BuildTarget))
-        {
-            throw new ArgumentOutOfRangeException(nameof(request), request.BuildTarget, "Build target must be specified.");
-        }
-        ArgumentException.ThrowIfNullOrWhiteSpace(request.UnityBuildTarget);
-        ArgumentNullException.ThrowIfNull(request.OutputSources);
         cancellationToken.ThrowIfCancellationRequested();
 
         try
@@ -186,11 +191,47 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 $"Build artifact path layout is invalid. {exception.Message}"));
         }
 
+        try
+        {
+            var runDirectory = Path.GetDirectoryName(request.Paths.ArtifactsDirectory)
+                ?? throw new InvalidOperationException(
+                    $"Build run directory could not be resolved: {request.Paths.ArtifactsDirectory}");
+            var accountingLockPath = Path.Combine(runDirectory, BuildRunAccountingLockFileName);
+            using var accountingLock = await FileExclusiveLock
+                .AcquireAsync(
+                    accountingLockPath,
+                    BuildRunAccountingLockTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            return await AccountArtifactsWithExclusivePublicationAsync(request, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (TimeoutException exception)
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
+                $"Build artifact accounting is already in progress. {exception.Message}",
+                BuildErrorCodes.BuildOutputManifestFailed));
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            return BuildRunArtifactAccountingOperationResult.Failure(ExecutionError.InternalError(
+                $"Failed to publish build output artifacts. {exception.Message}",
+                BuildErrorCodes.BuildOutputManifestFailed));
+        }
+    }
+
+    private async ValueTask<BuildRunArtifactAccountingOperationResult> AccountArtifactsWithExclusivePublicationAsync (
+        BuildRunArtifactAccountingRequest request,
+        CancellationToken cancellationToken)
+    {
+        using var outputPublication = BuildOutputPublication.Begin(request.Paths);
+
         OutputManifestArtifacts outputManifestArtifacts;
         try
         {
             outputManifestArtifacts = await CreateOutputManifestArtifactsAsync(
                     request.Paths,
+                    outputPublication.StagingDirectory,
                     request.BuildTarget,
                     request.UnityBuildTarget,
                     request.OutputSources,
@@ -260,31 +301,40 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
         var buildLogRef = buildLogAccountingResult.Artifact!;
 
-        BuildArtifactRef outputManifestRef;
+        BuildRunArtifactAccountingResult accountingResult;
         try
         {
             VerifyManifestDigest(outputManifestArtifacts.Contract);
             var outputManifestJson = outputManifestWriter.Write(outputManifestArtifacts.Contract);
-            var outputManifestDigest = await WriteTextAtomicallyAsync(
-                    request.Paths.OutputManifestJsonPath,
+            var outputManifestDigest = ComputeUtf8Sha256(outputManifestJson);
+            var commitMarkerTemporaryPath = await outputPublication.PrepareCommitMarkerAsync(
                     outputManifestJson,
                     cancellationToken)
                 .ConfigureAwait(false);
-            var persistedOutputManifestDigest = await ComputeExistingArtifactSha256Async(
-                    request.Paths.OutputManifestJsonPath,
+            var preparedOutputManifestDigest = await ComputeExistingArtifactSha256Async(
+                    commitMarkerTemporaryPath,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (outputManifestDigest != persistedOutputManifestDigest)
+            if (outputManifestDigest != preparedOutputManifestDigest)
             {
                 throw new OutputManifestArtifactDigestMismatchException(
-                    $"Expected={outputManifestDigest}, Actual={persistedOutputManifestDigest}.");
+                    $"Expected={outputManifestDigest}, Actual={preparedOutputManifestDigest}.");
             }
 
-            outputManifestRef = CreateArtifactRef(
+            var outputManifestRef = CreateArtifactRef(
                 BuildArtifactKind.BuildOutputManifest,
                 request.Paths.ArtifactsDirectory,
                 request.Paths.OutputManifestJsonPath,
-                persistedOutputManifestDigest);
+                preparedOutputManifestDigest);
+            accountingResult = new BuildRunArtifactAccountingResult(
+                buildReportRef,
+                outputManifestRef,
+                buildLogRef,
+                outputManifestArtifacts.Summary);
+
+            outputPublication.PublishOutput();
+            await outputPublication.PublishCommitMarkerAsync(cancellationToken).ConfigureAwait(false);
+            outputPublication.Complete();
         }
         catch (OutputManifestDigestMismatchException exception)
         {
@@ -310,11 +360,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 BuildErrorCodes.BuildOutputManifestFailed));
         }
 
-        return BuildRunArtifactAccountingOperationResult.Success(new BuildRunArtifactAccountingResult(
-            buildReportRef,
-            outputManifestRef,
-            buildLogRef,
-            outputManifestArtifacts.Summary));
+        return BuildRunArtifactAccountingOperationResult.Success(accountingResult);
     }
 
     /// <inheritdoc />
@@ -556,12 +602,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
     private static void EnsureExpectedPathLayout (BuildRunArtifactPaths paths)
     {
-        var artifactsDirectory = Path.GetFullPath(paths.ArtifactsDirectory);
-        if (!PathIdentity.IsSamePath(artifactsDirectory, paths.ArtifactsDirectory))
-        {
-            throw new InvalidOperationException($"Artifact directory must be normalized: {paths.ArtifactsDirectory}");
-        }
-
+        var artifactsDirectory = paths.ArtifactsDirectory;
         EnsureExpectedArtifactsDirectory(paths, artifactsDirectory);
         EnsureExpectedPath(
             artifactsDirectory,
@@ -584,7 +625,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             paths.ArtifactOutputDirectory,
             UcliStoragePathNames.BuildOutputDirectoryName);
         EnsureExpectedRunnerOutputDirectory(paths);
-        EnsureSeparatedOutputRoots(paths);
     }
 
     private static void EnsureExpectedBuildPipelineOutputLayout (
@@ -607,12 +647,10 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 $"BuildPipeline output layout shape must be {expectedLayout.Shape}: {outputLayout.Shape}");
         }
 
-        var actualLocationPathName = Path.GetFullPath(outputLayout.LocationPathName);
-        var expectedLocationPathName = Path.GetFullPath(expectedLayout.LocationPathName);
-        if (!PathIdentity.IsSamePath(actualLocationPathName, expectedLocationPathName))
+        if (!PathIdentity.IsSamePath(outputLayout.LocationPathName, expectedLayout.LocationPathName))
         {
             throw new InvalidOperationException(
-                $"BuildPipeline output locationPathName must be {expectedLocationPathName}: {outputLayout.LocationPathName}");
+                $"BuildPipeline output locationPathName must be {expectedLayout.LocationPathName}: {outputLayout.LocationPathName}");
         }
     }
 
@@ -652,8 +690,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         string expectedFileName)
     {
         var expectedPath = Path.Combine(artifactsDirectory, expectedFileName);
-        var normalizedActualPath = Path.GetFullPath(actualPath);
-        if (!PathIdentity.IsSamePath(normalizedActualPath, expectedPath))
+        if (!PathIdentity.IsSamePath(actualPath, expectedPath))
         {
             throw new InvalidOperationException(
                 $"Artifact path must be {expectedPath}: {actualPath}");
@@ -665,28 +702,16 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         var expectedRunnerOutputDirectory = UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
             paths.RepositoryRoot,
             paths.RunId);
-        var normalizedActualPath = Path.GetFullPath(paths.RunnerOutputDirectory);
-        if (!PathIdentity.IsSamePath(normalizedActualPath, expectedRunnerOutputDirectory))
+        if (!PathIdentity.IsSamePath(paths.RunnerOutputDirectory, expectedRunnerOutputDirectory))
         {
             throw new InvalidOperationException(
                 $"Runner output directory must be {expectedRunnerOutputDirectory}: {paths.RunnerOutputDirectory}");
         }
     }
 
-    private static void EnsureSeparatedOutputRoots (BuildRunArtifactPaths paths)
-    {
-        var artifactOutputDirectory = Path.GetFullPath(paths.ArtifactOutputDirectory);
-        var runnerOutputDirectory = Path.GetFullPath(paths.RunnerOutputDirectory);
-        if (RepositoryPathNormalizer.TryNormalize(artifactOutputDirectory, runnerOutputDirectory).IsSuccess
-            || RepositoryPathNormalizer.TryNormalize(runnerOutputDirectory, artifactOutputDirectory).IsSuccess)
-        {
-            throw new InvalidOperationException(
-                "Runner output directory and artifact output directory must be separate non-nested paths.");
-        }
-    }
-
     private async ValueTask<OutputManifestArtifacts> CreateOutputManifestArtifactsAsync (
         BuildRunArtifactPaths paths,
+        string artifactOutputDirectory,
         BuildTargetStableName buildTarget,
         string unityBuildTarget,
         IReadOnlyList<BuildOutputSourceEntry> outputSources,
@@ -699,7 +724,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             outputSources,
             allowEmptyOutputManifest);
 
-        FileSystemAccessBoundary.EnsureSecureDirectory(paths.ArtifactOutputDirectory);
+        FileSystemAccessBoundary.EnsureSecureDirectory(artifactOutputDirectory);
         var entries = new List<BuildOutputManifestEntryJsonContract>(sourceEntries.Count);
         var files = new List<BuildOutputManifestFileJsonContract>();
         long totalBytes = 0;
@@ -713,7 +738,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
                 sourceEntry.SourcePath));
 
             totalBytes += await IngestOutputSourceEntryAsync(
-                    paths,
+                    artifactOutputDirectory,
                     sourceEntry,
                     entryId,
                     files,
@@ -938,14 +963,14 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     }
 
     private async ValueTask<long> IngestOutputSourceEntryAsync (
-        BuildRunArtifactPaths paths,
+        string artifactOutputDirectory,
         ResolvedOutputSourceEntry sourceEntry,
         string entryId,
         List<BuildOutputManifestFileJsonContract> files,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        var entryOutputDirectory = Path.Combine(paths.ArtifactOutputDirectory, entryId);
+        var entryOutputDirectory = Path.Combine(artifactOutputDirectory, entryId);
         FileSystemAccessBoundary.EnsureSecureDirectory(entryOutputDirectory);
 
         if (ContractLiteralCodec.Matches(sourceEntry.Kind, BuildOutputManifestEntryKind.File))
@@ -1510,19 +1535,13 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
 
         var digest = ComputeUtf8Sha256(text);
         FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-        var tempPath = path + $".tmp.{Guid.NewGuid():N}";
+        var temporaryStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var tempPath);
+        var temporaryFileOwned = true;
 
         try
         {
-            EnsureWritableArtifactPath(tempPath);
-            using (var stream = new FileStream(
-                tempPath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None,
-                FileStreamBufferSize,
-                FileOptions.Asynchronous))
-            using (var writer = new StreamWriter(stream, Utf8NoBom))
+            using (temporaryStream)
+            using (var writer = new StreamWriter(temporaryStream, Utf8NoBom))
             {
                 await writer
                     .WriteAsync(text.AsMemory(), cancellationToken)
@@ -1530,14 +1549,21 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             }
 
             FileSystemAccessBoundary.EnsureSecureFile(tempPath);
-            EnsureWritableArtifactPath(path);
-            ReplaceFile(tempPath, path);
+            await FileUtilities.PublishAtomicWriteTemporaryFileAsync(
+                    tempPath,
+                    path,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            temporaryFileOwned = false;
             FileSystemAccessBoundary.EnsureSecureFile(path);
             return digest;
         }
         finally
         {
-            DeleteTemporaryFileIfExists(tempPath);
+            if (temporaryFileOwned)
+            {
+                FileUtilities.DeleteIfExists(tempPath);
+            }
         }
     }
 
@@ -1602,47 +1628,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         if ((attributes & FileAttributes.Directory) != 0)
         {
             throw new IOException($"Build artifact target must not be a directory: {path}");
-        }
-    }
-
-    private static void ReplaceFile (
-        string temporaryPath,
-        string path)
-    {
-        try
-        {
-            File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-        }
-        catch (FileNotFoundException)
-        {
-            MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-        }
-        catch (IOException) when (!File.Exists(path))
-        {
-            MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-        }
-    }
-
-    private static void MoveOrReplaceWhenCreatedConcurrently (
-        string temporaryPath,
-        string path)
-    {
-        try
-        {
-            File.Move(temporaryPath, path);
-        }
-        catch (IOException) when (File.Exists(path))
-        {
-            EnsureWritableArtifactPath(path);
-            File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-        }
-    }
-
-    private static void DeleteTemporaryFileIfExists (string path)
-    {
-        if (File.Exists(path))
-        {
-            File.Delete(path);
         }
     }
 

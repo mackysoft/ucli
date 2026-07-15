@@ -73,16 +73,49 @@ public sealed class FileBuildRunArtifactStorePrepareTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public void Prepare_WhenBuildRunArtifactDirectoryContainsLegacyArtifact_ReturnsBuildArtifactWriteFailed ()
+    public async Task Prepare_WhenSameRunIsPreparedConcurrently_GrantsExactlyOneOwner ()
+    {
+        const int contenderCount = 8;
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-concurrent");
+        var store = CreateStore();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
+        using var startBarrier = new Barrier(contenderCount);
+        var tasks = Enumerable
+            .Range(0, contenderCount)
+            .Select(_ => Task.Factory.StartNew(
+                () =>
+                {
+                    startBarrier.SignalAndWait();
+                    return store.Prepare(project, RunIdTestValues.Build);
+                },
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default))
+            .ToArray();
+
+        var results = await Task.WhenAll(tasks);
+        Assert.Single(results, static result => result.IsSuccess);
+        foreach (var failure in results.Where(static result => !result.IsSuccess))
+        {
+            var error = Assert.IsType<ExecutionError>(failure.Error);
+            Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+            Assert.Equal(BuildErrorCodes.BuildArtifactWriteFailed, error.Code);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void Prepare_WhenBuildRunDirectoryContainsUnknownEntry_ReturnsBuildArtifactWriteFailed ()
     {
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-existing-legacy");
         var store = CreateStore();
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
-        var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
+        var runDirectory = UcliStoragePathResolver.ResolveBuildRunDirectory(
             project.RepositoryRoot,
             RunIdTestValues.Build);
-        Directory.CreateDirectory(artifactsDirectory);
-        File.WriteAllText(Path.Combine(artifactsDirectory, "build-summary.json"), "{}");
+        Directory.CreateDirectory(runDirectory);
+        var unknownEntryPath = Path.Combine(runDirectory, "unknown-entry");
+        File.WriteAllText(unknownEntryPath, "unknown");
 
         var result = store.Prepare(project, RunIdTestValues.Build);
 
@@ -90,6 +123,28 @@ public sealed class FileBuildRunArtifactStorePrepareTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(BuildErrorCodes.BuildArtifactWriteFailed, error.Code);
+        Assert.True(File.Exists(unknownEntryPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void Prepare_WhenEmptyBuildRunDirectoryAlreadyExists_ReturnsBuildArtifactWriteFailed ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "prepare-existing-empty-run");
+        var store = CreateStore();
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
+        var runDirectory = UcliStoragePathResolver.ResolveBuildRunDirectory(
+            project.RepositoryRoot,
+            RunIdTestValues.Build);
+        Directory.CreateDirectory(runDirectory);
+
+        var result = store.Prepare(project, RunIdTestValues.Build);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(BuildErrorCodes.BuildArtifactWriteFailed, error.Code);
+        Assert.Empty(Directory.EnumerateFileSystemEntries(runDirectory));
     }
 
     [Fact]
