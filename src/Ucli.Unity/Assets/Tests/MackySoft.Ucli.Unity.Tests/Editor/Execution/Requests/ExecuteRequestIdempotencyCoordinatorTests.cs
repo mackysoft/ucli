@@ -9,6 +9,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.RequestIdempotency;
+using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
@@ -282,10 +283,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Execute_WhenEntryExpires_ReexecutesRequest () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Execute_WhenMonotonicLifetimeReachesTtl_ReexecutesRequest () => UniTask.ToCoroutine(async () =>
         {
-            var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
-            var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 10_000, () => nowUtc);
+            var monotonicClock = new ManualMonotonicClock();
+            var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 10_000, monotonicClock);
             var executeCount = 0;
             var requestId = Guid.NewGuid();
 
@@ -299,7 +300,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
-            nowUtc = nowUtc.AddHours(25);
+            monotonicClock.Advance(TimeSpan.FromHours(24) - TimeSpan.FromTicks(1));
             var secondResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
                 requestFingerprint: Fingerprint1,
@@ -310,33 +311,79 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
+            monotonicClock.Advance(TimeSpan.FromTicks(1));
+            var thirdResponse = await coordinator.ExecuteAsync(
+                requestId: requestId,
+                requestFingerprint: Fingerprint1,
+                executeRequest: _ =>
+                {
+                    executeCount++;
+                    return Task.FromResult(CreateSuccessResponse(requestId, "third"));
+                },
+                createConflictResponse: () => CreateConflictResponse(requestId));
+
             Assert.That(executeCount, Is.EqualTo(2));
             Assert.That(GetMarker(firstResponse), Is.EqualTo("first"));
-            Assert.That(GetMarker(secondResponse), Is.EqualTo("second"));
+            Assert.That(GetMarker(secondResponse), Is.EqualTo("first"));
+            Assert.That(GetMarker(thirdResponse), Is.EqualTo("third"));
         });
+
+        [Test]
+        [Category("Size.Small")]
+        public void CompleteSuccess_WhenConcurrentCompletionsInterleave_PreservesExpirationOrder ()
+        {
+            using var monotonicClock = new BlockingMonotonicClock(blockOnReadNumber: 3);
+            var store = new InMemoryExecuteRequestIdempotencyStore(
+                TimeSpan.FromMinutes(10),
+                maxEntries: 10,
+                monotonicClock);
+            var firstRequestId = Guid.NewGuid();
+            var secondRequestId = Guid.NewGuid();
+            Assert.That(store.Acquire(firstRequestId, Fingerprint1).Kind, Is.EqualTo(ExecuteRequestIdempotencyStoreDecision.DecisionKind.ExecuteOwner));
+            Assert.That(store.Acquire(secondRequestId, Fingerprint2).Kind, Is.EqualTo(ExecuteRequestIdempotencyStoreDecision.DecisionKind.ExecuteOwner));
+
+            var firstCompletion = Task.Run(() => store.CompleteSuccess(
+                firstRequestId,
+                Fingerprint1,
+                CreateSuccessResponse(firstRequestId, "first")));
+            Assert.That(monotonicClock.WaitUntilBlocked(SignalWaitTimeout), Is.True);
+
+            monotonicClock.Advance(TimeSpan.FromMinutes(1));
+            var secondCompletion = Task.Run(() => store.CompleteSuccess(
+                secondRequestId,
+                Fingerprint2,
+                CreateSuccessResponse(secondRequestId, "second")));
+
+            monotonicClock.Release();
+            Assert.That(Task.WaitAll(new[] { firstCompletion, secondCompletion }, SignalWaitTimeout), Is.True);
+
+            monotonicClock.Advance(TimeSpan.FromMinutes(9));
+            Assert.That(store.Acquire(firstRequestId, Fingerprint1).Kind, Is.EqualTo(ExecuteRequestIdempotencyStoreDecision.DecisionKind.ExecuteOwner));
+            Assert.That(store.Acquire(secondRequestId, Fingerprint2).Kind, Is.EqualTo(ExecuteRequestIdempotencyStoreDecision.DecisionKind.ReplayCompleted));
+        }
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Execute_WhenCacheExceedsMaxEntries_EvictsOldestEntry () => UniTask.ToCoroutine(async () =>
         {
-            var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
-            var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 2, () => nowUtc);
+            var monotonicClock = new ManualMonotonicClock();
+            var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 2, monotonicClock);
             var executeCount = 0;
             var firstRequestId = Guid.NewGuid();
             var secondRequestId = Guid.NewGuid();
             var thirdRequestId = Guid.NewGuid();
 
             await ExecuteAsync(firstRequestId, Fingerprint1, "first-1");
-            nowUtc = nowUtc.AddMinutes(1);
+            monotonicClock.Advance(TimeSpan.FromMinutes(1));
             await ExecuteAsync(secondRequestId, Fingerprint2, "second-1");
-            nowUtc = nowUtc.AddMinutes(1);
+            monotonicClock.Advance(TimeSpan.FromMinutes(1));
             await ExecuteAsync(thirdRequestId, Fingerprint3, "third-1");
 
             // req-1 should be evicted because max entries is 2.
-            nowUtc = nowUtc.AddMinutes(1);
+            monotonicClock.Advance(TimeSpan.FromMinutes(1));
             var req1ResponseAfterEviction = await ExecuteAsync(firstRequestId, Fingerprint1, "first-2");
 
-            // req-2 should still be cached.
+            // Re-inserting req-1 evicts req-2 as the next oldest completed entry.
             var req2ResponseFromCache = await ExecuteAsync(secondRequestId, Fingerprint2, "second-2");
 
             Assert.That(executeCount, Is.EqualTo(5));
@@ -521,18 +568,73 @@ namespace MackySoft.Ucli.Unity.Tests
             return CreateCoordinator(
                 ExecuteRequestIdempotencyCoordinator.DefaultCacheTtl,
                 ExecuteRequestIdempotencyCoordinator.DefaultMaxEntries,
-                static () => DateTimeOffset.UtcNow);
+                new ManualMonotonicClock());
         }
 
         private static ExecuteRequestIdempotencyCoordinator CreateCoordinator (
             TimeSpan cacheTtl,
             int maxEntries,
-            Func<DateTimeOffset> utcNowProvider)
+            IMonotonicClock monotonicClock)
         {
             return new ExecuteRequestIdempotencyCoordinator(new InMemoryExecuteRequestIdempotencyStore(
                 cacheTtl,
                 maxEntries,
-                utcNowProvider));
+                monotonicClock));
+        }
+
+        private sealed class BlockingMonotonicClock : IMonotonicClock, IDisposable
+        {
+            private readonly int blockOnReadNumber;
+
+            private readonly ManualResetEventSlim blocked = new ManualResetEventSlim();
+
+            private readonly ManualResetEventSlim release = new ManualResetEventSlim();
+
+            private long elapsedTicks;
+
+            private int readCount;
+
+            public BlockingMonotonicClock (int blockOnReadNumber)
+            {
+                this.blockOnReadNumber = blockOnReadNumber;
+            }
+
+            public TimeSpan Elapsed
+            {
+                get
+                {
+                    var capturedTicks = Interlocked.Read(ref elapsedTicks);
+                    if (Interlocked.Increment(ref readCount) == blockOnReadNumber)
+                    {
+                        blocked.Set();
+                        release.Wait();
+                    }
+
+                    return new TimeSpan(capturedTicks);
+                }
+            }
+
+            public void Advance (TimeSpan elapsedTime)
+            {
+                Interlocked.Add(ref elapsedTicks, elapsedTime.Ticks);
+            }
+
+            public bool WaitUntilBlocked (TimeSpan timeout)
+            {
+                return blocked.Wait(timeout);
+            }
+
+            public void Release ()
+            {
+                release.Set();
+            }
+
+            public void Dispose ()
+            {
+                release.Set();
+                blocked.Dispose();
+                release.Dispose();
+            }
         }
     }
 }

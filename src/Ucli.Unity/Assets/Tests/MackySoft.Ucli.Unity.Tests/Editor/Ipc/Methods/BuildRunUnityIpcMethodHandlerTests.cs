@@ -1257,7 +1257,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var unityLogStream = new UnityLogRingBuffer();
                 using (var unityLogCaptureService = new UnityLogCaptureService(new UnityLogCollector(
                            unityLogStream,
-                           new UnityCompileMessageDedupeCache(),
+                           new UnityCompileMessageDedupeCache(new ManualMonotonicClock()),
                            redactionScopeProvider)))
                 {
                     unityLogCaptureService.Start();

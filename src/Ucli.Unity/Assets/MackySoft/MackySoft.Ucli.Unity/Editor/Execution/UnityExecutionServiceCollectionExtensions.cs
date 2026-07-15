@@ -36,10 +36,10 @@ namespace MackySoft.Ucli.Unity.Execution
             services.AddSingleton<IDangerousOperationCallAuthorizer, DangerousOperationCallAuthorizer>();
             services.AddSingleton<IOperationPhaseExecutor, OperationPhaseExecutor>();
             services.AddSingleton<IExecuteRequestNormalizer, ExecuteRequestNormalizer>();
-            services.AddSingleton<IExecuteRequestIdempotencyStore>(static _ => new InMemoryExecuteRequestIdempotencyStore(
+            services.AddSingleton<IExecuteRequestIdempotencyStore>(serviceProvider => new InMemoryExecuteRequestIdempotencyStore(
                 ExecuteRequestIdempotencyCoordinator.DefaultCacheTtl,
                 ExecuteRequestIdempotencyCoordinator.DefaultMaxEntries,
-                static () => DateTimeOffset.UtcNow));
+                serviceProvider.GetRequiredService<IMonotonicClock>()));
             services.AddSingleton<IExecuteRequestIdempotencyCoordinator, ExecuteRequestIdempotencyCoordinator>();
             services.AddSingleton<IExecuteRequestDispatcher, ExecuteRequestDispatcher>();
             return services;

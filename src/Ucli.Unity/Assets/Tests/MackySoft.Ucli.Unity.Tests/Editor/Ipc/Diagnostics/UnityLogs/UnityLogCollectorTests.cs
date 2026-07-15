@@ -15,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var stream = new UnityLogRingBuffer();
             var collector = new UnityLogCollector(
                 stream,
-                new UnityCompileMessageDedupeCache(),
+                new UnityCompileMessageDedupeCache(new ManualMonotonicClock()),
                 new UnityLogRedactionScopeProvider());
 
             collector.HandleRuntimeLog("[ucli][ipc] booted", string.Empty, LogType.Log);
@@ -31,7 +31,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var stream = new UnityLogRingBuffer();
             var collector = new UnityLogCollector(
                 stream,
-                new UnityCompileMessageDedupeCache(),
+                new UnityCompileMessageDedupeCache(new ManualMonotonicClock()),
                 new UnityLogRedactionScopeProvider());
             var compileMessage = new CompilerMessage
             {
@@ -57,7 +57,10 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var stream = new UnityLogRingBuffer();
             var redactionScopeProvider = new UnityLogRedactionScopeProvider();
-            var collector = new UnityLogCollector(stream, new UnityCompileMessageDedupeCache(), redactionScopeProvider);
+            var collector = new UnityLogCollector(
+                stream,
+                new UnityCompileMessageDedupeCache(new ManualMonotonicClock()),
+                redactionScopeProvider);
 
             using (redactionScopeProvider.BeginScope(new[] { "secret-value", "secret-value-tail" }))
             {

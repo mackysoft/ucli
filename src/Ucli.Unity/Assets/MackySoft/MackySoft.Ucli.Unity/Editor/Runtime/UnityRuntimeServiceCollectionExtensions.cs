@@ -21,6 +21,7 @@ namespace MackySoft.Ucli.Unity.Runtime
                 throw new ArgumentNullException(nameof(services));
             }
 
+            services.AddSingleton<IMonotonicClock, StopwatchMonotonicClock>();
             services.AddSingleton(_ => new UnitySynchronizationContextRequestExecutor(
                 SynchronizationContext.Current,
                 Thread.CurrentThread.ManagedThreadId,

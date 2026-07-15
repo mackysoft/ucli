@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Runtime;
 
 #nullable enable
 
@@ -23,18 +24,18 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
         private readonly int maxEntries;
 
-        private readonly Func<DateTimeOffset> utcNowProvider;
+        private readonly IMonotonicClock monotonicClock;
 
         /// <summary> Initializes a new instance of the <see cref="InMemoryExecuteRequestIdempotencyStore" /> class. </summary>
         /// <param name="cacheTtl"> The cache TTL duration. Must be greater than <see cref="TimeSpan.Zero" />. </param>
         /// <param name="maxEntries"> The maximum number of completed entries retained in memory. Must be greater than zero. </param>
-        /// <param name="utcNowProvider"> The UTC clock provider. </param>
+        /// <param name="monotonicClock"> The monotonic process-time source. </param>
         /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="cacheTtl" /> or <paramref name="maxEntries" /> is invalid. </exception>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="utcNowProvider" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="monotonicClock" /> is <see langword="null" />. </exception>
         public InMemoryExecuteRequestIdempotencyStore (
             TimeSpan cacheTtl,
             int maxEntries,
-            Func<DateTimeOffset> utcNowProvider)
+            IMonotonicClock monotonicClock)
         {
             if (cacheTtl <= TimeSpan.Zero)
             {
@@ -48,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
             this.cacheTtl = cacheTtl;
             this.maxEntries = maxEntries;
-            this.utcNowProvider = utcNowProvider ?? throw new ArgumentNullException(nameof(utcNowProvider));
+            this.monotonicClock = monotonicClock ?? throw new ArgumentNullException(nameof(monotonicClock));
         }
 
         /// <summary> Acquires one idempotency decision for an incoming request-id and fingerprint. </summary>
@@ -65,11 +66,10 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                 throw new ArgumentNullException(nameof(requestFingerprint));
             }
 
-            var nowUtc = utcNowProvider();
-
             lock (syncRoot)
             {
-                EvictExpiredEntries(nowUtc);
+                var monotonicNow = monotonicClock.Elapsed;
+                EvictExpiredEntries(monotonicNow);
 
                 if (completedEntries.TryGetValue(requestId, out var completedEntry))
                 {
@@ -117,7 +117,6 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                 throw new ArgumentNullException(nameof(response));
             }
 
-            var createdAtUtc = utcNowProvider();
             lock (syncRoot)
             {
                 if (!inFlightEntries.TryGetValue(requestId, out var inFlightEntry))
@@ -126,7 +125,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                 }
 
                 inFlightEntries.Remove(requestId);
-                SaveCompletedEntry(requestId, requestFingerprint, response, createdAtUtc);
+                SaveCompletedEntry(requestId, requestFingerprint, response, monotonicClock.Elapsed);
                 inFlightEntry.CompletionSource.TrySetResult(response);
             }
         }
@@ -176,12 +175,12 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="requestId"> The request identifier. </param>
         /// <param name="requestFingerprint"> The request fingerprint. </param>
         /// <param name="response"> The completed response. </param>
-        /// <param name="createdAtUtc"> The completion timestamp in UTC. </param>
+        /// <param name="completedAtMonotonicTime"> The monotonic completion time. </param>
         private void SaveCompletedEntry (
             Guid requestId,
             Sha256Digest requestFingerprint,
             IpcResponse response,
-            DateTimeOffset createdAtUtc)
+            TimeSpan completedAtMonotonicTime)
         {
             if (completedEntries.TryGetValue(requestId, out var existingEntry))
             {
@@ -192,14 +191,14 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             completedEntries[requestId] = new CompletedEntry(
                 RequestFingerprint: requestFingerprint,
                 Response: response,
-                ExpiresAtUtc: createdAtUtc.Add(cacheTtl),
+                CompletedAtMonotonicTime: completedAtMonotonicTime,
                 OrderNode: orderNode);
             EvictOverflowEntries();
         }
 
         /// <summary> Evicts expired completed entries in chronological insertion order. </summary>
-        /// <param name="nowUtc"> The current UTC timestamp. </param>
-        private void EvictExpiredEntries (DateTimeOffset nowUtc)
+        /// <param name="monotonicNow"> The current monotonic process time. </param>
+        private void EvictExpiredEntries (TimeSpan monotonicNow)
         {
             while (completedOrder.First != null)
             {
@@ -210,7 +209,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                     continue;
                 }
 
-                if (nowUtc <= entry.ExpiresAtUtc)
+                if (monotonicNow - entry.CompletedAtMonotonicTime < cacheTtl)
                 {
                     break;
                 }
@@ -241,12 +240,12 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <summary> Represents one completed response cache entry keyed by request-id. </summary>
         /// <param name="RequestFingerprint"> The fingerprint used by the completed request. </param>
         /// <param name="Response"> The completed response envelope. </param>
-        /// <param name="ExpiresAtUtc"> The expiration timestamp in UTC. </param>
+        /// <param name="CompletedAtMonotonicTime"> The monotonic process time when the response completed. </param>
         /// <param name="OrderNode"> The insertion-order linked-list node. </param>
         private sealed record CompletedEntry (
             Sha256Digest RequestFingerprint,
             IpcResponse Response,
-            DateTimeOffset ExpiresAtUtc,
+            TimeSpan CompletedAtMonotonicTime,
             LinkedListNode<Guid> OrderNode);
     }
 }

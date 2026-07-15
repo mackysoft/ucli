@@ -843,7 +843,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UnityLogCaptureService(new UnityLogCollector(
                 new UnityLogRingBuffer(),
-                new UnityCompileMessageDedupeCache(),
+                new UnityCompileMessageDedupeCache(new ManualMonotonicClock()),
                 new UnityLogRedactionScopeProvider()));
         }
 

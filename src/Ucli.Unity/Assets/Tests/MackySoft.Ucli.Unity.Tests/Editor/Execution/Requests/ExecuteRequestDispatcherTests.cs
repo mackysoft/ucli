@@ -1612,7 +1612,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 new ExecuteRequestIdempotencyCoordinator(new InMemoryExecuteRequestIdempotencyStore(
                     ExecuteRequestIdempotencyCoordinator.DefaultCacheTtl,
                     ExecuteRequestIdempotencyCoordinator.DefaultMaxEntries,
-                    static () => DateTimeOffset.UtcNow)),
+                    new ManualMonotonicClock())),
                 readinessGate ?? new StubUnityEditorReadinessGate());
         }
 
