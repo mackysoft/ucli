@@ -1,6 +1,6 @@
 interface:
   display_name: "C# Authoring Rules"
-  short_description: "C# のコードを実装、修正、レビューするときに、設計と実装の判断規則を適用する。責務境界、公開契約、依存性注入、非同期 API、CancellationToken、例外、リソースとイベントの寿命、現在の C# の書き方、テスト容易性、割り当ての判断で使う。"
+  short_description: "C# のコードを実装、修正、レビューするときに、責務と契約の境界、既存実装への収束、依存関係、例外、非同期処理、リソースの寿命、言語機能、テスト容易性、性能の判断規則を適用する。"
   default_prompt: "Use $csharp-authoring-rules to follow the C# Authoring Rules workflow."
 
 policy:
