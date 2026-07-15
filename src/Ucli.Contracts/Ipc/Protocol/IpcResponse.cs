@@ -39,28 +39,14 @@ public sealed record IpcResponse
             throw new ArgumentException("IPC response payload must be specified.", nameof(payload));
         }
 
-        if (errors == null)
-        {
-            throw new ArgumentNullException(nameof(errors));
-        }
+        var errorSnapshot = ContractArgumentGuard.RequireItems(errors, nameof(errors));
 
-        var errorSnapshot = errors.ToArray();
-        for (var index = 0; index < errorSnapshot.Length; index++)
-        {
-            var error = errorSnapshot[index];
-            if (error == null)
-            {
-                throw new ArgumentException("IPC response errors must not contain null entries.", nameof(errors));
-            }
-
-        }
-
-        if (status == IpcResponseStatus.Ok && errorSnapshot.Length != 0)
+        if (status == IpcResponseStatus.Ok && errorSnapshot.Count != 0)
         {
             throw new ArgumentException("Successful IPC responses must not contain errors.", nameof(errors));
         }
 
-        if (status == IpcResponseStatus.Error && errorSnapshot.Length == 0)
+        if (status == IpcResponseStatus.Error && errorSnapshot.Count == 0)
         {
             throw new ArgumentException("Failed IPC responses must contain at least one error.", nameof(errors));
         }
@@ -74,7 +60,7 @@ public sealed record IpcResponse
         RequestId = requestId;
         Status = status;
         Payload = payload;
-        Errors = Array.AsReadOnly(errorSnapshot);
+        Errors = errorSnapshot;
     }
 
     /// <summary> Gets the protocol version used by the response. </summary>
