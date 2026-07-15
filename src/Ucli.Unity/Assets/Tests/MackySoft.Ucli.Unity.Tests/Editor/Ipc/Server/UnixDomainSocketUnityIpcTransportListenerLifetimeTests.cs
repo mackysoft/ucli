@@ -27,6 +27,11 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator Run_WhenReservedGenerationFailsValidation_ReleasesReservation () => UniTask.ToCoroutine(async () =>
         {
+            if (Application.platform == RuntimePlatform.WindowsEditor)
+            {
+                return;
+            }
+
             var fallbackPath = new UnixSocketFallbackPath(
                 Path.GetTempPath(),
                 UnixSocketFallbackPurpose.Daemon,

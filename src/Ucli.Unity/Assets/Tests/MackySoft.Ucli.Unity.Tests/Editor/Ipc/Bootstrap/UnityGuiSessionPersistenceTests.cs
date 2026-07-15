@@ -574,8 +574,11 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator PrepareAndPublish_WhenCurrentProcessGuiSessionUsesUnexpectedUnixEndpoint_DoesNotDeleteEndpointResidue () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
-            var unexpectedEndpointPath = CreateShortUnixSocketPath();
-            var expectedEndpointPath = CreateShortUnixSocketPath();
+            var endpointDirectoryAddress = CreateUnixEndpointFixtureDirectoryAddress();
+            var endpointDirectoryPath = Path.GetFullPath(endpointDirectoryAddress);
+            var unexpectedEndpointAddress = $"{endpointDirectoryAddress}/unexpected.sock";
+            var unexpectedEndpointPath = Path.GetFullPath(unexpectedEndpointAddress);
+            var expectedEndpointAddress = $"{endpointDirectoryAddress}/expected.sock";
             try
             {
                 var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, ProjectFingerprint);
@@ -596,7 +599,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         OwnerKind: DaemonSessionOwnerKind.User,
                         CanShutdownProcess: false,
                         EndpointTransportKind: IpcTransportKind.UnixDomainSocket,
-                        EndpointAddress: unexpectedEndpointPath,
+                        EndpointAddress: unexpectedEndpointAddress,
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
                         OwnerProcessId: currentProcess.Id,
@@ -608,7 +611,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     await PrepareAndPublishSessionAsync(
                         storageRoot,
                         UnityGuiBootstrapSessionOptions.Create(null),
-                        new IpcEndpoint(IpcTransportKind.UnixDomainSocket, expectedEndpointPath),
+                        new IpcEndpoint(IpcTransportKind.UnixDomainSocket, expectedEndpointAddress),
                         UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
                 }
                 catch (InvalidOperationException caughtException)
@@ -620,12 +623,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(File.Exists(unexpectedEndpointPath), Is.True);
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SessionToken, Is.EqualTo("existing-current-process-token"));
-                Assert.That(contract.EndpointAddress, Is.EqualTo(unexpectedEndpointPath));
+                Assert.That(contract.EndpointAddress, Is.EqualTo(unexpectedEndpointAddress));
             }
             finally
             {
-                DeleteFile(unexpectedEndpointPath);
-                DeleteFile(expectedEndpointPath);
+                DeleteDirectory(endpointDirectoryPath);
                 DeleteDirectory(storageRoot);
             }
         });
@@ -691,13 +693,16 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Delete_WhenSessionWasReplaced_LeavesCurrentSessionAndEndpointResidue () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
-            var endpointResiduePath = CreateShortUnixSocketPath();
+            var endpointDirectoryAddress = CreateUnixEndpointFixtureDirectoryAddress();
+            var endpointDirectoryPath = Path.GetFullPath(endpointDirectoryAddress);
+            var endpointResidueAddress = $"{endpointDirectoryAddress}/endpoint.sock";
+            var endpointResiduePath = Path.GetFullPath(endpointResidueAddress);
             try
             {
                 var registration = await PrepareAndPublishSessionAsync(
                     storageRoot,
                     UnityGuiBootstrapSessionOptions.Create(null),
-                    new IpcEndpoint(IpcTransportKind.UnixDomainSocket, endpointResiduePath),
+                    new IpcEndpoint(IpcTransportKind.UnixDomainSocket, endpointResidueAddress),
                     UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
                 File.WriteAllText(endpointResiduePath, "socket residue placeholder");
                 var originalContract = ReadSessionContract(storageRoot);
@@ -725,7 +730,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             finally
             {
-                DeleteFile(endpointResiduePath);
+                DeleteDirectory(endpointDirectoryPath);
                 DeleteDirectory(storageRoot);
             }
         });
@@ -808,9 +813,11 @@ namespace MackySoft.Ucli.Unity.Tests
             return Path.Combine(Path.GetTempPath(), $"ucli-gui-session-tests-{Guid.NewGuid():N}");
         }
 
-        private static string CreateShortUnixSocketPath ()
+        private static string CreateUnixEndpointFixtureDirectoryAddress ()
         {
-            return $"/tmp/ucli-{Guid.NewGuid():N}.sock";
+            var directoryAddress = $"/tmp/ucli-gui-session-{Guid.NewGuid():N}";
+            Directory.CreateDirectory(Path.GetFullPath(directoryAddress));
+            return directoryAddress;
         }
 
         private static IpcSessionToken ParseSessionToken (string value)
@@ -827,12 +834,5 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private static void DeleteFile (string path)
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
     }
 }
