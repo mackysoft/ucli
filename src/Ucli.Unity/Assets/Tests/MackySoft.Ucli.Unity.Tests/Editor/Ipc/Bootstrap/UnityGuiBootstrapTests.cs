@@ -1,14 +1,17 @@
 using System;
 using System.Collections;
 using System.IO;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
+using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
@@ -17,6 +20,22 @@ namespace MackySoft.Ucli.Unity.Tests
     public sealed class UnityGuiBootstrapTests
     {
         private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+        private static readonly Guid LifecycleSidecarGenerationId =
+            Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+        [Test]
+        [Category("Size.Small")]
+        public void StartingGeneration_WhenLifecycleSidecarGenerationIdIsEmpty_ThrowsArgumentException ()
+        {
+            var exception = Assert.Throws<ArgumentException>(() => new UnityGuiBootstrap.StartingGuiBootstrapState(
+                CancellationToken.None,
+                EditorInstanceId,
+                Guid.Empty,
+                NoOpDaemonLogger.Instance));
+
+            Assert.That(exception.ParamName, Is.EqualTo("lifecycleSidecarGenerationId"));
+        }
 
         [UnityTest]
         [Category("Size.Small")]
@@ -111,19 +130,22 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         });
 
-        [TestCase((int)UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession, false, false)]
-        [TestCase((int)UnityGuiSessionReplacementScope.AnyCurrentProcessSession, false, true)]
-        [TestCase((int)UnityGuiSessionReplacementScope.AnyCurrentProcessSession, true, false)]
+        [TestCase((int)UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession, false, false, false)]
+        [TestCase((int)UnityGuiSessionReplacementScope.AnyCurrentProcessSession, false, false, true)]
+        [TestCase((int)UnityGuiSessionReplacementScope.AnyCurrentProcessSession, true, false, false)]
+        [TestCase((int)UnityGuiSessionReplacementScope.AnyCurrentProcessSession, false, true, false)]
         [Category("Size.Small")]
         public void CanReplaceActiveSession_RequiresExplicitScopeAndIdleMutationLane (
             int replacementScopeValue,
             bool isMutationBusy,
+            bool hasUnfinishedWork,
             bool expected)
         {
             Assert.That(
                 UnityGuiBootstrap.CanReplaceActiveSession(
                     (UnityGuiSessionReplacementScope)replacementScopeValue,
-                    isMutationBusy),
+                    isMutationBusy,
+                    hasUnfinishedWork),
                 Is.EqualTo(expected));
         }
 
@@ -142,6 +164,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 await UnityGuiBootstrap.CleanupFailedStartAsync(
                     registration,
                     server,
+                    null,
                     logCapture,
                     serviceProvider,
                     NoOpDaemonLogger.Instance);
@@ -169,6 +192,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 await UnityGuiBootstrap.CleanupFailedStartAsync(
                     registration,
                     server: null,
+                    lifecycleSidecarWriter: null,
                     unityLogCaptureService: null,
                     serviceProvider: new SpyServiceProvider(throwOnDispose: true),
                     daemonLogger: NoOpDaemonLogger.Instance);
@@ -196,6 +220,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var stoppedSafely = await UnityGuiBootstrap.CleanupFailedStartAsync(
                     registration,
                     server,
+                    null,
                     logCapture,
                     serviceProvider,
                     NoOpDaemonLogger.Instance);
@@ -222,6 +247,288 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 DeleteDirectory(storageRoot);
             }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator CleanupFailedStart_WhenMutationHasNotRetired_ReturnsWithoutDisposingProviderAndReleasesItAfterRetirement () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            var mutationLane = new DeferredRetirementMutationLaneControl();
+            try
+            {
+                var registration = await PrepareAndPublishSessionAsync(storageRoot);
+                var server = new SpyUnityIpcServer();
+                var logCapture = new SpyDisposable();
+                var serviceProvider = new SpyServiceProvider(mutationLaneControl: mutationLane);
+
+                var cleanupTask = UnityGuiBootstrap.CleanupFailedStartAsync(
+                    registration,
+                    server,
+                    null,
+                    logCapture,
+                    serviceProvider,
+                    NoOpDaemonLogger.Instance);
+
+                var stoppedSafely = await TestAwaiter.WaitAsync(
+                    cleanupTask.AsUniTask(),
+                    "Bounded failed-start mutation retirement",
+                    TimeSpan.FromSeconds(2));
+
+                Assert.That(stoppedSafely, Is.False);
+                Assert.That(server.StopCallCount, Is.EqualTo(1));
+                Assert.That(File.Exists(registration.SessionPath), Is.False);
+                Assert.That(logCapture.DisposeCallCount, Is.Zero);
+                Assert.That(serviceProvider.DisposeCallCount, Is.Zero);
+
+                mutationLane.CompleteRetirement();
+                await TestAwaiter.WaitAsync(
+                    UniTask.WaitUntil(() => serviceProvider.DisposeCallCount == 1),
+                    "Deferred failed-start resource release",
+                    TimeSpan.FromSeconds(5));
+                Assert.That(logCapture.DisposeCallCount, Is.EqualTo(1));
+                Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                mutationLane.CompleteRetirement();
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator StopAndRebootstrap_WhenOldSidecarWriteIgnoresCancellation_KeepsSuccessorFencedUntilWriterStops () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            var sharedState = new SharedLifecycleSidecarState();
+            var oldPersistence = new ControllableLifecycleSidecarPersistence(
+                sharedState,
+                delaySecondWrite: true,
+                failDeletion: false);
+            var oldWriter = new UnityLifecycleSidecarWriter(oldPersistence);
+            var oldInitialObservation = CreateReadyObservation(
+                new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero),
+                generation: 1);
+            var delayedOldObservation = CreateReadyObservation(
+                new DateTimeOffset(2026, 7, 14, 0, 0, 1, TimeSpan.Zero),
+                generation: 1);
+            await oldWriter.InitializeAsync(
+                oldInitialObservation,
+                oldInitialObservation.ObservedAtUtc,
+                CancellationToken.None);
+            Assert.That(
+                oldWriter.TryEnqueue(
+                    delayedOldObservation,
+                    delayedOldObservation.ObservedAtUtc,
+                    out _),
+                Is.True);
+            await TestAwaiter.WaitAsync(
+                oldPersistence.DelayedWriteStarted,
+                "Old generation sidecar write start",
+                TimeSpan.FromSeconds(5));
+            var mutationLane = new ImmediateUnityMutationLaneControl();
+            var serviceProvider = new SpyServiceProvider(mutationLaneControl: mutationLane);
+            var availabilityObservationSource = new StaticAvailabilityObservationSource(oldInitialObservation);
+            var mutationExecutionStartSource = new StubMutationRequestExecutionStartSource();
+            var sidecarObserver = new UnityMutationLifecycleSidecarObserver(
+                mutationExecutionStartSource,
+                availabilityObservationSource,
+                oldWriter,
+                NoOpDaemonLogger.Instance);
+            var logCaptureService = CreateUnityLogCaptureService();
+            var activeStateField = GetGuiBootstrapStateField("activeState");
+            var stoppingStateField = GetGuiBootstrapStateField("stoppingState");
+            Assert.That(activeStateField.GetValue(null), Is.Null);
+            Assert.That(stoppingStateField.GetValue(null), Is.Null);
+
+            try
+            {
+                var registration = await PrepareAndPublishSessionAsync(storageRoot);
+                var activeState = CreateActiveGuiBootstrapState(
+                    registration,
+                    new SpyUnityIpcServer(),
+                    logCaptureService,
+                    serviceProvider,
+                    availabilityObservationSource,
+                    mutationLane,
+                    sidecarObserver,
+                    oldWriter);
+                activeStateField.SetValue(null, activeState);
+
+                await TestAwaiter.WaitAsync(
+                    UnityGuiBootstrap.StopAsync(CancellationToken.None).AsUniTask(),
+                    "Bounded old sidecar writer stop",
+                    TimeSpan.FromSeconds(5));
+                var oldStopTask = oldWriter.StopAsync(CancellationToken.None);
+                var rebootstrapResult = await UnityGuiBootstrap.StartAsync(
+                    bootstrapArguments: null,
+                    UnityGuiSessionReplacementScope.AnyCurrentProcessSession,
+                    CancellationToken.None);
+
+                Assert.That(oldStopTask.IsCompleted, Is.False);
+                Assert.That(stoppingStateField.GetValue(null), Is.SameAs(activeState));
+                Assert.That(rebootstrapResult.IsSuccess, Is.False);
+                Assert.That(rebootstrapResult.ErrorMessage, Does.Contain("still retiring"));
+                Assert.That(sharedState.LatestObservation, Is.SameAs(oldInitialObservation));
+
+                oldPersistence.ReleaseDelayedWrite();
+                await TestAwaiter.WaitAsync(
+                    oldStopTask,
+                    "Old sidecar writer retirement",
+                    TimeSpan.FromSeconds(5));
+                await TestAwaiter.WaitAsync(
+                    UniTask.WaitUntil(() => stoppingStateField.GetValue(null) == null),
+                    "Old GUI generation fence release",
+                    TimeSpan.FromSeconds(5));
+
+                var successorEndpoint = new IpcEndpoint(
+                    IpcTransportKind.NamedPipe,
+                    "ucli-gui-bootstrap-fenced-successor");
+                using var successorSession = await UnityGuiSessionPersistence.PrepareAsync(
+                    storageRoot,
+                    ProjectFingerprintTestFactory.Create("fingerprint-fenced-successor"),
+                    successorEndpoint,
+                    UnityGuiBootstrapSessionOptions.Create(null),
+                    EditorInstanceId,
+                    UnityGuiSessionReplacementScope.AnyCurrentProcessSession,
+                    CancellationToken.None);
+                var successorServer = new SpyUnityIpcServer();
+                var successorStart = await UnityGuiBootstrap.StartServerAndPublishSessionAsync(
+                    successorServer,
+                    successorEndpoint,
+                    CancellationToken.None,
+                    static () => { },
+                    () => UnityGuiSessionPersistence.PublishAsync(
+                        successorSession,
+                        CancellationToken.None));
+                using var successorPublicationFence = successorStart.PublicationFence;
+                var successorOwnershipCommitted = false;
+                var successorStarted = successorPublicationFence.TryCommitActiveOwnership(
+                    () => successorOwnershipCommitted = true);
+
+                Assert.That(successorStarted, Is.True);
+                Assert.That(successorOwnershipCommitted, Is.True);
+                Assert.That(successorServer.StartCallCount, Is.EqualTo(1));
+                Assert.That(File.Exists(successorStart.Registration.SessionPath), Is.True);
+                Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                oldPersistence.ReleaseDelayedWrite();
+                await oldWriter.StopAsync(CancellationToken.None);
+                await UnityGuiBootstrap.StopAsync(CancellationToken.None);
+                activeStateField.SetValue(null, null);
+                stoppingStateField.SetValue(null, null);
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ScheduleDomainReloadRecovery_PersistsLeaseForCurrentSessionGeneration () => UniTask.ToCoroutine(async () =>
+        {
+            var storageRoot = CreateStorageRoot();
+            UnityGuiSessionRegistration registration = null;
+            var sharedState = new SharedLifecycleSidecarState();
+            var persistence = new ControllableLifecycleSidecarPersistence(
+                sharedState,
+                delaySecondWrite: false,
+                failDeletion: false);
+            var writer = new UnityLifecycleSidecarWriter(persistence);
+            var readyObservation = CreateReadyObservation(
+                new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero),
+                generation: 1);
+            var sidecarObserver = new UnityMutationLifecycleSidecarObserver(
+                new StubMutationRequestExecutionStartSource(),
+                new StaticAvailabilityObservationSource(readyObservation),
+                writer,
+                NoOpDaemonLogger.Instance);
+
+            try
+            {
+                registration = await PrepareAndPublishSessionAsync(storageRoot);
+                await writer.InitializeAsync(
+                    readyObservation,
+                    readyObservation.ObservedAtUtc,
+                    CancellationToken.None);
+                var activeState = CreateActiveGuiBootstrapState(
+                    registration,
+                    new SpyUnityIpcServer(),
+                    CreateUnityLogCaptureService(),
+                    new SpyServiceProvider(),
+                    new StaticAvailabilityObservationSource(readyObservation),
+                    new ImmediateUnityMutationLaneControl(),
+                    sidecarObserver,
+                    writer);
+                var scheduleMethod = typeof(UnityGuiBootstrap).GetMethod(
+                                         "TryScheduleRecoveryLifecycleSidecarForDomainReload",
+                                         BindingFlags.Static | BindingFlags.NonPublic)
+                                     ?? throw new InvalidOperationException(
+                                         "Domain reload recovery scheduling method was not found.");
+                var arguments = new[] { activeState, (object)0L };
+
+                var scheduled = (bool)scheduleMethod.Invoke(null, arguments);
+                Assert.That(scheduled, Is.True);
+                var version = (long)arguments[1];
+                await writer.FlushAsync(version, CancellationToken.None);
+
+                Assert.That(
+                    sharedState.LatestObservation.State.LifecycleState,
+                    Is.EqualTo(IpcEditorLifecycleState.Recovering));
+                Assert.That(sharedState.LatestRecoveryLease, Is.Not.Null);
+                Assert.That(
+                    sharedState.LatestRecoveryLease.SessionGenerationId,
+                    Is.EqualTo(registration.SessionGenerationId));
+                Assert.That(
+                    sharedState.LatestRecoveryLease.ExpiresAtUtc - sharedState.LatestObservation.ObservedAtUtc,
+                    Is.EqualTo(DaemonLifecycleObservationTimings.DomainReloadRecoveryLeaseDuration));
+            }
+            finally
+            {
+                sidecarObserver.Dispose();
+                await writer.StopAsync(CancellationToken.None);
+                if (registration != null)
+                {
+                    UnityGuiSessionPersistence.Delete(registration);
+                }
+
+                DeleteDirectory(storageRoot);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator CleanupFailedStart_WhenStoppedSidecarInvalidationFails_DoesNotBlockReplacement () => UniTask.ToCoroutine(async () =>
+        {
+            var persistence = new ControllableLifecycleSidecarPersistence(
+                new SharedLifecycleSidecarState(),
+                delaySecondWrite: false,
+                failDeletion: true);
+            var writer = new UnityLifecycleSidecarWriter(persistence);
+            var initialObservation = CreateReadyObservation(
+                new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero),
+                generation: 1);
+            await writer.InitializeAsync(
+                initialObservation,
+                initialObservation.ObservedAtUtc,
+                CancellationToken.None);
+            var serviceProvider = new SpyServiceProvider();
+
+            var stoppedSafely = await UnityGuiBootstrap.CleanupFailedStartAsync(
+                registration: null,
+                server: new SpyUnityIpcServer(),
+                lifecycleSidecarWriter: writer,
+                unityLogCaptureService: null,
+                serviceProvider,
+                daemonLogger: NoOpDaemonLogger.Instance);
+
+            Assert.That(stoppedSafely, Is.True);
+            Assert.That(serviceProvider.DisposeCallCount, Is.EqualTo(1));
+            await TestAwaiter.WaitAsync(
+                UniTask.WaitUntil(() => persistence.DeleteCount == 3),
+                "Owned sidecar invalidation retries",
+                TimeSpan.FromSeconds(5));
         });
 
         [UnityTest]
@@ -314,6 +621,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var state = new UnityGuiBootstrap.StartingGuiBootstrapState(
                     CancellationToken.None,
                     EditorInstanceId,
+                    LifecycleSidecarGenerationId,
                     NoOpDaemonLogger.Instance);
                 var publicationCompletionSource = new TaskCompletionSource<UnityGuiSessionRegistration>(
                     TaskCreationOptions.RunContinuationsAsynchronously);
@@ -361,6 +669,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var state = new UnityGuiBootstrap.StartingGuiBootstrapState(
                 CancellationToken.None,
                 EditorInstanceId,
+                LifecycleSidecarGenerationId,
                 NoOpDaemonLogger.Instance);
             var server = new SpyUnityIpcServer();
             var logCapture = new SpyDisposable();
@@ -442,23 +751,30 @@ namespace MackySoft.Ucli.Unity.Tests
                     validator,
                     new UnexpectedMethodDispatcher(),
                     NoOpDaemonLogger.Instance);
-                var previousGenerationPing = new IpcRequest(
+                var previousGenerationPing = new IpcRequestEnvelope(
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: Guid.NewGuid(),
                     sessionToken: previousRegistration.SessionToken.GetEncodedValue(),
                     method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
                     payload: IpcPayloadCodec.SerializeToElement(new IpcPingRequest("tests")),
-                    responseMode: "single");
+                    responseMode: "single",
+                    requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                    requestDeadlineRemainingMilliseconds: 30_000);
 
-                var previousGenerationResponse = await requestHandler.HandleAsync(
+                using var phaseScope = new IpcRequestPhaseScopeFactory().Create(
                     previousGenerationPing,
-                    CancellationToken.None);
+                    CancellationToken.None,
+                    TimeSpan.FromSeconds(1));
+                var previousGenerationValidation = await requestHandler.ValidateAsync(
+                    previousGenerationPing,
+                    phaseScope);
+                var previousGenerationResponse = previousGenerationValidation.ErrorResponse;
                 var replacementTokenAccepted = await validator.ValidateAsync(
-                    replacementSession.Registration.SessionToken.GetEncodedValue(),
+                    replacementSession.Registration.SessionToken,
                     CancellationToken.None);
 
                 Assert.That(File.Exists(previousRegistration.SessionPath), Is.True);
-                Assert.That(previousGenerationResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(previousGenerationResponse.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(previousGenerationResponse.Errors.Count, Is.EqualTo(1));
                 Assert.That(
                     previousGenerationResponse.Errors[0].Code,
@@ -477,6 +793,60 @@ namespace MackySoft.Ucli.Unity.Tests
             return Path.Combine(Path.GetTempPath(), $"ucli-gui-bootstrap-tests-{Guid.NewGuid():N}");
         }
 
+        private static FieldInfo GetGuiBootstrapStateField (string fieldName)
+        {
+            return typeof(UnityGuiBootstrap).GetField(
+                       fieldName,
+                       BindingFlags.Static | BindingFlags.NonPublic)
+                   ?? throw new InvalidOperationException(
+                       $"Unity GUI bootstrap state field '{fieldName}' was not found.");
+        }
+
+        private static object CreateActiveGuiBootstrapState (
+            UnityGuiSessionRegistration registration,
+            IUnityIpcServer server,
+            UnityLogCaptureService unityLogCaptureService,
+            IServiceProvider serviceProvider,
+            IUnityEditorAvailabilityObservationSource availabilityObservationSource,
+            IUnityMutationLaneControl mutationLaneControl,
+            UnityMutationLifecycleSidecarObserver mutationLifecycleSidecarObserver,
+            UnityLifecycleSidecarWriter lifecycleSidecarWriter)
+        {
+            var stateType = typeof(UnityGuiBootstrap).GetNestedType(
+                                "ActiveGuiBootstrapState",
+                                BindingFlags.NonPublic)
+                            ?? throw new InvalidOperationException(
+                                "Unity GUI active bootstrap state type was not found.");
+            return Activator.CreateInstance(
+                       stateType,
+                       BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                       binder: null,
+                       args: new object[]
+                       {
+                           registration,
+                           server,
+                           new DaemonShutdownSignal(),
+                           unityLogCaptureService,
+                           serviceProvider,
+                           NoOpDaemonLogger.Instance,
+                           availabilityObservationSource,
+                           mutationLaneControl,
+                           mutationLifecycleSidecarObserver,
+                           lifecycleSidecarWriter,
+                       },
+                       culture: null)
+                   ?? throw new InvalidOperationException(
+                       "Unity GUI active bootstrap state could not be created.");
+        }
+
+        private static UnityLogCaptureService CreateUnityLogCaptureService ()
+        {
+            return new UnityLogCaptureService(new UnityLogCollector(
+                new UnityLogRingBuffer(),
+                new UnityCompileMessageDedupeCache(),
+                new UnityLogRedactionScopeProvider()));
+        }
+
         private static async UniTask<UnityGuiSessionRegistration> PrepareAndPublishSessionAsync (string storageRoot)
         {
             using var preparedSession = await UnityGuiSessionPersistence.PrepareAsync(
@@ -490,11 +860,157 @@ namespace MackySoft.Ucli.Unity.Tests
             return await UnityGuiSessionPersistence.PublishAsync(preparedSession, CancellationToken.None);
         }
 
+        private static UnityEditorObservation CreateReadyObservation (
+            DateTimeOffset observedAtUtc,
+            long generation)
+        {
+            return new UnityEditorObservation(
+                state: new UnityEditorStateSnapshot(
+                    editorMode: DaemonEditorMode.Gui,
+                    lifecycleState: IpcEditorLifecycleState.Ready,
+                    compileState: IpcCompileState.Ready,
+                    generations: new IpcUnityGenerationSnapshot(generation, generation, 0, 0),
+                    playMode: new IpcPlayModeSnapshot(
+                        IpcPlayModeState.Stopped,
+                        IpcPlayModeTransition.None,
+                        IsPlaying: false,
+                        IsPlayingOrWillChangePlaymode: false)),
+                observedAtUtc);
+        }
+
         private static void DeleteDirectory (string storageRoot)
         {
             if (Directory.Exists(storageRoot))
             {
                 Directory.Delete(storageRoot, recursive: true);
+            }
+        }
+
+        private sealed class SharedLifecycleSidecarState
+        {
+            private readonly object syncRoot = new object();
+
+            private UnityEditorObservation latestObservation;
+
+            private DaemonLifecycleRecoveryLease latestRecoveryLease;
+
+            public UnityEditorObservation LatestObservation
+            {
+                get
+                {
+                    lock (syncRoot)
+                    {
+                        return latestObservation;
+                    }
+                }
+            }
+
+            public DaemonLifecycleRecoveryLease LatestRecoveryLease
+            {
+                get
+                {
+                    lock (syncRoot)
+                    {
+                        return latestRecoveryLease;
+                    }
+                }
+            }
+
+            public void Write (
+                UnityEditorObservation observation,
+                DaemonLifecycleRecoveryLease recoveryLease)
+            {
+                lock (syncRoot)
+                {
+                    latestObservation = observation;
+                    latestRecoveryLease = recoveryLease;
+                }
+            }
+        }
+
+        private sealed class ControllableLifecycleSidecarPersistence : IUnityLifecycleSidecarPersistence
+        {
+            private readonly SharedLifecycleSidecarState sharedState;
+
+            private readonly bool delaySecondWrite;
+
+            private readonly bool failDeletion;
+
+            private readonly TaskCompletionSource<bool> delayedWriteStartedSource =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly TaskCompletionSource<bool> delayedWriteReleaseSource =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private int writeCount;
+
+            private int deleteCount;
+
+            public ControllableLifecycleSidecarPersistence (
+                SharedLifecycleSidecarState sharedState,
+                bool delaySecondWrite,
+                bool failDeletion)
+            {
+                this.sharedState = sharedState ?? throw new ArgumentNullException(nameof(sharedState));
+                this.delaySecondWrite = delaySecondWrite;
+                this.failDeletion = failDeletion;
+            }
+
+            public Task DelayedWriteStarted => delayedWriteStartedSource.Task;
+
+            public int DeleteCount => Volatile.Read(ref deleteCount);
+
+            public async Task WriteAsync (
+                UnityEditorObservation snapshot,
+                DaemonLifecycleRecoveryLease recoveryLease,
+                CancellationToken cancellationToken)
+            {
+                var currentWriteCount = Interlocked.Increment(ref writeCount);
+                if (delaySecondWrite && currentWriteCount == 2)
+                {
+                    delayedWriteStartedSource.TrySetResult(true);
+                    await delayedWriteReleaseSource.Task;
+                }
+
+                sharedState.Write(snapshot, recoveryLease);
+            }
+
+            public Task DeleteIfOwnedAsync (CancellationToken cancellationToken)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Interlocked.Increment(ref deleteCount);
+                return failDeletion
+                    ? Task.FromException(new IOException("sidecar invalidation failed"))
+                    : Task.CompletedTask;
+            }
+
+            public void ReleaseDelayedWrite ()
+            {
+                delayedWriteReleaseSource.TrySetResult(true);
+            }
+        }
+
+        private sealed class StubMutationRequestExecutionStartSource : IUnityMutationRequestExecutionStartSource
+        {
+            public event Func<CancellationToken, Task> RequestExecutionStarting
+            {
+                add { }
+                remove { }
+            }
+        }
+
+        private sealed class StaticAvailabilityObservationSource : IUnityEditorAvailabilityObservationSource
+        {
+            private readonly UnityEditorObservation observation;
+
+            public StaticAvailabilityObservationSource (UnityEditorObservation observation)
+            {
+                this.observation = observation ?? throw new ArgumentNullException(nameof(observation));
+            }
+
+            public UnityEditorObservation CaptureAvailabilityObservation ()
+            {
+                return observation;
             }
         }
 
@@ -591,16 +1107,16 @@ namespace MackySoft.Ucli.Unity.Tests
         private sealed class UnexpectedMethodDispatcher : IUnityIpcMethodDispatcher
         {
             public Task<IpcResponse> DispatchAsync (
-                IpcRequest request,
-                CancellationToken cancellationToken = default)
+                ValidatedUnityIpcRequest request,
+                IpcRequestPhaseScope phaseScope)
             {
                 throw new InvalidOperationException("An unauthorized request must not be dispatched.");
             }
 
             public Task<IpcResponse> DispatchStreamingAsync (
-                IpcRequest request,
+                ValidatedUnityIpcRequest request,
                 IIpcStreamFrameWriter streamWriter,
-                CancellationToken cancellationToken = default)
+                IpcRequestPhaseScope phaseScope)
             {
                 throw new InvalidOperationException("An unauthorized request must not be dispatched.");
             }
@@ -623,9 +1139,14 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             private readonly bool throwOnDispose;
 
-            public SpyServiceProvider (bool throwOnDispose = false)
+            private readonly IUnityMutationLaneControl mutationLaneControl;
+
+            public SpyServiceProvider (
+                bool throwOnDispose = false,
+                IUnityMutationLaneControl mutationLaneControl = null)
             {
                 this.throwOnDispose = throwOnDispose;
+                this.mutationLaneControl = mutationLaneControl;
             }
 
             public int DisposeCallCount { get; private set; }
@@ -634,7 +1155,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public object GetService (Type serviceType)
             {
-                return null;
+                return serviceType == typeof(IUnityMutationLaneControl)
+                    ? mutationLaneControl
+                    : null;
             }
 
             public void Dispose ()
@@ -645,6 +1168,43 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     throw new InvalidOperationException("dispose failed");
                 }
+            }
+        }
+
+        private sealed class DeferredRetirementMutationLaneControl : IUnityMutationLaneControl
+        {
+            private readonly TaskCompletionSource<bool> retirementCompletionSource =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public bool IsBusy => true;
+
+            public bool HasUnfinishedWork => !retirementCompletionSource.Task.IsCompleted;
+
+            public bool IsQuarantined => true;
+
+            public IUnityMutationActivity BeginMutation ()
+            {
+                throw new InvalidOperationException("Retirement test must not begin a mutation.");
+            }
+
+            public void Quarantine (string reason, Task mutationCompletion)
+            {
+                throw new InvalidOperationException("Retirement test must not quarantine the lane.");
+            }
+
+            public bool TrySealAdmissionForRetirement (out IDisposable admissionSeal)
+            {
+                throw new InvalidOperationException("Retirement test must not seal admission.");
+            }
+
+            public Task WaitForRetirementAsync ()
+            {
+                return retirementCompletionSource.Task;
+            }
+
+            public void CompleteRetirement ()
+            {
+                retirementCompletionSource.TrySetResult(true);
             }
         }
     }

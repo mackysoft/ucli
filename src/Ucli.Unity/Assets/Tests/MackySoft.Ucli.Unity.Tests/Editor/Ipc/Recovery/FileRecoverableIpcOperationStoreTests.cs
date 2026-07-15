@@ -12,7 +12,6 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
 using NUnit.Framework;
@@ -44,6 +43,16 @@ namespace MackySoft.Ucli.Unity.Tests
                 Guid.Empty));
 
             Assert.That(exception.ParamName, Is.EqualTo("hostEditorInstanceId"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void State_WhenValueIsUndefined_ThrowsArgumentOutOfRangeException ()
+        {
+            var record = new RecoverableIpcOperationRecord();
+
+            Assert.Throws<ArgumentOutOfRangeException>(
+                () => record.State = (RecoverableIpcOperationState)999);
         }
 
         [UnityTest]
@@ -90,9 +99,9 @@ namespace MackySoft.Ucli.Unity.Tests
                     Path.GetFileName(Path.GetDirectoryName(recordPath)),
                     Is.EqualTo(requestId.ToString("N")));
                 Assert.That(readResult.Record.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
-                Assert.That(readResult.Record.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.PlayEnter)));
+                Assert.That(readResult.Record.Method, Is.EqualTo(UnityIpcMethod.PlayEnter));
                 Assert.That(readResult.Record.RequestId, Is.EqualTo(requestId));
-                Assert.That(readResult.Record.RequestPayloadHash, Is.EqualTo(RequestPayloadHash.ToString()));
+                Assert.That(readResult.Record.RequestPayloadHash, Is.EqualTo(RequestPayloadHash));
                 Assert.That(readResult.Record.HostEditorInstanceId, Is.EqualTo(EditorInstanceId));
                 Assert.That(readResult.Record.StartedAtUtc, Is.EqualTo(startedAtUtc));
                 Assert.That(readResult.Record.RecoveryPayload.GetRawText(), Is.EqualTo(payload.GetRawText()));
@@ -896,7 +905,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new IpcResponse(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
-                status: IpcProtocol.StatusOk,
+                status: IpcResponseStatus.Ok,
                 payload: IpcPayloadCodec.SerializeToElement(new { ok = true }),
                 errors: Array.Empty<IpcError>());
         }

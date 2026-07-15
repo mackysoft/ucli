@@ -22,15 +22,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 RepositoryRoot: storageRoot,
                 ProjectFingerprint: projectFingerprint,
                 SessionPath: UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint),
+                SessionGenerationId: Guid.Parse("11111111-1111-1111-1111-111111111111"),
                 SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-                EndpointTransportKind: "unixDomainSocket",
-                EndpointAddress: "/tmp/ucli.sock");
+                Endpoint: new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli.sock"));
 
             try
             {
                 DaemonDiagnosisPersistence.WriteAsync(
                         bootstrapArguments,
-                        DaemonDiagnosisReasonValues.ListenerTerminated,
+                        DaemonDiagnosisReason.ListenerTerminated,
                         "listener terminated",
                         CancellationToken.None)
                     .GetAwaiter()
@@ -42,9 +42,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 var json = File.ReadAllText(diagnosisPath);
                 var contract = DaemonDiagnosisJsonContractSerializer.Deserialize(json);
                 Assert.That(contract, Is.Not.Null);
-                Assert.That(contract!.Reason, Is.EqualTo(DaemonDiagnosisReasonValues.ListenerTerminated));
+                Assert.That(contract!.Reason, Is.EqualTo(DaemonDiagnosisReason.ListenerTerminated));
                 Assert.That(contract.Message, Is.EqualTo("listener terminated"));
-                Assert.That(contract.ReportedBy, Is.EqualTo(DaemonDiagnosisReportedByValues.Unity));
+                Assert.That(contract.ReportedBy, Is.EqualTo(DaemonDiagnosisReportedBy.Unity));
                 Assert.That(contract.IsInferred, Is.False);
                 Assert.That(contract.ProcessId, Is.EqualTo(Process.GetCurrentProcess().Id));
                 Assert.That(contract.SessionIssuedAtUtc, Is.EqualTo(bootstrapArguments.SessionIssuedAtUtc));

@@ -81,9 +81,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 var issuedAtUtc = DateTimeOffset.UtcNow;
+                var sessionGenerationId = Guid.NewGuid();
                 var sessionToken = IpcSessionToken.CreateRandom();
                 var sessionContract = new DaemonSessionJsonContract(
                     SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                    SessionGenerationId: sessionGenerationId,
                     SessionToken: sessionToken.GetEncodedValue(),
                     ProjectFingerprint: projectFingerprint,
                     IssuedAtUtc: issuedAtUtc,
@@ -94,13 +96,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                     EndpointAddress: endpoint.Address,
                     ProcessId: currentProcessId,
                     ProcessStartedAtUtc: currentProcessStartedAtUtc,
-                    OwnerProcessId: sessionOptions.OwnerProcessId)
-                {
-                    EditorInstanceId = editorInstanceId,
-                };
+                    OwnerProcessId: sessionOptions.OwnerProcessId,
+                    EditorInstanceId: editorInstanceId);
                 var registration = new UnityGuiSessionRegistration(
                     sessionPath,
                     sessionLockPath,
+                    sessionGenerationId,
                     sessionToken,
                     projectFingerprint,
                     issuedAtUtc,
@@ -277,6 +278,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityGuiSessionReplacementScope sessionReplacementScope)
         {
             if (sessionContract.SchemaVersion != DaemonSessionStorageContract.CurrentSchemaVersion
+                || sessionContract.SessionGenerationId == Guid.Empty
                 || sessionContract.ProjectFingerprint != projectFingerprint
                 || sessionContract.EditorMode != DaemonEditorMode.Gui
                 || sessionContract.ProcessId != currentProcessId
@@ -320,16 +322,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityGuiSessionRegistration registration,
             DaemonSessionJsonContract sessionContract)
         {
-            using var currentProcess = Process.GetCurrentProcess();
             return sessionContract.SchemaVersion == DaemonSessionStorageContract.CurrentSchemaVersion
-                && registration.SessionToken.Matches(sessionContract.SessionToken)
-                && sessionContract.ProjectFingerprint == registration.ProjectFingerprint
-                && sessionContract.IssuedAtUtc == registration.IssuedAtUtc
-                && sessionContract.CanShutdownProcess == registration.CanShutdownProcess
-                && sessionContract.ProcessId == currentProcess.Id
-                && sessionContract.EditorMode == DaemonEditorMode.Gui
-                && sessionContract.EndpointTransportKind == registration.Endpoint.TransportKind
-                && string.Equals(sessionContract.EndpointAddress, registration.Endpoint.Address, StringComparison.Ordinal);
+                && sessionContract.SessionGenerationId == registration.SessionGenerationId;
         }
 
         private static void DeleteOwnedSessionWithoutLock (

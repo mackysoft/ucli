@@ -32,12 +32,15 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                var endpoint = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedEndpoint(bootstrapArguments);
+                var endpoint = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedDaemonEndpoint(bootstrapArguments);
+                var sessionToken = await DaemonBootstrapSessionTokenResolver.ResolveAsync(
+                    bootstrapArguments,
+                    CancellationToken.None);
 
                 var services = new ServiceCollection();
                 services
                     .AddUnityIpcApplicationServices(
-                        new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath),
+                        new ExactSessionTokenValidator(sessionToken),
                         bootstrapArguments.ProjectFingerprint,
                         daemonLogger,
                         DaemonEditorMode.Batchmode)
@@ -71,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                     daemonLogger.Info(
                         DaemonLogCategories.Lifecycle,
-                        $"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.EndpointAddress}");
+                        $"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.Endpoint.Address}");
 
                     var completedTask = await Task.WhenAny(shutdownWaitTask, serverTerminationTask);
                     if (ReferenceEquals(completedTask, serverTerminationTask))
@@ -83,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                             Message);
                         diagnosisWritten = await PersistDiagnosisAsync(
                             bootstrapArguments,
-                            DaemonDiagnosisReasonValues.ListenerTerminated,
+                            DaemonDiagnosisReason.ListenerTerminated,
                             Message,
                             daemonLogger);
                         throw new InvalidOperationException("IPC server loop terminated before shutdown request was received.");
@@ -99,7 +102,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         "IPC server stop completed. Exiting Unity batchmode process.");
                     diagnosisWritten = await PersistDiagnosisAsync(
                         bootstrapArguments,
-                        DaemonDiagnosisReasonValues.ShutdownRequested,
+                        DaemonDiagnosisReason.ShutdownRequested,
                         "Daemon shutdown completed after shutdown request.",
                         daemonLogger);
                 }
@@ -124,8 +127,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     diagnosisWritten = await PersistDiagnosisAsync(
                         bootstrapArguments,
                         daemonStarted
-                            ? DaemonDiagnosisReasonValues.UnhandledException
-                            : DaemonDiagnosisReasonValues.StartupFailed,
+                            ? DaemonDiagnosisReason.UnhandledException
+                            : DaemonDiagnosisReason.StartupFailed,
                         daemonStarted
                             ? $"Daemon bootstrap failed with an unhandled exception. {exception.Message}"
                             : $"Daemon startup failed before running state was established. {exception.Message}",
@@ -138,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static async Task<bool> PersistDiagnosisAsync (
             IpcDaemonBootstrapArguments bootstrapArguments,
-            string reason,
+            DaemonDiagnosisReason reason,
             string message,
             IDaemonLogger daemonLogger)
         {

@@ -31,6 +31,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static readonly Guid OtherEditorInstanceId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
+        private static readonly Guid ExistingSessionGenerationId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
         [Test]
         [Category("Size.Small")]
         public void PrepareAsync_WhenEditorInstanceIdIsEmpty_ThrowsArgumentException ()
@@ -108,6 +110,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 var contract = ReadSessionContract(storageRoot);
                 Assert.That(contract.SchemaVersion, Is.EqualTo(DaemonSessionStorageContract.CurrentSchemaVersion));
+                Assert.That(contract.SessionGenerationId, Is.Not.EqualTo(Guid.Empty));
+                Assert.That(contract.SessionGenerationId, Is.EqualTo(registration.SessionGenerationId));
                 Assert.That(contract.EditorMode, Is.EqualTo(DaemonEditorMode.Gui));
                 Assert.That(contract.OwnerKind, Is.EqualTo(DaemonSessionOwnerKind.User));
                 Assert.That(contract.CanShutdownProcess, Is.False);
@@ -121,8 +125,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(contract.EndpointTransportKind, Is.EqualTo(IpcTransportKind.NamedPipe));
                 Assert.That(contract.EndpointAddress, Is.EqualTo("ucli-gui-session-tests"));
                 Assert.That(contract.SessionToken, Is.Not.Null.And.Not.Empty);
-                Assert.That(IpcSessionToken.IsValidEncodedValue(contract.SessionToken), Is.True);
-                Assert.That(registration.SessionToken.Matches(contract.SessionToken), Is.True);
+                Assert.That(ParseSessionToken(contract.SessionToken), Is.EqualTo(registration.SessionToken));
                 Assert.That(contract.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
             }
             finally
@@ -174,6 +177,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     sessionPath,
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionGenerationId: ExistingSessionGenerationId,
                         SessionToken: "existing-cli-owned-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -184,10 +188,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
-                        OwnerProcessId: 123)
-                    {
-                        EditorInstanceId = EditorInstanceId,
-                    });
+                        OwnerProcessId: 123,
+                        EditorInstanceId: EditorInstanceId));
 
                 await PrepareAndPublishSessionAsync(
                     storageRoot,
@@ -225,6 +227,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     sessionPath,
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionGenerationId: ExistingSessionGenerationId,
                         SessionToken: "existing-cli-owned-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -235,10 +238,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
-                        OwnerProcessId: 123)
-                    {
-                        EditorInstanceId = EditorInstanceId,
-                    });
+                        OwnerProcessId: 123,
+                        EditorInstanceId: EditorInstanceId));
 
                 InvalidOperationException exception = null;
                 try
@@ -282,6 +283,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     sessionPath,
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionGenerationId: ExistingSessionGenerationId,
                         SessionToken: "existing-other-editor-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -292,10 +294,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
-                        OwnerProcessId: 123)
-                    {
-                        EditorInstanceId = OtherEditorInstanceId,
-                    });
+                        OwnerProcessId: 123,
+                        EditorInstanceId: OtherEditorInstanceId));
 
                 InvalidOperationException exception = null;
                 try
@@ -325,41 +325,6 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Delete_WhenSessionExists_InvalidatesFileBackedToken () => UniTask.ToCoroutine(async () =>
-        {
-            var storageRoot = CreateStorageRoot();
-            try
-            {
-                var registration = await PrepareAndPublishSessionAsync(
-                    storageRoot,
-                    UnityGuiBootstrapSessionOptions.Create(null),
-                    CreateDefaultEndpoint(),
-                    UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
-                var sessionToken = ReadSessionContract(storageRoot).SessionToken;
-                var validator = new FileBackedSessionTokenValidator(registration.SessionPath);
-
-                Assert.That(
-                    await validator.ValidateAsync(sessionToken, CancellationToken.None),
-                    Is.True);
-                Assert.That(
-                    await validator.ValidateAsync("wrong-session-token", CancellationToken.None),
-                    Is.False);
-
-                UnityGuiSessionPersistence.Delete(registration);
-
-                Assert.That(File.Exists(registration.SessionPath), Is.False);
-                Assert.That(
-                    await validator.ValidateAsync(sessionToken, CancellationToken.None),
-                    Is.False);
-            }
-            finally
-            {
-                DeleteDirectory(storageRoot);
-            }
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
         public IEnumerator PrepareAndPublish_WhenCurrentProcessGuiSessionAlreadyExists_ReplacesSessionJson () => UniTask.ToCoroutine(async () =>
         {
             var storageRoot = CreateStorageRoot();
@@ -374,6 +339,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     sessionPath,
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionGenerationId: ExistingSessionGenerationId,
                         SessionToken: "existing-current-process-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -384,10 +350,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime().AddSeconds(30),
-                        OwnerProcessId: currentProcess.Id)
-                    {
-                        EditorInstanceId = EditorInstanceId,
-                    });
+                        OwnerProcessId: currentProcess.Id,
+                        EditorInstanceId: EditorInstanceId));
 
                 await PrepareAndPublishSessionAsync(
                     storageRoot,
@@ -430,6 +394,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     sessionPath,
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionGenerationId: ExistingSessionGenerationId,
                         SessionToken: "existing-open-session-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -440,10 +405,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
-                        OwnerProcessId: currentProcess.Id)
-                    {
-                        EditorInstanceId = EditorInstanceId,
-                    });
+                        OwnerProcessId: currentProcess.Id,
+                        EditorInstanceId: EditorInstanceId));
 
                 System.Threading.Tasks.Task<UnityGuiSessionRegistration> replacementTask;
                 using (new FileStream(sessionPath, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -485,6 +448,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     sessionPath,
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionGenerationId: ExistingSessionGenerationId,
                         SessionToken: "existing-current-process-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -495,7 +459,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         EndpointAddress: "ucli-gui-session-tests",
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
-                        OwnerProcessId: currentProcess.Id));
+                        OwnerProcessId: currentProcess.Id,
+                        EditorInstanceId: null));
 
                 InvalidOperationException exception = null;
                 try
@@ -537,6 +502,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 using var currentProcess = Process.GetCurrentProcess();
                 var validContract = new DaemonSessionJsonContract(
                     SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                    SessionGenerationId: ExistingSessionGenerationId,
                     SessionToken: "existing-malformed-editor-token",
                     ProjectFingerprint: ProjectFingerprint,
                     IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -547,10 +513,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     EndpointAddress: "ucli-gui-session-tests",
                     ProcessId: currentProcess.Id,
                     ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
-                    OwnerProcessId: currentProcess.Id)
-                {
-                    EditorInstanceId = EditorInstanceId,
-                };
+                    OwnerProcessId: currentProcess.Id,
+                    EditorInstanceId: EditorInstanceId);
                 var validJson = DaemonSessionJsonContractSerializer.Serialize(validContract);
                 var serializedEditorInstanceId = EditorInstanceId.ToString("D");
                 Assert.That(validJson, Does.Contain(serializedEditorInstanceId));
@@ -607,6 +571,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     sessionPath,
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionGenerationId: ExistingSessionGenerationId,
                         SessionToken: "existing-current-process-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow.AddSeconds(-1),
@@ -617,10 +582,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         EndpointAddress: unexpectedEndpointPath,
                         ProcessId: currentProcess.Id,
                         ProcessStartedAtUtc: currentProcess.StartTime.ToUniversalTime(),
-                        OwnerProcessId: currentProcess.Id)
-                    {
-                        EditorInstanceId = EditorInstanceId,
-                    });
+                        OwnerProcessId: currentProcess.Id,
+                        EditorInstanceId: EditorInstanceId));
 
                 InvalidOperationException exception = null;
                 try
@@ -665,6 +628,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     sessionPath,
                     new DaemonSessionJsonContract(
                         SchemaVersion: DaemonSessionStorageContract.CurrentSchemaVersion,
+                        SessionGenerationId: ExistingSessionGenerationId,
                         SessionToken: "existing-session-token",
                         ProjectFingerprint: ProjectFingerprint,
                         IssuedAtUtc: DateTimeOffset.UtcNow,
@@ -675,7 +639,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         EndpointAddress: "ucli-existing-session",
                         ProcessId: 123,
                         ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-                        OwnerProcessId: 123));
+                        OwnerProcessId: 123,
+                        EditorInstanceId: null));
 
                 InvalidOperationException exception = null;
                 try
@@ -721,6 +686,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var originalContract = ReadSessionContract(storageRoot);
                 var replacementContract = originalContract with
                 {
+                    SessionGenerationId = Guid.Parse("44444444-4444-4444-4444-444444444444"),
                     SessionToken = "replacement-session-token",
                     IssuedAtUtc = originalContract.IssuedAtUtc.AddSeconds(1),
                     EditorMode = DaemonEditorMode.Batchmode,

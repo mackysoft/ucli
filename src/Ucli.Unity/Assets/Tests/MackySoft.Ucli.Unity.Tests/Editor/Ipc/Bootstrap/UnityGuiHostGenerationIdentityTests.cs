@@ -23,6 +23,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static readonly Guid OtherEditorInstanceId = Guid.Parse("22222222-2222-2222-2222-222222222222");
 
+        private static readonly Guid SidecarGenerationId = Guid.Parse("33333333-3333-3333-3333-333333333333");
+
         private static readonly Sha256Digest RequestPayloadHash = Sha256Digest.Parse(
             "cda34040abc54e9b351b66c6ecbc9708cf2c70996b0805553b3854bdce80d94b");
 
@@ -65,6 +67,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     storageRoot,
                     ProjectFingerprint,
                     capturedEditorInstanceId,
+                    SidecarGenerationId,
                     "1.2.3-tests");
                 await lifecyclePersistence.WriteAsync(
                     new UnityEditorObservation(
@@ -79,6 +82,7 @@ namespace MackySoft.Ucli.Unity.Tests
                                 IsPlaying: false,
                                 IsPlayingOrWillChangePlaymode: false)),
                         observedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero)),
+                    null,
                     CancellationToken.None);
 
                 var operationStore = FileRecoverableIpcOperationStore.Create(
@@ -113,6 +117,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(operationReadResult.Record, Is.Not.Null);
                 Assert.That(sessionContract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
                 Assert.That(lifecycleContract.EditorInstanceId, Is.EqualTo(EditorInstanceId));
+                Assert.That(lifecycleContract.SidecarGenerationId, Is.EqualTo(SidecarGenerationId));
                 Assert.That(operationReadResult.Record.HostEditorInstanceId, Is.EqualTo(EditorInstanceId));
             }
             finally

@@ -86,7 +86,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             if (manifest == null
-                || !expectedSessionToken.Matches(manifest.SessionToken))
+                || !IpcSessionToken.TryParse(manifest.SessionToken, out var persistedSessionToken)
+                || expectedSessionToken != persistedSessionToken)
             {
                 return;
             }

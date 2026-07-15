@@ -386,7 +386,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 connectionObserved.TrySetResult(true);
                 await completion.Task;
-                return default;
+                return UnityIpcConnectionHandleResult.NoTerminalResponse;
             }
         }
 
@@ -418,7 +418,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     secondConnectionObserved.TrySetResult(true);
                 }
 
-                return Task.FromResult(default(UnityIpcConnectionHandleResult));
+                return Task.FromResult(UnityIpcConnectionHandleResult.NoTerminalResponse);
             }
         }
 
@@ -428,7 +428,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Stream stream,
                 CancellationToken cancellationToken = default)
             {
-                return Task.FromResult(default(UnityIpcConnectionHandleResult));
+                return Task.FromResult(UnityIpcConnectionHandleResult.NoTerminalResponse);
             }
         }
     }

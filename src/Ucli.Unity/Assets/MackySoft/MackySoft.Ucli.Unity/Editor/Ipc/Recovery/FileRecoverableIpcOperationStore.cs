@@ -145,9 +145,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 SchemaVersion = SchemaVersion,
                 ProjectFingerprint = projectFingerprint,
-                Method = ContractLiteralCodec.ToValue(method),
+                Method = method,
                 RequestId = requestId,
-                RequestPayloadHash = requestPayloadHash.ToString(),
+                RequestPayloadHash = requestPayloadHash,
                 HostProcessId = hostProcessId,
                 HostEditorInstanceId = hostEditorInstanceId,
                 State = RecoverableIpcOperationState.Pending,
@@ -195,9 +195,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 SchemaVersion = SchemaVersion,
                 ProjectFingerprint = projectFingerprint,
-                Method = ContractLiteralCodec.ToValue(method),
+                Method = method,
                 RequestId = requestId,
-                RequestPayloadHash = requestPayloadHash.ToString(),
+                RequestPayloadHash = requestPayloadHash,
                 HostProcessId = hostProcessId,
                 HostEditorInstanceId = hostEditorInstanceId,
                 State = RecoverableIpcOperationState.Completed,
@@ -505,10 +505,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (record == null
                 || record.SchemaVersion != SchemaVersion
                 || record.ProjectFingerprint != projectFingerprint
-                || !string.Equals(record.Method, ContractLiteralCodec.ToValue(method), StringComparison.Ordinal)
+                || record.Method != method
                 || record.RequestId != requestId
-                || !Sha256Digest.TryParse(record.RequestPayloadHash, out var storedRequestPayloadHash)
-                || storedRequestPayloadHash != requestPayloadHash
+                || record.RequestPayloadHash != requestPayloadHash
                 || record.HostProcessId != hostProcessId
                 || record.HostEditorInstanceId != hostEditorInstanceId)
             {
@@ -740,17 +739,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return true;
             }
 
-            if (!record.HasState || !IsSupportedState(record.State))
+            if (!record.HasState)
             {
                 return IsRecordFileOlderThan(recordPath, nowUtc, InvalidRecordTtl);
             }
 
             return false;
-        }
-
-        private static bool IsSupportedState (RecoverableIpcOperationState state)
-        {
-            return state is RecoverableIpcOperationState.Pending or RecoverableIpcOperationState.Completed;
         }
 
         private static bool IsRecordFileOlderThan (

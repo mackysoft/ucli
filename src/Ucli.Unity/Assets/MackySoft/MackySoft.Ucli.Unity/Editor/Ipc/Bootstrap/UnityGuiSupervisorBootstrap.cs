@@ -919,7 +919,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new ArgumentNullException(nameof(manifest));
                 }
 
-                if (SessionToken == null || !SessionToken.Matches(manifest.SessionToken))
+                if (SessionToken == null
+                    || !IpcSessionToken.TryParse(manifest.SessionToken, out var manifestSessionToken)
+                    || SessionToken != manifestSessionToken)
                 {
                     throw new InvalidOperationException(
                         "The GUI supervisor manifest does not belong to the startup generation.");

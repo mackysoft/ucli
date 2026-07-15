@@ -6,7 +6,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -23,6 +22,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IUnityShutdownAdmissionCoordinator shutdownAdmissionCoordinator;
 
+        private readonly IIpcRequestPhaseScopeFactory phaseScopeFactory;
+
+        private readonly bool recoverableReplayAvailable;
+
         private readonly TimeSpan initialFrameReadTimeout;
 
         private readonly TimeSpan responseFrameWriteTimeout;
@@ -30,33 +33,43 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Initializes one connection handler with explicit dependencies and exchange limits. </summary>
         /// <param name="requestHandler"> The shared IPC request-handler dependency. </param>
         /// <param name="shutdownAdmissionCoordinator"> The shutdown exchange admission coordinator. </param>
+        /// <param name="phaseScopeFactory"> The factory that converts request deadlines into exchange-owned monotonic phase scopes. </param>
+        /// <param name="recoverableReplayAvailable"> Whether this host has a durable recoverable-operation store available for replay. </param>
         /// <param name="initialFrameReadTimeout"> The upper bound for receiving the first request frame. </param>
         /// <param name="responseFrameWriteTimeout"> The upper bound for writing any response frame. </param>
         /// <exception cref="ArgumentNullException"> Thrown when a dependency is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentOutOfRangeException"> Thrown when an exchange limit is not positive. </exception>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Thrown when an exchange limit is not positive or exceeds the supported timer duration.
+        /// </exception>
         public UnityIpcConnectionHandler (
             IUnityIpcRequestHandler requestHandler,
             IUnityShutdownAdmissionCoordinator shutdownAdmissionCoordinator,
+            IIpcRequestPhaseScopeFactory phaseScopeFactory,
+            bool recoverableReplayAvailable,
             TimeSpan initialFrameReadTimeout,
             TimeSpan responseFrameWriteTimeout)
         {
             this.requestHandler = requestHandler ?? throw new ArgumentNullException(nameof(requestHandler));
             this.shutdownAdmissionCoordinator = shutdownAdmissionCoordinator ?? throw new ArgumentNullException(nameof(shutdownAdmissionCoordinator));
-            if (initialFrameReadTimeout <= TimeSpan.Zero)
+            this.phaseScopeFactory = phaseScopeFactory ?? throw new ArgumentNullException(nameof(phaseScopeFactory));
+            this.recoverableReplayAvailable = recoverableReplayAvailable;
+            if (initialFrameReadTimeout <= TimeSpan.Zero
+                || initialFrameReadTimeout > IpcRequestPhasePlan.MaximumTimerDuration)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(initialFrameReadTimeout),
                     initialFrameReadTimeout,
-                    "Initial frame read timeout must be greater than zero.");
+                    $"Initial frame read timeout must be greater than zero and at most {IpcRequestPhasePlan.MaximumTimerDuration.TotalMilliseconds:0} milliseconds.");
             }
 
             this.initialFrameReadTimeout = initialFrameReadTimeout;
-            if (responseFrameWriteTimeout <= TimeSpan.Zero)
+            if (responseFrameWriteTimeout <= TimeSpan.Zero
+                || responseFrameWriteTimeout > IpcRequestPhasePlan.MaximumTimerDuration)
             {
                 throw new ArgumentOutOfRangeException(
                     nameof(responseFrameWriteTimeout),
                     responseFrameWriteTimeout,
-                    "Response frame write timeout must be greater than zero.");
+                    $"Response frame write timeout must be greater than zero and at most {IpcRequestPhasePlan.MaximumTimerDuration.TotalMilliseconds:0} milliseconds.");
             }
 
             this.responseFrameWriteTimeout = responseFrameWriteTimeout;
@@ -64,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Handles one request-response exchange over a connected transport stream. </summary>
         /// <param name="stream"> The connected transport stream. </param>
-        /// <param name="cancellationToken"> The cancellation token for request handling. </param>
+        /// <param name="cancellationToken"> The host listener-generation cancellation token. Peer connection lifetime is tracked separately after the request frame is read. </param>
         /// <returns> The handled connection exchange result. </returns>
         /// <exception cref="OperationCanceledException"> Thrown when operation is canceled. </exception>
         public async Task<UnityIpcConnectionHandleResult> HandleAsync (
@@ -73,14 +86,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            IpcFrameReadResult<IpcRequest> readResult;
+            IpcFrameReadResult<IpcRequestEnvelope> readResult;
             using (var initialFrameReadCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken))
             {
                 var transportReadCancellationToken = ResolveTransportIoCancellationToken(
                     stream,
                     initialFrameReadCancellationTokenSource.Token);
                 var frameReadTask = Task.Run(
-                    async () => await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
+                    async () => await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
                             stream,
                             IpcJsonSerializerOptions.Default,
                             cancellationToken: transportReadCancellationToken)
@@ -94,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     ObserveFault(frameReadTask);
                     BeginStreamCleanup(stream);
                     cancellationToken.ThrowIfCancellationRequested();
-                    return default;
+                    return UnityIpcConnectionHandleResult.NoTerminalResponse;
                 }
 
                 TryCancel(initialFrameReadCancellationTokenSource);
@@ -106,105 +119,164 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var errorResponse = UnityIpcResponseFactory.CreateMalformedFrameResponse(
                     readResult.ErrorKind,
                     readResult.ErrorMessage);
-                await WriteModelSafelyAsync(
+                await WriteModelWithRelativeTimeoutSafelyAsync(
                     stream,
                     errorResponse,
                     cancellationToken,
                     responseFrameWriteTimeout);
 
-                return default;
+                return UnityIpcConnectionHandleResult.NoTerminalResponse;
             }
 
-            var request = readResult.Value;
+            var requestEnvelope = readResult.Value;
             var shutdownAdmissionFinalized = false;
-            using var requestCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            ValidatedUnityIpcRequest validatedRequest = null;
+            using var connectionLifetimeCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             if (CanMonitorPeerDisconnect(stream))
             {
-                ObserveFault(MonitorPeerDisconnectAsync(stream, requestCancellationTokenSource));
+                ObserveFault(MonitorPeerDisconnectAsync(stream, connectionLifetimeCancellationTokenSource));
             }
 
-            try
+            // Authorization is bounded by the request deadline and host generation. After the
+            // endpoint method is validated, non-recoverable execution also observes peer lifetime.
+            var phaseScope = phaseScopeFactory.Create(
+                requestEnvelope,
+                cancellationToken,
+                responseFrameWriteTimeout);
+
+            using (phaseScope)
             {
-                if (IsStreamingResponse(request))
+                try
                 {
-                    var streamWriter = new IpcStreamFrameWriter(
-                        stream,
-                        request,
-                        requestCancellationTokenSource.Token,
-                        ResolveTransportIoCancellationToken(stream, requestCancellationTokenSource.Token),
-                        responseFrameWriteTimeout,
-                        _ => TryCancel(requestCancellationTokenSource));
-                    var streamingResponse = await ProcessStreamingSafelyAsync(
-                        request,
-                        streamWriter,
-                        requestCancellationTokenSource,
-                        cancellationToken);
-                    var terminalWritten = await WriteTerminalSafelyAsync(
-                        streamWriter,
-                        streamingResponse,
-                        requestCancellationTokenSource.Token);
-                    shutdownAdmissionFinalized = true;
-                    AbortShutdownAdmission(request);
-                    if (!terminalWritten)
+                    var validationResult = await requestHandler.ValidateAsync(
+                        requestEnvelope,
+                        phaseScope);
+                    if (!validationResult.IsSuccess)
                     {
-                        return default;
+                        var validationErrorResponse = validationResult.ErrorResponse;
+                        bool validationErrorWritten;
+                        if (validationResult.ResponseMode == IpcResponseMode.Stream)
+                        {
+                            using var validationErrorWriter = new IpcStreamFrameWriter(
+                                stream,
+                                requestEnvelope,
+                                connectionLifetimeCancellationTokenSource.Token,
+                                ResolveTransportIoCancellationToken(stream, connectionLifetimeCancellationTokenSource.Token),
+                                phaseScope.WriteCutoffToken,
+                                _ => TryCancel(connectionLifetimeCancellationTokenSource));
+                            validationErrorWritten = await WriteTerminalSafelyAsync(
+                                validationErrorWriter,
+                                validationErrorResponse,
+                                connectionLifetimeCancellationTokenSource.Token);
+                        }
+                        else
+                        {
+                            validationErrorWritten = await WriteModelSafelyAsync(
+                                stream,
+                                validationErrorResponse,
+                                connectionLifetimeCancellationTokenSource.Token,
+                                phaseScope.WriteCutoffToken);
+                        }
+
+                        if (!validationErrorWritten)
+                        {
+                            return UnityIpcConnectionHandleResult.NoTerminalResponse;
+                        }
+
+                        shutdownAdmissionFinalized = true;
+                        return UnityIpcConnectionHandleResult.ValidationFailure(validationErrorResponse);
                     }
 
+                    validatedRequest = validationResult.Request;
+                    if (!recoverableReplayAvailable
+                        || !UnityIpcMethodCapabilities.SupportsRecoverableReplay(validatedRequest.Method))
+                    {
+                        phaseScope.AttachExecutionUpstream(connectionLifetimeCancellationTokenSource.Token);
+                    }
+
+                    if (validatedRequest.ResponseMode == IpcResponseMode.Stream)
+                    {
+                        using var streamWriter = new IpcStreamFrameWriter(
+                            stream,
+                            validatedRequest,
+                            connectionLifetimeCancellationTokenSource.Token,
+                            ResolveTransportIoCancellationToken(stream, connectionLifetimeCancellationTokenSource.Token),
+                            phaseScope.WriteCutoffToken,
+                            _ => TryCancel(connectionLifetimeCancellationTokenSource));
+                        var streamingResponse = await ProcessStreamingSafelyAsync(
+                            validatedRequest,
+                            streamWriter,
+                            phaseScope,
+                            connectionLifetimeCancellationTokenSource,
+                            cancellationToken);
+                        var terminalWritten = await WriteTerminalSafelyAsync(
+                            streamWriter,
+                            streamingResponse,
+                            connectionLifetimeCancellationTokenSource.Token);
+                        shutdownAdmissionFinalized = true;
+                        AbortShutdownAdmission(validatedRequest);
+                        if (!terminalWritten)
+                        {
+                            return UnityIpcConnectionHandleResult.NoTerminalResponse;
+                        }
+
+                        return new UnityIpcConnectionHandleResult(
+                            validatedRequest,
+                            streamingResponse,
+                            isShutdownAdmissionCommitted: false);
+                    }
+
+                    var response = await requestHandler.HandleAsync(
+                        validatedRequest,
+                        phaseScope);
+                    var responseWritten = await WriteModelSafelyAsync(
+                        stream,
+                        response,
+                        connectionLifetimeCancellationTokenSource.Token,
+                        phaseScope.WriteCutoffToken);
+                    if (!responseWritten)
+                    {
+                        return UnityIpcConnectionHandleResult.NoTerminalResponse;
+                    }
+
+                    var isShutdownAdmissionCommitted = FinalizeShutdownAdmissionAfterResponseWrite(
+                        validatedRequest,
+                        response);
+                    shutdownAdmissionFinalized = true;
+
                     return new UnityIpcConnectionHandleResult(
-                        request,
-                        streamingResponse,
-                        isShutdownAdmissionCommitted: false);
+                        validatedRequest,
+                        response,
+                        isShutdownAdmissionCommitted);
                 }
-
-                var response = await requestHandler.HandleAsync(
-                    request,
-                    requestCancellationTokenSource.Token);
-                var responseWritten = await WriteModelSafelyAsync(
-                    stream,
-                    response,
-                    requestCancellationTokenSource.Token,
-                    responseFrameWriteTimeout);
-                if (!responseWritten)
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested
+                    && connectionLifetimeCancellationTokenSource.IsCancellationRequested)
                 {
-                    return default;
+                    return UnityIpcConnectionHandleResult.NoTerminalResponse;
                 }
-
-                var isShutdownAdmissionCommitted = FinalizeShutdownAdmissionAfterResponseWrite(
-                    request,
-                    response);
-                shutdownAdmissionFinalized = true;
-
-                return new UnityIpcConnectionHandleResult(
-                    request,
-                    response,
-                    isShutdownAdmissionCommitted);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested
-                && requestCancellationTokenSource.IsCancellationRequested)
-            {
-                return default;
-            }
-            finally
-            {
-                if (!shutdownAdmissionFinalized)
+                finally
                 {
-                    AbortShutdownAdmission(request);
-                }
+                    if (!shutdownAdmissionFinalized
+                        && validatedRequest != null)
+                    {
+                        AbortShutdownAdmission(validatedRequest);
+                    }
 
-                TryCancel(requestCancellationTokenSource);
+                    TryCancel(connectionLifetimeCancellationTokenSource);
+                }
             }
         }
 
         private bool FinalizeShutdownAdmissionAfterResponseWrite (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             IpcResponse response)
         {
-            if (!ContractLiteralCodec.Matches(request.Method, UnityIpcMethod.Shutdown))
+            if (request.Method != UnityIpcMethod.Shutdown)
             {
                 return false;
             }
 
-            if (!UnityIpcShutdownResponsePolicy.IsAccepted(request, response))
+            if (!UnityIpcShutdownResponsePolicy.IsAccepted(request.Method, response))
             {
                 AbortShutdownAdmission(request);
                 return false;
@@ -213,10 +285,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             return shutdownAdmissionCoordinator.TryCommit(request);
         }
 
-        private void AbortShutdownAdmission (IpcRequest request)
+        private void AbortShutdownAdmission (ValidatedUnityIpcRequest request)
         {
-            if (request != null
-                && ContractLiteralCodec.Matches(request.Method, UnityIpcMethod.Shutdown))
+            if (request.Method == UnityIpcMethod.Shutdown)
             {
                 shutdownAdmissionCoordinator.Abort(request);
             }
@@ -241,15 +312,15 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static async Task MonitorPeerDisconnectAsync (
             Stream stream,
-            CancellationTokenSource requestCancellationTokenSource)
+            CancellationTokenSource connectionLifetimeCancellationTokenSource)
         {
             var buffer = new byte[1];
             var transportReadCancellationToken = ResolveTransportIoCancellationToken(
                 stream,
-                requestCancellationTokenSource.Token);
+                connectionLifetimeCancellationTokenSource.Token);
             try
             {
-                while (!requestCancellationTokenSource.IsCancellationRequested)
+                while (!connectionLifetimeCancellationTokenSource.IsCancellationRequested)
                 {
                     var readLength = await stream.ReadAsync(
                         buffer,
@@ -258,17 +329,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                         transportReadCancellationToken);
                     if (readLength == 0)
                     {
-                        TryCancel(requestCancellationTokenSource);
+                        TryCancel(connectionLifetimeCancellationTokenSource);
                         return;
                     }
                 }
             }
-            catch (OperationCanceledException) when (requestCancellationTokenSource.IsCancellationRequested)
+            catch (OperationCanceledException) when (connectionLifetimeCancellationTokenSource.IsCancellationRequested)
             {
             }
             catch (Exception exception) when (IsConnectionLocalReadFailure(exception))
             {
-                TryCancel(requestCancellationTokenSource);
+                TryCancel(connectionLifetimeCancellationTokenSource);
             }
         }
 
@@ -290,16 +361,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 TaskScheduler.Default);
         }
 
-        private static bool IsStreamingResponse (IpcRequest request)
-        {
-            return ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out var responseMode)
-                && responseMode == IpcResponseMode.Stream;
-        }
-
         private async Task<IpcResponse> ProcessStreamingSafelyAsync (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             IIpcStreamFrameWriter streamWriter,
-            CancellationTokenSource requestCancellationTokenSource,
+            IpcRequestPhaseScope phaseScope,
+            CancellationTokenSource connectionLifetimeCancellationTokenSource,
             CancellationToken connectionCancellationToken)
         {
             try
@@ -307,14 +373,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return await requestHandler.HandleStreamingAsync(
                     request,
                     streamWriter,
-                    requestCancellationTokenSource.Token);
+                    phaseScope);
             }
             catch (OperationCanceledException) when (!connectionCancellationToken.IsCancellationRequested
-                && requestCancellationTokenSource.IsCancellationRequested)
+                && connectionLifetimeCancellationTokenSource.IsCancellationRequested)
             {
                 return CreateStreamWriteFailureResponse(request, "Streaming IPC request was canceled because the response stream failed.");
             }
-            catch (Exception exception) when (requestCancellationTokenSource.IsCancellationRequested
+            catch (Exception exception) when (connectionLifetimeCancellationTokenSource.IsCancellationRequested
                 && IpcConnectionWriteFailureClassifier.IsConnectionLocalWriteFailure(exception))
             {
                 return CreateStreamWriteFailureResponse(request, $"Streaming IPC response stream failed. {exception.Message}");
@@ -322,7 +388,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static IpcResponse CreateStreamWriteFailureResponse (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             string message)
         {
             return UnityIpcResponseFactory.CreateErrorResponse(
@@ -335,17 +401,17 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static Task<bool> WriteModelSafelyAsync (
             Stream stream,
             IpcResponse response,
-            CancellationToken cancellationToken,
-            TimeSpan writeTimeout)
+            CancellationToken connectionLifetimeCancellationToken,
+            CancellationToken writeCutoffToken)
         {
             var transportWriteCancellationToken = ResolveTransportIoCancellationToken(
                 stream,
-                cancellationToken);
+                connectionLifetimeCancellationToken);
             return WriteResponseFrameSafelyAsync(
                 stream,
                 () =>
                 {
-                    cancellationToken.ThrowIfCancellationRequested();
+                    connectionLifetimeCancellationToken.ThrowIfCancellationRequested();
                     return IpcFrameCodec.WriteModelAsync(
                             stream,
                             response,
@@ -353,8 +419,23 @@ namespace MackySoft.Ucli.Unity.Ipc
                             cancellationToken: transportWriteCancellationToken)
                         .AsTask();
                 },
-                cancellationToken,
-                writeTimeout);
+                connectionLifetimeCancellationToken,
+                writeCutoffToken);
+        }
+
+        private static async Task<bool> WriteModelWithRelativeTimeoutSafelyAsync (
+            Stream stream,
+            IpcResponse response,
+            CancellationToken connectionLifetimeCancellationToken,
+            TimeSpan writeTimeout)
+        {
+            using var writeCutoffCancellationTokenSource =
+                new CancellationTokenSource(writeTimeout);
+            return await WriteModelSafelyAsync(
+                stream,
+                response,
+                connectionLifetimeCancellationToken,
+                writeCutoffCancellationTokenSource.Token);
         }
 
         private static async Task<bool> WriteTerminalSafelyAsync (
@@ -380,30 +461,41 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static async Task<bool> WriteResponseFrameSafelyAsync (
             Stream stream,
             Func<Task> startWrite,
-            CancellationToken cancellationToken,
-            TimeSpan writeTimeout)
+            CancellationToken connectionLifetimeCancellationToken,
+            CancellationToken writeCutoffToken)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            connectionLifetimeCancellationToken.ThrowIfCancellationRequested();
+            if (writeCutoffToken.IsCancellationRequested)
+            {
+                return false;
+            }
 
             try
             {
-                using var writeDeadlineCancellationTokenSource =
-                    CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
                 var writeTask = Task.Run(startWrite, CancellationToken.None);
-                var timeoutTask = Task.Delay(
-                    writeTimeout,
-                    writeDeadlineCancellationTokenSource.Token);
-                var completedTask = await Task.WhenAny(writeTask, timeoutTask);
+                var connectionCancellationTask = Task.Delay(
+                    Timeout.Infinite,
+                    connectionLifetimeCancellationToken);
+                var writeCutoffTask = Task.Delay(
+                    Timeout.Infinite,
+                    writeCutoffToken);
+                var completedTask = await Task.WhenAny(
+                    writeTask,
+                    connectionCancellationTask,
+                    writeCutoffTask);
                 if (!ReferenceEquals(completedTask, writeTask))
                 {
-                    TryCancel(writeDeadlineCancellationTokenSource);
                     ObserveFault(writeTask);
                     BeginStreamCleanup(stream);
-                    cancellationToken.ThrowIfCancellationRequested();
+                    if (ReferenceEquals(completedTask, connectionCancellationTask)
+                        || connectionLifetimeCancellationToken.IsCancellationRequested)
+                    {
+                        connectionLifetimeCancellationToken.ThrowIfCancellationRequested();
+                    }
+
                     return false;
                 }
 
-                TryCancel(writeDeadlineCancellationTokenSource);
                 await writeTask;
                 return true;
             }

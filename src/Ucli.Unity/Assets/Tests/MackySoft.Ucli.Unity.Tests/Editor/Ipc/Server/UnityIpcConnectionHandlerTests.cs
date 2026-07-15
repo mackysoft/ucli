@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
@@ -25,12 +26,26 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private const int NamedPipeCancellationStressIterationCount = 16;
 
+        [Test]
+        [Category("Size.Small")]
+        public void Constructor_WhenInitialReadTimeoutExceedsTimerLimit_ThrowsArgumentOutOfRangeException ()
+        {
+            var exception = Assert.Throws<ArgumentOutOfRangeException>(() => CreateConnectionHandler(
+                requestHandler: new StubRequestHandler(),
+                recoverableReplayAvailable: false,
+                initialFrameReadTimeout: IpcRequestPhasePlan.MaximumTimerDuration + TimeSpan.FromMilliseconds(1)));
+
+            Assert.That(exception.ParamName, Is.EqualTo("initialFrameReadTimeout"));
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Handle_WhenMalformedFrameAndErrorResponseWriteFails_DoesNotThrow () => UniTask.ToCoroutine(async () =>
         {
             var requestHandler = new StubRequestHandler();
-            var handler = CreateConnectionHandler(requestHandler);
+            var handler = CreateConnectionHandler(
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: false);
             using var stream = new ThrowOnReadAndWriteStream();
 
             await handler.HandleAsync(stream, CancellationToken.None);
@@ -40,11 +55,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Handle_WhenMalformedFrameErrorResponseWriteDoesNotComplete_AbortsWithinWriteTimeout () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Handle_WhenMalformedFrameErrorResponseWriteDoesNotComplete_AbortsAtWriteCutoff () => UniTask.ToCoroutine(async () =>
         {
             var requestHandler = new StubRequestHandler();
             var handler = CreateConnectionHandler(
-                requestHandler,
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: false,
                 responseFrameWriteTimeout: TimeSpan.FromMilliseconds(25));
             using var stream = new MalformedReadBlockingWriteStream();
 
@@ -53,6 +69,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Bounded malformed-frame response write",
                 SignalWaitTimeout);
 
+            Assert.That(result.HasTerminalResponse, Is.False);
             Assert.That(result.Request, Is.Null);
             Assert.That(result.Response, Is.Null);
             await TestAwaiter.WaitAsync(
@@ -69,7 +86,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestHandler = new StubRequestHandler();
             var handler = CreateConnectionHandler(
-                requestHandler,
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: TimeSpan.FromMilliseconds(25));
             var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
             using var serverStream = new NamedPipeServerStream(
@@ -92,6 +110,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Initial IPC frame timeout",
                 SignalWaitTimeout);
 
+            Assert.That(result.HasTerminalResponse, Is.False);
             Assert.That(result.Request, Is.Null);
             Assert.That(result.Response, Is.Null);
             Assert.That(requestHandler.CallCount, Is.EqualTo(0));
@@ -103,7 +122,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestHandler = new StubRequestHandler();
             var handler = CreateConnectionHandler(
-                requestHandler,
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: TimeSpan.FromSeconds(5));
             var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
             using var serverStream = new NamedPipeServerStream(
@@ -150,7 +170,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestHandler = new StubRequestHandler();
             var handler = CreateConnectionHandler(
-                requestHandler,
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: TimeSpan.FromMilliseconds(25));
             using var stream = new SynchronouslyBlockingReadStream();
             var handleTask = Task.Run(() => handler.HandleAsync(stream, CancellationToken.None));
@@ -186,7 +207,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestHandler = new StubRequestHandler();
             var handler = CreateConnectionHandler(
-                requestHandler,
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: TimeSpan.FromMilliseconds(25));
             var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
             using var requestBytes = new MemoryStream();
@@ -240,15 +262,18 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestHandler = new CancellationObservingRequestHandler();
             var handler = CreateConnectionHandler(
-                requestHandler,
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: false,
                 initialFrameReadTimeout: TimeSpan.FromSeconds(1));
-            var request = new IpcRequest(
+            var request = new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "token",
                 method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                responseMode: "single");
+                responseMode: "single",
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
             var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
             using var serverStream = new NamedPipeServerStream(
                 pipeName,
@@ -278,6 +303,205 @@ namespace MackySoft.Ucli.Unity.Tests
             await TestAwaiter.WaitAsync(requestHandler.CancellationObserved, "Peer-disconnect cancellation", SignalWaitTimeout);
             var result = await TestAwaiter.WaitAsync(handleTask, "Peer-disconnected request completion", SignalWaitTimeout);
 
+            Assert.That(result.HasTerminalResponse, Is.False);
+            Assert.That(result.Request, Is.Null);
+            Assert.That(result.Response, Is.Null);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenCompilePeerDisconnectsWithoutRecoverableReplay_CancelsExecution () => UniTask.ToCoroutine(async () =>
+        {
+            var requestHandler = new CancellationObservingRequestHandler();
+            var phaseScopeFactory = new RecordingIpcRequestPhaseScopeFactory();
+            var handler = CreateConnectionHandler(
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: false,
+                initialFrameReadTimeout: TimeSpan.FromSeconds(1),
+                phaseScopeFactory: phaseScopeFactory);
+            var request = new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: "token",
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Compile),
+                payload: JsonSerializer.SerializeToElement(new { }),
+                responseMode: "single",
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
+            var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            using var serverStream = new NamedPipeServerStream(
+                pipeName,
+                PipeDirection.InOut,
+                1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous);
+            var connectionTask = serverStream.WaitForConnectionAsync(CancellationToken.None);
+            using var clientStream = new NamedPipeClientStream(
+                ".",
+                pipeName,
+                PipeDirection.InOut,
+                PipeOptions.Asynchronous);
+            clientStream.Connect((int)SignalWaitTimeout.TotalMilliseconds);
+            await TestAwaiter.WaitAsync(
+                connectionTask,
+                "Named pipe connection for non-replayable Compile peer-disconnect test",
+                SignalWaitTimeout);
+
+            using var hostCancellationTokenSource = new CancellationTokenSource();
+            var handleTask = handler.HandleAsync(serverStream, hostCancellationTokenSource.Token);
+            await IpcFrameCodec.WriteModelAsync(
+                clientStream,
+                request,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                requestHandler.RequestObserved,
+                "Non-replayable Compile IPC request processing start",
+                SignalWaitTimeout);
+
+            clientStream.Dispose();
+
+            await TestAwaiter.WaitAsync(
+                requestHandler.CancellationObserved,
+                "Non-replayable Compile peer-disconnect cancellation",
+                SignalWaitTimeout);
+            var result = await TestAwaiter.WaitAsync(
+                handleTask,
+                "Peer-disconnected non-replayable Compile request completion",
+                SignalWaitTimeout);
+
+            Assert.That(phaseScopeFactory.CreateCalled, Is.True);
+            Assert.That(phaseScopeFactory.UpstreamCancellationToken, Is.EqualTo(hostCancellationTokenSource.Token));
+            Assert.That(result.HasTerminalResponse, Is.False);
+            Assert.That(result.Request, Is.Null);
+            Assert.That(result.Response, Is.Null);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenCompilePeerDisconnectsWithRecoverableReplay_AllowsExecutionToReachTerminalState () => UniTask.ToCoroutine(async () =>
+        {
+            var requestHandler = new CompletableRequestHandler();
+            var phaseScopeFactory = new RecordingIpcRequestPhaseScopeFactory();
+            var handler = CreateConnectionHandler(
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: true,
+                initialFrameReadTimeout: TimeSpan.FromSeconds(1),
+                phaseScopeFactory: phaseScopeFactory);
+            var request = new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: "token",
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Compile),
+                payload: JsonSerializer.SerializeToElement(new { }),
+                responseMode: "single",
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
+            var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            using var serverStream = new NamedPipeServerStream(
+                pipeName,
+                PipeDirection.InOut,
+                1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous);
+            var connectionTask = serverStream.WaitForConnectionAsync(CancellationToken.None);
+            using var clientStream = new NamedPipeClientStream(
+                ".",
+                pipeName,
+                PipeDirection.InOut,
+                PipeOptions.Asynchronous);
+            clientStream.Connect((int)SignalWaitTimeout.TotalMilliseconds);
+            await TestAwaiter.WaitAsync(connectionTask, "Named pipe connection for recoverable peer-disconnect test", SignalWaitTimeout);
+
+            using var hostCancellationTokenSource = new CancellationTokenSource();
+            var handleTask = handler.HandleAsync(serverStream, hostCancellationTokenSource.Token);
+            await IpcFrameCodec.WriteModelAsync(
+                clientStream,
+                request,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: CancellationToken.None);
+            await TestAwaiter.WaitAsync(requestHandler.RequestObserved, "Recoverable IPC request processing start", SignalWaitTimeout);
+            var executionUsesHostLifetime = phaseScopeFactory.CreateCalled
+                && phaseScopeFactory.UpstreamCancellationToken == hostCancellationTokenSource.Token;
+
+            clientStream.Dispose();
+            requestHandler.Complete(request);
+
+            var result = await TestAwaiter.WaitAsync(handleTask, "Peer-disconnected recoverable request completion", SignalWaitTimeout);
+
+            Assert.That(executionUsesHostLifetime, Is.True);
+            Assert.That(requestHandler.CancellationObserved.IsCompleted, Is.False);
+            Assert.That(requestHandler.CompletionObserved.IsCompleted, Is.True);
+            Assert.That(result.HasTerminalResponse, Is.False);
+            Assert.That(result.Request, Is.Null);
+            Assert.That(result.Response, Is.Null);
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenExecutePeerDisconnectsWithRecoverableReplayAvailable_CancelsExecution () => UniTask.ToCoroutine(async () =>
+        {
+            var requestHandler = new CancellationObservingRequestHandler();
+            var phaseScopeFactory = new RecordingIpcRequestPhaseScopeFactory();
+            var handler = CreateConnectionHandler(
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: true,
+                initialFrameReadTimeout: TimeSpan.FromSeconds(1),
+                phaseScopeFactory: phaseScopeFactory);
+            var request = new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: "token",
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Execute),
+                payload: JsonSerializer.SerializeToElement(new { }),
+                responseMode: "single",
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
+            var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            using var serverStream = new NamedPipeServerStream(
+                pipeName,
+                PipeDirection.InOut,
+                1,
+                PipeTransmissionMode.Byte,
+                PipeOptions.Asynchronous);
+            var connectionTask = serverStream.WaitForConnectionAsync(CancellationToken.None);
+            using var clientStream = new NamedPipeClientStream(
+                ".",
+                pipeName,
+                PipeDirection.InOut,
+                PipeOptions.Asynchronous);
+            clientStream.Connect((int)SignalWaitTimeout.TotalMilliseconds);
+            await TestAwaiter.WaitAsync(
+                connectionTask,
+                "Named pipe connection for non-recoverable Execute peer-disconnect test",
+                SignalWaitTimeout);
+
+            using var hostCancellationTokenSource = new CancellationTokenSource();
+            var handleTask = handler.HandleAsync(serverStream, hostCancellationTokenSource.Token);
+            await IpcFrameCodec.WriteModelAsync(
+                clientStream,
+                request,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: CancellationToken.None);
+            await TestAwaiter.WaitAsync(
+                requestHandler.RequestObserved,
+                "Non-recoverable Execute IPC request processing start",
+                SignalWaitTimeout);
+
+            clientStream.Dispose();
+
+            await TestAwaiter.WaitAsync(
+                requestHandler.CancellationObserved,
+                "Non-recoverable Execute peer-disconnect cancellation",
+                SignalWaitTimeout);
+            var result = await TestAwaiter.WaitAsync(
+                handleTask,
+                "Peer-disconnected non-recoverable Execute request completion",
+                SignalWaitTimeout);
+
+            Assert.That(phaseScopeFactory.CreateCalled, Is.True);
+            Assert.That(phaseScopeFactory.UpstreamCancellationToken, Is.EqualTo(hostCancellationTokenSource.Token));
+            Assert.That(result.HasTerminalResponse, Is.False);
             Assert.That(result.Request, Is.Null);
             Assert.That(result.Response, Is.Null);
         });
@@ -289,7 +513,9 @@ namespace MackySoft.Ucli.Unity.Tests
             for (var iteration = 0; iteration < NamedPipeCancellationStressIterationCount; iteration++)
             {
                 var requestHandler = new StubRequestHandler();
-                var handler = CreateConnectionHandler(requestHandler);
+                var handler = CreateConnectionHandler(
+                    requestHandler: requestHandler,
+                    recoverableReplayAvailable: false);
                 var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
                 var pipeName = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
                 using var serverStream = new NamedPipeServerStream(
@@ -329,7 +555,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     $"Named pipe handler completion with pending peer monitor {iteration}",
                     SignalWaitTimeout);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
+                Assert.That(result.HasTerminalResponse, Is.True);
                 Assert.That(result.Response, Is.Not.Null);
                 Assert.That(requestHandler.CallCount, Is.EqualTo(1));
             }
@@ -339,21 +566,25 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public IEnumerator StreamFrameWriter_WhenProgressWriteFails_InvokesWriteFailureHandler () => UniTask.ToCoroutine(async () =>
         {
-            var request = new IpcRequest(
+            var request = new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "token",
                 method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                responseMode: "stream");
+                responseMode: "stream",
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
             using var stream = new ThrowOnWriteStream();
+            using var writeCutoffCancellationTokenSource =
+                new CancellationTokenSource(TimeSpan.FromSeconds(5));
             Exception observedFailure = null;
-            var streamWriter = new IpcStreamFrameWriter(
+            using var streamWriter = new IpcStreamFrameWriter(
                 stream,
                 request,
                 CancellationToken.None,
                 CancellationToken.None,
-                TimeSpan.FromSeconds(5),
+                writeCutoffCancellationTokenSource.Token,
                 exception => observedFailure = exception);
 
             IOException exception = null;
@@ -381,22 +612,25 @@ namespace MackySoft.Ucli.Unity.Tests
             using var mutationExecutor = new UnitySynchronizationContextRequestExecutor(
                 SynchronizationContext.Current,
                 Thread.CurrentThread.ManagedThreadId,
-                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations,
-                poisonOnActiveCancellation: true);
+                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations);
             using var shutdownAdmission = new UnityShutdownAdmissionCoordinator(mutationExecutor);
             var requestHandler = new ShutdownPreparingRequestHandler(shutdownAdmission);
             var handler = new UnityIpcConnectionHandler(
-                requestHandler,
-                shutdownAdmission,
-                UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
-                UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
-            var request = new IpcRequest(
+                requestHandler: requestHandler,
+                shutdownAdmissionCoordinator: shutdownAdmission,
+                phaseScopeFactory: new IpcRequestPhaseScopeFactory(),
+                recoverableReplayAvailable: false,
+                initialFrameReadTimeout: UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
+                responseFrameWriteTimeout: UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
+            var request = new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "token",
                 method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                responseMode: "single");
+                responseMode: "single",
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
 
             using var stream = new MemoryStream();
             await IpcFrameCodec.WriteModelAsync(
@@ -408,10 +642,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await handler.HandleAsync(stream, CancellationToken.None);
 
+            Assert.That(result.HasTerminalResponse, Is.True);
             Assert.That(result.Request, Is.Not.Null);
-            Assert.That(result.Request.Method, Is.EqualTo(ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown)));
+            Assert.That(result.Request.Method, Is.EqualTo(UnityIpcMethod.Shutdown));
             Assert.That(result.Response, Is.Not.Null);
-            Assert.That(result.Response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(result.Response.Status, Is.EqualTo(IpcResponseStatus.Ok));
             Assert.That(result.Response.Errors, Is.Empty);
             Assert.That(result.IsShutdownAdmissionCommitted, Is.True);
             Assert.That(mutationExecutor.IsBusy, Is.True);
@@ -422,16 +657,19 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Handle_WhenShutdownResponseWriteDoesNotComplete_AbortsAdmissionWithinWriteTimeout () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Handle_WhenShutdownResponseWriteDoesNotComplete_AbortsAdmissionAtRequestWriteCutoff () => UniTask.ToCoroutine(async () =>
         {
             using var mutationExecutor = new UnitySynchronizationContextRequestExecutor(
                 SynchronizationContext.Current,
                 Thread.CurrentThread.ManagedThreadId,
-                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations,
-                poisonOnActiveCancellation: true);
+                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations);
             using var shutdownAdmission = new UnityShutdownAdmissionCoordinator(mutationExecutor);
             var requestHandler = new ShutdownPreparingRequestHandler(shutdownAdmission);
-            var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
+            var request = CreateShutdownRequest(
+                Guid.NewGuid(),
+                "single",
+                CanonicalSessionToken,
+                requestDeadlineRemainingMilliseconds: 250);
             using var requestBytes = new MemoryStream();
             await IpcFrameCodec.WriteModelAsync(
                 requestBytes,
@@ -440,9 +678,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken: CancellationToken.None);
             using var stream = new BlockingWriteMemoryStream(requestBytes.ToArray());
             var handler = new UnityIpcConnectionHandler(
-                requestHandler,
-                shutdownAdmission,
-                UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
+                requestHandler: requestHandler,
+                shutdownAdmissionCoordinator: shutdownAdmission,
+                phaseScopeFactory: new IpcRequestPhaseScopeFactory(),
+                recoverableReplayAvailable: false,
+                initialFrameReadTimeout: UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
                 responseFrameWriteTimeout: TimeSpan.FromMilliseconds(25));
 
             var result = await TestAwaiter.WaitAsync(
@@ -450,6 +690,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Bounded shutdown response write",
                 SignalWaitTimeout);
 
+            Assert.That(result.HasTerminalResponse, Is.False);
             Assert.That(result.Request, Is.Null);
             Assert.That(result.Response, Is.Null);
             await TestAwaiter.WaitAsync(
@@ -472,7 +713,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 IpcJsonSerializerOptions.Default,
                 cancellationToken: CancellationToken.None);
             using var stream = new BlockingWriteMemoryStream(requestBytes.ToArray());
-            var handler = CreateConnectionHandler(new StubRequestHandler());
+            var handler = CreateConnectionHandler(
+                requestHandler: new StubRequestHandler(),
+                recoverableReplayAvailable: false);
             var lifecycleCancellationTokenSource = new CancellationTokenSource();
             var handleTask = handler.HandleAsync(stream, lifecycleCancellationTokenSource.Token);
             await TestAwaiter.WaitAsync(
@@ -519,7 +762,8 @@ namespace MackySoft.Ucli.Unity.Tests
             stream.Position = 0;
             var lifecycleCancellationTokenSource = new CancellationTokenSource();
             var handler = CreateConnectionHandler(
-                new CancelBeforeResponseWriteRequestHandler(lifecycleCancellationTokenSource));
+                requestHandler: new CancelBeforeResponseWriteRequestHandler(lifecycleCancellationTokenSource),
+                recoverableReplayAvailable: false);
 
             OperationCanceledException cancellationException = null;
             try
@@ -541,10 +785,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Handle_WhenResponseWriteBlocksBeforeReturningTask_StillStopsAtResponseFrameDeadline () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Handle_WhenResponseWriteBlocksBeforeReturningTask_StillStopsAtRequestWriteCutoff () => UniTask.ToCoroutine(async () =>
         {
             var requestHandler = new StubRequestHandler();
-            var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
+            var request = CreateShutdownRequest(
+                Guid.NewGuid(),
+                "single",
+                CanonicalSessionToken,
+                requestDeadlineRemainingMilliseconds: 250);
             using var requestBytes = new MemoryStream();
             await IpcFrameCodec.WriteModelAsync(
                 requestBytes,
@@ -553,7 +801,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken: CancellationToken.None);
             using var stream = new SynchronouslyBlockingWriteMemoryStream(requestBytes.ToArray());
             var handler = CreateConnectionHandler(
-                requestHandler,
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: false,
                 responseFrameWriteTimeout: TimeSpan.FromMilliseconds(25));
             var handleTask = Task.Run(() => handler.HandleAsync(stream, CancellationToken.None));
             var completedWithinDeadline = false;
@@ -584,10 +833,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Handle_WhenResponseWriteCompletesAfterDeadlineAlreadyWon_DoesNotCommitLateResponse ()
+        public void Handle_WhenResponseWriteCompletesAfterRequestWriteCutoff_DoesNotCommitLateResponse ()
         {
             var requestHandler = new StubRequestHandler();
-            var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
+            var request = CreateShutdownRequest(
+                Guid.NewGuid(),
+                "single",
+                CanonicalSessionToken,
+                requestDeadlineRemainingMilliseconds: 250);
             using var requestBytes = new MemoryStream();
             IpcFrameCodec.WriteModelAsync(
                     requestBytes,
@@ -599,7 +852,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 .GetResult();
             using var stream = new DeadlineRaceWriteMemoryStream(requestBytes.ToArray());
             var handler = CreateConnectionHandler(
-                requestHandler,
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: false,
                 responseFrameWriteTimeout: TimeSpan.FromMilliseconds(25));
             var synchronizationContext = new ManuallyPumpedSynchronizationContext();
             var originalSynchronizationContext = SynchronizationContext.Current;
@@ -641,15 +895,19 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Handle_WhenResponseModeIsStream_WritesProgressAndTerminalFrames () => UniTask.ToCoroutine(async () =>
         {
             var requestHandler = new StubStreamingRequestHandler();
-            var handler = CreateConnectionHandler(requestHandler);
+            var handler = CreateConnectionHandler(
+                requestHandler: requestHandler,
+                recoverableReplayAvailable: false);
             var requestId = Guid.NewGuid();
-            var request = new IpcRequest(
+            var request = new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "token",
                 method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                responseMode: "stream");
+                responseMode: "stream",
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
 
             using var stream = new MemoryStream();
             await IpcFrameCodec.WriteModelAsync(
@@ -662,6 +920,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await handler.HandleAsync(stream, CancellationToken.None);
 
+            Assert.That(result.HasTerminalResponse, Is.True);
             Assert.That(result.Request, Is.Not.Null);
             Assert.That(result.Response, Is.Not.Null);
             Assert.That(requestHandler.CallCount, Is.EqualTo(0));
@@ -678,92 +937,368 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken: CancellationToken.None);
 
             Assert.That(progressFrameResult.IsSuccess, Is.True);
-            Assert.That(progressFrameResult.Value.Kind, Is.EqualTo(IpcStreamFrameKinds.Progress));
+            Assert.That(progressFrameResult.Value.Kind, Is.EqualTo(IpcStreamFrameKind.Progress));
             Assert.That(progressFrameResult.Value.RequestId, Is.EqualTo(requestId));
             Assert.That(progressFrameResult.Value.Event, Is.EqualTo("test.progress"));
 
             Assert.That(terminalFrameResult.IsSuccess, Is.True);
-            Assert.That(terminalFrameResult.Value.Kind, Is.EqualTo(IpcStreamFrameKinds.Terminal));
+            Assert.That(terminalFrameResult.Value.Kind, Is.EqualTo(IpcStreamFrameKind.Terminal));
             Assert.That(terminalFrameResult.Value.Response, Is.Not.Null);
-            Assert.That(terminalFrameResult.Value.Response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(terminalFrameResult.Value.Response.Status, Is.EqualTo(IpcResponseStatus.Ok));
         });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Handle_WhenProgressWriteHoldsFrameGate_AbortsBoundedTerminalWrite () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Handle_WhenSessionTokenIsMissingAndLiteralsAreUnsupported_ReturnsCorrelatedSessionTokenRequired () => UniTask.ToCoroutine(async () =>
         {
-            var request = new IpcRequest(
-                protocolVersion: IpcProtocol.CurrentVersion,
-                requestId: Guid.NewGuid(),
-                sessionToken: "token",
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
-                payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                responseMode: "stream");
-            using var requestBytes = new MemoryStream();
-            await IpcFrameCodec.WriteModelAsync(
-                requestBytes,
-                request,
-                IpcJsonSerializerOptions.Default,
-                cancellationToken: CancellationToken.None);
-            using var stream = new BlockingWriteMemoryStream(requestBytes.ToArray());
-            var requestHandler = new BlockingProgressRequestHandler(stream.WriteStarted);
+            var sessionTokenValidator = new StubSessionTokenValidator(true);
+            var dispatcher = new StubMethodDispatcher();
             var handler = CreateConnectionHandler(
-                requestHandler,
-                initialFrameReadTimeout: TimeSpan.FromSeconds(1),
-                responseFrameWriteTimeout: TimeSpan.FromMilliseconds(25));
+                requestHandler: new UnityIpcRequestHandler(
+                    sessionTokenValidator,
+                    dispatcher,
+                    NoOpDaemonLogger.Instance),
+                recoverableReplayAvailable: false);
+            var request = new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion + 1,
+                requestId: Guid.NewGuid(),
+                sessionToken: null,
+                method: "unsupported.method",
+                payload: JsonSerializer.SerializeToElement(new UcliEmptyArgs()),
+                responseMode: "unsupported",
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
 
-            var result = await TestAwaiter.WaitAsync(
-                handler.HandleAsync(stream, CancellationToken.None),
-                "Bounded terminal frame write",
-                SignalWaitTimeout);
+            var (result, response) = await HandleRawRequestAsync(
+                handler,
+                JsonSerializer.SerializeToElement(request));
 
             Assert.That(result.Request, Is.Null);
-            Assert.That(result.Response, Is.Null);
-            await TestAwaiter.WaitAsync(
-                stream.Disposed,
-                "Streaming response stream cleanup",
-                SignalWaitTimeout);
-            Assert.That(stream.WasDisposed, Is.True);
-        });
-
-        [UnityTest]
-        [Category("Size.Small")]
-        public IEnumerator RequestHandler_WhenStreamRequestUsesSinglePath_ReturnsInvalidArgumentWithoutDispatch () => UniTask.ToCoroutine(async () =>
-        {
-            var dispatcher = new StubMethodDispatcher();
-            var handler = new UnityIpcRequestHandler(
-                new StubSessionTokenValidator(true),
-                dispatcher,
-                NoOpDaemonLogger.Instance);
-            var request = CreateShutdownRequest(Guid.NewGuid(), "stream", CanonicalSessionToken);
-
-            var response = await handler.HandleAsync(request, CancellationToken.None);
-
-            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenRequired));
+            Assert.That(sessionTokenValidator.ValidateCallCount, Is.EqualTo(0));
             Assert.That(dispatcher.DispatchCallCount, Is.EqualTo(0));
             Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
         });
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator RequestHandler_WhenSingleRequestUsesStreamingPath_ReturnsInvalidArgumentWithoutDispatch () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Handle_WhenProtocolVersionAndLiteralsAreUnsupported_ReturnsCorrelatedProtocolMismatch () => UniTask.ToCoroutine(async () =>
         {
+            var sessionTokenValidator = new StubSessionTokenValidator(true);
             var dispatcher = new StubMethodDispatcher();
+            var handler = CreateConnectionHandler(
+                requestHandler: new UnityIpcRequestHandler(
+                    sessionTokenValidator,
+                    dispatcher,
+                    NoOpDaemonLogger.Instance),
+                recoverableReplayAvailable: false);
+            var request = new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion + 1,
+                requestId: Guid.NewGuid(),
+                sessionToken: CanonicalSessionToken,
+                method: "unsupported.method",
+                payload: JsonSerializer.SerializeToElement(new UcliEmptyArgs()),
+                responseMode: "unsupported",
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
+
+            var (result, response) = await HandleRawRequestAsync(
+                handler,
+                JsonSerializer.SerializeToElement(request));
+
+            Assert.That(result.Request, Is.Null);
+            Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+            Assert.That(response.Errors.Count, Is.EqualTo(1));
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcProtocolErrorCodes.ProtocolVersionMismatch));
+            Assert.That(sessionTokenValidator.ValidateCallCount, Is.EqualTo(1));
+            Assert.That(dispatcher.DispatchCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenStreamRequestProtocolVersionIsUnsupported_WritesCurrentVersionTerminalFrame () => UniTask.ToCoroutine(async () =>
+        {
+            var requestHandler = new UnityIpcRequestHandler(
+                new StubSessionTokenValidator(true),
+                new StubMethodDispatcher(),
+                NoOpDaemonLogger.Instance);
+            var handler = CreateConnectionHandler(
+                requestHandler,
+                recoverableReplayAvailable: false);
+            var requestId = Guid.NewGuid();
+            var request = new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion + 1,
+                requestId: requestId,
+                sessionToken: CanonicalSessionToken,
+                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
+                payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
+            using var stream = new MemoryStream();
+            await IpcFrameCodec.WriteModelAsync(
+                stream,
+                request,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: CancellationToken.None);
+            var responseStartPosition = stream.Position;
+            stream.Position = 0;
+
+            var result = await handler.HandleAsync(stream, CancellationToken.None);
+
+            Assert.That(result.HasTerminalResponse, Is.True);
+            Assert.That(result.Request, Is.Null);
+            stream.Position = responseStartPosition;
+            var terminalFrame = await IpcFrameCodec.ReadModelAsync<IpcStreamFrame>(
+                stream,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: CancellationToken.None);
+            Assert.That(terminalFrame.ProtocolVersion, Is.EqualTo(IpcProtocol.CurrentVersion));
+            Assert.That(terminalFrame.RequestId, Is.EqualTo(requestId));
+            Assert.That(terminalFrame.Kind, Is.EqualTo(IpcStreamFrameKind.Terminal));
+            Assert.That(terminalFrame.Response, Is.Not.Null);
+            Assert.That(terminalFrame.Response.ProtocolVersion, Is.EqualTo(IpcProtocol.CurrentVersion));
+            Assert.That(terminalFrame.Response.RequestId, Is.EqualTo(requestId));
+            Assert.That(
+                terminalFrame.Response.Errors[0].Code,
+                Is.EqualTo(IpcProtocolErrorCodes.ProtocolVersionMismatch));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenResponseModeIsUnknownNullOrMissing_ReturnsCorrelatedInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var sessionTokenValidator = new StubSessionTokenValidator(true);
+            var dispatcher = new StubMethodDispatcher();
+            var handler = CreateConnectionHandler(
+                requestHandler: new UnityIpcRequestHandler(
+                    sessionTokenValidator,
+                    dispatcher,
+                    NoOpDaemonLogger.Instance),
+                recoverableReplayAvailable: false);
+            var deadlineUtc = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+            var requestIds = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
+            var requests = new[]
+            {
+                JsonSerializer.SerializeToElement(new IpcRequestEnvelope(
+                    IpcProtocol.CurrentVersion,
+                    requestIds[0],
+                    CanonicalSessionToken,
+                    ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
+                    JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
+                    "unsupported",
+                    deadlineUtc,
+                    30_000)),
+                JsonSerializer.SerializeToElement(new IpcRequestEnvelope(
+                    IpcProtocol.CurrentVersion,
+                    requestIds[1],
+                    CanonicalSessionToken,
+                    ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
+                    JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
+                    null,
+                    deadlineUtc,
+                    30_000)),
+                JsonSerializer.SerializeToElement(new
+                {
+                    ProtocolVersion = IpcProtocol.CurrentVersion,
+                    RequestId = requestIds[2],
+                    SessionToken = CanonicalSessionToken,
+                    Method = ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
+                    Payload = JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
+                    RequestDeadlineUtc = deadlineUtc,
+                    RequestDeadlineRemainingMilliseconds = 30_000,
+                }, IpcJsonSerializerOptions.Default),
+            };
+
+            for (var index = 0; index < requests.Length; index++)
+            {
+                var (result, response) = await HandleRawRequestAsync(handler, requests[index]);
+
+                Assert.That(result.Method, Is.Null, $"index={index}");
+                Assert.That(response.RequestId, Is.EqualTo(requestIds[index]), $"index={index}");
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error), $"index={index}");
+                Assert.That(response.Errors.Count, Is.EqualTo(1), $"index={index}");
+                Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument), $"index={index}");
+            }
+
+            Assert.That(sessionTokenValidator.ValidateCallCount, Is.EqualTo(3));
+            Assert.That(dispatcher.DispatchCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Handle_WhenMethodIsUnknownNullOrMissing_ReturnsCorrelatedMethodNotSupported () => UniTask.ToCoroutine(async () =>
+        {
+            var sessionTokenValidator = new StubSessionTokenValidator(true);
+            var dispatcher = new StubMethodDispatcher();
+            var handler = CreateConnectionHandler(
+                requestHandler: new UnityIpcRequestHandler(
+                    sessionTokenValidator,
+                    dispatcher,
+                    NoOpDaemonLogger.Instance),
+                recoverableReplayAvailable: false);
+            var deadlineUtc = DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30);
+            var requestIds = new[] { Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid() };
+            var requests = new[]
+            {
+                JsonSerializer.SerializeToElement(new IpcRequestEnvelope(
+                    IpcProtocol.CurrentVersion,
+                    requestIds[0],
+                    CanonicalSessionToken,
+                    "unsupported.method",
+                    JsonSerializer.SerializeToElement(new UcliEmptyArgs()),
+                    ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                    deadlineUtc,
+                    30_000)),
+                JsonSerializer.SerializeToElement(new IpcRequestEnvelope(
+                    IpcProtocol.CurrentVersion,
+                    requestIds[1],
+                    CanonicalSessionToken,
+                    null,
+                    JsonSerializer.SerializeToElement(new UcliEmptyArgs()),
+                    ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                    deadlineUtc,
+                    30_000)),
+                JsonSerializer.SerializeToElement(new
+                {
+                    ProtocolVersion = IpcProtocol.CurrentVersion,
+                    RequestId = requestIds[2],
+                    SessionToken = CanonicalSessionToken,
+                    Payload = JsonSerializer.SerializeToElement(new UcliEmptyArgs()),
+                    ResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                    RequestDeadlineUtc = deadlineUtc,
+                    RequestDeadlineRemainingMilliseconds = 30_000,
+                }, IpcJsonSerializerOptions.Default),
+            };
+
+            for (var index = 0; index < requests.Length; index++)
+            {
+                var (result, response) = await HandleRawRequestAsync(handler, requests[index]);
+
+                Assert.That(result.Method, Is.Null, $"index={index}");
+                Assert.That(response.RequestId, Is.EqualTo(requestIds[index]), $"index={index}");
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error), $"index={index}");
+                Assert.That(response.Errors.Count, Is.EqualTo(1), $"index={index}");
+                Assert.That(response.Errors[0].Code, Is.EqualTo(IpcProtocolErrorCodes.IpcMethodNotSupported), $"index={index}");
+            }
+
+            Assert.That(sessionTokenValidator.ValidateCallCount, Is.EqualTo(3));
+            Assert.That(dispatcher.DispatchCallCount, Is.EqualTo(0));
+            Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RequestHandler_WhenUnauthenticatedMethodContainsNewlineAndLongLiteral_DoesNotLogUntrustedLiteral () => UniTask.ToCoroutine(async () =>
+        {
+            var daemonLogger = new RecordingDaemonLogger();
             var handler = new UnityIpcRequestHandler(
                 new StubSessionTokenValidator(true),
+                new StubMethodDispatcher(),
+                daemonLogger);
+            var untrustedMarker = "untrusted-pre-auth-method-marker";
+            var request = new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: null,
+                method: untrustedMarker + "\n" + new string('m', 4096),
+                payload: JsonSerializer.SerializeToElement(new UcliEmptyArgs()),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
+
+            var response = await HandleRequestAsync(handler, request, CancellationToken.None);
+
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenRequired));
+            Assert.That(daemonLogger.WarningCallCount, Is.EqualTo(1));
+            Assert.That(daemonLogger.LastWarningMessage, Does.Not.Contain(untrustedMarker));
+            Assert.That(daemonLogger.LastWarningMessage, Does.Not.Contain("\n"));
+            Assert.That(daemonLogger.LastWarningRaw, Does.Not.Contain(untrustedMarker));
+            Assert.That(daemonLogger.LastWarningRaw, Does.Not.Contain("\n"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RequestHandler_WhenMethodContainsNewlineAndLongLiteral_DoesNotReflectUntrustedLiteral () => UniTask.ToCoroutine(async () =>
+        {
+            var daemonLogger = new RecordingDaemonLogger();
+            var handler = new UnityIpcRequestHandler(
+                new StubSessionTokenValidator(true),
+                new StubMethodDispatcher(),
+                daemonLogger);
+            var untrustedMarker = "untrusted-method-marker";
+            var request = new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: CanonicalSessionToken,
+                method: untrustedMarker + "\n" + new string('m', 4096),
+                payload: JsonSerializer.SerializeToElement(new UcliEmptyArgs()),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
+
+            var response = await HandleRequestAsync(handler, request, CancellationToken.None);
+
+            Assert.That(response.Errors[0].Code, Is.EqualTo(IpcProtocolErrorCodes.IpcMethodNotSupported));
+            Assert.That(response.Errors[0].Message, Does.Not.Contain(untrustedMarker));
+            Assert.That(response.Errors[0].Message, Does.Not.Contain("\n"));
+            Assert.That(daemonLogger.LastWarningMessage, Does.Not.Contain(untrustedMarker));
+            Assert.That(daemonLogger.LastWarningMessage, Does.Not.Contain("\n"));
+            Assert.That(daemonLogger.LastWarningRaw, Does.Not.Contain(untrustedMarker));
+            Assert.That(daemonLogger.LastWarningRaw, Does.Not.Contain("\n"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RequestHandler_WhenResponseModeContainsNewlineAndLongLiteral_DoesNotReflectUntrustedLiteral () => UniTask.ToCoroutine(async () =>
+        {
+            var daemonLogger = new RecordingDaemonLogger();
+            var handler = new UnityIpcRequestHandler(
+                new StubSessionTokenValidator(true),
+                new StubMethodDispatcher(),
+                daemonLogger);
+            var untrustedMarker = "untrusted-response-mode-marker";
+            var request = CreateShutdownRequest(
+                Guid.NewGuid(),
+                untrustedMarker + "\n" + new string('r', 4096),
+                CanonicalSessionToken);
+
+            var response = await HandleRequestAsync(handler, request, CancellationToken.None);
+
+            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(response.Errors[0].Message, Does.Not.Contain(untrustedMarker));
+            Assert.That(response.Errors[0].Message, Does.Not.Contain("\n"));
+            Assert.That(daemonLogger.LastWarningMessage, Does.Not.Contain(untrustedMarker));
+            Assert.That(daemonLogger.LastWarningMessage, Does.Not.Contain("\n"));
+            Assert.That(daemonLogger.LastWarningRaw, Does.Not.Contain(untrustedMarker));
+            Assert.That(daemonLogger.LastWarningRaw, Does.Not.Contain("\n"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RequestHandler_WhenSessionTokenIsCanonical_PassesParsedTokenToValidator () => UniTask.ToCoroutine(async () =>
+        {
+            var sessionTokenValidator = new StubSessionTokenValidator(true);
+            var dispatcher = new StubMethodDispatcher();
+            var handler = new UnityIpcRequestHandler(
+                sessionTokenValidator,
                 dispatcher,
                 NoOpDaemonLogger.Instance);
             var request = CreateShutdownRequest(Guid.NewGuid(), "single", CanonicalSessionToken);
 
-            var response = await handler.HandleStreamingAsync(request, new NoOpStreamFrameWriter(), CancellationToken.None);
+            var response = await HandleRequestAsync(handler, request, CancellationToken.None);
 
-            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
-            Assert.That(response.Errors.Count, Is.EqualTo(1));
-            Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(dispatcher.DispatchCallCount, Is.EqualTo(0));
-            Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
+            Assert.That(sessionTokenValidator.ValidateCallCount, Is.EqualTo(1));
+            Assert.That(
+                sessionTokenValidator.LastSessionToken.GetEncodedValue(),
+                Is.EqualTo(CanonicalSessionToken));
         });
 
         [UnityTest]
@@ -778,10 +1313,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 NoOpDaemonLogger.Instance);
             var request = CreateShutdownRequest(Guid.NewGuid(), "single", "not-canonical");
 
-            var response = await handler.HandleAsync(request, CancellationToken.None);
+            var response = await HandleRequestAsync(handler, request, CancellationToken.None);
 
             Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
-            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenInvalid));
             Assert.That(sessionTokenValidator.ValidateCallCount, Is.EqualTo(0));
@@ -801,13 +1336,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 NoOpDaemonLogger.Instance);
             var request = CreateShutdownRequest(Guid.NewGuid(), "stream", "not-canonical");
 
-            var response = await handler.HandleStreamingAsync(
+            var response = await HandleStreamingRequestAsync(
+                handler,
                 request,
                 new NoOpStreamFrameWriter(),
                 CancellationToken.None);
 
             Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
-            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(response.Errors.Count, Is.EqualTo(1));
             Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenInvalid));
             Assert.That(sessionTokenValidator.ValidateCallCount, Is.EqualTo(0));
@@ -830,10 +1366,10 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var request = CreateShutdownRequest(Guid.NewGuid(), "single", missingSessionToken);
 
-                var response = await handler.HandleAsync(request, CancellationToken.None);
+                var response = await HandleRequestAsync(handler, request, CancellationToken.None);
 
                 Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(response.Errors.Count, Is.EqualTo(1));
                 Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenRequired));
             }
@@ -858,13 +1394,14 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 var request = CreateShutdownRequest(Guid.NewGuid(), "stream", missingSessionToken);
 
-                var response = await handler.HandleStreamingAsync(
+                var response = await HandleStreamingRequestAsync(
+                    handler,
                     request,
                     new NoOpStreamFrameWriter(),
                     CancellationToken.None);
 
                 Assert.That(response.RequestId, Is.EqualTo(request.RequestId));
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(response.Errors.Count, Is.EqualTo(1));
                 Assert.That(response.Errors[0].Code, Is.EqualTo(IpcSessionErrorCodes.SessionTokenRequired));
             }
@@ -874,30 +1411,103 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(dispatcher.StreamingDispatchCallCount, Is.EqualTo(0));
         });
 
-        private static IpcRequest CreateShutdownRequest (
+        private static IpcRequestEnvelope CreateShutdownRequest (
             Guid requestId,
             string responseMode,
-            string sessionToken)
+            string sessionToken,
+            int requestDeadlineRemainingMilliseconds = 30_000)
         {
-            return new IpcRequest(
+            return new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: sessionToken,
                 method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: JsonSerializer.SerializeToElement(new IpcShutdownRequest("tests")),
-                responseMode: responseMode);
+                responseMode: responseMode,
+                requestDeadlineUtc: DateTimeOffset.UtcNow
+                    + TimeSpan.FromMilliseconds(requestDeadlineRemainingMilliseconds),
+                requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);
+        }
+
+        private static async Task<IpcResponse> HandleRequestAsync (
+            UnityIpcRequestHandler requestHandler,
+            IpcRequestEnvelope request,
+            CancellationToken cancellationToken)
+        {
+            using var phaseScope = new IpcRequestPhaseScopeFactory().Create(
+                request,
+                cancellationToken,
+                TimeSpan.FromSeconds(1));
+            var validationResult = await requestHandler.ValidateAsync(request, phaseScope);
+            if (!validationResult.IsSuccess)
+            {
+                return validationResult.ErrorResponse;
+            }
+
+            return await requestHandler.HandleAsync(
+                validationResult.Request,
+                phaseScope);
+        }
+
+        private static async Task<(UnityIpcConnectionHandleResult Result, IpcResponse Response)> HandleRawRequestAsync (
+            UnityIpcConnectionHandler connectionHandler,
+            JsonElement request)
+        {
+            using var stream = new MemoryStream();
+            await IpcFrameCodec.WriteModelAsync(
+                stream,
+                request,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: CancellationToken.None);
+            var responseStartPosition = stream.Position;
+            stream.Position = 0;
+
+            var result = await connectionHandler.HandleAsync(stream, CancellationToken.None);
+
+            stream.Position = responseStartPosition;
+            var response = await IpcFrameCodec.ReadModelAsync<IpcResponse>(
+                stream,
+                IpcJsonSerializerOptions.Default,
+                cancellationToken: CancellationToken.None);
+            return (result, response);
+        }
+
+        private static async Task<IpcResponse> HandleStreamingRequestAsync (
+            UnityIpcRequestHandler requestHandler,
+            IpcRequestEnvelope request,
+            IIpcStreamFrameWriter streamWriter,
+            CancellationToken cancellationToken)
+        {
+            using var phaseScope = new IpcRequestPhaseScopeFactory().Create(
+                request,
+                cancellationToken,
+                TimeSpan.FromSeconds(1));
+            var validationResult = await requestHandler.ValidateAsync(request, phaseScope);
+            if (!validationResult.IsSuccess)
+            {
+                return validationResult.ErrorResponse;
+            }
+
+            return await requestHandler.HandleStreamingAsync(
+                validationResult.Request,
+                streamWriter,
+                phaseScope);
         }
 
         private static UnityIpcConnectionHandler CreateConnectionHandler (
             IUnityIpcRequestHandler requestHandler,
+            bool recoverableReplayAvailable,
             TimeSpan? initialFrameReadTimeout = null,
-            TimeSpan? responseFrameWriteTimeout = null)
+            TimeSpan? responseFrameWriteTimeout = null,
+            IIpcRequestPhaseScopeFactory phaseScopeFactory = null)
         {
             return new UnityIpcConnectionHandler(
-                requestHandler,
-                new StrictShutdownAdmissionCoordinator(),
-                initialFrameReadTimeout ?? UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
-                responseFrameWriteTimeout ?? UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
+                requestHandler: requestHandler,
+                shutdownAdmissionCoordinator: new StrictShutdownAdmissionCoordinator(),
+                phaseScopeFactory: phaseScopeFactory ?? new IpcRequestPhaseScopeFactory(),
+                recoverableReplayAvailable: recoverableReplayAvailable,
+                initialFrameReadTimeout: initialFrameReadTimeout ?? UnityIpcConnectionHandler.DefaultInitialFrameReadTimeout,
+                responseFrameWriteTimeout: responseFrameWriteTimeout ?? UnityIpcConnectionHandler.DefaultResponseFrameWriteTimeout);
         }
 
         private static void PumpNonDeadlineCallbacksUntil (
@@ -953,21 +1563,21 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class StrictShutdownAdmissionCoordinator : IUnityShutdownAdmissionCoordinator
         {
-            private IpcRequest preparedRequest;
+            private ValidatedUnityIpcRequest preparedRequest;
 
-            public bool TryPrepare (IpcRequest request, out string errorMessage)
+            public bool TryPrepare (ValidatedUnityIpcRequest request, out string errorMessage)
             {
                 preparedRequest = request;
                 errorMessage = null;
                 return true;
             }
 
-            public bool TryCommit (IpcRequest request)
+            public bool TryCommit (ValidatedUnityIpcRequest request)
             {
                 return ReferenceEquals(preparedRequest, request);
             }
 
-            public void Abort (IpcRequest request)
+            public void Abort (ValidatedUnityIpcRequest request)
             {
                 if (ReferenceEquals(preparedRequest, request))
                 {
@@ -976,33 +1586,39 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class StubRequestHandler : IUnityIpcRequestHandler
+        private sealed class StubRequestHandler : ValidatedUnityIpcRequestHandlerStub
         {
             public int CallCount { get; private set; }
 
-            public Task<IpcResponse> HandleAsync (
-                IpcRequest request,
-                CancellationToken cancellationToken = default)
+            public UnityIpcMethod? LastMethod { get; private set; }
+
+            public IpcResponseMode? LastResponseMode { get; private set; }
+
+            public override Task<IpcResponse> HandleAsync (
+                ValidatedUnityIpcRequest request,
+                IpcRequestPhaseScope phaseScope)
             {
                 CallCount++;
+                LastMethod = request.Method;
+                LastResponseMode = request.ResponseMode;
                 return Task.FromResult(new IpcResponse(
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: request.RequestId,
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok")),
                     errors: Array.Empty<IpcError>()));
             }
 
-            public Task<IpcResponse> HandleStreamingAsync (
-                IpcRequest request,
+            public override Task<IpcResponse> HandleStreamingAsync (
+                ValidatedUnityIpcRequest request,
                 IIpcStreamFrameWriter streamWriter,
-                CancellationToken cancellationToken = default)
+                IpcRequestPhaseScope phaseScope)
             {
                 throw new NotSupportedException();
             }
         }
 
-        private sealed class CancelBeforeResponseWriteRequestHandler : IUnityIpcRequestHandler
+        private sealed class CancelBeforeResponseWriteRequestHandler : ValidatedUnityIpcRequestHandlerStub
         {
             private readonly CancellationTokenSource lifecycleCancellationTokenSource;
 
@@ -1012,29 +1628,29 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.lifecycleCancellationTokenSource = lifecycleCancellationTokenSource;
             }
 
-            public Task<IpcResponse> HandleAsync (
-                IpcRequest request,
-                CancellationToken cancellationToken = default)
+            public override Task<IpcResponse> HandleAsync (
+                ValidatedUnityIpcRequest request,
+                IpcRequestPhaseScope phaseScope)
             {
                 lifecycleCancellationTokenSource.Cancel();
                 return Task.FromResult(new IpcResponse(
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: request.RequestId,
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok")),
                     errors: Array.Empty<IpcError>()));
             }
 
-            public Task<IpcResponse> HandleStreamingAsync (
-                IpcRequest request,
+            public override Task<IpcResponse> HandleStreamingAsync (
+                ValidatedUnityIpcRequest request,
                 IIpcStreamFrameWriter streamWriter,
-                CancellationToken cancellationToken = default)
+                IpcRequestPhaseScope phaseScope)
             {
                 throw new NotSupportedException();
             }
         }
 
-        private sealed class ShutdownPreparingRequestHandler : IUnityIpcRequestHandler
+        private sealed class ShutdownPreparingRequestHandler : ValidatedUnityIpcRequestHandlerStub
         {
             private readonly IUnityShutdownAdmissionCoordinator shutdownAdmissionCoordinator;
 
@@ -1043,61 +1659,28 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.shutdownAdmissionCoordinator = shutdownAdmissionCoordinator;
             }
 
-            public Task<IpcResponse> HandleAsync (
-                IpcRequest request,
-                CancellationToken cancellationToken = default)
+            public override Task<IpcResponse> HandleAsync (
+                ValidatedUnityIpcRequest request,
+                IpcRequestPhaseScope phaseScope)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                phaseScope.ExecutionCancellation.Token.ThrowIfCancellationRequested();
+                Assert.That(request.Method, Is.EqualTo(UnityIpcMethod.Shutdown));
+                Assert.That(request.ResponseMode, Is.EqualTo(IpcResponseMode.Single));
                 Assert.That(shutdownAdmissionCoordinator.TryPrepare(request, out var errorMessage), Is.True, errorMessage);
                 return Task.FromResult(new IpcResponse(
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: request.RequestId,
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok")),
                     errors: Array.Empty<IpcError>()));
             }
 
-            public Task<IpcResponse> HandleStreamingAsync (
-                IpcRequest request,
+            public override Task<IpcResponse> HandleStreamingAsync (
+                ValidatedUnityIpcRequest request,
                 IIpcStreamFrameWriter streamWriter,
-                CancellationToken cancellationToken = default)
+                IpcRequestPhaseScope phaseScope)
             {
                 throw new NotSupportedException();
-            }
-        }
-
-        private sealed class BlockingProgressRequestHandler : IUnityIpcRequestHandler
-        {
-            private readonly Task writeStarted;
-
-            public BlockingProgressRequestHandler (Task writeStarted)
-            {
-                this.writeStarted = writeStarted;
-            }
-
-            public Task<IpcResponse> HandleAsync (
-                IpcRequest request,
-                CancellationToken cancellationToken = default)
-            {
-                throw new NotSupportedException();
-            }
-
-            public async Task<IpcResponse> HandleStreamingAsync (
-                IpcRequest request,
-                IIpcStreamFrameWriter streamWriter,
-                CancellationToken cancellationToken = default)
-            {
-                _ = streamWriter.WriteProgressAsync(
-                    "test.progress",
-                    new UcliEmptyArgs(),
-                    cancellationToken).AsTask();
-                await writeStarted;
-                return new IpcResponse(
-                    IpcProtocol.CurrentVersion,
-                    request.RequestId,
-                    IpcProtocol.StatusOk,
-                    JsonSerializer.SerializeToElement(new UcliEmptyArgs()),
-                    Array.Empty<IpcError>());
             }
         }
 
@@ -1487,37 +2070,42 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int StreamingDispatchCallCount { get; private set; }
 
+            public UnityIpcMethod? LastMethod { get; private set; }
+
             public Task<IpcResponse> DispatchAsync (
-                IpcRequest request,
-                CancellationToken cancellationToken = default)
+                ValidatedUnityIpcRequest request,
+                IpcRequestPhaseScope phaseScope)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                phaseScope.ExecutionCancellation.Token.ThrowIfCancellationRequested();
                 DispatchCallCount++;
+                LastMethod = request.Method;
                 return Task.FromResult(CreateResponse(request));
             }
 
             public Task<IpcResponse> DispatchStreamingAsync (
-                IpcRequest request,
+                ValidatedUnityIpcRequest request,
                 IIpcStreamFrameWriter streamWriter,
-                CancellationToken cancellationToken = default)
+                IpcRequestPhaseScope phaseScope)
             {
-                cancellationToken.ThrowIfCancellationRequested();
+                phaseScope.ExecutionCancellation.Token.ThrowIfCancellationRequested();
                 StreamingDispatchCallCount++;
+                LastMethod = request.Method;
                 return Task.FromResult(CreateResponse(request));
             }
 
-            private static IpcResponse CreateResponse (IpcRequest request)
+            private static IpcResponse CreateResponse (
+                ValidatedUnityIpcRequest request)
             {
                 return new IpcResponse(
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: request.RequestId,
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok")),
                     errors: Array.Empty<IpcError>());
             }
         }
 
-        private sealed class CancellationObservingRequestHandler : IUnityIpcRequestHandler
+        private sealed class CancellationObservingRequestHandler : ValidatedUnityIpcRequestHandlerStub
         {
             private readonly TaskCompletionSource<bool> requestObserved =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -1529,11 +2117,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task CancellationObserved => cancellationObserved.Task;
 
-            public async Task<IpcResponse> HandleAsync (
-                IpcRequest request,
-                CancellationToken cancellationToken = default)
+            public override async Task<IpcResponse> HandleAsync (
+                ValidatedUnityIpcRequest request,
+                IpcRequestPhaseScope phaseScope)
             {
                 requestObserved.TrySetResult(true);
+                var cancellationToken = phaseScope.ExecutionCancellation.Token;
                 try
                 {
                     await Task.Delay(Timeout.Infinite, cancellationToken);
@@ -1546,12 +2135,88 @@ namespace MackySoft.Ucli.Unity.Tests
                 }
             }
 
-            public Task<IpcResponse> HandleStreamingAsync (
-                IpcRequest request,
+            public override Task<IpcResponse> HandleStreamingAsync (
+                ValidatedUnityIpcRequest request,
                 IIpcStreamFrameWriter streamWriter,
-                CancellationToken cancellationToken = default)
+                IpcRequestPhaseScope phaseScope)
             {
                 throw new NotSupportedException();
+            }
+        }
+
+        private sealed class CompletableRequestHandler : ValidatedUnityIpcRequestHandlerStub
+        {
+            private readonly TaskCompletionSource<bool> requestObserved =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly TaskCompletionSource<bool> cancellationObserved =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly TaskCompletionSource<IpcResponse> completionSource =
+                new TaskCompletionSource<IpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly TaskCompletionSource<bool> completionObserved =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public Task RequestObserved => requestObserved.Task;
+
+            public Task CancellationObserved => cancellationObserved.Task;
+
+            public Task CompletionObserved => completionObserved.Task;
+
+            public void Complete (IpcRequestEnvelope request)
+            {
+                completionSource.TrySetResult(new IpcResponse(
+                    protocolVersion: IpcProtocol.CurrentVersion,
+                    requestId: request.RequestId,
+                    status: IpcResponseStatus.Ok,
+                    payload: JsonSerializer.SerializeToElement(new { }),
+                    errors: Array.Empty<IpcError>()));
+            }
+
+            public override async Task<IpcResponse> HandleAsync (
+                ValidatedUnityIpcRequest request,
+                IpcRequestPhaseScope phaseScope)
+            {
+                requestObserved.TrySetResult(true);
+                var cancellationToken = phaseScope.ExecutionCancellation.Token;
+                using var cancellationRegistration = cancellationToken.Register(
+                    static state => ((TaskCompletionSource<bool>)state).TrySetResult(true),
+                    cancellationObserved);
+                var response = await completionSource.Task;
+                cancellationToken.ThrowIfCancellationRequested();
+                completionObserved.TrySetResult(true);
+                return response;
+            }
+
+            public override Task<IpcResponse> HandleStreamingAsync (
+                ValidatedUnityIpcRequest request,
+                IIpcStreamFrameWriter streamWriter,
+                IpcRequestPhaseScope phaseScope)
+            {
+                throw new NotSupportedException();
+            }
+        }
+
+        private sealed class RecordingIpcRequestPhaseScopeFactory : IIpcRequestPhaseScopeFactory
+        {
+            private readonly IpcRequestPhaseScopeFactory inner = new IpcRequestPhaseScopeFactory();
+
+            public bool CreateCalled { get; private set; }
+
+            public CancellationToken UpstreamCancellationToken { get; private set; }
+
+            public IpcRequestPhaseScope Create (
+                IpcRequestEnvelope request,
+                CancellationToken upstreamCancellationToken,
+                TimeSpan maximumResponseFrameWriteDuration)
+            {
+                CreateCalled = true;
+                UpstreamCancellationToken = upstreamCancellationToken;
+                return inner.Create(
+                    request,
+                    upstreamCancellationToken,
+                    maximumResponseFrameWriteDuration);
             }
         }
 
@@ -1566,13 +2231,56 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int ValidateCallCount { get; private set; }
 
+            public IpcSessionToken LastSessionToken { get; private set; }
+
             public Task<bool> ValidateAsync (
-                string sessionToken,
+                IpcSessionToken sessionToken,
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 ValidateCallCount++;
+                LastSessionToken = sessionToken;
                 return Task.FromResult(result);
+            }
+        }
+
+        private sealed class RecordingDaemonLogger : IDaemonLogger
+        {
+            public int WarningCallCount { get; private set; }
+
+            public string LastWarningMessage { get; private set; }
+
+            public string LastWarningRaw { get; private set; }
+
+            public void Info (
+                string category,
+                string message,
+                string raw = null)
+            {
+            }
+
+            public void Warning (
+                string category,
+                string message,
+                string raw = null)
+            {
+                WarningCallCount++;
+                LastWarningMessage = message;
+                LastWarningRaw = raw;
+            }
+
+            public void Error (
+                string category,
+                string message,
+                string raw = null)
+            {
+            }
+
+            public void Exception (
+                string category,
+                string message,
+                Exception exception)
+            {
             }
         }
 
@@ -1597,39 +2305,40 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        private sealed class StubStreamingRequestHandler : IUnityIpcRequestHandler
+        private sealed class StubStreamingRequestHandler : ValidatedUnityIpcRequestHandlerStub
         {
             public int CallCount { get; private set; }
 
             public int StreamingCallCount { get; private set; }
 
-            public Task<IpcResponse> HandleAsync (
-                IpcRequest request,
-                CancellationToken cancellationToken = default)
+            public override Task<IpcResponse> HandleAsync (
+                ValidatedUnityIpcRequest request,
+                IpcRequestPhaseScope phaseScope)
             {
                 CallCount++;
                 return Task.FromResult(CreateResponse(request));
             }
 
-            public async Task<IpcResponse> HandleStreamingAsync (
-                IpcRequest request,
+            public override async Task<IpcResponse> HandleStreamingAsync (
+                ValidatedUnityIpcRequest request,
                 IIpcStreamFrameWriter streamWriter,
-                CancellationToken cancellationToken = default)
+                IpcRequestPhaseScope phaseScope)
             {
                 StreamingCallCount++;
+                Assert.That(request.ResponseMode, Is.EqualTo(IpcResponseMode.Stream));
                 await streamWriter.WriteProgressAsync(
                     "test.progress",
                     new UcliEmptyArgs(),
-                    cancellationToken);
+                    phaseScope.ExecutionCancellation.Token);
                 return CreateResponse(request);
             }
 
-            private static IpcResponse CreateResponse (IpcRequest request)
+            private static IpcResponse CreateResponse (ValidatedUnityIpcRequest request)
             {
                 return new IpcResponse(
                     protocolVersion: IpcProtocol.CurrentVersion,
                     requestId: request.RequestId,
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     payload: JsonSerializer.SerializeToElement(new IpcShutdownResponse(true, "ok")),
                     errors: Array.Empty<IpcError>());
             }

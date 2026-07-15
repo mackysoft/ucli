@@ -2,7 +2,9 @@ using System;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -20,14 +22,14 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Gets or sets the project fingerprint served by this operation. </summary>
         public ProjectFingerprint ProjectFingerprint { get; set; }
 
-        /// <summary> Gets or sets the IPC method name. </summary>
-        public string Method { get; set; }
+        /// <summary> Gets or sets the IPC method. </summary>
+        public UnityIpcMethod Method { get; set; }
 
         /// <summary> Gets or sets the IPC request id. </summary>
         public Guid RequestId { get; set; }
 
         /// <summary> Gets or sets the hash of the stable request payload identity. </summary>
-        public string RequestPayloadHash { get; set; }
+        public Sha256Digest RequestPayloadHash { get; set; }
 
         /// <summary> Gets or sets the Unity host process id that created this record. </summary>
         public int HostProcessId { get; set; }
@@ -42,6 +44,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             get => state;
             set
             {
+                if (!ContractLiteralCodec.IsDefined(value))
+                {
+                    throw new ArgumentOutOfRangeException(nameof(value), value, "Recoverable IPC operation state is unsupported.");
+                }
+
                 state = value;
                 hasState = true;
             }
@@ -67,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             {
                 if (HasState)
                 {
-                    return ToPersistedState(State);
+                    return ContractLiteralCodec.ToValue(State);
                 }
 
                 if (HasPersistedState)
@@ -80,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             set
             {
                 hasPersistedState = true;
-                if (!TryParsePersistedState(value, out var parsedState))
+                if (!ContractLiteralCodec.TryParse(value, out RecoverableIpcOperationState parsedState))
                 {
                     unsupportedPersistedState = value;
                     hasState = false;
@@ -104,36 +111,5 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Gets or sets the completed IPC response. </summary>
         public IpcResponse Response { get; set; }
-
-        private static string ToPersistedState (RecoverableIpcOperationState state)
-        {
-            // NOTE: The persisted operation journal is a JSON contract, so it keeps
-            // stable lowercase literals. Runtime recovery logic uses the enum above
-            // to avoid silently treating unknown values as a known branch.
-            return state switch
-            {
-                RecoverableIpcOperationState.Pending => "pending",
-                RecoverableIpcOperationState.Completed => "completed",
-                _ => throw new ArgumentOutOfRangeException(nameof(state), state, "Recoverable IPC operation state is unsupported."),
-            };
-        }
-
-        private static bool TryParsePersistedState (
-            string value,
-            out RecoverableIpcOperationState state)
-        {
-            switch (value)
-            {
-                case "pending":
-                    state = RecoverableIpcOperationState.Pending;
-                    return true;
-                case "completed":
-                    state = RecoverableIpcOperationState.Completed;
-                    return true;
-                default:
-                    state = default;
-                    return false;
-            }
-        }
     }
 }

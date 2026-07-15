@@ -1,5 +1,6 @@
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -10,6 +11,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Persists one immutable lifecycle snapshot. </summary>
         Task WriteAsync (
             UnityEditorObservation snapshot,
+            DaemonLifecycleRecoveryLease recoveryLease,
             CancellationToken cancellationToken);
 
         /// <summary>

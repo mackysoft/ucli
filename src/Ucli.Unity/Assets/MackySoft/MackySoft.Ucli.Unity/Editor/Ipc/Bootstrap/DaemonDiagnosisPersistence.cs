@@ -18,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="message"> The human-readable daemon diagnosis message. </param>
         internal static async Task WriteAsync (
             IpcDaemonBootstrapArguments bootstrapArguments,
-            string reason,
+            DaemonDiagnosisReason reason,
             string message,
             CancellationToken cancellationToken)
         {
@@ -27,11 +27,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             if (bootstrapArguments == null)
             {
                 throw new ArgumentNullException(nameof(bootstrapArguments));
-            }
-
-            if (string.IsNullOrWhiteSpace(reason))
-            {
-                throw new ArgumentException("reason must not be empty.", nameof(reason));
             }
 
             if (string.IsNullOrWhiteSpace(message))
@@ -46,13 +41,17 @@ namespace MackySoft.Ucli.Unity.Ipc
             var diagnosisContract = new DaemonDiagnosisJsonContract(
                 Reason: reason,
                 Message: message,
-                ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+                ReportedBy: DaemonDiagnosisReportedBy.Unity,
                 IsInferred: false,
                 UpdatedAtUtc: DateTimeOffset.UtcNow,
                 ProcessId: currentProcess.Id,
                 EditorInstancePath: null,
                 SessionIssuedAtUtc: bootstrapArguments.SessionIssuedAtUtc,
-                ProcessStartedAtUtc: new DateTimeOffset(currentProcess.StartTime.ToUniversalTime()));
+                ProcessStartedAtUtc: new DateTimeOffset(currentProcess.StartTime.ToUniversalTime()),
+                UnityLogPath: null,
+                StartupPhase: null,
+                ActionRequired: null,
+                PrimaryDiagnostic: null);
             var json = DaemonDiagnosisJsonContractSerializer.Serialize(diagnosisContract) + Environment.NewLine;
             var diagnosisDirectoryPath = Path.GetDirectoryName(diagnosisPath)
                 ?? throw new InvalidOperationException($"Daemon diagnosis directory path could not be resolved: {diagnosisPath}");

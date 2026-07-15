@@ -721,10 +721,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static bool ShouldSignalDaemonShutdown (UnityIpcConnectionHandleResult result)
+        private static bool ShouldSignalDaemonShutdown (UnityIpcConnectionHandleResult? result)
         {
-            return result.IsShutdownAdmissionCommitted
-                && UnityIpcShutdownResponsePolicy.IsAccepted(result.Request, result.Response);
+            return result != null
+                && result.HasTerminalResponse
+                && result.IsShutdownAdmissionCommitted
+                && UnityIpcShutdownResponsePolicy.IsAccepted(result.Method, result.Response);
         }
 
         /// <summary> Cancels and joins listener resources after start-up failure path. </summary>

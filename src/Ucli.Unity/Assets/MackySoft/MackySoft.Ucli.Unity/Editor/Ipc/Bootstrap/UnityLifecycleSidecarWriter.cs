@@ -1,6 +1,8 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -125,6 +127,34 @@ namespace MackySoft.Ucli.Unity.Ipc
             DateTimeOffset scheduledAtUtc,
             out long version)
         {
+            return TryEnqueueCore(
+                snapshot,
+                scheduledAtUtc,
+                recoveryLease: null,
+                out version);
+        }
+
+        /// <summary> Schedules the recovery observation written before one domain reload. </summary>
+        public bool TryEnqueueDomainReloadRecovery (
+            UnityEditorObservation snapshot,
+            DateTimeOffset scheduledAtUtc,
+            DaemonLifecycleRecoveryLease recoveryLease,
+            out long version)
+        {
+            if (recoveryLease == null)
+            {
+                throw new ArgumentNullException(nameof(recoveryLease));
+            }
+
+            return TryEnqueueCore(snapshot, scheduledAtUtc, recoveryLease, out version);
+        }
+
+        private bool TryEnqueueCore (
+            UnityEditorObservation snapshot,
+            DateTimeOffset scheduledAtUtc,
+            DaemonLifecycleRecoveryLease recoveryLease,
+            out long version)
+        {
             if (snapshot == null)
             {
                 throw new ArgumentNullException(nameof(snapshot));
@@ -139,7 +169,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 version = checked(++nextVersion);
-                pendingRequest = new WriteRequest(version, snapshot);
+                pendingRequest = new WriteRequest(version, snapshot, recoveryLease);
                 lastScheduledAtUtc = scheduledAtUtc;
                 workAvailableSource.TrySetResult(true);
                 return true;
@@ -279,7 +309,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 lifetimeCancellationSource.Token);
             try
             {
-                await persistence.WriteAsync(snapshot, initializationCancellationSource.Token).ConfigureAwait(false);
+                await persistence.WriteAsync(
+                        snapshot,
+                        null,
+                        initializationCancellationSource.Token)
+                    .ConfigureAwait(false);
                 initializationCancellationSource.Token.ThrowIfCancellationRequested();
                 lock (syncRoot)
                 {
@@ -356,7 +390,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 try
                 {
-                    await persistence.WriteAsync(request.Snapshot, lifetimeCancellationSource.Token)
+                    await persistence.WriteAsync(
+                            request.Snapshot,
+                            request.RecoveryLease,
+                            lifetimeCancellationSource.Token)
                         .ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (lifetimeCancellationSource.IsCancellationRequested)
@@ -607,15 +644,28 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             public WriteRequest (
                 long version,
-                UnityEditorObservation snapshot)
+                UnityEditorObservation snapshot,
+                DaemonLifecycleRecoveryLease recoveryLease)
             {
                 Version = version;
-                Snapshot = snapshot;
+                Snapshot = snapshot ?? throw new ArgumentNullException(nameof(snapshot));
+                if (recoveryLease != null
+                    && (snapshot.State.LifecycleState != IpcEditorLifecycleState.Recovering
+                        || recoveryLease.ExpiresAtUtc <= snapshot.ObservedAtUtc.ToUniversalTime()))
+                {
+                    throw new ArgumentException(
+                        "Recovery lease requires a recovering observation and an expiration after its observation timestamp.",
+                        nameof(recoveryLease));
+                }
+
+                RecoveryLease = recoveryLease;
             }
 
             public long Version { get; }
 
             public UnityEditorObservation Snapshot { get; }
+
+            public DaemonLifecycleRecoveryLease RecoveryLease { get; }
         }
     }
 }

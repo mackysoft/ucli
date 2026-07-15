@@ -1,8 +1,10 @@
 using System;
 using System.Diagnostics;
+using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Runtime;
@@ -14,8 +16,6 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private static readonly TimeSpan SidecarLockAcquireTimeout = TimeSpan.FromSeconds(1);
 
-        private readonly object ownershipSyncRoot = new object();
-
         private readonly string path;
 
         private readonly string lockPath;
@@ -26,16 +26,15 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly Guid editorInstanceId;
 
+        private readonly Guid sidecarGenerationId;
+
         private readonly string serverVersion;
-
-        private string lastSuccessfulContents;
-
-        private string currentAttemptContents;
 
         /// <summary> Initializes persistence with the Editor identity captured for the host generation. </summary>
         /// <param name="storageRoot"> The shared storage root path. </param>
         /// <param name="projectFingerprint"> The project fingerprint served by this Editor. </param>
         /// <param name="editorInstanceId"> The non-empty Editor process identity captured for this host generation. </param>
+        /// <param name="sidecarGenerationId"> The non-empty identity of the lifecycle sidecar writer generation. </param>
         /// <param name="serverVersion"> The uCLI server version written to lifecycle observations. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> is <see langword="null" />. </exception>
         /// <exception cref="ArgumentException"> Thrown when a required text or identifier value is empty. </exception>
@@ -43,6 +42,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string storageRoot,
             ProjectFingerprint projectFingerprint,
             Guid editorInstanceId,
+            Guid sidecarGenerationId,
             string serverVersion)
         {
             if (string.IsNullOrWhiteSpace(storageRoot))
@@ -65,18 +65,27 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("Editor instance identifier must not be empty.", nameof(editorInstanceId));
             }
 
+            if (sidecarGenerationId == Guid.Empty)
+            {
+                throw new ArgumentException(
+                    "Sidecar generation identifier must not be empty.",
+                    nameof(sidecarGenerationId));
+            }
+
             using var currentProcess = Process.GetCurrentProcess();
             path = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);
             lockPath = path + ".lock";
             processId = currentProcess.Id;
             processStartedAtUtc = currentProcess.StartTime.ToUniversalTime();
             this.editorInstanceId = editorInstanceId;
+            this.sidecarGenerationId = sidecarGenerationId;
             this.serverVersion = serverVersion;
         }
 
         /// <inheritdoc />
         public async Task WriteAsync (
             UnityEditorObservation snapshot,
+            DaemonLifecycleRecoveryLease recoveryLease,
             CancellationToken cancellationToken)
         {
             if (snapshot == null)
@@ -92,13 +101,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 observedAtUtc: snapshot.ObservedAtUtc,
                 actionRequired: snapshot.ActionRequired,
                 primaryDiagnostic: snapshot.PrimaryDiagnostic,
+                sidecarGenerationId: sidecarGenerationId,
                 serverVersion: serverVersion,
-                editorInstanceId: editorInstanceId);
+                editorInstanceId: editorInstanceId,
+                recoveryLease: recoveryLease);
             var contents = DaemonLifecycleJsonContractSerializer.Serialize(contract);
-            lock (ownershipSyncRoot)
-            {
-                currentAttemptContents = contents;
-            }
 
             using var sidecarLock = await FileExclusiveLock.AcquireAsync(
                     lockPath,
@@ -107,30 +114,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 .ConfigureAwait(false);
             await FileUtilities.WriteAllTextAtomicallyAsync(path, contents, cancellationToken)
                 .ConfigureAwait(false);
-            lock (ownershipSyncRoot)
-            {
-                lastSuccessfulContents = contents;
-                currentAttemptContents = null;
-            }
         }
 
         /// <inheritdoc />
         public async Task DeleteIfOwnedAsync (CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            string expectedSuccessfulContents;
-            string expectedAttemptContents;
-            lock (ownershipSyncRoot)
-            {
-                expectedSuccessfulContents = lastSuccessfulContents;
-                expectedAttemptContents = currentAttemptContents;
-            }
-
-            if (expectedSuccessfulContents == null && expectedAttemptContents == null)
-            {
-                return;
-            }
-
             using var sidecarLock = await FileExclusiveLock.AcquireAsync(
                     lockPath,
                     SidecarLockAcquireTimeout,
@@ -138,14 +127,23 @@ namespace MackySoft.Ucli.Unity.Ipc
                 .ConfigureAwait(false);
             var persistedContents = await FileUtilities.ReadAllTextOrNullAsync(path, cancellationToken)
                 .ConfigureAwait(false);
-            if (!string.Equals(
-                    persistedContents,
-                    expectedSuccessfulContents,
-                    StringComparison.Ordinal)
-                && !string.Equals(
-                    persistedContents,
-                    expectedAttemptContents,
-                    StringComparison.Ordinal))
+            if (persistedContents == null)
+            {
+                return;
+            }
+
+            DaemonLifecycleJsonContract persistedContract;
+            try
+            {
+                persistedContract = DaemonLifecycleJsonContractSerializer.Deserialize(persistedContents);
+            }
+            catch (Exception exception) when (exception is JsonException or ArgumentException)
+            {
+                return;
+            }
+
+            if (persistedContract == null
+                || persistedContract.SidecarGenerationId != sidecarGenerationId)
             {
                 return;
             }

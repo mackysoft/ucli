@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
@@ -82,6 +83,81 @@ namespace MackySoft.Ucli.Unity.Tests
             await TestAwaiter.WaitAsync(
                 writer.StopAsync(CancellationToken.None),
                 "coalescing sidecar writer stop",
+                TestTimeout);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task TryEnqueueDomainReloadRecovery_PersistsLeaseWithRecoverySnapshot ()
+        {
+            var persistence = new RecordingLifecycleSidecarPersistence(
+                (_, _, _) => Task.CompletedTask);
+            var writer = await CreateInitializedWriterAsync(persistence);
+            var observedAtUtc = CreateObservedAtUtc(1);
+            var recoveryLease = new DaemonLifecycleRecoveryLease(
+                Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                observedAtUtc + DaemonLifecycleObservationTimings.DomainReloadRecoveryLeaseDuration);
+
+            Assert.That(
+                writer.TryEnqueueDomainReloadRecovery(
+                    CreateObservation(IpcEditorLifecycleState.Recovering),
+                    observedAtUtc,
+                    recoveryLease,
+                    out var version),
+                Is.True);
+            await TestAwaiter.WaitAsync(
+                writer.FlushAsync(version, CancellationToken.None),
+                "domain reload recovery sidecar flush",
+                TestTimeout);
+
+            Assert.That(persistence.GetWrittenRecoveryLease(1), Is.EqualTo(recoveryLease));
+
+            await TestAwaiter.WaitAsync(
+                writer.StopAsync(CancellationToken.None),
+                "domain reload recovery sidecar writer stop",
+                TestTimeout);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task MutationObserver_BeforeRequestExecution_WaitsUntilBusySnapshotIsDurable ()
+        {
+            var busyWriteReleaseSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var persistence = new RecordingLifecycleSidecarPersistence(
+                (writeCount, _, _) => writeCount == 2
+                    ? busyWriteReleaseSource.Task
+                    : Task.CompletedTask);
+            var writer = await CreateInitializedWriterAsync(persistence);
+            var executionStartSource = new StubMutationRequestExecutionStartSource();
+            using var observer = new UnityMutationLifecycleSidecarObserver(
+                executionStartSource,
+                new StaticAvailabilityObservationSource(
+                    CreateObservation(IpcEditorLifecycleState.Busy)),
+                writer,
+                NoOpDaemonLogger.Instance);
+
+            var executionStartTask = executionStartSource.RaiseRequestExecutionStartingAsync(
+                CancellationToken.None);
+            await WaitUntilAsync(() => persistence.WriteCount == 2, "mutation busy sidecar write start");
+
+            Assert.That(writer.LastScheduledAtUtc, Is.Not.Null);
+            Assert.That(executionStartTask.IsCompleted, Is.False);
+            busyWriteReleaseSource.TrySetResult(true);
+            await TestAwaiter.WaitAsync(
+                executionStartTask,
+                "mutation busy sidecar durability barrier",
+                TestTimeout);
+            Assert.That(
+                persistence.GetWrittenLifecycleStates(),
+                Is.EqualTo(new[]
+                {
+                    IpcEditorLifecycleState.Ready,
+                    IpcEditorLifecycleState.Busy,
+                }));
+
+            await TestAwaiter.WaitAsync(
+                writer.StopAsync(CancellationToken.None),
+                "mutation-observing sidecar writer stop",
                 TestTimeout);
         }
 
@@ -343,6 +419,9 @@ namespace MackySoft.Ucli.Unity.Tests
             private readonly List<UnityEditorObservation> writtenSnapshots =
                 new List<UnityEditorObservation>();
 
+            private readonly List<DaemonLifecycleRecoveryLease> writtenRecoveryLeases =
+                new List<DaemonLifecycleRecoveryLease>();
+
             private int deleteCount;
 
             private int lastWriteThreadId;
@@ -370,17 +449,27 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task WriteAsync (
                 UnityEditorObservation snapshot,
+                DaemonLifecycleRecoveryLease recoveryLease,
                 CancellationToken cancellationToken)
             {
                 int writeCount;
                 lock (syncRoot)
                 {
                     writtenSnapshots.Add(snapshot);
+                    writtenRecoveryLeases.Add(recoveryLease);
                     writeCount = writtenSnapshots.Count;
                 }
 
                 Volatile.Write(ref lastWriteThreadId, Thread.CurrentThread.ManagedThreadId);
                 return write(writeCount, snapshot, cancellationToken);
+            }
+
+            public DaemonLifecycleRecoveryLease GetWrittenRecoveryLease (int index)
+            {
+                lock (syncRoot)
+                {
+                    return writtenRecoveryLeases[index];
+                }
             }
 
             public Task DeleteIfOwnedAsync (CancellationToken cancellationToken)
@@ -402,6 +491,34 @@ namespace MackySoft.Ucli.Unity.Tests
 
                     return states;
                 }
+            }
+        }
+
+        private sealed class StubMutationRequestExecutionStartSource : IUnityMutationRequestExecutionStartSource
+        {
+            public event Func<CancellationToken, Task> RequestExecutionStarting;
+
+            public Task RaiseRequestExecutionStartingAsync (CancellationToken cancellationToken)
+            {
+                var handler = RequestExecutionStarting;
+                return handler == null
+                    ? Task.CompletedTask
+                    : handler(cancellationToken);
+            }
+        }
+
+        private sealed class StaticAvailabilityObservationSource : IUnityEditorAvailabilityObservationSource
+        {
+            private readonly UnityEditorObservation observation;
+
+            public StaticAvailabilityObservationSource (UnityEditorObservation observation)
+            {
+                this.observation = observation ?? throw new ArgumentNullException(nameof(observation));
+            }
+
+            public UnityEditorObservation CaptureAvailabilityObservation ()
+            {
+                return observation;
             }
         }
     }

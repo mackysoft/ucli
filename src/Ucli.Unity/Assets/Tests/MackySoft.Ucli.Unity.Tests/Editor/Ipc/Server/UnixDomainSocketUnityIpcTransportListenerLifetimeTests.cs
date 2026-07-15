@@ -584,7 +584,7 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 connectionObserved.TrySetResult(true);
                 await completion.Task;
-                return default;
+                return UnityIpcConnectionHandleResult.NoTerminalResponse;
             }
         }
 
@@ -595,7 +595,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken = default)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                return Task.FromResult(default(UnityIpcConnectionHandleResult));
+                return Task.FromResult(UnityIpcConnectionHandleResult.NoTerminalResponse);
             }
         }
     }

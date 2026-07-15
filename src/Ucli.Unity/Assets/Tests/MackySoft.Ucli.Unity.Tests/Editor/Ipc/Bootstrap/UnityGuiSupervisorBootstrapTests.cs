@@ -10,6 +10,7 @@ using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
+using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using UnityEditor;
 using UnityEngine.TestTools;
@@ -18,6 +19,24 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityGuiSupervisorBootstrapTests
     {
+        [Test]
+        [Category("Size.Small")]
+        public void AddGuiSupervisorHostServices_RegistersRequestDeadlineScopeFactory ()
+        {
+            var services = new ServiceCollection();
+            services.AddUnityGuiSupervisorHostServices(
+                new PermitAllSessionTokenValidator(),
+                ProjectFingerprintTestFactory.Create("gui-supervisor-services"),
+                new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-supervisor-services"),
+                NoOpDaemonLogger.Instance);
+
+            using var serviceProvider = services.BuildServiceProvider();
+
+            Assert.That(
+                serviceProvider.GetService<IIpcRequestPhaseScopeFactory>(),
+                Is.TypeOf<IpcRequestPhaseScopeFactory>());
+        }
+
         [Test]
         [Category("Size.Small")]
         public void RestartScheduler_WhenInitialBindFails_RestartsOnlyAfterBackoff ()

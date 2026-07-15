@@ -27,6 +27,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static readonly TimeSpan LifecycleSidecarAsyncCleanupTimeout = TimeSpan.FromSeconds(2);
 
+        private static readonly TimeSpan LifecycleMutationRetirementTimeout = TimeSpan.FromMilliseconds(500);
+
         private static ActiveGuiBootstrapState activeState;
 
         private static StartingGuiBootstrapState startingState;
@@ -58,6 +60,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var nextStartingState = new StartingGuiBootstrapState(
                 cancellationToken,
                 editorInstanceId,
+                Guid.NewGuid(),
                 daemonLogger);
             lock (SyncRoot)
             {
@@ -101,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     capturedStoppingState = stoppingState;
                     capturedMutationFence = stoppedMutationFence;
                     capturedBootstrapRestartBlocked = isBootstrapRestartBlocked;
-                    if (capturedMutationFence != null && !capturedMutationFence.IsBusy)
+                    if (capturedMutationFence != null && !capturedMutationFence.HasUnfinishedWork)
                     {
                         stoppedMutationFence = null;
                         capturedMutationFence = null;
@@ -117,25 +120,36 @@ namespace MackySoft.Ucli.Unity.Ipc
                 if (capturedStoppingState != null)
                 {
                     return UnityGuiBootstrapStartResult.Failure(
-                        "The previous GUI daemon did not terminate safely. Restart the Unity Editor before starting a new daemon session.");
+                        "The previous GUI daemon is still retiring. Retry after its unfinished work terminates.");
                 }
 
                 if (capturedMutationFence != null)
                 {
                     return UnityGuiBootstrapStartResult.Failure(
-                        "The previous GUI daemon still has an unfinished Unity mutation. Restart the Unity Editor before starting a new daemon session.");
+                        "The previous GUI daemon still has unfinished work. Retry after it terminates.");
                 }
 
                 if (capturedState != null)
                 {
                     if (!capturedState.ShutdownSignal.IsSignaled)
                     {
+                        var mutationBlocksReplacement = capturedState.MutationLaneControl.IsBusy
+                            && !capturedState.MutationLaneControl.IsQuarantined;
+                        var hasUnfinishedWork = capturedState.MutationLaneControl.HasUnfinishedWork;
                         if (!CanReplaceActiveSession(
                                 sessionReplacementScope,
-                                capturedState.MutationLaneControl.IsBusy))
+                                mutationBlocksReplacement,
+                                hasUnfinishedWork))
                         {
                             if (sessionReplacementScope == UnityGuiSessionReplacementScope.AnyCurrentProcessSession
-                                && capturedState.MutationLaneControl.IsBusy)
+                                && hasUnfinishedWork)
+                            {
+                                return UnityGuiBootstrapStartResult.Failure(
+                                    "The active GUI daemon still owns unfinished Unity work. Retry rebootstrap after it terminates.");
+                            }
+
+                            if (sessionReplacementScope == UnityGuiSessionReplacementScope.AnyCurrentProcessSession
+                                && mutationBlocksReplacement)
                             {
                                 return UnityGuiBootstrapStartResult.Failure(
                                     "The active GUI daemon has an unfinished Unity mutation. Restart the Unity Editor before rebootstrap.");
@@ -145,10 +159,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                         }
                     }
 
-                    if (!capturedState.MutationLaneControl.TrySealAdmissionWhenIdle(out var mutationAdmissionSeal))
+                    if (!capturedState.MutationLaneControl.TrySealAdmissionForRetirement(out var mutationAdmissionSeal))
                     {
-                        var failureMessage = capturedState.MutationLaneControl.IsPoisoned
-                            ? "The active GUI daemon has indeterminate Unity mutation state. Restart the Unity Editor before rebootstrap."
+                        var failureMessage = capturedState.MutationLaneControl.IsQuarantined
+                            ? "The quarantined GUI daemon could not begin retirement. Retry after its state changes."
                             : "The active GUI daemon admitted a Unity mutation before replacement could begin. Retry after it completes or restart the Unity Editor.";
                         return UnityGuiBootstrapStartResult.Failure(failureMessage);
                     }
@@ -211,6 +225,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             IUnityIpcServer server = null;
             UnityLogCaptureService unityLogCaptureService = null;
             IServiceProvider serviceProvider = null;
+            UnityLifecycleSidecarWriter lifecycleSidecarWriter = null;
+            UnityMutationLifecycleSidecarObserver mutationLifecycleSidecarObserver = null;
             try
             {
                 var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
@@ -239,9 +255,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                     RepositoryRoot: storageRoot,
                     ProjectFingerprint: projectFingerprint,
                     SessionPath: preparedSession.SessionPath,
+                    SessionGenerationId: preparedSession.Registration.SessionGenerationId,
                     SessionIssuedAtUtc: preparedSession.Registration.IssuedAtUtc,
-                    EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
-                    EndpointAddress: endpoint.Address);
+                    Endpoint: endpoint);
                 var services = new ServiceCollection();
                 services
                     .AddUnityIpcApplicationServices(
@@ -260,6 +276,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var availabilityObservationSource = serviceProvider
                     .GetRequiredService<IUnityEditorAvailabilityObservationSource>();
                 var mutationLaneControl = serviceProvider.GetRequiredService<IUnityMutationLaneControl>();
+                var mutationRequestExecutionStartSource = serviceProvider
+                    .GetRequiredService<IUnityMutationRequestExecutionStartSource>();
                 var shutdownSignal = serviceProvider.GetRequiredService<IDaemonShutdownSignal>();
                 var serverVersion = serviceProvider.GetRequiredService<IServerVersionProvider>().GetVersion();
                 unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
@@ -284,22 +302,13 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 StartUnityLogCaptureForStartingGeneration(state, unityLogCaptureService);
 
-                var startResult = await StartServerAndPublishSessionAsync(
-                    server,
-                    endpoint,
-                    state.CancellationToken,
-                    () => EnsureStartingGenerationOwnership(state),
-                    () => BeginTrackedSessionPublication(state, preparedSession));
-                registration = startResult.Registration;
-                using var publicationFence = startResult.PublicationFence;
-                preparedSession = null;
-                EnsureStartingGenerationOwnership(state);
                 var initialSnapshot = availabilityObservationSource.CaptureAvailabilityObservation();
-                var lifecycleSidecarWriter = new UnityLifecycleSidecarWriter(
+                lifecycleSidecarWriter = new UnityLifecycleSidecarWriter(
                     new UnityLifecycleSidecarPersistence(
                         storageRoot,
                         projectFingerprint,
                         state.EditorInstanceId,
+                        state.LifecycleSidecarGenerationId,
                         serverVersion));
                 if (!TryAttachLifecycleSidecarWriter(state, lifecycleSidecarWriter))
                 {
@@ -312,6 +321,27 @@ namespace MackySoft.Ucli.Unity.Ipc
                     initialSnapshot.ObservedAtUtc,
                     state.CancellationToken);
                 EnsureStartingGenerationOwnership(state);
+                mutationLifecycleSidecarObserver = new UnityMutationLifecycleSidecarObserver(
+                    mutationRequestExecutionStartSource,
+                    availabilityObservationSource,
+                    lifecycleSidecarWriter,
+                    daemonLogger);
+                if (!TryAttachMutationLifecycleSidecarObserver(state, mutationLifecycleSidecarObserver))
+                {
+                    mutationLifecycleSidecarObserver.Dispose();
+                    throw CreateStartingGenerationCancellation(state);
+                }
+
+                var startResult = await StartServerAndPublishSessionAsync(
+                    server,
+                    endpoint,
+                    state.CancellationToken,
+                    () => EnsureStartingGenerationOwnership(state),
+                    () => BeginTrackedSessionPublication(state, preparedSession));
+                registration = startResult.Registration;
+                using var publicationFence = startResult.PublicationFence;
+                preparedSession = null;
+                EnsureStartingGenerationOwnership(state);
                 nextState = new ActiveGuiBootstrapState(
                     registration,
                     server,
@@ -321,6 +351,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     daemonLogger,
                     availabilityObservationSource,
                     mutationLaneControl,
+                    mutationLifecycleSidecarObserver,
                     lifecycleSidecarWriter);
                 state.EnsurePreparedSessionPublicationReadyForCommit();
                 var startedResult = UnityGuiBootstrapStartResult.Started();
@@ -400,10 +431,12 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         internal static bool CanReplaceActiveSession (
             UnityGuiSessionReplacementScope sessionReplacementScope,
-            bool isMutationBusy)
+            bool isMutationBusy,
+            bool hasUnfinishedWork)
         {
             return sessionReplacementScope == UnityGuiSessionReplacementScope.AnyCurrentProcessSession
-                && !isMutationBusy;
+                && !isMutationBusy
+                && !hasUnfinishedWork;
         }
 
         private static bool TryAttachPreparedSession (
@@ -452,6 +485,22 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 state.AttachLifecycleSidecarWriter(lifecycleSidecarWriter);
+                return true;
+            }
+        }
+
+        private static bool TryAttachMutationLifecycleSidecarObserver (
+            StartingGuiBootstrapState state,
+            UnityMutationLifecycleSidecarObserver mutationLifecycleSidecarObserver)
+        {
+            lock (SyncRoot)
+            {
+                if (!IsStartingGenerationOwnedWithoutLock(state))
+                {
+                    return false;
+                }
+
+                state.AttachMutationLifecycleSidecarObserver(mutationLifecycleSidecarObserver);
                 return true;
             }
         }
@@ -568,13 +617,23 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             state.CancelAndDisposeInBackground();
             state.ReleaseManagedResourcesOnce(() =>
-                ReleaseResourcesForEditorLifecycleEvent(
-                    null,
+            {
+                ReleaseServerForEditorLifecycleEvent(
                     state.Server,
+                    state.DaemonLogger,
+                    "after abandoned startup");
+                TryInvalidateAndStopLifecycleSidecarWriterForEditorLifecycleEvent(
+                    state.LifecycleSidecarWriter,
+                    state.DaemonLogger,
+                    "after abandoned startup");
+                state.MutationLifecycleSidecarObserver?.Dispose();
+                ReleaseManagedResourcesForEditorLifecycleEvent(
+                    null,
                     state.UnityLogCaptureService,
                     state.ServiceProvider,
                     state.DaemonLogger,
-                    deleteSession: false));
+                    deleteSession: false);
+            });
             state.SchedulePreparedSessionCleanupAfterPublicationTerminates("after abandoned startup");
             ClearStartingState(state);
         }
@@ -589,7 +648,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
             }
 
-            var stoppedSafely = true;
+            var serverStoppedSafely = true;
             if (state.Server != null)
             {
                 try
@@ -598,18 +657,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
                 catch (Exception exception)
                 {
-                    stoppedSafely = false;
+                    serverStoppedSafely = false;
                     state.DaemonLogger.Warning(
                         DaemonLogCategories.Lifecycle,
                         FormatCleanupFailureMessage("GUI IPC server stop", "after failed startup", exception));
                 }
             }
 
-            var writerStoppedSafely = await InvalidateAndStopLifecycleSidecarWriterAsync(
+            var lifecycleSidecarStop = await BeginLifecycleSidecarStopAsync(
                 state.LifecycleSidecarWriter,
                 state.DaemonLogger,
                 "after failed startup server stop");
-            stoppedSafely = stoppedSafely && writerStoppedSafely;
 
             state.SchedulePreparedSessionCleanupAfterPublicationTerminates("after failed startup server stop");
             await state.PreparedSessionFinalization;
@@ -622,7 +680,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     && state.TryClaimNormalCleanup())
                 {
                     ownsCleanup = true;
-                    if (!stoppedSafely)
+                    if (!serverStoppedSafely)
                     {
                         startingState = null;
                         isBootstrapRestartBlocked = true;
@@ -631,7 +689,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                             state.UnityLogCaptureService,
                             state.ServiceProvider,
                             state.DaemonLogger,
-                            state.LifecycleSidecarWriter);
+                            state.LifecycleSidecarWriter,
+                            state.MutationLifecycleSidecarObserver);
                     }
                 }
             }
@@ -641,23 +700,65 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            if (stoppedSafely)
+            if (serverStoppedSafely)
             {
-                state.ReleaseManagedResourcesOnce(() =>
+                var mutationLaneControl = state.ServiceProvider?.GetService<IUnityMutationLaneControl>();
+                var managedResourceReleaseTask = ReleaseManagedResourcesAfterRetirementAsync(
+                    mutationLaneControl,
+                    () =>
+                    {
+                        state.ReleaseManagedResourcesOnce(() =>
+                        {
+                            state.MutationLifecycleSidecarObserver?.Dispose();
+                            DisposeUnityLogCapture(
+                                state.UnityLogCaptureService,
+                                state.DaemonLogger,
+                                "after failed startup");
+                            DisposeServiceProvider(
+                                state.ServiceProvider,
+                                state.DaemonLogger,
+                                "after failed startup");
+                        });
+                    });
+                var managedResourcesReleasedInForeground =
+                    await CompletesWithinLifecycleRetirementDeadlineAsync(managedResourceReleaseTask);
+                var releaseCompletionTask = CompleteFailedStartReleaseAsync(
+                    state,
+                    lifecycleSidecarStop.Completion,
+                    managedResourceReleaseTask);
+                if (!managedResourcesReleasedInForeground)
                 {
-                    DisposeUnityLogCapture(
-                        state.UnityLogCaptureService,
-                        state.DaemonLogger,
-                        "after failed startup");
-                    DisposeServiceProvider(
-                        state.ServiceProvider,
-                        state.DaemonLogger,
-                        "after failed startup");
-                });
-                ClearStartingState(state);
+                    state.DaemonLogger.Warning(
+                        DaemonLogCategories.Lifecycle,
+                        $"Failed-start GUI mutation retirement exceeded its {LifecycleMutationRetirementTimeout.TotalMilliseconds:0}ms foreground deadline. The old generation remains fenced and cleanup continues after retirement.");
+                }
+
+                if (lifecycleSidecarStop.StoppedInForeground
+                    && managedResourcesReleasedInForeground)
+                {
+                    await releaseCompletionTask;
+                }
             }
 
             state.DisposeCancellationSource();
+        }
+
+        private static async Task CompleteFailedStartReleaseAsync (
+            StartingGuiBootstrapState state,
+            Task lifecycleSidecarStopTask,
+            Task managedResourceReleaseTask)
+        {
+            try
+            {
+                await Task.WhenAll(lifecycleSidecarStopTask, managedResourceReleaseTask);
+                ClearStartingState(state);
+            }
+            catch (Exception exception)
+            {
+                state.DaemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    $"Deferred failed-start GUI resource release failed. {exception.Message}");
+            }
         }
 
         internal static async Task<(UnityGuiSessionRegistration Registration, IUnityIpcServerPublicationFence PublicationFence)> StartServerAndPublishSessionAsync (
@@ -710,7 +811,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Stops the active GUI daemon session registration when one exists. </summary>
         /// <param name="cancellationToken"> The cancellation token propagated by caller lifecycle. </param>
-        /// <returns> A task that completes after active resources have been released. </returns>
+        /// <returns>
+        /// A task that completes after foreground endpoint termination. When Unity work remains unfinished,
+        /// managed-resource release continues behind the generation fence until that work retires.
+        /// </returns>
         public static async Task StopAsync (CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -852,19 +956,34 @@ namespace MackySoft.Ucli.Unity.Ipc
                 TrackStoppedMutationFence(state.MutationLaneControl);
             }
 
-            var stoppedSafely = await ReleaseResourcesAsync(
+            var releaseResult = await ReleaseResourcesAsync(
                 state.Registration,
                 state.Server,
                 state.LifecycleSidecarWriter,
-                state.UnityLogCaptureService,
-                state.ServiceProvider,
                 state.DaemonLogger,
+                state.MutationLaneControl,
                 cleanupContext: null,
-                deleteSession);
+                deleteSession,
+                () => state.ReleaseManagedResourcesOnce(() =>
+                {
+                    DisposeUnityLogCapture(
+                        state.UnityLogCaptureService,
+                        state.DaemonLogger,
+                        cleanupContext: null);
+                    DisposeServiceProvider(
+                        state.ServiceProvider,
+                        state.DaemonLogger,
+                        cleanupContext: null);
+                }));
+            var stoppedSafely = releaseResult.StoppedSafely;
             state.CompleteStop(stoppedSafely);
             if (stoppedSafely)
             {
                 ClearStoppingState(state);
+            }
+            else if (releaseResult.HasDeferredRelease)
+            {
+                _ = CompleteDeferredStopAsync(state, releaseResult);
             }
 
             if (trackStoppedMutationFence)
@@ -880,9 +999,27 @@ namespace MackySoft.Ucli.Unity.Ipc
             return stoppedSafely;
         }
 
+        private static async Task CompleteDeferredStopAsync (
+            ActiveGuiBootstrapState state,
+            ResourceReleaseResult releaseResult)
+        {
+            try
+            {
+                await releaseResult.ReleaseCompletionTask;
+                state.CompleteStop(stoppedSafely: true);
+                ClearStoppingState(state);
+            }
+            catch (Exception exception)
+            {
+                state.DaemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    $"Deferred GUI mutation retirement failed. {exception.Message}");
+            }
+        }
+
         private static void TrackStoppedMutationFence (IUnityMutationExecutionState mutationExecutionState)
         {
-            if (!mutationExecutionState.IsBusy)
+            if (!mutationExecutionState.HasUnfinishedWork)
             {
                 return;
             }
@@ -896,41 +1033,63 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Releases resources that may have been acquired before GUI bootstrap startup failed. </summary>
         /// <param name="registration"> The persisted session registration when already written. </param>
         /// <param name="server"> The IPC server instance when already resolved. </param>
+        /// <param name="lifecycleSidecarWriter"> The lifecycle sidecar writer when already initialized. </param>
         /// <param name="unityLogCaptureService"> The Unity log capture service when already resolved. </param>
         /// <param name="serviceProvider"> The service provider when already built. </param>
         /// <param name="daemonLogger"> The logger used to report cleanup failures. </param>
-        /// <returns> A task whose result is <see langword="true" /> when the listener terminated safely; otherwise, <see langword="false" />. </returns>
+        /// <returns>
+        /// A task whose result is <see langword="true" /> when endpoint termination, sidecar-writer quiescence,
+        /// and managed-resource release finish in the foreground; otherwise, <see langword="false" />. A false
+        /// result requires the caller to keep the old generation fenced until unfinished work retires.
+        /// </returns>
         internal static async Task<bool> CleanupFailedStartAsync (
-            UnityGuiSessionRegistration registration,
-            IUnityIpcServer server,
-            IDisposable unityLogCaptureService,
-            IServiceProvider serviceProvider,
-            IDaemonLogger daemonLogger)
-        {
-            return await ReleaseResourcesAsync(
-                registration,
-                server,
-                null,
-                unityLogCaptureService,
-                serviceProvider,
-                daemonLogger,
-                cleanupContext: "after failed startup",
-                deleteSession: true);
-        }
-
-        private static async Task<bool> ReleaseResourcesAsync (
             UnityGuiSessionRegistration registration,
             IUnityIpcServer server,
             UnityLifecycleSidecarWriter lifecycleSidecarWriter,
             IDisposable unityLogCaptureService,
             IServiceProvider serviceProvider,
+            IDaemonLogger daemonLogger)
+        {
+            var releaseResult = await ReleaseResourcesAsync(
+                registration,
+                server,
+                lifecycleSidecarWriter,
+                daemonLogger,
+                serviceProvider?.GetService<IUnityMutationLaneControl>(),
+                cleanupContext: "after failed startup",
+                deleteSession: true,
+                () =>
+                {
+                    DisposeUnityLogCapture(
+                        unityLogCaptureService,
+                        daemonLogger,
+                        "after failed startup");
+                    DisposeServiceProvider(
+                        serviceProvider,
+                        daemonLogger,
+                        "after failed startup");
+                });
+            return releaseResult.StoppedSafely;
+        }
+
+        private static async Task<ResourceReleaseResult> ReleaseResourcesAsync (
+            UnityGuiSessionRegistration registration,
+            IUnityIpcServer server,
+            UnityLifecycleSidecarWriter lifecycleSidecarWriter,
             IDaemonLogger daemonLogger,
+            IUnityMutationLaneControl mutationLaneControl,
             string cleanupContext,
-            bool deleteSession)
+            bool deleteSession,
+            Action releaseManagedResources)
         {
             if (daemonLogger == null)
             {
                 throw new ArgumentNullException(nameof(daemonLogger));
+            }
+
+            if (releaseManagedResources == null)
+            {
+                throw new ArgumentNullException(nameof(releaseManagedResources));
             }
 
             var serverStoppedSafely = true;
@@ -949,19 +1108,71 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
             }
 
-            var writerStoppedSafely = await InvalidateAndStopLifecycleSidecarWriterAsync(
+            var lifecycleSidecarStop = await BeginLifecycleSidecarStopAsync(
                 lifecycleSidecarWriter,
                 daemonLogger,
                 cleanupContext);
 
             DeleteSession(registration, daemonLogger, cleanupContext, deleteSession);
-            if (serverStoppedSafely)
+            if (!serverStoppedSafely)
             {
-                DisposeUnityLogCapture(unityLogCaptureService, daemonLogger, cleanupContext);
-                DisposeServiceProvider(serviceProvider, daemonLogger, cleanupContext);
+                return new ResourceReleaseResult(
+                    listenerStoppedSafely: false,
+                    releasedInForeground: false,
+                    releaseCompletionTask: null);
             }
 
-            return serverStoppedSafely && writerStoppedSafely;
+            var managedResourceReleaseTask = ReleaseManagedResourcesAfterRetirementAsync(
+                mutationLaneControl,
+                releaseManagedResources);
+            var managedResourcesReleasedInForeground =
+                await CompletesWithinLifecycleRetirementDeadlineAsync(managedResourceReleaseTask);
+            if (!managedResourcesReleasedInForeground)
+            {
+                var effectiveCleanupContext = cleanupContext ?? "during normal stop";
+                daemonLogger.Warning(
+                    DaemonLogCategories.Lifecycle,
+                    $"GUI mutation retirement {effectiveCleanupContext} exceeded its {LifecycleMutationRetirementTimeout.TotalMilliseconds:0}ms foreground deadline. The old generation remains fenced and cleanup continues after retirement.");
+            }
+
+            var releaseCompletionTask = Task.WhenAll(
+                lifecycleSidecarStop.Completion,
+                managedResourceReleaseTask);
+            return new ResourceReleaseResult(
+                listenerStoppedSafely: true,
+                releasedInForeground: lifecycleSidecarStop.StoppedInForeground
+                    && managedResourcesReleasedInForeground,
+                releaseCompletionTask);
+        }
+
+        private static async Task ReleaseManagedResourcesAfterRetirementAsync (
+            IUnityMutationLaneControl mutationLaneControl,
+            Action releaseManagedResources)
+        {
+            if (mutationLaneControl != null)
+            {
+                await mutationLaneControl.WaitForRetirementAsync();
+            }
+
+            releaseManagedResources();
+        }
+
+        private static async Task<bool> CompletesWithinLifecycleRetirementDeadlineAsync (Task completionTask)
+        {
+            if (completionTask.IsCompleted)
+            {
+                await completionTask;
+                return true;
+            }
+
+            var deadlineTask = Task.Delay(LifecycleMutationRetirementTimeout);
+            if (!ReferenceEquals(await Task.WhenAny(completionTask, deadlineTask), completionTask))
+            {
+                return false;
+            }
+
+            await completionTask;
+            return true;
         }
 
         /// <summary> Releases resources from Unity lifecycle callbacks without blocking editor close or domain reload. </summary>
@@ -1245,12 +1456,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                     capturedState.DaemonLogger,
                     "during Unity Editor quit");
 
-                ReleaseManagedResourcesForEditorLifecycleEvent(
-                    capturedState.Registration,
-                    capturedState.UnityLogCaptureService,
-                    capturedState.ServiceProvider,
-                    capturedState.DaemonLogger,
-                    deleteSession: true);
+                capturedState.ReleaseManagedResourcesOnce(() =>
+                    ReleaseManagedResourcesForEditorLifecycleEvent(
+                        capturedState.Registration,
+                        capturedState.UnityLogCaptureService,
+                        capturedState.ServiceProvider,
+                        capturedState.DaemonLogger,
+                        deleteSession: true));
             }
 
             ReleaseFailedStartResourcesForEditorLifecycleEvent(capturedFailedStartResources);
@@ -1302,12 +1514,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                         "after recovery flush failure before domain reload");
                 }
 
-                ReleaseManagedResourcesForEditorLifecycleEvent(
-                    capturedState.Registration,
-                    capturedState.UnityLogCaptureService,
-                    capturedState.ServiceProvider,
-                    capturedState.DaemonLogger,
-                    deleteSession: !recoverySnapshotFlushed);
+                capturedState.ReleaseManagedResourcesOnce(() =>
+                    ReleaseManagedResourcesForEditorLifecycleEvent(
+                        capturedState.Registration,
+                        capturedState.UnityLogCaptureService,
+                        capturedState.ServiceProvider,
+                        capturedState.DaemonLogger,
+                        deleteSession: !recoverySnapshotFlushed));
             }
 
             ReleaseFailedStartResourcesForEditorLifecycleEvent(capturedFailedStartResources);
@@ -1346,6 +1559,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     state.LifecycleSidecarWriter,
                     state.DaemonLogger,
                     "during starting-generation editor lifecycle release");
+                state.MutationLifecycleSidecarObserver?.Dispose();
 
                 ReleaseManagedResourcesForEditorLifecycleEvent(
                     null,
@@ -1369,7 +1583,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                     .CaptureAvailabilityObservation()
                     .WithLifecycleState(IpcEditorLifecycleState.Recovering)
                     .WithObservedAtUtc(observedAtUtc);
-                if (!state.LifecycleSidecarWriter.TryEnqueue(snapshot, observedAtUtc, out version))
+                var recoveryLease = new DaemonLifecycleRecoveryLease(
+                    state.Registration.SessionGenerationId,
+                    observedAtUtc + DaemonLifecycleObservationTimings.DomainReloadRecoveryLeaseDuration);
+                if (!state.LifecycleSidecarWriter.TryEnqueueDomainReloadRecovery(
+                        snapshot,
+                        observedAtUtc,
+                        recoveryLease,
+                        out version))
                 {
                     return false;
                 }
@@ -1409,40 +1630,75 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static async Task<bool> InvalidateAndStopLifecycleSidecarWriterAsync (
+        private static async Task<(bool StoppedInForeground, Task Completion)> BeginLifecycleSidecarStopAsync (
             UnityLifecycleSidecarWriter writer,
             IDaemonLogger daemonLogger,
             string cleanupContext)
         {
             if (writer == null)
             {
-                return true;
+                return (true, Task.CompletedTask);
             }
 
-            using var cleanupCancellationSource = new CancellationTokenSource(
-                LifecycleSidecarAsyncCleanupTimeout);
+            var stopTask = StopLifecycleSidecarWriterAsync(
+                writer,
+                daemonLogger,
+                cleanupContext);
+            var deadlineTask = Task.Delay(LifecycleSidecarAsyncCleanupTimeout);
+            if (ReferenceEquals(await Task.WhenAny(stopTask, deadlineTask), stopTask))
+            {
+                await stopTask;
+                return (true, stopTask);
+            }
+
+            var effectiveCleanupContext = cleanupContext ?? "during normal stop";
+            daemonLogger.Warning(
+                DaemonLogCategories.Lifecycle,
+                $"GUI lifecycle sidecar writer stop {effectiveCleanupContext} exceeded its {LifecycleSidecarAsyncCleanupTimeout.TotalMilliseconds:0}ms foreground deadline. The old generation remains fenced until the writer can no longer publish stale state.");
+            return (false, stopTask);
+        }
+
+        private static async Task StopLifecycleSidecarWriterAsync (
+            UnityLifecycleSidecarWriter writer,
+            IDaemonLogger daemonLogger,
+            string cleanupContext)
+        {
             try
             {
-                await writer.InvalidateAndStopAsync(cleanupCancellationSource.Token);
-                return true;
+                await writer.StopAsync(CancellationToken.None);
             }
-            catch (OperationCanceledException) when (cleanupCancellationSource.IsCancellationRequested)
+            catch (Exception exception)
             {
-                var effectiveCleanupContext = cleanupContext ?? "during normal stop";
+                // StopAsync completes only after the worker has reached the stopped state. A terminal cleanup
+                // failure is diagnostic; the stopped writer can no longer overwrite a successor generation.
                 daemonLogger.Warning(
                     DaemonLogCategories.Lifecycle,
-                    $"GUI lifecycle sidecar owned cleanup {effectiveCleanupContext} exceeded its {LifecycleSidecarAsyncCleanupTimeout.TotalMilliseconds:0}ms foreground deadline and continues in the background.");
-                return true;
+                    FormatCleanupFailureMessage(
+                        "GUI lifecycle sidecar writer stop",
+                        cleanupContext,
+                        exception));
+            }
+
+            _ = InvalidateStoppedLifecycleSidecarWriterAsync(writer, daemonLogger, cleanupContext);
+        }
+
+        private static async Task InvalidateStoppedLifecycleSidecarWriterAsync (
+            UnityLifecycleSidecarWriter writer,
+            IDaemonLogger daemonLogger,
+            string cleanupContext)
+        {
+            try
+            {
+                await writer.InvalidateAndStopAsync(CancellationToken.None);
             }
             catch (Exception exception)
             {
                 daemonLogger.Warning(
                     DaemonLogCategories.Lifecycle,
                     FormatCleanupFailureMessage(
-                        "GUI lifecycle sidecar owned cleanup",
+                        "GUI lifecycle sidecar owned invalidation",
                         cleanupContext,
                         exception));
-                return false;
             }
         }
 
@@ -1548,12 +1804,53 @@ namespace MackySoft.Ucli.Unity.Ipc
                 retainedResources.LifecycleSidecarWriter,
                 retainedResources.DaemonLogger,
                 "during failed-start editor lifecycle release");
+            retainedResources.MutationLifecycleSidecarObserver?.Dispose();
             ReleaseManagedResourcesForEditorLifecycleEvent(
                 null,
                 retainedResources.UnityLogCaptureService,
                 retainedResources.ServiceProvider,
                 retainedResources.DaemonLogger,
                 deleteSession: false);
+        }
+
+        private sealed class ResourceReleaseResult
+        {
+            public ResourceReleaseResult (
+                bool listenerStoppedSafely,
+                bool releasedInForeground,
+                Task releaseCompletionTask)
+            {
+                if (listenerStoppedSafely && releaseCompletionTask == null)
+                {
+                    throw new ArgumentNullException(nameof(releaseCompletionTask));
+                }
+
+                if (!listenerStoppedSafely && releaseCompletionTask != null)
+                {
+                    throw new ArgumentException(
+                        "Deferred resource release cannot complete while the listener still owns the generation.",
+                        nameof(releaseCompletionTask));
+                }
+
+                if (releasedInForeground && !listenerStoppedSafely)
+                {
+                    throw new ArgumentException(
+                        "Resources cannot be released while the listener still owns them.",
+                        nameof(releasedInForeground));
+                }
+
+                ReleaseCompletionTask = releaseCompletionTask;
+                StoppedSafely = listenerStoppedSafely
+                    && releasedInForeground;
+            }
+
+            public Task ReleaseCompletionTask { get; }
+
+            public bool StoppedSafely { get; }
+
+            public bool HasDeferredRelease =>
+                ReleaseCompletionTask != null
+                && !StoppedSafely;
         }
 
         internal sealed class StartingGuiBootstrapState
@@ -1593,6 +1890,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             public StartingGuiBootstrapState (
                 CancellationToken callerCancellationToken,
                 Guid editorInstanceId,
+                Guid lifecycleSidecarGenerationId,
                 IDaemonLogger daemonLogger)
             {
                 if (editorInstanceId == Guid.Empty)
@@ -1600,8 +1898,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                     throw new ArgumentException("Editor instance identifier must not be empty.", nameof(editorInstanceId));
                 }
 
+                if (lifecycleSidecarGenerationId == Guid.Empty)
+                {
+                    throw new ArgumentException(
+                        "Lifecycle sidecar generation identifier must not be empty.",
+                        nameof(lifecycleSidecarGenerationId));
+                }
+
                 CallerCancellationToken = callerCancellationToken;
                 EditorInstanceId = editorInstanceId;
+                LifecycleSidecarGenerationId = lifecycleSidecarGenerationId;
                 DaemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
                 cancellationSource = CancellationTokenSource.CreateLinkedTokenSource(callerCancellationToken);
                 cancellationToken = cancellationSource.Token;
@@ -1610,6 +1916,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             public CancellationToken CallerCancellationToken { get; }
 
             public Guid EditorInstanceId { get; }
+
+            public Guid LifecycleSidecarGenerationId { get; }
 
             public CancellationToken CancellationToken => cancellationToken;
 
@@ -1626,6 +1934,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             public IServiceProvider ServiceProvider { get; private set; }
 
             public UnityLifecycleSidecarWriter LifecycleSidecarWriter { get; private set; }
+
+            public UnityMutationLifecycleSidecarObserver MutationLifecycleSidecarObserver { get; private set; }
 
             public Task PreparedSessionFinalization => preparedSessionFinalizationCompletionSource.Task;
 
@@ -1686,6 +1996,23 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 LifecycleSidecarWriter = lifecycleSidecarWriter
                     ?? throw new ArgumentNullException(nameof(lifecycleSidecarWriter));
+            }
+
+            public void AttachMutationLifecycleSidecarObserver (
+                UnityMutationLifecycleSidecarObserver mutationLifecycleSidecarObserver)
+            {
+                if (!IsUnclaimed)
+                {
+                    throw new InvalidOperationException("The GUI daemon startup generation no longer owns resources.");
+                }
+
+                if (MutationLifecycleSidecarObserver != null)
+                {
+                    throw new InvalidOperationException("A mutation lifecycle sidecar observer is already attached.");
+                }
+
+                MutationLifecycleSidecarObserver = mutationLifecycleSidecarObserver
+                    ?? throw new ArgumentNullException(nameof(mutationLifecycleSidecarObserver));
             }
 
             public void AttachSessionPublicationTask (Task<UnityGuiSessionRegistration> publicationTask)
@@ -1942,13 +2269,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 IDisposable unityLogCaptureService,
                 IServiceProvider serviceProvider,
                 IDaemonLogger daemonLogger,
-                UnityLifecycleSidecarWriter lifecycleSidecarWriter)
+                UnityLifecycleSidecarWriter lifecycleSidecarWriter,
+                UnityMutationLifecycleSidecarObserver mutationLifecycleSidecarObserver)
             {
                 Server = server ?? throw new ArgumentNullException(nameof(server));
                 UnityLogCaptureService = unityLogCaptureService;
                 ServiceProvider = serviceProvider ?? throw new ArgumentNullException(nameof(serviceProvider));
                 DaemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
                 LifecycleSidecarWriter = lifecycleSidecarWriter;
+                MutationLifecycleSidecarObserver = mutationLifecycleSidecarObserver;
             }
 
             public IUnityIpcServer Server { get; }
@@ -1960,13 +2289,21 @@ namespace MackySoft.Ucli.Unity.Ipc
             public IDaemonLogger DaemonLogger { get; }
 
             public UnityLifecycleSidecarWriter LifecycleSidecarWriter { get; }
+
+            public UnityMutationLifecycleSidecarObserver MutationLifecycleSidecarObserver { get; }
         }
 
         private sealed class ActiveGuiBootstrapState
         {
+            private readonly object managedResourceReleaseSyncRoot = new object();
+
+            private readonly UnityMutationLifecycleSidecarObserver mutationLifecycleSidecarObserver;
+
             private int stopStarted;
 
             private int stopSafety;
+
+            private bool managedResourcesReleased;
 
             public ActiveGuiBootstrapState (
                 UnityGuiSessionRegistration registration,
@@ -1977,6 +2314,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 IDaemonLogger daemonLogger,
                 IUnityEditorAvailabilityObservationSource availabilityObservationSource,
                 IUnityMutationLaneControl mutationLaneControl,
+                UnityMutationLifecycleSidecarObserver mutationLifecycleSidecarObserver,
                 UnityLifecycleSidecarWriter lifecycleSidecarWriter)
             {
                 Registration = registration ?? throw new ArgumentNullException(nameof(registration));
@@ -1990,6 +2328,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 MutationLaneControl = mutationLaneControl ?? throw new ArgumentNullException(nameof(mutationLaneControl));
                 LifecycleSidecarWriter = lifecycleSidecarWriter
                     ?? throw new ArgumentNullException(nameof(lifecycleSidecarWriter));
+                this.mutationLifecycleSidecarObserver = mutationLifecycleSidecarObserver
+                    ?? throw new ArgumentNullException(nameof(mutationLifecycleSidecarObserver));
             }
 
             public UnityGuiSessionRegistration Registration { get; }
@@ -2020,6 +2360,26 @@ namespace MackySoft.Ucli.Unity.Ipc
             public void CompleteStop (bool stoppedSafely)
             {
                 Volatile.Write(ref stopSafety, stoppedSafely ? 1 : 2);
+            }
+
+            public void ReleaseManagedResourcesOnce (Action releaseManagedResources)
+            {
+                if (releaseManagedResources == null)
+                {
+                    throw new ArgumentNullException(nameof(releaseManagedResources));
+                }
+
+                lock (managedResourceReleaseSyncRoot)
+                {
+                    if (managedResourcesReleased)
+                    {
+                        return;
+                    }
+
+                    mutationLifecycleSidecarObserver.Dispose();
+                    releaseManagedResources();
+                    managedResourcesReleased = true;
+                }
             }
         }
     }

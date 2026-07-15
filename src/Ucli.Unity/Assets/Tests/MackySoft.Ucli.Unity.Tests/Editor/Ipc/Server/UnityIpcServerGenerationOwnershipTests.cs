@@ -750,7 +750,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
             finally
             {
-                handlerCompletion.TrySetResult(default);
+                handlerCompletion.TrySetResult(UnityIpcConnectionHandleResult.NoTerminalResponse);
                 await TestAwaiter.WaitAsync(
                     connectionGroup.WaitForCompletionAsync(SignalWaitTimeout),
                     "Non-cooperative connection handler cleanup",
@@ -976,21 +976,23 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UnityIpcConnectionHandleResult CreateSuccessfulShutdownResult ()
         {
-            var request = new IpcRequest(
+            var request = new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "session-token",
                 method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
                 payload: IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest("tests")),
-                responseMode: "single");
+                responseMode: "single",
+                requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
+                requestDeadlineRemainingMilliseconds: 30_000);
             var response = new IpcResponse(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: request.RequestId,
-                status: IpcProtocol.StatusOk,
+                status: IpcResponseStatus.Ok,
                 payload: IpcPayloadCodec.SerializeToElement(new IpcShutdownResponse(true, "ok")),
                 errors: Array.Empty<IpcError>());
             return new UnityIpcConnectionHandleResult(
-                request,
+                ValidatedUnityIpcRequestTestFactory.Create(request),
                 response,
                 isShutdownAdmissionCommitted: true);
         }
