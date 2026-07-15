@@ -7,9 +7,9 @@ public enum IpcBuildDirtyStateCoverage
 {
     /// <summary> All configured dirty-state sources were checked. </summary>
     [UcliContractLiteral("full")]
-    Full = 0,
+    Full = 1,
 
     /// <summary> At least one dirty-state source could not be checked completely. </summary>
     [UcliContractLiteral("partial")]
-    Partial = 1,
+    Partial = 2,
 }

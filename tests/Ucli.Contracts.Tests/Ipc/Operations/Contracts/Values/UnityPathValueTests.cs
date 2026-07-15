@@ -9,6 +9,7 @@ public sealed class UnityPathValueTests
     {
         typeof(UnityAssetPath),
         typeof(SceneAssetPath),
+        typeof(UnityScenePath),
         typeof(PrefabAssetPath),
         typeof(ProjectSettingsAssetPath),
         typeof(UnityAssetPathPrefix),
@@ -18,6 +19,8 @@ public sealed class UnityPathValueTests
     {
         { typeof(UnityAssetPath), @"Assets\Data\Settings.asset", "Assets/Data/Settings.asset" },
         { typeof(SceneAssetPath), @"Assets\Scenes\Main.unity", "Assets/Scenes/Main.unity" },
+        { typeof(UnityScenePath), @"Assets\Scenes\Main.unity", "Assets/Scenes/Main.unity" },
+        { typeof(UnityScenePath), @"Packages\com.example\Scenes\Main.unity", "Packages/com.example/Scenes/Main.unity" },
         { typeof(PrefabAssetPath), @"Assets\Prefabs\Player.prefab", "Assets/Prefabs/Player.prefab" },
         { typeof(ProjectSettingsAssetPath), @"ProjectSettings\TagManager.asset", "ProjectSettings/TagManager.asset" },
         { typeof(UnityAssetPathPrefix), "Assets", "Assets" },
@@ -31,6 +34,8 @@ public sealed class UnityPathValueTests
         { typeof(UnityAssetPath), "Assets/../Settings.asset" },
         { typeof(SceneAssetPath), "Assets/Scenes/Main.prefab" },
         { typeof(SceneAssetPath), "Assets/Scenes/Main.UNITY" },
+        { typeof(UnityScenePath), "Packages/com.example/Scenes/Main.prefab" },
+        { typeof(UnityScenePath), "ProjectSettings/Scenes/Main.unity" },
         { typeof(PrefabAssetPath), "Assets/Prefabs/Player.unity" },
         { typeof(ProjectSettingsAssetPath), "ProjectSettings" },
         { typeof(ProjectSettingsAssetPath), "Assets/TagManager.asset" },
@@ -93,6 +98,8 @@ public sealed class UnityPathValueTests
         Assert.Equal("Assets/Data/Settings.asset", assetPath.Value);
         Assert.True(SceneAssetPath.TryParse(@"Assets\Scenes\Main.unity", out var scenePath));
         Assert.Equal("Assets/Scenes/Main.unity", scenePath.Value);
+        Assert.True(UnityScenePath.TryParse(@"Packages\com.example\Scenes\Main.unity", out var unityScenePath));
+        Assert.Equal("Packages/com.example/Scenes/Main.unity", unityScenePath.Value);
         Assert.True(PrefabAssetPath.TryParse(@"Assets\Prefabs\Player.prefab", out var prefabPath));
         Assert.Equal("Assets/Prefabs/Player.prefab", prefabPath.Value);
         Assert.True(ProjectSettingsAssetPath.TryParse(@"ProjectSettings\TagManager.asset", out var projectSettingsPath));
@@ -109,6 +116,8 @@ public sealed class UnityPathValueTests
         Assert.Null(assetPath);
         Assert.False(SceneAssetPath.TryParse("Assets/Scenes/Main.prefab", out var scenePath));
         Assert.Null(scenePath);
+        Assert.False(UnityScenePath.TryParse("ProjectSettings/Scenes/Main.unity", out var unityScenePath));
+        Assert.Null(unityScenePath);
         Assert.False(PrefabAssetPath.TryParse("Assets/Prefabs/Player.unity", out var prefabPath));
         Assert.Null(prefabPath);
         Assert.False(ProjectSettingsAssetPath.TryParse("Assets/TagManager.asset", out var projectSettingsPath));
@@ -127,6 +136,8 @@ public sealed class UnityPathValueTests
         Assert.Null(assetPath);
         Assert.False(SceneAssetPath.TryParse($"Assets/{malformedCharacter}.unity", out var scenePath));
         Assert.Null(scenePath);
+        Assert.False(UnityScenePath.TryParse($"Packages/com.example/{malformedCharacter}.unity", out var unityScenePath));
+        Assert.Null(unityScenePath);
         Assert.False(PrefabAssetPath.TryParse($"Assets/{malformedCharacter}.prefab", out var prefabPath));
         Assert.Null(prefabPath);
         Assert.False(ProjectSettingsAssetPath.TryParse(

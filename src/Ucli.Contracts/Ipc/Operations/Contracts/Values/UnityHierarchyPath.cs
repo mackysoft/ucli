@@ -9,10 +9,12 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 [UcliDescription("Unity hierarchy path inside a selected scene or prefab.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.HierarchyPath)]
-public sealed record UnityHierarchyPath : UcliStringValue
+public sealed class UnityHierarchyPath : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="UnityHierarchyPath" /> class. </summary>
     /// <param name="value"> The Unity hierarchy path. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="value" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> has outer whitespace or an empty hierarchy segment. </exception>
     [JsonConstructor]
     public UnityHierarchyPath (string value)
         : base(UnityHierarchyPathContract.Validate(value))

@@ -11,17 +11,17 @@ public sealed record GoReparentArgs
         GameObjectReferenceArgs target,
         GameObjectReferenceArgs parent)
     {
-        Target = target;
-        Parent = parent;
+        Target = ContractArgumentGuard.RequireNotNull(target, nameof(target));
+        Parent = ContractArgumentGuard.RequireNotNull(parent, nameof(parent));
     }
 
     [UcliRequired]
     [UcliDescription("Target GameObject reference.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public GameObjectReferenceArgs Target { get; init; }
+    public GameObjectReferenceArgs Target { get; }
 
     [UcliRequired]
     [UcliDescription("New parent GameObject reference.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public GameObjectReferenceArgs Parent { get; init; }
+    public GameObjectReferenceArgs Parent { get; }
 }

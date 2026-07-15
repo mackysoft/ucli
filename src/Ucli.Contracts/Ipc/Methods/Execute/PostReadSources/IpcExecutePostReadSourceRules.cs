@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines semantic rules for post-read source facts carried by execute results. </summary>
@@ -16,21 +18,25 @@ public static class IpcExecutePostReadSourceRules
     /// <returns> <see langword="true" /> when the values match the current source-fact contract. </returns>
     public static bool IsCompatibleWithOperation (
         string operationName,
-        string sourceKind,
+        IpcExecutePostReadSourceKind sourceKind,
         bool playModeMutation,
-        string? commit,
+        IpcExecutePostReadCommit? commit,
         bool persistenceExpected,
-        string expectedPostState)
+        IpcExecuteExpectedPostState expectedPostState)
     {
-        ThrowIfNullOrWhiteSpace(operationName, nameof(operationName));
-        ThrowIfNullOrWhiteSpace(sourceKind, nameof(sourceKind));
-        ThrowIfNullOrWhiteSpace(expectedPostState, nameof(expectedPostState));
+        ContractArgumentGuard.RequireValue(operationName, nameof(operationName));
+        if (!ContractLiteralCodec.IsDefined(sourceKind)
+            || !ContractLiteralCodec.IsDefined(expectedPostState)
+            || (commit.HasValue && !ContractLiteralCodec.IsDefined(commit.Value)))
+        {
+            return false;
+        }
 
         return sourceKind switch
         {
-            IpcExecutePostReadSourceKindNames.Edit => IsCompatibleEditSource(operationName, playModeMutation, commit, persistenceExpected, expectedPostState),
-            IpcExecutePostReadSourceKindNames.Operation => IsCompatibleOperationSource(operationName, playModeMutation, commit, expectedPostState),
-            IpcExecutePostReadSourceKindNames.Refresh => IsCompatibleRefreshSource(operationName, playModeMutation, commit, persistenceExpected, expectedPostState),
+            IpcExecutePostReadSourceKind.Edit => IsCompatibleEditSource(operationName, playModeMutation, commit, persistenceExpected, expectedPostState),
+            IpcExecutePostReadSourceKind.Operation => IsCompatibleOperationSource(operationName, playModeMutation, commit, expectedPostState),
+            IpcExecutePostReadSourceKind.Refresh => IsCompatibleRefreshSource(operationName, playModeMutation, commit, persistenceExpected, expectedPostState),
             _ => false,
         };
     }
@@ -40,42 +46,22 @@ public static class IpcExecutePostReadSourceRules
     /// <param name="expectedPostState"> The expected post-state availability. </param>
     /// <returns> <see langword="true" /> when the source can support deterministic post-mutation claims. </returns>
     public static bool IsDeterministicMutationSource (
-        string sourceKind,
-        string expectedPostState)
+        IpcExecutePostReadSourceKind sourceKind,
+        IpcExecuteExpectedPostState expectedPostState)
     {
-        ThrowIfNullOrWhiteSpace(sourceKind, nameof(sourceKind));
-        ThrowIfNullOrWhiteSpace(expectedPostState, nameof(expectedPostState));
-
-        return string.Equals(sourceKind, IpcExecutePostReadSourceKindNames.Edit, StringComparison.Ordinal)
-            && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Deterministic, StringComparison.Ordinal);
-    }
-
-    private static void ThrowIfNullOrWhiteSpace (
-        string? value,
-        string paramName)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new ArgumentException("Value must not be null or whitespace.", paramName);
-        }
-    }
-
-    private static bool IsKnownPostReadCommit (string? commit)
-    {
-        return commit is IpcExecutePostReadCommitNames.None
-            or IpcExecutePostReadCommitNames.Context
-            or IpcExecutePostReadCommitNames.Project;
+        return sourceKind == IpcExecutePostReadSourceKind.Edit
+            && expectedPostState == IpcExecuteExpectedPostState.Deterministic;
     }
 
     private static bool IsCompatibleEditSource (
         string operationName,
         bool playModeMutation,
-        string? commit,
+        IpcExecutePostReadCommit? commit,
         bool persistenceExpected,
-        string expectedPostState)
+        IpcExecuteExpectedPostState expectedPostState)
     {
         return string.Equals(operationName, EditOperationName, StringComparison.Ordinal)
-            && IsKnownPostReadCommit(commit)
+            && commit.HasValue
             && (playModeMutation
                 ? IsCompatiblePlayModeEditSource(commit, expectedPostState)
                 : IsCompatibleDeterministicEditSource(commit, persistenceExpected, expectedPostState));
@@ -84,44 +70,44 @@ public static class IpcExecutePostReadSourceRules
     private static bool IsCompatibleOperationSource (
         string operationName,
         bool playModeMutation,
-        string? commit,
-        string expectedPostState)
+        IpcExecutePostReadCommit? commit,
+        IpcExecuteExpectedPostState expectedPostState)
     {
         return !string.Equals(operationName, EditOperationName, StringComparison.Ordinal)
             && !string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
             && !playModeMutation
             && commit is null
-            && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Unavailable, StringComparison.Ordinal);
+            && expectedPostState == IpcExecuteExpectedPostState.Unavailable;
     }
 
     private static bool IsCompatibleRefreshSource (
         string operationName,
         bool playModeMutation,
-        string? commit,
+        IpcExecutePostReadCommit? commit,
         bool persistenceExpected,
-        string expectedPostState)
+        IpcExecuteExpectedPostState expectedPostState)
     {
         return string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
             && !playModeMutation
             && commit is null
             && persistenceExpected
-            && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Unavailable, StringComparison.Ordinal);
+            && expectedPostState == IpcExecuteExpectedPostState.Unavailable;
     }
 
     private static bool IsCompatiblePlayModeEditSource (
-        string? commit,
-        string expectedPostState)
+        IpcExecutePostReadCommit? commit,
+        IpcExecuteExpectedPostState expectedPostState)
     {
-        return string.Equals(commit, IpcExecutePostReadCommitNames.None, StringComparison.Ordinal)
-            && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Unavailable, StringComparison.Ordinal);
+        return commit == IpcExecutePostReadCommit.None
+            && expectedPostState == IpcExecuteExpectedPostState.Unavailable;
     }
 
     private static bool IsCompatibleDeterministicEditSource (
-        string? commit,
+        IpcExecutePostReadCommit? commit,
         bool persistenceExpected,
-        string expectedPostState)
+        IpcExecuteExpectedPostState expectedPostState)
     {
-        return (string.Equals(commit, IpcExecutePostReadCommitNames.None, StringComparison.Ordinal) || persistenceExpected)
-            && string.Equals(expectedPostState, IpcExecuteExpectedPostStateNames.Deterministic, StringComparison.Ordinal);
+        return (commit == IpcExecutePostReadCommit.None || persistenceExpected)
+            && expectedPostState == IpcExecuteExpectedPostState.Deterministic;
     }
 }

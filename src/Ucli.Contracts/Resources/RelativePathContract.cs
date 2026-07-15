@@ -1,9 +1,10 @@
+using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts;
 
 /// <summary> Defines shared syntax rules for portable relative paths carried by uCLI contracts. </summary>
-internal static class RelativePathContract
+public static class RelativePathContract
 {
     /// <summary> Normalizes and validates one portable relative path. </summary>
     /// <param name="path"> The input path. </param>
@@ -33,7 +34,7 @@ internal static class RelativePathContract
     /// <summary> Determines whether <paramref name="path" /> is already normalized portable relative path text. </summary>
     /// <param name="path"> The path to inspect. </param>
     /// <returns> <see langword="true" /> when <paramref name="path" /> satisfies normalized relative path syntax; otherwise <see langword="false" />. </returns>
-    public static bool IsNormalized (string? path)
+    public static bool IsNormalized ([NotNullWhen(true)] string? path)
     {
         return path != null
             && !path.Contains('\\', StringComparison.Ordinal)

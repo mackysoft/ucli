@@ -67,7 +67,7 @@ internal static class UcliOperationCodeApiTypeContractBuilder
     private static UcliCodeApiMemberContract CreateProperty (PropertyInfo property)
     {
         return new UcliCodeApiMemberContract(
-            UcliCodeApiMemberKindValues.Property,
+            UcliCodeApiMemberKind.Property,
             property.Name,
             UcliOperationCodeDescriptionReader.Get(property),
             UcliOperationCodeTypeName.Get(property.PropertyType),
@@ -78,7 +78,7 @@ internal static class UcliOperationCodeApiTypeContractBuilder
     private static UcliCodeApiMemberContract CreateMethod (MethodInfo method)
     {
         return new UcliCodeApiMemberContract(
-            UcliCodeApiMemberKindValues.Method,
+            UcliCodeApiMemberKind.Method,
             method.Name,
             UcliOperationCodeDescriptionReader.Get(method),
             type: null,
@@ -90,7 +90,7 @@ internal static class UcliOperationCodeApiTypeContractBuilder
     {
         return members
             .OrderBy(static member => member.Name, StringComparer.Ordinal)
-            .ThenBy(static member => member.Kind, StringComparer.Ordinal)
+            .ThenBy(static member => member.Kind)
             .ToArray();
     }
 }

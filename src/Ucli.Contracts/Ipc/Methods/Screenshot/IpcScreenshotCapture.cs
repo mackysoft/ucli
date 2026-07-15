@@ -1,30 +1,99 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Represents screenshot capture metadata observed by Unity. </summary>
+/// <summary> Represents internally consistent screenshot capture metadata observed by Unity. </summary>
 public sealed record IpcScreenshotCapture
 {
-    /// <summary> Initializes screenshot capture metadata observed by Unity. </summary>
+    /// <summary> Initializes screenshot capture metadata observed at the successful pixel-readback boundary. </summary>
+    /// <exception cref="ArgumentException"> Thrown when the target, size mode, requested size, and captured size are inconsistent. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="State" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when a required contract literal or captured dimension is invalid. </exception>
     [JsonConstructor]
     public IpcScreenshotCapture (
-        IpcScreenshotTarget target,
-        IpcScreenshotSizeMode sizeMode,
-        int? requestedWidth,
-        int? requestedHeight,
-        int width,
-        int height,
-        IpcScreenshotColorSpace colorSpace,
-        UnityEditorStateSnapshot state)
+        IpcScreenshotTarget Target,
+        IpcScreenshotSizeMode SizeMode,
+        int? RequestedWidth,
+        int? RequestedHeight,
+        int Width,
+        int Height,
+        IpcScreenshotColorSpace ColorSpace,
+        UnityEditorStateSnapshot State)
     {
-        Target = target;
-        SizeMode = sizeMode;
-        RequestedWidth = requestedWidth;
-        RequestedHeight = requestedHeight;
-        Width = width;
-        Height = height;
-        ColorSpace = colorSpace;
-        State = state ?? throw new ArgumentNullException(nameof(state));
+        if (!ContractLiteralCodec.IsDefined(Target))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Target), Target, "Screenshot target must be specified.");
+        }
+
+        if (!ContractLiteralCodec.IsDefined(SizeMode))
+        {
+            throw new ArgumentOutOfRangeException(nameof(SizeMode), SizeMode, "Screenshot size mode must be specified.");
+        }
+
+        if (!ContractLiteralCodec.IsDefined(ColorSpace))
+        {
+            throw new ArgumentOutOfRangeException(nameof(ColorSpace), ColorSpace, "Screenshot color space must be specified.");
+        }
+
+        if (!IpcScreenshotCaptureLimits.TryCalculateRgba8Layout(Width, Height, out _, out _))
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(Width),
+                "Captured screenshot dimensions exceed the supported normalized RGBA8 layout.");
+        }
+
+        var hasRequestedWidth = RequestedWidth.HasValue;
+        if (hasRequestedWidth != RequestedHeight.HasValue)
+        {
+            throw new ArgumentException(
+                "Requested width and height must be omitted together or specified together.",
+                nameof(RequestedWidth));
+        }
+
+        switch (SizeMode)
+        {
+            case IpcScreenshotSizeMode.CurrentSurface when hasRequestedWidth:
+                throw new ArgumentException(
+                    "Current-surface capture metadata must not contain requested dimensions.",
+                    nameof(RequestedWidth));
+            case IpcScreenshotSizeMode.CurrentSurface:
+                break;
+            case IpcScreenshotSizeMode.RequestedResolution when !hasRequestedWidth:
+                throw new ArgumentException(
+                    "Requested-resolution capture metadata must contain requested dimensions.",
+                    nameof(RequestedWidth));
+            case IpcScreenshotSizeMode.RequestedResolution:
+                if (Target != IpcScreenshotTarget.Game)
+                {
+                    throw new ArgumentException(
+                        "Requested-resolution capture metadata is valid only for the game screenshot target.",
+                        nameof(Target));
+                }
+
+                if (Width != RequestedWidth!.Value || Height != RequestedHeight!.Value)
+                {
+                    throw new ArgumentException(
+                        "Captured dimensions must match requested-resolution dimensions.",
+                        nameof(Width));
+                }
+
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(
+                    nameof(SizeMode),
+                    SizeMode,
+                    "Screenshot size mode is not supported by the capture metadata contract.");
+        }
+
+        this.Target = Target;
+        this.SizeMode = SizeMode;
+        this.RequestedWidth = RequestedWidth;
+        this.RequestedHeight = RequestedHeight;
+        this.Width = Width;
+        this.Height = Height;
+        this.ColorSpace = ColorSpace;
+        this.State = State ?? throw new ArgumentNullException(nameof(State));
     }
 
     /// <summary> Gets the screenshot target. </summary>
@@ -49,7 +118,5 @@ public sealed record IpcScreenshotCapture
     public IpcScreenshotColorSpace ColorSpace { get; }
 
     /// <summary> Gets the comparable Unity Editor state at capture time. </summary>
-    [JsonInclude]
-    [JsonRequired]
-    public UnityEditorStateSnapshot State { get; private init; }
+    public UnityEditorStateSnapshot State { get; }
 }

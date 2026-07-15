@@ -10,24 +10,26 @@ public sealed record PrefabOverrideArgs
     public PrefabOverrideArgs (
         ComponentReferenceArgs target,
         PrefabAssetPath targetAssetPath,
-        IReadOnlyList<SerializedPropertyPath>? propertyPaths = null)
+        IReadOnlyList<SerializedPropertyPath>? propertyPaths)
     {
-        Target = target;
-        TargetAssetPath = targetAssetPath;
-        PropertyPaths = propertyPaths;
+        Target = ContractArgumentGuard.RequireNotNull(target, nameof(target));
+        TargetAssetPath = ContractArgumentGuard.RequireNotNull(targetAssetPath, nameof(targetAssetPath));
+        PropertyPaths = propertyPaths is null
+            ? null
+            : ContractArgumentGuard.RequireItems(propertyPaths, nameof(propertyPaths));
     }
 
     [UcliRequired]
     [UcliDescription("Prefab instance component target.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.Component)]
-    public ComponentReferenceArgs Target { get; init; }
+    public ComponentReferenceArgs Target { get; }
 
     [UcliRequired]
     [UcliDescription("Prefab asset path that receives or provides the property override.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
-    public PrefabAssetPath TargetAssetPath { get; init; }
+    public PrefabAssetPath TargetAssetPath { get; }
 
     [UcliDescription("Exact SerializedProperty paths changed by a preceding set action. Omit to use all request-attributed paths.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.SerializedProperty, Access = UcliOperationSerializedPropertyAccess.Write)]
-    public IReadOnlyList<SerializedPropertyPath>? PropertyPaths { get; init; }
+    public IReadOnlyList<SerializedPropertyPath>? PropertyPaths { get; }
 }

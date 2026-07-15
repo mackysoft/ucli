@@ -11,16 +11,16 @@ public sealed record ComponentEnsureArgs
         GameObjectReferenceArgs target,
         UnityComponentTypeId type)
     {
-        Target = target;
-        Type = type;
+        Target = ContractArgumentGuard.RequireNotNull(target, nameof(target));
+        Type = ContractArgumentGuard.RequireNotNull(type, nameof(type));
     }
 
     [UcliRequired]
     [UcliDescription("Target GameObject that should contain the component.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public GameObjectReferenceArgs Target { get; init; }
+    public GameObjectReferenceArgs Target { get; }
 
     [UcliRequired]
     [UcliDescription("Component type identifier to ensure.")]
-    public UnityComponentTypeId Type { get; init; }
+    public UnityComponentTypeId Type { get; }
 }

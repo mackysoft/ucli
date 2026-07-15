@@ -28,23 +28,23 @@ public sealed record GameObjectReferenceArgs
     [UcliDescription("Request-local alias produced by an earlier plan step.")]
     [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UcliPlanAlias? Alias { get; init; }
+    public UcliPlanAlias? Alias { get; }
 
     [UcliDescription("Resolved Unity GlobalObjectId.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityGlobalObjectId? GlobalObjectId { get; init; }
+    public UnityGlobalObjectId? GlobalObjectId { get; }
 
     [UcliDescription("Prefab asset path for a hierarchy selector.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PrefabAssetPath? Prefab { get; init; }
+    public PrefabAssetPath? Prefab { get; }
 
     [UcliDescription("Scene asset path for a hierarchy selector.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public SceneAssetPath? Scene { get; init; }
+    public SceneAssetPath? Scene { get; }
 
     [UcliDescription("Unity hierarchy path inside the selected scene or prefab.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityHierarchyPath? HierarchyPath { get; init; }
+    public UnityHierarchyPath? HierarchyPath { get; }
 }

@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 [UcliDescription("Unity type identifier assignable to a Component type.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.TypeAssignableTo, TypeKind = UcliOperationTypeKind.Component)]
-public sealed record UnityComponentTypeId : UcliStringValue
+public sealed class UnityComponentTypeId : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="UnityComponentTypeId" /> class. </summary>
     /// <param name="value"> The Unity component type identifier. </param>

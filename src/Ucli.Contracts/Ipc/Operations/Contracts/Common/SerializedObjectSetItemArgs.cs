@@ -12,17 +12,17 @@ public sealed record SerializedObjectSetItemArgs
         SerializedPropertyPath path,
         JsonElement value)
     {
-        Path = path;
+        Path = ContractArgumentGuard.RequireNotNull(path, nameof(path));
         Value = value;
     }
 
     [UcliRequired]
     [UcliDescription("SerializedProperty path to assign.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.SerializedProperty, Access = UcliOperationSerializedPropertyAccess.Write)]
-    public SerializedPropertyPath Path { get; init; }
+    public SerializedPropertyPath Path { get; }
 
     [UcliRequired]
     [UcliDescription("JSON value assigned to the serialized property.")]
     [UcliJsonAnyValue]
-    public JsonElement Value { get; init; }
+    public JsonElement Value { get; }
 }

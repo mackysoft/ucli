@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Request-local alias produced by an earlier plan step.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-public sealed record UcliPlanAlias : UcliStringValue
+public sealed class UcliPlanAlias : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="UcliPlanAlias" /> class. </summary>
     /// <param name="value"> The request-local alias. </param>

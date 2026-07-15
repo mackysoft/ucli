@@ -7,9 +7,9 @@ public enum IpcBuildRunnerResultSource
 {
     /// <summary> The terminal result was normalized from Unity BuildPipeline BuildReport. </summary>
     [UcliContractLiteral("buildPipelineBuildReport")]
-    BuildPipelineBuildReport = 0,
+    BuildPipelineBuildReport = 1,
 
     /// <summary> The terminal result was returned by <c>UcliBuildRunnerResult</c>. </summary>
     [UcliContractLiteral("ucliBuildRunnerResult")]
-    UcliBuildRunnerResult = 1,
+    UcliBuildRunnerResult = 2,
 }

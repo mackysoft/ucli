@@ -97,6 +97,78 @@ public sealed class UcliStringValueTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Equality_WhenRuntimeTypeAndValueMatch_ReturnsTrue ()
+    {
+        var left = new TestStringValue("value");
+        var right = new TestStringValue("value");
+
+        Assert.Equal(left, right);
+        Assert.True(left == right);
+        Assert.False(left != right);
+        Assert.Equal(left.GetHashCode(), right.GetHashCode());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Equality_WhenValuesDiffer_ReturnsFalse ()
+    {
+        var left = new TestStringValue("left");
+        var right = new TestStringValue("right");
+
+        Assert.NotEqual(left, right);
+        Assert.False(left == right);
+        Assert.True(left != right);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Equality_WhenRuntimeTypesDiffer_ReturnsFalse ()
+    {
+        UcliStringValue left = new TestStringValue("value");
+        UcliStringValue right = new OtherTestStringValue("value");
+
+        Assert.NotEqual(left, right);
+        Assert.False(left == right);
+        Assert.True(left != right);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ToString_ReturnsValue ()
+    {
+        var value = new TestStringValue("value");
+
+        Assert.Equal("value", value.ToString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityTypeIdTryParse_WhenValueIsValid_ReturnsTypedValue ()
+    {
+        const string Value = "Example.Namespace.Component";
+
+        var result = UnityTypeId.TryParse(Value, out var typeId);
+
+        Assert.True(result);
+        Assert.NotNull(typeId);
+        Assert.Equal(Value, typeId.Value);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void UnityTypeIdTryParse_WhenValueViolatesCommonInvariant_ReturnsFalseWithoutValue ()
+    {
+        foreach (var invalidValue in InvalidConstructorValues)
+        {
+            var result = UnityTypeId.TryParse(invalidValue, out var typeId);
+
+            Assert.False(result);
+            Assert.Null(typeId);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void SemanticStringValueTypes_DoNotDeclareImplicitConversions ()
     {
         var valueTypes = SemanticStringValueTypes.Prepend(typeof(UcliStringValue));
@@ -115,9 +187,17 @@ public sealed class UcliStringValueTests
             type => string.Equals(type.Name, valueTypeName, StringComparison.Ordinal));
     }
 
-    private sealed record TestStringValue : UcliStringValue
+    private sealed class TestStringValue : UcliStringValue
     {
         public TestStringValue (string value)
+            : base(value)
+        {
+        }
+    }
+
+    private sealed class OtherTestStringValue : UcliStringValue
+    {
+        public OtherTestStringValue (string value)
             : base(value)
         {
         }

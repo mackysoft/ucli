@@ -33,7 +33,7 @@ public sealed class BoundedQueryResultSerializationTests
             [
                 new AssetsFindMatch(
                     assetPath: new UnityAssetPath("Assets/Data/A.asset"),
-                    assetGuid: new UnityAssetGuid("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+                    assetGuid: Guid.ParseExact("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "N"),
                     name: "A",
                     typeId: new UnityTypeId("UnityEngine.ScriptableObject, UnityEngine.CoreModule")),
             ],
@@ -44,28 +44,30 @@ public sealed class BoundedQueryResultSerializationTests
                 isComplete: false,
                 totalCount: 3));
         var sceneResult = new SceneTreeResult(
-            path: new SceneAssetPath("Assets/Scenes/Main.unity"),
+            path: new UnityScenePath("Assets/Scenes/Main.unity"),
             roots:
             [
                 new IndexSceneTreeLiteNodeJsonContract(
                     name: "Root",
                     globalObjectId: "GlobalObjectId_V1-1-2-3-4-5",
                     children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
-                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                    childrenState: IndexSceneTreeLiteNodeChildrenState.Complete),
             ],
             sourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.ReadIndex, isDirty: false),
             window: new BoundedWindow(
-                limit: 1,
+                limit: 2,
                 cursor: null,
                 nextCursor: nextCursor,
                 isComplete: false,
-                totalCount: 2));
+                totalCount: 3));
 
         var assetsElement = IpcPayloadCodec.SerializeToElement(assetsResult);
         var sceneElement = IpcPayloadCodec.SerializeToElement(sceneResult);
 
         JsonAssert.For(assetsElement)
             .HasArrayLength("matches", 1)
+            .HasProperty("matches", 0, match => match
+                .HasString("assetGuid", "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"))
             .HasProperty("window", window => window
                 .HasInt32("limit", 1)
                 .HasString("cursor", cursor)
@@ -76,7 +78,7 @@ public sealed class BoundedQueryResultSerializationTests
         JsonAssert.For(sceneElement)
             .HasArrayLength("roots", 1)
             .HasProperty("roots", 0, root => root
-                .HasString("childrenState", IndexSceneTreeLiteNodeChildrenStateValues.Complete))
+                .HasString("childrenState", "complete"))
             .HasProperty("window", window => window
                 .IsNull("cursor")
                 .HasString("nextCursor", nextCursor));
@@ -91,11 +93,11 @@ public sealed class BoundedQueryResultSerializationTests
             name: "Root",
             globalObjectId: "GlobalObjectId_V1-1-2-3-4-5",
             children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
-            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Unknown);
+            childrenState: IndexSceneTreeLiteNodeChildrenState.Unknown);
 
         var element = IpcPayloadCodec.SerializeToElement(node);
 
         JsonAssert.For(element)
-            .HasString("childrenState", IndexSceneTreeLiteNodeChildrenStateValues.Unknown);
+            .HasString("childrenState", "unknown");
     }
 }

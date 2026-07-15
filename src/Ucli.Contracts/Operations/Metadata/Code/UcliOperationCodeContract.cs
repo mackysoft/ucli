@@ -16,7 +16,7 @@ public sealed class UcliOperationCodeContract
     /// <param name="sourceForms"> The accepted source forms. </param>
     /// <param name="apiTypes"> The source-visible API type contracts. </param>
     public UcliOperationCodeContract (
-        string? language,
+        UcliCodeLanguage? language,
         UcliCodeEntryPointContract? entryPoint,
         IReadOnlyList<UcliCodeSourceFormContract>? sourceForms,
         IReadOnlyList<UcliCodeApiTypeContract>? apiTypes)
@@ -27,8 +27,8 @@ public sealed class UcliOperationCodeContract
         ApiTypes = apiTypes;
     }
 
-    /// <summary> Gets or sets the source language literal. </summary>
-    public string? Language { get; set; }
+    /// <summary> Gets or sets the source language. </summary>
+    public UcliCodeLanguage? Language { get; set; }
 
     /// <summary> Gets or sets the entry point contract. </summary>
     public UcliCodeEntryPointContract? EntryPoint { get; set; }

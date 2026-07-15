@@ -54,45 +54,6 @@ public sealed class UnityAssetPathContractTests
         "Assets/Data/Foo:Bar.asset",
     ];
 
-    private static readonly string[] NormalizedBuildProfileAssetPaths =
-    [
-        "Assets/BuildProfiles/Linux.asset",
-        "Assets/Linux.asset",
-    ];
-
-    private static readonly string?[] InvalidNormalizedBuildProfileAssetPaths =
-    [
-        null,
-        "",
-        " ",
-        "Assets",
-        " Assets/BuildProfiles/Linux.asset",
-        "Assets/BuildProfiles/Linux.asset ",
-        "Assets/BuildProfiles/Linux\t.asset",
-        "Assets\\BuildProfiles\\Linux.asset",
-        "Assets//BuildProfiles/Linux.asset",
-        "Assets/BuildProfiles/Linux.asset.meta",
-        "Assets/BuildProfiles/Linux.asset.META",
-        "Packages/BuildProfiles/Linux.asset",
-        "/Assets/BuildProfiles/Linux.asset",
-    ];
-
-    private static readonly NormalizePathCase[] BuildProfileAssetPathCases =
-    [
-        new(@"Assets\BuildProfiles\Linux.asset", "Assets/BuildProfiles/Linux.asset"),
-        new("Assets/BuildProfiles/Linux.asset", "Assets/BuildProfiles/Linux.asset"),
-    ];
-
-    private static readonly string[] InvalidBuildProfileAssetPaths =
-    [
-        "Assets",
-        "Assets/BuildProfiles/Linux.asset.meta",
-        "Assets/BuildProfiles/Linux.asset.META",
-        "Assets/BuildProfiles/Linux\t.asset",
-        "Assets/../BuildProfiles/Linux.asset",
-        "Assets/BuildProfiles/Linux:Dev.asset",
-    ];
-
     private static readonly NormalizePathCase[] SceneAssetPathCases =
     [
         new(@"Assets\Scenes\Main.unity", "Assets/Scenes/Main.unity"),
@@ -131,6 +92,43 @@ public sealed class UnityAssetPathContractTests
         "Assets/Prefabs/Main.PREFAB",
         "Assets",
     ];
+
+    public static TheoryData<string, string, bool> SameOrDescendantAssetPathCases => new()
+    {
+        { "Assets", "Assets/Main.asset", true },
+        { "Assets/Data", "Assets/Data", true },
+        { "Assets/Data", "Assets/Data/Main.asset", true },
+        { "Assets/Data", "Assets/DataExtra/Main.asset", false },
+        { "Assets/Data", "Assets/data/Main.asset", false },
+    };
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [MemberData(nameof(SameOrDescendantAssetPathCases))]
+    public void IsSameOrDescendantAssetPath_WhenPathsAreNormalized_UsesOrdinalSegmentBoundaries (
+        string pathPrefix,
+        string assetPath,
+        bool expected)
+    {
+        var result = UnityAssetPathContract.IsSameOrDescendantAssetPath(pathPrefix, assetPath);
+
+        Assert.Equal(expected, result);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(null, "Assets/Main.asset", "normalizedPathPrefix")]
+    [InlineData("Assets", null, "normalizedAssetPath")]
+    public void IsSameOrDescendantAssetPath_WhenArgumentIsNull_ThrowsArgumentNullException (
+        string? pathPrefix,
+        string? assetPath,
+        string expectedParameterName)
+    {
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => UnityAssetPathContract.IsSameOrDescendantAssetPath(pathPrefix!, assetPath!));
+
+        Assert.Equal(expectedParameterName, exception.ParamName);
+    }
 
     [Fact]
     [Trait("Size", "Small")]
@@ -202,56 +200,6 @@ public sealed class UnityAssetPathContractTests
         foreach (string path in InvalidAssetsDescendantPaths)
         {
             var result = UnityAssetPathContract.TryNormalizeAssetsDescendantPath(path, out var normalizedPath);
-
-            Assert.False(result);
-            Assert.Equal(string.Empty, normalizedPath);
-        }
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IsNormalizedBuildProfileAssetPath_WhenPathIsValid_ReturnsTrue ()
-    {
-        foreach (string path in NormalizedBuildProfileAssetPaths)
-        {
-            var result = UnityAssetPathContract.IsNormalizedBuildProfileAssetPath(path);
-
-            Assert.True(result);
-        }
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IsNormalizedBuildProfileAssetPath_WhenPathIsInvalid_ReturnsFalse ()
-    {
-        foreach (string? path in InvalidNormalizedBuildProfileAssetPaths)
-        {
-            var result = UnityAssetPathContract.IsNormalizedBuildProfileAssetPath(path);
-
-            Assert.False(result);
-        }
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryNormalizeBuildProfileAssetPath_WhenPathIsValid_ReturnsNormalizedPath ()
-    {
-        foreach (var testCase in BuildProfileAssetPathCases)
-        {
-            var result = UnityAssetPathContract.TryNormalizeBuildProfileAssetPath(testCase.Path, out var normalizedPath);
-
-            Assert.True(result);
-            Assert.Equal(testCase.ExpectedNormalizedPath, normalizedPath);
-        }
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryNormalizeBuildProfileAssetPath_WhenPathIsInvalid_ReturnsFalse ()
-    {
-        foreach (string path in InvalidBuildProfileAssetPaths)
-        {
-            var result = UnityAssetPathContract.TryNormalizeBuildProfileAssetPath(path, out var normalizedPath);
 
             Assert.False(result);
             Assert.Equal(string.Empty, normalizedPath);

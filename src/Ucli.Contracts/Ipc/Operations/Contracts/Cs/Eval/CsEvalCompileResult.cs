@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -8,18 +9,23 @@ public sealed record CsEvalCompileResult
 {
     [JsonConstructor]
     public CsEvalCompileResult (
-        string status,
+        CsEvalCompileStatus status,
         IReadOnlyList<CsEvalDiagnostic> diagnostics)
     {
+        if (!ContractLiteralCodec.IsDefined(status))
+        {
+            throw new ArgumentOutOfRangeException(nameof(status), status, "C# eval compile status must be specified.");
+        }
+
         Status = status;
-        Diagnostics = diagnostics;
+        Diagnostics = ContractArgumentGuard.RequireItems(diagnostics, nameof(diagnostics));
     }
 
     [UcliRequired]
-    [UcliDescription("Compile status literal: succeeded or failed.")]
-    public string Status { get; init; }
+    [UcliDescription("Compile status.")]
+    public CsEvalCompileStatus Status { get; }
 
     [UcliRequired]
     [UcliDescription("Compiler and entry point diagnostics.")]
-    public IReadOnlyList<CsEvalDiagnostic> Diagnostics { get; init; }
+    public IReadOnlyList<CsEvalDiagnostic> Diagnostics { get; }
 }

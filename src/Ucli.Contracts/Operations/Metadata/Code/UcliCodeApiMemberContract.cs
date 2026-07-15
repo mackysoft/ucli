@@ -10,7 +10,7 @@ public sealed class UcliCodeApiMemberContract
 
     /// <summary> Initializes a new instance of the <see cref="UcliCodeApiMemberContract" /> class. </summary>
     public UcliCodeApiMemberContract (
-        string? kind,
+        UcliCodeApiMemberKind? kind,
         string? name,
         string? description,
         string? type,
@@ -25,8 +25,8 @@ public sealed class UcliCodeApiMemberContract
         Parameters = parameters;
     }
 
-    /// <summary> Gets or sets the member kind literal. </summary>
-    public string? Kind { get; set; }
+    /// <summary> Gets or sets the member kind. </summary>
+    public UcliCodeApiMemberKind? Kind { get; set; }
 
     /// <summary> Gets or sets the member name. </summary>
     public string? Name { get; set; }

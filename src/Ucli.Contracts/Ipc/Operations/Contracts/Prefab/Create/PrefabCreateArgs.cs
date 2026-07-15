@@ -11,17 +11,17 @@ public sealed record PrefabCreateArgs
         SceneGameObjectReferenceArgs target,
         PrefabAssetPath path)
     {
-        Target = target;
-        Path = path;
+        Target = ContractArgumentGuard.RequireNotNull(target, nameof(target));
+        Path = ContractArgumentGuard.RequireNotNull(path, nameof(path));
     }
 
     [UcliRequired]
     [UcliDescription("Source scene GameObject reference.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public SceneGameObjectReferenceArgs Target { get; init; }
+    public SceneGameObjectReferenceArgs Target { get; }
 
     [UcliRequired]
     [UcliDescription("Prefab asset path to create.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.AssetCreatable, AssetKind = UcliOperationAssetKind.Prefab)]
-    public PrefabAssetPath Path { get; init; }
+    public PrefabAssetPath Path { get; }
 }

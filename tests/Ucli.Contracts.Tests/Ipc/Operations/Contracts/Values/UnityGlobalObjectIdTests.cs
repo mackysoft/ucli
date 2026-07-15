@@ -6,6 +6,7 @@ public sealed class UnityGlobalObjectIdTests
 {
     public static TheoryData<string> InvalidValues => new()
     {
+        "not-a-global-object-id",
         "GlobalObjectId_V1-0-00000000000000000000000000000000-0-0",
         "GlobalObjectId_V1-5-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-0",
         "GlobalObjectId_V1-2-00000000000000000000000000000000-1-0",
@@ -67,13 +68,37 @@ public sealed class UnityGlobalObjectIdTests
             globalObjectId.Value);
     }
 
-    [Fact]
+    [Theory]
+    [MemberData(nameof(InvalidValues))]
     [Trait("Size", "Small")]
-    public void TryParse_WhenValueIsInvalid_ReturnsFalseWithoutValue ()
+    public void TryParse_WhenStructureIsInvalid_ReturnsFalseWithoutValue (string value)
     {
-        var result = UnityGlobalObjectId.TryParse("not-a-global-object-id", out var globalObjectId);
+        var result = UnityGlobalObjectId.TryParse(value, out var globalObjectId);
 
         Assert.False(result);
         Assert.Null(globalObjectId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenValueViolatesCommonStringInvariant_ReturnsFalseWithoutValue ()
+    {
+        string?[] invalidValues =
+        [
+            null,
+            string.Empty,
+            " \t\r\n",
+            " GlobalObjectId_V1-2-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-0",
+            "GlobalObjectId_V1-2-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-0 ",
+            "GlobalObjectId_V1-2-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-1-\ud800",
+        ];
+
+        foreach (var invalidValue in invalidValues)
+        {
+            var result = UnityGlobalObjectId.TryParse(invalidValue, out var globalObjectId);
+
+            Assert.False(result);
+            Assert.Null(globalObjectId);
+        }
     }
 }

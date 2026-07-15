@@ -14,7 +14,7 @@ public sealed record GoCreateArgs
         SceneAssetPath? scene,
         GameObjectReferenceArgs? parent)
     {
-        Name = name;
+        Name = ContractArgumentGuard.RequireValue(name, nameof(name));
         Scene = scene;
         Parent = parent;
     }
@@ -22,15 +22,15 @@ public sealed record GoCreateArgs
     [UcliRequired]
     [UcliDescription("Name assigned to the created GameObject.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-    public string Name { get; init; }
+    public string Name { get; }
 
     [UcliDescription("Scene asset path that receives the new root GameObject.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public SceneAssetPath? Scene { get; init; }
+    public SceneAssetPath? Scene { get; }
 
     [UcliDescription("Optional parent GameObject reference.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public GameObjectReferenceArgs? Parent { get; init; }
+    public GameObjectReferenceArgs? Parent { get; }
 }

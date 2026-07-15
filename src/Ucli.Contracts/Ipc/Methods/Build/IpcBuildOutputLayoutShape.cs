@@ -7,13 +7,13 @@ public enum IpcBuildOutputLayoutShape
 {
     /// <summary> BuildPipeline writes one file. </summary>
     [UcliContractLiteral("file")]
-    File = 0,
+    File = 1,
 
     /// <summary> BuildPipeline writes one directory. </summary>
     [UcliContractLiteral("directory")]
-    Directory = 1,
+    Directory = 2,
 
     /// <summary> BuildPipeline writes one macOS application bundle. </summary>
     [UcliContractLiteral("appBundle")]
-    AppBundle = 2,
+    AppBundle = 3,
 }

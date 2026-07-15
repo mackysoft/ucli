@@ -38,17 +38,12 @@ public sealed class UcliStringValueJsonConverterFactory : JsonConverterFactory
             Type typeToConvert,
             JsonSerializerOptions options)
         {
-            if (reader.TokenType == JsonTokenType.Null)
-            {
-                return null;
-            }
-
             if (reader.TokenType != JsonTokenType.String)
             {
                 throw new JsonException($"Expected a JSON string for '{typeToConvert.FullName}'.");
             }
 
-            var value = reader.GetString() ?? throw new JsonException($"JSON string for '{typeToConvert.FullName}' must not be null.");
+            var value = reader.GetString()!;
             try
             {
                 return (TValue)StringConstructor.Invoke(new object[] { value });
@@ -66,12 +61,6 @@ public sealed class UcliStringValueJsonConverterFactory : JsonConverterFactory
             TValue value,
             JsonSerializerOptions options)
         {
-            if (value == null)
-            {
-                writer.WriteNullValue();
-                return;
-            }
-
             writer.WriteStringValue(value.Value);
         }
     }

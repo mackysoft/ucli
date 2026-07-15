@@ -7,13 +7,13 @@ public enum IpcBuildProjectMutationChangeKind
 {
     /// <summary> A project file was added. </summary>
     [UcliContractLiteral("added")]
-    Added = 0,
+    Added = 1,
 
     /// <summary> A project file changed content. </summary>
     [UcliContractLiteral("modified")]
-    Modified = 1,
+    Modified = 2,
 
     /// <summary> A project file was deleted. </summary>
     [UcliContractLiteral("deleted")]
-    Deleted = 2,
+    Deleted = 3,
 }

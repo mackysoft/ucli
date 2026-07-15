@@ -20,15 +20,13 @@ public sealed class SceneTreeWindowProjectorTests
 
         var result = SceneTreeWindowProjector.Apply(
             roots,
-            new BoundedWindowOptions(
-                All: false,
-                Limit: 1,
-                Cursor: BoundedWindowCursorCodec.Encode(2),
-                Offset: 2));
+            BoundedWindowOptions.CreateBounded(
+                limit: 1,
+                cursor: BoundedWindowCursorCodec.Encode(2)));
 
         var root = Assert.Single(result.Items);
         Assert.Equal("Grandchild", root.Name);
-        Assert.Equal(IndexSceneTreeLiteNodeChildrenStateValues.Complete, root.ChildrenState);
+        Assert.Equal(IndexSceneTreeLiteNodeChildrenState.Complete, root.ChildrenState);
         Assert.True(result.Window.IsComplete);
         Assert.Equal(3, result.Window.TotalCount);
     }
@@ -47,17 +45,13 @@ public sealed class SceneTreeWindowProjectorTests
 
         var result = SceneTreeWindowProjector.Apply(
             roots,
-            new BoundedWindowOptions(
-                All: false,
-                Limit: 2,
-                Cursor: null,
-                Offset: 0));
+            BoundedWindowOptions.CreateBounded(limit: 2, cursor: null));
 
         var root = Assert.Single(result.Items);
         Assert.Equal("Root", root.Name);
         Assert.Single(root.Children!);
         Assert.Equal("First", root.Children![0].Name);
-        Assert.Equal(IndexSceneTreeLiteNodeChildrenStateValues.TruncatedByWindow, root.ChildrenState);
+        Assert.Equal(IndexSceneTreeLiteNodeChildrenState.TruncatedByWindow, root.ChildrenState);
         Assert.False(result.Window.IsComplete);
         Assert.Equal(BoundedWindowCursorCodec.Encode(2), result.Window.NextCursor);
     }
@@ -72,19 +66,15 @@ public sealed class SceneTreeWindowProjectorTests
                 name: "Root",
                 globalObjectId: "root",
                 children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
-                childrenState: IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth),
+                childrenState: IndexSceneTreeLiteNodeChildrenState.NotExpandedByDepth),
         };
 
         var result = SceneTreeWindowProjector.Apply(
             roots,
-            new BoundedWindowOptions(
-                All: false,
-                Limit: 1,
-                Cursor: null,
-                Offset: 0));
+            BoundedWindowOptions.CreateBounded(limit: 1, cursor: null));
 
         var root = Assert.Single(result.Items);
-        Assert.Equal(IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth, root.ChildrenState);
+        Assert.Equal(IndexSceneTreeLiteNodeChildrenState.NotExpandedByDepth, root.ChildrenState);
         Assert.True(result.Window.IsComplete);
     }
 
@@ -98,19 +88,15 @@ public sealed class SceneTreeWindowProjectorTests
                 name: "Root",
                 globalObjectId: "root",
                 children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
-                childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Unknown),
+                childrenState: IndexSceneTreeLiteNodeChildrenState.Unknown),
         };
 
         var result = SceneTreeWindowProjector.Apply(
             roots,
-            new BoundedWindowOptions(
-                All: false,
-                Limit: 1,
-                Cursor: null,
-                Offset: 0));
+            BoundedWindowOptions.CreateBounded(limit: 1, cursor: null));
 
         var root = Assert.Single(result.Items);
-        Assert.Equal(IndexSceneTreeLiteNodeChildrenStateValues.Unknown, root.ChildrenState);
+        Assert.Equal(IndexSceneTreeLiteNodeChildrenState.Unknown, root.ChildrenState);
         Assert.True(result.Window.IsComplete);
     }
 
@@ -122,6 +108,6 @@ public sealed class SceneTreeWindowProjectorTests
             name: name,
             globalObjectId: name,
             children: children,
-            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete);
+            childrenState: IndexSceneTreeLiteNodeChildrenState.Complete);
     }
 }

@@ -1,6 +1,13 @@
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents optional BuildReport evidence declared by a build runner result. </summary>
-/// <param name="Path"> The BuildReport JSON source path relative to the runner output directory. </param>
-public sealed record IpcBuildRunnerResultBuildReport (
-    string Path);
+public sealed record IpcBuildRunnerResultBuildReport
+{
+    /// <summary> Initializes one BuildReport evidence reference. </summary>
+    public IpcBuildRunnerResultBuildReport (string Path)
+    {
+        this.Path = ContractArgumentGuard.RequireValue(Path, nameof(Path));
+    }
+
+    public string Path { get; }
+}

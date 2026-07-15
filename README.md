@@ -650,13 +650,15 @@ Direct operation steps that take a `target` use one of these selector shapes:
 
 ```json
 { "globalObjectId": "GlobalObjectId_V1-..." }
-{ "assetGuid": "0123456789abcdef0123456789abcdef" }
+{ "assetGuid": "01234567-89ab-cdef-0123-456789abcdef" }
 { "assetPath": "Assets/Data/GameBalance.asset" }
 { "projectAssetPath": "ProjectSettings/TagManager.asset" }
 { "scene": "Assets/Scenes/Main.unity", "hierarchyPath": "Root/Enemies/Spawner" }
 { "scene": "Assets/Scenes/Main.unity", "hierarchyPath": "Root/Enemies/Spawner", "componentType": "Game.EnemySpawner, Assembly-CSharp" }
 { "prefab": "Assets/Prefabs/Enemy.prefab", "hierarchyPath": "Root/Visual" }
 ```
+
+Asset GUIDs use the standard hyphenated JSON representation emitted by `System.Text.Json`.
 
 Do not put `{ "var": "..." }` or `"var": null` in direct `op` args.
 To name a value produced by an edit action, use the edit action `as` field and refer to that name through the edit DSL form, such as `$createdObject`.
@@ -819,7 +821,6 @@ Use existing semantic value types before adding new plain strings:
 - `UnityAssetPathPrefix`
 - `UnityHierarchyPath`
 - `UnityGlobalObjectId`
-- `UnityAssetGuid`
 - `UnityTypeId`
 - `UnityComponentTypeId`
 - `SerializedPropertyPath`
@@ -898,7 +899,7 @@ Put `[UcliInputConstraint]` on a semantic value type when every use of that type
 | `TypeExists` | none | Unity type identifiers that must resolve in the project. |
 | `TypeAssignableTo` | `TypeKind` | Unity type identifiers assignable to a specific Unity kind, such as component. |
 | `SerializedProperty` | `Access` | SerializedProperty paths that must be writable for the operation. |
-| `AssetGuid` | none | Unity asset GUID strings. |
+| `AssetGuid` | none | Non-empty Unity asset GUID values. |
 | `Cursor` | none | Opaque bounded-window cursors returned by read operations. |
 
 For object references and selectors, prefer existing reference types such as `AssetReferenceArgs`, `GameObjectReferenceArgs`, `SceneGameObjectReferenceArgs`, `ComponentReferenceArgs`, and `ResolveSelectorArgs`.
@@ -1020,7 +1021,7 @@ internal sealed class CountSceneObjectsOperation : UcliOperation<CountSceneObjec
 
 The example leaves the Unity scene traversal out of the snippet so the request/result shape is visible.
 In a real operation, keep Unity object resolution and mutation inside `Validate`, `Plan`, or `Call`, and keep `JsonElement` out of the operation body.
-Use existing semantic value types such as `SceneAssetPath`, `PrefabAssetPath`, `UnityHierarchyPath`, `UnityGlobalObjectId`, `UnityAssetGuid`, and `UnityTypeId` before introducing a new value type.
+Use existing semantic value types such as `SceneAssetPath`, `PrefabAssetPath`, `UnityHierarchyPath`, `UnityGlobalObjectId`, and `UnityTypeId` before introducing a new value type. Use `Guid` directly for Unity asset GUIDs.
 
 After Unity recompiles the Editor assembly, confirm that the operation is discoverable from the CLI:
 

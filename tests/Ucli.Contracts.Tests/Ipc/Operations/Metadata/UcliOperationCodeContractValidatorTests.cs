@@ -9,9 +9,7 @@ public sealed class UcliOperationCodeContractValidatorTests
     [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractIsValid_ReturnsTrue ()
     {
-        var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
-        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
+        var describe = CreateDescribeWithDangerousAssurance();
         describe.CodeContract = UcliOperationDescribeContractValidatorTestData.CreateValidCodeContract();
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
@@ -37,9 +35,7 @@ public sealed class UcliOperationCodeContractValidatorTests
     [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContractAndDerivePolicy_WhenCodeContractHasArbitrarySourceExecution_ReturnsDangerousPolicy ()
     {
-        var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
-        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
+        var describe = CreateDescribeWithDangerousAssurance();
         describe.CodeContract = UcliOperationDescribeContractValidatorTestData.CreateValidCodeContract();
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
@@ -58,9 +54,7 @@ public sealed class UcliOperationCodeContractValidatorTests
     [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContract_WhenQueryHasCodeContract_ReturnsFalse ()
     {
-        var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
-        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
+        var describe = CreateDescribeWithDangerousAssurance();
         describe.CodeContract = UcliOperationDescribeContractValidatorTestData.CreateValidCodeContract();
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
@@ -78,11 +72,9 @@ public sealed class UcliOperationCodeContractValidatorTests
     [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractParameterDescriptionIsMissing_ReturnsFalse ()
     {
-        var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
-        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
+        var describe = CreateDescribeWithDangerousAssurance();
         describe.CodeContract = new UcliOperationCodeContract(
-            "csharp",
+            UcliCodeLanguage.CSharp,
             new UcliCodeEntryPointContract(
                 "public static object? Run(SampleContext context)",
                 "Compiled source must contain exactly one matching Run method.",
@@ -91,7 +83,7 @@ public sealed class UcliOperationCodeContractValidatorTests
                 "JSON-serializable value."),
             new[]
             {
-                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+                new UcliCodeSourceFormContract(UcliCodeSourceFormKind.CompilationUnit, "Complete C# compilation unit."),
             },
             new[]
             {
@@ -102,7 +94,7 @@ public sealed class UcliOperationCodeContractValidatorTests
                     new[]
                     {
                         new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKindValues.Method,
+                            UcliCodeApiMemberKind.Method,
                             "Log",
                             "Records a log message.",
                             type: null,
@@ -128,9 +120,7 @@ public sealed class UcliOperationCodeContractValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractEntryPointMatchRuleIsMissing_ReturnsFalse (
         string? matchRule)
     {
-        var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
-        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
+        var describe = CreateDescribeWithDangerousAssurance();
         describe.CodeContract = UcliOperationDescribeContractValidatorTestData.CreateValidCodeContract();
         describe.CodeContract.EntryPoint!.MatchRule = matchRule;
 
@@ -144,11 +134,9 @@ public sealed class UcliOperationCodeContractValidatorTests
     [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractLanguageIsUnsupported_ReturnsFalse ()
     {
-        var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
-        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
+        var describe = CreateDescribeWithDangerousAssurance();
         describe.CodeContract = UcliOperationDescribeContractValidatorTestData.CreateValidCodeContract();
-        describe.CodeContract.Language = "python";
+        describe.CodeContract.Language = (UcliCodeLanguage)int.MaxValue;
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
 
@@ -160,18 +148,27 @@ public sealed class UcliOperationCodeContractValidatorTests
     [Trait("Size", "Small")]
     public void TryValidatePublicRawOpDescribeContract_WhenCodeContractSourceFormIsUnsupported_ReturnsFalse ()
     {
-        var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = ["arbitrarySourceExecution"];
-        describe.Assurance.DangerousNotes = ["Arbitrary source execution requires dangerous policy."];
+        var describe = CreateDescribeWithDangerousAssurance();
         describe.CodeContract = UcliOperationDescribeContractValidatorTestData.CreateValidCodeContract();
         describe.CodeContract.SourceForms =
         [
-            new UcliCodeSourceFormContract("not-supported", "Unsupported source form."),
+            new UcliCodeSourceFormContract((UcliCodeSourceFormKind)int.MaxValue, "Unsupported source form."),
         ];
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
 
         Assert.False(isValid);
         Assert.Equal("Test contract has an unsupported codeContract source form at index 0.", errorMessage);
+    }
+
+    private static UcliOperationDescribeContract CreateDescribeWithDangerousAssurance ()
+    {
+        var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
+        describe.Assurance = UcliOperationDescribeContractValidatorTestData.CreateAssurance(
+            [UcliOperationSideEffect.ArbitrarySourceExecution],
+            Array.Empty<UcliTouchedResourceKind>(),
+            UcliOperationPlanMode.ObservesLiveUnity,
+            ["Arbitrary source execution requires dangerous policy."]);
+        return describe;
     }
 }

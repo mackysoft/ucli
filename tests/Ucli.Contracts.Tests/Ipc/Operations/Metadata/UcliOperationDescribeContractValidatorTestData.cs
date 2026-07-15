@@ -8,22 +8,35 @@ internal static class UcliOperationDescribeContractValidatorTestData
     {
         return UcliOperationDescribeContractBuilder.Create<ScenePathArgs, UcliNoResult>(
             "Opens a Unity scene asset in the editor.",
-            new UcliOperationAssuranceContract(
-                sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                touchedKinds: Array.Empty<string>(),
-                planMode: UcliOperationPlanMode.ObservesLiveUnity,
-                planSemantics: "Validate arguments and observe Unity state without applying mutation.",
-                callSemantics: "Read Unity state without applying mutation.",
-                touchedContract: "Returns no touched resources.",
-                readPostconditionContract: "Does not stale read surfaces by itself.",
-                failureSemantics: "Failure means the observation was not fully produced.",
-                dangerousNotes: Array.Empty<string>()));
+            CreateAssurance(
+                Array.Empty<UcliOperationSideEffect>(),
+                Array.Empty<UcliTouchedResourceKind>(),
+                UcliOperationPlanMode.ObservesLiveUnity,
+                Array.Empty<string>()));
+    }
+
+    public static UcliOperationAssuranceContract CreateAssurance (
+        IReadOnlyList<UcliOperationSideEffect> sideEffects,
+        IReadOnlyList<UcliTouchedResourceKind> touchedKinds,
+        UcliOperationPlanMode planMode,
+        IReadOnlyList<string> dangerousNotes)
+    {
+        return new UcliOperationAssuranceContract(
+            sideEffects,
+            touchedKinds,
+            planMode,
+            planSemantics: "Validate arguments and observe Unity state without applying mutation.",
+            callSemantics: "Execute the operation contract.",
+            touchedContract: "Reports resources touched by the operation.",
+            readPostconditionContract: "Reports read surfaces made stale by the operation.",
+            failureSemantics: "Failure means the operation was not completed.",
+            dangerousNotes);
     }
 
     public static UcliOperationCodeContract CreateValidCodeContract ()
     {
         return new UcliOperationCodeContract(
-            "csharp",
+            UcliCodeLanguage.CSharp,
             new UcliCodeEntryPointContract(
                 "public static object? Run(SampleContext context)",
                 "Compiled source must contain exactly one matching Run method.",
@@ -32,7 +45,7 @@ internal static class UcliOperationDescribeContractValidatorTestData
                 "JSON-serializable value."),
             new[]
             {
-                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+                new UcliCodeSourceFormContract(UcliCodeSourceFormKind.CompilationUnit, "Complete C# compilation unit."),
             },
             new[]
             {
@@ -43,7 +56,7 @@ internal static class UcliOperationDescribeContractValidatorTestData
                     new[]
                     {
                         new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKindValues.Method,
+                            UcliCodeApiMemberKind.Method,
                             "Log",
                             "Records a log message.",
                             type: null,

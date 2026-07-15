@@ -9,10 +9,12 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 [UcliDescription("Project-relative path to a Unity scene asset.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.ProjectRelativePath)]
-public sealed record SceneAssetPath : UcliStringValue
+public sealed class SceneAssetPath : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="SceneAssetPath" /> class. </summary>
     /// <param name="value"> The project-relative scene asset path. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="value" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> does not identify a <c>.unity</c> file below <c>Assets/</c>. </exception>
     [JsonConstructor]
     public SceneAssetPath (string value)
         : base(UnityAssetPathContract.NormalizeSceneAssetPathOrThrow(value))

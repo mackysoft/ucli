@@ -1,4 +1,7 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -53,12 +56,39 @@ public sealed record IpcCompileSummary
     public LifecycleEvidence Lifecycle { get; init; }
 
     /// <summary> Represents AssetDatabase refresh evidence for a compile run. </summary>
-    public sealed record RefreshEvidence (
-        string Origin,
-        bool Requested,
-        DateTimeOffset StartedAtUtc,
-        DateTimeOffset? CompletedAtUtc,
-        bool Completed);
+    public sealed record RefreshEvidence
+    {
+        /// <summary> Initializes validated AssetDatabase refresh evidence. </summary>
+        [JsonConstructor]
+        public RefreshEvidence (
+            CompileRefreshOrigin Origin,
+            bool Requested,
+            DateTimeOffset StartedAtUtc,
+            DateTimeOffset? CompletedAtUtc,
+            bool Completed)
+        {
+            if (!ContractLiteralCodec.IsDefined(Origin))
+            {
+                throw new ArgumentOutOfRangeException(nameof(Origin), Origin, "Compile refresh origin must be defined.");
+            }
+
+            this.Origin = Origin;
+            this.Requested = Requested;
+            this.StartedAtUtc = StartedAtUtc;
+            this.CompletedAtUtc = CompletedAtUtc;
+            this.Completed = Completed;
+        }
+
+        public CompileRefreshOrigin Origin { get; }
+
+        public bool Requested { get; }
+
+        public DateTimeOffset StartedAtUtc { get; }
+
+        public DateTimeOffset? CompletedAtUtc { get; }
+
+        public bool Completed { get; }
+    }
 
     /// <summary> Represents script compilation evidence for a compile run. </summary>
     public sealed record ScriptCompilationEvidence (
@@ -83,12 +113,43 @@ public sealed record IpcCompileSummary
         bool Settled);
 
     /// <summary> Represents the final lifecycle snapshot after compile observation. </summary>
-    public sealed record LifecycleEvidence (
-        string? ServerVersion,
-        string? UnityVersion,
-        [property: JsonRequired]
-        UnityEditorStateSnapshot? State,
-        DateTimeOffset? ObservedAtUtc,
-        string? ActionRequired,
-        IpcPrimaryDiagnostic? PrimaryDiagnostic);
+    public sealed record LifecycleEvidence
+    {
+        /// <summary> Initializes final lifecycle evidence with an optional recognized recovery action. </summary>
+        [JsonConstructor]
+        public LifecycleEvidence (
+            string? ServerVersion,
+            string? UnityVersion,
+            UnityEditorStateSnapshot? State,
+            DateTimeOffset? ObservedAtUtc,
+            DaemonDiagnosisActionRequired? ActionRequired,
+            IpcPrimaryDiagnostic? PrimaryDiagnostic)
+        {
+            if (ActionRequired.HasValue && !ContractLiteralCodec.IsDefined(ActionRequired.Value))
+            {
+                throw new ArgumentOutOfRangeException(nameof(ActionRequired), ActionRequired, "Unsupported daemon diagnosis action.");
+            }
+
+            this.ServerVersion = ServerVersion;
+            this.UnityVersion = UnityVersion;
+            this.State = State;
+            this.ObservedAtUtc = ObservedAtUtc;
+            this.ActionRequired = ActionRequired;
+            this.PrimaryDiagnostic = PrimaryDiagnostic;
+        }
+
+        public string? ServerVersion { get; }
+
+        public string? UnityVersion { get; }
+
+        [JsonInclude]
+        [JsonRequired]
+        public UnityEditorStateSnapshot? State { get; private init; }
+
+        public DateTimeOffset? ObservedAtUtc { get; }
+
+        public DaemonDiagnosisActionRequired? ActionRequired { get; }
+
+        public IpcPrimaryDiagnostic? PrimaryDiagnostic { get; }
+    }
 }

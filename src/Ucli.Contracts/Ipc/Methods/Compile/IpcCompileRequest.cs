@@ -21,8 +21,4 @@ public sealed record IpcCompileRequest
 
     /// <summary> Gets the non-empty compile run identifier. </summary>
     public Guid RunId { get; }
-
-    /// <summary> Gets the request timeout budget propagated by the caller, in milliseconds. </summary>
-    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? TimeoutMilliseconds { get; init; }
 }

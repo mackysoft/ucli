@@ -42,6 +42,7 @@ internal static class UcliOperationContractTypeFacts
     public static bool IsScalar (Type type)
     {
         return type == StringType
+            || type == typeof(Guid)
             || type.IsEnum
             || UcliStringValue.IsAssignableFrom(type)
             || type == typeof(bool)

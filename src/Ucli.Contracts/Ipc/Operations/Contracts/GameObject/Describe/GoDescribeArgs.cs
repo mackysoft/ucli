@@ -11,16 +11,16 @@ public sealed record GoDescribeArgs
         GameObjectReferenceArgs target,
         int? depth)
     {
-        Target = target;
+        Target = ContractArgumentGuard.RequireNotNull(target, nameof(target));
         Depth = depth;
     }
 
     [UcliRequired]
     [UcliDescription("Target GameObject reference.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public GameObjectReferenceArgs Target { get; init; }
+    public GameObjectReferenceArgs Target { get; }
 
     [UcliDescription("Maximum child hierarchy depth to include; null means unbounded.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 0)]
-    public int? Depth { get; init; }
+    public int? Depth { get; }
 }

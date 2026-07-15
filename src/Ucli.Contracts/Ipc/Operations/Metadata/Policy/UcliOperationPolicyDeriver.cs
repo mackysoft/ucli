@@ -1,112 +1,43 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Operations;
 
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Derives operation admission policy from operation contract facts. </summary>
+/// <summary> Derives operation admission policy from validated operation contract facts. </summary>
 internal static class UcliOperationPolicyDeriver
 {
     /// <summary> Derives operation policy from operation contract facts. </summary>
-    /// <param name="assurance"> The assurance metadata. </param>
-    /// <param name="codeContract"> The optional source-code execution contract. </param>
+    /// <param name="assurance"> The validated assurance metadata. </param>
+    /// <param name="codeContract"> The source-code execution contract, or <see langword="null" /> when absent. </param>
     /// <returns> The derived operation policy. </returns>
-    /// <exception cref="ArgumentException"> Thrown when policy cannot be derived from invalid contract facts. </exception>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="assurance" /> is <see langword="null" />. </exception>
     public static OperationPolicy Derive (
         UcliOperationAssuranceContract assurance,
-        UcliOperationCodeContract? codeContract = null)
+        UcliOperationCodeContract? codeContract)
     {
         if (assurance == null)
         {
             throw new ArgumentNullException(nameof(assurance));
         }
 
-        if (!TryDerive(assurance, codeContract, out var policy))
+        var policy = OperationPolicy.Safe;
+        for (var index = 0; index < assurance.SideEffects.Count; index++)
         {
-            throw new ArgumentException("Policy cannot be derived from invalid assurance metadata.", nameof(assurance));
+            var descriptor = UcliOperationSideEffectDescriptors.GetDescriptor(assurance.SideEffects[index]);
+            policy = Max(policy, descriptor.MinimumPolicy);
         }
 
-        return policy;
-    }
-
-    /// <summary> Tries to derive operation policy from assurance metadata. </summary>
-    /// <param name="assurance"> The assurance metadata. </param>
-    /// <param name="policy"> The derived operation policy. </param>
-    /// <returns> <see langword="true" /> when policy derivation succeeds; otherwise <see langword="false" />. </returns>
-    public static bool TryDerive (
-        UcliOperationAssuranceContract? assurance,
-        out OperationPolicy policy)
-    {
-        return TryDerive(assurance, codeContract: null, out policy);
-    }
-
-    /// <summary> Tries to derive operation policy from operation contract facts. </summary>
-    /// <param name="assurance"> The assurance metadata. </param>
-    /// <param name="codeContract"> The optional source-code execution contract. </param>
-    /// <param name="policy"> The derived operation policy. </param>
-    /// <returns> <see langword="true" /> when policy derivation succeeds; otherwise <see langword="false" />. </returns>
-    public static bool TryDerive (
-        UcliOperationAssuranceContract? assurance,
-        UcliOperationCodeContract? codeContract,
-        out OperationPolicy policy)
-    {
-        policy = OperationPolicy.Safe;
-
-        if (assurance == null)
-        {
-            return false;
-        }
-
-        if (assurance.SideEffects == null)
-        {
-            return false;
-        }
-
-        if (!UcliOperationSideEffectDescriptors.TryDeriveAssuranceProjection(assurance.SideEffects, out var mayDirty, out var mayPersist))
-        {
-            return false;
-        }
-
-        if (!TryApplySideEffectPolicies(assurance.SideEffects, ref policy))
-        {
-            return false;
-        }
-
-        if (mayDirty || mayPersist)
-        {
-            policy = Max(policy, OperationPolicy.Advanced);
-        }
-
-        if (ContractLiteralCodec.Matches(assurance.PlanMode, UcliOperationPlanMode.MayCreatePreviewState))
+        if (assurance.PlanMode == UcliOperationPlanMode.MayCreatePreviewState)
         {
             policy = Max(policy, OperationPolicy.Advanced);
         }
 
         if (codeContract != null)
         {
-            policy = Max(policy, OperationPolicy.Dangerous);
+            policy = OperationPolicy.Dangerous;
         }
 
-        return true;
-    }
-
-    private static bool TryApplySideEffectPolicies (
-        IReadOnlyList<string> sideEffects,
-        ref OperationPolicy policy)
-    {
-        for (var i = 0; i < sideEffects.Count; i++)
-        {
-            if (!UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(sideEffects[i], out var sideEffectPolicy))
-            {
-                return false;
-            }
-
-            policy = Max(policy, sideEffectPolicy);
-        }
-
-        return true;
+        return policy;
     }
 
     private static OperationPolicy Max (

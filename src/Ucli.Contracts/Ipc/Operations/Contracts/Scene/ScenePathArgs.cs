@@ -9,10 +9,10 @@ public sealed record ScenePathArgs
     [JsonConstructor]
     public ScenePathArgs (SceneAssetPath path)
     {
-        Path = path;
+        Path = ContractArgumentGuard.RequireNotNull(path, nameof(path));
     }
 
     [UcliRequired]
     [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
-    public SceneAssetPath Path { get; init; }
+    public SceneAssetPath Path { get; }
 }

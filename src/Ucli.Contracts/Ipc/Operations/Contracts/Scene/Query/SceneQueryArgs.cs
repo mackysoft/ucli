@@ -12,7 +12,7 @@ public sealed record SceneQueryArgs
         UnityHierarchyPath? pathPrefix,
         UnityComponentTypeId? componentType)
     {
-        Scene = scene;
+        Scene = ContractArgumentGuard.RequireNotNull(scene, nameof(scene));
         PathPrefix = pathPrefix;
         ComponentType = componentType;
     }
@@ -20,13 +20,13 @@ public sealed record SceneQueryArgs
     [UcliRequired]
     [UcliDescription("Scene asset path to query.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
-    public SceneAssetPath Scene { get; init; }
+    public SceneAssetPath Scene { get; }
 
     [UcliDescription("Optional hierarchy path prefix filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityHierarchyPath? PathPrefix { get; init; }
+    public UnityHierarchyPath? PathPrefix { get; }
 
     [UcliDescription("Optional component type identifier filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityComponentTypeId? ComponentType { get; init; }
+    public UnityComponentTypeId? ComponentType { get; }
 }

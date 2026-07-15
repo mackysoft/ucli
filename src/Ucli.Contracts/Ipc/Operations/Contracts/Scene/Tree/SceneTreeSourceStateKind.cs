@@ -5,10 +5,6 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <summary> Defines scene-tree source-state kinds. </summary>
 public enum SceneTreeSourceStateKind
 {
-    /// <summary> No source-state kind is specified. </summary>
-    [UcliContractLiteralIgnore]
-    Unspecified = 0,
-
     /// <summary> The tree was read from request-local temporary scene state. </summary>
     [UcliContractLiteral("temporaryScene")]
     TemporaryScene = 1,

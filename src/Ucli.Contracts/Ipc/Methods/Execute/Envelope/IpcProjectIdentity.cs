@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -6,14 +7,14 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record IpcProjectIdentity
 {
     /// <summary> Initializes a resolved Unity project identity. </summary>
-    /// <param name="projectPath"> The non-empty Unity project root path. </param>
+    /// <param name="projectPath"> The rooted Unity project root path. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <param name="unityVersion"> The non-empty Unity editor version, or <c>unknown</c> when unavailable. </param>
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="projectPath" />, <paramref name="projectFingerprint" />, or <paramref name="unityVersion" /> is <see langword="null" />.
     /// </exception>
     /// <exception cref="ArgumentException">
-    /// Thrown when <paramref name="projectPath" /> or <paramref name="unityVersion" /> is empty or whitespace.
+    /// Thrown when <paramref name="projectPath" /> is not rooted, when a required value is empty, or when <paramref name="unityVersion" /> contains outer whitespace.
     /// </exception>
     [JsonConstructor]
     public IpcProjectIdentity (
@@ -31,6 +32,11 @@ public sealed record IpcProjectIdentity
             throw new ArgumentException("Project path must not be empty or whitespace.", nameof(projectPath));
         }
 
+        if (!Path.IsPathRooted(projectPath))
+        {
+            throw new ArgumentException("Project path must be rooted.", nameof(projectPath));
+        }
+
         ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
 
         if (unityVersion == null)
@@ -43,11 +49,31 @@ public sealed record IpcProjectIdentity
             throw new ArgumentException("Unity version must not be empty or whitespace.", nameof(unityVersion));
         }
 
-        ProjectPath = projectPath;
+        if (StringValueValidator.HasOuterWhitespace(unityVersion))
+        {
+            throw new ArgumentException("Unity version must not contain leading or trailing whitespace.", nameof(unityVersion));
+        }
+
+        var normalizedProjectPath = Path.GetFullPath(projectPath);
+        var rootLength = Path.GetPathRoot(normalizedProjectPath)?.Length ?? 0;
+        var normalizedLength = normalizedProjectPath.Length;
+        while (normalizedLength > rootLength
+            && (normalizedProjectPath[normalizedLength - 1] == Path.DirectorySeparatorChar
+                || normalizedProjectPath[normalizedLength - 1] == Path.AltDirectorySeparatorChar))
+        {
+            normalizedLength--;
+        }
+
+        if (normalizedLength != normalizedProjectPath.Length)
+        {
+            normalizedProjectPath = normalizedProjectPath.Substring(0, normalizedLength);
+        }
+
+        ProjectPath = normalizedProjectPath;
         UnityVersion = unityVersion;
     }
 
-    /// <summary> Gets the non-empty Unity project root path. </summary>
+    /// <summary> Gets the normalized absolute Unity project root path. </summary>
     public string ProjectPath { get; }
 
     /// <summary> Gets the canonical project fingerprint. </summary>

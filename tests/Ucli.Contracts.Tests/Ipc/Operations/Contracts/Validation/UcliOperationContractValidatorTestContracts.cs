@@ -36,6 +36,11 @@ internal static class UcliOperationContractValidatorTestContracts
         [property: UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 0)]
         int Depth);
 
+    internal sealed record MaximumRangeArgs (
+        [property: UcliDescription("Depth.")]
+        [property: UcliInputConstraint(UcliOperationInputConstraintKind.Range, Max = 0)]
+        int Depth);
+
     internal sealed record CursorArgs (
         [property: UcliDescription("Cursor.")]
         [property: UcliInputConstraint(UcliOperationInputConstraintKind.Cursor)]

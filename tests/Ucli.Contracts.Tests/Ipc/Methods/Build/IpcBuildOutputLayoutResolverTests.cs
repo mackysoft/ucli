@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc;
@@ -6,20 +7,20 @@ public sealed class IpcBuildOutputLayoutResolverTests
 {
     private static readonly SupportedBuildOutputLayoutCase[] SupportedBuildOutputLayoutCases =
     [
-        new("standaloneOSX", ExpectedShape: "appBundle", ExpectedFileName: "Player.app"),
-        new("standaloneWindows", ExpectedShape: "file", ExpectedFileName: "Player.exe"),
-        new("standaloneWindows64", ExpectedShape: "file", ExpectedFileName: "Player.exe"),
-        new("standaloneLinux64", ExpectedShape: "file", ExpectedFileName: "Player"),
-        new("android", ExpectedShape: "file", ExpectedFileName: "Player.apk"),
-        new("ios", ExpectedShape: "directory", ExpectedFileName: "Player"),
-        new("tvos", ExpectedShape: "directory", ExpectedFileName: "Player"),
-        new("webgl", ExpectedShape: "directory", ExpectedFileName: "Player"),
+        new(BuildTargetStableName.StandaloneOsx, IpcBuildOutputLayoutShape.AppBundle, ExpectedFileName: "Player.app"),
+        new(BuildTargetStableName.StandaloneWindows, IpcBuildOutputLayoutShape.File, ExpectedFileName: "Player.exe"),
+        new(BuildTargetStableName.StandaloneWindows64, IpcBuildOutputLayoutShape.File, ExpectedFileName: "Player.exe"),
+        new(BuildTargetStableName.StandaloneLinux64, IpcBuildOutputLayoutShape.File, ExpectedFileName: "Player"),
+        new(BuildTargetStableName.Android, IpcBuildOutputLayoutShape.File, ExpectedFileName: "Player.apk"),
+        new(BuildTargetStableName.Ios, IpcBuildOutputLayoutShape.Directory, ExpectedFileName: "Player"),
+        new(BuildTargetStableName.Tvos, IpcBuildOutputLayoutShape.Directory, ExpectedFileName: "Player"),
+        new(BuildTargetStableName.Webgl, IpcBuildOutputLayoutShape.Directory, ExpectedFileName: "Player"),
     ];
 
-    private static readonly string[] UnsupportedBuildTargets =
+    private static readonly BuildTargetStableName[] UnsupportedBuildTargets =
     [
-        "switch",
-        "unknownTarget",
+        BuildTargetStableName.Switch,
+        default,
     ];
 
     [Fact]
@@ -30,7 +31,11 @@ public sealed class IpcBuildOutputLayoutResolverTests
 
         foreach (var testCase in SupportedBuildOutputLayoutCases)
         {
-            var resolved = IpcBuildOutputLayoutResolver.TryResolve(outputDirectory, testCase.BuildTarget, out var layout);
+            var resolved = IpcBuildOutputLayoutResolver.TryResolve(
+                outputDirectory,
+                testCase.BuildTarget,
+                androidAppBundle: false,
+                out var layout);
 
             Assert.True(resolved);
             Assert.NotNull(layout);
@@ -49,13 +54,13 @@ public sealed class IpcBuildOutputLayoutResolverTests
 
         var resolved = IpcBuildOutputLayoutResolver.TryResolve(
             outputDirectory,
-            "android",
-            true,
+            BuildTargetStableName.Android,
+            androidAppBundle: true,
             out var layout);
 
         Assert.True(resolved);
         Assert.NotNull(layout);
-        Assert.Equal("file", layout!.Shape);
+        Assert.Equal(IpcBuildOutputLayoutShape.File, layout!.Shape);
         Assert.Equal(
             Path.GetFullPath(Path.Combine(outputDirectory, "player", "Player.aab")),
             Path.GetFullPath(layout.LocationPathName));
@@ -69,7 +74,11 @@ public sealed class IpcBuildOutputLayoutResolverTests
 
         foreach (var buildTarget in UnsupportedBuildTargets)
         {
-            var resolved = IpcBuildOutputLayoutResolver.TryResolve(outputDirectory, buildTarget, out var layout);
+            var resolved = IpcBuildOutputLayoutResolver.TryResolve(
+                outputDirectory,
+                buildTarget,
+                androidAppBundle: false,
+                out var layout);
 
             Assert.False(resolved);
             Assert.Null(layout);
@@ -77,7 +86,7 @@ public sealed class IpcBuildOutputLayoutResolverTests
     }
 
     private sealed record SupportedBuildOutputLayoutCase (
-        string BuildTarget,
-        string ExpectedShape,
+        BuildTargetStableName BuildTarget,
+        IpcBuildOutputLayoutShape ExpectedShape,
         string ExpectedFileName);
 }

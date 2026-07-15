@@ -9,10 +9,12 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 [UcliDescription("Project-relative path to a ProjectSettings asset.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.ProjectRelativePath)]
-public sealed record ProjectSettingsAssetPath : UcliStringValue
+public sealed class ProjectSettingsAssetPath : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="ProjectSettingsAssetPath" /> class. </summary>
     /// <param name="value"> The project-relative ProjectSettings asset path. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="value" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> does not identify a <c>ProjectSettings/</c> descendant. </exception>
     [JsonConstructor]
     public ProjectSettingsAssetPath (string value)
         : base(UnityAssetPathContract.NormalizeProjectSettingsDescendantPathOrThrow(value))

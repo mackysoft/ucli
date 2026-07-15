@@ -1,3 +1,5 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace MackySoft.Ucli.Contracts;
 
 /// <summary> Defines shared syntax rules for Unity project-relative asset paths. </summary>
@@ -8,6 +10,9 @@ public static class UnityAssetPathContract
 
     /// <summary> Gets the canonical Unity <c>Assets/</c> descendant prefix. </summary>
     public const string AssetsRootPrefix = "Assets/";
+
+    /// <summary> Gets the canonical Unity <c>Packages/</c> descendant prefix. </summary>
+    public const string PackagesRootPrefix = "Packages/";
 
     private const string ProjectSettingsRootPrefix = "ProjectSettings/";
 
@@ -23,7 +28,7 @@ public static class UnityAssetPathContract
     /// <summary> Determines whether <paramref name="path" /> is the normalized <c>Assets</c> root or a normalized path under it. </summary>
     /// <param name="path"> The path to inspect. </param>
     /// <returns> <see langword="true" /> when <paramref name="path" /> is <c>Assets</c> or an <c>Assets/</c> descendant; otherwise <see langword="false" />. </returns>
-    public static bool IsNormalizedAssetsRootOrDescendantPath (string? path)
+    public static bool IsNormalizedAssetsRootOrDescendantPath ([NotNullWhen(true)] string? path)
     {
         return path != null
             && RelativePathContract.IsNormalized(path)
@@ -51,7 +56,7 @@ public static class UnityAssetPathContract
     /// <summary> Determines whether <paramref name="path" /> is a normalized path under <c>Assets/</c>. </summary>
     /// <param name="path"> The path to inspect. </param>
     /// <returns> <see langword="true" /> when <paramref name="path" /> is an <c>Assets/</c> descendant; otherwise <see langword="false" />. </returns>
-    public static bool IsNormalizedAssetsDescendantPath (string? path)
+    public static bool IsNormalizedAssetsDescendantPath ([NotNullWhen(true)] string? path)
     {
         return path != null
             && RelativePathContract.IsNormalized(path)
@@ -76,38 +81,36 @@ public static class UnityAssetPathContract
         return false;
     }
 
-    /// <summary> Determines whether <paramref name="path" /> is a normalized Unity Build Profile asset path under <c>Assets/</c> and not a <c>.meta</c> file. </summary>
-    /// <param name="path"> The path to inspect. </param>
-    /// <returns> <see langword="true" /> when <paramref name="path" /> is slash-separated, normalized, under <c>Assets/</c>, and does not reference a Unity <c>.meta</c> file; otherwise <see langword="false" />. </returns>
-    public static bool IsNormalizedBuildProfileAssetPath (string? path)
+    /// <summary> Determines whether one normalized asset path is equal to a normalized path prefix or is located below it. </summary>
+    /// <param name="normalizedPathPrefix"> The normalized <c>Assets</c> root or descendant path used as the segment boundary. </param>
+    /// <param name="normalizedAssetPath"> The normalized <c>Assets/</c> descendant path to inspect. </param>
+    /// <returns> <see langword="true" /> when <paramref name="normalizedAssetPath" /> is the same path or a descendant separated by <c>/</c>; otherwise <see langword="false" />. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when either argument is <see langword="null" />. </exception>
+    /// <remarks> <paramref name="normalizedPathPrefix" /> must satisfy <see cref="IsNormalizedAssetsRootOrDescendantPath" />, and <paramref name="normalizedAssetPath" /> must satisfy <see cref="IsNormalizedAssetsDescendantPath" />. This comparison does not normalize or revalidate either value. </remarks>
+    internal static bool IsSameOrDescendantAssetPath (
+        string normalizedPathPrefix,
+        string normalizedAssetPath)
     {
-        return path != null
-            && IsNormalizedAssetsDescendantPath(path)
-            && !path.EndsWith(MetaFileExtension, StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary> Normalizes and validates one Unity Build Profile asset path under <c>Assets/</c> that must not reference a <c>.meta</c> file. </summary>
-    /// <param name="path"> The input path. </param>
-    /// <param name="normalizedPath"> The slash-separated normalized Unity Build Profile asset path under <c>Assets/</c> when validation succeeds. </param>
-    /// <returns> <see langword="true" /> when <paramref name="path" /> can be normalized to an <c>Assets/</c> descendant Unity Build Profile asset path that does not reference a Unity <c>.meta</c> file; otherwise <see langword="false" />. </returns>
-    public static bool TryNormalizeBuildProfileAssetPath (
-        string? path,
-        out string normalizedPath)
-    {
-        if (TryNormalizeAssetsDescendantPath(path, out normalizedPath)
-            && !normalizedPath.EndsWith(MetaFileExtension, StringComparison.OrdinalIgnoreCase))
+        if (normalizedPathPrefix == null)
         {
-            return true;
+            throw new ArgumentNullException(nameof(normalizedPathPrefix));
         }
 
-        normalizedPath = string.Empty;
-        return false;
+        if (normalizedAssetPath == null)
+        {
+            throw new ArgumentNullException(nameof(normalizedAssetPath));
+        }
+
+        return normalizedAssetPath.StartsWith(normalizedPathPrefix, StringComparison.Ordinal)
+            && (normalizedAssetPath.Length == normalizedPathPrefix.Length
+                || (normalizedAssetPath.Length > normalizedPathPrefix.Length
+                    && normalizedAssetPath[normalizedPathPrefix.Length] == '/'));
     }
 
     /// <summary> Determines whether <paramref name="path" /> is a normalized Unity scene asset path under <c>Assets/</c>. </summary>
     /// <param name="path"> The path to inspect. </param>
     /// <returns> <see langword="true" /> when <paramref name="path" /> is a normalized scene asset path; otherwise <see langword="false" />. </returns>
-    public static bool IsNormalizedSceneAssetPath (string? path)
+    public static bool IsNormalizedSceneAssetPath ([NotNullWhen(true)] string? path)
     {
         return path != null
             && IsNormalizedAssetsDescendantPath(path)
@@ -132,10 +135,25 @@ public static class UnityAssetPathContract
         return false;
     }
 
+    /// <summary> Normalizes a Unity scene path under <c>Assets/</c> or <c>Packages/</c>. </summary>
+    internal static bool TryNormalizeUnityScenePath (
+        string? path,
+        out string normalizedPath)
+    {
+        if (RelativePathContract.TryNormalize(path, out normalizedPath)
+            && IsUnityScenePath(normalizedPath))
+        {
+            return true;
+        }
+
+        normalizedPath = string.Empty;
+        return false;
+    }
+
     /// <summary> Determines whether <paramref name="path" /> is a normalized Unity prefab asset path under <c>Assets/</c>. </summary>
     /// <param name="path"> The path to inspect. </param>
     /// <returns> <see langword="true" /> when <paramref name="path" /> is a normalized prefab asset path; otherwise <see langword="false" />. </returns>
-    public static bool IsNormalizedPrefabAssetPath (string? path)
+    public static bool IsNormalizedPrefabAssetPath ([NotNullWhen(true)] string? path)
     {
         return path != null
             && IsNormalizedAssetsDescendantPath(path)
@@ -214,6 +232,18 @@ public static class UnityAssetPathContract
             : throw CreateInvalidPathException("Unity scene path must identify an Assets descendant with the .unity extension.");
     }
 
+    internal static string NormalizeUnityScenePathOrThrow (string? value)
+    {
+        if (value == null)
+        {
+            throw new ArgumentNullException(nameof(value));
+        }
+
+        return TryNormalizeUnityScenePath(value, out var normalizedPath)
+            ? normalizedPath
+            : throw CreateInvalidPathException("Unity scene path must identify an Assets or Packages descendant with the .unity extension.");
+    }
+
     internal static string NormalizePrefabAssetPathOrThrow (string? value)
     {
         if (value == null)
@@ -252,6 +282,13 @@ public static class UnityAssetPathContract
     private static bool IsAssetsDescendantPath (string path)
     {
         return path.StartsWith(AssetsRootPrefix, StringComparison.Ordinal);
+    }
+
+    private static bool IsUnityScenePath (string path)
+    {
+        return (IsAssetsDescendantPath(path)
+                || path.StartsWith(PackagesRootPrefix, StringComparison.Ordinal))
+            && path.EndsWith(SceneAssetExtension, StringComparison.Ordinal);
     }
 
 }

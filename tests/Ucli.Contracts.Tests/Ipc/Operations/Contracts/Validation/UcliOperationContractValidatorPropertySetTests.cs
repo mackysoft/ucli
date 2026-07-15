@@ -87,6 +87,26 @@ public sealed class UcliOperationContractValidatorPropertySetTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void TryValidate_WhenResolveSelectorUsesAssetGuid_ReturnsTrue ()
+    {
+        var args = new ResolveSelectorArgs(
+            globalObjectId: null,
+            assetGuid: Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            assetPath: null,
+            projectAssetPath: null,
+            scene: null,
+            prefab: null,
+            hierarchyPath: null,
+            componentType: null);
+
+        var isValid = UcliOperationContractValidator.TryValidate(args, typeof(ResolveSelectorArgs), out var errorMessage);
+
+        Assert.True(isValid, errorMessage);
+        Assert.Equal(string.Empty, errorMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryValidate_WhenResolveSelectorUsesPrefabComponentSelector_ReturnsFalse ()
     {
         var args = new ResolveSelectorArgs(

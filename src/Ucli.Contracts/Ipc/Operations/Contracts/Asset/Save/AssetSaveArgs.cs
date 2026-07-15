@@ -9,11 +9,11 @@ public sealed record AssetSaveArgs
     [JsonConstructor]
     public AssetSaveArgs (AssetReferenceArgs target)
     {
-        Target = target;
+        Target = ContractArgumentGuard.RequireNotNull(target, nameof(target));
     }
 
     [UcliRequired]
     [UcliDescription("Target asset or ProjectSettings asset to save.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.Asset)]
-    public AssetReferenceArgs Target { get; init; }
+    public AssetReferenceArgs Target { get; }
 }

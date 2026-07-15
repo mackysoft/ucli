@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Unity GlobalObjectId string used for exact object resolution.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.GlobalObjectId)]
-public sealed record UnityGlobalObjectId : UcliStringValue
+public sealed class UnityGlobalObjectId : UcliStringValue
 {
     private const int AssetGuidTextLength = 32;
     private const int ImportedAssetIdentifierType = 1;
@@ -24,7 +24,12 @@ public sealed record UnityGlobalObjectId : UcliStringValue
     /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> is not a supported non-null V1 GlobalObjectId. </exception>
     [JsonConstructor]
     public UnityGlobalObjectId (string value)
-        : base(Parse(value))
+        : this(Parse(value))
+    {
+    }
+
+    private UnityGlobalObjectId (ParsedValue parsedValue)
+        : base(parsedValue.Value)
     {
     }
 
@@ -37,32 +42,39 @@ public sealed record UnityGlobalObjectId : UcliStringValue
         [NotNullWhen(true)] out UnityGlobalObjectId? globalObjectId)
     {
         globalObjectId = null;
-        if (value == null)
+        if (!TryParseCore(value, out var parsedValue))
         {
             return false;
         }
 
-        try
-        {
-            globalObjectId = new UnityGlobalObjectId(value);
-            return true;
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
+        globalObjectId = new UnityGlobalObjectId(parsedValue);
+        return true;
     }
 
-    private static string Parse (string value)
+    private static ParsedValue Parse (string? value)
     {
         if (value == null)
         {
             throw new ArgumentNullException(nameof(value));
         }
 
-        if (!value.StartsWith(Prefix, StringComparison.Ordinal))
+        if (!TryParseCore(value, out var parsedValue))
         {
             throw CreateInvalidValueException();
+        }
+
+        return parsedValue;
+    }
+
+    private static bool TryParseCore (
+        string? value,
+        out ParsedValue parsedValue)
+    {
+        parsedValue = default;
+        if (value == null
+            || !value.StartsWith(Prefix, StringComparison.Ordinal))
+        {
+            return false;
         }
 
         var identifierTypeEnd = value.IndexOf('-', Prefix.Length);
@@ -73,7 +85,7 @@ public sealed record UnityGlobalObjectId : UcliStringValue
             || targetObjectIdEnd < 0
             || value.IndexOf('-', targetObjectIdEnd + 1) >= 0)
         {
-            throw CreateInvalidValueException();
+            return false;
         }
 
         if (!int.TryParse(
@@ -83,7 +95,7 @@ public sealed record UnityGlobalObjectId : UcliStringValue
                 out var identifierType)
             || !IsSupportedIdentifierType(identifierType))
         {
-            throw CreateInvalidValueException();
+            return false;
         }
 
         var assetGuidText = value.AsSpan(identifierTypeEnd + 1, assetGuidEnd - identifierTypeEnd - 1);
@@ -100,7 +112,7 @@ public sealed record UnityGlobalObjectId : UcliStringValue
                 CultureInfo.InvariantCulture,
                 out var targetPrefabId))
         {
-            throw CreateInvalidValueException();
+            return false;
         }
 
         var canonicalValueLength = checked(
@@ -168,7 +180,8 @@ public sealed record UnityGlobalObjectId : UcliStringValue
                 }
             });
 
-        return canonicalValue;
+        parsedValue = new ParsedValue(canonicalValue);
+        return true;
     }
 
     private static bool IsSupportedIdentifierType (int value)
@@ -201,5 +214,7 @@ public sealed record UnityGlobalObjectId : UcliStringValue
             "Unity GlobalObjectId must use 'GlobalObjectId_V1-{type}-{assetGuid}-{targetObjectId}-{targetPrefabId}' with a supported non-null type, a non-zero 32-character hexadecimal asset GUID, and unsigned 64-bit object identifiers.",
             "value");
     }
+
+    private readonly record struct ParsedValue (string Value);
 
 }

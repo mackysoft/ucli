@@ -7,13 +7,13 @@ public enum IpcBuildProjectMutationAuditCoverage
 {
     /// <summary> All configured project mutation roots were audited. </summary>
     [UcliContractLiteral("full")]
-    Full = 0,
+    Full = 1,
 
     /// <summary> Some configured project mutation roots were audited, but not all entries were covered. </summary>
     [UcliContractLiteral("partial")]
-    Partial = 1,
+    Partial = 2,
 
     /// <summary> The project mutation audit could not produce reliable evidence. </summary>
     [UcliContractLiteral("indeterminate")]
-    Indeterminate = 2,
+    Indeterminate = 3,
 }

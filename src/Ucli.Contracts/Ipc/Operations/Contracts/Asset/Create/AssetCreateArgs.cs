@@ -11,16 +11,16 @@ public sealed record AssetCreateArgs
         UnityTypeId type,
         UnityAssetPath path)
     {
-        Type = type;
-        Path = path;
+        Type = ContractArgumentGuard.RequireNotNull(type, nameof(type));
+        Path = ContractArgumentGuard.RequireNotNull(path, nameof(path));
     }
 
     [UcliRequired]
     [UcliDescription("Unity asset type identifier to create.")]
-    public UnityTypeId Type { get; init; }
+    public UnityTypeId Type { get; }
 
     [UcliRequired]
     [UcliDescription("Unity project relative asset path to create.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.AssetCreatable, AssetKind = UcliOperationAssetKind.Asset)]
-    public UnityAssetPath Path { get; init; }
+    public UnityAssetPath Path { get; }
 }

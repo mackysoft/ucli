@@ -23,24 +23,24 @@ public sealed record AssetsFindArgs
 
     [UcliDescription("Optional asset type identifier filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityTypeId? Type { get; init; }
+    public UnityTypeId? Type { get; }
 
     [UcliDescription("Optional project-relative Assets path prefix filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityAssetPathPrefix? PathPrefix { get; init; }
+    public UnityAssetPathPrefix? PathPrefix { get; }
 
     [UcliDescription("Optional case-insensitive asset name substring filter.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? NameContains { get; init; }
+    public string? NameContains { get; }
 
     [UcliDescription("Maximum number of matches to include in the response window.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 1, Max = BoundedWindowConstants.MaxLimit)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? Limit { get; init; }
+    public int? Limit { get; }
 
     [UcliDescription("Opaque cursor returned by the previous assets-find window.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.Cursor)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Cursor { get; init; }
+    public string? Cursor { get; }
 }

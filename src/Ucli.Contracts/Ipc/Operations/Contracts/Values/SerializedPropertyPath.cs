@@ -7,7 +7,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 [JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
 [UcliDescription("Unity SerializedProperty path.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
-public sealed record SerializedPropertyPath : UcliStringValue
+public sealed class SerializedPropertyPath : UcliStringValue
 {
     /// <summary> Initializes a new instance of the <see cref="SerializedPropertyPath" /> class. </summary>
     /// <param name="value"> The SerializedProperty path. </param>

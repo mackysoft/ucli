@@ -8,7 +8,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 [UcliDescription("Path prefix that identifies the Unity Assets root or one of its descendants.")]
 [UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
 [UcliInputConstraint(UcliOperationInputConstraintKind.ProjectRelativePath)]
-public sealed record UnityAssetPathPrefix : UcliStringValue
+public sealed class UnityAssetPathPrefix : UcliStringValue
 {
     /// <summary> Initializes a normalized path prefix for filtering assets below the Unity <c>Assets</c> root. </summary>
     /// <param name="value"> The <c>Assets</c> root or a project-relative path below it. </param>

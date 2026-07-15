@@ -1,140 +1,228 @@
+using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Operations;
 
 /// <summary> Describes machine-readable assurance metadata for one primitive operation. </summary>
+[JsonConverter(typeof(UcliOperationAssuranceContractJsonConverter))]
 public sealed class UcliOperationAssuranceContract
 {
-    /// <summary> Initializes a new instance of the <see cref="UcliOperationAssuranceContract" /> class. </summary>
-    public UcliOperationAssuranceContract ()
-    {
-    }
-
-    /// <summary> Initializes a new instance of the <see cref="UcliOperationAssuranceContract" /> class. </summary>
-    /// <param name="sideEffects"> The side-effect literals that can happen during <c>call</c>. </param>
-    /// <param name="touchedKinds"> The touched-resource kind literals that can be reported. </param>
-    /// <param name="planMode"> The plan behavior literal. </param>
+    /// <summary> Initializes validated assurance metadata from typed contract values. </summary>
+    /// <param name="sideEffects"> The side effects that can happen during <c>call</c>. </param>
+    /// <param name="touchedKinds"> The touched-resource kinds that can be reported. </param>
+    /// <param name="planMode"> The plan behavior. </param>
     /// <param name="planSemantics"> The plan-phase semantic contract. </param>
     /// <param name="callSemantics"> The call-phase semantic contract. </param>
     /// <param name="touchedContract"> The touched-resource reporting contract. </param>
     /// <param name="readPostconditionContract"> The post-mutation read-surface contract. </param>
     /// <param name="failureSemantics"> The timeout, cancellation, and partial-apply contract. </param>
     /// <param name="dangerousNotes"> Notes that describe out-of-contract or dangerous areas. </param>
+    /// <exception cref="ArgumentException"> Thrown when one value violates the assurance contract. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when a required collection is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when a finite contract value is undefined. </exception>
     public UcliOperationAssuranceContract (
-        IReadOnlyList<string>? sideEffects,
-        IReadOnlyList<string>? touchedKinds,
-        string? planMode,
-        string? planSemantics,
-        string? callSemantics,
-        string? touchedContract,
-        string? readPostconditionContract,
-        string? failureSemantics,
-        IReadOnlyList<string>? dangerousNotes)
-    {
-        SideEffects = sideEffects;
-        ApplyDerivedPersistenceProjection(sideEffects);
-        TouchedKinds = touchedKinds;
-        PlanMode = planMode;
-        PlanSemantics = planSemantics;
-        CallSemantics = callSemantics;
-        TouchedContract = touchedContract;
-        ReadPostconditionContract = readPostconditionContract;
-        FailureSemantics = failureSemantics;
-        DangerousNotes = dangerousNotes;
-    }
-
-    /// <summary> Initializes a new instance of the <see cref="UcliOperationAssuranceContract" /> class. </summary>
-    /// <param name="sideEffects"> The side-effect enum values that can happen during <c>call</c>. </param>
-    /// <param name="touchedKinds"> The touched-resource kind literals that can be reported. </param>
-    /// <param name="planMode"> The plan behavior enum value. </param>
-    /// <param name="planSemantics"> The plan-phase semantic contract. </param>
-    /// <param name="callSemantics"> The call-phase semantic contract. </param>
-    /// <param name="touchedContract"> The touched-resource reporting contract. </param>
-    /// <param name="readPostconditionContract"> The post-mutation read-surface contract. </param>
-    /// <param name="failureSemantics"> The timeout, cancellation, and partial-apply contract. </param>
-    /// <param name="dangerousNotes"> Notes that describe out-of-contract or dangerous areas. </param>
-    public UcliOperationAssuranceContract (
-        IReadOnlyList<UcliOperationSideEffect>? sideEffects,
-        IReadOnlyList<string>? touchedKinds,
+        IReadOnlyList<UcliOperationSideEffect> sideEffects,
+        IReadOnlyList<UcliTouchedResourceKind> touchedKinds,
         UcliOperationPlanMode planMode,
-        string? planSemantics,
-        string? callSemantics,
-        string? touchedContract,
-        string? readPostconditionContract,
-        string? failureSemantics,
-        IReadOnlyList<string>? dangerousNotes)
-        : this(
-            ConvertSideEffects(sideEffects),
-            touchedKinds,
-            ContractLiteralCodec.ToValue(planMode),
-            planSemantics,
-            callSemantics,
-            touchedContract,
-            readPostconditionContract,
-            failureSemantics,
-            dangerousNotes)
-    {
-    }
-
-    /// <summary> Gets or sets side-effect literals that can happen during <c>call</c>. </summary>
-    public IReadOnlyList<string>? SideEffects { get; set; }
-
-    /// <summary> Gets or sets the derived projection indicating whether <c>call</c> can dirty Unity objects or project state. </summary>
-    public bool MayDirty { get; set; }
-
-    /// <summary> Gets or sets the derived broad persistence projection for Unity saves and direct filesystem writes. </summary>
-    public bool MayPersist { get; set; }
-
-    /// <summary> Gets or sets touched-resource kind literals that can be reported. </summary>
-    public IReadOnlyList<string>? TouchedKinds { get; set; }
-
-    /// <summary> Gets or sets the plan behavior literal. </summary>
-    public string? PlanMode { get; set; }
-
-    /// <summary> Gets or sets the plan-phase semantic contract. </summary>
-    public string? PlanSemantics { get; set; }
-
-    /// <summary> Gets or sets the call-phase semantic contract. </summary>
-    public string? CallSemantics { get; set; }
-
-    /// <summary> Gets or sets the touched-resource reporting contract. </summary>
-    public string? TouchedContract { get; set; }
-
-    /// <summary> Gets or sets the post-mutation read-surface contract. </summary>
-    public string? ReadPostconditionContract { get; set; }
-
-    /// <summary> Gets or sets the timeout, cancellation, and partial-apply contract. </summary>
-    public string? FailureSemantics { get; set; }
-
-    /// <summary> Gets or sets notes that describe out-of-contract or dangerous areas. </summary>
-    public IReadOnlyList<string>? DangerousNotes { get; set; }
-
-    private static IReadOnlyList<string>? ConvertSideEffects (IReadOnlyList<UcliOperationSideEffect>? sideEffects)
+        string planSemantics,
+        string callSemantics,
+        string touchedContract,
+        string readPostconditionContract,
+        string failureSemantics,
+        IReadOnlyList<string> dangerousNotes)
     {
         if (sideEffects == null)
         {
-            return null;
+            throw new ArgumentNullException(nameof(sideEffects));
         }
-
-        var values = new string[sideEffects.Count];
-        for (var i = 0; i < sideEffects.Count; i++)
+        if (touchedKinds == null)
         {
-            values[i] = ContractLiteralCodec.ToValue(sideEffects[i]);
+            throw new ArgumentNullException(nameof(touchedKinds));
+        }
+        if (dangerousNotes == null)
+        {
+            throw new ArgumentNullException(nameof(dangerousNotes));
         }
 
-        return values;
+        if (!ContractLiteralCodec.IsDefined(planMode))
+        {
+            throw new ArgumentOutOfRangeException(nameof(planMode), planMode, "Operation plan mode must be defined.");
+        }
+
+        TouchedKinds = CopyTouchedKinds(touchedKinds);
+        SideEffects = CopySideEffects(sideEffects, TouchedKinds, out var mayDirty, out var mayPersist);
+        if (mayPersist && TouchedKinds.Count == 0)
+        {
+            throw new ArgumentException("Persisting side effects require at least one touched-resource kind.", nameof(touchedKinds));
+        }
+
+        DangerousNotes = CopyRequiredTextValues(dangerousNotes, nameof(dangerousNotes));
+        PlanMode = planMode;
+        PlanSemantics = RequireText(planSemantics, nameof(planSemantics));
+        CallSemantics = RequireText(callSemantics, nameof(callSemantics));
+        TouchedContract = RequireText(touchedContract, nameof(touchedContract));
+        ReadPostconditionContract = RequireText(readPostconditionContract, nameof(readPostconditionContract));
+        FailureSemantics = RequireText(failureSemantics, nameof(failureSemantics));
+        MayDirty = mayDirty;
+        MayPersist = mayPersist;
     }
 
-    private void ApplyDerivedPersistenceProjection (IReadOnlyList<string>? sideEffects)
+    /// <summary> Gets the side effects that can happen during <c>call</c>. </summary>
+    public IReadOnlyList<UcliOperationSideEffect> SideEffects { get; }
+
+    /// <summary> Gets whether <c>call</c> can dirty Unity objects or project state. </summary>
+    public bool MayDirty { get; }
+
+    /// <summary> Gets the broad persistence projection for Unity saves and direct filesystem writes. </summary>
+    public bool MayPersist { get; }
+
+    /// <summary> Gets touched-resource kinds that can be reported. </summary>
+    public IReadOnlyList<UcliTouchedResourceKind> TouchedKinds { get; }
+
+    /// <summary> Gets the plan behavior. </summary>
+    public UcliOperationPlanMode PlanMode { get; }
+
+    /// <summary> Gets the plan-phase semantic contract. </summary>
+    public string PlanSemantics { get; }
+
+    /// <summary> Gets the call-phase semantic contract. </summary>
+    public string CallSemantics { get; }
+
+    /// <summary> Gets the touched-resource reporting contract. </summary>
+    public string TouchedContract { get; }
+
+    /// <summary> Gets the post-mutation read-surface contract. </summary>
+    public string ReadPostconditionContract { get; }
+
+    /// <summary> Gets the timeout, cancellation, and partial-apply contract. </summary>
+    public string FailureSemantics { get; }
+
+    /// <summary> Gets notes that describe out-of-contract or dangerous areas. </summary>
+    public IReadOnlyList<string> DangerousNotes { get; }
+
+    private static IReadOnlyList<UcliOperationSideEffect> CopySideEffects (
+        IReadOnlyList<UcliOperationSideEffect> sideEffects,
+        IReadOnlyList<UcliTouchedResourceKind> touchedKinds,
+        out bool mayDirty,
+        out bool mayPersist)
     {
-        if (UcliOperationSideEffectDescriptors.TryDeriveAssuranceProjection(sideEffects, out var mayDirty, out var mayPersist))
+        mayDirty = false;
+        mayPersist = false;
+        if (sideEffects.Count == 0)
         {
-            MayDirty = mayDirty;
-            MayPersist = mayPersist;
-            return;
+            return Array.Empty<UcliOperationSideEffect>();
         }
 
-        MayDirty = false;
-        MayPersist = false;
+        var copy = new UcliOperationSideEffect[sideEffects.Count];
+        for (var index = 0; index < sideEffects.Count; index++)
+        {
+            var sideEffect = sideEffects[index];
+            if (!ContractLiteralCodec.IsDefined(sideEffect))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(sideEffects),
+                    sideEffect,
+                    $"Side effect at index {index} must be defined.");
+            }
+            var descriptor = UcliOperationSideEffectDescriptors.GetDescriptor(sideEffect);
+            if (Contains(copy, index, sideEffect))
+            {
+                throw new ArgumentException($"Side effect at index {index} is duplicated.", nameof(sideEffects));
+            }
+
+            for (var requiredIndex = 0; requiredIndex < descriptor.RequiredTouchedKinds.Count; requiredIndex++)
+            {
+                if (!touchedKinds.Contains(descriptor.RequiredTouchedKinds[requiredIndex]))
+                {
+                    throw new ArgumentException(
+                        $"Side effect '{descriptor.Value}' requires touched-resource kind "
+                        + $"'{ContractLiteralCodec.ToValue(descriptor.RequiredTouchedKinds[requiredIndex])}'.",
+                        nameof(touchedKinds));
+                }
+            }
+
+            copy[index] = sideEffect;
+            mayDirty |= descriptor.DerivesMayDirty;
+            mayPersist |= descriptor.DerivesMayPersist;
+        }
+
+        return Array.AsReadOnly(copy);
+    }
+
+    private static IReadOnlyList<UcliTouchedResourceKind> CopyTouchedKinds (
+        IReadOnlyList<UcliTouchedResourceKind> touchedKinds)
+    {
+        if (touchedKinds.Count == 0)
+        {
+            return Array.Empty<UcliTouchedResourceKind>();
+        }
+
+        var copy = new UcliTouchedResourceKind[touchedKinds.Count];
+        for (var index = 0; index < touchedKinds.Count; index++)
+        {
+            var touchedKind = touchedKinds[index];
+            if (!ContractLiteralCodec.IsDefined(touchedKind))
+            {
+                throw new ArgumentOutOfRangeException(
+                    nameof(touchedKinds),
+                    touchedKind,
+                    $"Touched-resource kind at index {index} must be defined.");
+            }
+            if (Contains(copy, index, touchedKind))
+            {
+                throw new ArgumentException($"Touched-resource kind at index {index} is duplicated.", nameof(touchedKinds));
+            }
+
+            copy[index] = touchedKind;
+        }
+
+        return Array.AsReadOnly(copy);
+    }
+
+    private static bool Contains<T> (
+        T[] values,
+        int count,
+        T expected)
+        where T : struct, Enum
+    {
+        for (var index = 0; index < count; index++)
+        {
+            if (EqualityComparer<T>.Default.Equals(values[index], expected))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static IReadOnlyList<string> CopyRequiredTextValues (
+        IReadOnlyList<string> values,
+        string parameterName)
+    {
+        if (values.Count == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        var copy = new string[values.Count];
+        for (var index = 0; index < values.Count; index++)
+        {
+            copy[index] = RequireText(values[index], parameterName);
+        }
+
+        return Array.AsReadOnly(copy);
+    }
+
+    private static string RequireText (
+        string? value,
+        string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            throw new ArgumentException("Value must not be empty or whitespace.", parameterName);
+        }
+
+        return value;
     }
 }

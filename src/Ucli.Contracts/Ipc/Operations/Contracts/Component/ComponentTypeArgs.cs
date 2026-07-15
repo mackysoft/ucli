@@ -9,9 +9,9 @@ public sealed record ComponentTypeArgs
     [JsonConstructor]
     public ComponentTypeArgs (UnityComponentTypeId type)
     {
-        Type = type;
+        Type = ContractArgumentGuard.RequireNotNull(type, nameof(type));
     }
 
     [UcliRequired]
-    public UnityComponentTypeId Type { get; init; }
+    public UnityComponentTypeId Type { get; }
 }
