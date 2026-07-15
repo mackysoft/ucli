@@ -1,4 +1,5 @@
-using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 
 namespace MackySoft.Ucli.Contracts.Storage;
 
@@ -9,36 +10,33 @@ internal sealed record GuiSupervisorManifestJsonContract
     public const int CurrentSchemaVersion = 1;
 
     /// <summary> Initializes one validated GUI supervisor manifest contract. </summary>
-    [JsonConstructor]
     public GuiSupervisorManifestJsonContract (
         int SchemaVersion,
-        string SessionToken,
+        IpcSessionToken SessionToken,
         ProjectFingerprint ProjectFingerprint,
-        string EndpointTransportKind,
-        string EndpointAddress,
+        IpcEndpoint Endpoint,
         int ProcessId,
         DateTimeOffset? ProcessStartedAtUtc,
         DateTimeOffset IssuedAtUtc)
     {
         this.SchemaVersion = ContractArgumentGuard.RequirePositive(SchemaVersion, nameof(SchemaVersion));
-        this.SessionToken = ContractArgumentGuard.RequireValue(SessionToken, nameof(SessionToken));
+        this.SessionToken = ContractArgumentGuard.RequireNotNull(SessionToken, nameof(SessionToken));
         this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
-        this.EndpointTransportKind = ContractArgumentGuard.RequireValue(EndpointTransportKind, nameof(EndpointTransportKind));
-        this.EndpointAddress = ContractArgumentGuard.RequireValue(EndpointAddress, nameof(EndpointAddress));
+        this.Endpoint = ContractArgumentGuard.RequireNotNull(Endpoint, nameof(Endpoint));
         this.ProcessId = ContractArgumentGuard.RequirePositive(ProcessId, nameof(ProcessId));
-        this.ProcessStartedAtUtc = ProcessStartedAtUtc;
-        this.IssuedAtUtc = IssuedAtUtc;
+        this.ProcessStartedAtUtc = ProcessStartedAtUtc is DateTimeOffset processStartedAtUtc
+            ? ContractArgumentGuard.RequireUtcTimestamp(processStartedAtUtc, nameof(ProcessStartedAtUtc))
+            : null;
+        this.IssuedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(IssuedAtUtc, nameof(IssuedAtUtc));
     }
 
     public int SchemaVersion { get; }
 
-    public string SessionToken { get; }
+    public IpcSessionToken SessionToken { get; }
 
     public ProjectFingerprint ProjectFingerprint { get; }
 
-    public string EndpointTransportKind { get; }
-
-    public string EndpointAddress { get; }
+    public IpcEndpoint Endpoint { get; }
 
     public int ProcessId { get; }
 

@@ -23,10 +23,9 @@ internal static class DaemonGuiRebootstrapClientTestSupport
     {
         return new GuiSupervisorManifestJsonContract(
             SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-            SessionToken: IpcSessionTokenTestFactory.Create("supervisor-token").GetEncodedValue(),
+            SessionToken: IpcSessionTokenTestFactory.Create("supervisor-token"),
             ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
-            EndpointTransportKind: ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
-            EndpointAddress: "/tmp/ucli-gui-supervisor.sock",
+            Endpoint: new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-gui-supervisor.sock"),
             ProcessId: 1234,
             ProcessStartedAtUtc: ProcessStartedAtUtc,
             IssuedAtUtc: new DateTimeOffset(2026, 5, 9, 1, 2, 4, TimeSpan.Zero));
@@ -39,8 +38,11 @@ internal static class DaemonGuiRebootstrapClientTestSupport
     {
         var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(storageRoot, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        var json = manifest is GuiSupervisorManifestJsonContract contract
+            ? GuiSupervisorManifestJsonContractSerializer.Serialize(contract)
+            : JsonSerializer.Serialize(manifest, IpcJsonSerializerOptions.Default);
         await File.WriteAllTextAsync(
             manifestPath,
-            JsonSerializer.Serialize(manifest, IpcJsonSerializerOptions.Default));
+            json);
     }
 }

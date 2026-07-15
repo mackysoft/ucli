@@ -7,7 +7,6 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -85,9 +84,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return;
             }
 
-            if (manifest == null
-                || !IpcSessionToken.TryParse(manifest.SessionToken, out var persistedSessionToken)
-                || expectedSessionToken != persistedSessionToken)
+            if (manifest == null || expectedSessionToken != manifest.SessionToken)
             {
                 return;
             }
@@ -155,10 +152,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 using var currentProcess = Process.GetCurrentProcess();
                 var manifest = new GuiSupervisorManifestJsonContract(
                     SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-                    SessionToken: sessionToken.GetEncodedValue(),
+                    SessionToken: sessionToken,
                     ProjectFingerprint: projectFingerprint,
-                    EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
-                    EndpointAddress: endpoint.Address,
+                    Endpoint: endpoint,
                     ProcessId: currentProcess.Id,
                     ProcessStartedAtUtc: TryGetProcessStartedAtUtc(currentProcess),
                     IssuedAtUtc: issuedAtUtc);

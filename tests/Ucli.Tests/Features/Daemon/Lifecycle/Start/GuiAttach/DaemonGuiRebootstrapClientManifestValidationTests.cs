@@ -159,9 +159,9 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             {
                 EndpointTransportKind = "invalid-transport",
                 manifest.SchemaVersion,
-                manifest.SessionToken,
+                SessionToken = manifest.SessionToken.GetEncodedValue(),
                 ProjectFingerprint = manifest.ProjectFingerprint.ToString(),
-                manifest.EndpointAddress,
+                EndpointAddress = manifest.Endpoint.Address,
                 manifest.ProcessId,
                 manifest.ProcessStartedAtUtc,
                 manifest.IssuedAtUtc,

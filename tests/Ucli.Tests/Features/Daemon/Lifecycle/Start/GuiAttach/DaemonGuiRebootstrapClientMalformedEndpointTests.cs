@@ -24,9 +24,9 @@ public sealed class DaemonGuiRebootstrapClientMalformedEndpointTests
             new
             {
                 manifest.SchemaVersion,
-                manifest.SessionToken,
+                SessionToken = manifest.SessionToken.GetEncodedValue(),
                 ProjectFingerprint = manifest.ProjectFingerprint.ToString(),
-                manifest.EndpointTransportKind,
+                EndpointTransportKind = ContractLiteralCodec.ToValue(manifest.Endpoint.TransportKind),
                 EndpointAddress = "relative/ucli-gui-supervisor.sock",
                 manifest.ProcessId,
                 manifest.ProcessStartedAtUtc,

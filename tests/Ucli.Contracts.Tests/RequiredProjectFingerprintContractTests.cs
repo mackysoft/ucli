@@ -130,10 +130,9 @@ public sealed class RequiredProjectFingerprintContractTests
                 ErrorCode: null),
             ContractKind.GuiSupervisorManifest => new GuiSupervisorManifestJsonContract(
                 SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-                SessionToken: "session-token",
+                SessionToken: IpcSessionToken.CreateRandom(),
                 ProjectFingerprint: null!,
-                EndpointTransportKind: "namedPipe",
-                EndpointAddress: "ucli-endpoint",
+                Endpoint: new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint"),
                 ProcessId: 1234,
                 ProcessStartedAtUtc: Timestamp,
                 IssuedAtUtc: Timestamp),

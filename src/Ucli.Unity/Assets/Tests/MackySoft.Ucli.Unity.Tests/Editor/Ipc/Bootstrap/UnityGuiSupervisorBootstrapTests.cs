@@ -291,10 +291,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 state.AttachIdentity("storage-root", projectFingerprint, sessionToken);
                 var foreignManifest = new GuiSupervisorManifestJsonContract(
                     SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-                    SessionToken: IpcSessionToken.CreateRandom().GetEncodedValue(),
+                    SessionToken: IpcSessionToken.CreateRandom(),
                     ProjectFingerprint: projectFingerprint,
-                    EndpointTransportKind: "namedPipe",
-                    EndpointAddress: "ucli-supervisor-foreign-manifest",
+                    Endpoint: new IpcEndpoint(
+                        IpcTransportKind.NamedPipe,
+                        "ucli-supervisor-foreign-manifest"),
                     ProcessId: 1,
                     ProcessStartedAtUtc: null,
                     IssuedAtUtc: DateTimeOffset.UtcNow);

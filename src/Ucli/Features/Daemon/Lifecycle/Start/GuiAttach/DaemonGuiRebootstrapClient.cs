@@ -8,7 +8,6 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -257,25 +256,8 @@ internal sealed class DaemonGuiRebootstrapClient : IDaemonGuiRebootstrapClient
                 DaemonErrorCodes.DaemonEndpointNotRegistered);
         }
 
-        if (!IpcSessionToken.TryParse(manifest.SessionToken, out sessionToken)
-            || !ContractLiteralCodec.TryParse<IpcTransportKind>(manifest.EndpointTransportKind, out var transportKind)
-            || string.IsNullOrWhiteSpace(manifest.EndpointAddress))
-        {
-            return ExecutionError.InternalError(
-                "GUI supervisor manifest is missing endpoint or token metadata.",
-                DaemonErrorCodes.DaemonEndpointNotRegistered);
-        }
-
-        try
-        {
-            endpoint = new IpcEndpoint(transportKind, manifest.EndpointAddress);
-        }
-        catch (ArgumentException)
-        {
-            return ExecutionError.InternalError(
-                "GUI supervisor manifest contains an invalid endpoint address.",
-                DaemonErrorCodes.DaemonEndpointNotRegistered);
-        }
+        sessionToken = manifest.SessionToken;
+        endpoint = manifest.Endpoint;
 
         return null;
     }

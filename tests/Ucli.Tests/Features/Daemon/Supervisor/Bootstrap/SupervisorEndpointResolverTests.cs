@@ -30,13 +30,15 @@ public sealed class SupervisorEndpointResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CreateNamedPipeGenerationAddress_WithDifferentGenerationIdentity_ReturnsDistinctStableNames ()
+    public void CreateNamedPipeGenerationAddress_WithDifferentSessionToken_ReturnsDistinctStableNames ()
     {
         var storageRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Supervisor"));
+        var firstSessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(1);
+        var secondSessionToken = IpcSessionTokenTestFactory.CreateFromDiscriminator(2);
 
-        var first = SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(storageRoot, "generation-a");
-        var firstAgain = SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(storageRoot, "generation-a");
-        var second = SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(storageRoot, "generation-b");
+        var first = SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(storageRoot, firstSessionToken);
+        var firstAgain = SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(storageRoot, firstSessionToken);
+        var second = SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(storageRoot, secondSessionToken);
 
         Assert.Equal(first, firstAgain);
         Assert.NotEqual(first, second);
@@ -93,7 +95,7 @@ public sealed class SupervisorEndpointResolverTests
             Assert.Equal(
                 SupervisorEndpointResolver.CreateNamedPipeGenerationAddress(
                     storageRoot,
-                    sessionToken.GetEncodedValue()),
+                    sessionToken),
                 endpoint.Address);
             return;
         }

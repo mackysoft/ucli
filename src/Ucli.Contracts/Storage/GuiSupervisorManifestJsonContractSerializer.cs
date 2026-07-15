@@ -1,4 +1,7 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Storage;
 
@@ -17,9 +20,56 @@ internal static class GuiSupervisorManifestJsonContractSerializer
             throw new ArgumentException("JSON text must not be empty.", nameof(json));
         }
 
-        return JsonSerializer.Deserialize<GuiSupervisorManifestJsonContract>(
+        var persistedContract = JsonSerializer.Deserialize<PersistedContract>(
             json,
             DaemonStorageJsonSerializerOptions.Deserialize);
+        if (persistedContract == null)
+        {
+            return null;
+        }
+
+        if (!IpcSessionToken.TryParse(persistedContract.SessionToken, out var sessionToken))
+        {
+            throw new JsonException("GUI supervisor manifest sessionToken is invalid.");
+        }
+
+        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(
+                persistedContract.EndpointTransportKind,
+                out var transportKind))
+        {
+            throw new JsonException("GUI supervisor manifest endpointTransportKind is invalid.");
+        }
+
+        IpcEndpoint endpoint;
+        try
+        {
+            endpoint = new IpcEndpoint(transportKind, persistedContract.EndpointAddress!);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new JsonException("GUI supervisor manifest endpointAddress is invalid.", exception);
+        }
+
+        if (persistedContract.ProjectFingerprint == null)
+        {
+            throw new JsonException("GUI supervisor manifest projectFingerprint is missing.");
+        }
+
+        try
+        {
+            return new GuiSupervisorManifestJsonContract(
+                persistedContract.SchemaVersion,
+                sessionToken,
+                persistedContract.ProjectFingerprint,
+                endpoint,
+                persistedContract.ProcessId,
+                persistedContract.ProcessStartedAtUtc,
+                persistedContract.IssuedAtUtc);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new JsonException("GUI supervisor manifest contains invalid metadata.", exception);
+        }
     }
 
     /// <summary> Serializes GUI supervisor manifest contract to JSON text. </summary>
@@ -33,6 +83,28 @@ internal static class GuiSupervisorManifestJsonContractSerializer
             throw new ArgumentNullException(nameof(contract));
         }
 
-        return JsonSerializer.Serialize(contract, DaemonStorageJsonSerializerOptions.Serialize);
+        var persistedContract = new PersistedContract(
+            contract.SchemaVersion,
+            contract.SessionToken.GetEncodedValue(),
+            contract.ProjectFingerprint,
+            ContractLiteralCodec.ToValue(contract.Endpoint.TransportKind),
+            contract.Endpoint.Address,
+            contract.ProcessId,
+            contract.ProcessStartedAtUtc,
+            contract.IssuedAtUtc);
+        return JsonSerializer.Serialize(persistedContract, DaemonStorageJsonSerializerOptions.Serialize);
+    }
+
+    private sealed record PersistedContract (
+        int SchemaVersion,
+        string? SessionToken,
+        ProjectFingerprint? ProjectFingerprint,
+        string? EndpointTransportKind,
+        string? EndpointAddress,
+        int ProcessId,
+        DateTimeOffset? ProcessStartedAtUtc,
+        DateTimeOffset IssuedAtUtc)
+    {
+        public override string ToString () => nameof(PersistedContract);
     }
 }

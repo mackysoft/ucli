@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Contracts.Tests.Storage;
@@ -46,13 +47,13 @@ public sealed class SensitiveStorageContractTextRepresentationTests
     [Trait("Size", "Small")]
     public void GuiSupervisorManifestJsonContract_TextRepresentations_DoNotExposeSessionToken ()
     {
-        const string SessionToken = "sensitive-gui-supervisor-token-DO-NOT-LOG";
+        var sessionToken = IpcSessionToken.CreateRandom();
+        var encodedSessionToken = sessionToken.GetEncodedValue();
         var contract = new GuiSupervisorManifestJsonContract(
             SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
-            SessionToken: SessionToken,
+            SessionToken: sessionToken,
             ProjectFingerprint: ProjectFingerprint,
-            EndpointTransportKind: "namedPipe",
-            EndpointAddress: "ucli-gui-supervisor-endpoint",
+            Endpoint: new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-gui-supervisor-endpoint"),
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 1, TimeSpan.Zero),
             IssuedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero));
@@ -66,7 +67,7 @@ public sealed class SensitiveStorageContractTextRepresentationTests
 
         Assert.All(
             textRepresentations,
-            text => Assert.DoesNotContain(SessionToken, text, StringComparison.Ordinal));
+            text => Assert.DoesNotContain(encodedSessionToken, text, StringComparison.Ordinal));
     }
 
     private sealed record DiagnosticEnvelope (object Value);

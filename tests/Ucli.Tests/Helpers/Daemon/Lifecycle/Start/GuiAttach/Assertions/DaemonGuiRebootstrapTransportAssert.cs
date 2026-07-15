@@ -21,9 +21,9 @@ internal static class DaemonGuiRebootstrapTransportAssert
         var invocation = Assert.Single(transportClient.Invocations);
         Assert.False(invocation.UsesUnboundedResponseWait);
         Assert.Equal(ContractLiteralCodec.ToValue(UnityIpcMethod.GuiRebootstrap), invocation.Request.Method);
-        Assert.Equal(expectedManifest.SessionToken, invocation.Request.SessionToken);
+        Assert.Equal(expectedManifest.SessionToken.GetEncodedValue(), invocation.Request.SessionToken);
         Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Single), invocation.Request.ResponseMode);
-        Assert.Equal(ResolveEndpoint(expectedManifest), invocation.Endpoint);
+        Assert.Equal(expectedManifest.Endpoint, invocation.Endpoint);
         Assert.InRange(invocation.Timeout, TimeSpan.FromTicks(1), expectedTimeout);
 
         Assert.True(
@@ -32,11 +32,5 @@ internal static class DaemonGuiRebootstrapTransportAssert
         Assert.Equal(expectedProjectFingerprint, payload.ProjectFingerprint);
         Assert.True(payload.ReplaceExistingSession);
         return invocation;
-    }
-
-    private static IpcEndpoint ResolveEndpoint (GuiSupervisorManifestJsonContract manifest)
-    {
-        Assert.True(ContractLiteralCodec.TryParse<IpcTransportKind>(manifest.EndpointTransportKind, out var transportKind));
-        return new IpcEndpoint(transportKind, manifest.EndpointAddress);
     }
 }

@@ -30,7 +30,7 @@ internal sealed class SupervisorEndpointResolver
         return OperatingSystem.IsWindows()
             ? new IpcEndpoint(
                 IpcTransportKind.NamedPipe,
-                CreateNamedPipeGenerationAddress(storageRoot, sessionToken.GetEncodedValue()))
+                CreateNamedPipeGenerationAddress(storageRoot, sessionToken))
             : new IpcEndpoint(
                 IpcTransportKind.UnixDomainSocket,
                 ResolveUnixSocketPath(NormalizeStorageRoot(storageRoot)));
@@ -38,11 +38,12 @@ internal sealed class SupervisorEndpointResolver
 
     internal static string CreateNamedPipeGenerationAddress (
         string storageRoot,
-        string generationIdentity)
+        IpcSessionToken sessionToken)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(generationIdentity);
+        ArgumentNullException.ThrowIfNull(sessionToken);
         var worktreeIdentity = SupervisorWorktreeIdentity.Create(storageRoot);
-        var generationHash = Sha256Digest.Compute(Encoding.UTF8.GetBytes(generationIdentity)).ToString()[..12];
+        var generationHash = Sha256Digest.Compute(
+            Encoding.UTF8.GetBytes(sessionToken.GetEncodedValue())).ToString()[..12];
         return $"{UcliIpcEndpointNames.SupervisorAddressPrefix}{worktreeIdentity.NamedPipeAddressSegment}-{generationHash}";
     }
 

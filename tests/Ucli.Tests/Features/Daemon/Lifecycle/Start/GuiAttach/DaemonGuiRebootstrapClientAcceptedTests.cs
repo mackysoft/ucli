@@ -18,19 +18,17 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
         var manifest = CreateManifest();
         var initialManifest = new GuiSupervisorManifestJsonContract(
             manifest.SchemaVersion,
-            IpcSessionTokenTestFactory.Create("initial-token").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("initial-token"),
             manifest.ProjectFingerprint,
-            manifest.EndpointTransportKind,
-            manifest.EndpointAddress,
+            manifest.Endpoint,
             manifest.ProcessId,
             manifest.ProcessStartedAtUtc,
             manifest.IssuedAtUtc);
         var successorManifest = new GuiSupervisorManifestJsonContract(
             initialManifest.SchemaVersion,
-            IpcSessionTokenTestFactory.Create("successor-token").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("successor-token"),
             initialManifest.ProjectFingerprint,
-            initialManifest.EndpointTransportKind,
-            initialManifest.EndpointAddress,
+            initialManifest.Endpoint,
             initialManifest.ProcessId,
             initialManifest.ProcessStartedAtUtc,
             initialManifest.IssuedAtUtc.AddSeconds(1));
@@ -48,7 +46,10 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 return ValueTask.FromResult(
-                    string.Equals(request.SessionToken, initialManifest.SessionToken, StringComparison.Ordinal)
+                    string.Equals(
+                        request.SessionToken,
+                        initialManifest.SessionToken.GetEncodedValue(),
+                        StringComparison.Ordinal)
                         ? IpcResponseTestFactory.CreateError(
                             request,
                             IpcSessionErrorCodes.SessionTokenInvalid,
@@ -75,7 +76,10 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
         Assert.True(result.IsAccepted);
         Assert.Equal(2, manifestReadCount);
         var requests = transportClient.Invocations.Select(static invocation => invocation.Request).ToArray();
-        IpcRequestAssert.SessionTokens(requests, initialManifest.SessionToken, successorManifest.SessionToken);
+        IpcRequestAssert.SessionTokens(
+            requests,
+            initialManifest.SessionToken.GetEncodedValue(),
+            successorManifest.SessionToken.GetEncodedValue());
         _ = IpcRequestAssert.SingleRequestId(requests);
     }
 
@@ -125,28 +129,25 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
         var manifest = CreateManifest();
         var initialManifest = new GuiSupervisorManifestJsonContract(
             manifest.SchemaVersion,
-            IpcSessionTokenTestFactory.Create("initial-token").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("initial-token"),
             manifest.ProjectFingerprint,
-            manifest.EndpointTransportKind,
-            manifest.EndpointAddress,
+            manifest.Endpoint,
             manifest.ProcessId,
             manifest.ProcessStartedAtUtc,
             manifest.IssuedAtUtc);
         var successorManifest = new GuiSupervisorManifestJsonContract(
             initialManifest.SchemaVersion,
-            IpcSessionTokenTestFactory.Create("successor-token").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("successor-token"),
             initialManifest.ProjectFingerprint,
-            initialManifest.EndpointTransportKind,
-            initialManifest.EndpointAddress,
+            initialManifest.Endpoint,
             initialManifest.ProcessId,
             initialManifest.ProcessStartedAtUtc,
             initialManifest.IssuedAtUtc.AddSeconds(1));
         var unexpectedThirdManifest = new GuiSupervisorManifestJsonContract(
             successorManifest.SchemaVersion,
-            IpcSessionTokenTestFactory.Create("unexpected-third-token").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("unexpected-third-token"),
             successorManifest.ProjectFingerprint,
-            successorManifest.EndpointTransportKind,
-            successorManifest.EndpointAddress,
+            successorManifest.Endpoint,
             successorManifest.ProcessId,
             successorManifest.ProcessStartedAtUtc,
             successorManifest.IssuedAtUtc.AddSeconds(1));
@@ -186,7 +187,10 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
         Assert.False(result.IsAccepted);
         Assert.Equal(2, manifestReadCount);
         var requests = transportClient.Invocations.Select(static invocation => invocation.Request).ToArray();
-        IpcRequestAssert.SessionTokens(requests, initialManifest.SessionToken, successorManifest.SessionToken);
+        IpcRequestAssert.SessionTokens(
+            requests,
+            initialManifest.SessionToken.GetEncodedValue(),
+            successorManifest.SessionToken.GetEncodedValue());
         _ = IpcRequestAssert.SingleRequestId(requests);
     }
 
@@ -359,8 +363,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             baseManifest.SchemaVersion,
             baseManifest.SessionToken,
             baseManifest.ProjectFingerprint,
-            baseManifest.EndpointTransportKind,
-            baseManifest.EndpointAddress,
+            baseManifest.Endpoint,
             baseManifest.ProcessId,
             ProcessStartedAtUtc.AddMilliseconds(1),
             baseManifest.IssuedAtUtc);
