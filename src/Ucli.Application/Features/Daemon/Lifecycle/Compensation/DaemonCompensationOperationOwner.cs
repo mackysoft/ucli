@@ -76,12 +76,17 @@ internal sealed class DaemonCompensationOperationOwner
                 return ExecutionError.Timeout(timeoutMessage);
             }
 
+            using var timeoutCancellationTokenSource = new CancellationTokenSource();
+            var timeoutTask = Task.Delay(
+                remainingTimeout,
+                deadline.Clock,
+                timeoutCancellationTokenSource.Token);
             var waitResult = await WaitForTaskAsync(
                     ownedCompensation.QuiescenceTask,
-                    remainingTimeout,
-                    deadline.Clock,
+                    timeoutTask,
                     cancellationToken)
                 .ConfigureAwait(false);
+            timeoutCancellationTokenSource.Cancel();
             if (waitResult == TaskWaitResult.CallerCanceled)
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -178,16 +183,21 @@ internal sealed class DaemonCompensationOperationOwner
         string operationTimeoutMessage,
         Func<TimeSpan, CancellationToken, ValueTask<T>> operation)
     {
+        using var timeoutCancellationTokenSource = new CancellationTokenSource();
+        var timeoutTask = Task.Delay(
+            remainingTimeout,
+            deadline.Clock,
+            timeoutCancellationTokenSource.Token);
         var operationTask = InvokeOperationAsync(
             operation,
             remainingTimeout,
             ownedCompensation.CancellationTokenSource.Token);
         var waitResult = await WaitForTaskAsync(
                 operationTask,
-                remainingTimeout,
-                deadline.Clock,
+                timeoutTask,
                 cancellationToken)
             .ConfigureAwait(false);
+        timeoutCancellationTokenSource.Cancel();
         if (waitResult == TaskWaitResult.Completed)
         {
             try
@@ -295,15 +305,9 @@ internal sealed class DaemonCompensationOperationOwner
 
     private static async ValueTask<TaskWaitResult> WaitForTaskAsync (
         Task task,
-        TimeSpan timeout,
-        TimeProvider timeProvider,
+        Task timeoutTask,
         CancellationToken cancellationToken)
     {
-        using var timeoutCancellationTokenSource = new CancellationTokenSource();
-        var timeoutTask = Task.Delay(
-            timeout,
-            timeProvider,
-            timeoutCancellationTokenSource.Token);
         var cancellationCompletionSource = new TaskCompletionSource(
             TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationRegistration = cancellationToken.CanBeCanceled
@@ -316,7 +320,6 @@ internal sealed class DaemonCompensationOperationOwner
             : NeverCompletingTask;
 
         var completedTask = await Task.WhenAny(task, timeoutTask, cancellationTask).ConfigureAwait(false);
-        await timeoutCancellationTokenSource.CancelAsync().ConfigureAwait(false);
         if (cancellationToken.IsCancellationRequested)
         {
             return TaskWaitResult.CallerCanceled;
