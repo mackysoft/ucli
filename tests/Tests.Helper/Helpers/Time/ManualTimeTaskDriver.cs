@@ -30,7 +30,7 @@ internal static class ManualTimeTaskDriver
 
             if (!timeProvider.TryGetNextTimerDelay(out var nextTimerDelay) || nextTimerDelay > maximumTimerDelay)
             {
-                throw new InvalidOperationException("Manual time driver resumed without an advanceable timer.");
+                continue;
             }
 
             var remainingTime = totalTime - elapsed;
