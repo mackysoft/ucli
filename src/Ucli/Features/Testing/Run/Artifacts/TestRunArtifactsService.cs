@@ -164,18 +164,16 @@ internal sealed class TestRunArtifactsService : ITestRunArtifactsService
     /// <param name="artifactPaths"> The run-scoped artifact paths that bound the deletion. </param>
     private static void TryDeleteInterruptedEditorLogExports (ArtifactPaths artifactPaths)
     {
-        var temporaryFileNamePrefix = Path.GetFileName(artifactPaths.EditorLogPath) + ".tmp.";
         // Best-effort cleanup must not replace the primary test-run result.
         try
         {
             foreach (var path in Directory.EnumerateFiles(
                 artifactPaths.ArtifactsDir,
-                temporaryFileNamePrefix + "*",
+                EditorLogTemporaryFilePath.FileNameSearchPattern,
                 SearchOption.TopDirectoryOnly))
             {
-                if (!ProcessOwnedTemporaryFilePath.TryGetOwnerProcessId(
-                    artifactPaths.EditorLogPath,
-                    path,
+                if (!EditorLogTemporaryFilePath.TryGetOwnerProcessId(
+                    Path.GetFileName(path),
                     out var processId)
                     || !IsOwnerProcessKnownToHaveExited(processId))
                 {

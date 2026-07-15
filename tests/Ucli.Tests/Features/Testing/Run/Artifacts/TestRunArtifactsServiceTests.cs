@@ -11,6 +11,8 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class TestRunArtifactsServiceTests
 {
+    private const string ProcessOwnedTemporaryNonce = "0123456789abcd";
+
     private static readonly IGuidGenerator RunIdGenerator = new GuidGenerator();
 
     [Fact]
@@ -86,7 +88,7 @@ public sealed class TestRunArtifactsServiceTests
         var prepareResult = await service.PrepareAsync(configuration);
         var session = Assert.IsType<ArtifactsSession>(prepareResult.Session);
         var interruptedExportPath = CreateOwnedTemporaryPath(session.Paths.EditorLogPath, int.MaxValue);
-        var unrelatedPath = session.Paths.EditorLogPath + ".tmp.keep";
+        var unrelatedPath = Path.Combine(session.Paths.ArtifactsDir, ".tmp2147483647-0123456789abcdef");
         File.WriteAllText(interruptedExportPath, "partial");
         File.WriteAllText(unrelatedPath, "keep");
 
@@ -143,7 +145,7 @@ public sealed class TestRunArtifactsServiceTests
         var service = new TestRunArtifactsService(new TestRunMetaStore(), RunIdGenerator, TimeProvider.System);
         var prepareResult = await service.PrepareAsync(configuration);
         var session = Assert.IsType<ArtifactsSession>(prepareResult.Session);
-        var unownedExportPath = session.Paths.EditorLogPath + ".tmp." + Guid.NewGuid().ToString("N");
+        var unownedExportPath = Path.Combine(session.Paths.ArtifactsDir, ".tmp--0123456789abcd");
         File.WriteAllText(unownedExportPath, "unknown owner");
 
         var completeResult = await service.CompleteAsync(configuration, session, UnityExecutionTarget.Oneshot);
@@ -154,12 +156,14 @@ public sealed class TestRunArtifactsServiceTests
 
     private static string CreateOwnedTemporaryPath (string destinationPath, int processId)
     {
-        return string.Concat(
-            destinationPath,
-            ".tmp.",
+        var directoryPath = Path.GetDirectoryName(destinationPath)
+            ?? throw new InvalidOperationException($"Destination directory path could not be resolved: {destinationPath}");
+        var fileName = string.Concat(
+            ".tmp-",
             processId.ToString(CultureInfo.InvariantCulture),
-            ".",
-            Guid.NewGuid().ToString("N"));
+            "-",
+            ProcessOwnedTemporaryNonce);
+        return Path.Combine(directoryPath, fileName);
     }
 
     private static ResolvedTestRunConfiguration CreateResolvedConfiguration (TestDirectoryScope scope)
