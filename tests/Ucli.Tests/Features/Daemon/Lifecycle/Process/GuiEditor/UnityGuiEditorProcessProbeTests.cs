@@ -166,6 +166,37 @@ public sealed class UnityGuiEditorProcessProbeTests
 
         Assert.True(result.IsMatchingGuiEditor);
         Assert.Equal(UnityGuiEditorProcessProbeStatus.MatchingGuiEditor, result.Status);
+        Assert.Equal(MarkerUpdatedAtUtc.AddSeconds(-1), result.ProcessStartedAtUtc);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData((int)UnityGuiEditorProcessProbeStatus.MatchingGuiEditor)]
+    [InlineData(int.MaxValue)]
+    public void NotMatching_WhenStatusCannotRepresentNonMatchingResult_ThrowsArgumentOutOfRangeException (
+        int statusValue)
+    {
+        var status = (UnityGuiEditorProcessProbeStatus)statusValue;
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(
+            () => UnityGuiEditorProcessProbeResult.NotMatching(status));
+
+        Assert.Equal("status", exception.ParamName);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void Matching_WhenProcessStartTimestampIsNotCanonicalUtc_ThrowsArgumentException (int invalidKind)
+    {
+        var processStartedAtUtc = invalidKind == 0
+            ? default
+            : new DateTimeOffset(2026, 3, 12, 12, 0, 0, TimeSpan.FromHours(9));
+
+        var exception = Assert.Throws<ArgumentException>(
+            () => UnityGuiEditorProcessProbeResult.Matching(processStartedAtUtc));
+
+        Assert.Equal("processStartedAtUtc", exception.ParamName);
     }
 
     private static ValueTask<UnityGuiEditorProcessProbeResult> ProbeAsync (
