@@ -18,12 +18,12 @@ public sealed class VerifyServicePostReadTests
         var logsService = new RecordingVerifyLogsUnityService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
-                    CreateLogEvent("cursor-1"),
+                    CreateLogEvent(1),
                     "cursor-1",
                     cancellationToken)
                 .ConfigureAwait(false);
             await onEvent(
-                    CreateLogEvent("cursor-2"),
+                    CreateLogEvent(2),
                     "cursor-2",
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -71,12 +71,12 @@ public sealed class VerifyServicePostReadTests
         var logsService = new RecordingVerifyLogsUnityService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
-                    CreateLogEvent("cursor-1"),
+                    CreateLogEvent(1),
                     "cursor-1",
                     cancellationToken)
                 .ConfigureAwait(false);
             await onEvent(
-                    CreateLogEvent("cursor-2"),
+                    CreateLogEvent(2),
                     "cursor-2",
                     cancellationToken)
                 .ConfigureAwait(false);
