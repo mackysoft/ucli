@@ -11,7 +11,7 @@ public sealed class IpcDaemonLogsReadRequestNormalizerTests
         var result = IpcDaemonLogsReadRequestNormalizer.TryNormalize(
             new IpcDaemonLogsReadRequest(
                 Tail: 4,
-                After: "stream-1:4",
+                After: "abcdef0123456789abcdef0123456789:4",
                 Since: "2026-03-05T10:35:22.0000000+09:00",
                 Until: "2026-03-05T10:36:22.0000000+09:00",
                 Level: null,
