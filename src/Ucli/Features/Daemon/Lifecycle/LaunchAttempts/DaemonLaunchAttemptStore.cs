@@ -164,7 +164,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             foreach (var entry in attemptsToDelete)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                Directory.Delete(entry.DirectoryPath, recursive: true);
+                DeleteOwnedLaunchAttemptDirectory(attemptsDirectory, entry.DirectoryPath);
                 deletedCount++;
             }
 
@@ -214,6 +214,18 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
         foreach (var attemptDirectory in attemptDirectories)
         {
             cancellationToken.ThrowIfCancellationRequested();
+            var launchAttemptIdPathSegment = Path.GetFileName(attemptDirectory);
+            if (!StoragePathSegmentCodec.TryDecodeNonEmptyGuid(launchAttemptIdPathSegment, out var launchAttemptId))
+            {
+                if (failOnInvalidPayload)
+                {
+                    return LaunchAttemptDirectoryEntriesReadResult.Failure(ExecutionError.InvalidArgument(
+                        $"Daemon launch-attempt directory name is invalid: {attemptDirectory}"));
+                }
+
+                continue;
+            }
+
             try
             {
                 EnsureSafeLaunchAttemptDirectory(attemptsDirectory, attemptDirectory);
@@ -227,25 +239,6 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             {
                 return LaunchAttemptDirectoryEntriesReadResult.Failure(ExecutionError.InternalError(
                     $"Daemon launch-attempt directory is unsafe: {attemptDirectory}. {exception.Message}"));
-            }
-
-            var launchAttemptIdPathSegment = Path.GetFileName(attemptDirectory);
-            if (!StoragePathSegmentCodec.TryDecodeNonEmptyGuid(
-                    launchAttemptIdPathSegment,
-                    out var launchAttemptId))
-            {
-                if (failOnInvalidPayload)
-                {
-                    return LaunchAttemptDirectoryEntriesReadResult.Failure(ExecutionError.InvalidArgument(
-                        $"Daemon launch-attempt directory name is invalid: {attemptDirectory}"));
-                }
-
-                entries.Add(new LaunchAttemptDirectoryEntry(
-                    attemptDirectory,
-                    null,
-                    GetLastWriteTimeUtc(attemptDirectory),
-                    null));
-                continue;
             }
 
             string diagnosisPath;
@@ -353,18 +346,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
                 $"Daemon launch-attempt JSON is invalid: {diagnosisPath}. {exception.Message}"));
         }
 
-        if (!TryValidate(contract, diagnosisPath, out var validationError))
-        {
-            return DaemonLaunchAttemptReadResult.Failure(validationError!);
-        }
-
-        if (contract.LaunchAttemptId != directoryLaunchAttemptId)
-        {
-            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon launch-attempt launchAttemptId does not match its directory: {diagnosisPath}"));
-        }
-
-        return DaemonLaunchAttemptReadResult.Success(ToModel(contract, diagnosisPath));
+        return ValidateAndMap(contract, diagnosisPath, directoryLaunchAttemptId);
     }
 
     private static DaemonLaunchAttemptJsonContract ToContract (DaemonLaunchAttempt launchAttempt)
@@ -413,24 +395,134 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
                     Message: diagnosis.PrimaryDiagnostic.Message));
     }
 
-    private static DaemonLaunchAttempt ToModel (
+    private static DaemonLaunchAttemptReadResult ValidateAndMap (
         DaemonLaunchAttemptJsonContract contract,
-        string artifactPath)
+        string diagnosisPath,
+        Guid directoryLaunchAttemptId)
     {
-        var diagnosis = contract.Diagnosis!;
-        return new DaemonLaunchAttempt(
-            LaunchAttemptId: contract.LaunchAttemptId!.Value,
+        if (contract.SchemaVersion != SchemaVersion)
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt schemaVersion is invalid: {diagnosisPath}"));
+        }
+
+        if (!contract.LaunchAttemptId.HasValue)
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt launchAttemptId is invalid: {diagnosisPath}"));
+        }
+
+        if (contract.Diagnosis is null)
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt diagnosis is invalid: {diagnosisPath}"));
+        }
+
+        if (!ContractLiteralCodec.TryParse(contract.StartupStatus, out DaemonStartupStatus startupStatus)
+            || startupStatus is not (DaemonStartupStatus.Blocked
+                or DaemonStartupStatus.Timeout
+                or DaemonStartupStatus.Failed
+                or DaemonStartupStatus.Completed))
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt startupStatus is invalid: {diagnosisPath}"));
+        }
+
+        if (!ContractLiteralCodec.TryParse(
+                contract.StartupBlockingReason,
+                out DaemonStartupBlockingReason startupBlockingReason))
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt startupBlockingReason is invalid: {diagnosisPath}"));
+        }
+
+        if (!ContractLiteralCodec.TryParse(contract.RetryDisposition, out DaemonStartupRetryDisposition retryDisposition))
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt retryDisposition is invalid: {diagnosisPath}"));
+        }
+
+        if (!ContractLiteralCodec.TryParse(contract.ProcessAction, out DaemonStartupProcessAction processAction))
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt processAction is invalid: {diagnosisPath}"));
+        }
+
+        DaemonEditorMode? editorMode = null;
+        if (contract.EditorMode is not null)
+        {
+            if (!ContractLiteralCodec.TryParse(contract.EditorMode, out DaemonEditorMode parsedEditorMode))
+            {
+                return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                    $"Daemon launch-attempt editorMode is invalid: {diagnosisPath}"));
+            }
+
+            editorMode = parsedEditorMode;
+        }
+
+        if (contract.StartedAtUtc == default || contract.StartedAtUtc.Offset != TimeSpan.Zero)
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt startedAtUtc is invalid: {diagnosisPath}"));
+        }
+
+        if (contract.UpdatedAtUtc == default || contract.UpdatedAtUtc.Offset != TimeSpan.Zero)
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt updatedAtUtc is invalid: {diagnosisPath}"));
+        }
+
+        if (contract.UpdatedAtUtc < contract.StartedAtUtc)
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt updatedAtUtc is invalid: {diagnosisPath}"));
+        }
+
+        if (contract.ProcessId is <= 0)
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt processId is invalid: {diagnosisPath}"));
+        }
+
+        if (contract.ProcessStartedAtUtc.HasValue
+            && (contract.ProcessStartedAtUtc.Value == default
+                || contract.ProcessStartedAtUtc.Value.Offset != TimeSpan.Zero))
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt processStartedAtUtc is invalid: {diagnosisPath}"));
+        }
+
+        if (contract.ProcessStartedAtUtc > contract.UpdatedAtUtc)
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt processStartedAtUtc is invalid: {diagnosisPath}"));
+        }
+
+        if (!TryValidateDiagnosis(contract.Diagnosis, diagnosisPath, out var diagnosisError))
+        {
+            return DaemonLaunchAttemptReadResult.Failure(diagnosisError!);
+        }
+
+        if (contract.LaunchAttemptId != directoryLaunchAttemptId)
+        {
+            return DaemonLaunchAttemptReadResult.Failure(ExecutionError.InvalidArgument(
+                $"Daemon launch-attempt launchAttemptId does not match its directory: {diagnosisPath}"));
+        }
+
+        var diagnosis = contract.Diagnosis;
+        return DaemonLaunchAttemptReadResult.Success(new DaemonLaunchAttempt(
+            LaunchAttemptId: contract.LaunchAttemptId.Value,
             StartedAtUtc: contract.StartedAtUtc,
             UpdatedAtUtc: contract.UpdatedAtUtc,
-            StartupStatus: ParseRequiredLiteral<DaemonStartupStatus>(contract.StartupStatus!),
-            StartupBlockingReason: ParseRequiredLiteral<DaemonStartupBlockingReason>(contract.StartupBlockingReason!),
-            RetryDisposition: ParseRequiredLiteral<DaemonStartupRetryDisposition>(contract.RetryDisposition!),
-            ProcessAction: ParseRequiredLiteral<DaemonStartupProcessAction>(contract.ProcessAction!),
-            EditorMode: ParseOptionalLiteral<DaemonEditorMode>(contract.EditorMode),
+            StartupStatus: startupStatus,
+            StartupBlockingReason: startupBlockingReason,
+            RetryDisposition: retryDisposition,
+            ProcessAction: processAction,
+            EditorMode: editorMode,
             ProcessId: contract.ProcessId,
             ProcessStartedAtUtc: contract.ProcessStartedAtUtc,
             UnityLogPath: StringValueNormalizer.TrimToNull(contract.UnityLogPath),
-            ArtifactPath: artifactPath,
+            ArtifactPath: diagnosisPath,
             Diagnosis: new DaemonDiagnosis(
                 Reason: diagnosis.Reason!.Value,
                 Message: diagnosis.Message!,
@@ -452,106 +544,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
                         File: StringValueNormalizer.TrimToNull(diagnosis.PrimaryDiagnostic.File),
                         Line: diagnosis.PrimaryDiagnostic.Line,
                         Column: diagnosis.PrimaryDiagnostic.Column,
-                        Message: StringValueNormalizer.TrimToNull(diagnosis.PrimaryDiagnostic.Message))));
-    }
-
-    private static bool TryValidate (
-        DaemonLaunchAttemptJsonContract contract,
-        string diagnosisPath,
-        out ExecutionError? error)
-    {
-        if (contract.SchemaVersion != SchemaVersion)
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt schemaVersion is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (!contract.LaunchAttemptId.HasValue)
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt launchAttemptId is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (contract.Diagnosis is null)
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt diagnosis is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (!ContractLiteralCodec.TryParse(contract.StartupStatus, out DaemonStartupStatus startupStatus)
-            || startupStatus is not (DaemonStartupStatus.Blocked
-                or DaemonStartupStatus.Timeout
-                or DaemonStartupStatus.Failed
-                or DaemonStartupStatus.Completed))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupStatus is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (StringValueNormalizer.TrimToNull(contract.StartupBlockingReason) is not string startupBlockingReasonLiteral
-            || !ContractLiteralCodec.TryParse<DaemonStartupBlockingReason>(startupBlockingReasonLiteral, out _))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt startupBlockingReason is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (!ContractLiteralCodec.TryParse(contract.RetryDisposition, out DaemonStartupRetryDisposition _))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt retryDisposition is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (!ContractLiteralCodec.TryParse(contract.ProcessAction, out DaemonStartupProcessAction _))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt processAction is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (!TryParseOptionalLiteral(contract.EditorMode, out DaemonEditorMode? _))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt editorMode is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (contract.StartedAtUtc == default || contract.StartedAtUtc.Offset != TimeSpan.Zero)
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt startedAtUtc is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (contract.UpdatedAtUtc == default || contract.UpdatedAtUtc.Offset != TimeSpan.Zero)
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt updatedAtUtc is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (contract.UpdatedAtUtc < contract.StartedAtUtc)
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt updatedAtUtc is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (contract.ProcessId is <= 0)
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt processId is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (contract.ProcessStartedAtUtc.HasValue
-            && (contract.ProcessStartedAtUtc.Value == default
-                || contract.ProcessStartedAtUtc.Value.Offset != TimeSpan.Zero))
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt processStartedAtUtc is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        if (contract.ProcessStartedAtUtc > contract.UpdatedAtUtc)
-        {
-            error = ExecutionError.InvalidArgument($"Daemon launch-attempt processStartedAtUtc is invalid: {diagnosisPath}");
-            return false;
-        }
-
-        return TryValidateDiagnosis(contract.Diagnosis, diagnosisPath, out error);
+                        Message: StringValueNormalizer.TrimToNull(diagnosis.PrimaryDiagnostic.Message)))));
     }
 
     private static bool TryValidateDiagnosis (
@@ -637,46 +630,6 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             or DaemonStartupStatus.Failed;
     }
 
-    private static TEnum ParseRequiredLiteral<TEnum> (string literal)
-        where TEnum : struct, Enum
-    {
-        return ContractLiteralCodec.TryParse(literal, out TEnum value)
-            ? value
-            : throw new InvalidOperationException($"Validated {typeof(TEnum).Name} literal could not be parsed.");
-    }
-
-    private static TEnum? ParseOptionalLiteral<TEnum> (string? literal)
-        where TEnum : struct, Enum
-    {
-        if (StringValueNormalizer.TrimToNull(literal) is not string normalizedLiteral)
-        {
-            return null;
-        }
-
-        return ParseRequiredLiteral<TEnum>(normalizedLiteral);
-    }
-
-    private static bool TryParseOptionalLiteral<TEnum> (
-        string? literal,
-        out TEnum? value)
-        where TEnum : struct, Enum
-    {
-        if (StringValueNormalizer.TrimToNull(literal) is not string normalizedLiteral)
-        {
-            value = null;
-            return true;
-        }
-
-        if (ContractLiteralCodec.TryParse(normalizedLiteral, out TEnum parsedValue))
-        {
-            value = parsedValue;
-            return true;
-        }
-
-        value = null;
-        return false;
-    }
-
     private static void EnsureSafeLaunchAttemptDirectory (
         string attemptsDirectory,
         string attemptDirectory)
@@ -690,6 +643,32 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
         {
             throw new IOException($"Launch-attempt deletion target must not be a reparse point: {attemptDirectory}");
         }
+    }
+
+    private static void DeleteOwnedLaunchAttemptDirectory (
+        string attemptsDirectory,
+        string attemptDirectory)
+    {
+        EnsureSafeLaunchAttemptDirectory(attemptsDirectory, attemptDirectory);
+
+        var diagnosisPath = Path.Combine(attemptDirectory, UcliStoragePathNames.StartupDiagnosisFileName);
+        using var entries = Directory.EnumerateFileSystemEntries(attemptDirectory).GetEnumerator();
+        if (!entries.MoveNext())
+        {
+            Directory.Delete(attemptDirectory, recursive: false);
+            return;
+        }
+
+        var entryPath = entries.Current;
+        if (!PathIdentity.IsSamePath(entryPath, diagnosisPath) || entries.MoveNext())
+        {
+            throw new IOException(
+                $"Launch-attempt deletion target must contain only its owned startup diagnosis file: {attemptDirectory}");
+        }
+
+        FileUtilities.EnsureRegularFile(diagnosisPath, "Launch-attempt startup diagnosis file");
+        File.Delete(diagnosisPath);
+        Directory.Delete(attemptDirectory, recursive: false);
     }
 
     private static void EnsureSafeStartupDiagnosisFile (
@@ -725,7 +704,7 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
 
     private sealed record LaunchAttemptDirectoryEntry (
         string DirectoryPath,
-        Guid? LaunchAttemptId,
+        Guid LaunchAttemptId,
         DateTimeOffset UpdatedAtUtc,
         DaemonLaunchAttempt? LaunchAttempt);
 

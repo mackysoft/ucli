@@ -123,4 +123,65 @@ public sealed class DaemonLaunchAttemptStoreSymlinkSafetyTests
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.True(Directory.Exists(targetAttemptDirectory));
     }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task PruneAsync_WhenStartupDiagnosisJsonIsSymbolicLink_ReturnsFailureWithoutDeletingTargetOrLink ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "prune-file-symlink");
+        using var targetScope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "prune-file-symlink-target");
+        var store = new DaemonLaunchAttemptStore();
+        var attemptId = CreateLaunchAttemptId(1);
+        var diagnosisPath = UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
+            scope.FullPath,
+            ProjectFingerprint,
+            attemptId);
+        Directory.CreateDirectory(Path.GetDirectoryName(diagnosisPath)!);
+        var targetPath = Path.Combine(targetScope.FullPath, "target.json");
+        await File.WriteAllTextAsync(targetPath, "{}", CancellationToken.None);
+        File.CreateSymbolicLink(diagnosisPath, targetPath);
+
+        var pruneResult = await store.PruneAsync(scope.FullPath, ProjectFingerprint, keepCount: 0, CancellationToken.None);
+
+        Assert.False(pruneResult.IsSuccess);
+        Assert.True(File.Exists(targetPath));
+        Assert.True(File.Exists(diagnosisPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task PruneAsync_WhenForeignDirectoryIsSymbolicLink_PreservesLinkAndDeletesOwnedAttempt ()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "prune-foreign-symlink");
+        using var targetScope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "prune-foreign-symlink-target");
+        var store = new DaemonLaunchAttemptStore();
+        var attempt = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
+        await WriteAttemptAsync(store, scope.FullPath, attempt);
+        var targetMarkerPath = Path.Combine(targetScope.FullPath, "marker.txt");
+        await File.WriteAllTextAsync(targetMarkerPath, "foreign", CancellationToken.None);
+        var attemptsDirectory = UcliStoragePathResolver.ResolveLaunchAttemptsDirectory(scope.FullPath, ProjectFingerprint);
+        var foreignDirectory = Path.Combine(attemptsDirectory, "foreign-link");
+        Directory.CreateSymbolicLink(foreignDirectory, targetScope.FullPath);
+
+        var pruneResult = await store.PruneAsync(scope.FullPath, ProjectFingerprint, keepCount: 0, CancellationToken.None);
+
+        Assert.True(pruneResult.IsSuccess);
+        Assert.Equal(1, pruneResult.DeletedCount);
+        Assert.False(Directory.Exists(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(
+            scope.FullPath,
+            ProjectFingerprint,
+            attempt.LaunchAttemptId)));
+        Assert.True(Directory.Exists(foreignDirectory));
+        Assert.True(File.Exists(targetMarkerPath));
+    }
 }

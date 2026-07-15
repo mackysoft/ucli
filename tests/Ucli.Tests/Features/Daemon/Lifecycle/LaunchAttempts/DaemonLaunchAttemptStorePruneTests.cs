@@ -125,7 +125,7 @@ public sealed class DaemonLaunchAttemptStorePruneTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task PruneAsync_WhenOldSafeDirectoryNameIsNotGuid_DeletesDirectoryWithoutStoppingMaintenance ()
+    public async Task PruneAsync_WhenForeignDirectoryNameIsNotCanonicalGuid_PreservesForeignDirectoryAndDeletesOwnedAttempt ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "retention-invalid-directory-id");
         var store = new DaemonLaunchAttemptStore();
@@ -139,15 +139,42 @@ public sealed class DaemonLaunchAttemptStorePruneTests
         var pruneResult = await store.PruneAsync(
             scope.FullPath,
             ProjectFingerprint,
-            keepCount: 1,
+            keepCount: 0,
             CancellationToken.None);
 
         Assert.True(pruneResult.IsSuccess);
         Assert.Equal(1, pruneResult.DeletedCount);
-        Assert.False(Directory.Exists(invalidAttemptDirectory));
-        Assert.True(Directory.Exists(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(
+        Assert.True(Directory.Exists(invalidAttemptDirectory));
+        Assert.False(Directory.Exists(UcliStoragePathResolver.ResolveLaunchAttemptDirectory(
             scope.FullPath,
             ProjectFingerprint,
             validAttempt.LaunchAttemptId)));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task PruneAsync_WhenOwnedAttemptContainsForeignEntry_ReturnsFailureWithoutDeletingDirectory ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "retention-foreign-entry");
+        var store = new DaemonLaunchAttemptStore();
+        var attempt = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
+        await WriteAttemptAsync(store, scope.FullPath, attempt);
+        var attemptDirectory = UcliStoragePathResolver.ResolveLaunchAttemptDirectory(
+            scope.FullPath,
+            ProjectFingerprint,
+            attempt.LaunchAttemptId);
+        var foreignPath = Path.Combine(attemptDirectory, "foreign.txt");
+        await File.WriteAllTextAsync(foreignPath, "foreign", CancellationToken.None);
+
+        var pruneResult = await store.PruneAsync(
+            scope.FullPath,
+            ProjectFingerprint,
+            keepCount: 0,
+            CancellationToken.None);
+
+        Assert.False(pruneResult.IsSuccess);
+        Assert.True(Directory.Exists(attemptDirectory));
+        Assert.True(File.Exists(attempt.ArtifactPath));
+        Assert.True(File.Exists(foreignPath));
     }
 }

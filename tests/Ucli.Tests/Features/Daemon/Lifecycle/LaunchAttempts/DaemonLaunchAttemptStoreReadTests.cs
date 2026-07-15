@@ -141,6 +141,8 @@ public sealed class DaemonLaunchAttemptStoreReadTests
     [Theory]
     [Trait("Size", "Medium")]
     [InlineData("\"startupBlockingReason\": \"unknown\"", "\"startupBlockingReason\": \"notSupported\"", "startupBlockingReason")]
+    [InlineData("\"startupBlockingReason\": \"unknown\"", "\"startupBlockingReason\": \" unknown \"", "startupBlockingReason")]
+    [InlineData("\"editorMode\": \"gui\"", "\"editorMode\": \" gui \"", "editorMode")]
     [InlineData("\"reportedBy\": \"cli\"", "\"reportedBy\": \"notSupported\"", "diagnosis.reportedBy")]
     [InlineData("\"startupPhase\": \"endpointRegistration\"", "\"startupPhase\": \"notSupported\"", "diagnosis.startupPhase")]
     [InlineData("\"actionRequired\": \"inspectUnityLog\"", "\"actionRequired\": \"notSupported\"", "diagnosis.actionRequired")]
