@@ -2,11 +2,44 @@ using System.Text;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests.Index;
 
 internal static class FileReadIndexArtifactReaderTestSupport
 {
+    public static FileReadIndexArtifactReader CreateReader ()
+    {
+        return new FileReadIndexArtifactReader(CreateGenerationStore());
+    }
+
+    public static FileReadIndexGenerationStore CreateGenerationStore ()
+    {
+        return new FileReadIndexGenerationStore(
+            new FileReadIndexGenerationPointerStore(),
+            TimeProvider.System);
+    }
+
+    public static Guid EnsureCurrentGeneration (
+        string storageRoot,
+        ProjectFingerprint fingerprint)
+    {
+        var pointerPath = UcliStoragePathResolver.ResolveReadIndexCurrentGenerationPath(storageRoot, fingerprint);
+        var persistedValue = FileUtilities.ReadAllTextOrNull(pointerPath);
+        if (persistedValue != null)
+        {
+            return Guid.ParseExact(persistedValue, "N");
+        }
+
+        var generationId = Guid.NewGuid();
+        Directory.CreateDirectory(UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(
+            storageRoot,
+            fingerprint,
+            generationId));
+        FileUtilities.WriteAllTextAtomically(pointerPath, generationId.ToString("N"));
+        return generationId;
+    }
+
     public static void WriteText (
         string path,
         string contents)

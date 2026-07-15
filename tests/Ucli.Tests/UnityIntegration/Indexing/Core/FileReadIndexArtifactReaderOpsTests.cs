@@ -1,7 +1,7 @@
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests.Index;
 
@@ -9,11 +9,37 @@ public sealed class FileReadIndexArtifactReaderOpsTests
 {
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task ReadOpsCatalog_WhenCurrentGenerationIsMissing_DoesNotReadUncommittedRootArtifact ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-uncommitted-root");
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: Sha256DigestTestFactory.Compute("source-hash").ToString(),
+            Entries: Array.Empty<IndexOpsCatalogEntryJsonContract>());
+        FileReadIndexArtifactReaderTestSupport.WriteText(
+            Path.Combine(
+                UcliStoragePathResolver.ResolveIndexCatalogsDirectory(scope.FullPath, fingerprint),
+                UcliStoragePathNames.OpsCatalogFileName),
+            FileReadIndexArtifactReaderTestSupport.Write(contract));
+
+        var result = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexBootstrapFailed, result.Error!.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task ReadOpsCatalog_ReturnsContract_WhenCatalogExists ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-success");
-        var reader = new FileReadIndexArtifactReader();
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
@@ -30,7 +56,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
                     DescribeHash: new string('b', 64)),
             ]);
         FileReadIndexArtifactReaderTestSupport.WriteText(
-            UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint),
+            UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint, generationId),
             FileReadIndexArtifactReaderTestSupport.Write(contract));
 
         var result = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
@@ -45,6 +71,40 @@ public sealed class FileReadIndexArtifactReaderOpsTests
         Assert.Null(result.Error);
     }
 
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task ReadOpsCatalog_WhenCatalogIsSymbolicLink_ReturnsBootstrapFailureWithoutReadingTarget ()
+    {
+        using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-symbolic-link");
+        using var targetScope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-symbolic-link-target");
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: DateTimeOffset.Parse("2026-03-03T00:00:00+00:00"),
+            SourceInputsHash: Sha256DigestTestFactory.Compute("source-hash").ToString(),
+            Entries: Array.Empty<IndexOpsCatalogEntryJsonContract>());
+        var targetPath = targetScope.WriteFile(
+            "ops.catalog.json",
+            FileReadIndexArtifactReaderTestSupport.Write(contract));
+        var catalogPath = UcliStoragePathResolver.ResolveOpsCatalogPath(
+            scope.FullPath,
+            fingerprint,
+            generationId);
+        if (!TestSymbolicLinks.TryCreateFile(catalogPath, targetPath))
+        {
+            return;
+        }
+
+        var result = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ReadIndexErrorCodes.ReadIndexBootstrapFailed, result.Error!.Code);
+        Assert.Equal(FileReadIndexArtifactReaderTestSupport.Write(contract), await File.ReadAllTextAsync(targetPath));
+    }
+
     [Theory]
     [InlineData("Query", "safe")]
     [InlineData("query", "Safe")]
@@ -54,8 +114,9 @@ public sealed class FileReadIndexArtifactReaderOpsTests
         string policy)
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-noncanonical-literal");
-        var reader = new FileReadIndexArtifactReader();
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var contract = new IndexOpsCatalogJsonContract(
             SchemaVersion: 1,
@@ -72,7 +133,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
                     DescribeHash: new string('b', 64)),
             ]);
         FileReadIndexArtifactReaderTestSupport.WriteText(
-            UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint),
+            UcliStoragePathResolver.ResolveOpsCatalogPath(scope.FullPath, fingerprint, generationId),
             FileReadIndexArtifactReaderTestSupport.Write(contract));
 
         var result = await reader.ReadOpsCatalogAsync(project, CancellationToken.None);
@@ -87,7 +148,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
     public async Task ReadOpsDescribe_ReturnsTypedSnapshot_WhenDetailExists ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-success");
-        var reader = new FileReadIndexArtifactReader();
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var sourceInputsHash = Sha256DigestTestFactory.Compute("source-hash");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
@@ -110,7 +171,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
     public async Task ReadOpsDescribe_ReturnsBootstrapFailed_WhenDetailDoesNotExist ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-missing");
-        var reader = new FileReadIndexArtifactReader();
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var catalogEntry = new ValidatedOpsCatalogEntry(
@@ -134,7 +195,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
     public async Task ReadOpsDescribe_ReturnsFormatInvalid_WhenDescribeHashDoesNotMatch ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-hash-mismatch");
-        var reader = new FileReadIndexArtifactReader();
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
@@ -161,7 +222,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
     public async Task ReadOpsDescribe_ReturnsFormatInvalid_WhenSourceInputsHashDoesNotMatch ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-source-mismatch");
-        var reader = new FileReadIndexArtifactReader();
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry();
@@ -181,7 +242,7 @@ public sealed class FileReadIndexArtifactReaderOpsTests
     public async Task ReadOpsDescribe_ReturnsFormatInvalid_WhenOperationDescriptorDoesNotMatch ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "ops-describe-descriptor-mismatch");
-        var reader = new FileReadIndexArtifactReader();
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var operation = ReadIndexOperationTestFactory.CreateGoDescribeEntry() with { Name = "ucli.test.detail" };

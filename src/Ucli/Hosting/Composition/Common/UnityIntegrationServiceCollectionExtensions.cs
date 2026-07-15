@@ -43,6 +43,8 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<IUnityPluginVerifier, UnityPluginVerifier>();
         services.AddSingleton<IUnityVersionResolver, UnityVersionResolver>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();
+        services.AddSingleton<IReadIndexGenerationPointerStore, FileReadIndexGenerationPointerStore>();
+        services.AddSingleton<FileReadIndexGenerationStore>();
         services.AddSingleton<IReadIndexArtifactReader, FileReadIndexArtifactReader>();
         services.AddSingleton<IReadIndexArtifactWriter, FileReadIndexArtifactWriter>();
         services.AddSingleton<IMutationReadPostconditionStore, MutationReadPostconditionStore>();

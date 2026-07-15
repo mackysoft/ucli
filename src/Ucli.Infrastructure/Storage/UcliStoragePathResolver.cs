@@ -272,6 +272,106 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.ReadIndexWriteLockFileName);
     }
 
+    /// <summary> Resolves the atomic pointer to the current immutable read-index generation. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <returns> The absolute current-generation pointer path. </returns>
+    public static string ResolveReadIndexCurrentGenerationPath (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveIndexDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.ReadIndexCurrentGenerationFileName);
+    }
+
+    /// <summary> Resolves the directory containing immutable read-index generations. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <returns> The absolute generation-root directory path. </returns>
+    public static string ResolveReadIndexGenerationsDirectory (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveIndexDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.ReadIndexGenerationsDirectoryName);
+    }
+
+    /// <summary> Resolves one immutable read-index generation directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <param name="generationId"> The non-empty generation identifier. </param>
+    /// <returns> The absolute immutable generation directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="generationId" /> is empty. </exception>
+    public static string ResolveReadIndexGenerationDirectory (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid generationId)
+    {
+        return Path.Combine(
+            ResolveReadIndexGenerationsDirectory(storageRoot, projectFingerprint),
+            StoragePathSegmentCodec.EncodeGuid(generationId, nameof(generationId)));
+    }
+
+    /// <summary> Resolves the directory containing unpublished read-index generations. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <returns> The absolute staging-root directory path. </returns>
+    internal static string ResolveReadIndexStagingDirectory (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveIndexDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.ReadIndexStagingDirectoryName);
+    }
+
+    /// <summary> Resolves one unpublished read-index generation directory. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <param name="generationId"> The non-empty generation identifier. </param>
+    /// <returns> The absolute staging generation directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="generationId" /> is empty. </exception>
+    internal static string ResolveReadIndexStagingGenerationDirectory (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid generationId)
+    {
+        return Path.Combine(
+            ResolveReadIndexStagingDirectory(storageRoot, projectFingerprint),
+            StoragePathSegmentCodec.EncodeGuid(generationId, nameof(generationId)));
+    }
+
+    /// <summary> Resolves the directory containing generation-retention markers. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <returns> The absolute retention-marker directory path. </returns>
+    internal static string ResolveReadIndexRetentionDirectory (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint)
+    {
+        return Path.Combine(
+            ResolveIndexDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.ReadIndexRetentionDirectoryName);
+    }
+
+    /// <summary> Resolves the deletion-eligibility marker for one immutable generation. </summary>
+    /// <param name="storageRoot"> The storage-root path. </param>
+    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <param name="generationId"> The non-empty generation identifier. </param>
+    /// <returns> The absolute retention-marker path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="generationId" /> is empty. </exception>
+    internal static string ResolveReadIndexRetentionMarkerPath (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint,
+        Guid generationId)
+    {
+        return Path.Combine(
+            ResolveReadIndexRetentionDirectory(storageRoot, projectFingerprint),
+            StoragePathSegmentCodec.EncodeGuid(generationId, nameof(generationId)));
+    }
+
     /// <summary> Resolves the absolute path to one read-index catalogs directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/index/catalogs</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
@@ -284,20 +384,6 @@ public static class UcliStoragePathResolver
         return Path.Combine(
             ResolveIndexDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.CatalogsDirectoryName);
-    }
-
-    /// <summary> Resolves the absolute path to one read-index lookups directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/index/lookups</c>. </summary>
-    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
-    /// <returns> The absolute read-index lookups directory path. </returns>
-    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
-    public static string ResolveIndexLookupsDirectory (
-        string storageRoot,
-        ProjectFingerprint projectFingerprint)
-    {
-        return Path.Combine(
-            ResolveIndexDirectory(storageRoot, projectFingerprint),
-            UcliStoragePathNames.LookupsDirectoryName);
     }
 
     /// <summary> Resolves the absolute path to one read-index types catalog file. </summary>
@@ -331,14 +417,16 @@ public static class UcliStoragePathResolver
     /// <summary> Resolves the absolute path to one read-index ops catalog file. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <param name="generationId"> The non-empty immutable generation identifier. </param>
     /// <returns> The absolute read-index ops catalog file path. </returns>
     /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
     public static string ResolveOpsCatalogPath (
         string storageRoot,
-        ProjectFingerprint projectFingerprint)
+        ProjectFingerprint projectFingerprint,
+        Guid generationId)
     {
         return Path.Combine(
-            ResolveIndexCatalogsDirectory(storageRoot, projectFingerprint),
+            ResolveReadIndexGenerationDirectory(storageRoot, projectFingerprint, generationId),
             UcliStoragePathNames.OpsCatalogFileName);
     }
 
@@ -352,8 +440,8 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveIndexCatalogsDirectory(storageRoot, projectFingerprint),
-            UcliStoragePathNames.OpsDescribeDirectoryName);
+            ResolveIndexDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.ReadIndexOpsDirectoryName);
     }
 
     /// <summary> Resolves the absolute path to one read-index ops describe artifact file. </summary>
@@ -375,34 +463,39 @@ public static class UcliStoragePathResolver
 
         return Path.Combine(
             ResolveOpsDescribeDirectory(storageRoot, projectFingerprint),
-            opKey.ToString() + UcliStoragePathNames.OpsDescribeFileExtension);
+            StoragePathSegmentCodec.EncodeSha256Digest(opKey)
+                + UcliStoragePathNames.OpsDescribeFileExtension);
     }
 
     /// <summary> Resolves the absolute path to one read-index asset-search lookup file. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <param name="generationId"> The non-empty immutable generation identifier. </param>
     /// <returns> The absolute read-index asset-search lookup file path. </returns>
     /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
     public static string ResolveAssetSearchLookupPath (
         string storageRoot,
-        ProjectFingerprint projectFingerprint)
+        ProjectFingerprint projectFingerprint,
+        Guid generationId)
     {
         return Path.Combine(
-            ResolveIndexLookupsDirectory(storageRoot, projectFingerprint),
+            ResolveReadIndexGenerationDirectory(storageRoot, projectFingerprint, generationId),
             UcliStoragePathNames.AssetSearchLookupFileName);
     }
 
     /// <summary> Resolves the absolute path to one read-index GUID-path lookup file. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <param name="generationId"> The non-empty immutable generation identifier. </param>
     /// <returns> The absolute read-index GUID-path lookup file path. </returns>
     /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
     public static string ResolveGuidPathLookupPath (
         string storageRoot,
-        ProjectFingerprint projectFingerprint)
+        ProjectFingerprint projectFingerprint,
+        Guid generationId)
     {
         return Path.Combine(
-            ResolveIndexLookupsDirectory(storageRoot, projectFingerprint),
+            ResolveReadIndexGenerationDirectory(storageRoot, projectFingerprint, generationId),
             UcliStoragePathNames.GuidPathLookupFileName);
     }
 
@@ -416,8 +509,8 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveIndexLookupsDirectory(storageRoot, projectFingerprint),
-            UcliStoragePathNames.SceneTreeLiteLookupDirectoryName);
+            ResolveIndexDirectory(storageRoot, projectFingerprint),
+            UcliStoragePathNames.ReadIndexScenesDirectoryName);
     }
 
     /// <summary> Resolves the absolute path to one read-index scene-tree-lite lookup file. </summary>
@@ -437,24 +530,26 @@ public static class UcliStoragePathResolver
         }
 
         var normalizedScenePath = PathStringNormalizer.ToSlashSeparated(scenePath);
-        var sceneKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(normalizedScenePath));
+        var sceneKey = Sha256Digest.Compute(Encoding.UTF8.GetBytes(normalizedScenePath));
         return Path.Combine(
             ResolveSceneTreeLiteLookupDirectory(storageRoot, projectFingerprint),
-            sceneKey + UcliStoragePathNames.SceneTreeLiteLookupFileExtension);
+            StoragePathSegmentCodec.EncodeSha256Digest(sceneKey)
+                + UcliStoragePathNames.SceneTreeLiteLookupFileExtension);
     }
 
     /// <summary> Resolves the absolute path to one read-index inputs manifest file. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <param name="generationId"> The non-empty immutable generation identifier. </param>
     /// <returns> The absolute read-index inputs manifest file path. </returns>
     /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
     public static string ResolveIndexInputsManifestPath (
         string storageRoot,
-        ProjectFingerprint projectFingerprint)
+        ProjectFingerprint projectFingerprint,
+        Guid generationId)
     {
         return Path.Combine(
-            ResolveIndexDirectory(storageRoot, projectFingerprint),
-            UcliStoragePathNames.IndexInputsDirectoryName,
+            ResolveReadIndexGenerationDirectory(storageRoot, projectFingerprint, generationId),
             UcliStoragePathNames.IndexInputsManifestFileName);
     }
 

@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests.Index;
 
@@ -11,8 +10,9 @@ public sealed class FileReadIndexArtifactReaderLookupTests
     public async Task ReadAssetSearchLookup_ReturnsContract_WhenLookupExists ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "asset-search-success");
-        var reader = new FileReadIndexArtifactReader();
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         var contract = new IndexAssetSearchLookupJsonContract(
             SchemaVersion: 1,
@@ -33,7 +33,7 @@ public sealed class FileReadIndexArtifactReaderLookupTests
                     ]),
             ]);
         FileReadIndexArtifactReaderTestSupport.WriteText(
-            UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, fingerprint),
+            UcliStoragePathResolver.ResolveAssetSearchLookupPath(scope.FullPath, fingerprint, generationId),
             FileReadIndexArtifactReaderTestSupport.Write(contract));
 
         var result = await reader.ReadAssetSearchLookupAsync(project, CancellationToken.None);
@@ -51,9 +51,11 @@ public sealed class FileReadIndexArtifactReaderLookupTests
     public async Task ReadGuidPathLookup_ReturnsReadIndexFormatInvalid_WhenLookupJsonIsMalformed ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "guid-path-malformed");
-        var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
-        var lookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
+        var lookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(scope.FullPath, fingerprint, generationId);
         FileReadIndexArtifactReaderTestSupport.WriteText(lookupPath, "{");
 
         var result = await reader.ReadGuidPathLookupAsync(project, CancellationToken.None);
@@ -69,7 +71,7 @@ public sealed class FileReadIndexArtifactReaderLookupTests
     public async Task ReadSceneTreeLiteLookup_ReturnsContract_WhenLookupExists ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "scene-tree-lite-success");
-        var reader = new FileReadIndexArtifactReader();
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         const string scenePath = "Assets/Scenes/Sample.unity";
@@ -106,7 +108,7 @@ public sealed class FileReadIndexArtifactReaderLookupTests
     public async Task ReadSceneTreeLiteLookup_ReturnsReadIndexFormatInvalid_WhenScenePathDoesNotMatchRequestedScene ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "scene-tree-lite-mismatch");
-        var reader = new FileReadIndexArtifactReader();
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
         const string requestedScenePath = "Assets/Scenes/Sample.unity";

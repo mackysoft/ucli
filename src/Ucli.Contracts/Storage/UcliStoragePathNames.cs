@@ -33,14 +33,20 @@ public static class UcliStoragePathNames
     /// <summary> Gets the read-index writer lock file name under one read-index directory. </summary>
     public const string ReadIndexWriteLockFileName = "write.lock";
 
+    /// <summary> Gets the current read-index generation pointer file name. </summary>
+    public const string ReadIndexCurrentGenerationFileName = "current";
+
+    /// <summary> Gets the immutable read-index generation directory name. </summary>
+    public const string ReadIndexGenerationsDirectoryName = "g";
+
+    /// <summary> Gets the unpublished read-index staging directory name. </summary>
+    public const string ReadIndexStagingDirectoryName = "s";
+
+    /// <summary> Gets the read-index generation-retention marker directory name. </summary>
+    public const string ReadIndexRetentionDirectoryName = "r";
+
     /// <summary> Gets the catalogs directory name under one read-index directory. </summary>
     public const string CatalogsDirectoryName = "catalogs";
-
-    /// <summary> Gets the lookups directory name under one read-index directory. </summary>
-    public const string LookupsDirectoryName = "lookups";
-
-    /// <summary> Gets the read-index inputs directory name under one read-index directory. </summary>
-    public const string IndexInputsDirectoryName = "inputs";
 
     /// <summary> Gets the read-index types catalog file name. </summary>
     public const string TypesCatalogFileName = "types.catalog.json";
@@ -51,8 +57,8 @@ public static class UcliStoragePathNames
     /// <summary> Gets the read-index ops catalog file name. </summary>
     public const string OpsCatalogFileName = "ops.catalog.json";
 
-    /// <summary> Gets the read-index ops describe artifact directory name. </summary>
-    public const string OpsDescribeDirectoryName = "ops.describe";
+    /// <summary> Gets the operation detail directory name under one read-index directory. </summary>
+    public const string ReadIndexOpsDirectoryName = "ops";
 
     /// <summary> Gets the read-index ops describe artifact file extension. </summary>
     public const string OpsDescribeFileExtension = ".json";
@@ -63,11 +69,11 @@ public static class UcliStoragePathNames
     /// <summary> Gets the read-index GUID-path lookup file name. </summary>
     public const string GuidPathLookupFileName = "guid-path.lookup.json";
 
-    /// <summary> Gets the read-index scene-tree-lite lookup directory name. </summary>
-    public const string SceneTreeLiteLookupDirectoryName = "scene-tree-lite";
+    /// <summary> Gets the scene lookup directory name under one read-index directory. </summary>
+    public const string ReadIndexScenesDirectoryName = "scenes";
 
     /// <summary> Gets the read-index scene-tree-lite lookup file extension. </summary>
-    public const string SceneTreeLiteLookupFileExtension = ".lookup.json";
+    public const string SceneTreeLiteLookupFileExtension = ".json";
 
     /// <summary> Gets the read-index inputs manifest file name. </summary>
     public const string IndexInputsManifestFileName = "manifest.json";

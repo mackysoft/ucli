@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Infrastructure.Storage;
-using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests.Index;
 
@@ -10,9 +9,11 @@ public sealed class FileReadIndexArtifactReaderCatalogManifestTests
     public async Task ReadInputsManifest_ReturnsReadIndexFormatInvalid_WhenContractIsIncomplete ()
     {
         using var scope = TestDirectories.CreateTempScope("index-catalog-reader", "inputs-incomplete-contract");
-        var reader = new FileReadIndexArtifactReader();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
-        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint"));
+        var reader = FileReadIndexArtifactReaderTestSupport.CreateReader();
+        var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var generationId = FileReadIndexArtifactReaderTestSupport.EnsureCurrentGeneration(scope.FullPath, fingerprint);
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, fingerprint);
+        var manifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(scope.FullPath, fingerprint, generationId);
         FileReadIndexArtifactReaderTestSupport.WriteText(
             manifestPath,
             """

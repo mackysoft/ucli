@@ -25,6 +25,19 @@ internal sealed class RecordingReadIndexArtifactReader : IReadIndexArtifactReade
 
     public ReadIndexArtifactReadResult<ReadIndexInputsManifestSnapshot>? InputsManifestResult { get; set; }
 
+    public ValueTask<ReadIndexGenerationArtifacts> ReadGenerationArtifactsAsync (
+        ResolvedUnityProjectContext unityProject,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        readInvocations.Add(new ReadInvocation(ReadIndexArtifactKind.GenerationArtifacts, unityProject, cancellationToken));
+        return ValueTask.FromResult(new ReadIndexGenerationArtifacts(
+            OpsCatalogResult ?? Missing<OpsCatalogDescriptorSnapshot>("ops.catalog.json"),
+            AssetSearchLookupResult ?? Missing<AssetSearchLookupSnapshot>("asset-search.lookup.json"),
+            GuidPathLookupResult ?? Missing<GuidPathLookupSnapshot>("guid-path.lookup.json"),
+            InputsManifestResult ?? Missing<ReadIndexInputsManifestSnapshot>("manifest.json")));
+    }
+
     public ValueTask<ReadIndexArtifactReadResult<OpsCatalogDescriptorSnapshot>> ReadOpsCatalogAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
@@ -115,6 +128,14 @@ internal sealed class RecordingReadIndexArtifactReader : IReadIndexArtifactReade
         return ValueTask.FromResult(result);
     }
 
+    private static ReadIndexArtifactReadResult<T> Missing<T> (string fileName)
+        where T : class
+    {
+        return ReadIndexArtifactReadResult<T>.Failure(
+            ReadIndexErrorCodes.ReadIndexBootstrapFailed,
+            $"Index contract file was not found: {fileName}.");
+    }
+
     internal readonly record struct ReadInvocation (
         ReadIndexArtifactKind Kind,
         ResolvedUnityProjectContext UnityProject,
@@ -122,6 +143,7 @@ internal sealed class RecordingReadIndexArtifactReader : IReadIndexArtifactReade
 
     internal enum ReadIndexArtifactKind
     {
+        GenerationArtifacts,
         OpsCatalog,
         OpsDescribe,
         AssetSearchLookup,

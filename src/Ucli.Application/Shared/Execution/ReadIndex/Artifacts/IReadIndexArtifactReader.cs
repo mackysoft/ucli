@@ -6,12 +6,17 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 /// <summary> Reads persisted read-index artifact contracts for one resolved Unity project. </summary>
 internal interface IReadIndexArtifactReader
 {
+    /// <summary> Reads the core artifact set from one immutable current generation. </summary>
+    ValueTask<ReadIndexGenerationArtifacts> ReadGenerationArtifactsAsync (
+        ResolvedUnityProjectContext unityProject,
+        CancellationToken cancellationToken = default);
+
     /// <summary> Reads one <c>ops.catalog.json</c> contract. </summary>
     ValueTask<ReadIndexArtifactReadResult<OpsCatalogDescriptorSnapshot>> ReadOpsCatalogAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default);
 
-    /// <summary> Reads one <c>ops.describe/&lt;opKey&gt;.json</c> contract referenced by <c>ops.catalog.json</c>. </summary>
+    /// <summary> Reads one <c>ops/&lt;operationStorageKey&gt;.json</c> contract referenced by <c>ops.catalog.json</c>. </summary>
     ValueTask<ReadIndexArtifactReadResult<OpsDescribeSnapshot>> ReadOpsDescribeAsync (
         ResolvedUnityProjectContext unityProject,
         ValidatedOpsCatalogEntry catalogEntry,

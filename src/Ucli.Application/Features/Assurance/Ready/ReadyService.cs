@@ -379,12 +379,16 @@ internal sealed class ReadyService : IReadyService
         ReadIndexMode mode,
         CancellationToken cancellationToken)
     {
+        var generation = await readIndexArtifactReader.ReadGenerationArtifactsAsync(
+                unityProject,
+                cancellationToken)
+            .ConfigureAwait(false);
         var artifacts = new List<ReadyReadIndexArtifactOutput>
         {
             await ReadArtifactAsync(
                     ReadyReadIndexArtifactName.OpsCatalog,
                     IndexFreshnessTarget.OpsCatalog,
-                    cancellationToken => readIndexArtifactReader.ReadOpsCatalogAsync(unityProject, cancellationToken),
+                    generation.OpsCatalog,
                     unityProject,
                     mode,
                     required: true,
@@ -394,7 +398,7 @@ internal sealed class ReadyService : IReadyService
             await ReadArtifactAsync(
                     ReadyReadIndexArtifactName.AssetSearchLookup,
                     IndexFreshnessTarget.AssetSearchLookup,
-                    cancellationToken => readIndexArtifactReader.ReadAssetSearchLookupAsync(unityProject, cancellationToken),
+                    generation.AssetSearchLookup,
                     unityProject,
                     mode,
                     required: true,
@@ -404,7 +408,7 @@ internal sealed class ReadyService : IReadyService
             await ReadArtifactAsync(
                     ReadyReadIndexArtifactName.GuidPathLookup,
                     IndexFreshnessTarget.GuidPathLookup,
-                    cancellationToken => readIndexArtifactReader.ReadGuidPathLookupAsync(unityProject, cancellationToken),
+                    generation.GuidPathLookup,
                     unityProject,
                     mode,
                     required: true,
@@ -419,7 +423,7 @@ internal sealed class ReadyService : IReadyService
     private async ValueTask<ReadyReadIndexArtifactOutput> ReadArtifactAsync<T> (
         ReadyReadIndexArtifactName name,
         IndexFreshnessTarget target,
-        Func<CancellationToken, ValueTask<ReadIndexArtifactReadResult<T>>> readAsync,
+        ReadIndexArtifactReadResult<T> result,
         ResolvedUnityProjectContext unityProject,
         ReadIndexMode mode,
         bool required,
@@ -427,7 +431,6 @@ internal sealed class ReadyService : IReadyService
         CancellationToken cancellationToken)
         where T : class, IReadIndexArtifactSnapshot
     {
-        var result = await readAsync(cancellationToken).ConfigureAwait(false);
         if (!result.IsSuccess)
         {
             return ReadyReadIndexArtifactOutput.Failed(

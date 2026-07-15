@@ -218,6 +218,8 @@ public static class FileUtilities
             throw new ArgumentException("path must not be empty.", nameof(path));
         }
 
+        EnsureRegularFile(path, "Read source");
+
         return new FileStream(
             path,
             FileMode.Open,
@@ -482,6 +484,44 @@ public static class FileUtilities
             {
                 File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
             }
+        }
+    }
+
+    /// <summary> Ensures an existing path is a regular file and not a reparse point. </summary>
+    /// <param name="path"> The file path to inspect. </param>
+    /// <param name="subject"> The subject included in a contract failure message. </param>
+    /// <exception cref="FileNotFoundException"> Thrown when <paramref name="path" /> does not exist. </exception>
+    /// <exception cref="IOException"> Thrown when <paramref name="path" /> is a directory or reparse point. </exception>
+    internal static void EnsureRegularFile (
+        string path,
+        string subject)
+    {
+        FileAttributes attributes;
+        try
+        {
+            attributes = File.GetAttributes(path);
+        }
+        catch (FileNotFoundException)
+        {
+            throw new FileNotFoundException($"{subject} was not found: {path}", path);
+        }
+        catch (DirectoryNotFoundException)
+        {
+            throw new FileNotFoundException($"{subject} was not found: {path}", path);
+        }
+        if ((attributes & FileAttributes.ReparsePoint) != 0)
+        {
+            throw new IOException($"{subject} must not be a reparse point: {path}");
+        }
+
+        if ((attributes & FileAttributes.Directory) != 0)
+        {
+            throw new IOException($"{subject} must not be a directory: {path}");
+        }
+
+        if (!FileSystemNodeClassifier.IsRegularFile(path, attributes))
+        {
+            throw new IOException($"{subject} must be a regular file: {path}");
         }
     }
 }
