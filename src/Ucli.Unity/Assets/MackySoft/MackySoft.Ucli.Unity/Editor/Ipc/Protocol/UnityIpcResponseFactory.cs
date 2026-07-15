@@ -14,13 +14,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="payload"> The response payload model. </param>
         /// <returns> The successful response envelope. </returns>
         public static IpcResponse CreateSuccessResponse<TPayload> (
-            IpcRequest request,
+            IIpcRequestCorrelation request,
             TPayload payload)
         {
             return new IpcResponse(
-                protocolVersion: request.ProtocolVersion,
+                protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: request.RequestId,
-                status: IpcProtocol.StatusOk,
+                status: IpcResponseStatus.Ok,
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 errors: Array.Empty<IpcError>());
         }
@@ -32,15 +32,15 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="opId"> The related operation identifier when available. </param>
         /// <returns> The error response envelope. </returns>
         public static IpcResponse CreateErrorResponse (
-            IpcRequest request,
+            IIpcRequestCorrelation request,
             UcliCode code,
             string message,
-            string? opId)
+            IpcExecuteStepId? opId)
         {
             return new IpcResponse(
-                protocolVersion: request.ProtocolVersion,
+                protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: request.RequestId,
-                status: IpcProtocol.StatusError,
+                status: IpcResponseStatus.Error,
                 payload: IpcPayloadCodec.SerializeToElement(new { }),
                 errors: new[]
                 {
@@ -57,16 +57,16 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="payload"> The structured payload model. </param>
         /// <returns> The error response envelope. </returns>
         public static IpcResponse CreateErrorResponse<TPayload> (
-            IpcRequest request,
+            IIpcRequestCorrelation request,
             UcliCode code,
             string message,
-            string? opId,
+            IpcExecuteStepId? opId,
             TPayload payload)
         {
             return new IpcResponse(
-                protocolVersion: request.ProtocolVersion,
+                protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: request.RequestId,
-                status: IpcProtocol.StatusError,
+                status: IpcResponseStatus.Error,
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 errors: new[]
                 {
@@ -88,7 +88,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             return new IpcResponse(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: null,
-                status: IpcProtocol.StatusError,
+                status: IpcResponseStatus.Error,
                 payload: IpcPayloadCodec.SerializeToElement(new { }),
                 errors: new[]
                 {

@@ -40,9 +40,9 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             var payloadModel = CreateExecutePayload(context.Project, trace.Steps, trace.OperationTraces, trace.PlanToken, issuedAtUtc, contractViolations);
             var errors = CreateErrors(trace.Errors, contractViolations);
             return new IpcResponse(
-                protocolVersion: context.ProtocolVersion,
+                protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: context.RequestId,
-                status: errors.Length == 0 ? IpcProtocol.StatusOk : IpcProtocol.StatusError,
+                status: errors.Length == 0 ? IpcResponseStatus.Ok : IpcResponseStatus.Error,
                 payload: IpcPayloadCodec.SerializeToElement(payloadModel),
                 errors: errors);
         }
@@ -58,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             ExecuteDispatchContext context,
             UcliCode code,
             string message,
-            string? opId)
+            IpcExecuteStepId? opId)
         {
             if (context == null)
             {
@@ -66,9 +66,9 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             }
 
             return new IpcResponse(
-                protocolVersion: context.ProtocolVersion,
+                protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: context.RequestId,
-                status: IpcProtocol.StatusError,
+                status: IpcResponseStatus.Error,
                 payload: IpcPayloadCodec.SerializeToElement(CreateEmptyExecutePayload(context.Project)),
                 errors: new[]
                 {
@@ -141,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 opResults[stepIndex] = IpcExecuteOperationResultFactory.Create(
                     opId: step.Id,
                     op: step.OperationName,
-                    phase: ToOperationPhaseName(lastPhase),
+                    phase: MapOperationPhase(lastPhase),
                     applied: applied,
                     changed: changed,
                     touched: touchedResources,
@@ -150,13 +150,13 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 operationTraceIndex += step.PrimitiveCount;
             }
 
-            return new IpcExecuteResponse(opResults, project)
-            {
-                PlanToken = planToken,
-                ReadPostcondition = CreateReadPostcondition(operationTraces, issuedAtUtc),
-                PostReadSource = CreatePostReadSource(steps),
-                ContractViolations = contractViolations.Count == 0 ? null : contractViolations,
-            };
+            return new IpcExecuteResponse(
+                opResults,
+                project,
+                planToken,
+                CreateReadPostcondition(operationTraces, issuedAtUtc),
+                CreatePostReadSource(steps),
+                contractViolations.Count == 0 ? null : contractViolations);
         }
 
         private static IpcExecutePostReadSource? CreatePostReadSource (IReadOnlyList<NormalizedRequestStep> steps)
@@ -197,7 +197,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             ref JsonElement? result)
         {
             var touchedResources = new List<IpcExecuteTouchedResource>();
-            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var seen = new HashSet<OperationTouch>();
             for (var i = 0; i < primitiveCount; i++)
             {
                 var operationTrace = operationTraces[startIndex + i];
@@ -213,16 +213,15 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 for (var touchedIndex = 0; touchedIndex < operationTrace.Touched.Count; touchedIndex++)
                 {
                     var touchedResource = operationTrace.Touched[touchedIndex];
-                    var key = touchedResource.Kind + "\u001f" + touchedResource.Path + "\u001f" + touchedResource.Guid;
-                    if (!seen.Add(key))
+                    if (!seen.Add(touchedResource))
                     {
                         continue;
                     }
 
                     touchedResources.Add(new IpcExecuteTouchedResource(
-                        Kind: IpcExecuteTouchedResourceKindMapper.ToName(touchedResource.Kind),
-                        Path: touchedResource.Path,
-                        Guid: touchedResource.Guid));
+                        kind: touchedResource.Kind,
+                        path: touchedResource.Path,
+                        assetGuid: touchedResource.AssetGuid));
                 }
             }
 
@@ -236,7 +235,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             int startIndex)
         {
             var diagnostics = new List<IpcExecuteDiagnostic>();
-            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var seen = new HashSet<(string Code, UcliDiagnosticSeverity Severity, IpcExecuteDiagnosticCoverageImpact CoverageImpact, string Message)>();
             AddDiagnostics(stepDiagnostics, diagnostics, seen);
             for (var i = 0; i < primitiveCount; i++)
             {
@@ -249,12 +248,12 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         private static void AddDiagnostics (
             IReadOnlyList<OperationDiagnostic> source,
             List<IpcExecuteDiagnostic> diagnostics,
-            HashSet<string> seen)
+            HashSet<(string Code, UcliDiagnosticSeverity Severity, IpcExecuteDiagnosticCoverageImpact CoverageImpact, string Message)> seen)
         {
             for (var i = 0; i < source.Count; i++)
             {
                 var diagnostic = source[i];
-                var key = diagnostic.Code.Value + "\u001f" + diagnostic.Severity + "\u001f" + diagnostic.CoverageImpact + "\u001f" + diagnostic.Message;
+                var key = (diagnostic.Code.Value, diagnostic.Severity, diagnostic.CoverageImpact, diagnostic.Message);
                 if (!seen.Add(key))
                 {
                     continue;
@@ -288,7 +287,13 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         /// <returns> The empty execute payload contract model. </returns>
         private static IpcExecuteResponse CreateEmptyExecutePayload (IpcProjectIdentity project)
         {
-            return new IpcExecuteResponse(Array.Empty<IpcExecuteOperationResult>(), project);
+            return new IpcExecuteResponse(
+                Array.Empty<IpcExecuteOperationResult>(),
+                project,
+                planToken: null,
+                readPostcondition: null,
+                postReadSource: null,
+                contractViolations: null);
         }
 
         private static IpcExecuteReadPostcondition? CreateReadPostcondition (
@@ -296,25 +301,25 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             DateTimeOffset issuedAtUtc)
         {
             var requirements = new List<IpcExecuteReadPostconditionRequirement>();
-            var seen = new HashSet<string>(StringComparer.Ordinal);
+            var seen = new HashSet<(IpcExecuteReadPostconditionSurface Surface, string? ScenePath)>();
             for (var traceIndex = 0; traceIndex < operationTraces.Count; traceIndex++)
             {
                 var operationTrace = operationTraces[traceIndex];
                 for (var invalidationIndex = 0; invalidationIndex < operationTrace.ReadInvalidations.Count; invalidationIndex++)
                 {
                     var invalidation = operationTrace.ReadInvalidations[invalidationIndex];
-                    var surfaceName = ToReadPostconditionSurfaceName(invalidation.Surface);
+                    var surface = MapReadPostconditionSurface(invalidation.Surface);
                     var normalizedScenePath = invalidation.ScenePath == null
                         ? null
                         : PathStringNormalizer.ToSlashSeparated(invalidation.ScenePath);
-                    var key = surfaceName + "\u001f" + normalizedScenePath;
+                    var key = (surface, normalizedScenePath);
                     if (!seen.Add(key))
                     {
                         continue;
                     }
 
                     requirements.Add(new IpcExecuteReadPostconditionRequirement(
-                        Surface: surfaceName,
+                        Surface: surface,
                         MinSafeGeneratedAtUtc: issuedAtUtc)
                     {
                         ScenePath = normalizedScenePath,
@@ -354,7 +359,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             }
 
             var errorIndex = failures.Count;
-            var seenViolationOpIds = new HashSet<string>(StringComparer.Ordinal);
+            var seenViolationOpIds = new HashSet<IpcExecuteStepId>();
             for (var i = 0; i < contractViolations.Count; i++)
             {
                 var violation = contractViolations[i];
@@ -375,7 +380,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
         private static int CountUniqueViolationOperations (IReadOnlyList<IpcExecuteContractViolation> contractViolations)
         {
-            var opIds = new HashSet<string>(StringComparer.Ordinal);
+            var opIds = new HashSet<IpcExecuteStepId>();
             for (var i = 0; i < contractViolations.Count; i++)
             {
                 opIds.Add(contractViolations[i].OpId);
@@ -384,43 +389,43 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             return opIds.Count;
         }
 
-        /// <summary> Converts one operation phase to protocol literal. </summary>
+        /// <summary> Maps one internal operation phase to its IPC contract value. </summary>
         /// <param name="phase"> The operation phase. </param>
-        /// <returns> The protocol phase literal. </returns>
+        /// <returns> The IPC operation phase. </returns>
         /// <exception cref="InvalidOperationException"> Thrown when phase has unsupported value. </exception>
-        private static string ToOperationPhaseName (OperationPhase phase)
+        private static IpcExecuteOperationPhase MapOperationPhase (OperationPhase phase)
         {
             switch (phase)
             {
                 case OperationPhase.Validate:
-                    return IpcExecuteOperationPhaseNames.Validate;
+                    return IpcExecuteOperationPhase.Validate;
 
                 case OperationPhase.Plan:
-                    return IpcExecuteOperationPhaseNames.Plan;
+                    return IpcExecuteOperationPhase.Plan;
 
                 case OperationPhase.Call:
-                    return IpcExecuteOperationPhaseNames.Call;
+                    return IpcExecuteOperationPhase.Call;
 
                 case OperationPhase.Skipped:
-                    return IpcExecuteOperationPhaseNames.Skipped;
+                    return IpcExecuteOperationPhase.Skipped;
 
                 default:
                     throw new InvalidOperationException($"Unsupported operation phase '{phase}'.");
             }
         }
 
-        private static string ToReadPostconditionSurfaceName (OperationReadInvalidationSurface surface)
+        private static IpcExecuteReadPostconditionSurface MapReadPostconditionSurface (OperationReadInvalidationSurface surface)
         {
             switch (surface)
             {
                 case OperationReadInvalidationSurface.AssetSearch:
-                    return IpcExecuteReadPostconditionSurfaceNames.AssetSearch;
+                    return IpcExecuteReadPostconditionSurface.AssetSearch;
 
                 case OperationReadInvalidationSurface.GuidPath:
-                    return IpcExecuteReadPostconditionSurfaceNames.GuidPath;
+                    return IpcExecuteReadPostconditionSurface.GuidPath;
 
                 case OperationReadInvalidationSurface.SceneTreeLite:
-                    return IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite;
+                    return IpcExecuteReadPostconditionSurface.SceneTreeLite;
 
                 default:
                     throw new InvalidOperationException($"Unsupported read invalidation surface '{surface}'.");

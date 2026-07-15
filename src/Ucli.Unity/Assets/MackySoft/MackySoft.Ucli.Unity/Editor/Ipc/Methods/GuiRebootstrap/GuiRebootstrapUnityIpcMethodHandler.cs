@@ -34,10 +34,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -72,7 +72,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var startResult = await bootstrapStarter.StartAsync(
                     bootstrapArguments: null,
                     sessionReplacementScope: sessionReplacementScope,
-                    cancellationToken: cancellationToken);
+                    cancellationToken: cancellation.Token);
                 if (!startResult.IsSuccess)
                 {
                     daemonLogger.Warning(
@@ -95,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     ProcessId: currentProcess.Id);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (cancellation.Token.IsCancellationRequested)
             {
                 throw;
             }

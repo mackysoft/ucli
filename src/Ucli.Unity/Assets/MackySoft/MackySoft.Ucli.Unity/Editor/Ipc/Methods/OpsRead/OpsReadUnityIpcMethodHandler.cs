@@ -8,7 +8,7 @@ using MackySoft.Ucli.Unity.Runtime;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>ops.read</c> IPC method requests. </summary>
-    internal sealed class OpsReadUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class OpsReadUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
         private readonly UcliOperationCatalogSnapshot operationCatalogSnapshot;
 
@@ -30,10 +30,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -49,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (payload!.RequireReadinessGate)
             {
-                var readinessResult = await readinessGate.EnsureExecutionReadyAsync(payload.FailFast, cancellationToken);
+                var readinessResult = await readinessGate.EnsureExecutionReadyAsync(payload.FailFast, cancellation.Token);
                 if (!readinessResult.IsReady)
                 {
                     var error = readinessResult.Error!;

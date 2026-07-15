@@ -29,10 +29,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -46,7 +46,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return errorResponse!;
             }
 
-            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(payload!.FailFast, cancellationToken);
+            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(payload!.FailFast, cancellation.Token);
             if (!readinessResult.IsReady)
             {
                 var error = readinessResult.Error!;
@@ -59,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             try
             {
-                var responsePayload = await assetLookupSnapshotBuilder.BuildAsync(cancellationToken);
+                var responsePayload = await assetLookupSnapshotBuilder.BuildAsync(cancellation.Token);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, responsePayload);
             }
             catch (OperationCanceledException)

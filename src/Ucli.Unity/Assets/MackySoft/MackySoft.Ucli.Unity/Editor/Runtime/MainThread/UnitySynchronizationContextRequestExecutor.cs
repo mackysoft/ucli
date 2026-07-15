@@ -10,6 +10,7 @@ namespace MackySoft.Ucli.Unity.Runtime
     internal sealed class UnitySynchronizationContextRequestExecutor :
         IUnityMainThreadRequestExecutor,
         IUnityControlPlaneRequestExecutor,
+        IUnityMutationRequestExecutionStartSource,
         IUnityMutationExecutionState,
         IUnityMutationLaneControl,
         IDisposable
@@ -26,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private readonly int maxPendingInvocations;
 
-        private readonly bool poisonOnActiveCancellation;
+        private readonly HashSet<Task> retirementDependencies = new HashSet<Task>();
 
         private bool isProcessorActive;
 
@@ -34,23 +35,28 @@ namespace MackySoft.Ucli.Unity.Runtime
 
         private IMainThreadInvocation? activeInvocation;
 
+        private IMainThreadInvocation? preparedInvocation;
+
         private bool isDisposed;
 
-        private string? poisonReason;
+        private string? quarantineReason;
 
         private object? admissionSealToken;
+
+        private TaskCompletionSource<bool>? retirementCompletionSource;
+
+        /// <inheritdoc />
+        public event Func<CancellationToken, Task>? RequestExecutionStarting;
 
         /// <summary> Initializes one main-thread executor with explicit ownership and capacity. </summary>
         /// <param name="mainThreadSynchronizationContext"> The captured Unity main-thread synchronization context. </param>
         /// <param name="mainThreadId"> The Unity main-thread identifier. </param>
         /// <param name="maxPendingInvocations"> The maximum number of invocations waiting behind a running invocation. </param>
-        /// <param name="poisonOnActiveCancellation"> Whether a canceled non-terminal invocation poisons this lane. </param>
         /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="maxPendingInvocations" /> is not positive. </exception>
         internal UnitySynchronizationContextRequestExecutor (
             SynchronizationContext? mainThreadSynchronizationContext,
             int mainThreadId,
-            int maxPendingInvocations,
-            bool poisonOnActiveCancellation)
+            int maxPendingInvocations)
         {
             if (maxPendingInvocations <= 0)
             {
@@ -63,7 +69,6 @@ namespace MackySoft.Ucli.Unity.Runtime
             this.mainThreadSynchronizationContext = mainThreadSynchronizationContext;
             this.mainThreadId = mainThreadId;
             this.maxPendingInvocations = maxPendingInvocations;
-            this.poisonOnActiveCancellation = poisonOnActiveCancellation;
 
             // NOTE:
             // Unity can replace or temporarily stop servicing the captured SynchronizationContext while the
@@ -80,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Runtime
                 lock (syncRoot)
                 {
                     RemoveCompletedPendingInvocations();
-                    return poisonReason != null
+                    return quarantineReason != null
                         || admissionSealToken != null
                         || isRunningInvocation
                         || pendingInvocations.Count > 0;
@@ -89,36 +94,98 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <inheritdoc />
-        public bool IsPoisoned
+        public bool HasUnfinishedWork
         {
             get
             {
                 lock (syncRoot)
                 {
-                    return poisonReason != null;
+                    RemoveCompletedPendingInvocations();
+                    RemoveCompletedRetirementDependencies();
+                    return HasUnfinishedWorkLocked();
                 }
             }
         }
 
         /// <inheritdoc />
-        public void Poison (string reason)
+        public bool IsQuarantined
+        {
+            get
+            {
+                lock (syncRoot)
+                {
+                    return quarantineReason != null;
+                }
+            }
+        }
+
+        /// <inheritdoc />
+        public IUnityMutationActivity BeginMutation ()
+        {
+            lock (syncRoot)
+            {
+                if (isDisposed)
+                {
+                    throw new ObjectDisposedException(nameof(UnitySynchronizationContextRequestExecutor));
+                }
+
+                if (activeInvocation == null)
+                {
+                    throw new InvalidOperationException(
+                        "A Unity mutation can start only from the request currently executing on this lane.");
+                }
+
+                return activeInvocation.BeginMutation();
+            }
+        }
+
+        /// <inheritdoc />
+        public void Quarantine (string reason, Task mutationCompletion)
         {
             if (string.IsNullOrWhiteSpace(reason))
             {
-                throw new ArgumentException("Mutation lane poison reason must not be empty.", nameof(reason));
+                throw new ArgumentException("Mutation lane quarantine reason must not be empty.", nameof(reason));
+            }
+
+            if (mutationCompletion == null)
+            {
+                throw new ArgumentNullException(nameof(mutationCompletion));
             }
 
             List<IMainThreadInvocation>? failures = null;
-            UnityMutationLanePoisonedException? exception = null;
+            UnityMutationLaneQuarantinedException? exception = null;
+            var trackDependency = false;
+            TaskCompletionSource<bool>? retirementSource;
             lock (syncRoot)
             {
-                if (isDisposed || poisonReason != null)
+                if (isDisposed)
                 {
                     return;
                 }
 
-                poisonReason = reason;
-                exception = new UnityMutationLanePoisonedException(reason);
+                if (quarantineReason == null)
+                {
+                    if (mutationCompletion.Status == TaskStatus.RanToCompletion)
+                    {
+                        return;
+                    }
+
+                    if (activeInvocation == null || !activeInvocation.HasActiveMutation)
+                    {
+                        throw new InvalidOperationException(
+                            "The current request cannot quarantine the lane because it has no unfinished started Unity mutation.");
+                    }
+
+                    quarantineReason = reason;
+                }
+
+                exception = new UnityMutationLaneQuarantinedException(quarantineReason);
+                if (!mutationCompletion.IsCompleted && retirementDependencies.Add(mutationCompletion))
+                {
+                    EnsureRetirementCompletionSourceLocked();
+                    trackDependency = true;
+                }
+
                 if (pendingInvocations.Count > 0)
                 {
                     failures = new List<IMainThreadInvocation>(pendingInvocations.Count);
@@ -132,6 +199,24 @@ namespace MackySoft.Ucli.Unity.Runtime
                 {
                     isProcessorActive = false;
                 }
+
+                retirementSource = TakeCompletedRetirementSourceLocked();
+            }
+
+            retirementSource?.TrySetResult(true);
+
+            if (trackDependency)
+            {
+                _ = mutationCompletion.ContinueWith(
+                    static (_, state) =>
+                    {
+                        var dependencyState = (RetirementDependencyState)state!;
+                        dependencyState.Owner.OnRetirementDependencyCompleted(dependencyState.Dependency);
+                    },
+                    new RetirementDependencyState(this, mutationCompletion),
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
             }
 
             if (failures == null)
@@ -146,16 +231,15 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <inheritdoc />
-        public bool TrySealAdmissionWhenIdle (out IDisposable admissionSeal)
+        public bool TrySealAdmissionForRetirement (out IDisposable admissionSeal)
         {
             lock (syncRoot)
             {
                 RemoveCompletedPendingInvocations();
                 if (isDisposed
-                    || poisonReason != null
                     || admissionSealToken != null
-                    || isRunningInvocation
-                    || pendingInvocations.Count > 0)
+                    || (quarantineReason == null
+                        && (isRunningInvocation || pendingInvocations.Count > 0)))
                 {
                     admissionSeal = null;
                     return false;
@@ -169,11 +253,29 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <inheritdoc />
+        public Task WaitForRetirementAsync ()
+        {
+            lock (syncRoot)
+            {
+                RemoveCompletedPendingInvocations();
+                RemoveCompletedRetirementDependencies();
+                if (!HasUnfinishedWorkLocked())
+                {
+                    return Task.CompletedTask;
+                }
+
+                return EnsureRetirementCompletionSourceLocked().Task;
+            }
+        }
+
+        /// <inheritdoc />
         public void Dispose ()
         {
             EditorApplication.update -= ProcessQueueOnEditorUpdate;
             var exception = new ObjectDisposedException(nameof(UnitySynchronizationContextRequestExecutor));
             List<IMainThreadInvocation>? failures = null;
+            IMainThreadInvocation? preparedFailure = null;
+            TaskCompletionSource<bool>? retirementSource;
             lock (syncRoot)
             {
                 if (isDisposed)
@@ -182,6 +284,8 @@ namespace MackySoft.Ucli.Unity.Runtime
                 }
 
                 isDisposed = true;
+                preparedFailure = preparedInvocation;
+                preparedInvocation = null;
                 if (pendingInvocations.Count > 0)
                 {
                     failures = new List<IMainThreadInvocation>(pendingInvocations.Count);
@@ -195,6 +299,16 @@ namespace MackySoft.Ucli.Unity.Runtime
                 {
                     isProcessorActive = false;
                 }
+
+                retirementSource = TakeCompletedRetirementSourceLocked();
+            }
+
+            retirementSource?.TrySetResult(true);
+
+            if (preparedFailure != null)
+            {
+                preparedFailure.TrySetException(exception);
+                CompleteInvocation(preparedFailure);
             }
 
             if (failures == null)
@@ -234,9 +348,9 @@ namespace MackySoft.Ucli.Unity.Runtime
                     return Task.FromException<T>(new ObjectDisposedException(nameof(UnitySynchronizationContextRequestExecutor)));
                 }
 
-                if (poisonReason != null)
+                if (quarantineReason != null)
                 {
-                    return Task.FromException<T>(new UnityMutationLanePoisonedException(poisonReason));
+                    return Task.FromException<T>(new UnityMutationLaneQuarantinedException(quarantineReason));
                 }
 
                 if (admissionSealToken != null)
@@ -255,6 +369,7 @@ namespace MackySoft.Ucli.Unity.Runtime
                     cancellationToken,
                     OnInvocationCancellation);
                 pendingInvocations.Enqueue(invocation);
+                EnsureRetirementCompletionSourceLocked();
                 if (!isProcessorActive)
                 {
                     isProcessorActive = true;
@@ -279,6 +394,54 @@ namespace MackySoft.Ucli.Unity.Runtime
                     admissionSealToken = null;
                 }
             }
+        }
+
+        private TaskCompletionSource<bool> EnsureRetirementCompletionSourceLocked ()
+        {
+            if (retirementCompletionSource == null || retirementCompletionSource.Task.IsCompleted)
+            {
+                retirementCompletionSource = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+            }
+
+            return retirementCompletionSource;
+        }
+
+        private bool HasUnfinishedWorkLocked ()
+        {
+            return isRunningInvocation
+                || pendingInvocations.Count > 0
+                || retirementDependencies.Count > 0;
+        }
+
+        private void RemoveCompletedRetirementDependencies ()
+        {
+            retirementDependencies.RemoveWhere(static dependency => dependency.IsCompleted);
+        }
+
+        private TaskCompletionSource<bool>? TakeCompletedRetirementSourceLocked ()
+        {
+            RemoveCompletedRetirementDependencies();
+            if (HasUnfinishedWorkLocked())
+            {
+                return null;
+            }
+
+            var completionSource = retirementCompletionSource;
+            retirementCompletionSource = null;
+            return completionSource;
+        }
+
+        private void OnRetirementDependencyCompleted (Task dependency)
+        {
+            TaskCompletionSource<bool>? completionSource;
+            lock (syncRoot)
+            {
+                retirementDependencies.Remove(dependency);
+                completionSource = TakeCompletedRetirementSourceLocked();
+            }
+
+            completionSource?.TrySetResult(true);
         }
 
         /// <summary> Schedules queue processing on Unity main thread synchronization context. </summary>
@@ -319,6 +482,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         private void ProcessQueueOnMainThread ()
         {
             IMainThreadInvocation? invocation = null;
+            var prepareExecutionStart = false;
             lock (syncRoot)
             {
                 if (isDisposed)
@@ -329,22 +493,105 @@ namespace MackySoft.Ucli.Unity.Runtime
 
                 if (isRunningInvocation)
                 {
-                    return;
-                }
+                    if (preparedInvocation == null)
+                    {
+                        return;
+                    }
 
-                RemoveCompletedPendingInvocations();
-                if (pendingInvocations.Count == 0)
+                    invocation = preparedInvocation;
+                    preparedInvocation = null;
+                }
+                else
                 {
-                    isProcessorActive = false;
-                    return;
-                }
+                    RemoveCompletedPendingInvocations();
+                    if (pendingInvocations.Count == 0)
+                    {
+                        isProcessorActive = false;
+                        return;
+                    }
 
-                invocation = pendingInvocations.Dequeue();
-                isRunningInvocation = true;
-                activeInvocation = invocation;
+                    invocation = pendingInvocations.Dequeue();
+                    isRunningInvocation = true;
+                    activeInvocation = invocation;
+                    prepareExecutionStart = true;
+                }
+            }
+
+            if (prepareExecutionStart)
+            {
+                _ = PrepareInvocationAsync(invocation);
+                return;
             }
 
             _ = RunInvocationAsync(invocation);
+        }
+
+        private async Task NotifyRequestExecutionStartingAsync (CancellationToken cancellationToken)
+        {
+            var handlers = RequestExecutionStarting;
+            if (handlers == null)
+            {
+                return;
+            }
+
+            foreach (Func<CancellationToken, Task> handler in handlers.GetInvocationList())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var barrierTask = handler(cancellationToken);
+                if (barrierTask == null)
+                {
+                    throw new InvalidOperationException(
+                        "A Unity mutation execution-start barrier returned a null task.");
+                }
+
+                await barrierTask.ConfigureAwait(false);
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        private async Task PrepareInvocationAsync (IMainThreadInvocation invocation)
+        {
+            try
+            {
+                await NotifyRequestExecutionStartingAsync(invocation.CancellationToken).ConfigureAwait(false);
+                lock (syncRoot)
+                {
+                    if (isDisposed)
+                    {
+                        throw new ObjectDisposedException(nameof(UnitySynchronizationContextRequestExecutor));
+                    }
+
+                    if (!isRunningInvocation || !ReferenceEquals(activeInvocation, invocation))
+                    {
+                        throw new InvalidOperationException(
+                            "The Unity mutation request lost execution ownership before its start barrier completed.");
+                    }
+
+                    if (preparedInvocation != null)
+                    {
+                        throw new InvalidOperationException(
+                            "Another Unity mutation request is already prepared for main-thread execution.");
+                    }
+
+                    preparedInvocation = invocation;
+                }
+
+                // The barrier can complete on a worker thread or a stale synchronization context. The editor
+                // update pump remains authoritative for invoking the request delegate on Unity's main thread.
+                ScheduleProcessor();
+                return;
+            }
+            catch (OperationCanceledException) when (invocation.CancellationToken.IsCancellationRequested)
+            {
+                invocation.TrySetCanceled();
+            }
+            catch (Exception exception)
+            {
+                invocation.TrySetException(exception);
+            }
+
+            CompleteInvocation(invocation);
         }
 
         /// <summary> Runs one queued invocation and releases execution gate after completion. </summary>
@@ -355,32 +602,62 @@ namespace MackySoft.Ucli.Unity.Runtime
             try
             {
                 await invocation.RunAsync().ConfigureAwait(false);
+                if (invocation.HasActiveMutation)
+                {
+                    Quarantine(
+                        "A Unity mutation request terminated before its mutation reached a safe state.",
+                        invocation.MutationCompletion);
+                    await invocation.MutationCompletion.ConfigureAwait(false);
+                }
+            }
+            catch (OperationCanceledException) when (invocation.CancellationToken.IsCancellationRequested)
+            {
+                invocation.TrySetCanceled();
+            }
+            catch (Exception exception)
+            {
+                invocation.TrySetException(exception);
             }
             finally
             {
-                var shouldScheduleProcessor = false;
-                lock (syncRoot)
-                {
-                    isRunningInvocation = false;
-                    if (ReferenceEquals(activeInvocation, invocation))
-                    {
-                        activeInvocation = null;
-                    }
+                CompleteInvocation(invocation);
+            }
+        }
 
-                    if (pendingInvocations.Count == 0)
-                    {
-                        isProcessorActive = false;
-                    }
-                    else
-                    {
-                        shouldScheduleProcessor = true;
-                    }
+        private void CompleteInvocation (IMainThreadInvocation invocation)
+        {
+            var shouldScheduleProcessor = false;
+            TaskCompletionSource<bool>? retirementSource;
+            lock (syncRoot)
+            {
+                if (ReferenceEquals(preparedInvocation, invocation))
+                {
+                    preparedInvocation = null;
                 }
 
-                if (shouldScheduleProcessor)
+                isRunningInvocation = false;
+                if (ReferenceEquals(activeInvocation, invocation))
                 {
-                    ScheduleProcessor();
+                    activeInvocation = null;
                 }
+
+                if (quarantineReason != null || pendingInvocations.Count == 0)
+                {
+                    isProcessorActive = false;
+                }
+                else
+                {
+                    shouldScheduleProcessor = true;
+                }
+
+                retirementSource = TakeCompletedRetirementSourceLocked();
+            }
+
+            retirementSource?.TrySetResult(true);
+
+            if (shouldScheduleProcessor)
+            {
+                ScheduleProcessor();
             }
         }
 
@@ -390,9 +667,9 @@ namespace MackySoft.Ucli.Unity.Runtime
             lock (syncRoot)
             {
                 shouldAwaitQuiescence = !isDisposed
-                    && poisonReason == null
+                    && quarantineReason == null
                     && ReferenceEquals(activeInvocation, invocation)
-                    && invocation.HasNonTerminalWork;
+                    && invocation.HasActiveMutation;
             }
 
             if (!shouldAwaitQuiescence)
@@ -418,22 +695,25 @@ namespace MackySoft.Ucli.Unity.Runtime
 
                 pendingInvocations.Enqueue(invocation);
             }
+
+            if (!HasUnfinishedWorkLocked())
+            {
+                var completionSource = retirementCompletionSource;
+                retirementCompletionSource = null;
+                completionSource?.TrySetResult(true);
+            }
         }
 
         private async Task CompleteActiveCancellationAfterQuiescenceGraceAsync (IMainThreadInvocation invocation)
         {
             var didQuiesce = await UnityMutationCancellationPolicy
-                .WaitForQuiescenceAsync(invocation.TerminalCompletion)
+                .WaitForQuiescenceAsync(invocation.MutationCompletion)
                 .ConfigureAwait(false);
             if (!didQuiesce)
             {
-                if (poisonOnActiveCancellation)
-                {
-                    Poison(
-                        "A canceled Unity mutation did not reach a terminal state and may still mutate Editor state.");
-                }
-
-                invocation.DetachNonTerminalWork();
+                Quarantine(
+                    "A canceled Unity mutation did not reach a safe state within the cancellation grace period.",
+                    invocation.MutationCompletion);
             }
 
             invocation.TrySetCanceled();
@@ -444,6 +724,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         private void FailPendingInvocations (Exception exception)
         {
             List<IMainThreadInvocation>? failures = null;
+            TaskCompletionSource<bool>? retirementSource;
             lock (syncRoot)
             {
                 if (pendingInvocations.Count > 0)
@@ -459,7 +740,11 @@ namespace MackySoft.Ucli.Unity.Runtime
                 {
                     isProcessorActive = false;
                 }
+
+                retirementSource = TakeCompletedRetirementSourceLocked();
             }
+
+            retirementSource?.TrySetResult(true);
 
             if (failures == null)
             {
@@ -475,17 +760,23 @@ namespace MackySoft.Ucli.Unity.Runtime
         /// <summary> Represents one queued main-thread invocation. </summary>
         private interface IMainThreadInvocation
         {
-            /// <summary> Gets whether user work has started and remains non-terminal. </summary>
-            bool HasNonTerminalWork { get; }
+            /// <summary> Gets the request cancellation token. </summary>
+            CancellationToken CancellationToken { get; }
 
-            /// <summary> Gets the task that completes when user work can no longer mutate Unity state. </summary>
-            Task TerminalCompletion { get; }
+            /// <summary> Gets whether a Unity mutation started and has not yet reached its safe state. </summary>
+            bool HasActiveMutation { get; }
+
+            /// <summary> Gets the task that completes when the explicit Unity mutation reaches its safe state. </summary>
+            Task MutationCompletion { get; }
 
             /// <summary> Gets whether the outward completion was already published. </summary>
             bool IsOutwardCompleted { get; }
 
             /// <summary> Runs queued work item on the Unity main thread. </summary>
             Task RunAsync ();
+
+            /// <summary> Starts the request's explicit Unity-mutation activity. </summary>
+            IUnityMutationActivity BeginMutation ();
 
             /// <summary> Completes the invocation as failed when main-thread scheduling cannot proceed. </summary>
             /// <param name="exception"> The scheduling failure. </param>
@@ -497,8 +788,6 @@ namespace MackySoft.Ucli.Unity.Runtime
             /// <summary> Releases cancellation registration after a canceled queued item is removed. </summary>
             void DisposeCancellationRegistration ();
 
-            /// <summary> Stops awaiting non-terminal work after mutation admission has been poisoned. </summary>
-            void DetachNonTerminalWork ();
         }
 
         /// <summary> Represents one posted main-thread invocation with completion tracking. </summary>
@@ -512,17 +801,9 @@ namespace MackySoft.Ucli.Unity.Runtime
 
             private readonly CancellationTokenRegistration cancellationRegistration;
 
-            private readonly TaskCompletionSource<bool> detachSource =
-                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            private readonly object mutationSyncRoot = new object();
 
-            private readonly TaskCompletionSource<bool> terminalSource =
-                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
-
-            private Task<T>? activeWorkTask;
-
-            private int workStarted;
-
-            private int workTerminal;
+            private MutationActivity? mutationActivity;
 
             /// <summary> Initializes a new instance of the <see cref="MainThreadInvocation" /> class. </summary>
             /// <param name="workItem"> The work item delegate. </param>
@@ -547,34 +828,34 @@ namespace MackySoft.Ucli.Unity.Runtime
             }
 
             /// <inheritdoc />
-            public bool HasNonTerminalWork
+            public bool HasActiveMutation
             {
                 get
                 {
-                    if (Volatile.Read(ref workStarted) == 0)
+                    lock (mutationSyncRoot)
                     {
-                        return false;
+                        return mutationActivity != null && !mutationActivity.Completion.IsCompleted;
                     }
-
-                    var workTask = Volatile.Read(ref activeWorkTask);
-                    return workTask == null
-                        ? Volatile.Read(ref workTerminal) == 0
-                        : !workTask.IsCompleted;
                 }
             }
 
             /// <inheritdoc />
-            public Task TerminalCompletion
+            public Task MutationCompletion
             {
                 get
                 {
-                    var workTask = Volatile.Read(ref activeWorkTask);
-                    return workTask != null ? workTask : terminalSource.Task;
+                    lock (mutationSyncRoot)
+                    {
+                        return mutationActivity?.Completion ?? Task.CompletedTask;
+                    }
                 }
             }
 
             /// <inheritdoc />
             public bool IsOutwardCompleted => CompletionSource.Task.IsCompleted;
+
+            /// <inheritdoc />
+            public CancellationToken CancellationToken => cancellationToken;
 
             /// <summary> Gets the completion task for this invocation. </summary>
             public Task<T> Completion => CompletionSource.Task;
@@ -589,16 +870,10 @@ namespace MackySoft.Ucli.Unity.Runtime
                 try
                 {
                     cancellationToken.ThrowIfCancellationRequested();
-                    Volatile.Write(ref workStarted, 1);
-                    cancellationToken.ThrowIfCancellationRequested();
                     var workTask = workItem();
-                    Volatile.Write(ref activeWorkTask, workTask);
-                    TrackTerminalCompletion(workTask);
-                    var completedTask = await Task.WhenAny(workTask, detachSource.Task).ConfigureAwait(false);
-                    if (!ReferenceEquals(completedTask, workTask))
+                    if (workTask == null)
                     {
-                        ObserveFault(workTask);
-                        cancellationToken.ThrowIfCancellationRequested();
+                        throw new InvalidOperationException("Unity main-thread work returned a null task.");
                     }
 
                     var result = await workTask.ConfigureAwait(false);
@@ -607,7 +882,8 @@ namespace MackySoft.Ucli.Unity.Runtime
                 }
                 catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
-                    CompletionSource.TrySetCanceled();
+                    // OnInvocationCancellation owns outward cancellation so a started mutation cannot
+                    // publish cancellation before it either reaches a safe state or is quarantined.
                 }
                 catch (Exception exception)
                 {
@@ -615,29 +891,25 @@ namespace MackySoft.Ucli.Unity.Runtime
                 }
                 finally
                 {
-                    Volatile.Write(ref workTerminal, 1);
-                    if (Volatile.Read(ref activeWorkTask) == null)
-                    {
-                        terminalSource.TrySetResult(true);
-                    }
-
                     cancellationRegistration.Dispose();
                 }
             }
 
-            private void TrackTerminalCompletion (Task workTask)
+            /// <inheritdoc />
+            public IUnityMutationActivity BeginMutation ()
             {
-                if (workTask == null)
+                lock (mutationSyncRoot)
                 {
-                    return;
-                }
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (mutationActivity != null)
+                    {
+                        throw new InvalidOperationException(
+                            "One main-thread request cannot start more than one Unity mutation activity.");
+                    }
 
-                _ = workTask.ContinueWith(
-                    static (_, state) => ((TaskCompletionSource<bool>)state!).TrySetResult(true),
-                    terminalSource,
-                    CancellationToken.None,
-                    TaskContinuationOptions.ExecuteSynchronously,
-                    TaskScheduler.Default);
+                    mutationActivity = new MutationActivity();
+                    return mutationActivity;
+                }
             }
 
             /// <summary> Completes invocation as failed when scheduling on main thread cannot proceed. </summary>
@@ -660,21 +932,23 @@ namespace MackySoft.Ucli.Unity.Runtime
                 cancellationRegistration.Dispose();
             }
 
-            /// <inheritdoc />
-            public void DetachNonTerminalWork ()
+            private sealed class MutationActivity : IUnityMutationActivity
             {
-                detachSource.TrySetResult(true);
-            }
+                private readonly TaskCompletionSource<bool> completionSource =
+                    new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
-            private static void ObserveFault (Task task)
-            {
-                _ = task.ContinueWith(
-                    static completedTask => _ = completedTask.Exception,
-                    CancellationToken.None,
-                    TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnFaulted,
-                    TaskScheduler.Default);
+                public Task Completion => completionSource.Task;
+
+                public void Complete ()
+                {
+                    completionSource.TrySetResult(true);
+                }
             }
         }
+
+        private sealed record RetirementDependencyState (
+            UnitySynchronizationContextRequestExecutor Owner,
+            Task Dependency);
 
         private sealed class MutationAdmissionSeal : IDisposable
         {
@@ -723,10 +997,10 @@ namespace MackySoft.Ucli.Unity.Runtime
     }
 
     /// <summary> Indicates that an unfinished mutation made the current host generation unsafe to reuse. </summary>
-    internal sealed class UnityMutationLanePoisonedException : UnityMutationLaneUnavailableException
+    internal sealed class UnityMutationLaneQuarantinedException : UnityMutationLaneUnavailableException
     {
-        public UnityMutationLanePoisonedException (string reason)
-            : base($"Unity mutation safety is indeterminate. Restart the Unity Editor before sending another mutation. {reason}")
+        public UnityMutationLaneQuarantinedException (string reason)
+            : base($"The current Unity mutation host generation is quarantined and cannot accept additional work. {reason}")
         {
         }
     }

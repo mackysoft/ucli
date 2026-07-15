@@ -1,5 +1,6 @@
 using System;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -63,6 +64,6 @@ namespace MackySoft.Ucli.Unity.Runtime
             IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(State.LifecycleState);
 
         /// <summary> Gets the action required to resolve the lifecycle state, when one is known. </summary>
-        public string ActionRequired => UnityEditorExecutionReadinessPolicy.ResolveActionRequired(State.LifecycleState);
+        public DaemonDiagnosisActionRequired? ActionRequired => UnityEditorExecutionReadinessPolicy.ResolveActionRequired(State.LifecycleState);
     }
 }

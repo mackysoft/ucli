@@ -32,10 +32,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -78,13 +78,13 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal interface IUnityShutdownAdmissionCoordinator
     {
         /// <summary> Seals mutation admission for one logical shutdown request and registers the current response exchange. </summary>
-        bool TryPrepare (IpcRequest request, out string errorMessage);
+        bool TryPrepare (ValidatedUnityIpcRequest request, out string errorMessage);
 
         /// <summary> Commits the seal after a response exchange for the matching logical request has been written. </summary>
-        bool TryCommit (IpcRequest request);
+        bool TryCommit (ValidatedUnityIpcRequest request);
 
         /// <summary> Releases one failed response exchange and the uncommitted seal when no matching exchange remains active. </summary>
-        void Abort (IpcRequest request);
+        void Abort (ValidatedUnityIpcRequest request);
     }
 
     /// <summary> Owns the shutdown admission seal until the current host generation is disposed. </summary>
@@ -94,7 +94,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IUnityMutationLaneControl mutationLaneControl;
 
-        private readonly List<IpcRequest> activeExchanges = new List<IpcRequest>();
+        private readonly List<ValidatedUnityIpcRequest> activeExchanges = new List<ValidatedUnityIpcRequest>();
 
         private Guid? preparedRequestId;
 
@@ -111,7 +111,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public bool TryPrepare (IpcRequest request, out string errorMessage)
+        public bool TryPrepare (ValidatedUnityIpcRequest request, out string errorMessage)
         {
             if (request == null)
             {
@@ -143,10 +143,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     return false;
                 }
 
-                if (!mutationLaneControl.TrySealAdmissionWhenIdle(out var nextAdmissionSeal))
+                if (!mutationLaneControl.TrySealAdmissionForRetirement(out var nextAdmissionSeal))
                 {
-                    errorMessage = mutationLaneControl.IsPoisoned
-                        ? "Unity mutation safety is indeterminate. Restart the Unity Editor to complete shutdown."
+                    errorMessage = mutationLaneControl.IsQuarantined
+                        ? "The quarantined Unity mutation generation could not begin retirement. Retry shutdown."
                         : "A Unity mutation is active or queued. Retry shutdown after it reaches a terminal state.";
                     return false;
                 }
@@ -160,7 +160,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public bool TryCommit (IpcRequest request)
+        public bool TryCommit (ValidatedUnityIpcRequest request)
         {
             if (request == null)
             {
@@ -183,7 +183,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <inheritdoc />
-        public void Abort (IpcRequest request)
+        public void Abort (ValidatedUnityIpcRequest request)
         {
             IDisposable sealToRelease = null;
             lock (syncRoot)
@@ -230,12 +230,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             sealToRelease?.Dispose();
         }
 
-        private bool ContainsActiveExchange (IpcRequest request)
+        private bool ContainsActiveExchange (ValidatedUnityIpcRequest request)
         {
             return FindActiveExchangeIndex(request) >= 0;
         }
 
-        private bool RemoveActiveExchange (IpcRequest request)
+        private bool RemoveActiveExchange (ValidatedUnityIpcRequest request)
         {
             var index = FindActiveExchangeIndex(request);
             if (index < 0)
@@ -247,7 +247,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             return true;
         }
 
-        private int FindActiveExchangeIndex (IpcRequest request)
+        private int FindActiveExchangeIndex (ValidatedUnityIpcRequest request)
         {
             for (var i = 0; i < activeExchanges.Count; i++)
             {

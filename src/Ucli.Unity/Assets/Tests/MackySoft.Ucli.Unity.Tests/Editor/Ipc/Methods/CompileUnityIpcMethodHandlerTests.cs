@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -33,18 +34,18 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void TryCreateRecoverableRequestPayloadHash_WhenOnlyTimeoutDiffers_ReturnsSameHash ()
+        public void TryCreateRecoverableRequestPayloadHash_WhenOnlyRequestDeadlineDiffers_ReturnsSameHash ()
         {
             var handler = CreateHandler();
-            var firstRequest = CreateCompileRequest(Guid.NewGuid(), RunId, timeoutMilliseconds: 1000);
-            var secondRequest = CreateCompileRequest(Guid.NewGuid(), RunId, timeoutMilliseconds: 2000);
+            var firstRequest = CreateCompileRequest(Guid.NewGuid(), RunId, requestDeadlineRemainingMilliseconds: 1000);
+            var secondRequest = CreateCompileRequest(Guid.NewGuid(), RunId, requestDeadlineRemainingMilliseconds: 2000);
 
             var firstResult = handler.TryCreateRecoverableRequestPayloadHash(
-                firstRequest,
+                ValidatedUnityIpcRequestTestFactory.Create(firstRequest),
                 out var firstHash,
                 out var firstError);
             var secondResult = handler.TryCreateRecoverableRequestPayloadHash(
-                secondRequest,
+                ValidatedUnityIpcRequestTestFactory.Create(secondRequest),
                 out var secondHash,
                 out var secondError);
 
@@ -63,35 +64,17 @@ namespace MackySoft.Ucli.Unity.Tests
             var secondRequest = CreateCompileRequest(Guid.NewGuid(), OtherRunId);
 
             var firstResult = handler.TryCreateRecoverableRequestPayloadHash(
-                firstRequest,
+                ValidatedUnityIpcRequestTestFactory.Create(firstRequest),
                 out var firstHash,
                 out var firstError);
             var secondResult = handler.TryCreateRecoverableRequestPayloadHash(
-                secondRequest,
+                ValidatedUnityIpcRequestTestFactory.Create(secondRequest),
                 out var secondHash,
                 out var secondError);
 
             Assert.That(firstResult, Is.True, firstError?.Errors[0].Message);
             Assert.That(secondResult, Is.True, secondError?.Errors[0].Message);
             Assert.That(secondHash, Is.Not.EqualTo(firstHash));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void TryCreateRecoverableRequestPayloadHash_WhenTimeoutIsInvalid_ReturnsInvalidArgument ()
-        {
-            var handler = CreateHandler();
-            var request = CreateCompileRequest(Guid.NewGuid(), RunId, timeoutMilliseconds: 0);
-
-            var result = handler.TryCreateRecoverableRequestPayloadHash(
-                request,
-                out var requestPayloadHash,
-                out var errorResponse);
-
-            Assert.That(result, Is.False);
-            Assert.That(requestPayloadHash, Is.Null);
-            Assert.That(errorResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
-            Assert.That(errorResponse.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
         }
 
         [UnityTest]
@@ -122,9 +105,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 var context = CreateRecoverableContext(request, pendingSummary);
                 var handler = CreateHandler();
 
-                var response = await handler.HandleRecoverableAsync(request, context, CancellationToken.None);
+                var response = await UnityIpcMethodHandlerTestInvoker.HandleRecoverableAsync(handler, request, context, CancellationToken.None);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcCompileResponse payload, out _), Is.True);
                 Assert.That(payload.Summary.RunId, Is.EqualTo(runId));
                 Assert.That(payload.Summary.Completed, Is.True);
@@ -162,10 +145,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     Completed = true,
                     CompletedAtUtc = pendingSummary.StartedAtUtc.AddSeconds(1),
-                    Lifecycle = pendingSummary.Lifecycle with
-                    {
-                        UnityVersion = "2023.2.22f1",
-                    },
+                    Lifecycle = new IpcCompileSummary.LifecycleEvidence(
+                        ServerVersion: pendingSummary.Lifecycle.ServerVersion,
+                        UnityVersion: "2023.2.22f1",
+                        State: pendingSummary.Lifecycle.State,
+                        ObservedAtUtc: pendingSummary.Lifecycle.ObservedAtUtc,
+                        ActionRequired: pendingSummary.Lifecycle.ActionRequired,
+                        PrimaryDiagnostic: pendingSummary.Lifecycle.PrimaryDiagnostic),
                 };
                 Directory.CreateDirectory(artifactsDirectory);
                 File.WriteAllText(
@@ -174,9 +160,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 var context = CreateRecoverableContext(request, pendingSummary);
                 var handler = CreateHandler();
 
-                var response = await handler.HandleRecoverableAsync(request, context, CancellationToken.None);
+                var response = await UnityIpcMethodHandlerTestInvoker.HandleRecoverableAsync(handler, request, context, CancellationToken.None);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcCompileResponse payload, out _), Is.True);
                 Assert.That(payload.Summary.Lifecycle.UnityVersion, Is.EqualTo("6000.1.4f1"));
                 Assert.That(payload.Summary.DomainReload.ReloadObserved, Is.True);
@@ -196,36 +182,39 @@ namespace MackySoft.Ucli.Unity.Tests
             var originalPendingSummary = CreatePendingSummary(runId);
             var pendingSummary = originalPendingSummary with
             {
-                Lifecycle = originalPendingSummary.Lifecycle with
-                {
-                    UnityVersion = "2023.2.22f1",
-                },
+                Lifecycle = new IpcCompileSummary.LifecycleEvidence(
+                    ServerVersion: originalPendingSummary.Lifecycle.ServerVersion,
+                    UnityVersion: "2023.2.22f1",
+                    State: originalPendingSummary.Lifecycle.State,
+                    ObservedAtUtc: originalPendingSummary.Lifecycle.ObservedAtUtc,
+                    ActionRequired: originalPendingSummary.Lifecycle.ActionRequired,
+                    PrimaryDiagnostic: originalPendingSummary.Lifecycle.PrimaryDiagnostic),
             };
             var context = CreateRecoverableContext(request, pendingSummary);
             var handler = CreateHandler();
 
-            var response = await handler.HandleRecoverableAsync(request, context, CancellationToken.None);
+            var response = await UnityIpcMethodHandlerTestInvoker.HandleRecoverableAsync(handler, request, context, CancellationToken.None);
 
-            Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InternalError));
             Assert.That(response.Errors[0].Message, Does.Contain("Unity version"));
         });
 
-        private static IpcRequest CreateCompileRequest (
+        private static IpcRequestEnvelope CreateCompileRequest (
             Guid requestId,
             Guid runId,
-            int timeoutMilliseconds = 5000)
+            int requestDeadlineRemainingMilliseconds = 5000)
         {
-            return new IpcRequest(
+            return new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "session-token",
                 method: ContractLiteralCodec.ToValue(UnityIpcMethod.Compile),
-                payload: IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(runId)
-                {
-                    TimeoutMilliseconds = timeoutMilliseconds,
-                }),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
+                payload: IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(runId)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.UtcNow
+                    + TimeSpan.FromMilliseconds(requestDeadlineRemainingMilliseconds),
+                requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);
         }
 
         private static CompileUnityIpcMethodHandler CreateHandler ()
@@ -237,11 +226,12 @@ namespace MackySoft.Ucli.Unity.Tests
                     ProjectFingerprint,
                     "6000.1.4f1"),
                 new StubServerVersionProvider("1.2.3"),
-                NoOpDaemonLogger.Instance);
+                NoOpDaemonLogger.Instance,
+                new ImmediateUnityMutationLaneControl());
         }
 
         private static RecoverableIpcOperationContext CreateRecoverableContext (
-            IpcRequest request,
+            IpcRequestEnvelope request,
             IpcCompileSummary pendingSummary)
         {
             return new RecoverableIpcOperationContext(
@@ -267,7 +257,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 StartedAtUtc: startedAtUtc,
                 CompletedAtUtc: null,
                 Refresh: new IpcCompileSummary.RefreshEvidence(
-                    Origin: "assetDatabaseRefresh",
+                    Origin: CompileRefreshOrigin.AssetDatabaseRefresh,
                     Requested: true,
                     StartedAtUtc: startedAtUtc,
                     CompletedAtUtc: null,

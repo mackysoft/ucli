@@ -13,8 +13,6 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Implements method-based dispatch for authorized Unity IPC requests. </summary>
     internal sealed class UnityIpcMethodDispatcher : IUnityIpcMethodDispatcher
     {
-        private static readonly TimeSpan CompletedPersistenceFinalizationTimeout = TimeSpan.FromSeconds(1);
-
         private readonly IReadOnlyDictionary<UnityIpcMethod, IUnityIpcMethodHandler> methodHandlers;
 
         private readonly IUnityMainThreadRequestExecutor mutationRequestExecutor;
@@ -54,40 +52,47 @@ namespace MackySoft.Ucli.Unity.Ipc
             this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
-        /// <summary> Dispatches one IPC request envelope by method contract. </summary>
-        /// <param name="request"> The incoming IPC request envelope. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
+        /// <summary> Dispatches one validated IPC request by method contract. </summary>
+        /// <param name="request"> The authorized and validated Unity IPC request. </param>
+        /// <param name="phaseScope"> The connection-owned phase scope for the complete exchange. </param>
         /// <returns> The response envelope for the request. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
         public async Task<IpcResponse> DispatchAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken = default)
+            ValidatedUnityIpcRequest request,
+            IpcRequestPhaseScope phaseScope)
         {
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
-            using var executionDeadlineScope = CreateExecutionDeadlineScope(request, cancellationToken);
-            var executionCancellationToken = executionDeadlineScope?.Token ?? cancellationToken;
+            if (phaseScope == null)
+            {
+                throw new ArgumentNullException(nameof(phaseScope));
+            }
+
+            var requestCancellation = phaseScope.ExecutionCancellation;
+            requestCancellation.Token.ThrowIfCancellationRequested();
 
             try
             {
-                if (!ContractLiteralCodec.TryParse<UnityIpcMethod>(request.Method, out var method)
-                    || !methodHandlers.TryGetValue(method, out var methodHandler))
+                if (!methodHandlers.TryGetValue(request.Method, out var methodHandler))
                 {
                     return UnityIpcResponseFactory.CreateErrorResponse(
                         request,
                         IpcProtocolErrorCodes.IpcMethodNotSupported,
-                        $"IPC method is not supported: {request.Method}.",
+                        "Unity IPC method handler is not registered.",
                         null);
                 }
 
-                var response = await ExecuteOnSelectedLaneAsync(methodHandler, request, executionCancellationToken);
+                var response = await ExecuteOnSelectedLaneAsync(
+                    methodHandler,
+                    request,
+                    phaseScope);
                 return EnsureCorrelatedResponse(request, response);
             }
-            catch (OperationCanceledException) when (IsExecutionDeadlineCancellation(executionDeadlineScope, cancellationToken))
+            catch (OperationCanceledException) when (
+                requestCancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline)
             {
                 return CreateExecutionTimeoutResponse(request);
             }
@@ -115,9 +120,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <inheritdoc />
         public async Task<IpcResponse> DispatchStreamingAsync (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             IIpcStreamFrameWriter streamWriter,
-            CancellationToken cancellationToken = default)
+            IpcRequestPhaseScope phaseScope)
         {
             if (request == null)
             {
@@ -129,23 +134,27 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(streamWriter));
             }
 
-            cancellationToken.ThrowIfCancellationRequested();
-            using var executionDeadlineScope = CreateExecutionDeadlineScope(request, cancellationToken);
-            var executionCancellationToken = executionDeadlineScope?.Token ?? cancellationToken;
+            if (phaseScope == null)
+            {
+                throw new ArgumentNullException(nameof(phaseScope));
+            }
+
+            var requestCancellation = phaseScope.ExecutionCancellation;
+            requestCancellation.Token.ThrowIfCancellationRequested();
 
             try
             {
-                if (!ContractLiteralCodec.TryParse<UnityIpcMethod>(request.Method, out var method)
-                    || !methodHandlers.TryGetValue(method, out var methodHandler))
+                if (!methodHandlers.TryGetValue(request.Method, out var methodHandler))
                 {
                     return UnityIpcResponseFactory.CreateErrorResponse(
                         request,
                         IpcProtocolErrorCodes.IpcMethodNotSupported,
-                        $"IPC method is not supported: {request.Method}.",
+                        "Unity IPC method handler is not registered.",
                         null);
                 }
 
-                if (methodHandler is not IStreamingUnityIpcMethodHandler streamingMethodHandler)
+                if (!UnityIpcMethodCapabilities.SupportsStreaming(request.Method)
+                    || methodHandler is not IStreamingUnityIpcMethodHandler streamingMethodHandler)
                 {
                     return UnityIpcResponseFactory.CreateErrorResponse(
                         request,
@@ -158,10 +167,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                     streamingMethodHandler,
                     request,
                     streamWriter,
-                    executionCancellationToken);
+                    phaseScope);
                 return EnsureCorrelatedResponse(request, response);
             }
-            catch (OperationCanceledException) when (IsExecutionDeadlineCancellation(executionDeadlineScope, cancellationToken))
+            catch (OperationCanceledException) when (
+                requestCancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline)
             {
                 return CreateExecutionTimeoutResponse(request);
             }
@@ -187,34 +197,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static CancellationTokenSource? CreateExecutionDeadlineScope (
-            IpcRequest request,
-            CancellationToken cancellationToken)
-        {
-            if (request.Payload.ValueKind != System.Text.Json.JsonValueKind.Object
-                || !request.Payload.TryGetProperty("timeoutMilliseconds", out var timeoutElement)
-                || timeoutElement.ValueKind != System.Text.Json.JsonValueKind.Number
-                || !timeoutElement.TryGetInt32(out var timeoutMilliseconds)
-                || timeoutMilliseconds <= 0)
-            {
-                return null;
-            }
-
-            var scope = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            scope.CancelAfter(timeoutMilliseconds);
-            return scope;
-        }
-
-        private static bool IsExecutionDeadlineCancellation (
-            CancellationTokenSource? executionDeadlineScope,
-            CancellationToken callerCancellationToken)
-        {
-            return executionDeadlineScope != null
-                && executionDeadlineScope.IsCancellationRequested
-                && !callerCancellationToken.IsCancellationRequested;
-        }
-
-        private static IpcResponse CreateExecutionTimeoutResponse (IpcRequest request)
+        private static IpcResponse CreateExecutionTimeoutResponse (ValidatedUnityIpcRequest request)
         {
             return UnityIpcResponseFactory.CreateErrorResponse(
                 request,
@@ -228,7 +211,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="response"> The response produced by a method handler or recovery replay. </param>
         /// <returns> The supplied response when correlated; otherwise an internal-error response correlated to <paramref name="request" />. </returns>
         private static IpcResponse EnsureCorrelatedResponse (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             IpcResponse response)
         {
             if (response != null && response.RequestId == request.RequestId)
@@ -247,49 +230,120 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private Task<IpcResponse> ExecuteOnSelectedLaneAsync (
             IUnityIpcMethodHandler methodHandler,
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestPhaseScope phaseScope)
         {
+            var cancellation = phaseScope.ExecutionCancellation;
             if (methodHandler is IRecoverableUnityIpcMethodHandler recoverableMethodHandler
                 && recoverableOperationStore != null)
             {
-                return DispatchRecoverableAsync(recoverableMethodHandler, request, cancellationToken);
+                return DispatchRecoverableAsync(
+                    recoverableMethodHandler,
+                    request,
+                    phaseScope);
             }
 
-            Func<Task<IpcResponse>> workItem = () => methodHandler
-                .HandleAsync(request, cancellationToken)
-                .AsTask();
+            var terminalResponseSource = new TaskCompletionSource<IpcResponse>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            Func<Task<IpcResponse>> workItem = async () =>
+            {
+                var response = await methodHandler.HandleAsync(request, cancellation);
+                terminalResponseSource.TrySetResult(response);
+                return response;
+            };
 
+            Task<IpcResponse> laneExecutionTask;
             if (methodHandler is IUnityControlPlaneIpcMethodHandler)
             {
-                return controlPlaneRequestExecutor.ExecuteAsync(workItem, cancellationToken);
+                laneExecutionTask = controlPlaneRequestExecutor.ExecuteAsync(workItem, cancellation.Token);
+            }
+            else
+            {
+                laneExecutionTask = mutationRequestExecutor.ExecuteAsync(workItem, cancellation.Token);
             }
 
-            return mutationRequestExecutor.ExecuteAsync(workItem, cancellationToken);
+            return AwaitLaneExecutionAsync(laneExecutionTask, terminalResponseSource, cancellation);
         }
 
         private Task<IpcResponse> ExecuteOnSelectedLaneAsync (
             IStreamingUnityIpcMethodHandler methodHandler,
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             IIpcStreamFrameWriter streamWriter,
-            CancellationToken cancellationToken)
+            IpcRequestPhaseScope phaseScope)
         {
-            Func<Task<IpcResponse>> workItem = () => methodHandler
-                .HandleStreamingAsync(request, streamWriter, cancellationToken)
-                .AsTask();
+            var cancellation = phaseScope.ExecutionCancellation;
+            var terminalResponseSource = new TaskCompletionSource<IpcResponse>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            Func<Task<IpcResponse>> workItem = async () =>
+            {
+                var response = await methodHandler.HandleStreamingAsync(request, streamWriter, cancellation);
+                terminalResponseSource.TrySetResult(response);
+                return response;
+            };
+
+            Task<IpcResponse> laneExecutionTask;
             if (methodHandler is IUnityControlPlaneIpcMethodHandler)
             {
-                return controlPlaneRequestExecutor.ExecuteAsync(workItem, cancellationToken);
+                laneExecutionTask = controlPlaneRequestExecutor.ExecuteAsync(workItem, cancellation.Token);
+            }
+            else
+            {
+                laneExecutionTask = mutationRequestExecutor.ExecuteAsync(workItem, cancellation.Token);
             }
 
-            return mutationRequestExecutor.ExecuteAsync(workItem, cancellationToken);
+            return AwaitLaneExecutionAsync(laneExecutionTask, terminalResponseSource, cancellation);
+        }
+
+        private static async Task<IpcResponse> AwaitLaneExecutionAsync (
+            Task<IpcResponse> laneExecutionTask,
+            TaskCompletionSource<IpcResponse> terminalResponseSource,
+            IpcRequestCancellation cancellation)
+        {
+            try
+            {
+                return await laneExecutionTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (
+                cancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline
+                && terminalResponseSource.Task.Status == TaskStatus.RanToCompletion)
+            {
+                var terminalResponse = await terminalResponseSource.Task.ConfigureAwait(false);
+                if (IsExecutionDeadlineResponse(terminalResponse))
+                {
+                    return terminalResponse;
+                }
+
+                throw;
+            }
+        }
+
+        private static bool IsExecutionDeadlineResponse (IpcResponse response)
+        {
+            if (response == null
+                || response.Status != IpcResponseStatus.Error)
+            {
+                return false;
+            }
+
+            for (var index = 0; index < response.Errors.Count; index++)
+            {
+                var errorCode = response.Errors[index].Code;
+                if (errorCode == IpcTransportErrorCodes.IpcTimeout
+                    || errorCode == PlayModeErrorCodes.PlayModeTransitionTimeout)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private async Task<IpcResponse> DispatchRecoverableAsync (
             IRecoverableUnityIpcMethodHandler methodHandler,
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestPhaseScope phaseScope)
         {
+            var cancellation = phaseScope.ExecutionCancellation;
             if (!methodHandler.TryCreateRecoverableRequestPayloadHash(
                     request,
                     out var requestPayloadHash,
@@ -307,14 +361,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null);
             }
 
-            await recoverableDispatchGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+            await recoverableDispatchGate.WaitAsync(cancellation.Token).ConfigureAwait(false);
             try
             {
                 var readResult = await recoverableOperationStore.ReadAsync(
                         methodHandler.Method,
                         request.RequestId,
                         requestPayloadHash,
-                        cancellationToken)
+                        cancellation.Token)
                     .ConfigureAwait(false);
                 if (!readResult.IsSuccess)
                 {
@@ -348,42 +402,45 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request,
                     context,
                     terminalResponseSource,
-                    cancellationToken);
+                    cancellation);
 
-                var executionWasCanceledAfterTerminalResponse = false;
                 IpcResponse response;
                 try
                 {
                     response = await laneExecutionTask.ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (
+                    cancellation.Reason != IpcRequestCancellationReason.None
+                    &&
                     terminalResponseSource.Task.Status == TaskStatus.RanToCompletion)
                 {
                     response = await terminalResponseSource.Task.ConfigureAwait(false);
-                    executionWasCanceledAfterTerminalResponse = true;
                 }
 
                 IpcResponse completionPersistenceFailureResponse = null;
                 if (context.HasOperationRecord)
                 {
-                    var finalizationCancellationTokenSource = new CancellationTokenSource(
-                        CompletedPersistenceFinalizationTimeout);
                     RecoverableIpcOperationStoreResult completionResult = null;
+                    var persistenceCutoffToken = phaseScope.PersistenceCutoffToken;
                     try
                     {
                         var completionTask = context.MarkCompletedAsync(
                                 response,
-                                finalizationCancellationTokenSource.Token)
+                                persistenceCutoffToken)
                             .AsTask();
-                        var hardDeadlineTask = Task.Delay(CompletedPersistenceFinalizationTimeout);
-                        var completedTask = await Task.WhenAny(completionTask, hardDeadlineTask).ConfigureAwait(false);
-                        if (completedTask != completionTask && !completionTask.IsCompleted)
-                        {
-                            ObserveLateCompletionPersistence(
+                        var cutoffTask = Task.Delay(
+                            Timeout.Infinite,
+                            persistenceCutoffToken);
+                        var completedTask = await Task.WhenAny(
                                 completionTask,
-                                finalizationCancellationTokenSource);
-                            finalizationCancellationTokenSource = null;
-                            completionPersistenceFailureResponse = CreateCompletionPersistenceTimeoutResponse(request);
+                                cutoffTask)
+                            .ConfigureAwait(false);
+                        if (completedTask != completionTask
+                            && !completionTask.IsCompleted)
+                        {
+                            ObserveLateCompletionPersistence(completionTask);
+                            completionPersistenceFailureResponse =
+                                CreateCompletionPersistenceTimeoutResponse(request);
                         }
                         else
                         {
@@ -391,13 +448,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                         }
                     }
                     catch (OperationCanceledException) when (
-                        finalizationCancellationTokenSource?.IsCancellationRequested == true)
+                        persistenceCutoffToken.IsCancellationRequested)
                     {
-                        completionPersistenceFailureResponse = CreateCompletionPersistenceTimeoutResponse(request);
-                    }
-                    finally
-                    {
-                        finalizationCancellationTokenSource?.Dispose();
+                        completionPersistenceFailureResponse =
+                            CreateCompletionPersistenceTimeoutResponse(request);
                     }
 
                     if (completionPersistenceFailureResponse == null
@@ -411,12 +465,23 @@ namespace MackySoft.Ucli.Unity.Ipc
                     }
                 }
 
-                if (executionWasCanceledAfterTerminalResponse || cancellationToken.IsCancellationRequested)
+                if (cancellation.Reason == IpcRequestCancellationReason.Upstream)
                 {
-                    throw new OperationCanceledException(cancellationToken);
+                    throw new OperationCanceledException(cancellation.Token);
                 }
 
-                return completionPersistenceFailureResponse ?? response;
+                if (completionPersistenceFailureResponse != null)
+                {
+                    return completionPersistenceFailureResponse;
+                }
+
+                if (cancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline
+                    && !IsExecutionDeadlineResponse(response))
+                {
+                    throw new OperationCanceledException(cancellation.Token);
+                }
+
+                return response;
             }
             finally
             {
@@ -424,25 +489,23 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static IpcResponse CreateCompletionPersistenceTimeoutResponse (IpcRequest request)
+        private static IpcResponse CreateCompletionPersistenceTimeoutResponse (ValidatedUnityIpcRequest request)
         {
             return UnityIpcResponseFactory.CreateErrorResponse(
                 request,
                 UcliCoreErrorCodes.InternalError,
-                $"Recoverable IPC operation completion persistence exceeded {CompletedPersistenceFinalizationTimeout.TotalMilliseconds:0} milliseconds.",
+                "Recoverable IPC operation completion did not finish before the request persistence cutoff.",
                 null);
         }
 
         private static void ObserveLateCompletionPersistence (
-            Task<RecoverableIpcOperationStoreResult> completionTask,
-            CancellationTokenSource cancellationTokenSource)
+            Task<RecoverableIpcOperationStoreResult> completionTask)
         {
-            _ = ObserveLateCompletionPersistenceAsync(completionTask, cancellationTokenSource);
+            _ = ObserveLateCompletionPersistenceAsync(completionTask);
         }
 
         private static async Task ObserveLateCompletionPersistenceAsync (
-            Task<RecoverableIpcOperationStoreResult> completionTask,
-            CancellationTokenSource cancellationTokenSource)
+            Task<RecoverableIpcOperationStoreResult> completionTask)
         {
             try
             {
@@ -453,18 +516,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                 // The request already returned a persistence failure. Observe late faults
                 // without invoking Unity APIs or logging from this background continuation.
             }
-            finally
-            {
-                cancellationTokenSource.Dispose();
-            }
         }
 
         private Task<IpcResponse> ExecuteRecoverableHandlerOnSelectedLaneAsync (
             IRecoverableUnityIpcMethodHandler methodHandler,
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             RecoverableIpcOperationContext context,
             TaskCompletionSource<IpcResponse> terminalResponseSource,
-            CancellationToken cancellationToken)
+            IpcRequestCancellation cancellation)
         {
             var reportMaintenanceFailure = methodHandler is not IUnityControlPlaneIpcMethodHandler;
             Func<Task<IpcResponse>> workItem = async () =>
@@ -479,17 +538,17 @@ namespace MackySoft.Ucli.Unity.Ipc
                     await methodHandler.HandleRecoverableAsync(
                         request,
                         context,
-                        cancellationToken));
+                        cancellation));
                 terminalResponseSource.TrySetResult(response);
                 return response;
             };
 
             if (methodHandler is IUnityControlPlaneIpcMethodHandler)
             {
-                return controlPlaneRequestExecutor.ExecuteAsync(workItem, cancellationToken);
+                return controlPlaneRequestExecutor.ExecuteAsync(workItem, cancellation.Token);
             }
 
-            return mutationRequestExecutor.ExecuteAsync(workItem, cancellationToken);
+            return mutationRequestExecutor.ExecuteAsync(workItem, cancellation.Token);
         }
 
         private void ReportMaintenanceFailureOnMainThread ()

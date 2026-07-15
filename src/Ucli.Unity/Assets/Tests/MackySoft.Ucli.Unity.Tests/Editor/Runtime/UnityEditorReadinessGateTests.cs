@@ -1223,6 +1223,8 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public bool IsBusy { get; }
+
+            public bool HasUnfinishedWork => IsBusy;
         }
 
         private sealed class WaitSignalBus

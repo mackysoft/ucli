@@ -1,9 +1,9 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -46,10 +46,10 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             return new BuildDiagnosticEntry(
                 runId,
-                "BUILD_PROGRESS_DROPPED",
-                IpcExecuteDiagnosticSeverityNames.Warning,
+                new UcliCode("BUILD_PROGRESS_DROPPED"),
+                UcliDiagnosticSeverity.Warning,
                 "Build progress entries exceeded the pending IPC frame limit; additional progress entries were dropped.",
-                ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerInvocation));
+                BuildRunProgressPhase.RunnerInvocation);
         }
     }
 }

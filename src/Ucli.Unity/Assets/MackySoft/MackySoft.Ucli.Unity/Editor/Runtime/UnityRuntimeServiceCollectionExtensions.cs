@@ -24,20 +24,20 @@ namespace MackySoft.Ucli.Unity.Runtime
             services.AddSingleton(_ => new UnitySynchronizationContextRequestExecutor(
                 SynchronizationContext.Current,
                 Thread.CurrentThread.ManagedThreadId,
-                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations,
-                poisonOnActiveCancellation: true));
+                UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations));
             services.AddSingleton<IUnityMainThreadRequestExecutor>(serviceProvider =>
                 serviceProvider.GetRequiredService<UnitySynchronizationContextRequestExecutor>());
             services.AddSingleton<IUnityMutationExecutionState>(serviceProvider =>
                 serviceProvider.GetRequiredService<UnitySynchronizationContextRequestExecutor>());
             services.AddSingleton<IUnityMutationLaneControl>(serviceProvider =>
                 serviceProvider.GetRequiredService<UnitySynchronizationContextRequestExecutor>());
+            services.AddSingleton<IUnityMutationRequestExecutionStartSource>(serviceProvider =>
+                serviceProvider.GetRequiredService<UnitySynchronizationContextRequestExecutor>());
             services.AddSingleton<IUnityControlPlaneRequestExecutor>(_ =>
                 new UnitySynchronizationContextRequestExecutor(
                     SynchronizationContext.Current,
                     Thread.CurrentThread.ManagedThreadId,
-                    UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations,
-                    poisonOnActiveCancellation: false));
+                    UnitySynchronizationContextRequestExecutor.DefaultMaxPendingInvocations));
             services.AddSingleton(serviceProvider => new UnityEditorReadinessGate(
                 editorMode,
                 serviceProvider.GetRequiredService<IUnityMutationExecutionState>()));

@@ -1,4 +1,3 @@
-using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -12,11 +11,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         /// <summary> Handles one IPC request for <see cref="Method" />. </summary>
         /// <param name="request"> The incoming request envelope. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by dispatcher. </param>
+        /// <param name="cancellation"> The request cancellation state owned by dispatcher. </param>
         /// <returns> The response envelope. </returns>
         ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken);
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation);
     }
 
     /// <summary>

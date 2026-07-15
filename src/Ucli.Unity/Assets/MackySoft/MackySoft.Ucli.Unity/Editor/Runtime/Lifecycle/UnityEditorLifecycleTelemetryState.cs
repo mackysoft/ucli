@@ -1,5 +1,6 @@
 using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using UnityEditor;
 using UnityEditor.Compilation;
 
@@ -360,7 +361,7 @@ namespace MackySoft.Ucli.Unity.Runtime
         private static IpcPrimaryDiagnostic CreateCompilerDiagnostic (CompilerMessage message)
         {
             return new IpcPrimaryDiagnostic(
-                Kind: "compiler",
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: TryExtractCompilerCode(message.message),
                 File: string.IsNullOrWhiteSpace(message.file) ? null : message.file,
                 Line: message.line > 0 ? message.line : null,

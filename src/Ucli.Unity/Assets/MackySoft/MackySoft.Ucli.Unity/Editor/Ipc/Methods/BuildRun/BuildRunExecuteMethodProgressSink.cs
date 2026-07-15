@@ -1,7 +1,8 @@
 using System;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Unity.Build;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -11,14 +12,17 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         private readonly UnityIpcBuildRunProgressSink? progressSink;
         private readonly IpcBuildRunRequest request;
+        private readonly Sha256Digest profileDigest;
 
         /// <summary> Initializes a new instance of the <see cref="BuildRunExecuteMethodProgressSink" /> class. </summary>
         public BuildRunExecuteMethodProgressSink (
             UnityIpcBuildRunProgressSink? progressSink,
-            IpcBuildRunRequest request)
+            IpcBuildRunRequest request,
+            Sha256Digest profileDigest)
         {
             this.progressSink = progressSink;
             this.request = request ?? throw new ArgumentNullException(nameof(request));
+            this.profileDigest = profileDigest ?? throw new ArgumentNullException(nameof(profileDigest));
         }
 
         /// <inheritdoc />
@@ -26,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             Publish(
                 BuildRunProgressEventNames.RunnerResolved,
-                ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerResolution),
+                BuildRunProgressPhase.RunnerResolution,
                 runnerStatus: null);
         }
 
@@ -35,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             Publish(
                 BuildRunProgressEventNames.RunnerStarted,
-                ContractLiteralCodec.ToValue(BuildRunProgressPhase.RunnerInvocation),
+                BuildRunProgressPhase.RunnerInvocation,
                 runnerStatus: null);
         }
 
@@ -53,8 +57,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private void Publish (
             string eventName,
-            string phase,
-            string? runnerStatus)
+            BuildRunProgressPhase phase,
+            IpcBuildReportResult? runnerStatus)
         {
             if (progressSink == null)
             {
@@ -65,12 +69,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 eventName,
                 new BuildProgressEntry(
                     RunId: request.RunId,
-                    ProfileDigest: request.ProfileDigest!,
+                    ProfileDigest: profileDigest,
                     Phase: phase,
                     RunnerKind: request.RunnerKind,
                     RunnerStatus: runnerStatus,
                     Verdict: null,
-                    ReportRefs: Array.Empty<string>(),
+                    ReportRefs: Array.Empty<BuildArtifactKind>(),
                     ErrorCode: null));
         }
     }

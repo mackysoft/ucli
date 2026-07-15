@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -32,6 +34,7 @@ namespace MackySoft.Ucli.Unity.Tests
     public sealed class BuildRunUnityIpcMethodHandlerTests
     {
         private static readonly Guid RunId = Guid.Parse("00000000-0000-0000-0000-000000000603");
+        private static readonly Sha256Digest ProfileDigest = Sha256Digest.Parse(new string('a', 64));
         private const string ExecuteMethodTypeName = "MackySoft.Ucli.Unity.Tests.BuildRunUnityIpcMethodHandlerTests";
 
         private static readonly ProjectFingerprint ProjectFingerprint =
@@ -41,6 +44,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static UcliBuildRunnerContext? executeMethodContext;
         private static IUnityLogStream? executeMethodLogStream;
+        private static Action? executeMethodCallback;
 
         [Test]
         [Category("Size.Small")]
@@ -67,10 +71,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using (var scope = TemporaryDirectoryScope.Create())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    ProjectMutationMode = ContractLiteralCodec.ToValue(mode),
-                };
+                var request = CreateRequest(scope.ProjectPath, identity, projectMutationMode: mode);
 
                 var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
 
@@ -95,116 +96,17 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void TryValidateRequest_WithUnityBuildProfileDigest_ReturnsFalse ()
-        {
-            using (var scope = TemporaryDirectoryScope.Create())
-            {
-                var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateUnityBuildProfileRequest(scope.ProjectPath, identity) with
-                {
-                    UnityBuildProfile = new IpcUnityBuildProfileInput(
-                        "Assets/BuildProfiles/Linux.asset",
-                        Digest: new string('f', 64)),
-                };
-
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
-
-                Assert.That(result, Is.False);
-                Assert.That(errorMessage, Does.Contain("may only specify path"));
-            }
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void TryValidateRequest_WithUnityBuildProfileApplyAudit_ReturnsFalse ()
-        {
-            using (var scope = TemporaryDirectoryScope.Create())
-            {
-                var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateUnityBuildProfileRequest(scope.ProjectPath, identity) with
-                {
-                    UnityBuildProfile = CreateAppliedUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset"),
-                };
-
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
-
-                Assert.That(result, Is.False);
-                Assert.That(errorMessage, Does.Contain("may only specify path"));
-            }
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void TryValidateRequest_WithUnityBuildProfileAndExplicitInputFields_ReturnsFalse ()
-        {
-            using (var scope = TemporaryDirectoryScope.Create())
-            {
-                var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateUnityBuildProfileRequest(scope.ProjectPath, identity) with
-                {
-                    BuildTarget = "standaloneLinux64",
-                };
-
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
-
-                Assert.That(result, Is.False);
-                Assert.That(errorMessage, Does.Contain("must not be specified for unityBuildProfile"));
-            }
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void TryValidateRequest_WithExplicitInputAndUnityBuildProfile_ReturnsFalse ()
-        {
-            using (var scope = TemporaryDirectoryScope.Create())
-            {
-                var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    UnityBuildProfile = new IpcUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset"),
-                };
-
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
-
-                Assert.That(result, Is.False);
-                Assert.That(errorMessage, Does.Contain("must not be specified for explicit"));
-            }
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        [TestCase("FORBID")]
-        [TestCase("legacy")]
-        public void TryValidateRequest_WithInvalidProjectMutationMode_ReturnsFalse (string projectMutationMode)
-        {
-            using (var scope = TemporaryDirectoryScope.Create())
-            {
-                var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    ProjectMutationMode = projectMutationMode,
-                };
-
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
-
-                Assert.That(result, Is.False);
-                Assert.That(errorMessage, Does.Contain("projectMutationMode is invalid"));
-            }
-        }
-
-        [Test]
-        [Category("Size.Small")]
         public void TryValidateRequest_WithOutputLayoutOutsideExpectedLayout_ReturnsFalse ()
         {
             using (var scope = TemporaryDirectoryScope.Create())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    OutputLayout = new IpcBuildOutputLayout(
-                        Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
-                        LocationPathName: Path.Combine(scope.RootPath, "outside", "Player")),
-                };
+                var request = CreateRequest(
+                    scope.ProjectPath,
+                    identity,
+                    outputLayout: new IpcBuildOutputLayout(
+                        Shape: IpcBuildOutputLayoutShape.File,
+                        LocationPathName: Path.Combine(scope.RootPath, "outside", "Player")));
 
                 var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
 
@@ -213,7 +115,6 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
-        [TestCase("missing")]
         [TestCase("shapeMismatch")]
         [TestCase("unsupportedTarget")]
         [Category("Size.Small")]
@@ -222,72 +123,22 @@ namespace MackySoft.Ucli.Unity.Tests
             using (var scope = TemporaryDirectoryScope.Create())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateRequest(scope.ProjectPath, identity);
-                var outputLayout = RequireOutputLayout(request);
-                request = scenario switch
-                {
-                    "missing" => request with
-                    {
-                        OutputLayout = null,
-                    },
-                    "shapeMismatch" => request with
-                    {
-                        OutputLayout = outputLayout with
-                        {
-                            Shape = ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.Directory),
-                        },
-                    },
-                    "unsupportedTarget" => request with
-                    {
-                        BuildTarget = "switch",
-                        UnityBuildTarget = "Switch",
-                    },
-                    _ => throw new ArgumentOutOfRangeException(nameof(scenario), scenario, "Unsupported output layout validation scenario."),
-                };
+                var validRequest = CreateRequest(scope.ProjectPath, identity);
+                var validOutputLayout = RequireOutputLayout(validRequest);
+                var request = CreateRequest(
+                    scope.ProjectPath,
+                    identity,
+                    buildTarget: scenario == "unsupportedTarget"
+                        ? BuildTargetStableName.Switch
+                        : BuildTargetStableName.StandaloneLinux64,
+                    outputLayout: scenario == "shapeMismatch"
+                        ? new IpcBuildOutputLayout(IpcBuildOutputLayoutShape.Directory, validOutputLayout.LocationPathName)
+                        : validOutputLayout);
 
                 var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
 
                 Assert.That(result, Is.False);
                 Assert.That(errorMessage, Does.Contain("outputLayout"));
-            }
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void TryValidateRequest_WithUnknownBuildTarget_ReturnsFalse ()
-        {
-            using (var scope = TemporaryDirectoryScope.Create())
-            {
-                var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    BuildTarget = "unknownTarget",
-                    UnityBuildTarget = "UnknownTarget",
-                };
-
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
-
-                Assert.That(result, Is.False);
-                Assert.That(errorMessage, Does.Contain("buildTarget"));
-            }
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void TryValidateRequest_WithMismatchedUnityBuildTarget_ReturnsFalse ()
-        {
-            using (var scope = TemporaryDirectoryScope.Create())
-            {
-                var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    UnityBuildTarget = "StandaloneWindows64",
-                };
-
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
-
-                Assert.That(result, Is.False);
-                Assert.That(errorMessage, Does.Contain("UnityBuildTarget"));
             }
         }
 
@@ -300,9 +151,13 @@ namespace MackySoft.Ucli.Unity.Tests
             using (var scope = TemporaryDirectoryScope.Create())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = CreateRequest(scope.ProjectPath, identity);
                 var relativeArtifactPath = Path.Combine("relative", artifact);
-                request = WithArtifactPath(request, artifact, relativeArtifactPath);
+                var request = CreateRequest(
+                    scope.ProjectPath,
+                    identity,
+                    outputPath: artifact == "output" ? relativeArtifactPath : null,
+                    buildReportPath: artifact == "report" ? relativeArtifactPath : null,
+                    buildLogPath: artifact == "log" ? relativeArtifactPath : null);
 
                 var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
 
@@ -320,10 +175,13 @@ namespace MackySoft.Ucli.Unity.Tests
             using (var scope = TemporaryDirectoryScope.Create())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
-                var request = WithArtifactPath(
-                    CreateRequest(scope.ProjectPath, identity),
-                    artifact,
-                    Path.Combine(scope.RootPath, "outside", artifact));
+                var outsidePath = Path.Combine(scope.RootPath, "outside", artifact);
+                var request = CreateRequest(
+                    scope.ProjectPath,
+                    identity,
+                    outputPath: artifact == "output" ? outsidePath : null,
+                    buildReportPath: artifact == "report" ? outsidePath : null,
+                    buildLogPath: artifact == "log" ? outsidePath : null);
 
                 var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
 
@@ -344,7 +202,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 var readinessGate = new CountingReadinessGate();
                 var buildPipelineRunner = new CountingBuildPipelineRunner();
                 var logRangeExporter = new CountingEditorLogRangeExporter();
-                var timeoutScopeFactory = new CountingTimeoutScopeFactory();
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         readinessGate,
@@ -358,116 +215,28 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    timeoutScopeFactory,
                     new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
-                var payload = WithArtifactPath(
-                    CreateRequest(scope.ProjectPath, identity),
-                    artifact,
-                    Path.Combine(scope.RootPath, "outside", artifact));
+                    new UnityLogRingBuffer(),
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
+                var outsidePath = Path.Combine(scope.RootPath, "outside", artifact);
+                var payload = CreateRequest(
+                    scope.ProjectPath,
+                    identity,
+                    outputPath: artifact == "output" ? outsidePath : null,
+                    buildReportPath: artifact == "report" ? outsidePath : null,
+                    buildLogPath: artifact == "log" ? outsidePath : null);
                 var ipcRequest = CreateIpcRequest(payload);
 
-                var response = await handler.HandleAsync(ipcRequest, CancellationToken.None);
+                var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, ipcRequest, CancellationToken.None);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(response.Errors.Count, Is.EqualTo(1));
                 Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
                 Assert.That(readinessGate.EnsureExecutionReadyCallCount, Is.EqualTo(0));
                 Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(0));
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
-                Assert.That(timeoutScopeFactory.CallCount, Is.EqualTo(0));
-            }
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public async Task HandleAsync_WithMismatchedUnityBuildTarget_ReturnsInvalidArgumentWithoutSideEffects ()
-        {
-            using (var scope = TemporaryDirectoryScope.Create())
-            {
-                var identity = CreateProjectIdentity(scope.ProjectPath);
-                var readinessGate = new CountingReadinessGate();
-                var buildPipelineRunner = new CountingBuildPipelineRunner();
-                var logRangeExporter = new CountingEditorLogRangeExporter();
-                var timeoutScopeFactory = new CountingTimeoutScopeFactory();
-                var handler = new BuildRunUnityIpcMethodHandler(
-                    new UnityBuildPreconditionProbe(
-                        readinessGate,
-                        identity,
-                        new StubServerVersionProvider("1.2.3"),
-                        new CountingBuildTargetSupportProbe()),
-                    new UnsupportedUnityBuildProfileInputResolver(),
-                    new UnityProjectMutationAuditProbe(),
-                    buildPipelineRunner,
-                    new UnsupportedUnityBuildProfileBuildRunner(),
-                    CreateExecuteMethodRunner(),
-                    logRangeExporter,
-                    identity,
-                    timeoutScopeFactory,
-                    new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
-                var payload = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    UnityBuildTarget = "StandaloneWindows64",
-                };
-
-                var response = await handler.HandleAsync(CreateIpcRequest(payload), CancellationToken.None);
-
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
-                Assert.That(response.Errors.Count, Is.EqualTo(1));
-                Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-                Assert.That(readinessGate.EnsureExecutionReadyCallCount, Is.EqualTo(0));
-                Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(0));
-                Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
-                Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
-                Assert.That(timeoutScopeFactory.CallCount, Is.EqualTo(0));
-            }
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public async Task HandleAsync_WithUnknownBuildTarget_ReturnsInvalidArgumentWithoutSideEffects ()
-        {
-            using (var scope = TemporaryDirectoryScope.Create())
-            {
-                var identity = CreateProjectIdentity(scope.ProjectPath);
-                var readinessGate = new CountingReadinessGate();
-                var buildPipelineRunner = new CountingBuildPipelineRunner();
-                var logRangeExporter = new CountingEditorLogRangeExporter();
-                var timeoutScopeFactory = new CountingTimeoutScopeFactory();
-                var handler = new BuildRunUnityIpcMethodHandler(
-                    new UnityBuildPreconditionProbe(
-                        readinessGate,
-                        identity,
-                        new StubServerVersionProvider("1.2.3"),
-                        new CountingBuildTargetSupportProbe()),
-                    new UnsupportedUnityBuildProfileInputResolver(),
-                    new UnityProjectMutationAuditProbe(),
-                    buildPipelineRunner,
-                    new UnsupportedUnityBuildProfileBuildRunner(),
-                    CreateExecuteMethodRunner(),
-                    logRangeExporter,
-                    identity,
-                    timeoutScopeFactory,
-                    new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
-                var payload = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    BuildTarget = "unknownTarget",
-                    UnityBuildTarget = "UnknownTarget",
-                };
-
-                var response = await handler.HandleAsync(CreateIpcRequest(payload), CancellationToken.None);
-
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
-                Assert.That(response.Errors.Count, Is.EqualTo(1));
-                Assert.That(response.Errors[0].Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-                Assert.That(readinessGate.EnsureExecutionReadyCallCount, Is.EqualTo(0));
-                Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(0));
-                Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
-                Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
-                Assert.That(timeoutScopeFactory.CallCount, Is.EqualTo(0));
             }
         }
 
@@ -495,9 +264,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
+                    new UnityLogRingBuffer(),
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
                 var payload = CreateRequest(scope.ProjectPath, identity);
                 var outputLayout = RequireOutputLayout(payload);
                 var outputDirectoryPath = Path.GetDirectoryName(outputLayout.LocationPathName);
@@ -509,66 +279,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 Directory.CreateDirectory(outputDirectoryPath);
                 File.WriteAllText(outputLayout.LocationPathName, "existing player");
 
-                var response = await handler.HandleAsync(CreateIpcRequest(payload), CancellationToken.None);
+                var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, CreateIpcRequest(payload), CancellationToken.None);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(response.Errors.Count, Is.EqualTo(1));
                 Assert.That(response.Errors[0].Code, Is.EqualTo(BuildErrorCodes.BuildArtifactWriteFailed));
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
-            }
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public async Task HandleStreamingAsync_WhenProgressCompletionFails_DisposesRequestTimeoutScope ()
-        {
-            using (var scope = TemporaryDirectoryScope.Create())
-            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
-            {
-                var identity = CreateProjectIdentity(scope.ProjectPath);
-                var timeoutScopeFactory = new CountingTimeoutScopeFactory();
-                var handler = new BuildRunUnityIpcMethodHandler(
-                    new UnityBuildPreconditionProbe(
-                        new CountingReadinessGate(),
-                        identity,
-                        new StubServerVersionProvider("1.2.3"),
-                        new CountingBuildTargetSupportProbe()),
-                    new UnsupportedUnityBuildProfileInputResolver(),
-                    new UnityProjectMutationAuditProbe(),
-                    new CountingBuildPipelineRunner(),
-                    new UnsupportedUnityBuildProfileBuildRunner(),
-                    CreateExecuteMethodRunner(),
-                    new CountingEditorLogRangeExporter(),
-                    identity,
-                    timeoutScopeFactory,
-                    new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
-                var payload = CreateRequest(scope.ProjectPath, identity);
-                var outputLayout = GetRequiredOutputLayout(payload);
-                var outputDirectory = Path.GetDirectoryName(outputLayout.LocationPathName)
-                    ?? throw new InvalidOperationException("Build output location did not contain a parent directory.");
-                Directory.CreateDirectory(outputDirectory);
-                File.WriteAllText(outputLayout.LocationPathName, "existing player");
-                var streamWriter = new FailingIpcStreamFrameWriter(
-                    new IOException("progress write failed"));
-
-                IOException? exception = null;
-                try
-                {
-                    await handler.HandleStreamingAsync(
-                        CreateStreamingIpcRequest(payload),
-                        streamWriter,
-                        CancellationToken.None);
-                }
-                catch (IOException caughtException)
-                {
-                    exception = caughtException;
-                }
-
-                Assert.That(exception, Is.Not.Null);
-                Assert.That(timeoutScopeFactory.CallCount, Is.EqualTo(1));
-                Assert.That(timeoutScopeFactory.DisposeCount, Is.EqualTo(1));
             }
         }
 
@@ -599,13 +316,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
+                    new UnityLogRingBuffer(),
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
 
-                var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+                var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, CreateIpcRequest(requestPayload), CancellationToken.None);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(response.Errors.Count, Is.EqualTo(1));
                 Assert.That(response.Errors[0].Code, Is.EqualTo(BuildErrorCodes.BuildUnityBuildProfileInvalid));
                 Assert.That(buildProfileInputResolver.CallCount, Is.EqualTo(1));
@@ -625,12 +343,16 @@ namespace MackySoft.Ucli.Unity.Tests
             using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
-                var requestPayload = CreateUnityBuildProfileRequest(scope.ProjectPath, identity) with
-                {
-                    TimeoutMilliseconds = 1,
-                };
-                var timeoutScopeFactory = new CancelableTimeoutScopeFactory();
-                var buildProfileInputResolver = new TimeoutAfterBuildProfileInputResolver(timeoutScopeFactory);
+                var requestPayload = CreateUnityBuildProfileRequest(scope.ProjectPath, identity);
+                using var executionDeadlineCancellationTokenSource = new CancellationTokenSource();
+                using var executionCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+                    executionDeadlineCancellationTokenSource.Token);
+                using var requestCancellation = new IpcRequestCancellation(
+                    executionCancellationTokenSource.Token,
+                    executionDeadlineCancellationTokenSource.Token,
+                    CancellationToken.None);
+                var buildProfileInputResolver = new TimeoutAfterBuildProfileInputResolver(
+                    executionDeadlineCancellationTokenSource.Cancel);
                 var buildPipelineRunner = new CountingBuildPipelineRunner();
                 var logRangeExporter = new CountingEditorLogRangeExporter();
                 var handler = new BuildRunUnityIpcMethodHandler(
@@ -646,25 +368,28 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    timeoutScopeFactory,
                     new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
+                    new UnityLogRingBuffer(),
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
 
-                var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+                var response = await handler.HandleAsync(
+                    ValidatedUnityIpcRequestTestFactory.Create(CreateIpcRequest(requestPayload)),
+                    requestCancellation);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(response.Errors.Count, Is.EqualTo(1));
                 Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunErrorPayload payload, out _), Is.True);
                 Assert.That(payload.UnityBuildProfile, Is.Not.Null);
-                Assert.That(payload.UnityBuildProfile!.Path, Is.EqualTo("Assets/BuildProfiles/Linux.asset"));
+                Assert.That(payload.UnityBuildProfile!.Path.Value, Is.EqualTo("Assets/BuildProfiles/Linux.asset"));
                 Assert.That(payload.UnityBuildProfile.ApplyAudit, Is.Not.Null);
                 Assert.That(payload.LifecycleBefore, Is.Not.Null);
                 Assert.That(
                     payload.LifecycleBefore!.State.Generations.CompileGeneration,
                     Is.EqualTo(payload.UnityBuildProfile.ApplyAudit!.LifecycleAfter.State.Generations.CompileGeneration));
                 Assert.That(payload.DirtyState, Is.Not.Null);
-                Assert.That(payload.DirtyState!.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
+                Assert.That(payload.DirtyState!.Coverage, Is.EqualTo(IpcBuildDirtyStateCoverage.Full));
                 Assert.That(buildProfileInputResolver.CallCount, Is.EqualTo(1));
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
@@ -693,7 +418,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var outputLayout = RequireOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var reportArtifact = CreateReportArtifact(
-                    ContractLiteralCodec.ToValue(reportResult),
+                    reportResult,
                     outputLayout.LocationPathName,
                     reportErrorCount,
                     reportWarningCount);
@@ -718,13 +443,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
+                    new UnityLogRingBuffer(),
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
 
-                var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+                var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, CreateIpcRequest(requestPayload), CancellationToken.None);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
                 var report = payload.Report;
                 if (report is null)
@@ -733,10 +459,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 }
 
                 Assert.That(payload.RunId, Is.EqualTo(RunId));
-                Assert.That(report.Result, Is.EqualTo(ContractLiteralCodec.ToValue(reportResult)));
+                Assert.That(report.Result, Is.EqualTo(reportResult));
                 Assert.That(report.ErrorCount, Is.EqualTo(reportErrorCount));
                 Assert.That(report.WarningCount, Is.EqualTo(reportWarningCount));
-                Assert.That(payload.Logs.CompletionReason, Is.EqualTo(ContractLiteralCodec.ToValue(completionReason)));
+                Assert.That(payload.Logs.CompletionReason, Is.EqualTo(completionReason));
                 Assert.That(payload.Logs.EntryCount, Is.EqualTo(3));
                 Assert.That(payload.Logs.ErrorCount, Is.EqualTo(1));
                 Assert.That(payload.Logs.WarningCount, Is.EqualTo(1));
@@ -759,6 +485,324 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public async Task HandleAsync_WhenExecuteMethodSucceeds_CompletesMutationAfterLifecycleCaptureAndEditorUpdate ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateExecuteMethodRequest(
+                    scope.ProjectPath,
+                    identity,
+                    ExecuteMethodTypeName + ".HandlerExecuteMethodSuccess");
+                Directory.CreateDirectory(requestPayload.OutputPath);
+                var readinessGate = new CountingReadinessGate();
+                var mutationLaneControl = new ImmediateUnityMutationLaneControl();
+                var editorUpdateAwaiter = new ControllableUnityEditorUpdateAwaiter();
+                var handler = CreateCheckpointTestHandler(
+                    identity,
+                    readinessGate,
+                    new CountingBuildPipelineRunner(),
+                    mutationLaneControl,
+                    editorUpdateAwaiter);
+
+                var responseTask = UnityIpcMethodHandlerTestInvoker
+                    .HandleAsync(handler, CreateIpcRequest(requestPayload), CancellationToken.None)
+                    .AsTask();
+                await TestAwaiter.WaitAsync(
+                    editorUpdateAwaiter.WaitStarted,
+                    "successful execute-method post-update checkpoint",
+                    SignalWaitTimeout);
+
+                Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(1));
+                Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(0));
+                Assert.That(responseTask.IsCompleted, Is.False);
+
+                editorUpdateAwaiter.Release();
+                var response = await TestAwaiter.WaitAsync(
+                    responseTask,
+                    "successful execute-method response after post-update checkpoint",
+                    SignalWaitTimeout);
+
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
+                Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(1));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WhenExecuteMethodThrows_CompletesMutationAfterLifecycleCaptureAndEditorUpdate ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateExecuteMethodRequest(
+                    scope.ProjectPath,
+                    identity,
+                    ExecuteMethodTypeName + ".HandlerExecuteMethodThrows");
+                Directory.CreateDirectory(requestPayload.OutputPath);
+                var readinessGate = new CountingReadinessGate();
+                var mutationLaneControl = new ImmediateUnityMutationLaneControl();
+                var editorUpdateAwaiter = new ControllableUnityEditorUpdateAwaiter();
+                var handler = CreateCheckpointTestHandler(
+                    identity,
+                    readinessGate,
+                    new CountingBuildPipelineRunner(),
+                    mutationLaneControl,
+                    editorUpdateAwaiter);
+
+                var responseTask = UnityIpcMethodHandlerTestInvoker
+                    .HandleAsync(handler, CreateIpcRequest(requestPayload), CancellationToken.None)
+                    .AsTask();
+                await TestAwaiter.WaitAsync(
+                    editorUpdateAwaiter.WaitStarted,
+                    "failed execute-method post-update checkpoint",
+                    SignalWaitTimeout);
+
+                Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(1));
+                Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(0));
+                Assert.That(responseTask.IsCompleted, Is.False);
+
+                editorUpdateAwaiter.Release();
+                var response = await TestAwaiter.WaitAsync(
+                    responseTask,
+                    "failed execute-method response after post-update checkpoint",
+                    SignalWaitTimeout);
+
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+                Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(1));
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WhenExecuteMethodIsCanceled_WaitsForUncancelableEditorUpdateBeforeCompletingMutation ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            using (var cancellationTokenSource = new CancellationTokenSource())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateExecuteMethodRequest(
+                    scope.ProjectPath,
+                    identity,
+                    ExecuteMethodTypeName + ".HandlerExecuteMethodInvokesCallback");
+                Directory.CreateDirectory(requestPayload.OutputPath);
+                var readinessGate = new CountingReadinessGate();
+                var mutationLaneControl = new ImmediateUnityMutationLaneControl();
+                var editorUpdateAwaiter = new ControllableUnityEditorUpdateAwaiter();
+                var handler = CreateCheckpointTestHandler(
+                    identity,
+                    readinessGate,
+                    new CountingBuildPipelineRunner(),
+                    mutationLaneControl,
+                    editorUpdateAwaiter);
+                executeMethodCallback = cancellationTokenSource.Cancel;
+
+                try
+                {
+                    var responseTask = UnityIpcMethodHandlerTestInvoker
+                        .HandleAsync(handler, CreateIpcRequest(requestPayload), cancellationTokenSource.Token)
+                        .AsTask();
+                    await TestAwaiter.WaitAsync(
+                        editorUpdateAwaiter.WaitStarted,
+                        "canceled execute-method post-update checkpoint",
+                        SignalWaitTimeout);
+
+                    Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(1));
+                    Assert.That(editorUpdateAwaiter.ObservedCancellationToken, Is.EqualTo(CancellationToken.None));
+                    Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(0));
+                    Assert.That(responseTask.IsCompleted, Is.False);
+
+                    editorUpdateAwaiter.Release();
+                    await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+                    {
+                        await responseTask;
+                    }, "canceled execute-method response after post-update checkpoint", SignalWaitTimeout);
+
+                    Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(1));
+                }
+                finally
+                {
+                    executeMethodCallback = null;
+                    editorUpdateAwaiter.Release();
+                }
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WhenBuildPipelineSucceeds_CompletesMutationAfterLifecycleCaptureAndEditorUpdate ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                var outputLayout = RequireOutputLayout(requestPayload);
+                Directory.CreateDirectory(requestPayload.OutputPath);
+                var buildPipelineRunner = new CountingBuildPipelineRunner(
+                    CreateReportArtifact(
+                        IpcBuildReportResult.Succeeded,
+                        outputLayout.LocationPathName,
+                        errorCount: 0,
+                        warningCount: 0));
+                var readinessGate = new CountingReadinessGate();
+                var mutationLaneControl = new ImmediateUnityMutationLaneControl();
+                var editorUpdateAwaiter = new ControllableUnityEditorUpdateAwaiter();
+                var handler = CreateCheckpointTestHandler(
+                    identity,
+                    readinessGate,
+                    buildPipelineRunner,
+                    mutationLaneControl,
+                    editorUpdateAwaiter);
+
+                var responseTask = UnityIpcMethodHandlerTestInvoker
+                    .HandleAsync(handler, CreateIpcRequest(requestPayload), CancellationToken.None)
+                    .AsTask();
+                try
+                {
+                    await TestAwaiter.WaitAsync(
+                        editorUpdateAwaiter.WaitStarted,
+                        "successful BuildPipeline post-update checkpoint",
+                        SignalWaitTimeout);
+
+                    Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(1));
+                    Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(0));
+                    Assert.That(responseTask.IsCompleted, Is.False);
+
+                    editorUpdateAwaiter.Release();
+                    var response = await TestAwaiter.WaitAsync(
+                        responseTask,
+                        "successful BuildPipeline response after post-update checkpoint",
+                        SignalWaitTimeout);
+
+                    Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
+                    Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(1));
+                    Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(1));
+                }
+                finally
+                {
+                    editorUpdateAwaiter.Release();
+                }
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WhenBuildPipelineThrows_CompletesMutationAfterLifecycleCaptureAndEditorUpdate ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                Directory.CreateDirectory(requestPayload.OutputPath);
+                var buildPipelineRunner = new CountingBuildPipelineRunner();
+                var readinessGate = new CountingReadinessGate();
+                var mutationLaneControl = new ImmediateUnityMutationLaneControl();
+                var editorUpdateAwaiter = new ControllableUnityEditorUpdateAwaiter();
+                var handler = CreateCheckpointTestHandler(
+                    identity,
+                    readinessGate,
+                    buildPipelineRunner,
+                    mutationLaneControl,
+                    editorUpdateAwaiter);
+
+                var responseTask = UnityIpcMethodHandlerTestInvoker
+                    .HandleAsync(handler, CreateIpcRequest(requestPayload), CancellationToken.None)
+                    .AsTask();
+                try
+                {
+                    await TestAwaiter.WaitAsync(
+                        editorUpdateAwaiter.WaitStarted,
+                        "failed BuildPipeline post-update checkpoint",
+                        SignalWaitTimeout);
+
+                    Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(1));
+                    Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(0));
+                    Assert.That(responseTask.IsCompleted, Is.False);
+
+                    editorUpdateAwaiter.Release();
+                    var response = await TestAwaiter.WaitAsync(
+                        responseTask,
+                        "failed BuildPipeline response after post-update checkpoint",
+                        SignalWaitTimeout);
+
+                    Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
+                    Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(1));
+                    Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(1));
+                }
+                finally
+                {
+                    editorUpdateAwaiter.Release();
+                }
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task HandleAsync_WhenBuildPipelineIsCanceled_WaitsForUncancelableEditorUpdateBeforeCompletingMutation ()
+        {
+            using (var scope = TemporaryDirectoryScope.Create())
+            using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
+            using (var cancellationTokenSource = new CancellationTokenSource())
+            {
+                var identity = CreateProjectIdentity(scope.ProjectPath);
+                var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                var outputLayout = RequireOutputLayout(requestPayload);
+                Directory.CreateDirectory(requestPayload.OutputPath);
+                var buildPipelineRunner = new CountingBuildPipelineRunner(
+                    CreateReportArtifact(
+                        IpcBuildReportResult.Succeeded,
+                        outputLayout.LocationPathName,
+                        errorCount: 0,
+                        warningCount: 0),
+                    _ => cancellationTokenSource.Cancel());
+                var readinessGate = new CountingReadinessGate();
+                var mutationLaneControl = new ImmediateUnityMutationLaneControl();
+                var editorUpdateAwaiter = new ControllableUnityEditorUpdateAwaiter();
+                var handler = CreateCheckpointTestHandler(
+                    identity,
+                    readinessGate,
+                    buildPipelineRunner,
+                    mutationLaneControl,
+                    editorUpdateAwaiter);
+
+                var responseTask = UnityIpcMethodHandlerTestInvoker
+                    .HandleAsync(handler, CreateIpcRequest(requestPayload), cancellationTokenSource.Token)
+                    .AsTask();
+                try
+                {
+                    await TestAwaiter.WaitAsync(
+                        editorUpdateAwaiter.WaitStarted,
+                        "canceled BuildPipeline post-update checkpoint",
+                        SignalWaitTimeout);
+
+                    Assert.That(readinessGate.CaptureObservationCallCount, Is.EqualTo(1));
+                    Assert.That(editorUpdateAwaiter.ObservedCancellationToken, Is.EqualTo(CancellationToken.None));
+                    Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(0));
+                    Assert.That(responseTask.IsCompleted, Is.False);
+
+                    editorUpdateAwaiter.Release();
+                    await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+                    {
+                        await responseTask;
+                    }, "canceled BuildPipeline response after post-update checkpoint", SignalWaitTimeout);
+
+                    Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(1));
+                    Assert.That(mutationLaneControl.CompleteCount, Is.EqualTo(1));
+                }
+                finally
+                {
+                    editorUpdateAwaiter.Release();
+                }
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public async Task HandleStreamingAsync_WithBuildPipelineRunner_WritesProgressFramesAndLogEntriesWithCursor ()
         {
             Assume.That(
@@ -774,15 +818,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 var unityLogStream = new UnityLogRingBuffer();
                 var reportArtifact = CreateReportArtifact(
-                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    IpcBuildReportResult.Succeeded,
                     outputLayout.LocationPathName,
                     errorCount: 0,
                     warningCount: 1);
                 var buildPipelineRunner = new CountingBuildPipelineRunner(
                     reportArtifact,
                     _ => unityLogStream.Write(
-                        IpcUnityLogsSourceCodec.Runtime,
-                        IpcDaemonLogsLevelCodec.Info,
+                        IpcUnityLogSource.Runtime,
+                        IpcLogLevel.Info,
                         "build pipeline progress log"));
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
@@ -801,18 +845,19 @@ namespace MackySoft.Ucli.Unity.Tests
                         errorCount: 0,
                         warningCount: 0),
                     identity,
-                    new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
-                    unityLogStream);
+                    unityLogStream,
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
                 var request = CreateStreamingIpcRequest(requestPayload);
                 var streamWriter = new CollectingIpcStreamFrameWriter(request.RequestId);
 
-                var response = await handler.HandleStreamingAsync(
+                var response = await UnityIpcMethodHandlerTestInvoker.HandleStreamingAsync(handler,
                     request,
                     streamWriter,
                     CancellationToken.None);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(streamWriter.ProgressFrames, Has.Count.EqualTo(5));
                 Assert.That(streamWriter.ProgressFrames[0].Event, Is.EqualTo(BuildRunProgressEventNames.ReadinessCompleted));
                 Assert.That(streamWriter.ProgressFrames[1].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerResolved));
@@ -822,12 +867,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[4].Payload, out BuildProgressEntry runnerCompleted, out _), Is.True);
                 Assert.That(runnerCompleted.RunId, Is.EqualTo(RunId));
-                Assert.That(runnerCompleted.Phase, Is.EqualTo("runnerResult"));
-                Assert.That(runnerCompleted.RunnerStatus, Is.EqualTo("succeeded"));
+                Assert.That(runnerCompleted.Phase, Is.EqualTo(BuildRunProgressPhase.RunnerResult));
+                Assert.That(runnerCompleted.RunnerStatus, Is.EqualTo(IpcBuildReportResult.Succeeded));
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[3].Payload, out BuildLogEntry logEntry, out _), Is.True);
                 Assert.That(logEntry.Message, Is.EqualTo("build pipeline progress log"));
-                Assert.That(logEntry.Source, Is.EqualTo("unityLog"));
+                Assert.That(logEntry.Source, Is.EqualTo(BuildLogEntrySource.UnityLog));
                 Assert.That(logEntry.Cursor, Is.Not.Null);
                 Assert.That(IpcLogCursorCodec.TryParse(logEntry.Cursor!, out _, out var logSequence), Is.True);
                 Assert.That(logSequence, Is.EqualTo(1));
@@ -840,27 +885,30 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator HandleStreamingAsync_WhenRequestTimeoutElapsesWithPendingProgress_StopsWaitingAndReturnsIpcTimeout () => UniTask.ToCoroutine(async () =>
+        public IEnumerator HandleStreamingAsync_WhenExecutionDeadlineElapsesWithPendingProgress_StopsWaitingAndReturnsIpcTimeout () => UniTask.ToCoroutine(async () =>
         {
             using (var scope = TemporaryDirectoryScope.Create())
             using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
-                var requestPayload = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    TimeoutMilliseconds = 1000,
-                };
-                var outputLayout = GetRequiredOutputLayout(requestPayload);
+                var requestPayload = CreateRequest(scope.ProjectPath, identity);
+                var outputLayout = RequireOutputLayout(requestPayload);
                 Directory.CreateDirectory(requestPayload.OutputPath);
-                var timeoutScopeFactory = new CancelableTimeoutScopeFactory();
+                using var executionDeadlineCancellationTokenSource = new CancellationTokenSource();
+                using var executionCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+                    executionDeadlineCancellationTokenSource.Token);
+                using var requestCancellation = new IpcRequestCancellation(
+                    executionCancellationTokenSource.Token,
+                    executionDeadlineCancellationTokenSource.Token,
+                    CancellationToken.None);
                 var reportArtifact = CreateReportArtifact(
-                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    IpcBuildReportResult.Succeeded,
                     outputLayout.LocationPathName,
                     errorCount: 0,
                     warningCount: 0);
                 var buildPipelineRunner = new CountingBuildPipelineRunner(
                     reportArtifact,
-                    _ => timeoutScopeFactory.Cancel());
+                    _ => executionDeadlineCancellationTokenSource.Cancel());
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
                         new CountingReadinessGate(),
@@ -874,15 +922,16 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     new CountingEditorLogRangeExporter(),
                     identity,
-                    timeoutScopeFactory,
                     new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
+                    new UnityLogRingBuffer(),
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
                 var streamWriter = new BlockingIpcStreamFrameWriter();
 
                 var responseTask = handler.HandleStreamingAsync(
-                        CreateStreamingIpcRequest(requestPayload),
+                        ValidatedUnityIpcRequestTestFactory.Create(CreateStreamingIpcRequest(requestPayload)),
                         streamWriter,
-                        CancellationToken.None)
+                        requestCancellation)
                     .AsTask();
 
                 try
@@ -894,7 +943,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
                     Assert.That(streamWriter.FirstWriteObserved.IsCompleted, Is.True);
                     Assert.That(streamWriter.LastWriteCancellationToken.IsCancellationRequested, Is.True);
-                    Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                    Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
                     Assert.That(response.Errors.Count, Is.EqualTo(1));
                     Assert.That(response.Errors[0].Code, Is.EqualTo(IpcTransportErrorCodes.IpcTimeout));
                 }
@@ -957,15 +1006,15 @@ namespace MackySoft.Ucli.Unity.Tests
                 var unityLogStream = new UnityLogRingBuffer();
                 var oversizedMessage = new string('x', 70 * 1024);
                 var reportArtifact = CreateReportArtifact(
-                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    IpcBuildReportResult.Succeeded,
                     outputLayout.LocationPathName,
                     errorCount: 0,
                     warningCount: 0);
                 var buildPipelineRunner = new CountingBuildPipelineRunner(
                     reportArtifact,
                     _ => unityLogStream.Write(
-                        IpcUnityLogsSourceCodec.Runtime,
-                        IpcDaemonLogsLevelCodec.Info,
+                        IpcUnityLogSource.Runtime,
+                        IpcLogLevel.Info,
                         oversizedMessage));
                 var handler = new BuildRunUnityIpcMethodHandler(
                     new UnityBuildPreconditionProbe(
@@ -984,18 +1033,19 @@ namespace MackySoft.Ucli.Unity.Tests
                         errorCount: 0,
                         warningCount: 0),
                     identity,
-                    new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
-                    unityLogStream);
+                    unityLogStream,
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
                 var request = CreateStreamingIpcRequest(requestPayload);
                 var streamWriter = new CollectingIpcStreamFrameWriter(request.RequestId);
 
-                var response = await handler.HandleStreamingAsync(
+                var response = await UnityIpcMethodHandlerTestInvoker.HandleStreamingAsync(handler,
                     request,
                     streamWriter,
                     CancellationToken.None);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(streamWriter.ProgressFrames, Has.Count.EqualTo(5));
                 Assert.That(streamWriter.ProgressFrames[3].Event, Is.EqualTo(BuildRunProgressEventNames.LogEntry));
                 Assert.That(streamWriter.ProgressFrames[4].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerCompleted));
@@ -1043,16 +1093,17 @@ namespace MackySoft.Ucli.Unity.Tests
                         errorCount: 0,
                         warningCount: 0),
                     identity,
-                    new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
-                    unityLogStream);
+                    unityLogStream,
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
                 var request = CreateStreamingIpcRequest(requestPayload);
                 var streamWriter = new CollectingIpcStreamFrameWriter(request.RequestId);
 
                 IpcResponse response;
                 try
                 {
-                    response = await handler.HandleStreamingAsync(
+                    response = await UnityIpcMethodHandlerTestInvoker.HandleStreamingAsync(handler,
                         request,
                         streamWriter,
                         CancellationToken.None);
@@ -1062,7 +1113,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     executeMethodLogStream = null;
                 }
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
                 Assert.That(executeMethodContext, Is.Not.Null);
                 Assert.That(UcliBuildRunnerContext.Current, Is.Null);
@@ -1074,28 +1125,28 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(streamWriter.ProgressFrames[4].Event, Is.EqualTo(BuildRunProgressEventNames.RunnerCompleted));
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[1].Payload, out BuildProgressEntry runnerResolved, out _), Is.True);
-                Assert.That(runnerResolved.Phase, Is.EqualTo("runnerResolution"));
-                Assert.That(runnerResolved.RunnerKind, Is.EqualTo("executeMethod"));
+                Assert.That(runnerResolved.Phase, Is.EqualTo(BuildRunProgressPhase.RunnerResolution));
+                Assert.That(runnerResolved.RunnerKind, Is.EqualTo(BuildRunnerKind.ExecuteMethod));
                 Assert.That(runnerResolved.RunnerStatus, Is.Null);
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[2].Payload, out BuildProgressEntry runnerStarted, out _), Is.True);
-                Assert.That(runnerStarted.Phase, Is.EqualTo("runnerInvocation"));
-                Assert.That(runnerStarted.RunnerKind, Is.EqualTo("executeMethod"));
+                Assert.That(runnerStarted.Phase, Is.EqualTo(BuildRunProgressPhase.RunnerInvocation));
+                Assert.That(runnerStarted.RunnerKind, Is.EqualTo(BuildRunnerKind.ExecuteMethod));
                 Assert.That(runnerStarted.RunnerStatus, Is.Null);
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[3].Payload, out BuildLogEntry logEntry, out _), Is.True);
                 Assert.That(logEntry.Message, Is.EqualTo("executeMethod progress log"));
-                Assert.That(logEntry.Source, Is.EqualTo("unityLog"));
+                Assert.That(logEntry.Source, Is.EqualTo(BuildLogEntrySource.UnityLog));
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(streamWriter.ProgressFrames[4].Payload, out BuildProgressEntry runnerCompleted, out _), Is.True);
-                Assert.That(runnerCompleted.Phase, Is.EqualTo("runnerResult"));
-                Assert.That(runnerCompleted.RunnerKind, Is.EqualTo("executeMethod"));
-                Assert.That(runnerCompleted.RunnerStatus, Is.EqualTo("succeeded"));
+                Assert.That(runnerCompleted.Phase, Is.EqualTo(BuildRunProgressPhase.RunnerResult));
+                Assert.That(runnerCompleted.RunnerKind, Is.EqualTo(BuildRunnerKind.ExecuteMethod));
+                Assert.That(runnerCompleted.RunnerStatus, Is.EqualTo(IpcBuildReportResult.Succeeded));
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
                 Assert.That(payload.RunnerResult, Is.Not.Null);
-                Assert.That(payload.RunnerResult!.Source, Is.EqualTo("ucliBuildRunnerResult"));
-                Assert.That(payload.RunnerResult.Status, Is.EqualTo("succeeded"));
+                Assert.That(payload.RunnerResult!.Source, Is.EqualTo(IpcBuildRunnerResultSource.UcliBuildRunnerResult));
+                Assert.That(payload.RunnerResult.Status, Is.EqualTo(IpcBuildReportResult.Succeeded));
             }
         }
 
@@ -1136,13 +1187,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
+                    new UnityLogRingBuffer(),
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
 
-                var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+                var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, CreateIpcRequest(requestPayload), CancellationToken.None);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(1));
@@ -1152,8 +1204,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(executeMethodContext.Environment.Secrets["UCLI_SECRET_LONG"], Is.EqualTo("secret-value-tail"));
                 Assert.That(UcliBuildRunnerContext.Current, Is.Null);
                 Assert.That(payload.RunnerResult, Is.Not.Null);
-                Assert.That(payload.RunnerResult!.Source, Is.EqualTo("ucliBuildRunnerResult"));
-                Assert.That(payload.RunnerResult.Status, Is.EqualTo("succeeded"));
+                Assert.That(payload.RunnerResult!.Source, Is.EqualTo(IpcBuildRunnerResultSource.UcliBuildRunnerResult));
+                Assert.That(payload.RunnerResult.Status, Is.EqualTo(IpcBuildReportResult.Succeeded));
                 Assert.That(payload.RunnerResult.Outputs, Is.EqualTo(new[] { "player.txt" }));
                 Assert.That(payload.RunnerResult.BuildReport, Is.Null);
                 Assert.That(payload.Report, Is.Null);
@@ -1210,13 +1262,14 @@ namespace MackySoft.Ucli.Unity.Tests
                             errorCount: 0,
                             warningCount: 0),
                         identity,
-                        new CountingTimeoutScopeFactory(),
                         redactionScopeProvider,
-                        unityLogStream);
+                        unityLogStream,
+                        new ImmediateUnityMutationLaneControl(),
+                        new ImmediateUnityEditorUpdateAwaiter());
 
-                    var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+                    var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, CreateIpcRequest(requestPayload), CancellationToken.None);
 
-                    Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                    Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
                     Assert.That(executeMethodContext, Is.Not.Null);
                     var snapshot = unityLogStream.Snapshot();
                     Assert.That(snapshot.Events.Count, Is.GreaterThanOrEqualTo(1));
@@ -1252,15 +1305,15 @@ namespace MackySoft.Ucli.Unity.Tests
             using (var editorScope = new EditorTestScope().SuppressExistingPersistentDirtyObjects())
             {
                 var identity = CreateProjectIdentity(scope.ProjectPath);
-                var requestPayload = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    ProjectMutationMode = ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit),
-                };
+                var requestPayload = CreateRequest(
+                    scope.ProjectPath,
+                    identity,
+                    projectMutationMode: BuildProfileProjectMutationMode.Audit);
                 Directory.CreateDirectory(requestPayload.OutputPath);
                 const string MutatedPath = "Assets/GeneratedByRunner.txt";
                 var mutatedFullPath = Path.Combine(scope.ProjectPath, MutatedPath);
                 var reportArtifact = CreateReportArtifact(
-                    ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                    IpcBuildReportResult.Succeeded,
                     Path.Combine(requestPayload.OutputPath, "build"),
                     errorCount: 0,
                     warningCount: 0);
@@ -1284,23 +1337,24 @@ namespace MackySoft.Ucli.Unity.Tests
                         errorCount: 0,
                         warningCount: 0),
                     identity,
-                    new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
+                    new UnityLogRingBuffer(),
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
 
-                var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+                var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, CreateIpcRequest(requestPayload), CancellationToken.None);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusOk));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Ok));
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(1));
-                Assert.That(payload.ProjectMutation.Mode, Is.EqualTo(ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit)));
-                Assert.That(payload.ProjectMutation.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full)));
+                Assert.That(payload.ProjectMutation.Mode, Is.EqualTo(BuildProfileProjectMutationMode.Audit));
+                Assert.That(payload.ProjectMutation.Coverage, Is.EqualTo(IpcBuildProjectMutationAuditCoverage.Full));
                 Assert.That(payload.ProjectMutation.Mutated, Is.True);
                 Assert.That(payload.ProjectMutation.BeforeDigest, Is.Not.EqualTo(payload.ProjectMutation.AfterDigest));
                 Assert.That(payload.ProjectMutation.Items, Has.Count.EqualTo(1));
                 var item = payload.ProjectMutation.Items[0];
                 Assert.That(item.Path, Is.EqualTo(MutatedPath));
-                Assert.That(item.ChangeKind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added)));
+                Assert.That(item.ChangeKind, Is.EqualTo(IpcBuildProjectMutationChangeKind.Added));
                 Assert.That(item.BeforeSha256, Is.Null);
                 Assert.That(item.AfterSha256, Is.Not.Null);
             }
@@ -1316,10 +1370,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 var (scenePath, scene) = CreateSavedScene(editorScope, "BuildRunHandlerDirty", NewSceneMode.Single);
                 MarkSceneDirty(scene, "DirtyBuildRunRoot");
                 var identity = CreateProjectIdentity(scope.ProjectPath);
-                var requestPayload = CreateRequest(scope.ProjectPath, identity) with
-                {
-                    ScenePaths = new[] { scenePath },
-                };
+                var requestPayload = CreateRequest(
+                    scope.ProjectPath,
+                    identity,
+                    scenePaths: new[] { new SceneAssetPath(scenePath) });
                 var buildPipelineRunner = new CountingBuildPipelineRunner();
                 var logRangeExporter = new CountingEditorLogRangeExporter();
                 var handler = new BuildRunUnityIpcMethodHandler(
@@ -1335,13 +1389,14 @@ namespace MackySoft.Ucli.Unity.Tests
                     CreateExecuteMethodRunner(),
                     logRangeExporter,
                     identity,
-                    new CountingTimeoutScopeFactory(),
                     new UnityLogRedactionScopeProvider(),
-                    new UnityLogRingBuffer());
+                    new UnityLogRingBuffer(),
+                    new ImmediateUnityMutationLaneControl(),
+                    new ImmediateUnityEditorUpdateAwaiter());
 
-                var response = await handler.HandleAsync(CreateIpcRequest(requestPayload), CancellationToken.None);
+                var response = await UnityIpcMethodHandlerTestInvoker.HandleAsync(handler, CreateIpcRequest(requestPayload), CancellationToken.None);
 
-                Assert.That(response.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(response.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(response.Errors.Count, Is.EqualTo(1));
                 Assert.That(response.Errors[0].Code, Is.EqualTo(BuildErrorCodes.BuildDirtyStatePresent));
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunErrorPayload payload, out _), Is.True);
@@ -1364,6 +1419,36 @@ namespace MackySoft.Ucli.Unity.Tests
                 unityVersion: "6000.1.4f1");
         }
 
+        private static BuildRunUnityIpcMethodHandler CreateCheckpointTestHandler (
+            IpcProjectIdentity projectIdentity,
+            IUnityEditorReadinessGate readinessGate,
+            IUnityBuildPipelineRunner buildPipelineRunner,
+            IUnityMutationLaneControl mutationLaneControl,
+            IUnityEditorUpdateAwaiter editorUpdateAwaiter)
+        {
+            return new BuildRunUnityIpcMethodHandler(
+                new UnityBuildPreconditionProbe(
+                    readinessGate,
+                    projectIdentity,
+                    new StubServerVersionProvider("1.2.3"),
+                    new CountingBuildTargetSupportProbe()),
+                new UnsupportedUnityBuildProfileInputResolver(),
+                new UnityProjectMutationAuditProbe(),
+                buildPipelineRunner,
+                new UnsupportedUnityBuildProfileBuildRunner(),
+                CreateExecuteMethodRunner(),
+                new CountingEditorLogRangeExporter(
+                    string.Empty,
+                    entryCount: 0,
+                    errorCount: 0,
+                    warningCount: 0),
+                projectIdentity,
+                new UnityLogRedactionScopeProvider(),
+                new UnityLogRingBuffer(),
+                mutationLaneControl,
+                editorUpdateAwaiter);
+        }
+
         private static IpcBuildOutputLayout RequireOutputLayout (IpcBuildRunRequest request)
         {
             return request.OutputLayout
@@ -1372,47 +1457,49 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static IpcBuildRunRequest CreateRequest (
             string projectPath,
-            IpcProjectIdentity identity)
+            IpcProjectIdentity identity,
+            BuildProfileProjectMutationMode projectMutationMode = BuildProfileProjectMutationMode.Forbid,
+            IReadOnlyList<SceneAssetPath>? scenePaths = null,
+            BuildTargetStableName buildTarget = BuildTargetStableName.StandaloneLinux64,
+            IpcBuildOutputLayout? outputLayout = null,
+            string? outputPath = null,
+            string? buildReportPath = null,
+            string? buildLogPath = null)
         {
-            var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
-            var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
-                storageRoot,
-                identity.ProjectFingerprint,
-                RunId);
-            var outputPath = UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
-                storageRoot,
-                identity.ProjectFingerprint,
-                RunId);
-            if (!IpcBuildOutputLayoutResolver.TryResolve(outputPath, "standaloneLinux64", out var outputLayout)
-                || outputLayout is null)
+            var paths = ResolveRequestArtifactPaths(projectPath, identity);
+            if (!IpcBuildOutputLayoutResolver.TryResolve(
+                paths.OutputPath,
+                BuildTargetStableName.StandaloneLinux64,
+                androidAppBundle: false,
+                out var defaultOutputLayout)
+                || defaultOutputLayout is null)
             {
                 throw new InvalidOperationException("Test build target must resolve a BuildPipeline output layout.");
             }
 
             return new IpcBuildRunRequest(
                 RunId: RunId,
-                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
-                BuildTarget: "standaloneLinux64",
-                UnityBuildTarget: "StandaloneLinux64",
-                SceneSource: "explicit",
-                ScenePaths: new[] { "Assets/Scenes/SampleScene.unity" },
+                InputKind: BuildProfileInputsKind.Explicit,
+                BuildTarget: buildTarget,
+                SceneSource: BuildProfileSceneSource.Explicit,
+                ScenePaths: scenePaths ?? new[] { new SceneAssetPath("Assets/Scenes/SampleScene.unity") },
                 Development: true,
-                OutputPath: outputPath,
-                OutputLayout: outputLayout,
-                BuildReportPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
-                BuildLogPath: Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
-                AllowedEditorModes: new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) },
-                ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
-                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline))
-            {
-                ProfileDigest = new string('a', 64),
-            };
-        }
-
-        private static IpcBuildOutputLayout GetRequiredOutputLayout (IpcBuildRunRequest request)
-        {
-            return request.OutputLayout
-                ?? throw new InvalidOperationException("Explicit build request output layout was not created.");
+                OutputPath: outputPath ?? paths.OutputPath,
+                OutputLayout: outputLayout ?? defaultOutputLayout,
+                BuildReportPath: buildReportPath ?? paths.BuildReportPath,
+                BuildLogPath: buildLogPath ?? paths.BuildLogPath,
+                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                ProjectMutationMode: projectMutationMode,
+                RunnerKind: BuildRunnerKind.BuildPipeline,
+                ProfileDigest: ProfileDigest,
+                UnityBuildProfile: null,
+                ProfilePath: null,
+                RunnerMethod: null,
+                RunnerArguments: new Dictionary<string, string>(StringComparer.Ordinal),
+                RunnerEnvironmentVariables: Array.Empty<string>(),
+                RunnerEnvironmentSecrets: Array.Empty<string>(),
+                RunnerEnvironmentVariableValues: new Dictionary<string, string>(StringComparer.Ordinal),
+                RunnerEnvironmentSecretValues: new Dictionary<string, string>(StringComparer.Ordinal));
         }
 
         private static IpcBuildRunRequest CreateExecuteMethodRequest (
@@ -1420,29 +1507,40 @@ namespace MackySoft.Ucli.Unity.Tests
             IpcProjectIdentity identity,
             string method)
         {
-            return CreateRequest(projectPath, identity) with
-            {
-                OutputLayout = null,
-                RunnerKind = ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod),
-                ProfilePath = Path.Combine(projectPath, "build.ucli.json"),
-                ProfileDigest = new string('a', 64),
-                RunnerMethod = method,
-                RunnerArguments = new Dictionary<string, string>(StringComparer.Ordinal)
+            var paths = ResolveRequestArtifactPaths(projectPath, identity);
+            return new IpcBuildRunRequest(
+                RunId: RunId,
+                InputKind: BuildProfileInputsKind.Explicit,
+                BuildTarget: BuildTargetStableName.StandaloneLinux64,
+                SceneSource: BuildProfileSceneSource.Explicit,
+                ScenePaths: new[] { new SceneAssetPath("Assets/Scenes/SampleScene.unity") },
+                Development: true,
+                OutputPath: paths.OutputPath,
+                OutputLayout: null,
+                BuildReportPath: paths.BuildReportPath,
+                BuildLogPath: paths.BuildLogPath,
+                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
+                RunnerKind: BuildRunnerKind.ExecuteMethod,
+                ProfileDigest: ProfileDigest,
+                UnityBuildProfile: null,
+                ProfilePath: Path.Combine(projectPath, "build.ucli.json"),
+                RunnerMethod: method,
+                RunnerArguments: new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["argument"] = "value",
                 },
-                RunnerEnvironmentVariables = new[] { "UCLI_MODE" },
-                RunnerEnvironmentSecrets = new[] { "UCLI_SECRET", "UCLI_SECRET_LONG" },
-                RunnerEnvironmentVariableValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                RunnerEnvironmentVariables: new[] { "UCLI_MODE" },
+                RunnerEnvironmentSecrets: new[] { "UCLI_SECRET", "UCLI_SECRET_LONG" },
+                RunnerEnvironmentVariableValues: new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["UCLI_MODE"] = "release",
                 },
-                RunnerEnvironmentSecretValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                RunnerEnvironmentSecretValues: new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["UCLI_SECRET"] = "secret-value",
                     ["UCLI_SECRET_LONG"] = "secret-value-tail",
-                },
-            };
+                });
         }
 
         private static BuildExecuteMethodRunner CreateExecuteMethodRunner ()
@@ -1457,6 +1555,17 @@ namespace MackySoft.Ucli.Unity.Tests
             return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 2500, warningCount: 1);
         }
 
+        public static UcliBuildRunnerResult HandlerExecuteMethodThrows (UcliBuildRunnerContext context)
+        {
+            throw new InvalidOperationException("Execute-method runner failed.");
+        }
+
+        public static UcliBuildRunnerResult HandlerExecuteMethodInvokesCallback (UcliBuildRunnerContext context)
+        {
+            executeMethodCallback?.Invoke();
+            return HandlerExecuteMethodSuccess(context);
+        }
+
         public static UcliBuildRunnerResult HandlerExecuteMethodLogsEnvironmentValues (UcliBuildRunnerContext context)
         {
             executeMethodContext = context;
@@ -1469,8 +1578,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             executeMethodContext = context;
             executeMethodLogStream!.Write(
-                IpcUnityLogsSourceCodec.Runtime,
-                IpcDaemonLogsLevelCodec.Info,
+                IpcUnityLogSource.Runtime,
+                IpcLogLevel.Info,
                 "executeMethod progress log");
             WriteExecuteMethodOutput(context, "player.txt");
             return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 2500, warningCount: 1);
@@ -1489,26 +1598,56 @@ namespace MackySoft.Ucli.Unity.Tests
             string projectPath,
             IpcProjectIdentity identity)
         {
-            var explicitRequest = CreateRequest(projectPath, identity);
-            return explicitRequest with
-            {
-                InputKind = ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
-                BuildTarget = null,
-                UnityBuildTarget = null,
-                SceneSource = null,
-                ScenePaths = Array.Empty<string>(),
-                Development = false,
-                OutputLayout = null,
-                UnityBuildProfile = new IpcUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset"),
-            };
+            var paths = ResolveRequestArtifactPaths(projectPath, identity);
+            return new IpcBuildRunRequest(
+                RunId: RunId,
+                InputKind: BuildProfileInputsKind.UnityBuildProfile,
+                BuildTarget: null,
+                SceneSource: null,
+                ScenePaths: Array.Empty<SceneAssetPath>(),
+                Development: false,
+                OutputPath: paths.OutputPath,
+                OutputLayout: null,
+                BuildReportPath: paths.BuildReportPath,
+                BuildLogPath: paths.BuildLogPath,
+                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
+                RunnerKind: BuildRunnerKind.BuildPipeline,
+                ProfileDigest: ProfileDigest,
+                UnityBuildProfile: new IpcUnityBuildProfileInput(
+                    Path: new UnityBuildProfileAssetPath("Assets/BuildProfiles/Linux.asset"),
+                    Digest: null,
+                    ApplyAudit: null),
+                ProfilePath: null,
+                RunnerMethod: null,
+                RunnerArguments: new Dictionary<string, string>(StringComparer.Ordinal),
+                RunnerEnvironmentVariables: Array.Empty<string>(),
+                RunnerEnvironmentSecrets: Array.Empty<string>(),
+                RunnerEnvironmentVariableValues: new Dictionary<string, string>(StringComparer.Ordinal),
+                RunnerEnvironmentSecretValues: new Dictionary<string, string>(StringComparer.Ordinal));
+        }
+
+        private static (string OutputPath, string BuildReportPath, string BuildLogPath) ResolveRequestArtifactPaths (
+            string projectPath,
+            IpcProjectIdentity identity)
+        {
+            var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
+            var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
+                storageRoot,
+                identity.ProjectFingerprint,
+                RunId);
+            return (
+                UcliStoragePathResolver.ResolveBuildRunOutputDirectory(storageRoot, identity.ProjectFingerprint, RunId),
+                Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
+                Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName));
         }
 
         private static IpcUnityBuildProfileInput CreateAppliedUnityBuildProfileInput (string path)
         {
             var lifecycle = Create();
             return new IpcUnityBuildProfileInput(
-                Path: path,
-                Digest: new string('f', 64),
+                Path: new UnityBuildProfileAssetPath(path),
+                Digest: Sha256Digest.Parse(new string('f', 64)),
                 ApplyAudit: new IpcUnityBuildProfileApplyAudit(
                     Applied: true,
                     LifecycleBefore: lifecycle,
@@ -1516,30 +1655,40 @@ namespace MackySoft.Ucli.Unity.Tests
                     DirtyStateAfter: new IpcBuildDirtyState(
                         Checked: true,
                         Dirty: false,
-                        Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
+                        Coverage: IpcBuildDirtyStateCoverage.Full,
                         Items: Array.Empty<IpcBuildDirtyStateItem>())));
         }
 
-        private static IpcRequest CreateIpcRequest (IpcBuildRunRequest payload)
+        private static IpcRequestEnvelope CreateIpcRequest (
+            IpcBuildRunRequest payload,
+            int requestDeadlineRemainingMilliseconds = 30_000)
         {
-            return new IpcRequest(
+            return new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "session-token",
                 method: ContractLiteralCodec.ToValue(UnityIpcMethod.BuildRun),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
-                responseMode: "single");
+                responseMode: "single",
+                requestDeadlineUtc: DateTimeOffset.UtcNow
+                    + TimeSpan.FromMilliseconds(requestDeadlineRemainingMilliseconds),
+                requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);
         }
 
-        private static IpcRequest CreateStreamingIpcRequest (IpcBuildRunRequest payload)
+        private static IpcRequestEnvelope CreateStreamingIpcRequest (
+            IpcBuildRunRequest payload,
+            int requestDeadlineRemainingMilliseconds = 30_000)
         {
-            return new IpcRequest(
+            return new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "session-token",
                 method: ContractLiteralCodec.ToValue(UnityIpcMethod.BuildRun),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
-                responseMode: "stream");
+                responseMode: "stream",
+                requestDeadlineUtc: DateTimeOffset.UtcNow
+                    + TimeSpan.FromMilliseconds(requestDeadlineRemainingMilliseconds),
+                requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);
         }
 
         private static string GetArtifactPath (
@@ -1551,20 +1700,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 "output" => request.OutputPath,
                 "report" => request.BuildReportPath,
                 "log" => request.BuildLogPath,
-                _ => throw new ArgumentOutOfRangeException(nameof(artifact), artifact, "Unsupported build artifact selector."),
-            };
-        }
-
-        private static IpcBuildRunRequest WithArtifactPath (
-            IpcBuildRunRequest request,
-            string artifact,
-            string path)
-        {
-            return artifact switch
-            {
-                "output" => request with { OutputPath = path },
-                "report" => request with { BuildReportPath = path },
-                "log" => request with { BuildLogPath = path },
                 _ => throw new ArgumentOutOfRangeException(nameof(artifact), artifact, "Unsupported build artifact selector."),
             };
         }
@@ -1608,8 +1743,33 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         }
 
+        private sealed class ControllableUnityEditorUpdateAwaiter : IUnityEditorUpdateAwaiter
+        {
+            private readonly TaskCompletionSource<bool> startedSource = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private readonly TaskCompletionSource<bool> releaseSource = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public Task WaitStarted => startedSource.Task;
+
+            public CancellationToken ObservedCancellationToken { get; private set; }
+
+            public Task WaitForNextUpdateAsync (CancellationToken cancellationToken)
+            {
+                ObservedCancellationToken = cancellationToken;
+                startedSource.TrySetResult(true);
+                return releaseSource.Task;
+            }
+
+            public void Release ()
+            {
+                releaseSource.TrySetResult(true);
+            }
+        }
+
         private static IpcBuildReportArtifact CreateReportArtifact (
-            string result,
+            IpcBuildReportResult result,
             string outputPath,
             int errorCount,
             int warningCount)
@@ -1666,7 +1826,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             public int CallCount { get; private set; }
 
-            public UnityBuildTargetSupportProbeResult Probe (string unityBuildTargetLiteral)
+            public UnityBuildTargetSupportProbeResult Probe (BuildTargetStableName buildTarget)
             {
                 CallCount++;
                 return UnityBuildTargetSupportProbeResult.Resolved(
@@ -1722,20 +1882,23 @@ namespace MackySoft.Ucli.Unity.Tests
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
-                if (!IpcBuildOutputLayoutResolver.TryResolve(request.OutputPath, "standaloneLinux64", out var outputLayout))
+                if (!IpcBuildOutputLayoutResolver.TryResolve(
+                    request.OutputPath,
+                    BuildTargetStableName.StandaloneLinux64,
+                    androidAppBundle: false,
+                    out var outputLayout))
                 {
                     throw new InvalidOperationException("Test output layout must resolve.");
                 }
 
                 var preconditionInput = new UnityBuildPreconditionInput(
-                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
-                    BuildTarget: "standaloneLinux64",
-                    UnityBuildTarget: "StandaloneLinux64",
-                    SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
-                    ScenePaths: new[] { "Assets/Scenes/SampleScene.unity" },
+                    InputKind: BuildProfileInputsKind.UnityBuildProfile,
+                    BuildTarget: BuildTargetStableName.StandaloneLinux64,
+                    SceneSource: BuildProfileSceneSource.UnityBuildProfile,
+                    ScenePaths: new[] { new SceneAssetPath("Assets/Scenes/SampleScene.unity") },
                     Development: false,
                     AllowedEditorModes: request.AllowedEditorModes);
-                var unityBuildProfile = CreateAppliedUnityBuildProfileInput(request.UnityBuildProfile!.Path);
+                var unityBuildProfile = CreateAppliedUnityBuildProfileInput(request.UnityBuildProfile!.Path.Value);
 
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Success(
                     preconditionInput,
@@ -1746,11 +1909,11 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class TimeoutAfterBuildProfileInputResolver : IUnityBuildProfileInputResolver
         {
-            private readonly CancelableTimeoutScopeFactory timeoutScopeFactory;
+            private readonly Action cancelExecutionDeadline;
 
-            public TimeoutAfterBuildProfileInputResolver (CancelableTimeoutScopeFactory timeoutScopeFactory)
+            public TimeoutAfterBuildProfileInputResolver (Action cancelExecutionDeadline)
             {
-                this.timeoutScopeFactory = timeoutScopeFactory;
+                this.cancelExecutionDeadline = cancelExecutionDeadline;
             }
 
             public int CallCount { get; private set; }
@@ -1760,21 +1923,24 @@ namespace MackySoft.Ucli.Unity.Tests
                 CancellationToken cancellationToken = default)
             {
                 CallCount++;
-                if (!IpcBuildOutputLayoutResolver.TryResolve(request.OutputPath, "standaloneLinux64", out var outputLayout))
+                if (!IpcBuildOutputLayoutResolver.TryResolve(
+                    request.OutputPath,
+                    BuildTargetStableName.StandaloneLinux64,
+                    androidAppBundle: false,
+                    out var outputLayout))
                 {
                     throw new InvalidOperationException("Test output layout must resolve.");
                 }
 
                 var preconditionInput = new UnityBuildPreconditionInput(
-                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
-                    BuildTarget: "standaloneLinux64",
-                    UnityBuildTarget: "StandaloneLinux64",
-                    SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
-                    ScenePaths: new[] { "Assets/Scenes/SampleScene.unity" },
+                    InputKind: BuildProfileInputsKind.UnityBuildProfile,
+                    BuildTarget: BuildTargetStableName.StandaloneLinux64,
+                    SceneSource: BuildProfileSceneSource.UnityBuildProfile,
+                    ScenePaths: new[] { new SceneAssetPath("Assets/Scenes/SampleScene.unity") },
                     Development: false,
                     AllowedEditorModes: request.AllowedEditorModes);
-                var unityBuildProfile = CreateAppliedUnityBuildProfileInput(request.UnityBuildProfile!.Path);
-                timeoutScopeFactory.Cancel();
+                var unityBuildProfile = CreateAppliedUnityBuildProfileInput(request.UnityBuildProfile!.Path.Value);
+                cancelExecutionDeadline();
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Success(
                     preconditionInput,
                     outputLayout!,
@@ -1914,7 +2080,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ProgressFrames.Add(new IpcStreamFrame(
                     IpcProtocol.CurrentVersion,
                     requestId,
-                    IpcStreamFrameKinds.Progress,
+                    IpcStreamFrameKind.Progress,
                     eventName,
                     IpcPayloadCodec.SerializeToElement(payload),
                     null));
@@ -1968,117 +2134,6 @@ namespace MackySoft.Ucli.Unity.Tests
             public void ReleaseWrites ()
             {
                 writeReleaseSource.TrySetResult(true);
-            }
-        }
-
-        private sealed class FailingIpcStreamFrameWriter : IIpcStreamFrameWriter
-        {
-            private readonly Exception exception;
-
-            public FailingIpcStreamFrameWriter (Exception exception)
-            {
-                this.exception = exception;
-            }
-
-            public ValueTask WriteProgressAsync<TPayload> (
-                string eventName,
-                TPayload payload,
-                CancellationToken cancellationToken = default)
-                where TPayload : notnull
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                return new ValueTask(Task.FromException(exception));
-            }
-
-            public ValueTask WriteTerminalAsync (
-                IpcResponse response,
-                CancellationToken cancellationToken = default)
-            {
-                throw new InvalidOperationException("build.run handler does not write terminal frames directly.");
-            }
-        }
-
-        private sealed class CountingTimeoutScopeFactory : IIpcRequestTimeoutScopeFactory
-        {
-            public int CallCount { get; private set; }
-
-            public int DisposeCount { get; private set; }
-
-            public IIpcRequestTimeoutScope CreateLinked (
-                int? timeoutMilliseconds,
-                CancellationToken cancellationToken)
-            {
-                CallCount++;
-                return new PassthroughTimeoutScope(
-                    cancellationToken,
-                    () => DisposeCount++);
-            }
-        }
-
-        private sealed class PassthroughTimeoutScope : IIpcRequestTimeoutScope
-        {
-            private readonly Action onDispose;
-
-            private int disposed;
-
-            public PassthroughTimeoutScope (
-                CancellationToken token,
-                Action onDispose)
-            {
-                Token = token;
-                this.onDispose = onDispose;
-            }
-
-            public CancellationToken Token { get; }
-
-            public bool IsTimeoutCancellationRequested => false;
-
-            public void Dispose ()
-            {
-                if (Interlocked.Exchange(ref disposed, 1) == 0)
-                {
-                    onDispose();
-                }
-            }
-        }
-
-        private sealed class CancelableTimeoutScopeFactory : IIpcRequestTimeoutScopeFactory
-        {
-            private CancellationTokenSource? cancellationTokenSource;
-
-            public int CallCount { get; private set; }
-
-            public IIpcRequestTimeoutScope CreateLinked (
-                int? timeoutMilliseconds,
-                CancellationToken cancellationToken)
-            {
-                CallCount++;
-                cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-                return new CancelableTimeoutScope(cancellationTokenSource);
-            }
-
-            public void Cancel ()
-            {
-                cancellationTokenSource?.Cancel();
-            }
-        }
-
-        private sealed class CancelableTimeoutScope : IIpcRequestTimeoutScope
-        {
-            private readonly CancellationTokenSource cancellationTokenSource;
-
-            public CancelableTimeoutScope (CancellationTokenSource cancellationTokenSource)
-            {
-                this.cancellationTokenSource = cancellationTokenSource;
-            }
-
-            public CancellationToken Token => cancellationTokenSource.Token;
-
-            public bool IsTimeoutCancellationRequested => cancellationTokenSource.IsCancellationRequested;
-
-            public void Dispose ()
-            {
-                cancellationTokenSource.Dispose();
             }
         }
 
