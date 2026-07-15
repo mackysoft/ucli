@@ -25,7 +25,7 @@ internal static class BuildRunTestData
         var normalizedReportResult = reportResult ?? IpcBuildReportResult.Succeeded;
         var normalizedCompletionReason = completionReason ?? IpcBuildLogCompletionReason.Completed;
         var normalizedVerdict = verdict ?? AssuranceVerdict.Pass;
-        var project = ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject", projectFingerprint: ProjectFingerprint);
+        var project = ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject, projectFingerprint: ProjectFingerprint);
         var build = CreateBuild(normalizedReportResult, normalizedCompletionReason, errorCount);
         var claims = CreateClaims(normalizedReportResult);
 
@@ -87,7 +87,9 @@ internal static class BuildRunTestData
     {
         return new BuildOutput(
             runId: RunId,
-            profile: new BuildProfileOutput("/workspace/.ucli/build/player.json", Repeat('a')),
+            profile: new BuildProfileOutput(
+                Path.Combine(ProjectPathTestValues.WorkspaceRoot, ".ucli", "build", "player.json"),
+                Repeat('a')),
             inputs: new BuildInputsOutput(
                 InputKind: BuildProfileInputsKind.Explicit,
                 Target: new BuildTargetOutput(BuildTargetStableName.StandaloneLinux64, "StandaloneLinux64"),

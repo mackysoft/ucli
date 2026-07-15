@@ -84,7 +84,7 @@ internal static class DaemonListQueryServiceTestSupport
         var normalizedProjectRoot = projectRelativePath == "."
             ? normalizedWorktreeRoot
             : Path.Combine(normalizedWorktreeRoot, projectRelativePath);
-        return ProjectContextTestFactory.CreateUnityProject(
+        return ProjectContextTestFactory.CreateUnityProjectWithPaths(
             unityProjectRoot: normalizedProjectRoot,
             repositoryRoot: normalizedWorktreeRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create(fingerprintLabel),
@@ -106,7 +106,13 @@ internal static class DaemonListQueryServiceTestSupport
             EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
-            UnityLogPath: "/repo/.ucli/local/fingerprints/fp-current/unity.log",
+            UnityLogPath: Path.Combine(
+                ProjectPathTestValues.RepositoryRoot,
+                ".ucli",
+                "local",
+                "fingerprints",
+                "fp-current",
+                "unity.log"),
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
             ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(

@@ -51,7 +51,7 @@ public sealed class CallServiceReadPostconditionTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: "/repo/UnityProject",
+                ProjectPath: ProjectPathTestValues.RepositoryUnityProject,
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,
@@ -66,7 +66,7 @@ public sealed class CallServiceReadPostconditionTests
         Assert.NotNull(result.Output!.ReadPostcondition);
         MutationReadPostconditionStoreAssert.WrittenSceneTreeLiteRequirement(
             readPostconditionStore,
-            expectedStorageRoot: "/repo",
+            expectedStorageRoot: ProjectPathTestValues.RepositoryRoot,
             expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             expectedScenePath: "Assets/Scenes/Main.unity");
         var requirement = Assert.Single(result.Output.ReadPostcondition!.Requirements);
@@ -117,7 +117,7 @@ public sealed class CallServiceReadPostconditionTests
         var result = await service.ExecuteAsync(
             RequestId,
             new CallCommandInput(
-                ProjectPath: "/repo/UnityProject",
+                ProjectPath: ProjectPathTestValues.RepositoryUnityProject,
                 Mode: NormalizeMode("oneshot"),
                 TimeoutMilliseconds: NormalizeTimeout("1200"),
                 PlanToken: null,
@@ -134,7 +134,7 @@ public sealed class CallServiceReadPostconditionTests
         Assert.NotNull(result.Output.ReadPostcondition);
         MutationReadPostconditionStoreAssert.WrittenOnceForProject(
             readPostconditionStore,
-            expectedStorageRoot: "/repo",
+            expectedStorageRoot: ProjectPathTestValues.RepositoryRoot,
             expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"));
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);

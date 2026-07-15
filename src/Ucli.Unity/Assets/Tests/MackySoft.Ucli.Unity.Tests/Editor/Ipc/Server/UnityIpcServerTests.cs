@@ -33,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private const string CanonicalSessionToken = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
 
         private static readonly IpcProjectIdentity ProjectIdentity = new IpcProjectIdentity(
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             ProjectFingerprintTestFactory.Create("unity-ipc-server"),
             "6000.1.4f1");
 

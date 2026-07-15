@@ -17,7 +17,7 @@ public sealed class BuildServiceExecuteMethodRunnerTests
     {
         const string EnvironmentValue = "release";
         const string SecretValue = "secret-value";
-        const string profilePath = "/workspace/build.ucli.json";
+        var profilePath = Path.Combine(ProjectContextTestFactory.RepositoryRoot, "build.ucli.json");
         var profileJson = CreateExecuteMethodProfileJson(
             method: "Build.Entry.Run",
             arguments: """
@@ -69,7 +69,7 @@ public sealed class BuildServiceExecuteMethodRunnerTests
             expectedProfilePath: profilePath,
             expectedProfileDigest: profileDigest,
             expectedOutputDirectory: outputDirectory,
-            expectedProjectPath: "/workspace/UnityProject",
+            expectedProjectPath: ProjectContextTestFactory.UnityProjectRoot,
             expectedProjectFingerprint: DefaultProjectFingerprint,
             expectedBuildTarget: "standaloneLinux64",
             expectedEnvironmentVariable: "UCLI_MODE",
@@ -140,7 +140,9 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         using var tempDirectory = CreateArtifactDirectoryScope();
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                profileJson,
+                Path.Combine(ProjectContextTestFactory.RepositoryRoot, "build.ucli.json"))),
             requestExecutor: CreateBuildResponseExecutor(
                 IpcBuildReportResult.Succeeded,
                 IpcBuildLogCompletionReason.Completed,

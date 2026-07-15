@@ -64,7 +64,7 @@ public sealed class ScreenshotCommandTests
         var command = new ScreenshotGameCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.GameAsync(
-            projectPath: "/repo/UnityProject",
+            projectPath: ProjectPathTestValues.RepositoryUnityProject,
             mode: "daemon",
             width: "1920",
             height: "1080",
@@ -139,8 +139,8 @@ public sealed class ScreenshotCommandTests
         int? requestedHeight)
     {
         return new ScreenshotCaptureOutput(
-            ProjectIdentityInfoTestFactory.Create(
-                projectPath: "/repo/UnityProject",
+            ProjectIdentityInfoTestFactory.CreateWithProjectPath(
+                projectPath: ProjectPathTestValues.RepositoryUnityProject,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("screenshot-command"),
                 unityVersion: "6000.0.77f1"),
             new IpcScreenshotCapture(

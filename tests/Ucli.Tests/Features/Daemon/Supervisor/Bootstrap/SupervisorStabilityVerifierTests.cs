@@ -27,9 +27,9 @@ public sealed class SupervisorStabilityVerifierTests
             new SupervisorDiagnosisWriter(diagnosisStore),
             new DaemonCompensationOperationOwner(),
             timeProvider);
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
-            repositoryRoot: "/tmp/repo-root",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var session = DaemonSessionTestFactory.Create(sessionToken: "session-token");
 
@@ -79,9 +79,9 @@ public sealed class SupervisorStabilityVerifierTests
             timeProvider);
         var timeout = TimeSpan.FromMilliseconds(500);
         var verificationTask = verifier.EnsureStableAsync(
-                ResolvedUnityProjectContextTestFactory.Create(
-                    unityProjectRoot: "/tmp/unity-project",
-                    repositoryRoot: "/tmp/repo-root",
+                ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                    unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+                    repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
                     projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-non-cooperative-stability-ping")),
                 DaemonSessionTestFactory.Create(sessionToken: "session-token"),
                 ExecutionDeadline.Start(timeout, timeProvider),
@@ -138,9 +138,9 @@ public sealed class SupervisorStabilityVerifierTests
             timeProvider);
 
         var verificationTask = verifier.EnsureStableAsync(
-                ResolvedUnityProjectContextTestFactory.Create(
-                    unityProjectRoot: "/tmp/unity-project",
-                    repositoryRoot: "/tmp/repo-root",
+                ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                    unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+                    repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
                     projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
                 DaemonSessionTestFactory.Create(sessionToken: "session-token"),
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
@@ -174,9 +174,9 @@ public sealed class SupervisorStabilityVerifierTests
         var pingClient = new RecordingDaemonPingClient(static (_, _, _, _) =>
             ValueTask.FromException(new InvalidOperationException("ping failed")));
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
-            repositoryRoot: "/tmp/repo-root",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var verifier = new SupervisorStabilityVerifier(
             pingClient,
@@ -215,9 +215,9 @@ public sealed class SupervisorStabilityVerifierTests
             new ManualTimeProvider());
 
         var result = await verifier.EnsureStableAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
-                repositoryRoot: "/tmp/repo-root",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+                repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
             DaemonSessionTestFactory.Create(sessionToken: "session-token"),
             ExecutionDeadline.Start(TimeSpan.FromMilliseconds(400), TimeProvider.System),
@@ -246,9 +246,9 @@ public sealed class SupervisorStabilityVerifierTests
             new SupervisorDiagnosisWriter(diagnosisStore),
             compensationOwner,
             timeProvider);
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
-            repositoryRoot: "/tmp/repo-root",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-non-cooperative-diagnosis"));
         var verificationTask = verifier.EnsureStableAsync(
                 unityProject,

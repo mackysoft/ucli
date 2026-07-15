@@ -29,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Tests
             ProjectFingerprintTestFactory.Create("unity-ipc-method-handlers");
 
         private static readonly IpcProjectIdentity ProjectIdentity = new IpcProjectIdentity(
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             ProjectFingerprint,
             "6000.1.4f1");
 
@@ -259,7 +259,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new PlayStatusUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
-                new IpcProjectIdentity("/repo/UnityProject", ProjectFingerprint, "6000.1.4f1"),
+                new IpcProjectIdentity(ProjectPathTestValues.RepositoryUnityProject, ProjectFingerprint, "6000.1.4f1"),
                 NoOpDaemonLogger.Instance);
             var request = CreatePlayStatusRequest(Guid.NewGuid(), new IpcPlayStatusRequest());
 
@@ -289,7 +289,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var handler = new PlayStatusUnityIpcMethodHandler(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
-                new IpcProjectIdentity("/repo/UnityProject", ProjectFingerprint, "6000.1.4f1"),
+                new IpcProjectIdentity(ProjectPathTestValues.RepositoryUnityProject, ProjectFingerprint, "6000.1.4f1"),
                 NoOpDaemonLogger.Instance);
             var request = CreatePlayStatusRequest(Guid.NewGuid(), 123);
 
@@ -2042,7 +2042,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcProjectIdentity CreateProjectIdentity ()
         {
             return new IpcProjectIdentity(
-                projectPath: "/repo/UnityProject",
+                projectPath: ProjectPathTestValues.RepositoryUnityProject,
                 projectFingerprint: ProjectFingerprint,
                 unityVersion: "6000.1.4f1");
         }

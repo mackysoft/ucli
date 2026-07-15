@@ -12,8 +12,9 @@ public sealed class ValidateServiceReadIndexDisabledTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenExplicitReadIndexModeIsDisabled_RequiresProjectPreparationAndSkipsSharedPreflight ()
     {
+        var preparedRequestContext = CreatePreparedRequestContext();
         var requestPreparationService = CreateRequestPreparationService(
-            RequestPreparationResult.Success(CreatePreparedRequestContext()));
+            RequestPreparationResult.Success(preparedRequestContext));
         var validator = new RecordingRequestStaticValidator
         {
             Result = ValidationResult.Success(),
@@ -21,7 +22,7 @@ public sealed class ValidateServiceReadIndexDisabledTests
         var preflightService = new RecordingRequestStaticValidationPreflightService
         {
             Result = RequestStaticValidationPreflightResult.Success(
-                CreatePreparedRequestContext(),
+                preparedRequestContext,
                 CreateReadIndexInfo(
                     used: true,
                     hit: true,
@@ -43,7 +44,7 @@ public sealed class ValidateServiceReadIndexDisabledTests
         RequestStaticValidationInvocationAssert.PureStaticValidationRequestedOnce(
             validator,
             expectedCatalogAvailable: false);
-        Assert.Equal("/tmp/project", output.Project.ProjectPath);
+        Assert.Equal(preparedRequestContext.ProjectContext.UnityProject.UnityProjectRoot, output.Project.ProjectPath);
         RequestPreparationInvocationAssert.ProjectPreparedOnce(
             requestPreparationService,
             expectedProjectPath: null,

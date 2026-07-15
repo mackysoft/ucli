@@ -38,7 +38,7 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse(new IpcExecuteResponse(
             [],
             new IpcProjectIdentity(
-                projectPath: "/repo/AnotherUnityProject",
+                projectPath: Path.Combine(ExpectedProject.RepositoryRoot, "AnotherUnityProject"),
                 projectFingerprint: responseProjectFingerprint,
                 unityVersion: "6000.1.4f1"),
             planToken: null,
@@ -64,7 +64,7 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse(new IpcExecuteResponse(
             [],
             new IpcProjectIdentity(
-                projectPath: "/repo/AnotherUnityProject",
+                projectPath: Path.Combine(ExpectedProject.RepositoryRoot, "AnotherUnityProject"),
                 projectFingerprint: ExpectedProject.ProjectFingerprint,
                 unityVersion: ExpectedProject.UnityVersion),
             planToken: null,
@@ -242,7 +242,7 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse($$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprint}}",
                 "unityVersion": "6000.1.4f1"
               },
@@ -288,7 +288,7 @@ public sealed class ExecuteResponseConverterTests
         var response = CreateResponse($$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprint}}",
                 "unityVersion": "6000.1.4f1"
               },
@@ -374,7 +374,7 @@ public sealed class ExecuteResponseConverterTests
         return $$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprint}}",
                 "unityVersion": "6000.1.4f1"
               },
@@ -394,7 +394,7 @@ public sealed class ExecuteResponseConverterTests
         return $$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprint}}",
                 "unityVersion": "6000.1.4f1"
               },

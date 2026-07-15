@@ -70,8 +70,8 @@ public sealed class DaemonSessionCleanupServiceConcurrencyTests
                 new RecordingDaemonProcessIdentityAssessor(
                     DaemonProcessIdentityAssessmentStatus.DifferentProcess)),
             new DaemonCompensationOperationOwner());
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
             repositoryRoot: scope.FullPath,
             projectFingerprint: projectFingerprint);
 

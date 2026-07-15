@@ -18,8 +18,8 @@ public sealed class SupervisorExitHandlerTests
             "supervisor-exit-handler",
             "diagnosis-cleanup-failures",
             DirectoryCleanupMode.BestEffort);
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
             repositoryRoot: scope.FullPath,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var session = DaemonSessionTestFactory.Create(
@@ -77,8 +77,8 @@ public sealed class SupervisorExitHandlerTests
             "supervisor-exit-handler",
             "session-read-failure",
             DirectoryCleanupMode.BestEffort);
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
             repositoryRoot: scope.FullPath,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var session = DaemonSessionTestFactory.Create(
@@ -129,8 +129,8 @@ public sealed class SupervisorExitHandlerTests
             "supervisor-exit-handler",
             "cleanup-before-diagnosis",
             DirectoryCleanupMode.BestEffort);
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
             repositoryRoot: scope.FullPath,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var session = DaemonSessionTestFactory.Create(
@@ -183,8 +183,8 @@ public sealed class SupervisorExitHandlerTests
             "supervisor-exit-handler",
             "same-process-rotation",
             DirectoryCleanupMode.BestEffort);
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
             repositoryRoot: scope.FullPath,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero);
@@ -229,8 +229,8 @@ public sealed class SupervisorExitHandlerTests
     [Trait("Size", "Small")]
     public async Task HandleExit_WhenSessionBelongsToSuccessorProcess_PreservesSuccessorArtifacts ()
     {
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ResolvedUnityProjectContextTestFactory.UnityProjectRoot,
             repositoryRoot: ResolvedUnityProjectContextTestFactory.RepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero);
@@ -272,8 +272,8 @@ public sealed class SupervisorExitHandlerTests
     [Trait("Size", "Small")]
     public async Task HandleExit_WhenSessionCannotShutdownProcess_SkipsDiagnosisAndCleanup ()
     {
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ResolvedUnityProjectContextTestFactory.UnityProjectRoot,
             repositoryRoot: ResolvedUnityProjectContextTestFactory.RepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
         var session = DaemonSessionTestFactory.Create(

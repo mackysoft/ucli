@@ -41,9 +41,9 @@ public sealed class DaemonStartServiceFailureTests
     [Trait("Size", "Small")]
     public async Task Start_WhenSupervisorReturnsFailure_ReturnsFailure ()
     {
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 1600,
-            repositoryRoot: "/tmp/repo-root");
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
@@ -81,9 +81,9 @@ public sealed class DaemonStartServiceFailureTests
     [Trait("Size", "Small")]
     public async Task Start_WhenSupervisorReturnsFailureAndDiagnosisExists_AttachesMappedDiagnosis ()
     {
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 1600,
-            repositoryRoot: "/tmp/repo-root");
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
@@ -92,7 +92,10 @@ public sealed class DaemonStartServiceFailureTests
                 ExecutionError.Timeout("start failed", ExecutionErrorCodes.IpcTimeout),
                 DaemonDiagnosisTestFactory.Create(
                     reason: DaemonDiagnosisReason.GuiEndpointNotRegistered,
-                    editorInstancePath: "/tmp/unity-project/Library/EditorInstance.json")),
+                    editorInstancePath: Path.Combine(
+                        context.Context.UnityProject.UnityProjectRoot,
+                        "Library",
+                        "EditorInstance.json"))),
         };
         var diagnosis = supervisorProjectGateway.EnsureRunningResult.Diagnosis!;
         var service = DaemonStartServiceTestSupport.CreateService(resolver, supervisorProjectGateway);
@@ -111,9 +114,9 @@ public sealed class DaemonStartServiceFailureTests
     [Trait("Size", "Small")]
     public async Task Start_WhenSupervisorReturnsFailureWithStartup_PreservesFailurePayloadFields ()
     {
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 1600,
-            repositoryRoot: "/tmp/repo-root");
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var startup = new DaemonStartupObservation(

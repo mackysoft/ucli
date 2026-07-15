@@ -13,9 +13,9 @@ public sealed class DaemonSessionDiagnosisResolverTests
     [Trait("Size", "Small")]
     public async Task ResolveForSession_WhenPersistedDiagnosisMatchesSession_ReturnsPersistedDiagnosis ()
     {
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
-            repositoryRoot: "/tmp/repo-root",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-match"));
         var session = DaemonSessionTestFactory.Create(
             processId: 1234,
@@ -35,9 +35,9 @@ public sealed class DaemonSessionDiagnosisResolverTests
     [Trait("Size", "Small")]
     public async Task ResolveForSession_WhenPersistedDiagnosisProcessStartedAtUtcDoesNotMatch_ReturnsNullForLiveProcess ()
     {
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
-            repositoryRoot: "/tmp/repo-root",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-process-start-mismatch"));
         var session = DaemonSessionTestFactory.Create(
             processId: Environment.ProcessId,
@@ -70,9 +70,9 @@ public sealed class DaemonSessionDiagnosisResolverTests
     [Trait("Size", "Small")]
     public async Task ResolveForSession_WhenPersistedDiagnosisDoesNotMatchAndProcessIsDead_ReturnsSynthesizedDiagnosis ()
     {
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
-            repositoryRoot: "/tmp/repo-root",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-synth"));
         var session = DaemonSessionTestFactory.Create(
             processId: int.MaxValue,
@@ -108,9 +108,9 @@ public sealed class DaemonSessionDiagnosisResolverTests
     [Trait("Size", "Small")]
     public async Task ResolveForSession_WhenProcessIsStillAlive_ReturnsNull ()
     {
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
-            repositoryRoot: "/tmp/repo-root",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-alive"));
         var session = DaemonSessionTestFactory.Create(
             processId: Environment.ProcessId,
@@ -129,9 +129,9 @@ public sealed class DaemonSessionDiagnosisResolverTests
     [Trait("Size", "Small")]
     public async Task ResolveForSession_WhenDiagnosisPersistenceFails_StillReturnsSynthesizedDiagnosis ()
     {
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
-            repositoryRoot: "/tmp/repo-root",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-write-fail"));
         var session = DaemonSessionTestFactory.Create(
             processId: int.MaxValue,
@@ -157,9 +157,9 @@ public sealed class DaemonSessionDiagnosisResolverTests
     [Trait("Size", "Small")]
     public async Task ResolveForSession_WhenCallerCancelsDuringDiagnosisWrite_RethrowsCancellation ()
     {
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
-            repositoryRoot: "/tmp/repo-root",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-resolver-write-cancellation"));
         var session = DaemonSessionTestFactory.Create(
             processId: int.MaxValue,

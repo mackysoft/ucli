@@ -22,7 +22,7 @@ public sealed class BuildServiceFailurePayloadTests
             ]);
         var input = CreateInputProbe();
         var errorPayload = new IpcBuildRunErrorPayload(
-            Project: new IpcProjectIdentity("/workspace/UnityProject", DefaultProjectFingerprint, "6000.1.4f1"),
+            Project: new IpcProjectIdentity(ProjectContextTestFactory.UnityProjectRoot, DefaultProjectFingerprint, "6000.1.4f1"),
             LifecycleBefore: CreateLifecycleSnapshot(10),
             DirtyState: dirtyState,
             Input: input);
@@ -58,7 +58,7 @@ public sealed class BuildServiceFailurePayloadTests
             Coverage: IpcBuildDirtyStateCoverage.Partial,
             Items: []);
         var errorPayload = new IpcBuildRunErrorPayload(
-            Project: new IpcProjectIdentity("/workspace/UnityProject", DefaultProjectFingerprint, "6000.1.4f1"),
+            Project: new IpcProjectIdentity(ProjectContextTestFactory.UnityProjectRoot, DefaultProjectFingerprint, "6000.1.4f1"),
             LifecycleBefore: CreateLifecycleSnapshot(10),
             DirtyState: dirtyState,
             Input: CreateInputProbe());
@@ -95,7 +95,7 @@ public sealed class BuildServiceFailurePayloadTests
                     "Assets/Scenes/Main.unity"),
             ]);
         var errorPayload = new IpcBuildRunErrorPayload(
-            Project: new IpcProjectIdentity("/workspace/UnityProject", DefaultProjectFingerprint, "6000.1.4f1"),
+            Project: new IpcProjectIdentity(ProjectContextTestFactory.UnityProjectRoot, DefaultProjectFingerprint, "6000.1.4f1"),
             LifecycleBefore: CreateLifecycleSnapshot(10),
             DirtyState: dirtyState,
             Input: CreateInputProbe());

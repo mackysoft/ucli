@@ -73,7 +73,7 @@ public sealed class IpcDaemonReachabilityProbeTests
             TimeProvider.System);
 
         var result = await probe.ProbeAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
                 unityProjectRoot: scope.FullPath,
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
@@ -304,7 +304,7 @@ public sealed class IpcDaemonReachabilityProbeTests
             recoveryWaiter,
             timeProvider);
         var context = endpointMissing
-            ? ResolvedUnityProjectContextTestFactory.Create(
+            ? ResolvedUnityProjectContextTestFactory.CreateWithPaths(
                 unityProjectRoot: scope.FullPath,
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"))
@@ -375,7 +375,7 @@ public sealed class IpcDaemonReachabilityProbeTests
         {
             await TestAwaiter.WaitAsync(
                 probe.ProbeAsync(
-                    ResolvedUnityProjectContextTestFactory.Create(
+                    ResolvedUnityProjectContextTestFactory.CreateWithPaths(
                         unityProjectRoot: projectRoot,
                         repositoryRoot: projectRoot,
                         projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
@@ -425,7 +425,7 @@ public sealed class IpcDaemonReachabilityProbeTests
             TimeProvider.System);
         var repositoryRoot = scope.CreateDirectory("Repo");
         var unityProjectRoot = Path.Combine(repositoryRoot, "UnityProject");
-        var context = ResolvedUnityProjectContextTestFactory.Create(
+        var context = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
             unityProjectRoot: unityProjectRoot,
             repositoryRoot: repositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
@@ -459,7 +459,7 @@ public sealed class IpcDaemonReachabilityProbeTests
             {
                 await TestAwaiter.WaitAsync(
                     probe.ProbeAsync(
-                        ResolvedUnityProjectContextTestFactory.Create(
+                        ResolvedUnityProjectContextTestFactory.CreateWithPaths(
                             unityProjectRoot: projectRoot,
                             repositoryRoot: projectRoot,
                             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
@@ -473,7 +473,7 @@ public sealed class IpcDaemonReachabilityProbeTests
 
     private static ResolvedUnityProjectContext CreateReadyContext (TestDirectoryScope scope)
     {
-        var context = ResolvedUnityProjectContextTestFactory.Create(
+        var context = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
             unityProjectRoot: scope.FullPath,
             repositoryRoot: scope.FullPath,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));

@@ -119,7 +119,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
         var response = CreateResponse($$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
@@ -151,7 +151,7 @@ public sealed class ExecuteResponseConverterContractViolationTests
         var response = CreateResponse($$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },

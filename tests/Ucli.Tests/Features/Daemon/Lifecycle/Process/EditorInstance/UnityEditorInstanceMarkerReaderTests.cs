@@ -21,7 +21,7 @@ public sealed class UnityEditorInstanceMarkerReaderTests
 
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.Create(
+        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.CreateWithPaths(
             unityProjectRoot: unityProjectRoot,
             repositoryRoot: unityProjectRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")), CancellationToken.None);
@@ -44,7 +44,7 @@ public sealed class UnityEditorInstanceMarkerReaderTests
         Directory.CreateDirectory(unityProjectRoot);
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.Create(
+        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.CreateWithPaths(
             unityProjectRoot: unityProjectRoot,
             repositoryRoot: unityProjectRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")), CancellationToken.None);
@@ -66,7 +66,7 @@ public sealed class UnityEditorInstanceMarkerReaderTests
         await File.WriteAllTextAsync(markerPath, new string(' ', 17 * 1024));
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.Create(
+        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.CreateWithPaths(
             unityProjectRoot: unityProjectRoot,
             repositoryRoot: unityProjectRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")), CancellationToken.None);

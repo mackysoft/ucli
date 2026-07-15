@@ -10,9 +10,9 @@ public sealed class DaemonStartServiceTimeoutBudgetTests
     {
         var timeProvider = new ManualTimeProvider();
 
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 700,
-            repositoryRoot: "/tmp/repo-root");
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
@@ -31,7 +31,7 @@ public sealed class DaemonStartServiceTimeoutBudgetTests
         var service = DaemonStartServiceTestSupport.CreateService(resolver, supervisorProjectGateway, pluginVerifier, timeProvider: timeProvider);
 
         var result = await service.StartAsync(
-            projectPath: "/tmp/sandbox-unity",
+            projectPath: ProjectPathTestValues.IndependentUnityProject,
             timeoutMilliseconds: 700,
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
@@ -41,7 +41,7 @@ public sealed class DaemonStartServiceTimeoutBudgetTests
         DaemonCommandExecutionContextResolverAssert.ResolvedFor(
             resolver,
             UcliCommandIds.DaemonStart,
-            expectedProjectPath: "/tmp/sandbox-unity",
+            expectedProjectPath: ProjectPathTestValues.IndependentUnityProject,
             expectedTimeoutMilliseconds: 700);
         DaemonProjectLifecycleGatewayAssert.EnsureRunningRequestedWithExactTimeout(
             supervisorProjectGateway,
@@ -55,9 +55,9 @@ public sealed class DaemonStartServiceTimeoutBudgetTests
     {
         var timeProvider = new ManualTimeProvider();
 
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 700,
-            repositoryRoot: "/tmp/repo-root");
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
@@ -77,7 +77,7 @@ public sealed class DaemonStartServiceTimeoutBudgetTests
         var service = DaemonStartServiceTestSupport.CreateService(resolver, supervisorProjectGateway, pluginVerifier, timeProvider: timeProvider);
 
         var result = await service.StartAsync(
-            projectPath: "/tmp/sandbox-unity",
+            projectPath: ProjectPathTestValues.IndependentUnityProject,
             timeoutMilliseconds: 700,
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,

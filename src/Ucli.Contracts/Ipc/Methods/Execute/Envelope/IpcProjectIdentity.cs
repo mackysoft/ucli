@@ -7,14 +7,14 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record IpcProjectIdentity
 {
     /// <summary> Initializes a resolved Unity project identity. </summary>
-    /// <param name="projectPath"> The rooted Unity project root path. </param>
+    /// <param name="projectPath"> The fully qualified Unity project root path. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <param name="unityVersion"> The non-empty Unity editor version, or <c>unknown</c> when unavailable. </param>
     /// <exception cref="ArgumentNullException">
     /// Thrown when <paramref name="projectPath" />, <paramref name="projectFingerprint" />, or <paramref name="unityVersion" /> is <see langword="null" />.
     /// </exception>
     /// <exception cref="ArgumentException">
-    /// Thrown when <paramref name="projectPath" /> is not rooted, when a required value is empty, or when <paramref name="unityVersion" /> contains outer whitespace.
+    /// Thrown when <paramref name="projectPath" /> is not fully qualified, when a required value is empty, or when <paramref name="unityVersion" /> contains outer whitespace.
     /// </exception>
     [JsonConstructor]
     public IpcProjectIdentity (
@@ -32,9 +32,9 @@ public sealed record IpcProjectIdentity
             throw new ArgumentException("Project path must not be empty or whitespace.", nameof(projectPath));
         }
 
-        if (!Path.IsPathRooted(projectPath))
+        if (!Path.IsPathFullyQualified(projectPath))
         {
-            throw new ArgumentException("Project path must be rooted.", nameof(projectPath));
+            throw new ArgumentException("Project path must be fully qualified.", nameof(projectPath));
         }
 
         ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));

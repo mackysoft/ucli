@@ -86,9 +86,9 @@ internal sealed record ResolvedUnityProjectContext
         string parameterName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path, parameterName);
-        if (!Path.IsPathRooted(path))
+        if (!Path.IsPathFullyQualified(path))
         {
-            throw new ArgumentException("Path must be rooted.", parameterName);
+            throw new ArgumentException("Path must be fully qualified.", parameterName);
         }
 
         return Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));

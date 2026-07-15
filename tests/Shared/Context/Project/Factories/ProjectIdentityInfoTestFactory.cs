@@ -4,8 +4,6 @@ internal static class ProjectIdentityInfoTestFactory
 {
     public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
-    public const string RepositoryFixtureProjectPath = "/repo/UnityProject";
-
     public const string UnityVersion = "6000.1.4f1";
 
     public static string DefaultProjectPath { get; } = Path.GetFullPath(Path.Combine(
@@ -14,14 +12,20 @@ internal static class ProjectIdentityInfoTestFactory
         "UnityProject"));
 
     public static ProjectIdentityInfo Create (
-        string? projectPath = null,
         ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion)
     {
-        var resolvedProjectPath = projectPath ?? DefaultProjectPath;
+        return CreateWithProjectPath(DefaultProjectPath, projectFingerprint, unityVersion);
+    }
+
+    public static ProjectIdentityInfo CreateWithProjectPath (
+        string projectPath,
+        ProjectFingerprint? projectFingerprint = null,
+        string unityVersion = UnityVersion)
+    {
         return ProjectIdentityInfo.From(ResolvedUnityProjectContext.Create(
-            unityProjectRoot: resolvedProjectPath,
-            repositoryRoot: resolvedProjectPath,
+            unityProjectRoot: projectPath,
+            repositoryRoot: projectPath,
             projectFingerprint: projectFingerprint ?? ProjectFingerprint,
             pathSource: UnityProjectPathSource.CommandOption,
             pathSourceLabel: null,
@@ -32,8 +36,8 @@ internal static class ProjectIdentityInfoTestFactory
         ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion)
     {
-        return Create(
-            projectPath: RepositoryFixtureProjectPath,
+        return CreateWithProjectPath(
+            projectPath: ProjectPathTestValues.RepositoryUnityProject,
             projectFingerprint: projectFingerprint,
             unityVersion: unityVersion);
     }
@@ -43,7 +47,7 @@ internal static class ProjectIdentityInfoTestFactory
         ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion)
     {
-        return Create(
+        return CreateWithProjectPath(
             projectPath: Path.Combine(repositoryRoot, "UnityProject"),
             projectFingerprint: projectFingerprint,
             unityVersion: unityVersion);

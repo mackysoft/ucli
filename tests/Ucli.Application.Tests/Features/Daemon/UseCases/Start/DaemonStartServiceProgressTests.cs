@@ -8,9 +8,9 @@ public sealed class DaemonStartServiceProgressTests
     [Trait("Size", "Small")]
     public async Task Start_WithProgressSink_EmitsHostVisibleProgressInOrder ()
     {
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 1200,
-            repositoryRoot: "/tmp/repo-root");
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create();

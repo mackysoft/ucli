@@ -24,6 +24,10 @@ namespace MackySoft.Ucli.Unity.Tests
         private static readonly ProjectFingerprint ProjectFingerprint =
             ProjectFingerprintTestFactory.Create("project-fingerprint");
 
+        private static readonly string ProfilePath = Path.Combine(ProjectPathTestValues.WorkspaceRoot, "build.ucli.json");
+        private static readonly string BuildReportPath = Path.Combine(ProjectPathTestValues.WorkspaceRoot, ".ucli", "build-report.json");
+        private static readonly string BuildLogPath = Path.Combine(ProjectPathTestValues.WorkspaceRoot, ".ucli", "build.log");
+
         private static readonly string OutputDirectory = Path.Combine(
             Path.GetTempPath(),
             "ucli-build-execute-method-runner-tests",
@@ -91,11 +95,12 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Run_WithContextArgument_PropagatesContextAndClearsCurrent ()
         {
             var runner = new BuildExecuteMethodRunner(new BuildExecuteMethodResolver());
+            var projectIdentity = CreateProjectIdentity();
 
             var result = runner.Run(
                 CreateRequest(TypeName + ".ContextualSuccess"),
                 ProfileDigest,
-                CreateProjectIdentity(),
+                projectIdentity,
                 CreateResolvedInput());
 
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
@@ -103,9 +108,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(currentAtInvocation, Is.SameAs(capturedContext));
             Assert.That(capturedContext, Is.Not.Null);
             Assert.That(capturedContext!.RunId, Is.EqualTo(RunId));
-            Assert.That(capturedContext.ProfilePath, Is.EqualTo("/workspace/build.ucli.json"));
+            Assert.That(capturedContext.ProfilePath, Is.EqualTo(ProfilePath));
             Assert.That(capturedContext.ProfileDigest, Is.EqualTo(ProfileDigest));
-            Assert.That(capturedContext.ProjectPath, Is.EqualTo("/workspace/UnityProject"));
+            Assert.That(capturedContext.ProjectPath, Is.EqualTo(projectIdentity.ProjectPath));
             Assert.That(capturedContext.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
             Assert.That(capturedContext.OutputDir, Is.EqualTo(OutputDirectory));
             Assert.That(capturedContext.Target.StableName, Is.EqualTo(BuildTargetStableName.StandaloneLinux64));
@@ -315,14 +320,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 Development: true,
                 OutputPath: OutputDirectory,
                 OutputLayout: null,
-                BuildReportPath: "/workspace/.ucli/build-report.json",
-                BuildLogPath: "/workspace/.ucli/build.log",
+                BuildReportPath: BuildReportPath,
+                BuildLogPath: BuildLogPath,
                 AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
                 ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
                 RunnerKind: BuildRunnerKind.ExecuteMethod,
                 ProfileDigest: ProfileDigest,
                 UnityBuildProfile: null,
-                ProfilePath: "/workspace/build.ucli.json",
+                ProfilePath: ProfilePath,
                 RunnerMethod: method,
                 RunnerArguments: new Dictionary<string, string>(StringComparer.Ordinal)
                 {
@@ -343,7 +348,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcProjectIdentity CreateProjectIdentity ()
         {
             return new IpcProjectIdentity(
-                projectPath: "/workspace/UnityProject",
+                projectPath: ProjectPathTestValues.WorkspaceUnityProject,
                 projectFingerprint: ProjectFingerprint,
                 unityVersion: "6000.1.4f1");
         }

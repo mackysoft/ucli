@@ -14,7 +14,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         var response = CreateResponse($$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
@@ -48,7 +48,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         var response = CreateResponse($$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
@@ -96,7 +96,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         var response = CreateResponse($$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
@@ -172,7 +172,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Project);
-        Assert.Equal("/repo/UnityProject", result.Project.ProjectPath);
+        Assert.Equal(ExpectedProject.UnityProjectRoot, result.Project.ProjectPath);
         Assert.Equal(ProjectFingerprintTestFactory.Create("project-fingerprint"), result.Project.ProjectFingerprint);
         Assert.Equal("6000.1.4f1", result.Project.UnityVersion);
         var opResult = Assert.Single(result.OpResults);
@@ -191,7 +191,7 @@ public sealed class ExecuteResponseConverterDiagnosticTests
         return $$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprint}}",
                 "unityVersion": "6000.1.4f1"
               },

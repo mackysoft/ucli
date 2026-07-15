@@ -7,32 +7,39 @@ internal static class ProjectContextTestFactory
 {
     public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
-    public const string RepositoryRoot = "/workspace";
+    public static string RepositoryRoot { get; } = ProjectPathTestValues.WorkspaceRoot;
 
-    public const string UnityProjectRoot = "/workspace/UnityProject";
+    public static string UnityProjectRoot { get; } = ProjectPathTestValues.WorkspaceUnityProject;
 
     public const string UnityVersion = "6000.1.4f1";
 
     public const string PathSourceLabel = "--projectPath";
 
-    private const string DaemonLifecycleRepositoryRoot = "/tmp/repo-root";
-
-    private const string DaemonLifecycleUnityProjectRoot = "/tmp/unity-project";
-
-    private const string RepositoryFixtureRoot = "/repo";
-
-    private const string RepositoryFixtureUnityProjectRoot = "/repo/UnityProject";
-
-    private const string TemporaryFixtureRepositoryRoot = "/tmp/repository";
-
-    private const string TemporaryFixtureUnityProjectRoot = "/tmp/project";
-
     private static readonly string SingleRootUnityProjectRoot = Path.GetFullPath(Path.Combine(".", "sandbox", "Unity"));
 
     public static ProjectContext Create (
         UcliConfig? config = null,
-        string unityProjectRoot = UnityProjectRoot,
-        string repositoryRoot = RepositoryRoot,
+        ProjectFingerprint? projectFingerprint = null,
+        UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
+        string? pathSourceLabel = PathSourceLabel,
+        string unityVersion = UnityVersion,
+        ConfigSource configSource = ConfigSource.Default)
+    {
+        return CreateWithPaths(
+            UnityProjectRoot,
+            RepositoryRoot,
+            config,
+            projectFingerprint,
+            pathSource,
+            pathSourceLabel,
+            unityVersion,
+            configSource);
+    }
+
+    public static ProjectContext CreateWithPaths (
+        string unityProjectRoot,
+        string repositoryRoot,
+        UcliConfig? config = null,
         ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = PathSourceLabel,
@@ -40,7 +47,7 @@ internal static class ProjectContextTestFactory
         ConfigSource configSource = ConfigSource.Default)
     {
         return new ProjectContext(
-            CreateUnityProject(
+            CreateUnityProjectWithPaths(
                 unityProjectRoot: unityProjectRoot,
                 repositoryRoot: repositoryRoot,
                 projectFingerprint: projectFingerprint,
@@ -103,9 +110,9 @@ internal static class ProjectContextTestFactory
             configSource);
     }
 
-    public static ResolvedUnityProjectContext CreateUnityProject (
-        string unityProjectRoot = UnityProjectRoot,
-        string repositoryRoot = RepositoryRoot,
+    public static ResolvedUnityProjectContext CreateUnityProjectWithPaths (
+        string unityProjectRoot,
+        string repositoryRoot,
         ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = PathSourceLabel,
@@ -126,9 +133,9 @@ internal static class ProjectContextTestFactory
         string? pathSourceLabel = null,
         string unityVersion = UnityVersion)
     {
-        return CreateUnityProject(
-            unityProjectRoot: RepositoryFixtureUnityProjectRoot,
-            repositoryRoot: RepositoryFixtureRoot,
+        return CreateUnityProjectWithPaths(
+            unityProjectRoot: ProjectPathTestValues.RepositoryUnityProject,
+            repositoryRoot: ProjectPathTestValues.RepositoryRoot,
             projectFingerprint: projectFingerprint,
             pathSource: pathSource,
             pathSourceLabel: pathSourceLabel,
@@ -141,9 +148,9 @@ internal static class ProjectContextTestFactory
         string? pathSourceLabel = null,
         string unityVersion = UnityVersion)
     {
-        return CreateUnityProject(
-            unityProjectRoot: TemporaryFixtureUnityProjectRoot,
-            repositoryRoot: TemporaryFixtureRepositoryRoot,
+        return CreateUnityProjectWithPaths(
+            unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: projectFingerprint,
             pathSource: pathSource,
             pathSourceLabel: pathSourceLabel,
@@ -156,7 +163,7 @@ internal static class ProjectContextTestFactory
         string? pathSourceLabel = null,
         string unityVersion = UnityVersion)
     {
-        return CreateUnityProject(
+        return CreateUnityProjectWithPaths(
             unityProjectRoot: SingleRootUnityProjectRoot,
             repositoryRoot: SingleRootUnityProjectRoot,
             projectFingerprint: projectFingerprint,
@@ -166,15 +173,13 @@ internal static class ProjectContextTestFactory
     }
 
     public static ResolvedUnityProjectContext CreateUnknownVersionUnityProject (
-        string unityProjectRoot = RepositoryFixtureUnityProjectRoot,
-        string repositoryRoot = RepositoryFixtureRoot,
         ProjectFingerprint? projectFingerprint = null,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption,
         string? pathSourceLabel = null)
     {
-        return CreateUnityProject(
-            unityProjectRoot: unityProjectRoot,
-            repositoryRoot: repositoryRoot,
+        return CreateUnityProjectWithPaths(
+            unityProjectRoot: ProjectPathTestValues.RepositoryUnityProject,
+            repositoryRoot: ProjectPathTestValues.RepositoryRoot,
             projectFingerprint: projectFingerprint,
             pathSource: pathSource,
             pathSourceLabel: pathSourceLabel,
@@ -185,9 +190,9 @@ internal static class ProjectContextTestFactory
         ProjectFingerprint projectFingerprint,
         UnityProjectPathSource pathSource = UnityProjectPathSource.CommandOption)
     {
-        return CreateUnityProject(
-            unityProjectRoot: DaemonLifecycleUnityProjectRoot,
-            repositoryRoot: DaemonLifecycleRepositoryRoot,
+        return CreateUnityProjectWithPaths(
+            unityProjectRoot: ProjectPathTestValues.TemporaryUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: projectFingerprint,
             pathSource: pathSource,
             pathSourceLabel: null);

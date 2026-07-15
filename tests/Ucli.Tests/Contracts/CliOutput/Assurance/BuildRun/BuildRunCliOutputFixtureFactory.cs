@@ -22,6 +22,11 @@ internal static class BuildRunCliOutputFixtureFactory
     private static readonly Sha256Digest ProfileDigest = Sha256Digest.Parse(new string('e', 64));
     private static readonly DateTimeOffset BuildStartedAtUtc = new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
     private static readonly DateTimeOffset BuildCompletedAtUtc = new(2026, 6, 1, 0, 0, 2, 500, TimeSpan.Zero);
+    private static readonly string BuildProfilePath = Path.Combine(
+        ProjectPathTestValues.WorkspaceUnityProject,
+        ".ucli",
+        "build",
+        "player.json");
 
     private static readonly AssuranceEffect[] BuildPipelineEffectValues =
     [
@@ -42,24 +47,24 @@ internal static class BuildRunCliOutputFixtureFactory
             "success" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(CreateOutput(succeeded: true))),
             "build-report-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(CreateOutput(succeeded: false))),
             "invalid-profile" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
-                ExecutionError.InvalidArgument("Build profile is invalid: /workspace/UnityProject/.ucli/build/player.json.", BuildErrorCodes.BuildProfileInvalid),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"))),
+                ExecutionError.InvalidArgument($"Build profile is invalid: {BuildProfilePath}.", BuildErrorCodes.BuildProfileInvalid),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
             "unsupported-buildTarget" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ExecutionError.InvalidArgument("Build profile inputs.buildTarget is unsupported: unknownTarget.", BuildErrorCodes.BuildTargetUnsupported),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"))),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
             "dirty-scene" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ApplicationFailure.FromCode(BuildErrorCodes.BuildDirtyStatePresent, "Dirty scene state is present."),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject),
                 CreateDirtyState())),
             "buildTarget-module-missing" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ApplicationFailure.FromCode(BuildErrorCodes.BuildTargetModuleMissing, "buildTarget module is missing: standaloneLinux64."),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"))),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
             "artifact-write-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ExecutionError.InternalError("Build artifacts could not be written.", BuildErrorCodes.BuildArtifactWriteFailed),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"))),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
             "output-manifest-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ExecutionError.InternalError("Build output manifest could not be generated.", BuildErrorCodes.BuildOutputManifestFailed),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"))),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
             _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown build.run Golden case."),
         };
     }
@@ -77,7 +82,7 @@ internal static class BuildRunCliOutputFixtureFactory
         var totalBytes = succeeded ? 33 : 0;
         var build = new BuildOutput(
             runId: RunIdTestValues.Build,
-            profile: new BuildProfileOutput("/workspace/UnityProject/.ucli/build/player.json", ProfileDigest),
+            profile: new BuildProfileOutput(BuildProfilePath, ProfileDigest),
             inputs: new BuildInputsOutput(
                 InputKind: BuildProfileInputsKind.Explicit,
                 Target: new BuildTargetOutput(BuildTargetStableName.StandaloneLinux64, "StandaloneLinux64"),
@@ -123,7 +128,7 @@ internal static class BuildRunCliOutputFixtureFactory
             Verdict: succeeded
                 ? AssuranceVerdict.Pass
                 : AssuranceVerdict.Fail,
-            Project: ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"),
+            Project: ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject),
             Build: build,
             Verifiers:
             [

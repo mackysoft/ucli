@@ -35,7 +35,7 @@ public sealed class OperationExecuteServiceReadPostconditionTests
         Assert.True(result.IsSuccess);
         MutationReadPostconditionStoreAssert.WrittenAssetSearchRequirement(
             readPostconditionStore,
-            expectedStorageRoot: "/repo",
+            expectedStorageRoot: ProjectPathTestValues.RepositoryRoot,
             expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             expectedMinSafeGeneratedAtUtc: readPostcondition.Requirements[0].MinSafeGeneratedAtUtc);
         Assert.NotNull(result.ReadPostcondition);
@@ -79,7 +79,7 @@ public sealed class OperationExecuteServiceReadPostconditionTests
         Assert.NotNull(result.ReadPostcondition);
         MutationReadPostconditionStoreAssert.WrittenOnceForProject(
             readPostconditionStore,
-            expectedStorageRoot: "/repo",
+            expectedStorageRoot: ProjectPathTestValues.RepositoryRoot,
             expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"));
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);

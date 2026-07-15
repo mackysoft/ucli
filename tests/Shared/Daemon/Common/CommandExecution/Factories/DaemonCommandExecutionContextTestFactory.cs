@@ -8,16 +8,29 @@ internal static class DaemonCommandExecutionContextTestFactory
 {
     public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
 
-    public const string RepositoryRoot = "/tmp/repo-root";
+    public static string RepositoryRoot { get; } = ProjectPathTestValues.TemporaryRepositoryRoot;
 
-    public const string UnityProjectRoot = "/tmp/unity-project";
+    public static string UnityProjectRoot { get; } = ProjectPathTestValues.TemporaryUnityProject;
 
     public const string UnityVersion = "6000.1.4f1";
 
     public static DaemonCommandExecutionContext Create (
         int timeoutMilliseconds,
-        string repositoryRoot = RepositoryRoot,
-        string unityProjectRoot = UnityProjectRoot,
+        ProjectFingerprint? projectFingerprint = null,
+        string unityVersion = UnityVersion,
+        ConfigSource configSource = ConfigSource.Default)
+    {
+        return CreateForRepositoryRoot(
+            timeoutMilliseconds,
+            RepositoryRoot,
+            projectFingerprint,
+            unityVersion,
+            configSource);
+    }
+
+    public static DaemonCommandExecutionContext CreateForRepositoryRoot (
+        int timeoutMilliseconds,
+        string repositoryRoot,
         ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion,
         ConfigSource configSource = ConfigSource.Default)
@@ -25,7 +38,7 @@ internal static class DaemonCommandExecutionContextTestFactory
         return new DaemonCommandExecutionContext(
             Context: new ProjectContext(
                 ResolvedUnityProjectContext.Create(
-                    unityProjectRoot: unityProjectRoot,
+                    unityProjectRoot: Path.Combine(repositoryRoot, "UnityProject"),
                     repositoryRoot: repositoryRoot,
                     projectFingerprint: projectFingerprint ?? ProjectFingerprint,
                     pathSource: UnityProjectPathSource.CommandOption,

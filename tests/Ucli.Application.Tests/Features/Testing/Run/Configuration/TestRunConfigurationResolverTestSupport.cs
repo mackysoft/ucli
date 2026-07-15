@@ -23,7 +23,7 @@ internal static class TestRunConfigurationResolverTestSupport
         string relativePath)
     {
         var projectPath = scope.GetPath(relativePath);
-        return ProjectContextTestFactory.CreateUnityProject(
+        return ProjectContextTestFactory.CreateUnityProjectWithPaths(
             unityProjectRoot: projectPath,
             repositoryRoot: scope.FullPath,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),

@@ -69,7 +69,7 @@ public sealed class OperationExecuteServiceDispatchTests
             UcliCommandIds.Refresh,
             UnityExecutionMode.Daemon,
             TimeSpan.FromMilliseconds(120000),
-            expectedRepositoryRoot: "/repo",
+            expectedRepositoryRoot: ProjectPathTestValues.RepositoryRoot,
             expectedFailFast: true,
             expectedOperationId: "refresh",
             expectedOperationName: UcliPrimitiveOperationNames.ProjectRefresh);

@@ -10,12 +10,14 @@ internal static class ExecuteResponseConverterTestSupport
         ProjectFingerprintTestFactory.Create("project-fingerprint");
 
     public static ResolvedUnityProjectContext ExpectedProject { get; } = ResolvedUnityProjectContext.Create(
-        unityProjectRoot: "/repo/UnityProject",
-        repositoryRoot: "/repo",
+        unityProjectRoot: ProjectPathTestValues.RepositoryUnityProject,
+        repositoryRoot: ProjectPathTestValues.RepositoryRoot,
         projectFingerprint: ExpectedProjectFingerprint,
         pathSource: UnityProjectPathSource.CommandOption,
         pathSourceLabel: null,
         unityVersion: "6000.1.4f1");
+
+    public static string ExpectedProjectPathJson { get; } = JsonSerializer.Serialize(ExpectedProject.UnityProjectRoot);
 
     public static UnityRequestResponse CreateResponse (IpcExecuteResponse payload)
     {
@@ -52,7 +54,7 @@ internal static class ExecuteResponseConverterTestSupport
     public static IpcProjectIdentity CreateProjectIdentity ()
     {
         return new IpcProjectIdentity(
-            projectPath: "/repo/UnityProject",
+            projectPath: ExpectedProject.UnityProjectRoot,
             projectFingerprint: ExpectedProjectFingerprint,
             unityVersion: "6000.1.4f1");
     }

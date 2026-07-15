@@ -4,11 +4,35 @@ public sealed class ResolvedUnityProjectContextTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void Create_WithWindowsRootRelativePath_ThrowsArgumentException ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        const string path = @"\workspace\UnityProject";
+        Assert.True(Path.IsPathRooted(path));
+        Assert.False(Path.IsPathFullyQualified(path));
+
+        var exception = Assert.Throws<ArgumentException>(() => ResolvedUnityProjectContext.Create(
+            unityProjectRoot: path,
+            repositoryRoot: Path.GetTempPath(),
+            projectFingerprint: ProjectFingerprintTestFactory.Create("project"),
+            pathSource: UnityProjectPathSource.CommandOption,
+            pathSourceLabel: null,
+            unityVersion: ProjectIdentityDefaults.UnknownUnityVersion));
+
+        Assert.Equal("unityProjectRoot", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Create_WhenProjectFingerprintIsNull_ThrowsArgumentNullException ()
     {
         var exception = Assert.Throws<ArgumentNullException>(() => ResolvedUnityProjectContext.Create(
-            unityProjectRoot: "/workspace/UnityProject",
-            repositoryRoot: "/workspace",
+            unityProjectRoot: ProjectPathTestValues.WorkspaceUnityProject,
+            repositoryRoot: ProjectPathTestValues.WorkspaceRoot,
             projectFingerprint: null!,
             pathSource: UnityProjectPathSource.CommandOption,
             pathSourceLabel: null,

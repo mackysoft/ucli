@@ -41,19 +41,19 @@ public sealed class UnityGuiEditorProcessLauncherTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenUnityLockFileExists_ReturnsAlreadyOpenWithoutResolvingUnityVersion ()
     {
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create();
+        var lockFilePath = Path.Combine(unityProject.UnityProjectRoot, "Temp", "UnityLockfile");
         var launcher = new UnityGuiEditorProcessLauncher(
             new UnexpectedUnityVersionResolver("Active Unity project lock must stop before Unity version resolution."),
             new StubUnityEditorPathResolver(),
             new RecordingUnityUcliPluginLocator(),
             new RecordingUnityProjectLockPreflightService(UnityProjectLockPreflightResult.ActiveLock(
-                "/tmp/unity-project/Temp/UnityLockfile",
+                lockFilePath,
                 "Unity project is already open.")));
 
         var result = await launcher.LaunchAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
-                repositoryRoot: "/tmp/repository-root"),
-            "/tmp/unity.log",
+            unityProject,
+            Path.Combine(unityProject.RepositoryRoot, "unity.log"),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -68,13 +68,12 @@ public sealed class UnityGuiEditorProcessLauncherTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-gui-editor-process-launcher", "lock-file-race");
         var versionResolver = new RecordingUnityVersionResolver();
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
-            repositoryRoot: "/tmp/repository-root");
+        var unityProject = ResolvedUnityProjectContextTestFactory.Create();
+        var lockFilePath = Path.Combine(unityProject.UnityProjectRoot, "Temp", "UnityLockfile");
         var lockPreflightService = new RecordingUnityProjectLockPreflightService(
-            UnityProjectLockPreflightResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile"),
+            UnityProjectLockPreflightResult.Unlocked(lockFilePath),
             UnityProjectLockPreflightResult.ActiveLock(
-                "/tmp/unity-project/Temp/UnityLockfile",
+                lockFilePath,
                 "Unity project is already open."));
         var launcher = new UnityGuiEditorProcessLauncher(
             versionResolver,
@@ -92,7 +91,7 @@ public sealed class UnityGuiEditorProcessLauncherTests
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);
         lockPreflightService.AssertStartPreflightRetriedFor(unityProject, CancellationToken.None);
-        UnityVersionResolverAssert.ResolvedOnceFor(versionResolver, "/tmp/unity-project");
+        UnityVersionResolverAssert.ResolvedOnceFor(versionResolver, unityProject.UnityProjectRoot);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(UnityProcessErrorCodes.UnityProjectAlreadyOpen, error.Code);
         Assert.False(File.Exists(unityLogPath));

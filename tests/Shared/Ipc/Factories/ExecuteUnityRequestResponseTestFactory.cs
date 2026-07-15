@@ -15,7 +15,7 @@ internal static class ExecuteUnityRequestResponseTestFactory
         var payload = new IpcExecuteResponse(
             opResults,
             project ?? new IpcProjectIdentity(
-                projectPath: "/repo/UnityProject",
+                projectPath: ProjectPathTestValues.RepositoryUnityProject,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
                 unityVersion: "6000.1.4f1"),
             planToken: planToken,

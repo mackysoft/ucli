@@ -26,7 +26,7 @@ internal static class SceneTreeLiteAccessServiceTestSupport
     public static ResolvedUnityProjectContext CreateProject (TestDirectoryScope scope)
     {
         var projectRoot = scope.CreateDirectory("UnityProject");
-        return ProjectContextTestFactory.CreateUnityProject(
+        return ProjectContextTestFactory.CreateUnityProjectWithPaths(
             unityProjectRoot: projectRoot,
             repositoryRoot: scope.FullPath,
             pathSourceLabel: null,

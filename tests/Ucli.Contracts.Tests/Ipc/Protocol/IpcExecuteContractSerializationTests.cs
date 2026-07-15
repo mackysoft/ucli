@@ -11,6 +11,12 @@ public sealed class IpcExecuteContractSerializationTests
 
     private const string GlobalObjectIdText = "GlobalObjectId_V1-2-0123456789abcdef0123456789abcdef-4-5";
 
+    private static string ProjectPath { get; } = Path.GetFullPath(Path.Combine(
+        Path.GetTempPath(),
+        "ucli-tests",
+        "repo",
+        "UnityProject"));
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcProjectIdentity_Constructor_WithNullProjectPath_ThrowsArgumentNullException ()
@@ -51,6 +57,27 @@ public sealed class IpcExecuteContractSerializationTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcProjectIdentity_Constructor_WithWindowsRootRelativeProjectPath_ThrowsArgumentException ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        const string projectPath = @"\repo\UnityProject";
+        Assert.True(Path.IsPathRooted(projectPath));
+        Assert.False(Path.IsPathFullyQualified(projectPath));
+
+        var exception = Assert.Throws<ArgumentException>(() => new IpcProjectIdentity(
+            projectPath,
+            new ProjectFingerprint(ProjectFingerprintText),
+            "6000.1.4f1"));
+
+        Assert.Equal("projectPath", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcProjectIdentity_Constructor_NormalizesAbsoluteProjectPath ()
     {
         var input = Path.Combine(Path.GetTempPath(), "ucli-project", "nested", "..") + Path.DirectorySeparatorChar;
@@ -70,7 +97,7 @@ public sealed class IpcExecuteContractSerializationTests
     public void IpcProjectIdentity_Constructor_WithNullProjectFingerprint_ThrowsArgumentNullException ()
     {
         var exception = Assert.Throws<ArgumentNullException>(() => new IpcProjectIdentity(
-            projectPath: "/repo/UnityProject",
+            projectPath: ProjectPath,
             projectFingerprint: null!,
             unityVersion: "6000.1.4f1"));
 
@@ -82,7 +109,7 @@ public sealed class IpcExecuteContractSerializationTests
     public void IpcProjectIdentity_Constructor_WithNullUnityVersion_ThrowsArgumentNullException ()
     {
         var exception = Assert.Throws<ArgumentNullException>(() => new IpcProjectIdentity(
-            projectPath: "/repo/UnityProject",
+            projectPath: ProjectPath,
             projectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             unityVersion: null!));
 
@@ -96,7 +123,7 @@ public sealed class IpcExecuteContractSerializationTests
     public void IpcProjectIdentity_Constructor_WithEmptyUnityVersion_ThrowsArgumentException (string unityVersion)
     {
         var exception = Assert.Throws<ArgumentException>(() => new IpcProjectIdentity(
-            "/repo/UnityProject",
+            ProjectPath,
             new ProjectFingerprint(ProjectFingerprintText),
             unityVersion));
 
@@ -110,7 +137,7 @@ public sealed class IpcExecuteContractSerializationTests
     public void IpcProjectIdentity_Constructor_WithOuterWhitespaceInUnityVersion_ThrowsArgumentException (string unityVersion)
     {
         var exception = Assert.Throws<ArgumentException>(() => new IpcProjectIdentity(
-            "/repo/UnityProject",
+            ProjectPath,
             new ProjectFingerprint(ProjectFingerprintText),
             unityVersion));
 
@@ -326,7 +353,7 @@ public sealed class IpcExecuteContractSerializationTests
         JsonAssert.For(json)
             .HasArrayLength("opResults", 1)
             .HasProperty("project", project => project
-                .HasString("projectPath", "/repo/UnityProject")
+                .HasString("projectPath", response.Project.ProjectPath)
                 .HasString("projectFingerprint", ProjectFingerprintText)
                 .HasString("unityVersion", "6000.1.4f1"))
             .HasString("planToken", "issued-token")
@@ -797,7 +824,7 @@ public sealed class IpcExecuteContractSerializationTests
     private static IpcProjectIdentity CreateProjectIdentity ()
     {
         return new IpcProjectIdentity(
-            projectPath: "/repo/UnityProject",
+            projectPath: ProjectPath,
             projectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             unityVersion: "6000.1.4f1");
     }

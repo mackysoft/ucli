@@ -110,9 +110,9 @@ public sealed class DaemonCompensationOperationOwnerTests
         var owner = new DaemonCompensationOperationOwner();
         var firstContext = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
             ProjectFingerprintTestFactory.Create("fingerprint-compensation-owner-first"));
-        var secondContext = ProjectContextTestFactory.CreateUnityProject(
-            unityProjectRoot: "/tmp/independent-unity-project",
-            repositoryRoot: "/tmp/repo-root",
+        var secondContext = ProjectContextTestFactory.CreateUnityProjectWithPaths(
+            unityProjectRoot: ProjectPathTestValues.IndependentUnityProject,
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-compensation-owner-second"),
             pathSourceLabel: null);
         var firstMutationStarted = new TaskCompletionSource(

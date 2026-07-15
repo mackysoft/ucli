@@ -21,8 +21,8 @@ public sealed class DaemonArtifactCleanerTests
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
         var cleaner = new DaemonArtifactCleaner(sessionStore, lifecycleStore, launchAttemptStore);
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
             repositoryRoot: scope.FullPath,
             projectFingerprint: projectFingerprint);
         var successorSession = DaemonSessionTestFactory.Create(
@@ -88,8 +88,8 @@ public sealed class DaemonArtifactCleanerTests
                 return DaemonSessionReadResultTestFactory.Found(retiredSession);
             },
         };
-        var unityProject = ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
             repositoryRoot: scope.FullPath,
             projectFingerprint: projectFingerprint);
         var cleaner = new DaemonArtifactCleaner(
@@ -155,8 +155,8 @@ public sealed class DaemonArtifactCleanerTests
 
         var cleaner = new DaemonArtifactCleaner(sessionStore, lifecycleStore, launchAttemptStore);
         var result = await cleaner.CleanupIfSessionMatchesAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedSession,
@@ -195,8 +195,8 @@ public sealed class DaemonArtifactCleanerTests
             lifecycleStore,
             launchAttemptStore);
         var result = await cleaner.CleanupIfSessionMatchesAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedSession,
@@ -231,8 +231,8 @@ public sealed class DaemonArtifactCleanerTests
             launchAttemptStore);
 
         var result = await cleaner.CleanupIfStoppedProcessMatchesAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             new DaemonProcessTerminationTarget(4123, processStartedAtUtc),
@@ -265,8 +265,8 @@ public sealed class DaemonArtifactCleanerTests
             launchAttemptStore);
 
         var result = await cleaner.CleanupIfStoppedProcessMatchesAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             new DaemonProcessTerminationTarget(4123, processStartedAtUtc),
@@ -296,8 +296,8 @@ public sealed class DaemonArtifactCleanerTests
             launchAttemptStore);
 
         var result = await cleaner.CleanupIfStoppedProcessMatchesAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             new DaemonProcessTerminationTarget(
@@ -323,8 +323,8 @@ public sealed class DaemonArtifactCleanerTests
             launchAttemptStore);
 
         var result = await cleaner.CleanupIfStoppedProcessMatchesAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-stopped-process-missing")),
             new DaemonProcessTerminationTarget(
@@ -373,8 +373,8 @@ public sealed class DaemonArtifactCleanerTests
 
         var cleaner = new DaemonArtifactCleaner(persistentSessionStore, lifecycleStore, launchAttemptStore);
         var result = await cleaner.CleanupIfSessionArtifactMatchesAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedArtifactIdentity,
@@ -412,8 +412,8 @@ public sealed class DaemonArtifactCleanerTests
         var cleaner = new DaemonArtifactCleaner(sessionStore, lifecycleStore, launchAttemptStore);
 
         var result = await cleaner.CleanupIfSessionArtifactMatchesAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedArtifactIdentity,
@@ -446,8 +446,8 @@ public sealed class DaemonArtifactCleanerTests
         var cleaner = new DaemonArtifactCleaner(sessionStore, lifecycleStore, launchAttemptStore);
 
         var result = await cleaner.CleanupIfSessionArtifactMatchesAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedArtifactIdentity,
@@ -473,8 +473,8 @@ public sealed class DaemonArtifactCleanerTests
             launchAttemptStore);
 
         var result = await cleaner.CleanupIfSessionArtifactMatchesAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             DaemonSessionArtifactIdentity.Create(
@@ -516,8 +516,8 @@ public sealed class DaemonArtifactCleanerTests
 
         var cleaner = new DaemonArtifactCleaner(sessionStore, lifecycleStore, launchAttemptStore);
         var result = await cleaner.CleanupIfSessionMatchesAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: projectFingerprint),
             expectedSession,
@@ -559,8 +559,8 @@ public sealed class DaemonArtifactCleanerTests
             new RecordingDaemonLaunchAttemptStore());
 
         var result = await cleaner.CleanupIfSessionMissingAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(storageRoot, "UnityProject"),
                 repositoryRoot: storageRoot,
                 projectFingerprint: projectFingerprint),
             CancellationToken.None);
@@ -595,8 +595,8 @@ public sealed class DaemonArtifactCleanerTests
             launchAttemptStore);
 
         var result = await cleaner.CleanupIfSessionMissingAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-cleanup")),
             CancellationToken.None);
@@ -620,8 +620,8 @@ public sealed class DaemonArtifactCleanerTests
             });
 
         var result = await cleaner.CleanupIfSessionMissingAsync(
-            ResolvedUnityProjectContextTestFactory.Create(
-                unityProjectRoot: "/tmp/unity-project",
+            ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+                unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-cleanup")),
             CancellationToken.None);

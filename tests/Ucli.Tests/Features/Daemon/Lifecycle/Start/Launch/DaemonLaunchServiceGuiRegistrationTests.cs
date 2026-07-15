@@ -182,12 +182,12 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         Assert.Equal(5432, diagnosis.ProcessId);
         Assert.Equal(processStartedAtUtc, diagnosis.ProcessStartedAtUtc);
         Assert.Equal(
-            Path.GetFullPath(Path.Combine("/tmp/repo-root", ".ucli", "local", "fingerprints", context.ProjectFingerprint.ToString(), "unity.log")),
+            Path.Combine(context.RepositoryRoot, ".ucli", "local", "fingerprints", context.ProjectFingerprint.ToString(), "unity.log"),
             diagnosis.UnityLogPath);
         Assert.Equal(DaemonDiagnosisStartupPhase.EndpointRegistration, diagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequired.InspectUnityLog, diagnosis.ActionRequired);
         Assert.Equal(
-            Path.Combine("/tmp/unity-project", "Library", "EditorInstance.json"),
+            Path.Combine(context.UnityProjectRoot, "Library", "EditorInstance.json"),
             diagnosis.EditorInstancePath);
         DaemonLaunchInvocationAssert.StartupFailureKeptProcessWithoutCompensation(
             result,

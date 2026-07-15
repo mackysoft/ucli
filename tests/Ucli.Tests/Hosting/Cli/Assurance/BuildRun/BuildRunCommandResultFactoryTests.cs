@@ -67,7 +67,7 @@ public sealed class BuildRunCommandResultFactoryTests
                     IpcBuildDirtyStateItemKind.Scene,
                     "Assets/Scenes/Main.unity"),
             ]);
-        var project = ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject");
+        var project = ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject);
         var executionResult = BuildExecutionResult.Failure(
             ExecutionError.InternalError("Dirty scene state is present.", BuildErrorCodes.BuildDirtyStatePresent),
             project,

@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Tests;
 
 internal static class PlayCommandOutputTestData
 {
-    public const string ProjectPath = "/repo/UnityProject";
+    public static string ProjectPath { get; } = ProjectPathTestValues.RepositoryUnityProject;
 
     public const string ServerVersion = "0.5.0";
 
@@ -25,7 +25,7 @@ internal static class PlayCommandOutputTestData
 
     public static ProjectIdentityInfo CreateProject ()
     {
-        return ProjectIdentityInfoTestFactory.Create(projectPath: ProjectPath);
+        return ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPath);
     }
 
     public static IpcUnityEditorObservation CreateLifecycleSnapshot (

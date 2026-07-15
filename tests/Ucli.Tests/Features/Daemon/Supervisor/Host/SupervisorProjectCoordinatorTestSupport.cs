@@ -54,8 +54,8 @@ internal static class SupervisorProjectCoordinatorTestSupport
 
     public static ResolvedUnityProjectContext CreateUnityProject ()
     {
-        return ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        return ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ResolvedUnityProjectContextTestFactory.UnityProjectRoot,
             repositoryRoot: ResolvedUnityProjectContextTestFactory.RepositoryRoot,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
     }
@@ -64,8 +64,8 @@ internal static class SupervisorProjectCoordinatorTestSupport
     {
         ArgumentNullException.ThrowIfNull(scope);
 
-        return ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        return ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
             repositoryRoot: scope.FullPath,
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
     }

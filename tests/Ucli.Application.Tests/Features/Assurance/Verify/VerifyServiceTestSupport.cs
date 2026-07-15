@@ -18,6 +18,8 @@ internal static class VerifyServiceTestSupport
     public static readonly Guid CompileRunId = Guid.Parse("34c0c330-8798-4ec1-87ae-3d0ae87fc715");
     public static readonly Guid TestRunId = Guid.Parse("83ca6714-565c-4c9d-a3ca-44446393afca");
 
+    private static string ProjectPathJson { get; } = JsonSerializer.Serialize(ProjectPathTestValues.RepositoryUnityProject);
+
     public static VerifyService CreateService (
         string repositoryRoot,
         RecordingVerifyReadyService? readyService = null,
@@ -29,8 +31,14 @@ internal static class VerifyServiceTestSupport
         TimeProvider? timeProvider = null)
     {
         var project = ProjectIdentityInfoTestFactory.CreateForRepositoryRoot(repositoryRoot);
+        var testRunArtifactsDirectory = Path.Combine(
+            project.ProjectPath,
+            ".ucli",
+            "local",
+            "test",
+            "test-run-1");
         return new VerifyService(
-            new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.Create(
+            new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.CreateWithPaths(
                 unityProjectRoot: Path.Combine(repositoryRoot, "UnityProject"),
                 repositoryRoot: repositoryRoot))),
             readyService ?? new RecordingVerifyReadyService(input => CreateReadyResult(input.Target, project)),
@@ -38,8 +46,8 @@ internal static class VerifyServiceTestSupport
             testRunService ?? new RecordingVerifyTestRunService(_ => TestRunServiceResult.Pass(
                 "Tests passed.",
                 TestRunId,
-                "/repo/.ucli/local/test/test-run-1",
-                "/repo/.ucli/local/test/test-run-1/summary.json")),
+                testRunArtifactsDirectory,
+                Path.Combine(testRunArtifactsDirectory, "summary.json"))),
             logsService ?? new RecordingVerifyLogsUnityService((_, _, _) => ValueTask.FromResult(LogsReadServiceResult.Completed(0, null))),
             profileFileReader ?? new StubVerifyProfileFileReader((profilePath, root) => VerifyProfileFileReadResult.Success(
                 File.ReadAllText(Path.Combine(root, profilePath)),
@@ -123,6 +131,13 @@ internal static class VerifyServiceTestSupport
         AssuranceClaimStatus claimStatus)
     {
         var failed = claimStatus == AssuranceClaimStatus.Failed;
+        var compileSummaryPath = Path.Combine(
+            project.ProjectPath,
+            ".ucli",
+            "local",
+            "compile",
+            "run-1",
+            "summary.json");
         return CompileExecutionResult.Success(new CompileExecutionOutput(
             Verdict: failed ? AssuranceVerdict.Fail : AssuranceVerdict.Pass,
             Project: project,
@@ -151,7 +166,7 @@ internal static class VerifyServiceTestSupport
             ],
             Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                ["compile.summary"] = AssuranceReportReference.FromPath("/repo/.ucli/local/compile/run-1/summary.json", digest: null),
+                ["compile.summary"] = AssuranceReportReference.FromPath(compileSummaryPath, digest: null),
             },
             ResidualRisks: [],
             RequestedMode: AssuranceRequestedExecutionMode.Auto,
@@ -243,7 +258,7 @@ internal static class VerifyServiceTestSupport
           "command": "call",
           "payload": {
             "project": {
-              "projectPath": "/repo/UnityProject",
+              "projectPath": {{ProjectPathJson}},
               "projectFingerprint": "{{projectFingerprintText}}",
               "unityVersion": "6000.1.4f1"
             },
@@ -295,7 +310,7 @@ internal static class VerifyServiceTestSupport
           "command": "call",
           "payload": {
             "project": {
-              "projectPath": "/repo/UnityProject",
+              "projectPath": {{ProjectPathJson}},
               "projectFingerprint": "{{projectFingerprintText}}",
               "unityVersion": "6000.1.4f1"
             },
@@ -321,7 +336,7 @@ internal static class VerifyServiceTestSupport
           "command": "call",
           "payload": {
             "project": {
-              "projectPath": "/repo/UnityProject",
+              "projectPath": {{ProjectPathJson}},
               "projectFingerprint": "{{projectFingerprintText}}",
               "unityVersion": "6000.1.4f1"
             },

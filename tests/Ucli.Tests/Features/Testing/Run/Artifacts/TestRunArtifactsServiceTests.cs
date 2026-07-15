@@ -167,7 +167,7 @@ public sealed class TestRunArtifactsServiceTests
         var projectPath = scope.GetPath("UnityProject");
 
         return new ResolvedTestRunConfiguration(
-            UnityProject: ResolvedUnityProjectContextTestFactory.Create(
+            UnityProject: ResolvedUnityProjectContextTestFactory.CreateWithPaths(
                 unityProjectRoot: projectPath,
                 repositoryRoot: scope.FullPath,
                 projectFingerprint: ProjectFingerprintTestFactory.Create("abc123")),

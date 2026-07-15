@@ -32,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Tests
     public sealed class ExecuteRequestDispatcherTests
     {
         private static readonly IpcProjectIdentity ProjectIdentity = new IpcProjectIdentity(
-            "/repo/UnityProject",
+            ProjectPathTestValues.RepositoryUnityProject,
             ProjectFingerprintTestFactory.Create("execute-request-dispatcher"),
             "6000.1.4f1");
 

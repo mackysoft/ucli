@@ -68,7 +68,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         var response = CreateResponse($$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
@@ -181,7 +181,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         var response = CreateResponse($$"""
             {
               "project": {
-                "projectPath": "/repo/UnityProject",
+                "projectPath": {{ExpectedProjectPathJson}},
                 "projectFingerprint": "{{projectFingerprintText}}",
                 "unityVersion": "6000.1.4f1"
               },
@@ -263,7 +263,7 @@ public sealed class ExecuteResponseConverterPostReadSourceTests
         return $$"""
         {
           "project": {
-            "projectPath": "/repo/UnityProject",
+            "projectPath": {{ExpectedProjectPathJson}},
             "projectFingerprint": "{{projectFingerprintText}}",
             "unityVersion": "6000.1.4f1"
           },

@@ -382,7 +382,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new PlayEnterTransitionRunner(
                 new StubServerVersionProvider("1.2.3"),
                 readinessGate,
-                new IpcProjectIdentity("/repo/UnityProject", ProjectFingerprint, "6000.1.4f1"),
+                new IpcProjectIdentity(ProjectPathTestValues.RepositoryUnityProject, ProjectFingerprint, "6000.1.4f1"),
                 new StubUnityEditorUpdateAwaiter(editorUpdateAwaiter ?? CompleteEditorUpdateAsync),
                 new StubUnityPlayModeController(enterPlayModeRequester ?? RequestNoop),
                 NoOpDaemonLogger.Instance,
@@ -533,7 +533,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static IpcUnityEditorObservation Create (UnityEditorObservation snapshot)
         {
             return UnityLifecycleResponseFactory.Create(
-                new IpcProjectIdentity("/repo/UnityProject", ProjectFingerprint, "6000.1.4f1"),
+                new IpcProjectIdentity(ProjectPathTestValues.RepositoryUnityProject, ProjectFingerprint, "6000.1.4f1"),
                 "1.2.3",
                 snapshot);
         }
