@@ -2,7 +2,6 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.SceneInspection;
 
 #nullable enable
@@ -14,17 +13,17 @@ namespace MackySoft.Ucli.Unity.Index
     {
         /// <inheritdoc />
         public ValueTask<IpcIndexSceneTreeLiteReadResponse> BuildAsync (
-            string scenePath,
+            UnityScenePath scenePath,
             bool loadedSceneOnly = false,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.IsNullOrWhiteSpace(scenePath))
+            if (scenePath == null)
             {
-                throw new ArgumentException("Scene path must not be empty.", nameof(scenePath));
+                throw new ArgumentNullException(nameof(scenePath));
             }
 
-            var normalizedScenePath = PathStringNormalizer.ToSlashSeparated(scenePath);
+            var normalizedScenePath = scenePath.Value;
             SceneSourceLease sceneLease;
             string errorMessage;
             var acquired = loadedSceneOnly
@@ -42,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Index
                 var roots = SceneTreeNodeSnapshotBuilder.BuildRoots(sceneLease.Scene, depth: null);
                 return new ValueTask<IpcIndexSceneTreeLiteReadResponse>(new IpcIndexSceneTreeLiteReadResponse(
                     GeneratedAtUtc: DateTimeOffset.UtcNow,
-                    ScenePath: normalizedScenePath,
+                    ScenePath: scenePath,
                     Roots: roots,
                     SourceState: sceneLease.CreateSourceState()));
             }

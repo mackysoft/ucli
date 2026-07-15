@@ -43,8 +43,8 @@ namespace MackySoft.Ucli.Unity.SceneInspection
                 ? System.Array.Empty<IndexSceneTreeLiteNodeJsonContract>()
                 : BuildChildren(gameObject.transform, currentDepth + 1, maxDepth, globalObjectIdResolver);
             var childrenState = currentDepth >= maxDepth && gameObject.transform.childCount > 0
-                ? IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth
-                : IndexSceneTreeLiteNodeChildrenStateValues.Complete;
+                ? IndexSceneTreeLiteNodeChildrenState.NotExpandedByDepth
+                : IndexSceneTreeLiteNodeChildrenState.Complete;
             var globalObjectId = ResolveGlobalObjectId(gameObject, globalObjectIdResolver);
             return new IndexSceneTreeLiteNodeJsonContract(
                 name: gameObject.name,

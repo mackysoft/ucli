@@ -11,7 +11,7 @@ namespace MackySoft.Ucli.Unity.Index
     {
         /// <summary> Builds one scene-tree-lite snapshot for the specified scene path. </summary>
         ValueTask<IpcIndexSceneTreeLiteReadResponse> BuildAsync (
-            string scenePath,
+            UnityScenePath scenePath,
             bool loadedSceneOnly = false,
             CancellationToken cancellationToken = default);
     }
