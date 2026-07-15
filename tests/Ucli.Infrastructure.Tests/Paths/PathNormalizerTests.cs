@@ -4,14 +4,6 @@ namespace MackySoft.Ucli.Infrastructure.Tests.Paths;
 
 public sealed class PathNormalizerTests
 {
-    private static readonly string?[] RelativeOrEmptyPathValues =
-    [
-        null,
-        string.Empty,
-        "   ",
-        "relative/path",
-    ];
-
     private static readonly string?[] EmptyPathValues =
     [
         null,
@@ -33,29 +25,6 @@ public sealed class PathNormalizerTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(
             static () => FullPathNormalizationResult.Failure(PathNormalizationFailureKind.None, "failure"));
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IsFullyQualifiedPath_WithFullPath_ReturnsTrue ()
-    {
-        var path = Path.GetFullPath("src");
-
-        var result = PathNormalizer.IsFullyQualifiedPath(path);
-
-        Assert.True(result);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IsFullyQualifiedPath_WithRelativeOrEmptyPath_ReturnsFalse ()
-    {
-        foreach (var path in RelativeOrEmptyPathValues)
-        {
-            var result = PathNormalizer.IsFullyQualifiedPath(path);
-
-            Assert.False(result);
-        }
     }
 
     [Fact]

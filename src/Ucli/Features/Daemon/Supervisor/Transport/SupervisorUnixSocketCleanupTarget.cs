@@ -12,7 +12,7 @@ internal sealed class SupervisorUnixSocketCleanupTarget
     public SupervisorUnixSocketCleanupTarget (string socketPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(socketPath);
-        if (!PathNormalizer.IsFullyQualifiedPath(socketPath))
+        if (!Path.IsPathFullyQualified(socketPath))
         {
             throw new ArgumentException("Supervisor Unix socket cleanup path must be fully qualified.", nameof(socketPath));
         }

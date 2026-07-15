@@ -836,7 +836,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!PathNormalizer.IsFullyQualifiedPath(actualPath))
+            if (!Path.IsPathFullyQualified(actualPath))
             {
                 return false;
             }
