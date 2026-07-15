@@ -99,9 +99,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = runner.Run(
                 CreateRequest(TypeName + ".ContextualSuccess"),
-                ProfileDigest,
                 projectIdentity,
-                CreateResolvedInput());
+                CreateResolvedInput(),
+                progressSink: null);
 
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(UcliBuildRunnerContext.Current, Is.Null);
@@ -124,8 +124,60 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.RunnerResult.Status, Is.EqualTo(IpcBuildReportResult.Succeeded));
             Assert.That(result.RunnerResult.DurationMilliseconds, Is.EqualTo(1234));
             Assert.That(result.RunnerResult.WarningCount, Is.EqualTo(2));
-            Assert.That(result.RunnerResult.Outputs, Is.EqualTo(new[] { "player.txt" }));
+            Assert.That(result.RunnerResult.Outputs, Has.Count.EqualTo(1));
+            Assert.That(result.RunnerResult.Outputs[0].Value, Is.EqualTo("player.txt"));
             Assert.That(result.RunnerResult.BuildReport, Is.Null);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Run_WhenRunnerPathsUsePlatformSeparators_NormalizesIpcPaths ()
+        {
+            var runner = new BuildExecuteMethodRunner(new BuildExecuteMethodResolver());
+
+            var result = runner.Run(
+                CreateRequest(TypeName + ".PortableRelativePaths"),
+                CreateProjectIdentity(),
+                CreateResolvedInput(),
+                progressSink: null);
+
+            Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
+            Assert.That(result.RunnerResult!.Outputs, Has.Count.EqualTo(1));
+            Assert.That(result.RunnerResult.Outputs[0].Value, Is.EqualTo("nested/player.txt"));
+            Assert.That(result.RunnerResult.BuildReport, Is.Not.Null);
+            Assert.That(result.RunnerResult.BuildReport!.Path.Value, Is.EqualTo("reports/build-report.json"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Run_WhenRunnerOutputPathEscapesOutputDirectory_ReturnsBuildOutputPathInvalid ()
+        {
+            var runner = new BuildExecuteMethodRunner(new BuildExecuteMethodResolver());
+
+            var result = runner.Run(
+                CreateRequest(TypeName + ".InvalidOutputPath"),
+                CreateProjectIdentity(),
+                CreateResolvedInput(),
+                progressSink: null);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildOutputPathInvalid));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Run_WhenRunnerBuildReportPathEscapesOutputDirectory_ReturnsBuildRunnerResultInvalid ()
+        {
+            var runner = new BuildExecuteMethodRunner(new BuildExecuteMethodResolver());
+
+            var result = runner.Run(
+                CreateRequest(TypeName + ".InvalidBuildReportPath"),
+                CreateProjectIdentity(),
+                CreateResolvedInput(),
+                progressSink: null);
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildRunnerResultInvalid));
         }
 
         [Test]
@@ -136,9 +188,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = runner.Run(
                 CreateRequest(TypeName + ".ParameterlessSuccess"),
-                ProfileDigest,
                 CreateProjectIdentity(),
-                CreateResolvedInput());
+                CreateResolvedInput(),
+                progressSink: null);
 
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(UcliBuildRunnerContext.Current, Is.Null);
@@ -154,9 +206,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = runner.Run(
                 CreateRequest(TypeName + ".Throws"),
-                ProfileDigest,
                 CreateProjectIdentity(),
-                CreateResolvedInput());
+                CreateResolvedInput(),
+                progressSink: null);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(UcliBuildRunnerContext.Current, Is.Null);
@@ -172,9 +224,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = runner.Run(
                 CreateRequest(TypeName + ".ReturnsNull"),
-                ProfileDigest,
                 CreateProjectIdentity(),
-                CreateResolvedInput());
+                CreateResolvedInput(),
+                progressSink: null);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(UcliBuildRunnerContext.Current, Is.Null);
@@ -199,6 +251,74 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
+        public void UcliBuildRunnerResult_WhenSucceededWithoutOutputs_Throws ()
+        {
+            var exception = Assert.Throws<ArgumentException>(() => new UcliBuildRunnerResult(
+                IpcBuildReportResult.Succeeded,
+                Array.Empty<string>(),
+                new UcliBuildRunnerSummary(0, 0, 0),
+                diagnostics: null,
+                buildReport: null));
+
+            Assert.That(exception!.ParamName, Is.EqualTo("outputs"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        [TestCase("outputs")]
+        [TestCase("diagnostics")]
+        public void UcliBuildRunnerResult_WhenCollectionContainsNull_Throws (string parameterName)
+        {
+            var exception = Assert.Throws<ArgumentException>(() =>
+            {
+                if (parameterName == "outputs")
+                {
+                    _ = new UcliBuildRunnerResult(
+                        IpcBuildReportResult.Succeeded,
+                        new string[] { null! },
+                        new UcliBuildRunnerSummary(0, 0, 0),
+                        diagnostics: null,
+                        buildReport: null);
+                    return;
+                }
+
+                _ = new UcliBuildRunnerResult(
+                    IpcBuildReportResult.Succeeded,
+                    new[] { "player.txt" },
+                    new UcliBuildRunnerSummary(0, 0, 0),
+                    new UcliBuildRunnerDiagnostic[] { null! },
+                    buildReport: null);
+            });
+
+            Assert.That(exception!.ParamName, Is.EqualTo(parameterName));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void UcliBuildRunnerResult_WhenSourceCollectionsChange_PreservesConstructionSnapshot ()
+        {
+            var outputs = new List<string> { "player.txt" };
+            var originalDiagnostic = new UcliBuildRunnerDiagnostic(
+                "warning",
+                UcliDiagnosticSeverity.Warning,
+                "Warning message");
+            var diagnostics = new List<UcliBuildRunnerDiagnostic> { originalDiagnostic };
+            var result = new UcliBuildRunnerResult(
+                IpcBuildReportResult.Succeeded,
+                outputs,
+                new UcliBuildRunnerSummary(0, 0, 1),
+                diagnostics,
+                buildReport: null);
+
+            outputs[0] = "changed.txt";
+            diagnostics.Clear();
+
+            Assert.That(result.Outputs, Is.EqualTo(new[] { "player.txt" }));
+            Assert.That(result.Diagnostics, Is.EqualTo(new[] { originalDiagnostic }));
+        }
+
+        [Test]
+        [Category("Size.Small")]
         public void UcliBuildRunnerResult_ConstructorParametersHaveNoDefaultValues ()
         {
             var constructors = typeof(UcliBuildRunnerResult).GetConstructors();
@@ -218,6 +338,25 @@ namespace MackySoft.Ucli.Unity.Tests
             currentAtInvocation = UcliBuildRunnerContext.Current;
             WriteRunnerOutput(context, "player.txt");
             return UcliBuildRunnerResult.Succeeded(new[] { "player.txt" }, 1234, warningCount: 2);
+        }
+
+        public static UcliBuildRunnerResult PortableRelativePaths (UcliBuildRunnerContext context)
+        {
+            WriteRunnerOutput(context, "nested/player.txt");
+            return UcliBuildRunnerResult.Succeeded(
+                new[] { @"nested\player.txt" },
+                buildReport: new UcliBuildRunnerBuildReport(@"reports\build-report.json"));
+        }
+
+        public static UcliBuildRunnerResult InvalidOutputPath ()
+        {
+            return UcliBuildRunnerResult.Succeeded(new[] { "../player.txt" });
+        }
+
+        public static UcliBuildRunnerResult InvalidBuildReportPath ()
+        {
+            return UcliBuildRunnerResult.Canceled(
+                buildReport: new UcliBuildRunnerBuildReport("../build-report.json"));
         }
 
         internal static UcliBuildRunnerResult InternalSuccess ()
@@ -309,9 +448,9 @@ namespace MackySoft.Ucli.Unity.Tests
             File.WriteAllText(outputPath, "player output");
         }
 
-        private static IpcBuildRunRequest CreateRequest (string method)
+        private static BuildRunExecutionRequest.ExplicitExecuteMethod CreateRequest (string method)
         {
-            return new IpcBuildRunRequest(
+            var wireRequest = new IpcBuildRunRequest(
                 RunId: RunId,
                 InputKind: BuildProfileInputsKind.Explicit,
                 BuildTarget: BuildTargetStableName.StandaloneLinux64,
@@ -343,6 +482,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     ["UCLI_SECRET"] = "secret-value",
                 });
+            return (BuildRunExecutionRequest.ExplicitExecuteMethod)BuildRunExecutionRequest.Create(wireRequest);
         }
 
         private static IpcProjectIdentity CreateProjectIdentity ()

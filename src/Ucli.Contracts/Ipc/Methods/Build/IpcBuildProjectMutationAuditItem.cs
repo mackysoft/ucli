@@ -16,42 +16,30 @@ public sealed record IpcBuildProjectMutationAuditItem
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="ChangeKind" /> is not a contract value. </exception>
     [JsonConstructor]
     public IpcBuildProjectMutationAuditItem (
-        string Path,
+        ProjectMutationAuditPath Path,
         IpcBuildProjectMutationChangeKind ChangeKind,
         Sha256Digest? BeforeSha256,
         Sha256Digest? AfterSha256)
     {
-        if (!RelativePathContract.IsNormalized(Path) || !IsAuditedProjectPath(Path))
-        {
-            throw new ArgumentException("Project mutation path must be a normalized path under an audited project root.", nameof(Path));
-        }
-
         if (!ContractLiteralCodec.IsDefined(ChangeKind))
         {
             throw new ArgumentOutOfRangeException(nameof(ChangeKind), ChangeKind, "Project mutation change kind must be specified.");
         }
 
         ValidateDigestShape(ChangeKind, BeforeSha256, AfterSha256);
-        this.Path = Path;
+        this.Path = Path ?? throw new ArgumentNullException(nameof(Path));
         this.ChangeKind = ChangeKind;
         this.BeforeSha256 = BeforeSha256;
         this.AfterSha256 = AfterSha256;
     }
 
-    public string Path { get; }
+    public ProjectMutationAuditPath Path { get; }
 
     public IpcBuildProjectMutationChangeKind ChangeKind { get; }
 
     public Sha256Digest? BeforeSha256 { get; }
 
     public Sha256Digest? AfterSha256 { get; }
-
-    private static bool IsAuditedProjectPath (string path)
-    {
-        return path.StartsWith("Assets/", StringComparison.Ordinal)
-            || path.StartsWith("ProjectSettings/", StringComparison.Ordinal)
-            || path.StartsWith("Packages/", StringComparison.Ordinal);
-    }
 
     private static void ValidateDigestShape (
         IpcBuildProjectMutationChangeKind changeKind,

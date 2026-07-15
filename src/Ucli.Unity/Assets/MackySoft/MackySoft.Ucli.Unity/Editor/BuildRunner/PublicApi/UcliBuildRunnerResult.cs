@@ -17,6 +17,7 @@ namespace MackySoft.Ucli.Unity
         /// <param name="diagnostics"> The runner diagnostics. </param>
         /// <param name="buildReport"> The optional BuildReport JSON source file relative to <see cref="UcliBuildRunnerContext.OutputDir" />. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="summary" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when a collection contains a <see langword="null" /> item, or when a successful result declares no outputs. </exception>
         /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="status" /> is not a terminal build result. </exception>
         public UcliBuildRunnerResult (
             IpcBuildReportResult status,
@@ -30,10 +31,18 @@ namespace MackySoft.Ucli.Unity
                 throw new ArgumentOutOfRangeException(nameof(status), status, "status must be terminal.");
             }
 
+            var runnerSummary = summary ?? throw new ArgumentNullException(nameof(summary));
+            var outputSnapshot = CreateSnapshot(outputs, nameof(outputs));
+            var diagnosticSnapshot = CreateSnapshot(diagnostics, nameof(diagnostics));
+            if (status == IpcBuildReportResult.Succeeded && outputSnapshot.Count == 0)
+            {
+                throw new ArgumentException("A successful build runner result must declare at least one output.", nameof(outputs));
+            }
+
             Status = status;
-            Outputs = outputs ?? Array.Empty<string>();
-            Summary = summary ?? throw new ArgumentNullException(nameof(summary));
-            Diagnostics = diagnostics ?? Array.Empty<UcliBuildRunnerDiagnostic>();
+            Outputs = outputSnapshot;
+            Summary = runnerSummary;
+            Diagnostics = diagnosticSnapshot;
             BuildReport = buildReport;
         }
 
@@ -99,6 +108,26 @@ namespace MackySoft.Ucli.Unity
                 new UcliBuildRunnerSummary(durationMilliseconds, errorCount: 0, warningCount),
                 diagnostics,
                 buildReport);
+        }
+
+        private static IReadOnlyList<T> CreateSnapshot<T> (
+            IReadOnlyList<T>? values,
+            string parameterName)
+            where T : class
+        {
+            if (values == null || values.Count == 0)
+            {
+                return Array.Empty<T>();
+            }
+
+            var snapshot = new T[values.Count];
+            for (var index = 0; index < values.Count; index++)
+            {
+                snapshot[index] = values[index]
+                    ?? throw new ArgumentException($"Collection item at index {index} must not be null.", parameterName);
+            }
+
+            return Array.AsReadOnly(snapshot);
         }
     }
 }

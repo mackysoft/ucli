@@ -1,4 +1,5 @@
-using MackySoft.Ucli.Contracts;
+using System.Diagnostics.CodeAnalysis;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 #nullable enable
@@ -12,20 +13,23 @@ namespace MackySoft.Ucli.Unity.Build
         public static bool TryResolve (
             string outputDirectory,
             string relativePath,
+            [NotNullWhen(true)] out BuildRunnerOutputPath? outputPath,
             out string sourcePath)
         {
+            outputPath = null;
             sourcePath = string.Empty;
-            if (!RelativePathContract.TryNormalize(relativePath, out var normalizedRelativePath))
+            if (!BuildRunnerOutputPath.TryParse(relativePath, out var normalizedOutputPath))
             {
                 return false;
             }
 
-            var result = RepositoryPathNormalizer.TryNormalize(outputDirectory, normalizedRelativePath);
+            var result = RepositoryPathNormalizer.TryNormalize(outputDirectory, normalizedOutputPath.Value);
             if (!result.IsSuccess)
             {
                 return false;
             }
 
+            outputPath = normalizedOutputPath;
             sourcePath = result.FullPath!;
             return true;
         }

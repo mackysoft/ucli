@@ -53,7 +53,7 @@ public sealed class BuildRunCliOutputSemanticContractTests
             ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             root.GetProperty("status").GetString());
         Assert.Equal(BuildErrorCodes.BuildDirtyStatePresent.Value, root.GetProperty("errors")[0].GetProperty("code").GetString());
-        Assert.True(dirtyState.GetProperty("checked").GetBoolean());
+        Assert.False(dirtyState.TryGetProperty("checked", out _));
         Assert.True(dirtyState.GetProperty("dirty").GetBoolean());
         Assert.Equal("full", dirtyState.GetProperty("coverage").GetString());
         Assert.Equal("scene", dirtyItem.GetProperty("kind").GetString());

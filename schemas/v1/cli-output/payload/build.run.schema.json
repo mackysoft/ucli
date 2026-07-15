@@ -622,9 +622,6 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "checked": {
-              "type": "boolean"
-            },
             "dirty": {
               "type": "boolean"
             },
@@ -647,8 +644,7 @@
                       "scene",
                       "prefab",
                       "asset",
-                      "projectSettings",
-                      "unknown"
+                      "projectSettings"
                     ]
                   },
                   "path": {
@@ -663,7 +659,6 @@
             }
           },
           "required": [
-            "checked",
             "dirty",
             "coverage",
             "items"

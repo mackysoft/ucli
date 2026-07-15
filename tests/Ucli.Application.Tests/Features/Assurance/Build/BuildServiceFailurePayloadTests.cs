@@ -11,14 +11,13 @@ public sealed class BuildServiceFailurePayloadTests
     {
         using var tempDirectory = CreateArtifactDirectoryScope();
         var dirtyState = new IpcBuildDirtyState(
-            Checked: true,
             Dirty: true,
             Coverage: IpcBuildDirtyStateCoverage.Full,
             Items:
             [
                 new IpcBuildDirtyStateItem(
                     IpcBuildDirtyStateItemKind.Scene,
-                    "Assets/Scenes/Main.unity"),
+                    new ProjectMutationAuditPath("Assets/Scenes/Main.unity")),
             ]);
         var input = CreateInputProbe();
         var errorPayload = new IpcBuildRunErrorPayload(
@@ -39,11 +38,10 @@ public sealed class BuildServiceFailurePayloadTests
         var error = Assert.Single(result.Errors);
         Assert.Equal(BuildErrorCodes.BuildDirtyStatePresent, error.Code);
         Assert.NotNull(result.DirtyState);
-        Assert.True(result.DirtyState!.Checked);
-        Assert.True(result.DirtyState.Dirty);
+        Assert.True(result.DirtyState!.Dirty);
         var item = Assert.Single(result.DirtyState.Items);
         Assert.Equal(IpcBuildDirtyStateItemKind.Scene, item.Kind);
-        Assert.Equal("Assets/Scenes/Main.unity", item.Path);
+        Assert.Equal(new ProjectMutationAuditPath("Assets/Scenes/Main.unity"), item.Path);
         Assert.Null(result.Output);
     }
 
@@ -53,7 +51,6 @@ public sealed class BuildServiceFailurePayloadTests
     {
         using var tempDirectory = CreateArtifactDirectoryScope();
         var dirtyState = new IpcBuildDirtyState(
-            Checked: true,
             Dirty: false,
             Coverage: IpcBuildDirtyStateCoverage.Partial,
             Items: []);
@@ -85,14 +82,13 @@ public sealed class BuildServiceFailurePayloadTests
     {
         using var tempDirectory = CreateArtifactDirectoryScope();
         var dirtyState = new IpcBuildDirtyState(
-            Checked: true,
             Dirty: true,
             Coverage: IpcBuildDirtyStateCoverage.Full,
             Items:
             [
                 new IpcBuildDirtyStateItem(
                     IpcBuildDirtyStateItemKind.Scene,
-                    "Assets/Scenes/Main.unity"),
+                    new ProjectMutationAuditPath("Assets/Scenes/Main.unity")),
             ]);
         var errorPayload = new IpcBuildRunErrorPayload(
             Project: new IpcProjectIdentity(ProjectContextTestFactory.UnityProjectRoot, DefaultProjectFingerprint, "6000.1.4f1"),

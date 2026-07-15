@@ -84,8 +84,13 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
     [Trait("Size", "Medium")]
     public async Task Execute_WithExecuteMethodSucceededAndEmptyOutputs_ReturnsBuildRunnerResultInvalid ()
     {
-        var result = await ExecuteWithExecuteMethodRunnerResultAsync(
-            CreateExecuteMethodRunnerResult(outputs: []));
+        var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(
+            static payload =>
+            {
+                var runnerResult = payload["runnerResult"]!.AsObject();
+                runnerResult["status"] = "succeeded";
+                runnerResult["outputs"] = new JsonArray();
+            });
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);
@@ -177,14 +182,14 @@ public sealed class BuildServiceExecuteMethodRunnerResultValidationTests
         int errorCount,
         int warningCount)
     {
-        var result = status == "unsupported"
-            ? await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(
-                static payload => payload["runnerResult"]!["status"] = "unsupported")
-            : await ExecuteWithExecuteMethodRunnerResultAsync(
-                CreateExecuteMethodRunnerResult(
-                    durationMilliseconds: durationMilliseconds,
-                    errorCount: errorCount,
-                    warningCount: warningCount));
+        var result = await ExecuteWithMalformedExecuteMethodRunnerResultPayloadAsync(payload =>
+        {
+            var runnerResult = payload["runnerResult"]!;
+            runnerResult["status"] = status;
+            runnerResult["durationMilliseconds"] = durationMilliseconds;
+            runnerResult["errorCount"] = errorCount;
+            runnerResult["warningCount"] = warningCount;
+        });
 
         Assert.False(result.IsSuccess);
         var error = Assert.Single(result.Errors);

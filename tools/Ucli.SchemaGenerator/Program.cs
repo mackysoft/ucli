@@ -870,7 +870,6 @@ internal static class Program
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("checked", BooleanSchema()),
             Required("dirty", BooleanSchema()),
             Required(
                 "coverage",
@@ -885,8 +884,7 @@ internal static class Program
                         Literal(IpcBuildDirtyStateItemKind.Scene),
                         Literal(IpcBuildDirtyStateItemKind.Prefab),
                         Literal(IpcBuildDirtyStateItemKind.Asset),
-                        Literal(IpcBuildDirtyStateItemKind.ProjectSettings),
-                        Literal(IpcBuildDirtyStateItemKind.Unknown))),
+                        Literal(IpcBuildDirtyStateItemKind.ProjectSettings))),
                 Required("path", StringSchema())))));
     }
 

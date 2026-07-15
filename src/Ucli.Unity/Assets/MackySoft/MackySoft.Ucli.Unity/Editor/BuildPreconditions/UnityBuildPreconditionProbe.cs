@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
@@ -186,7 +187,7 @@ namespace MackySoft.Ucli.Unity.Build
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var itemsByPath = new Dictionary<string, IpcBuildDirtyStateItem>(StringComparer.Ordinal);
+            var itemsByPath = new SortedDictionary<ProjectMutationAuditPath, IpcBuildDirtyStateItem>();
             var coverage = IpcBuildDirtyStateCoverage.Full;
             for (var sceneIndex = 0; sceneIndex < SceneManager.sceneCount; sceneIndex++)
             {
@@ -202,11 +203,13 @@ namespace MackySoft.Ucli.Unity.Build
                     continue;
                 }
 
-                var normalizedPath = NormalizeLoadedScenePath(scene.path);
-                AddDirtyItem(
-                    itemsByPath,
-                    IpcBuildDirtyStateItemKind.Scene,
-                    normalizedPath);
+                if (!ProjectMutationAuditPath.TryParse(scene.path, out var auditPath))
+                {
+                    coverage = IpcBuildDirtyStateCoverage.Partial;
+                    continue;
+                }
+
+                AddDirtyItem(itemsByPath, auditPath);
             }
 
             try
@@ -219,16 +222,14 @@ namespace MackySoft.Ucli.Unity.Build
             }
 
             var items = new List<IpcBuildDirtyStateItem>(itemsByPath.Values);
-            items.Sort(static (left, right) => string.Compare(left.Path, right.Path, StringComparison.Ordinal));
             return new IpcBuildDirtyState(
-                Checked: true,
                 Dirty: items.Count != 0,
                 Coverage: coverage,
                 Items: items);
         }
 
         private static void CapturePersistentDirtyObjects (
-            Dictionary<string, IpcBuildDirtyStateItem> itemsByPath,
+            SortedDictionary<ProjectMutationAuditPath, IpcBuildDirtyStateItem> itemsByPath,
             CancellationToken cancellationToken)
         {
             var objects = Resources.FindObjectsOfTypeAll<Object>();
@@ -244,48 +245,57 @@ namespace MackySoft.Ucli.Unity.Build
                     continue;
                 }
 
-                var path = NormalizeLoadedScenePath(AssetDatabase.GetAssetPath(target));
+                var path = AssetDatabase.GetAssetPath(target);
                 if (string.IsNullOrWhiteSpace(path))
                 {
                     continue;
                 }
 
-                if (!IsPersistentDirtyObjectAuditedPath(path))
+                if (!TryResolvePersistentDirtyObjectAuditPath(path, out var auditPath))
                 {
                     continue;
                 }
 
-                AddDirtyItem(itemsByPath, ClassifyDirtyItem(path), path);
+                AddDirtyItem(itemsByPath, auditPath);
             }
         }
 
         private static void AddDirtyItem (
-            Dictionary<string, IpcBuildDirtyStateItem> itemsByPath,
-            IpcBuildDirtyStateItemKind kind,
-            string path)
+            SortedDictionary<ProjectMutationAuditPath, IpcBuildDirtyStateItem> itemsByPath,
+            ProjectMutationAuditPath path)
         {
             if (!itemsByPath.ContainsKey(path))
             {
-                itemsByPath[path] = new IpcBuildDirtyStateItem(kind, path);
+                itemsByPath[path] = new IpcBuildDirtyStateItem(
+                    IpcBuildDirtyStateItem.ClassifyPath(path),
+                    path);
             }
         }
 
-        internal static bool IsPersistentDirtyObjectAuditedPath (string path)
+        internal static bool TryResolvePersistentDirtyObjectAuditPath (
+            string path,
+            [NotNullWhen(true)] out ProjectMutationAuditPath? auditPath)
         {
-            if (!UnityProjectMutationAuditScope.IsAuditedProjectPath(path))
+            if (!ProjectMutationAuditPath.TryParse(path, out auditPath))
             {
                 return false;
             }
 
-            if (!path.StartsWith("Packages/", StringComparison.Ordinal))
+            if (!auditPath.Value.StartsWith("Packages/", StringComparison.Ordinal))
             {
                 return true;
             }
 
-            return HasProjectLocalPackagePath(path);
+            if (HasProjectLocalPackagePath(auditPath))
+            {
+                return true;
+            }
+
+            auditPath = null;
+            return false;
         }
 
-        private static bool HasProjectLocalPackagePath (string path)
+        private static bool HasProjectLocalPackagePath (ProjectMutationAuditPath path)
         {
             var projectRootPathResult = PathNormalizer.TryNormalizeFullPath(Path.Combine(Application.dataPath, ".."));
             if (!projectRootPathResult.IsSuccess)
@@ -295,7 +305,7 @@ namespace MackySoft.Ucli.Unity.Build
 
             var projectRootPath = projectRootPathResult.FullPath!;
             var packageRootPath = Path.Combine(projectRootPath, "Packages");
-            var packagePathResult = RepositoryPathNormalizer.TryNormalize(projectRootPath, path);
+            var packagePathResult = RepositoryPathNormalizer.TryNormalize(projectRootPath, path.Value);
             if (!packagePathResult.IsSuccess)
             {
                 return false;
@@ -308,32 +318,6 @@ namespace MackySoft.Ucli.Unity.Build
             }
 
             return File.Exists(packagePath) || Directory.Exists(packagePath);
-        }
-
-        private static IpcBuildDirtyStateItemKind ClassifyDirtyItem (string path)
-        {
-            if (path.EndsWith(".unity", StringComparison.OrdinalIgnoreCase))
-            {
-                return IpcBuildDirtyStateItemKind.Scene;
-            }
-
-            if (path.EndsWith(".prefab", StringComparison.OrdinalIgnoreCase))
-            {
-                return IpcBuildDirtyStateItemKind.Prefab;
-            }
-
-            if (path.StartsWith("ProjectSettings/", StringComparison.Ordinal))
-            {
-                return IpcBuildDirtyStateItemKind.ProjectSettings;
-            }
-
-            if (path.StartsWith("Assets/", StringComparison.Ordinal)
-                || path.StartsWith("Packages/", StringComparison.Ordinal))
-            {
-                return IpcBuildDirtyStateItemKind.Asset;
-            }
-
-            return IpcBuildDirtyStateItemKind.Unknown;
         }
 
         private static bool IsEditorModeAllowed (
@@ -471,11 +455,6 @@ namespace MackySoft.Ucli.Unity.Build
 
             error = null;
             return true;
-        }
-
-        private static string NormalizeLoadedScenePath (string path)
-        {
-            return path.Trim().Replace('\\', '/');
         }
 
         private IpcBuildInputProbe CreateInputProbe (

@@ -170,7 +170,7 @@ internal static class BuildErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClass.No,
-            inspect: ["errors[].code", "errors[].message", "payload.dirtyState.checked", "payload.dirtyState.dirty", "payload.dirtyState.coverage", "payload.dirtyState.items[].path"],
+            inspect: ["errors[].code", "errors[].message", "payload.dirtyState.dirty", "payload.dirtyState.coverage", "payload.dirtyState.items[].path"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -189,7 +189,7 @@ internal static class BuildErrorCodeDescriptors
             impliesNotApplied: true,
             mayBeIndeterminate: true,
             safeToRetry: UcliErrorRetryClass.Unknown,
-            inspect: ["errors[].code", "errors[].message", "payload.dirtyState.checked", "payload.dirtyState.coverage"],
+            inspect: ["errors[].code", "errors[].message", "payload.dirtyState.coverage"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(

@@ -31,8 +31,8 @@ namespace MackySoft.Ucli.Unity.Build
 
         /// <inheritdoc />
         public Task<UnityBuildProfileInputResolutionResult> ResolveAsync (
-            IpcBuildRunRequest request,
-            CancellationToken cancellationToken = default)
+            BuildRunExecutionRequest.UnityBuildProfile request,
+            CancellationToken cancellationToken)
         {
             if (request == null)
             {
@@ -41,15 +41,7 @@ namespace MackySoft.Ucli.Unity.Build
 
             cancellationToken.ThrowIfCancellationRequested();
             var lifecycleBefore = preconditionProbe.CaptureAfterBuild();
-            if (request.UnityBuildProfile == null)
-            {
-                return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
-                    CreateInvalidProfileError("Unity Build Profile input must specify a profile asset path."),
-                    null,
-                    lifecycleBefore));
-            }
-
-            var profilePath = request.UnityBuildProfile.Path;
+            var profilePath = request.Profile.Path;
 
             var profile = AssetDatabase.LoadAssetAtPath<BuildProfile>(profilePath.Value);
             if (profile == null)

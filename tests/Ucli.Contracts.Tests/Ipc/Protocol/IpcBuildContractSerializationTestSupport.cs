@@ -50,7 +50,7 @@ internal static class IpcBuildContractSerializationTestSupport
             Items:
             [
                 new IpcBuildProjectMutationAuditItem(
-                    Path: "Assets/Generated.asset",
+                    Path: new ProjectMutationAuditPath("Assets/Generated.asset"),
                     ChangeKind: IpcBuildProjectMutationChangeKind.Added,
                     BeforeSha256: null,
                     AfterSha256: Sha256Digest.Parse(new string('b', 64))),

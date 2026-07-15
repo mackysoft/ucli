@@ -363,7 +363,6 @@ internal static class BuildServiceTestSupport
                 LifecycleBefore: lifecycleBefore ?? CreateLifecycleSnapshot(10),
                 LifecycleAfter: lifecycleAfter ?? CreateLifecycleSnapshot(11),
                 DirtyState: new IpcBuildDirtyState(
-                    Checked: true,
                     Dirty: false,
                     Coverage: IpcBuildDirtyStateCoverage.Full,
                     Items: []),
@@ -388,34 +387,31 @@ internal static class BuildServiceTestSupport
                     CompletionReason: completionReason,
                     Window: new IpcBuildLogWindow(
                         StartedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                        CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"))),
-                ProjectMutation: projectMutation ?? CreateProjectMutation(mutated: false))
-            {
-                RunnerResult = runnerResult,
-            }),
+                        CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"),
+                        CursorStart: null,
+                        CursorEnd: null)),
+                ProjectMutation: projectMutation ?? CreateProjectMutation(mutated: false),
+                RunnerResult: runnerResult)),
             []));
     }
 
     public static IpcUnityBuildProfileInput CreateUnityBuildProfileInput (
         string path,
-        Sha256Digest digest,
-        Func<IpcUnityBuildProfileApplyAudit, IpcUnityBuildProfileApplyAudit>? configureApplyAudit = null)
+        Sha256Digest digest)
     {
         var lifecycleBefore = CreateLifecycleSnapshot(20);
         var lifecycleAfter = CreateLifecycleSnapshot(21);
-        var applyAudit = new IpcUnityBuildProfileApplyAudit(
-            Applied: true,
-            LifecycleBefore: lifecycleBefore,
-            LifecycleAfter: lifecycleAfter,
-                DirtyStateAfter: new IpcBuildDirtyState(
-                Checked: true,
-                Dirty: false,
-                Coverage: IpcBuildDirtyStateCoverage.Full,
-                Items: []));
         return new IpcUnityBuildProfileInput(
             Path: new UnityBuildProfileAssetPath(path),
             Digest: digest,
-            ApplyAudit: configureApplyAudit == null ? applyAudit : configureApplyAudit(applyAudit));
+            ApplyAudit: new IpcUnityBuildProfileApplyAudit(
+                Applied: true,
+                LifecycleBefore: lifecycleBefore,
+                LifecycleAfter: lifecycleAfter,
+                DirtyStateAfter: new IpcBuildDirtyState(
+                    Dirty: false,
+                    Coverage: IpcBuildDirtyStateCoverage.Full,
+                    Items: [])));
     }
 
     public static void WriteRunnerResultFiles (
@@ -432,7 +428,7 @@ internal static class BuildServiceTestSupport
         {
             foreach (var output in runnerResult.Outputs)
             {
-                var outputPath = Path.Combine(request.OutputPath, output);
+                var outputPath = Path.Combine(request.OutputPath, output.Value);
                 Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
                 File.WriteAllText(outputPath, "runner output");
             }
@@ -440,7 +436,7 @@ internal static class BuildServiceTestSupport
 
         if (writeBuildReportSource && runnerResult.BuildReport != null)
         {
-            var buildReportSourcePath = Path.Combine(request.OutputPath, runnerResult.BuildReport.Path);
+            var buildReportSourcePath = Path.Combine(request.OutputPath, runnerResult.BuildReport.Path.Value);
             Directory.CreateDirectory(Path.GetDirectoryName(buildReportSourcePath)!);
             if (buildReportSourceJson != null)
             {
@@ -531,7 +527,7 @@ internal static class BuildServiceTestSupport
                 ?
                 [
                     new IpcBuildProjectMutationAuditItem(
-                        Path: "Assets/Generated.asset",
+                        Path: new ProjectMutationAuditPath("Assets/Generated.asset"),
                         ChangeKind: IpcBuildProjectMutationChangeKind.Added,
                         BeforeSha256: null,
                         AfterSha256: Sha256Digest.Parse(new string('2', 64))),

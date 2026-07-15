@@ -14,7 +14,7 @@ internal sealed record BuildRunArtifactPaths
     /// <param name="runnerOutputDirectory"> The absolute runner working output root path. </param>
     /// <param name="artifactOutputDirectory"> The absolute artifact-store output root path. </param>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="runId" /> is empty. </exception>
-    /// <exception cref="ArgumentNullException"> Thrown when a required path is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when a required argument is <see langword="null" />. </exception>
     public BuildRunArtifactPaths (
         string repositoryRoot,
         Guid runId,

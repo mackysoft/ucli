@@ -1,11 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Build;
@@ -38,8 +40,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Error, Is.Null);
             Assert.That(result.DirtyState, Is.Not.Null);
-            Assert.That(result.DirtyState!.Checked, Is.True);
-            Assert.That(result.DirtyState.Dirty, Is.False);
+            Assert.That(result.DirtyState!.Dirty, Is.False);
             Assert.That(result.DirtyState.Coverage, Is.EqualTo(IpcBuildDirtyStateCoverage.Full));
             Assert.That(result.DirtyState.Items, Is.Empty);
             Assert.That(result.ResolvedInput, Is.Not.Null);
@@ -71,13 +72,12 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildDirtyStatePresent));
             Assert.That(result.DirtyState, Is.Not.Null);
-            Assert.That(result.DirtyState!.Checked, Is.True);
-            Assert.That(result.DirtyState.Dirty, Is.True);
+            Assert.That(result.DirtyState!.Dirty, Is.True);
             Assert.That(result.DirtyState.Coverage, Is.EqualTo(IpcBuildDirtyStateCoverage.Full));
             Assert.That(result.DirtyState.Items, Has.Count.EqualTo(2));
             Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(IpcBuildDirtyStateItemKind.Scene));
-            Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(aScenePath));
-            Assert.That(result.DirtyState.Items[1].Path, Is.EqualTo(zScenePath));
+            Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(new ProjectMutationAuditPath(aScenePath)));
+            Assert.That(result.DirtyState.Items[1].Path, Is.EqualTo(new ProjectMutationAuditPath(zScenePath)));
             Assert.That(result.ResolvedInput, Is.Null);
         }
 
@@ -99,12 +99,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildDirtyStatePresent));
             Assert.That(result.DirtyState, Is.Not.Null);
-            Assert.That(result.DirtyState!.Checked, Is.True);
-            Assert.That(result.DirtyState.Dirty, Is.True);
+            Assert.That(result.DirtyState!.Dirty, Is.True);
             Assert.That(result.DirtyState.Coverage, Is.EqualTo(IpcBuildDirtyStateCoverage.Full));
             Assert.That(result.DirtyState.Items, Has.Count.EqualTo(1));
             Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(IpcBuildDirtyStateItemKind.Scene));
-            Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(unrelatedScenePath));
+            Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(new ProjectMutationAuditPath(unrelatedScenePath)));
         }
 
         [Test]
@@ -163,7 +162,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(result.DirtyState, Is.Not.Null);
                 Assert.That(result.DirtyState!.Coverage, Is.EqualTo(IpcBuildDirtyStateCoverage.Full));
                 Assert.That(result.DirtyState.Items, Has.Count.EqualTo(1));
-                Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(projectSettingsPath));
+                Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(new ProjectMutationAuditPath(projectSettingsPath)));
                 Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(IpcBuildDirtyStateItemKind.ProjectSettings));
             }
             finally
@@ -178,11 +177,16 @@ namespace MackySoft.Ucli.Unity.Tests
         [TestCase("ProjectSettings/TagManager.asset", true)]
         [TestCase("Packages/com.mackysoft.ucli.missing-dirty-state-test-6f3d4c9e/Runtime/Generated.asset", false)]
         [TestCase("Library/PackageCache/com.unity.render-pipelines.universal/Shaders/Unlit.shader", false)]
-        public void IsPersistentDirtyObjectAuditedPath_WhenPathIsClassified_ReturnsExpected (
+        public void TryResolvePersistentDirtyObjectAuditPath_WhenPathIsClassified_ReturnsExpected (
             string path,
             bool expected)
         {
-            Assert.That(UnityBuildPreconditionProbe.IsPersistentDirtyObjectAuditedPath(path), Is.EqualTo(expected));
+            var result = UnityBuildPreconditionProbe.TryResolvePersistentDirtyObjectAuditPath(
+                path,
+                out var auditPath);
+
+            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(auditPath?.Value, Is.EqualTo(expected ? path : null));
         }
 
         [Test]
@@ -527,6 +531,40 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(deletedItem.AfterSha256, Is.Null);
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public void ProjectMutationAuditProbe_WhenBaselineIsCaptured_ComputesCanonicalAggregateDigest ()
+        {
+            var projectRootPath = Path.Combine(
+                Path.GetTempPath(),
+                "ucli-project-mutation-digest-" + Guid.NewGuid().ToString("N"));
+            const string assetPath = "Assets/A.txt";
+            const string projectSettingsPath = "ProjectSettings/Z.asset";
+            var assetContents = Encoding.UTF8.GetBytes("asset-content");
+            var projectSettingsContents = Encoding.UTF8.GetBytes("project-settings-content");
+            Directory.CreateDirectory(Path.Combine(projectRootPath, "Assets"));
+            Directory.CreateDirectory(Path.Combine(projectRootPath, "ProjectSettings"));
+            Directory.CreateDirectory(Path.Combine(projectRootPath, "Packages"));
+            File.WriteAllBytes(Path.Combine(projectRootPath, assetPath), assetContents);
+            File.WriteAllBytes(Path.Combine(projectRootPath, projectSettingsPath), projectSettingsContents);
+
+            try
+            {
+                var snapshot = new UnityProjectMutationAuditProbe().CaptureBaseline(projectRootPath);
+                var assetDigest = Sha256Digest.Compute(assetContents);
+                var projectSettingsDigest = Sha256Digest.Compute(projectSettingsContents);
+                var expectedDigest = Sha256Digest.Compute(Encoding.UTF8.GetBytes(
+                    $"{assetPath}\0{assetDigest}\n{projectSettingsPath}\0{projectSettingsDigest}\n"));
+
+                Assert.That(snapshot.Coverage, Is.EqualTo(IpcBuildProjectMutationAuditCoverage.Full));
+                Assert.That(snapshot.Digest, Is.EqualTo(expectedDigest));
+            }
+            finally
+            {
+                Directory.Delete(projectRootPath, recursive: true);
+            }
+        }
+
         private static UnityBuildPreconditionProbe CreateProbe (
             MutableReadinessGate? readinessGate = null,
             IUnityBuildTargetSupportProbe? targetSupportProbe = null)
@@ -604,9 +642,10 @@ namespace MackySoft.Ucli.Unity.Tests
             IReadOnlyList<IpcBuildProjectMutationAuditItem> items,
             string path)
         {
+            var auditPath = new ProjectMutationAuditPath(path);
             for (var i = 0; i < items.Count; i++)
             {
-                if (string.Equals(items[i].Path, path, StringComparison.Ordinal))
+                if (items[i].Path == auditPath)
                 {
                     return items[i];
                 }
@@ -619,9 +658,10 @@ namespace MackySoft.Ucli.Unity.Tests
             IReadOnlyList<IpcBuildDirtyStateItem> items,
             string path)
         {
+            var auditPath = new ProjectMutationAuditPath(path);
             for (var i = 0; i < items.Count; i++)
             {
-                if (string.Equals(items[i].Path, path, StringComparison.Ordinal))
+                if (items[i].Path == auditPath)
                 {
                     return items[i];
                 }
@@ -635,7 +675,7 @@ namespace MackySoft.Ucli.Unity.Tests
             for (var i = 1; i < items.Count; i++)
             {
                 Assert.That(
-                    string.Compare(items[i - 1].Path, items[i].Path, StringComparison.Ordinal),
+                    items[i - 1].Path.CompareTo(items[i].Path),
                     Is.LessThanOrEqualTo(0));
             }
         }
@@ -645,7 +685,7 @@ namespace MackySoft.Ucli.Unity.Tests
             for (var i = 1; i < items.Count; i++)
             {
                 Assert.That(
-                    string.Compare(items[i - 1].Path, items[i].Path, StringComparison.Ordinal),
+                    items[i - 1].Path.CompareTo(items[i].Path),
                     Is.LessThanOrEqualTo(0));
             }
         }

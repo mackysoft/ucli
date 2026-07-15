@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Assurance.Build;
 using static MackySoft.Ucli.Tests.Features.Assurance.Build.FileBuildRunArtifactStoreTestSupport;
@@ -184,7 +185,8 @@ public sealed class FileBuildRunArtifactStoreTests
         var writeResult = await store.AccountArtifactsAsync(
             CreateAccountingRequest(
                 paths,
-                BuildReportSourceEntry.FromRunnerOutputRelativePath("reports/missing-build-report.json"),
+                BuildReportSourceEntry.FromRunnerOutputRelativePath(
+                    new BuildRunnerOutputPath("reports/missing-build-report.json")),
                 outputSourcePath),
             CancellationToken.None);
 
@@ -193,6 +195,40 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(BuildErrorCodes.BuildReportMissing, error.Code);
         Assert.Contains("not found", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task AccountArtifactsAsync_WhenBuildReportSourceViolatesNormalizedContract_ReturnsBuildReportMissing ()
+    {
+        using var scope = TestDirectories.CreateTempScope("build-artifact-store", "invalid-build-report-contract");
+        var (store, paths) = PrepareArtifacts(scope);
+        const string sourceRelativePath = "reports/build-report.json";
+        WriteUtf8(
+            Path.Combine(paths.RunnerOutputDirectory, sourceRelativePath),
+            """
+            {
+              "schemaVersion": 1,
+              "result": "succeeded",
+              "unityBuildTarget": "StandaloneLinux64",
+              "outputPath": "",
+              "durationMilliseconds": 0,
+              "totalSizeBytes": 0,
+              "errorCount": 0,
+              "warningCount": 0,
+              "steps": [{ "name": "Build player", "durationMilliseconds": -1, "depth": 0, "messageCount": 0 }],
+              "messages": []
+            }
+            """);
+
+        var result = await store.AccountArtifactsAsync(
+            CreateBuildReportOnlyAccountingRequest(paths, sourceRelativePath),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Equal(BuildErrorCodes.BuildReportMissing, error.Code);
     }
 
     [Fact]
@@ -220,10 +256,14 @@ public sealed class FileBuildRunArtifactStoreTests
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "empty-output-manifest");
         var (store, paths) = PrepareArtifacts(scope);
         WriteUnityGeneratedArtifacts(paths);
-        var request = CreateAccountingRequest(paths) with
-        {
-            AllowEmptyOutputManifest = true,
-        };
+        var defaultRequest = CreateAccountingRequest(paths);
+        var request = new BuildRunArtifactAccountingRequest(
+            defaultRequest.Paths,
+            defaultRequest.BuildTarget,
+            defaultRequest.UnityBuildTarget,
+            defaultRequest.BuildReport,
+            defaultRequest.OutputSources,
+            allowEmptyOutputManifest: true);
 
         var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
 

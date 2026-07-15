@@ -155,7 +155,8 @@ public sealed class RequiredProjectFingerprintContractTests
                 UnityBuildProfile: null,
                 Report: null,
                 Logs: null!,
-                ProjectMutation: null!),
+                ProjectMutation: null!,
+                RunnerResult: null),
             _ => throw new ArgumentOutOfRangeException(nameof(contractKind), contractKind, null),
         };
     }

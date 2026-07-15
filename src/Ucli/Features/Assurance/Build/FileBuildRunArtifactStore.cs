@@ -465,17 +465,27 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             sourceIdentity,
             "BuildReport source file",
             EnsureReadableBuildReportSourceFile);
-        var buildReport = await JsonSerializer.DeserializeAsync<IpcBuildReportArtifact>(
-                stream,
-                IpcJsonSerializerOptions.Default,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!IsValidBuildReportArtifact(buildReport))
+        IpcBuildReportArtifact? buildReport;
+        try
+        {
+            buildReport = await JsonSerializer.DeserializeAsync<IpcBuildReportArtifact>(
+                    stream,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new BuildReportSourceException(
+                $"BuildReport source violates the normalized contract. {exception.Message}");
+        }
+
+        if (buildReport == null)
         {
             throw new BuildReportSourceException("BuildReport source is not a valid uCLI BuildReport JSON artifact.");
         }
 
-        return buildReport!;
+        return buildReport;
     }
 
     private static void EnsureReadableBuildReportSourceFile (string sourcePath)
@@ -500,48 +510,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         {
             throw new BuildReportSourceException($"BuildReport source file must be a regular file: {sourcePath}");
         }
-    }
-
-    private static bool IsValidBuildReportArtifact (IpcBuildReportArtifact? buildReport)
-    {
-        if (buildReport == null
-            || buildReport.SchemaVersion != 1
-            || !ContractLiteralCodec.IsDefined<IpcBuildReportResult>(buildReport.Result)
-            || string.IsNullOrWhiteSpace(buildReport.UnityBuildTarget)
-            || buildReport.DurationMilliseconds < 0
-            || buildReport.TotalSizeBytes < 0
-            || buildReport.ErrorCount < 0
-            || buildReport.WarningCount < 0
-            || buildReport.Steps == null
-            || buildReport.Messages == null)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < buildReport.Steps.Count; i++)
-        {
-            var step = buildReport.Steps[i];
-            if (step == null
-                || step.DurationMilliseconds < 0
-                || step.Depth < 0
-                || step.MessageCount < 0)
-            {
-                return false;
-            }
-        }
-
-        for (var i = 0; i < buildReport.Messages.Count; i++)
-        {
-            var message = buildReport.Messages[i];
-            if (message == null
-                || string.IsNullOrWhiteSpace(message.Type)
-                || message.Content == null)
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static IReadOnlyList<BuildArtifactRef> CreateMetadataArtifactRefs (BuildRunArtifactAccountingResult accounting)
@@ -832,17 +800,12 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         for (var i = 0; i < outputSources.Count; i++)
         {
             var outputSource = outputSources[i];
-            if (outputSource == null)
-            {
-                throw new OutputPathPolicyException("Output source entry must not be null.");
-            }
-
             var sourcePath = ResolveOutputSourcePath(paths, outputSource);
             EnsureOutputSourceOutsideArtifactRoot(paths, sourcePath);
             EnsureOutputSourceInsideRunnerOutputRoot(paths, sourcePath);
             if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
             {
-                if (outputSource.IsRunnerOutputRelative)
+                if (outputSource is BuildOutputSourceEntry.RunnerOutputRelative)
                 {
                     throw new RunnerOutputSourceMissingException(
                         $"Build runner result declared an output source that does not exist: {sourcePath}");
@@ -892,38 +855,23 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         BuildRunArtifactPaths paths,
         BuildOutputSourceEntry outputSource)
     {
-        if (string.IsNullOrWhiteSpace(outputSource.Path))
+        return outputSource switch
         {
-            throw new OutputPathPolicyException("Output source path must not be empty.");
-        }
-
-        if (!outputSource.IsRunnerOutputRelative)
-        {
-            if (!Path.IsPathFullyQualified(outputSource.Path))
-            {
-                throw new OutputPathPolicyException($"Output source path must be fully qualified: {outputSource.Path}");
-            }
-
-            return Path.GetFullPath(outputSource.Path);
-        }
-
-        return ResolveRunnerOutputRelativeSourcePath(
-            paths,
-            outputSource.Path,
-            "Output source");
+            BuildOutputSourceEntry.Absolute absolute => absolute.Path,
+            BuildOutputSourceEntry.RunnerOutputRelative relative => ResolveRunnerOutputRelativeSourcePath(
+                paths,
+                relative.Path,
+                "Output source"),
+            _ => throw new ArgumentOutOfRangeException(nameof(outputSource), outputSource, "Unsupported build output source kind."),
+        };
     }
 
     private static string ResolveRunnerOutputRelativeSourcePath (
         BuildRunArtifactPaths paths,
-        string relativePath,
+        BuildRunnerOutputPath relativePath,
         string sourceKind)
     {
-        if (!RelativePathContract.TryNormalize(relativePath, out var normalizedPath))
-        {
-            throw new OutputPathPolicyException($"{sourceKind} path must be relative to the runner output directory: {relativePath}");
-        }
-
-        var result = RepositoryPathNormalizer.TryNormalize(paths.RunnerOutputDirectory, normalizedPath);
+        var result = RepositoryPathNormalizer.TryNormalize(paths.RunnerOutputDirectory, relativePath.Value);
         if (!result.IsSuccess)
         {
             throw new OutputPathPolicyException($"{sourceKind} path must resolve inside the runner output root: {relativePath}. {result.DiagnosticMessage}");

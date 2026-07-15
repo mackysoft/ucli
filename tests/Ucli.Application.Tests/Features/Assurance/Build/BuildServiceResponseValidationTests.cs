@@ -25,7 +25,7 @@ public sealed class BuildServiceResponseValidationTests
                     ErrorCount: 0,
                     WarningCount: 0,
                     Diagnostics: [],
-                    Outputs: [],
+                    Outputs: [new BuildRunnerOutputPath("player.txt")],
                     BuildReport: null)),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 

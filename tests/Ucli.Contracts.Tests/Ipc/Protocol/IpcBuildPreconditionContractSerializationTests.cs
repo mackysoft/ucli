@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
@@ -13,18 +14,40 @@ public sealed class IpcBuildPreconditionContractSerializationTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcBuildDirtyState_WhenRemovedCheckedPropertyIsPresent_RejectsPayload ()
+    {
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "checked": true,
+              "dirty": false,
+              "coverage": "full",
+              "items": []
+            }
+            """);
+
+        var success = IpcPayloadCodec.TryDeserialize<IpcBuildDirtyState>(
+            document.RootElement,
+            out _,
+            out var error);
+
+        Assert.False(success);
+        Assert.Equal(IpcPayloadReadErrorKind.DeserializeFailed, error.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcBuildPreconditionContracts_SerializeWithCamelCaseFields ()
     {
         var dirtyState = IpcPayloadCodec.SerializeToElement(
             new IpcBuildDirtyState(
-                Checked: true,
                 Dirty: true,
                 Coverage: IpcBuildDirtyStateCoverage.Full,
                 Items:
                 [
                     new IpcBuildDirtyStateItem(
                         IpcBuildDirtyStateItemKind.Scene,
-                        "Assets/Scenes/Main.unity"),
+                        new ProjectMutationAuditPath("Assets/Scenes/Main.unity")),
                 ]));
         var inputProbe = IpcPayloadCodec.SerializeToElement(
             new IpcBuildInputProbe(
@@ -65,13 +88,13 @@ public sealed class IpcBuildPreconditionContractSerializationTests
                     Message: "; expected")));
 
         JsonAssert.For(dirtyState)
-            .HasBoolean("checked", true)
             .HasBoolean("dirty", true)
             .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full))
             .HasArrayLength("items", 1)
             .HasProperty("items", 0, item => item
                 .HasString("kind", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene))
                 .HasString("path", "Assets/Scenes/Main.unity"));
+        Assert.False(dirtyState.TryGetProperty("checked", out _));
         JsonAssert.For(inputProbe)
             .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
             .HasString("buildTarget", "standaloneLinux64")

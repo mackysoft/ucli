@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Build
             var files = new List<ProjectMutationFileEntry>();
             var coverage = IpcBuildProjectMutationAuditCoverage.Full;
             var scannedRootCount = 0;
-            var auditedRootRelativePaths = UnityProjectMutationAuditScope.RootRelativePaths;
+            var auditedRootRelativePaths = ProjectMutationAuditPath.RootDirectoryNames;
             for (var i = 0; i < auditedRootRelativePaths.Count; i++)
             {
                 var rootRelativePath = auditedRootRelativePaths[i];
@@ -100,8 +100,8 @@ namespace MackySoft.Ucli.Unity.Build
                 coverage = IpcBuildProjectMutationAuditCoverage.Indeterminate;
             }
 
-            files.Sort(static (left, right) => string.CompareOrdinal(left.Path, right.Path));
-            var filesByPath = new Dictionary<string, ProjectMutationFileEntry>(files.Count, StringComparer.Ordinal);
+            files.Sort(static (left, right) => left.Path.CompareTo(right.Path));
+            var filesByPath = new Dictionary<ProjectMutationAuditPath, ProjectMutationFileEntry>(files.Count);
             for (var i = 0; i < files.Count; i++)
             {
                 filesByPath[files[i].Path] = files[i];
@@ -147,7 +147,7 @@ namespace MackySoft.Ucli.Unity.Build
                     }
 
                     var fullPath = Path.GetFullPath(entryPath);
-                    var relativePath = NormalizeProjectRelativePath(projectRoot, fullPath);
+                    var relativePath = CreateProjectMutationAuditPath(projectRoot, fullPath);
                     files.Add(new ProjectMutationFileEntry(relativePath, ComputeFileSha256(fullPath)));
                 }
             }
@@ -156,10 +156,10 @@ namespace MackySoft.Ucli.Unity.Build
         }
 
         private static IReadOnlyList<IpcBuildProjectMutationAuditItem> CreateItems (
-            IReadOnlyDictionary<string, ProjectMutationFileEntry> before,
-            IReadOnlyDictionary<string, ProjectMutationFileEntry> after)
+            IReadOnlyDictionary<ProjectMutationAuditPath, ProjectMutationFileEntry> before,
+            IReadOnlyDictionary<ProjectMutationAuditPath, ProjectMutationFileEntry> after)
         {
-            var paths = new SortedSet<string>(StringComparer.Ordinal);
+            var paths = new SortedSet<ProjectMutationAuditPath>();
             foreach (var path in before.Keys)
             {
                 paths.Add(path);
@@ -229,7 +229,7 @@ namespace MackySoft.Ucli.Unity.Build
             return IpcBuildProjectMutationAuditCoverage.Full;
         }
 
-        private static string NormalizeProjectRelativePath (
+        private static ProjectMutationAuditPath CreateProjectMutationAuditPath (
             string projectRoot,
             string fullPath)
         {
@@ -274,10 +274,10 @@ namespace MackySoft.Ucli.Unity.Build
         internal sealed record ProjectMutationSnapshot (
             IpcBuildProjectMutationAuditCoverage Coverage,
             Sha256Digest Digest,
-            IReadOnlyDictionary<string, ProjectMutationFileEntry> FilesByPath);
+            IReadOnlyDictionary<ProjectMutationAuditPath, ProjectMutationFileEntry> FilesByPath);
 
         internal sealed record ProjectMutationFileEntry (
-            string Path,
+            ProjectMutationAuditPath Path,
             Sha256Digest Sha256);
     }
 }

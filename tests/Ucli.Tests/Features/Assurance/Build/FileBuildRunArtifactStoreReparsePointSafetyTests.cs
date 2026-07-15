@@ -83,7 +83,8 @@ public sealed class FileBuildRunArtifactStoreReparsePointSafetyTests
         var writeResult = await store.AccountArtifactsAsync(
             CreateAccountingRequest(
                 paths,
-                BuildReportSourceEntry.FromRunnerOutputRelativePath("reports/linked/build-report.json"),
+                BuildReportSourceEntry.FromRunnerOutputRelativePath(
+                    new BuildRunnerOutputPath("reports/linked/build-report.json")),
                 outputSourcePath),
             CancellationToken.None);
 

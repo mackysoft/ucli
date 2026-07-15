@@ -70,7 +70,7 @@ namespace MackySoft.Ucli.Unity
                 throw new ArgumentNullException(nameof(sourceArtifact));
             }
 
-            if (!BuildRunnerOutputSourcePathResolver.TryResolve(context.OutputDir, relativePath, out var sourcePath))
+            if (!BuildRunnerOutputSourcePathResolver.TryResolve(context.OutputDir, relativePath, out _, out var sourcePath))
             {
                 throw new ArgumentException("BuildReport source path must be a valid OutputDir-relative file path.", nameof(relativePath));
             }

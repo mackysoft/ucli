@@ -203,48 +203,4 @@ public sealed class BuildServiceUnityBuildProfileTests
         Assert.Null(artifactStore.WrittenMetadata);
     }
 
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Execute_WithUnityBuildProfileResponseMissingApplyAuditDirtyState_ReturnsCommandFailure ()
-    {
-        using var tempDirectory = CreateArtifactDirectoryScope();
-        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
-        var requestExecutor = new RecordingUnityRequestExecutor(payload =>
-        {
-            var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
-            var outputLayout = new IpcBuildOutputLayout(
-                Shape: IpcBuildOutputLayoutShape.File,
-                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.Request.OutputPath));
-            return CreateBuildResponseResult(
-                IpcBuildReportResult.Succeeded,
-                IpcBuildLogCompletionReason.Completed,
-                errorCount: 0,
-                inputKind: BuildProfileInputsKind.UnityBuildProfile,
-                sceneSource: BuildProfileSceneSource.UnityBuildProfile,
-                scenes: [new SceneAssetPath("Assets/Scenes/ProfileMain.unity")],
-                buildTarget: BuildTargetStableName.StandaloneLinux64,
-                unityBuildTarget: "StandaloneLinux64",
-                reportOutputPath: outputLayout.LocationPathName,
-                outputLayout: outputLayout,
-                unityBuildProfile: CreateUnityBuildProfileInput(
-                    "Assets/BuildProfiles/Linux.asset",
-                    Sha256Digest.Parse(new string('f', 64)),
-                    static audit => audit with
-                    {
-                        DirtyStateAfter = null!,
-                    }));
-        });
-        var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(UnityBuildProfileJson, "/workspace/build.ucli.json")),
-            requestExecutor: requestExecutor,
-            artifactStore: artifactStore);
-
-        var result = await service.ExecuteAsync(CreateInput());
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Null(artifactStore.WrittenMetadata);
-    }
-
 }

@@ -20,8 +20,4 @@ public enum IpcBuildDirtyStateItemKind
     /// <summary> Identifies a Unity project settings asset. </summary>
     [UcliContractLiteral("projectSettings")]
     ProjectSettings = 4,
-
-    /// <summary> Identifies a dirty item whose kind could not be classified. </summary>
-    [UcliContractLiteral("unknown")]
-    Unknown = 5,
 }

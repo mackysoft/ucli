@@ -60,7 +60,6 @@ public sealed class IpcBuildRunContractSerializationTests
                 LifecycleBefore: CreateBuildLifecycleSnapshot(10, canAcceptExecutionRequests: true),
                 LifecycleAfter: CreateBuildLifecycleSnapshot(11, canAcceptExecutionRequests: true),
                 DirtyState: new IpcBuildDirtyState(
-                    Checked: true,
                     Dirty: false,
                     Coverage: IpcBuildDirtyStateCoverage.Full,
                     Items: []),
@@ -109,9 +108,8 @@ public sealed class IpcBuildRunContractSerializationTests
                         CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"),
                         CursorStart: new IpcLogCursor("abcdef0123456789abcdef0123456789:10"),
                         CursorEnd: new IpcLogCursor("abcdef0123456789abcdef0123456789:20"))),
-                ProjectMutation: CreateProjectMutationAudit())
-            {
-                RunnerResult = new IpcBuildRunnerResultArtifact(
+                ProjectMutation: CreateProjectMutationAudit(),
+                RunnerResult: new IpcBuildRunnerResultArtifact(
                     Source: IpcBuildRunnerResultSource.UcliBuildRunnerResult,
                     Status: IpcBuildReportResult.Succeeded,
                     DurationMilliseconds: 2500,
@@ -124,9 +122,9 @@ public sealed class IpcBuildRunContractSerializationTests
                             Code: "sample-warning",
                             Message: "Sample warning"),
                     ],
-                    Outputs: ["player/Player"],
-                    BuildReport: new IpcBuildRunnerResultBuildReport("reports/build-report.json")),
-            });
+                    Outputs: [new BuildRunnerOutputPath("player/Player")],
+                    BuildReport: new IpcBuildRunnerResultBuildReport(
+                        new BuildRunnerOutputPath("reports/build-report.json")))));
 
         JsonAssert.For(request)
             .HasString("runId", RunIdText)
@@ -181,7 +179,6 @@ public sealed class IpcBuildRunContractSerializationTests
                         .HasInt32("assetRefreshGeneration", 11)
                         .HasInt32("playModeGeneration", 11))))
             .HasProperty("dirtyState", dirty => dirty
-                .HasBoolean("checked", true)
                 .HasBoolean("dirty", false)
                 .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full))
                 .HasArrayLength("items", 0))
@@ -292,7 +289,7 @@ public sealed class IpcBuildRunContractSerializationTests
         Assert.Null(requestRoundTrip.UnityBuildProfile!.Digest);
 
         var itemJson = IpcPayloadCodec.SerializeToElement(new IpcBuildProjectMutationAuditItem(
-            Path: "Assets/Generated.asset",
+            Path: new ProjectMutationAuditPath("Assets/Generated.asset"),
             ChangeKind: IpcBuildProjectMutationChangeKind.Added,
             BeforeSha256: null,
             AfterSha256: Sha256Digest.Parse(new string('b', 64))));
@@ -380,7 +377,7 @@ public sealed class IpcBuildRunContractSerializationTests
         var after = hasAfter ? Sha256Digest.Parse(new string('b', 64)) : null;
 
         Assert.Throws<ArgumentException>(() => new IpcBuildProjectMutationAuditItem(
-            Path: "Assets/Generated.asset",
+            Path: new ProjectMutationAuditPath("Assets/Generated.asset"),
             ChangeKind: changeKind,
             BeforeSha256: before,
             AfterSha256: after));

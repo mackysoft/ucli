@@ -97,7 +97,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(applyAudit.LifecycleBefore.State.Generations.CompileGeneration, Is.EqualTo(11));
                 Assert.That(applyAudit.LifecycleAfter.State.Generations.CompileGeneration, Is.EqualTo(21));
                 Assert.That(applyAudit.LifecycleAfter.State.Generations, Is.Not.EqualTo(applyAudit.LifecycleBefore.State.Generations));
-                Assert.That(applyAudit.DirtyStateAfter.Checked, Is.True);
                 Assert.That(result.DirtyState, Is.SameAs(applyAudit.DirtyStateAfter));
 
                 var activeProfile = BuildProfile.GetActiveBuildProfile();
@@ -233,11 +232,11 @@ namespace MackySoft.Ucli.Unity.Tests
                 unityVersion: Application.unityVersion);
         }
 
-        private static IpcBuildRunRequest CreateRequest (
+        private static BuildRunExecutionRequest.UnityBuildProfile CreateRequest (
             string outputPath,
             string profilePath)
         {
-            return new IpcBuildRunRequest(
+            var wireRequest = new IpcBuildRunRequest(
                 RunId: RunId,
                 InputKind: BuildProfileInputsKind.UnityBuildProfile,
                 BuildTarget: null,
@@ -263,6 +262,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 RunnerEnvironmentSecrets: Array.Empty<string>(),
                 RunnerEnvironmentVariableValues: new Dictionary<string, string>(StringComparer.Ordinal),
                 RunnerEnvironmentSecretValues: new Dictionary<string, string>(StringComparer.Ordinal));
+            return (BuildRunExecutionRequest.UnityBuildProfile)BuildRunExecutionRequest.Create(wireRequest);
         }
 
         private static BuildProfile CreateBuildProfileAsset (

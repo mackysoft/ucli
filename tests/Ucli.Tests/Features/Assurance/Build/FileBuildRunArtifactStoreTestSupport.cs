@@ -62,7 +62,7 @@ internal static class FileBuildRunArtifactStoreTestSupport
             "StandaloneLinux64",
             buildReportSource,
             sourcePaths.Select(static path => BuildOutputSourceEntry.FromAbsolutePath(path)).ToArray(),
-            AllowEmptyOutputManifest: false);
+            allowEmptyOutputManifest: false);
     }
 
     public static BuildRunArtifactAccountingRequest CreateBuildReportOnlyAccountingRequest (
@@ -73,9 +73,9 @@ internal static class FileBuildRunArtifactStoreTestSupport
             paths,
             BuildTargetStableName.StandaloneLinux64,
             "StandaloneLinux64",
-            BuildReportSourceEntry.FromRunnerOutputRelativePath(buildReportSourcePath),
+            BuildReportSourceEntry.FromRunnerOutputRelativePath(new BuildRunnerOutputPath(buildReportSourcePath)),
             Array.Empty<BuildOutputSourceEntry>(),
-            AllowEmptyOutputManifest: true);
+            allowEmptyOutputManifest: true);
     }
 
     public static IpcBuildReportArtifact CreateBuildReportArtifact (BuildRunArtifactPaths paths)

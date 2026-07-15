@@ -14,7 +14,6 @@ public sealed class IpcBuildFiniteLiteralContractTests
     {
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new IpcBuildDirtyState(
-                Checked: true,
                 Dirty: false,
                 Coverage: (IpcBuildDirtyStateCoverage)0,
                 Items: []));
@@ -27,7 +26,7 @@ public sealed class IpcBuildFiniteLiteralContractTests
         Assert.Throws<ArgumentOutOfRangeException>(() =>
             new IpcBuildDirtyStateItem(
                 Kind: (IpcBuildDirtyStateItemKind)0,
-                Path: "Assets/Scenes/Main.unity"));
+                Path: new ProjectMutationAuditPath("Assets/Scenes/Main.unity")));
     }
 
     [Fact]
@@ -88,7 +87,11 @@ public sealed class IpcBuildFiniteLiteralContractTests
                 ErrorCount: 0,
                 WarningCount: 0,
                 CompletionReason: (IpcBuildLogCompletionReason)0,
-                Window: new IpcBuildLogWindow(DateTimeOffset.UnixEpoch, DateTimeOffset.UnixEpoch)));
+                Window: new IpcBuildLogWindow(
+                    DateTimeOffset.UnixEpoch,
+                    DateTimeOffset.UnixEpoch,
+                    CursorStart: null,
+                    CursorEnd: null)));
     }
 
     [Fact]
@@ -169,7 +172,7 @@ public sealed class IpcBuildFiniteLiteralContractTests
             ErrorCount: 0,
             WarningCount: 0,
             Diagnostics: [],
-            Outputs: [],
+            Outputs: [new BuildRunnerOutputPath("player.txt")],
             BuildReport: null);
     }
 }

@@ -111,7 +111,7 @@ internal static class BuildServiceExecuteMethodRunnerTestSupport
 
     public static IpcBuildRunnerResultArtifact CreateExecuteMethodRunnerResult (
         IpcBuildReportResult status = IpcBuildReportResult.Succeeded,
-        IReadOnlyList<string>? outputs = null,
+        IReadOnlyList<BuildRunnerOutputPath>? outputs = null,
         IpcBuildRunnerResultBuildReport? buildReport = null,
         long durationMilliseconds = 2500,
         int errorCount = 0,
@@ -125,7 +125,7 @@ internal static class BuildServiceExecuteMethodRunnerTestSupport
             ErrorCount: errorCount,
             WarningCount: warningCount,
             Diagnostics: diagnostics ?? [],
-            Outputs: outputs ?? ["player.txt"],
+            Outputs: outputs ?? [new BuildRunnerOutputPath("player.txt")],
             BuildReport: buildReport);
     }
 

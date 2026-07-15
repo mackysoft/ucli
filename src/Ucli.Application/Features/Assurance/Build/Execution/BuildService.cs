@@ -302,18 +302,13 @@ internal sealed class BuildService : IBuildService
         try
         {
             var terminalResult = GetTerminalResult(buildResponse);
-            var buildReportResult = ResolveBuildReportSource(buildResponse);
-            if (buildReportResult.Error != null)
-            {
-                return BuildExecutionResult.Failure(buildReportResult.Error, project);
-            }
+            var buildReportSource = ResolveBuildReportSource(buildResponse);
 
             var resolvedOutputLayout = buildResponse.OutputLayout ?? outputLayout;
             var outputSourcesResult = ResolveOutputSources(
                 buildResponse,
                 resolvedOutputLayout,
-                profile.Runner.Kind,
-                terminalResult);
+                profile.Runner.Kind);
             if (outputSourcesResult.Error != null)
             {
                 return BuildExecutionResult.Failure(outputSourcesResult.Error, project);
@@ -324,7 +319,7 @@ internal sealed class BuildService : IBuildService
                         paths,
                         buildResponse.Input.BuildTarget,
                         buildResponse.Input.UnityBuildTarget,
-                        buildReportResult.BuildReport,
+                        buildReportSource,
                         outputSourcesResult.OutputSources!,
                         CanWriteEmptyOutputManifest(terminalResult)),
                     artifactCancellationToken)
@@ -849,8 +844,7 @@ internal sealed class BuildService : IBuildService
     private static OutputSourcesResolutionResult ResolveOutputSources (
         IpcBuildRunResponse response,
         IpcBuildOutputLayout? outputLayout,
-        BuildRunnerKind runnerKind,
-        IpcBuildReportResult terminalResult)
+        BuildRunnerKind runnerKind)
     {
         if (runnerKind == BuildRunnerKind.BuildPipeline)
         {
@@ -872,13 +866,6 @@ internal sealed class BuildService : IBuildService
                 "executeMethod runner result is missing."));
         }
 
-        if (terminalResult == IpcBuildReportResult.Succeeded && runnerResult.Outputs.Count == 0)
-        {
-            return OutputSourcesResolutionResult.Failure(ApplicationFailure.FromCode(
-                BuildErrorCodes.BuildRunnerResultInvalid,
-                "executeMethod runner result requires at least one output when status is succeeded."));
-        }
-
         if (runnerResult.Outputs.Count == 0)
         {
             return OutputSourcesResolutionResult.Success(Array.Empty<BuildOutputSourceEntry>());
@@ -887,39 +874,22 @@ internal sealed class BuildService : IBuildService
         var outputSources = new BuildOutputSourceEntry[runnerResult.Outputs.Count];
         for (var i = 0; i < runnerResult.Outputs.Count; i++)
         {
-            var output = runnerResult.Outputs[i];
-            if (!RelativePathContract.TryNormalize(output, out var normalizedOutputPath))
-            {
-                return OutputSourcesResolutionResult.Failure(ApplicationFailure.FromCode(
-                    BuildErrorCodes.BuildOutputPathInvalid,
-                    "executeMethod runner result output path is invalid."));
-            }
-
-            outputSources[i] = BuildOutputSourceEntry.FromRunnerOutputRelativePath(normalizedOutputPath);
+            outputSources[i] = BuildOutputSourceEntry.FromRunnerOutputRelativePath(runnerResult.Outputs[i]);
         }
 
         return OutputSourcesResolutionResult.Success(outputSources);
     }
 
-    private static BuildReportArtifactResolutionResult ResolveBuildReportSource (IpcBuildRunResponse response)
+    private static BuildReportSourceEntry? ResolveBuildReportSource (IpcBuildRunResponse response)
     {
         if (response.RunnerResult?.BuildReport == null)
         {
-            return BuildReportArtifactResolutionResult.Success(response.Report == null
+            return response.Report == null
                 ? null
-                : BuildReportSourceEntry.FromArtifact(response.Report));
+                : BuildReportSourceEntry.FromArtifact(response.Report);
         }
 
-        var buildReportPath = response.RunnerResult.BuildReport.Path;
-        if (!RelativePathContract.TryNormalize(buildReportPath, out var normalizedBuildReportPath))
-        {
-            return BuildReportArtifactResolutionResult.Failure(ApplicationFailure.FromCode(
-                BuildErrorCodes.BuildRunnerResultInvalid,
-                "executeMethod runner result buildReport.path is invalid."));
-        }
-
-        return BuildReportArtifactResolutionResult.Success(
-            BuildReportSourceEntry.FromRunnerOutputRelativePath(normalizedBuildReportPath));
+        return BuildReportSourceEntry.FromRunnerOutputRelativePath(response.RunnerResult.BuildReport.Path);
     }
 
     private static BuildResponseResolutionResult ResolveBuildResponse (
@@ -985,12 +955,6 @@ internal sealed class BuildService : IBuildService
         {
             return ApplicationFailure.InternalError(
                 $"Unity build response projectFingerprint mismatch. Requested={expectedProjectFingerprint}, Actual={response.ProjectFingerprint}.");
-        }
-
-        if (response.LifecycleBefore is null
-            || response.LifecycleAfter is null)
-        {
-            return ApplicationFailure.InternalError("Unity build response contains a missing or invalid Unity Editor state snapshot.");
         }
 
         var inputKind = response.Input.InputKind;
@@ -1141,11 +1105,6 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError("Unity build response outputLayout is missing.");
         }
 
-        if (string.IsNullOrWhiteSpace(outputLayout.LocationPathName))
-        {
-            return ApplicationFailure.InternalError("Unity build response outputLayout is invalid.");
-        }
-
         if (!IpcBuildOutputLayoutResolver.TryResolve(
             expectedOutputDirectory,
             buildTarget,
@@ -1248,50 +1207,6 @@ internal sealed class BuildService : IBuildService
             return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.applied must be true.");
         }
 
-        return ValidateUnityBuildProfileApplyAudit(response.UnityBuildProfile.ApplyAudit);
-    }
-
-    private static ApplicationFailure? ValidateUnityBuildProfileApplyAudit (IpcUnityBuildProfileApplyAudit applyAudit)
-    {
-        if (applyAudit.LifecycleBefore == null)
-        {
-            return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.lifecycleBefore is missing.");
-        }
-
-        if (applyAudit.LifecycleAfter == null)
-        {
-            return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.lifecycleAfter is missing.");
-        }
-
-        if (applyAudit.DirtyStateAfter == null)
-        {
-            return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.dirtyStateAfter is missing.");
-        }
-
-        return ValidateUnityBuildProfileDirtyStateAfter(applyAudit.DirtyStateAfter);
-    }
-
-    private static ApplicationFailure? ValidateUnityBuildProfileDirtyStateAfter (IpcBuildDirtyState dirtyState)
-    {
-        string? previousPath = null;
-        for (var i = 0; i < dirtyState.Items.Count; i++)
-        {
-            var item = dirtyState.Items[i];
-            if (!IsAuditedProjectMutationPath(item.Path))
-            {
-                return ApplicationFailure.InternalError(
-                    $"Unity build response unityBuildProfile applyAudit.dirtyStateAfter item at index {i} contains invalid path: {item.Path}.");
-            }
-
-            if (previousPath != null
-                && string.CompareOrdinal(previousPath, item.Path) >= 0)
-            {
-                return ApplicationFailure.InternalError("Unity build response unityBuildProfile applyAudit.dirtyStateAfter items must be ordered by unique project-relative path.");
-            }
-
-            previousPath = item.Path;
-        }
-
         return null;
     }
 
@@ -1317,15 +1232,6 @@ internal sealed class BuildService : IBuildService
         {
             return ApplicationFailure.InternalError(
                 $"Unity build response runnerResult source is invalid for {ContractLiteralCodec.ToValue(expectedRunnerKind)} runner: {runnerResult.Source}.");
-        }
-
-        if (runnerResult.DurationMilliseconds < 0
-            || runnerResult.ErrorCount < 0
-            || runnerResult.WarningCount < 0)
-        {
-            return ApplicationFailure.FromCode(
-                BuildErrorCodes.BuildRunnerResultInvalid,
-                "Unity build response runnerResult summary is invalid.");
         }
 
         if (expectedRunnerKind == BuildRunnerKind.BuildPipeline)
@@ -1358,11 +1264,6 @@ internal sealed class BuildService : IBuildService
         IpcBuildProjectMutationAudit projectMutation,
         BuildProfileProjectMutationMode expectedMode)
     {
-        if (projectMutation == null)
-        {
-            return ApplicationFailure.InternalError("Unity build response projectMutation audit is missing.");
-        }
-
         if (projectMutation.Mode != expectedMode)
         {
             return ApplicationFailure.InternalError(
@@ -1380,13 +1281,6 @@ internal sealed class BuildService : IBuildService
     private static bool IsTerminalBuildReportResult (IpcBuildReportResult reportResult)
     {
         return reportResult is IpcBuildReportResult.Succeeded or IpcBuildReportResult.Failed or IpcBuildReportResult.Canceled;
-    }
-
-    private static bool IsAuditedProjectMutationPath (string path)
-    {
-        return path.StartsWith("Assets/", StringComparison.Ordinal)
-            || path.StartsWith("ProjectSettings/", StringComparison.Ordinal)
-            || path.StartsWith("Packages/", StringComparison.Ordinal);
     }
 
     private static bool HasExpectedDevelopmentBuildOption (
@@ -1462,8 +1356,8 @@ internal sealed class BuildService : IBuildService
             Window: new BuildLogWindowOutput(
                 StartedAtUtc: response.Logs.Window.StartedAtUtc,
                 CompletedAtUtc: response.Logs.Window.CompletedAtUtc,
-                CursorStart: response.Logs.Window.CursorStart,
-                CursorEnd: response.Logs.Window.CursorEnd));
+                CursorStart: response.Logs.Window.CursorStart?.Value,
+                CursorEnd: response.Logs.Window.CursorEnd?.Value));
         var scenes = new BuildScenesOutput(
             Source: response.Input.SceneSource,
             Paths: response.Input.Scenes);
@@ -2088,22 +1982,6 @@ internal sealed class BuildService : IBuildService
         {
             ArgumentNullException.ThrowIfNull(failure);
             return new OutputSourcesResolutionResult(null, failure);
-        }
-    }
-
-    private sealed record BuildReportArtifactResolutionResult (
-        BuildReportSourceEntry? BuildReport,
-        ApplicationFailure? Error)
-    {
-        public static BuildReportArtifactResolutionResult Success (BuildReportSourceEntry? buildReport)
-        {
-            return new BuildReportArtifactResolutionResult(buildReport, null);
-        }
-
-        public static BuildReportArtifactResolutionResult Failure (ApplicationFailure failure)
-        {
-            ArgumentNullException.ThrowIfNull(failure);
-            return new BuildReportArtifactResolutionResult(null, failure);
         }
     }
 

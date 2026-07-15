@@ -167,14 +167,13 @@ internal static class BuildRunCliOutputFixtureFactory
     private static IpcBuildDirtyState CreateDirtyState ()
     {
         return new IpcBuildDirtyState(
-            Checked: true,
             Dirty: true,
             Coverage: IpcBuildDirtyStateCoverage.Full,
             Items:
             [
                 new IpcBuildDirtyStateItem(
                     IpcBuildDirtyStateItemKind.Scene,
-                    "Assets/Scenes/Main.unity"),
+                    new ProjectMutationAuditPath("Assets/Scenes/Main.unity")),
             ]);
     }
 }

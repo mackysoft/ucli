@@ -110,7 +110,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var outputPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
             var locationPathName = Path.Combine(outputPath, "player", "Player");
-            var request = new IpcBuildRunRequest(
+            var wireRequest = new IpcBuildRunRequest(
                 RunId: Guid.Parse("00000000-0000-0000-0000-000000000604"),
                 InputKind: BuildProfileInputsKind.Explicit,
                 BuildTarget: BuildTargetStableName.StandaloneLinux64,
@@ -141,6 +141,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 ScenePaths: new[] { new SceneAssetPath("Assets/Scenes/Main.unity") },
                 Options: BuildOptions.Development);
 
+            var request = (BuildRunExecutionRequest.ExplicitBuildPipeline)BuildRunExecutionRequest.Create(wireRequest);
             var options = UnityBuildPlayerOptionsFactory.Create(request, resolvedInput);
 
             Assert.That(options.scenes, Is.EqualTo(new[] { "Assets/Scenes/Main.unity" }));

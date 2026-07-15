@@ -55,7 +55,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var request = CreateRequest(scope.ProjectPath, identity);
 
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(
+                    BuildRunExecutionRequest.Create(request),
+                    identity,
+                    out var errorMessage);
 
                 Assert.That(result, Is.True, errorMessage);
             }
@@ -73,7 +76,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var request = CreateRequest(scope.ProjectPath, identity, projectMutationMode: mode);
 
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(
+                    BuildRunExecutionRequest.Create(request),
+                    identity,
+                    out var errorMessage);
 
                 Assert.That(result, Is.True, errorMessage);
             }
@@ -88,7 +94,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 var identity = CreateProjectIdentity(scope.ProjectPath);
                 var request = CreateUnityBuildProfileRequest(scope.ProjectPath, identity);
 
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(
+                    BuildRunExecutionRequest.Create(request),
+                    identity,
+                    out var errorMessage);
 
                 Assert.That(result, Is.True, errorMessage);
             }
@@ -108,7 +117,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         Shape: IpcBuildOutputLayoutShape.File,
                         LocationPathName: Path.Combine(scope.RootPath, "outside", "Player")));
 
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(
+                    BuildRunExecutionRequest.Create(request),
+                    identity,
+                    out var errorMessage);
 
                 Assert.That(result, Is.False);
                 Assert.That(errorMessage, Does.Contain("outputLayout"));
@@ -135,7 +147,10 @@ namespace MackySoft.Ucli.Unity.Tests
                         ? new IpcBuildOutputLayout(IpcBuildOutputLayoutShape.Directory, validOutputLayout.LocationPathName)
                         : validOutputLayout);
 
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(
+                    BuildRunExecutionRequest.Create(request),
+                    identity,
+                    out var errorMessage);
 
                 Assert.That(result, Is.False);
                 Assert.That(errorMessage, Does.Contain("outputLayout"));
@@ -159,7 +174,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     buildReportPath: artifact == "report" ? relativeArtifactPath : null,
                     buildLogPath: artifact == "log" ? relativeArtifactPath : null);
 
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(
+                    BuildRunExecutionRequest.Create(request),
+                    identity,
+                    out var errorMessage);
 
                 Assert.That(result, Is.False);
                 Assert.That(errorMessage, Does.Contain("expected uCLI build artifact layout"));
@@ -183,7 +201,10 @@ namespace MackySoft.Ucli.Unity.Tests
                     buildReportPath: artifact == "report" ? outsidePath : null,
                     buildLogPath: artifact == "log" ? outsidePath : null);
 
-                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(request, identity, out var errorMessage);
+                var result = BuildRunUnityIpcMethodHandler.TryValidateRequest(
+                    BuildRunExecutionRequest.Create(request),
+                    identity,
+                    out var errorMessage);
 
                 Assert.That(result, Is.False);
                 Assert.That(errorMessage, Does.Contain("expected uCLI build artifact layout"));
@@ -1205,7 +1226,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(payload.RunnerResult, Is.Not.Null);
                 Assert.That(payload.RunnerResult!.Source, Is.EqualTo(IpcBuildRunnerResultSource.UcliBuildRunnerResult));
                 Assert.That(payload.RunnerResult.Status, Is.EqualTo(IpcBuildReportResult.Succeeded));
-                Assert.That(payload.RunnerResult.Outputs, Is.EqualTo(new[] { "player.txt" }));
+                Assert.That(payload.RunnerResult.Outputs, Has.Count.EqualTo(1));
+                Assert.That(payload.RunnerResult.Outputs[0].Value, Is.EqualTo("player.txt"));
                 Assert.That(payload.RunnerResult.BuildReport, Is.Null);
                 Assert.That(payload.Report, Is.Null);
                 Assert.That(File.Exists(requestPayload.BuildReportPath), Is.False);
@@ -1352,7 +1374,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(payload.ProjectMutation.BeforeDigest, Is.Not.EqualTo(payload.ProjectMutation.AfterDigest));
                 Assert.That(payload.ProjectMutation.Items, Has.Count.EqualTo(1));
                 var item = payload.ProjectMutation.Items[0];
-                Assert.That(item.Path, Is.EqualTo(MutatedPath));
+                Assert.That(item.Path, Is.EqualTo(new ProjectMutationAuditPath(MutatedPath)));
                 Assert.That(item.ChangeKind, Is.EqualTo(IpcBuildProjectMutationChangeKind.Added));
                 Assert.That(item.BeforeSha256, Is.Null);
                 Assert.That(item.AfterSha256, Is.Not.Null);
@@ -1402,7 +1424,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(payload.DirtyState, Is.Not.Null);
                 Assert.That(payload.DirtyState!.Dirty, Is.True);
                 Assert.That(payload.DirtyState.Items, Has.Count.EqualTo(1));
-                Assert.That(payload.DirtyState.Items[0].Path, Is.EqualTo(scenePath));
+                Assert.That(
+                    payload.DirtyState.Items[0].Path,
+                    Is.EqualTo(new ProjectMutationAuditPath(scenePath)));
                 Assert.That(buildPipelineRunner.CallCount, Is.EqualTo(0));
                 Assert.That(logRangeExporter.CallCount, Is.EqualTo(0));
                 Assert.That(File.Exists(requestPayload.BuildReportPath), Is.False);
@@ -1652,7 +1676,6 @@ namespace MackySoft.Ucli.Unity.Tests
                     LifecycleBefore: lifecycle,
                     LifecycleAfter: lifecycle,
                     DirtyStateAfter: new IpcBuildDirtyState(
-                        Checked: true,
                         Dirty: false,
                         Coverage: IpcBuildDirtyStateCoverage.Full,
                         Items: Array.Empty<IpcBuildDirtyStateItem>())));
@@ -1876,8 +1899,8 @@ namespace MackySoft.Ucli.Unity.Tests
             public int CallCount { get; private set; }
 
             public Task<UnityBuildProfileInputResolutionResult> ResolveAsync (
-                IpcBuildRunRequest request,
-                CancellationToken cancellationToken = default)
+                BuildRunExecutionRequest.UnityBuildProfile request,
+                CancellationToken cancellationToken)
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 CallCount++;
@@ -1897,7 +1920,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     ScenePaths: new[] { new SceneAssetPath("Assets/Scenes/SampleScene.unity") },
                     Development: false,
                     AllowedEditorModes: request.AllowedEditorModes);
-                var unityBuildProfile = CreateAppliedUnityBuildProfileInput(request.UnityBuildProfile!.Path.Value);
+                var unityBuildProfile = CreateAppliedUnityBuildProfileInput(request.Profile.Path.Value);
 
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Success(
                     preconditionInput,
@@ -1918,8 +1941,8 @@ namespace MackySoft.Ucli.Unity.Tests
             public int CallCount { get; private set; }
 
             public Task<UnityBuildProfileInputResolutionResult> ResolveAsync (
-                IpcBuildRunRequest request,
-                CancellationToken cancellationToken = default)
+                BuildRunExecutionRequest.UnityBuildProfile request,
+                CancellationToken cancellationToken)
             {
                 CallCount++;
                 if (!IpcBuildOutputLayoutResolver.TryResolve(
@@ -1938,7 +1961,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     ScenePaths: new[] { new SceneAssetPath("Assets/Scenes/SampleScene.unity") },
                     Development: false,
                     AllowedEditorModes: request.AllowedEditorModes);
-                var unityBuildProfile = CreateAppliedUnityBuildProfileInput(request.UnityBuildProfile!.Path.Value);
+                var unityBuildProfile = CreateAppliedUnityBuildProfileInput(request.Profile.Path.Value);
                 cancelExecutionDeadline();
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Success(
                     preconditionInput,
@@ -2158,9 +2181,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 RootPath = rootPath;
                 ProjectPath = Path.Combine(rootPath, "UnityProject");
                 Directory.CreateDirectory(ProjectPath);
-                for (var i = 0; i < UnityProjectMutationAuditScope.RootRelativePaths.Count; i++)
+                for (var i = 0; i < ProjectMutationAuditPath.RootDirectoryNames.Count; i++)
                 {
-                    Directory.CreateDirectory(Path.Combine(ProjectPath, UnityProjectMutationAuditScope.RootRelativePaths[i]));
+                    Directory.CreateDirectory(Path.Combine(ProjectPath, ProjectMutationAuditPath.RootDirectoryNames[i]));
                 }
             }
 

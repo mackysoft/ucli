@@ -1,6 +1,5 @@
 using System;
 using MackySoft.Ucli.Contracts.Assurance;
-using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Unity.Build;
@@ -11,18 +10,15 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class BuildRunExecuteMethodProgressSink : IBuildExecuteMethodProgressSink
     {
         private readonly UnityIpcBuildRunProgressSink? progressSink;
-        private readonly IpcBuildRunRequest request;
-        private readonly Sha256Digest profileDigest;
+        private readonly BuildRunExecutionRequest.ExplicitExecuteMethod request;
 
         /// <summary> Initializes a new instance of the <see cref="BuildRunExecuteMethodProgressSink" /> class. </summary>
         public BuildRunExecuteMethodProgressSink (
             UnityIpcBuildRunProgressSink? progressSink,
-            IpcBuildRunRequest request,
-            Sha256Digest profileDigest)
+            BuildRunExecutionRequest.ExplicitExecuteMethod request)
         {
             this.progressSink = progressSink;
             this.request = request ?? throw new ArgumentNullException(nameof(request));
-            this.profileDigest = profileDigest ?? throw new ArgumentNullException(nameof(profileDigest));
         }
 
         /// <inheritdoc />
@@ -69,7 +65,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 eventName,
                 new BuildProgressEntry(
                     RunId: request.RunId,
-                    ProfileDigest: profileDigest,
+                    ProfileDigest: request.ProfileDigest,
                     Phase: phase,
                     RunnerKind: request.RunnerKind,
                     RunnerStatus: runnerStatus,

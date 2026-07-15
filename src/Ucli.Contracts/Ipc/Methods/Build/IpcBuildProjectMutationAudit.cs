@@ -47,14 +47,9 @@ public sealed record IpcBuildProjectMutationAudit
             throw new ArgumentNullException(nameof(AfterDigest));
         }
 
-        if (Items == null)
-        {
-            throw new ArgumentNullException(nameof(Items));
-        }
-
-        var items = Items.ToArray();
+        var items = ContractArgumentGuard.RequireItems(Items, nameof(Items));
         ValidateItems(items);
-        if (Mutated != (items.Length != 0))
+        if (Mutated != (items.Count != 0))
         {
             throw new ArgumentException("Mutated must match whether the audit contains changed items.", nameof(Mutated));
         }
@@ -69,7 +64,7 @@ public sealed record IpcBuildProjectMutationAudit
         this.Mutated = Mutated;
         this.BeforeDigest = BeforeDigest;
         this.AfterDigest = AfterDigest;
-        this.Items = Array.AsReadOnly(items);
+        this.Items = items;
     }
 
     public BuildProfileProjectMutationMode Mode { get; }
@@ -86,11 +81,11 @@ public sealed record IpcBuildProjectMutationAudit
 
     private static void ValidateItems (IReadOnlyList<IpcBuildProjectMutationAuditItem> items)
     {
-        string? previousPath = null;
+        ProjectMutationAuditPath? previousPath = null;
         for (var i = 0; i < items.Count; i++)
         {
-            var item = items[i] ?? throw new ArgumentException($"Project mutation item at index {i} must not be null.", nameof(items));
-            if (previousPath != null && string.CompareOrdinal(previousPath, item.Path) >= 0)
+            var item = items[i];
+            if (previousPath != null && previousPath.CompareTo(item.Path) >= 0)
             {
                 throw new ArgumentException("Project mutation items must be ordered by unique project-relative path.", nameof(items));
             }

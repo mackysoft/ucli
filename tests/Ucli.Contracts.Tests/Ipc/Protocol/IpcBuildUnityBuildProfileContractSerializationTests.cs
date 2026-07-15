@@ -53,7 +53,6 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
                 LifecycleBefore: CreateBuildLifecycleSnapshot(20, canAcceptExecutionRequests: true),
                 LifecycleAfter: CreateBuildLifecycleSnapshot(21, canAcceptExecutionRequests: true),
                 DirtyStateAfter: new IpcBuildDirtyState(
-                    Checked: true,
                     Dirty: false,
                     Coverage: IpcBuildDirtyStateCoverage.Full,
                     Items: [])));
@@ -91,7 +90,6 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
                 LifecycleBefore: CreateBuildLifecycleSnapshot(10, canAcceptExecutionRequests: true),
                 LifecycleAfter: CreateBuildLifecycleSnapshot(11, canAcceptExecutionRequests: true),
                 DirtyState: new IpcBuildDirtyState(
-                    Checked: true,
                     Dirty: false,
                     Coverage: IpcBuildDirtyStateCoverage.Full,
                     Items: []),
@@ -125,8 +123,11 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
                     CompletionReason: IpcBuildLogCompletionReason.Completed,
                     Window: new IpcBuildLogWindow(
                         StartedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                        CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"))),
-                ProjectMutation: CreateProjectMutationAudit()));
+                        CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"),
+                        CursorStart: null,
+                        CursorEnd: null)),
+                ProjectMutation: CreateProjectMutationAudit(),
+                RunnerResult: null));
 
         JsonAssert.For(request)
             .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile))
@@ -159,7 +160,6 @@ public sealed class IpcBuildUnityBuildProfileContractSerializationTests
                                 .HasInt32("assetRefreshGeneration", 21)
                                 .HasInt32("playModeGeneration", 21))))
                     .HasProperty("dirtyStateAfter", dirty => dirty
-                        .HasBoolean("checked", true)
                         .HasBoolean("dirty", false))));
     }
 }

@@ -58,14 +58,13 @@ public sealed class BuildRunCommandResultFactoryTests
     public void Create_WithDirtySceneCommandFailure_ReturnsErrorStatusAndDirtyStatePayload ()
     {
         var dirtyState = new IpcBuildDirtyState(
-            Checked: true,
             Dirty: true,
             Coverage: IpcBuildDirtyStateCoverage.Full,
             Items:
             [
                 new IpcBuildDirtyStateItem(
                     IpcBuildDirtyStateItemKind.Scene,
-                    "Assets/Scenes/Main.unity"),
+                    new ProjectMutationAuditPath("Assets/Scenes/Main.unity")),
             ]);
         var project = ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject);
         var executionResult = BuildExecutionResult.Failure(

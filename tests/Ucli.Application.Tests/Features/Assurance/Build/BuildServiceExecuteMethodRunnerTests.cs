@@ -79,8 +79,8 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
         Assert.Null(accountingRequest.BuildReport);
         var outputSource = Assert.Single(accountingRequest.OutputSources);
-        Assert.True(outputSource.IsRunnerOutputRelative);
-        Assert.Equal("player.txt", outputSource.Path);
+        var runnerOutputSource = Assert.IsType<BuildOutputSourceEntry.RunnerOutputRelative>(outputSource);
+        Assert.Equal("player.txt", runnerOutputSource.Path.Value);
         Assert.False(accountingRequest.AllowEmptyOutputManifest);
 
         var output = result.Output!;
@@ -147,7 +147,8 @@ public sealed class BuildServiceExecuteMethodRunnerTests
                 IpcBuildReportResult.Succeeded,
                 IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
-                runnerResult: CreateExecuteMethodRunnerResult(buildReport: new IpcBuildRunnerResultBuildReport("reports/build-report.json")),
+                runnerResult: CreateExecuteMethodRunnerResult(buildReport: new IpcBuildRunnerResultBuildReport(
+                    new BuildRunnerOutputPath("reports/build-report.json"))),
                 omitReport: true),
             artifactStore: artifactStore);
 
@@ -156,7 +157,9 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
         var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
         Assert.NotNull(accountingRequest.BuildReport);
-        Assert.Equal("reports/build-report.json", accountingRequest.BuildReport.RunnerOutputRelativePath);
+        Assert.Equal(
+            new BuildRunnerOutputPath("reports/build-report.json"),
+            accountingRequest.BuildReport.RunnerOutputRelativePath);
         var output = result.Output!;
         Assert.Equal(BuildArtifactKind.BuildReport, output.Build.Summary.ReportRef);
         Assert.True(output.Reports.ContainsKey(BuildArtifactKind.BuildReport));
