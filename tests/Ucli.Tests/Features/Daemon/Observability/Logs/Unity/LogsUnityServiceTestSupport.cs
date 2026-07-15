@@ -29,14 +29,14 @@ internal static class LogsUnityServiceTestSupport
             Source: IpcUnityLogSource.Runtime,
             Message: message,
             StackTrace: null,
-            Cursor: cursor);
+            Cursor: new IpcLogCursor(cursor));
     }
 
     public static IpcUnityLogsReadResponse CreatePayload (
         IpcUnityLogEvent[] events,
         string nextCursor)
     {
-        return new IpcUnityLogsReadResponse(events, nextCursor);
+        return new IpcUnityLogsReadResponse(events, new IpcLogCursor(nextCursor));
     }
 
     public static LogsUnityService CreateService (

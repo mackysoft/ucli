@@ -63,8 +63,8 @@ internal sealed class LogsUnityService : ILogsUnityService
                 StackTraceMaxFrames: query.StackTraceMaxFrames,
                 StackTraceMaxChars: query.StackTraceMaxChars),
             static response => response.Events,
-            static response => response.NextCursor,
-            static unityLogEvent => unityLogEvent.Cursor,
+            static response => response.NextCursor.Value,
+            static unityLogEvent => unityLogEvent.Cursor.Value,
             onEvent,
             static unityLogEvent => unityLogEvent.Timestamp,
             cancellationToken);

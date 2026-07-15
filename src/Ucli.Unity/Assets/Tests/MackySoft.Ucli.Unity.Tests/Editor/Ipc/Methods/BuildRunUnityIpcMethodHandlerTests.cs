@@ -874,8 +874,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(logEntry.Message, Is.EqualTo("build pipeline progress log"));
                 Assert.That(logEntry.Source, Is.EqualTo(BuildLogEntrySource.UnityLog));
                 Assert.That(logEntry.Cursor, Is.Not.Null);
-                Assert.That(IpcLogCursorCodec.TryParse(logEntry.Cursor!, out _, out var logSequence), Is.True);
-                Assert.That(logSequence, Is.EqualTo(1));
+                Assert.That(logEntry.Cursor!.Sequence, Is.EqualTo(1));
 
                 Assert.That(IpcPayloadCodec.TryDeserialize(response.Payload, out IpcBuildRunResponse payload, out _), Is.True);
                 Assert.That(payload.Logs.Window.CursorStart, Is.Not.Null);

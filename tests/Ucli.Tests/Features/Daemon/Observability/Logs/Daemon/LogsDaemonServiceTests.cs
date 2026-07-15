@@ -19,7 +19,7 @@ public sealed class LogsDaemonServiceTests
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var daemonLogsClient = new RecordingDaemonLogsClient(
             [
-                DaemonLogsClientReadResult.Success(CreatePayload([], "stream-1:1")),
+                DaemonLogsClientReadResult.Success(CreatePayload([], "abcdef0123456789abcdef0123456789:1")),
             ]);
         var service = CreateService(resolver, daemonLogsClient);
 
@@ -56,18 +56,18 @@ public sealed class LogsDaemonServiceTests
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:1", "alpha"),
+                        CreateEvent("abcdef0123456789abcdef0123456789:1", "alpha"),
                     ],
-                    nextCursor: "stream-1:2")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:2")),
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:2", "bravo"),
+                        CreateEvent("abcdef0123456789abcdef0123456789:2", "bravo"),
                     ],
-                    nextCursor: "stream-1:3")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:3")),
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events: Array.Empty<IpcDaemonLogEvent>(),
-                    nextCursor: "stream-1:3")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:3")),
             ]);
         var service = CreateImmediateIdleStreamService(resolver, daemonLogsClient);
         var emittedMessages = new List<string>();
@@ -76,7 +76,7 @@ public sealed class LogsDaemonServiceTests
             new LogsDaemonServiceRequest(
                 ProjectPath: "/tmp/unity-project",
                 Tail: null,
-                After: "stream-1:1",
+                After: "abcdef0123456789abcdef0123456789:1",
                 Since: null,
                 Until: null,
                 Level: null,
@@ -105,9 +105,9 @@ public sealed class LogsDaemonServiceTests
         Assert.Equal(["alpha", "bravo"], emittedMessages);
         DaemonLogsClientAssert.ReadAfterCursors(
             daemonLogsClient,
-            "stream-1:1",
-            "stream-1:2",
-            "stream-1:3");
+            "abcdef0123456789abcdef0123456789:1",
+            "abcdef0123456789abcdef0123456789:2",
+            "abcdef0123456789abcdef0123456789:3");
     }
 
     [Fact]
@@ -122,10 +122,10 @@ public sealed class LogsDaemonServiceTests
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:1", "alpha"),
-                        CreateEvent("stream-1:2", "bravo"),
+                        CreateEvent("abcdef0123456789abcdef0123456789:1", "alpha"),
+                        CreateEvent("abcdef0123456789abcdef0123456789:2", "bravo"),
                     ],
-                    nextCursor: "stream-1:3")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:3")),
             ]);
         var service = CreateImmediateIdleStreamService(resolver, daemonLogsClient);
         var emittedMessages = new List<string>();
@@ -161,7 +161,7 @@ public sealed class LogsDaemonServiceTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.Canceled, result.Error!.Code);
         Assert.Equal(1, result.Count);
-        Assert.Equal("stream-1:1", result.NextCursor);
+        Assert.Equal("abcdef0123456789abcdef0123456789:1", result.NextCursor);
         Assert.Equal(LogsReadCompletionReason.Canceled, result.CompletionReason);
         Assert.Equal(["alpha"], emittedMessages);
     }
@@ -178,12 +178,12 @@ public sealed class LogsDaemonServiceTests
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:100", "alpha"),
+                        CreateEvent("abcdef0123456789abcdef0123456789:100", "alpha"),
                     ],
-                    nextCursor: "stream-1:101")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:101")),
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events: Array.Empty<IpcDaemonLogEvent>(),
-                    nextCursor: "stream-1:101")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:101")),
             ]);
         var service = CreateImmediateIdleStreamService(resolver, daemonLogsClient);
 
@@ -220,12 +220,12 @@ public sealed class LogsDaemonServiceTests
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
-                        CreateEvent("stream-1:10", "first"),
+                        CreateEvent("abcdef0123456789abcdef0123456789:10", "first"),
                     ],
-                    nextCursor: "stream-1:11")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:11")),
                 DaemonLogsClientReadResult.Success(CreatePayload(
                     events: Array.Empty<IpcDaemonLogEvent>(),
-                    nextCursor: "stream-1:11")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:11")),
             ]);
         var service = CreateService(resolver, daemonLogsClient);
 
@@ -247,7 +247,7 @@ public sealed class LogsDaemonServiceTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
-        DaemonLogsClientAssert.ReadAfterCursors(daemonLogsClient, null, "stream-1:11");
+        DaemonLogsClientAssert.ReadAfterCursors(daemonLogsClient, null, "abcdef0123456789abcdef0123456789:11");
         Assert.Equal(LogsReadCompletionReason.IdleTimeout, result.CompletionReason);
     }
 
@@ -263,9 +263,9 @@ public sealed class LogsDaemonServiceTests
             DaemonLogsClientReadResult.Success(CreatePayload(
                 events:
                 [
-                    CreateEvent("stream-1:10", "first"),
+                    CreateEvent("abcdef0123456789abcdef0123456789:10", "first"),
                 ],
-                nextCursor: "stream-1:11")),
+                nextCursor: "abcdef0123456789abcdef0123456789:11")),
         ]);
         var service = CreateService(resolver, daemonLogsClient);
 
@@ -301,14 +301,14 @@ public sealed class LogsDaemonServiceTests
             Category: "ipc",
             Message: message,
             Raw: null,
-            Cursor: cursor);
+            Cursor: new IpcLogCursor(cursor));
     }
 
     private static IpcDaemonLogsReadResponse CreatePayload (
         IpcDaemonLogEvent[] events,
         string nextCursor)
     {
-        return new IpcDaemonLogsReadResponse(events, nextCursor);
+        return new IpcDaemonLogsReadResponse(events, new IpcLogCursor(nextCursor));
     }
 
     private static LogsDaemonService CreateService (

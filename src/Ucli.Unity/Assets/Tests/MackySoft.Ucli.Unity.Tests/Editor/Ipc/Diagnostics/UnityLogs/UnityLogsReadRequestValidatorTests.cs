@@ -42,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var anotherStreamId = Guid.Parse("1b86d29d-2051-490f-8bdb-f769c3e061bd");
             var request = new IpcUnityLogsReadRequest(
                 Tail: null,
-                After: IpcLogCursorCodec.Encode(anotherStreamId, 1),
+                After: IpcLogCursor.Create(anotherStreamId, 1).Value,
                 Since: null,
                 Until: null,
                 Level: null,

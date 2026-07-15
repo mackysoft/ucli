@@ -63,8 +63,8 @@ internal sealed class LogsDaemonService : ILogsDaemonService
                 QueryTarget: query.QueryTarget,
                 Category: query.Category),
             static response => response.Events,
-            static response => response.NextCursor,
-            static daemonLogEvent => daemonLogEvent.Cursor,
+            static response => response.NextCursor.Value,
+            static daemonLogEvent => daemonLogEvent.Cursor.Value,
             onEvent,
             static daemonLogEvent => daemonLogEvent.Timestamp,
             cancellationToken);

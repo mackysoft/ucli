@@ -29,7 +29,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             foreach (var unityLogEvent in events)
             {
                 if (!LogReadFilterUtilities.PassesSequenceAndTimeWindow(
-                        unityLogEvent.Sequence,
+                        unityLogEvent.Cursor.Sequence,
                         unityLogEvent.Timestamp,
                         filter.AfterSequence,
                         filter.Since,

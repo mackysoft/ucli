@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (!requestValidator.TryValidate(
                     payload,
-                    snapshot.StreamId,
+                    snapshot.NextCursor.StreamId,
                     out var filter,
                     out var errorMessage))
             {

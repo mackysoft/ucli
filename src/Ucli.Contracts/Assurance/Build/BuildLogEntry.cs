@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
@@ -17,7 +18,7 @@ public sealed record BuildLogEntry
         DateTimeOffset TimestampUtc,
         BuildLogEntryLevel Level,
         string Message,
-        string? Cursor,
+        IpcLogCursor? Cursor,
         BuildLogEntrySource Source)
     {
         if (RunId == Guid.Empty)
@@ -45,9 +46,7 @@ public sealed record BuildLogEntry
         this.TimestampUtc = ContractArgumentGuard.RequireUtcTimestamp(TimestampUtc, nameof(TimestampUtc));
         this.Level = Level;
         this.Message = message;
-        this.Cursor = Cursor == null
-            ? null
-            : ContractArgumentGuard.RequireValue(Cursor, nameof(Cursor));
+        this.Cursor = Cursor;
         this.Source = Source;
     }
 
@@ -59,7 +58,7 @@ public sealed record BuildLogEntry
 
     public string Message { get; }
 
-    public string? Cursor { get; }
+    public IpcLogCursor? Cursor { get; }
 
     public BuildLogEntrySource Source { get; }
 }

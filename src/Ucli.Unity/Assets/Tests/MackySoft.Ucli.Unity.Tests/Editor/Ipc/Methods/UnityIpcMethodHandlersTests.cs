@@ -1554,7 +1554,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Guid.NewGuid(),
                 new IpcDaemonLogsReadRequest(
                     Tail: null,
-                    After: firstEventCursor,
+                    After: firstEventCursor.Value,
                     Since: null,
                     Until: null,
                     Level: IpcLogLevel.Warning,
@@ -1570,8 +1570,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload.Events.Count, Is.EqualTo(1));
             Assert.That(payload.Events[0].Category, Is.EqualTo("transport"));
             Assert.That(payload.Events[0].Level, Is.EqualTo(IpcLogLevel.Warning));
-            Assert.That(IpcLogCursorCodec.TryParse(payload.NextCursor, out var responseStreamId, out _), Is.True);
-            Assert.That(responseStreamId, Is.EqualTo(snapshot.StreamId));
+            Assert.That(payload.NextCursor.StreamId, Is.EqualTo(snapshot.NextCursor.StreamId));
         });
 
         [UnityTest]
@@ -1657,7 +1656,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Guid.NewGuid(),
                 new IpcDaemonLogsReadRequest(
                     Tail: null,
-                    After: secondCursor,
+                    After: secondCursor.Value,
                     Since: since,
                     Until: null,
                     Level: null,
@@ -1826,7 +1825,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Guid.NewGuid(),
                 new IpcUnityLogsReadRequest(
                     Tail: null,
-                    After: secondCursor,
+                    After: secondCursor.Value,
                     Since: since,
                     Until: null,
                     Level: null,

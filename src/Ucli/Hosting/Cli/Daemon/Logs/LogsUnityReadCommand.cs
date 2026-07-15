@@ -121,7 +121,7 @@ internal sealed class LogsUnityReadCommand
                 Source: ContractLiteralCodec.ToValue(unityLogEvent.Source),
                 Message: unityLogEvent.Message,
                 StackTrace: unityLogEvent.StackTrace,
-                Cursor: unityLogEvent.Cursor,
+                Cursor: unityLogEvent.Cursor.Value,
                 NextCursor: nextCursor));
     }
 

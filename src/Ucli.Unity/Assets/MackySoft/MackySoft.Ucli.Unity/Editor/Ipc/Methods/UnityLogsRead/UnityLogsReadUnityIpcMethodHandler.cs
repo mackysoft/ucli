@@ -61,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var snapshot = unityLogStream.Snapshot();
-            if (!requestValidator.TryValidate(payload, snapshot.StreamId, out var filter, out var errorMessage))
+            if (!requestValidator.TryValidate(payload, snapshot.NextCursor.StreamId, out var filter, out var errorMessage))
             {
                 daemonLogger.Warning(
                     DaemonLogCategories.Ipc,

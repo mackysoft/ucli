@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -9,5 +10,5 @@ namespace MackySoft.Ucli.Unity.Ipc
         MackySoft.Ucli.Contracts.Ipc.IpcUnityLogSource Source,
         string Message,
         string StackTrace,
-        string Cursor);
+        IpcLogCursor Cursor);
 }

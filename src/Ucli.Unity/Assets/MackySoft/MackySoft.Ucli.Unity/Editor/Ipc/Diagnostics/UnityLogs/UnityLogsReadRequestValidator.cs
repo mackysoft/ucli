@@ -75,21 +75,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return true;
             }
 
-            if (!IpcLogCursorCodec.TryParse(afterCursor, out var parsedStreamId, out var parsedSequence))
+            if (!IpcLogCursor.TryParse(afterCursor, out var parsedCursor))
             {
                 afterSequence = null;
                 errorMessage = $"after is invalid cursor format. Actual: {afterCursor}.";
                 return false;
             }
 
-            if (parsedStreamId != currentStreamId)
+            if (parsedCursor.StreamId != currentStreamId)
             {
                 afterSequence = null;
-                errorMessage = $"after streamId does not match current unity log stream. actual={parsedStreamId}, current={currentStreamId}.";
+                errorMessage = $"after streamId does not match current unity log stream. actual={parsedCursor.StreamId}, current={currentStreamId}.";
                 return false;
             }
 
-            afterSequence = parsedSequence;
+            afterSequence = parsedCursor.Sequence;
             errorMessage = string.Empty;
             return true;
         }

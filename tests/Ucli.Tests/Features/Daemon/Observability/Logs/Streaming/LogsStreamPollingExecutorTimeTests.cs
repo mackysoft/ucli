@@ -148,8 +148,8 @@ public sealed class LogsStreamPollingExecutorTimeTests
                     QueryTarget: query.QueryTarget,
                     Category: query.Category),
                 static response => response.Events,
-                static response => response.NextCursor,
-                static logEvent => logEvent.Cursor,
+                static response => response.NextCursor.Value,
+                static logEvent => logEvent.Cursor.Value,
                 static (_, _, _) => ValueTask.CompletedTask,
                 static logEvent => logEvent.Timestamp,
                 cancellationToken)

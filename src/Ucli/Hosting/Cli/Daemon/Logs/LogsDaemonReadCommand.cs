@@ -115,7 +115,7 @@ internal sealed class LogsDaemonReadCommand
                 Category: daemonLogEvent.Category,
                 Message: daemonLogEvent.Message,
                 Raw: daemonLogEvent.Raw,
-                Cursor: daemonLogEvent.Cursor,
+                Cursor: daemonLogEvent.Cursor.Value,
                 NextCursor: nextCursor));
     }
 

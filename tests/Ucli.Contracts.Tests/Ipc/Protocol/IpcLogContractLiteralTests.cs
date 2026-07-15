@@ -5,6 +5,8 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcLogContractLiteralTests
 {
+    private static readonly Guid StreamId = Guid.Parse("abcdef01-2345-6789-abcd-ef0123456789");
+
     public static TheoryData<IpcLogLevel, string> LogLevelCases => new()
     {
         { IpcLogLevel.Error, "error" },
@@ -90,7 +92,7 @@ public sealed class IpcLogContractLiteralTests
             Category: "ipc",
             Message: "message",
             Raw: null,
-            Cursor: "cursor"));
+            Cursor: CreateCursor(1)));
     }
 
     [Fact]
@@ -103,7 +105,7 @@ public sealed class IpcLogContractLiteralTests
             Category: "ipc",
             Message: "message",
             Raw: null,
-            Cursor: "cursor"));
+            Cursor: CreateCursor(1)));
     }
 
     [Fact]
@@ -146,7 +148,7 @@ public sealed class IpcLogContractLiteralTests
             Source: (IpcUnityLogSource)999,
             Message: "message",
             StackTrace: null,
-            Cursor: "cursor"));
+            Cursor: CreateCursor(1)));
     }
 
     [Fact]
@@ -159,7 +161,7 @@ public sealed class IpcLogContractLiteralTests
             Source: IpcUnityLogSource.Runtime,
             Message: "message",
             StackTrace: null,
-            Cursor: "cursor"));
+            Cursor: CreateCursor(1)));
     }
 
     [Fact]
@@ -204,16 +206,16 @@ public sealed class IpcLogContractLiteralTests
     {
         Assert.Throws<ArgumentException>(() => new IpcDaemonLogsReadResponse(
             Events: new IpcDaemonLogEvent[] { null! },
-            NextCursor: "cursor"));
+            NextCursor: CreateCursor(1)));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcUnityLogsReadResponse_WhenNextCursorIsEmpty_Throws ()
+    public void IpcUnityLogsReadResponse_WhenNextCursorIsNull_Throws ()
     {
-        Assert.Throws<ArgumentException>(() => new IpcUnityLogsReadResponse(
+        Assert.Throws<ArgumentNullException>(() => new IpcUnityLogsReadResponse(
             Events: Array.Empty<IpcUnityLogEvent>(),
-            NextCursor: string.Empty));
+            NextCursor: null!));
     }
 
     [Fact]
@@ -226,9 +228,9 @@ public sealed class IpcLogContractLiteralTests
             Category: "ipc",
             Message: "original",
             Raw: null,
-            Cursor: "cursor-1");
+            Cursor: CreateCursor(1));
         var sourceEvents = new List<IpcDaemonLogEvent> { originalEvent };
-        var response = new IpcDaemonLogsReadResponse(sourceEvents, "cursor-2");
+        var response = new IpcDaemonLogsReadResponse(sourceEvents, CreateCursor(2));
 
         sourceEvents[0] = new IpcDaemonLogEvent(
             Timestamp: new DateTimeOffset(2026, 3, 5, 10, 35, 23, TimeSpan.Zero),
@@ -236,7 +238,7 @@ public sealed class IpcLogContractLiteralTests
             Category: "transport",
             Message: "replacement",
             Raw: null,
-            Cursor: "cursor-2");
+            Cursor: CreateCursor(2));
         sourceEvents.Add(originalEvent);
 
         Assert.Collection(response.Events, item => Assert.Same(originalEvent, item));
@@ -252,9 +254,9 @@ public sealed class IpcLogContractLiteralTests
             Source: IpcUnityLogSource.Runtime,
             Message: "original",
             StackTrace: null,
-            Cursor: "cursor-1");
+            Cursor: CreateCursor(1));
         var sourceEvents = new List<IpcUnityLogEvent> { originalEvent };
-        var response = new IpcUnityLogsReadResponse(sourceEvents, "cursor-2");
+        var response = new IpcUnityLogsReadResponse(sourceEvents, CreateCursor(2));
 
         sourceEvents[0] = new IpcUnityLogEvent(
             Timestamp: new DateTimeOffset(2026, 3, 5, 10, 35, 23, TimeSpan.Zero),
@@ -262,9 +264,82 @@ public sealed class IpcLogContractLiteralTests
             Source: IpcUnityLogSource.Compile,
             Message: "replacement",
             StackTrace: null,
-            Cursor: "cursor-2");
+            Cursor: CreateCursor(2));
         sourceEvents.Add(originalEvent);
 
         Assert.Collection(response.Events, item => Assert.Same(originalEvent, item));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsReadResponse_WhenEventBelongsToAnotherStream_Throws ()
+    {
+        var eventCursor = IpcLogCursor.Create(Guid.NewGuid(), 1);
+
+        var exception = Assert.Throws<ArgumentException>(() => new IpcDaemonLogsReadResponse(
+            Events:
+            [
+                CreateDaemonEvent(eventCursor),
+            ],
+            NextCursor: CreateCursor(2)));
+
+        Assert.Equal("Events", exception.ParamName);
+    }
+
+    [Theory]
+    [InlineData(2, 2, 3)]
+    [InlineData(2, 1, 3)]
+    [InlineData(1, 3, 3)]
+    [Trait("Size", "Small")]
+    public void IpcDaemonLogsReadResponse_WhenEventCursorsDoNotStrictlyPrecedeNextCursor_Throws (
+        long firstSequence,
+        long secondSequence,
+        long nextSequence)
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcDaemonLogsReadResponse(
+            Events:
+            [
+                CreateDaemonEvent(CreateCursor(firstSequence)),
+                CreateDaemonEvent(CreateCursor(secondSequence)),
+            ],
+            NextCursor: CreateCursor(nextSequence)));
+
+        Assert.Equal("Events", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcUnityLogsReadResponse_WhenEventDoesNotPrecedeNextCursor_Throws ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcUnityLogsReadResponse(
+            Events:
+            [
+                new IpcUnityLogEvent(
+                    Timestamp: new DateTimeOffset(2026, 3, 5, 10, 35, 22, TimeSpan.Zero),
+                    Level: IpcLogLevel.Info,
+                    Source: IpcUnityLogSource.Runtime,
+                    Message: "message",
+                    StackTrace: null,
+                    Cursor: CreateCursor(2)),
+            ],
+            NextCursor: CreateCursor(2)));
+
+        Assert.Equal("Events", exception.ParamName);
+    }
+
+    private static IpcDaemonLogEvent CreateDaemonEvent (IpcLogCursor cursor)
+    {
+        return new IpcDaemonLogEvent(
+            Timestamp: new DateTimeOffset(2026, 3, 5, 10, 35, 22, TimeSpan.Zero),
+            Level: IpcLogLevel.Info,
+            Category: "ipc",
+            Message: "message",
+            Raw: null,
+            Cursor: cursor);
+    }
+
+    private static IpcLogCursor CreateCursor (long sequence)
+    {
+        return IpcLogCursor.Create(StreamId, sequence);
     }
 }

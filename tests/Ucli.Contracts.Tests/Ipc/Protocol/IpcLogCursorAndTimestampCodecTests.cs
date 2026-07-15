@@ -42,6 +42,8 @@ public sealed class IpcLogCursorAndTimestampCodecTests
         "abcdef0123456789abcdef0123456789:",
         ":1",
         "abcdef0123456789abcdef0123456789:-1",
+        "ABCDEF0123456789ABCDEF0123456789:1",
+        "abcdef0123456789abcdef0123456789:01",
         "",
         " ",
         null,
@@ -64,26 +66,28 @@ public sealed class IpcLogCursorAndTimestampCodecTests
     [Theory]
     [MemberData(nameof(LogCursorRoundTripCases))]
     [Trait("Size", "Small")]
-    public void IpcLogCursorCodec_EncodeAndTryParse_RoundTripsValues (
+    public void IpcLogCursor_CreateAndTryParse_RoundTripsCanonicalValues (
         Guid inputStreamId,
         long inputSequence,
         string expectedCursor)
     {
-        var cursor = IpcLogCursorCodec.Encode(inputStreamId, inputSequence);
+        var cursor = IpcLogCursor.Create(inputStreamId, inputSequence);
 
-        var result = IpcLogCursorCodec.TryParse(cursor, out var streamId, out var sequence);
+        var result = IpcLogCursor.TryParse(cursor.Value, out var parsedCursor);
 
-        Assert.Equal(expectedCursor, cursor);
+        Assert.Equal(expectedCursor, cursor.Value);
         Assert.True(result);
-        Assert.Equal(inputStreamId, streamId);
-        Assert.Equal(inputSequence, sequence);
+        var parsed = Assert.IsType<IpcLogCursor>(parsedCursor);
+        Assert.Equal(inputStreamId, parsed.StreamId);
+        Assert.Equal(inputSequence, parsed.Sequence);
+        Assert.Equal(cursor, parsed);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcLogCursorCodec_Encode_EmptyStreamId_ThrowsArgumentException ()
+    public void IpcLogCursor_Create_WithEmptyStreamId_ThrowsArgumentException ()
     {
-        var exception = Assert.Throws<ArgumentException>(() => IpcLogCursorCodec.Encode(Guid.Empty, 0));
+        var exception = Assert.Throws<ArgumentException>(() => IpcLogCursor.Create(Guid.Empty, 0));
 
         Assert.Equal("streamId", exception.ParamName);
     }
@@ -91,12 +95,30 @@ public sealed class IpcLogCursorAndTimestampCodecTests
     [Theory]
     [MemberData(nameof(InvalidLogCursors))]
     [Trait("Size", "Small")]
-    public void IpcLogCursorCodec_TryParse_InvalidValue_ReturnsFalse (string? value)
+    public void IpcLogCursor_TryParse_InvalidValue_ReturnsFalse (string? value)
     {
-        var result = IpcLogCursorCodec.TryParse(value, out var streamId, out var sequence);
+        var result = IpcLogCursor.TryParse(value, out var cursor);
 
         Assert.False(result);
-        Assert.Equal(Guid.Empty, streamId);
-        Assert.Equal(default, sequence);
+        Assert.Null(cursor);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcLogCursor_Create_WithNegativeSequence_ThrowsArgumentOutOfRangeException ()
+    {
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(
+            () => IpcLogCursor.Create(Guid.NewGuid(), -1));
+
+        Assert.Equal("sequence", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcLogCursor_Constructor_WithMalformedValue_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcLogCursor("stream:1"));
+
+        Assert.Equal("value", exception.ParamName);
     }
 }

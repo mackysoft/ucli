@@ -9,6 +9,7 @@ namespace MackySoft.Ucli.Contracts.Tests.Assurance.Build;
 public sealed class BuildRunProgressEventNamesTests
 {
     private const string RunIdText = "fedcba98-7654-3210-fedc-ba9876543210";
+    private const string LogCursorText = "abcdef0123456789abcdef0123456789:42";
     private static readonly Guid RunId = Guid.Parse(RunIdText);
 
     [Fact]
@@ -88,13 +89,13 @@ public sealed class BuildRunProgressEventNamesTests
             TimestampUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
             Level: BuildLogEntryLevel.Warning,
             Message: "sample warning",
-            Cursor: "stream-1:42",
+            Cursor: new IpcLogCursor(LogCursorText),
             Source: BuildLogEntrySource.UnityLog));
 
         Assert.Equal(RunIdText, json.GetProperty("runId").GetString());
         Assert.Equal("warning", json.GetProperty("level").GetString());
         Assert.Equal("sample warning", json.GetProperty("message").GetString());
-        Assert.Equal("stream-1:42", json.GetProperty("cursor").GetString());
+        Assert.Equal(LogCursorText, json.GetProperty("cursor").GetString());
         Assert.Equal("unityLog", json.GetProperty("source").GetString());
     }
 
@@ -103,13 +104,12 @@ public sealed class BuildRunProgressEventNamesTests
     [InlineData("defaultTimestamp")]
     [InlineData("nonUtcTimestamp")]
     [InlineData("emptyMessage")]
-    [InlineData("emptyCursor")]
     [InlineData("oversizedMessage")]
     public void BuildLogEntry_WithInvalidValue_ThrowsArgumentException (string invalidValue)
     {
         var timestampUtc = DateTimeOffset.Parse("2026-06-12T00:00:00+00:00");
         var message = "sample warning";
-        string? cursor = "stream-1:42";
+        IpcLogCursor? cursor = new(LogCursorText);
 
         switch (invalidValue)
         {
@@ -121,9 +121,6 @@ public sealed class BuildRunProgressEventNamesTests
                 break;
             case "emptyMessage":
                 message = " ";
-                break;
-            case "emptyCursor":
-                cursor = string.Empty;
                 break;
             case "oversizedMessage":
                 message = new string('x', BuildLogEntryLimits.MaxMessageUtf8Bytes + 1);

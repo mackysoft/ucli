@@ -107,8 +107,8 @@ public sealed class IpcBuildRunContractSerializationTests
                     Window: new IpcBuildLogWindow(
                         StartedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
                         CompletedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:03+00:00"),
-                        CursorStart: "stream-1:10",
-                        CursorEnd: "stream-1:20")),
+                        CursorStart: new IpcLogCursor("abcdef0123456789abcdef0123456789:10"),
+                        CursorEnd: new IpcLogCursor("abcdef0123456789abcdef0123456789:20"))),
                 ProjectMutation: CreateProjectMutationAudit())
             {
                 RunnerResult = new IpcBuildRunnerResultArtifact(
@@ -219,8 +219,8 @@ public sealed class IpcBuildRunContractSerializationTests
                 .HasProperty("window", window => window
                     .HasString("startedAtUtc", "2026-06-12T00:00:00+00:00")
                     .HasString("completedAtUtc", "2026-06-12T00:00:03+00:00")
-                    .HasString("cursorStart", "stream-1:10")
-                    .HasString("cursorEnd", "stream-1:20")))
+                    .HasString("cursorStart", "abcdef0123456789abcdef0123456789:10")
+                    .HasString("cursorEnd", "abcdef0123456789abcdef0123456789:20")))
             .HasProperty("runnerResult", runnerResult => runnerResult
                 .HasString("source", ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult))
                 .HasString("status", ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded))

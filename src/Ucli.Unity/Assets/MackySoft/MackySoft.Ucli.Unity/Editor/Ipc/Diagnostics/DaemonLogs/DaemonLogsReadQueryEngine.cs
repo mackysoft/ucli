@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             foreach (var daemonLogEvent in events)
             {
                 if (!LogReadFilterUtilities.PassesSequenceAndTimeWindow(
-                        daemonLogEvent.Sequence,
+                        daemonLogEvent.Cursor.Sequence,
                         daemonLogEvent.Timestamp,
                         filter.AfterSequence,
                         filter.Since,

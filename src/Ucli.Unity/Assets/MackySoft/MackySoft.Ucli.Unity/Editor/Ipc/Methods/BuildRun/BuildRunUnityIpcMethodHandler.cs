@@ -536,18 +536,19 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityLogSnapshot endSnapshot)
         {
             if (progressSink == null
-                || !IpcLogCursorCodec.TryParse(startSnapshot.NextCursor, out var startStreamId, out var startSequence)
-                || !IpcLogCursorCodec.TryParse(endSnapshot.NextCursor, out var endStreamId, out var endSequence)
-                || startStreamId != endStreamId)
+                || startSnapshot.NextCursor.StreamId != endSnapshot.NextCursor.StreamId)
             {
                 return;
             }
 
+            var startSequence = startSnapshot.NextCursor.Sequence;
+            var endSequence = endSnapshot.NextCursor.Sequence;
             var events = endSnapshot.Events;
             for (var i = 0; i < events.Count; i++)
             {
                 var unityLogEvent = events[i];
-                if (unityLogEvent.Sequence < startSequence || unityLogEvent.Sequence >= endSequence)
+                if (unityLogEvent.Cursor.Sequence < startSequence
+                    || unityLogEvent.Cursor.Sequence >= endSequence)
                 {
                     continue;
                 }

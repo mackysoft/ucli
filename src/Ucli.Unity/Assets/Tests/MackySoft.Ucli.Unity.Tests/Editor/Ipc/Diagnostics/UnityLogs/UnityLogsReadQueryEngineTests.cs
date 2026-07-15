@@ -65,13 +65,12 @@ namespace MackySoft.Ucli.Unity.Tests
             var events = new List<UnityLogEvent>
             {
                 new UnityLogEvent(
-                    Sequence: 1,
                     Timestamp: new DateTimeOffset(2026, 3, 5, 10, 35, 22, TimeSpan.FromHours(9)),
                     Level: IpcLogLevel.Error,
                     Source: IpcUnityLogSource.Runtime,
                     Message: "runtime error",
                     StackTrace: "frame 1\nframe 2\nSocketException: broken pipe",
-                    Cursor: "stream-1:1"),
+                    Cursor: new IpcLogCursor("abcdef0123456789abcdef0123456789:1")),
             };
 
             var filtered = queryEngine.Filter(
@@ -122,21 +121,19 @@ namespace MackySoft.Ucli.Unity.Tests
             return new List<UnityLogEvent>
             {
                 new UnityLogEvent(
-                    Sequence: 1,
                     Timestamp: new DateTimeOffset(2026, 3, 5, 10, 35, 22, TimeSpan.FromHours(9)),
                     Level: IpcLogLevel.Error,
                     Source: IpcUnityLogSource.Runtime,
                     Message: "runtime error",
                     StackTrace: "SocketException: broken pipe",
-                    Cursor: "stream-1:1"),
+                    Cursor: new IpcLogCursor("abcdef0123456789abcdef0123456789:1")),
                 new UnityLogEvent(
-                    Sequence: 2,
                     Timestamp: new DateTimeOffset(2026, 3, 5, 10, 36, 22, TimeSpan.FromHours(9)),
                     Level: IpcLogLevel.Warning,
                     Source: IpcUnityLogSource.Compile,
                     Message: "compile warning",
                     StackTrace: null,
-                    Cursor: "stream-1:2"),
+                    Cursor: new IpcLogCursor("abcdef0123456789abcdef0123456789:2")),
             };
         }
     }

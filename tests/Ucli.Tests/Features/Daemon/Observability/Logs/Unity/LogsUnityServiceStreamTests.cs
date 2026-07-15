@@ -21,11 +21,11 @@ public sealed class LogsUnityServiceStreamTests
                     events:
                     [
                         CreateEvent(
-                            "stream-1:1",
+                            "abcdef0123456789abcdef0123456789:1",
                             "alpha",
                             new DateTimeOffset(2099, 1, 1, 0, 0, 0, TimeSpan.Zero)),
                     ],
-                    nextCursor: "stream-1:2")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:2")),
             ]);
         var service = CreateZeroPollIntervalService(resolver, unityLogsClient);
         var emittedMessages = new List<string>();
@@ -73,23 +73,23 @@ public sealed class LogsUnityServiceStreamTests
                     events:
                     [
                         CreateEvent(
-                            "stream-1:1",
+                            "abcdef0123456789abcdef0123456789:1",
                             "alpha",
                             new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
-                    nextCursor: "stream-1:2")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:2")),
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events:
                     [
                         CreateEvent(
-                            "stream-1:2",
+                            "abcdef0123456789abcdef0123456789:2",
                             "bravo",
                             new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
-                    nextCursor: "stream-1:3")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:3")),
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events: Array.Empty<IpcUnityLogEvent>(),
-                    nextCursor: "stream-1:3")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:3")),
             ]);
         var service = CreateImmediateIdleStreamService(resolver, unityLogsClient);
         var emittedMessages = new List<string>();
@@ -98,7 +98,7 @@ public sealed class LogsUnityServiceStreamTests
             new LogsUnityServiceRequest(
                 ProjectPath: "/tmp/unity-project",
                 Tail: null,
-                After: "stream-1:1",
+                After: "abcdef0123456789abcdef0123456789:1",
                 Since: "2026-03-06T00:00:00Z",
                 Until: null,
                 Level: null,
@@ -130,9 +130,9 @@ public sealed class LogsUnityServiceStreamTests
         Assert.Equal(["alpha", "bravo"], emittedMessages);
         UnityLogsClientAssert.ReadAfterCursors(
             unityLogsClient,
-            "stream-1:1",
-            "stream-1:2",
-            "stream-1:3");
+            "abcdef0123456789abcdef0123456789:1",
+            "abcdef0123456789abcdef0123456789:2",
+            "abcdef0123456789abcdef0123456789:3");
     }
 
     [Fact]
@@ -146,14 +146,14 @@ public sealed class LogsUnityServiceStreamTests
                     events:
                     [
                         CreateEvent(
-                            "stream-1:100",
+                            "abcdef0123456789abcdef0123456789:100",
                             "alpha",
                             new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
-                    nextCursor: "stream-1:101")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:101")),
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events: Array.Empty<IpcUnityLogEvent>(),
-                    nextCursor: "stream-1:101")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:101")),
             ]);
         var service = CreateImmediateIdleStreamService(resolver, unityLogsClient);
 
@@ -192,14 +192,14 @@ public sealed class LogsUnityServiceStreamTests
                     events:
                     [
                         CreateEvent(
-                            "stream-1:10",
+                            "abcdef0123456789abcdef0123456789:10",
                             "first",
                             new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
-                    nextCursor: "stream-1:11")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:11")),
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events: Array.Empty<IpcUnityLogEvent>(),
-                    nextCursor: "stream-1:11")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:11")),
             ]);
         var service = CreateImmediateIdleStreamService(resolver, unityLogsClient);
 
@@ -224,7 +224,7 @@ public sealed class LogsUnityServiceStreamTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess, result.Error?.Message);
-        UnityLogsClientAssert.ReadAfterCursors(unityLogsClient, null, "stream-1:11");
+        UnityLogsClientAssert.ReadAfterCursors(unityLogsClient, null, "abcdef0123456789abcdef0123456789:11");
         Assert.Equal(LogsReadCompletionReason.IdleTimeout, result.CompletionReason);
     }
 
@@ -239,11 +239,11 @@ public sealed class LogsUnityServiceStreamTests
                     events:
                     [
                         CreateEvent(
-                            "stream-1:10",
+                            "abcdef0123456789abcdef0123456789:10",
                             "first",
                             new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
-                    nextCursor: "stream-1:11")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:11")),
                 UnityLogsClientReadResult.Failure(ExecutionError.Timeout("Unity logs read request timed out.")),
             ]);
         var service = CreateImmediateIdleStreamService(resolver, unityLogsClient);
@@ -270,8 +270,8 @@ public sealed class LogsUnityServiceStreamTests
 
         Assert.True(result.IsSuccess, result.Error?.Message);
         Assert.Equal(1, result.Count);
-        Assert.Equal("stream-1:11", result.NextCursor);
-        UnityLogsClientAssert.ReadAfterCursors(unityLogsClient, null, "stream-1:11");
+        Assert.Equal("abcdef0123456789abcdef0123456789:11", result.NextCursor);
+        UnityLogsClientAssert.ReadAfterCursors(unityLogsClient, null, "abcdef0123456789abcdef0123456789:11");
         Assert.Equal(LogsReadCompletionReason.IdleTimeout, result.CompletionReason);
     }
 
@@ -286,14 +286,14 @@ public sealed class LogsUnityServiceStreamTests
                     events:
                     [
                         CreateEvent(
-                            "stream-1:10",
+                            "abcdef0123456789abcdef0123456789:10",
                             "first",
                             new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9))),
                     ],
-                    nextCursor: "stream-1:11")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:11")),
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events: Array.Empty<IpcUnityLogEvent>(),
-                    nextCursor: "stream-1:11")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:11")),
             ]);
         var service = CreateService(resolver, unityLogsClient);
 

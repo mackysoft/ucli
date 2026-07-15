@@ -394,7 +394,7 @@ internal static class VerifyServiceTestSupport
         """;
     }
 
-    public static IpcUnityLogEvent CreateLogEvent (string cursor)
+    public static IpcUnityLogEvent CreateLogEvent (long sequence)
     {
         return new IpcUnityLogEvent(
             Timestamp: new DateTimeOffset(2026, 5, 17, 0, 0, 0, TimeSpan.Zero),
@@ -402,7 +402,9 @@ internal static class VerifyServiceTestSupport
             Source: IpcUnityLogSource.Runtime,
             Message: "Unity log event.",
             StackTrace: null,
-            Cursor: cursor);
+            Cursor: IpcLogCursor.Create(
+                Guid.Parse("abcdef01-2345-6789-abcd-ef0123456789"),
+                sequence));
     }
 
 }

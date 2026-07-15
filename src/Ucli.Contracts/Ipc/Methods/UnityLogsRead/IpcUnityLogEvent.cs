@@ -14,7 +14,7 @@ public sealed record IpcUnityLogEvent
         IpcUnityLogSource Source,
         string Message,
         string? StackTrace,
-        string Cursor)
+        IpcLogCursor Cursor)
     {
         if (!ContractLiteralCodec.IsDefined(Level))
         {
@@ -31,7 +31,7 @@ public sealed record IpcUnityLogEvent
         this.Source = Source;
         this.Message = ContractArgumentGuard.RequireValue(Message, nameof(Message));
         this.StackTrace = StackTrace;
-        this.Cursor = ContractArgumentGuard.RequireValue(Cursor, nameof(Cursor));
+        this.Cursor = ContractArgumentGuard.RequireNotNull(Cursor, nameof(Cursor));
     }
 
     /// <summary> Gets the event timestamp and its timezone offset. </summary>
@@ -51,5 +51,5 @@ public sealed record IpcUnityLogEvent
     public string? StackTrace { get; }
 
     /// <summary> Gets the opaque cursor assigned to this event. </summary>
-    public string Cursor { get; }
+    public IpcLogCursor Cursor { get; }
 }

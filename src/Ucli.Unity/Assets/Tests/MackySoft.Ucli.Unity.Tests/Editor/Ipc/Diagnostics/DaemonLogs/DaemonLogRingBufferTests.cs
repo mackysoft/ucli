@@ -18,13 +18,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var snapshot = stream.Snapshot();
 
-            Assert.That(snapshot.StreamId, Is.Not.EqualTo(Guid.Empty));
+            Assert.That(snapshot.NextCursor.StreamId, Is.Not.EqualTo(Guid.Empty));
             Assert.That(snapshot.Events.Count, Is.EqualTo(2));
-            Assert.That(IpcLogCursorCodec.TryParse(snapshot.Events[0].Cursor, out var streamId, out var firstSequence), Is.True);
-            Assert.That(IpcLogCursorCodec.TryParse(snapshot.Events[1].Cursor, out _, out var secondSequence), Is.True);
-            Assert.That(streamId, Is.EqualTo(snapshot.StreamId));
-            Assert.That(secondSequence, Is.EqualTo(firstSequence + 1));
-            Assert.That(snapshot.NextCursor, Is.EqualTo(IpcLogCursorCodec.Encode(snapshot.StreamId, secondSequence + 1)));
+            Assert.That(snapshot.Events[0].Cursor.StreamId, Is.EqualTo(snapshot.NextCursor.StreamId));
+            Assert.That(snapshot.Events[1].Cursor.StreamId, Is.EqualTo(snapshot.NextCursor.StreamId));
+            Assert.That(snapshot.Events[1].Cursor.Sequence, Is.EqualTo(snapshot.Events[0].Cursor.Sequence + 1));
+            Assert.That(snapshot.NextCursor, Is.EqualTo(IpcLogCursor.Create(
+                snapshot.NextCursor.StreamId,
+                snapshot.Events[1].Cursor.Sequence + 1)));
         }
 
         [Test]
@@ -54,12 +55,12 @@ namespace MackySoft.Ucli.Unity.Tests
             stream.Write("transport", IpcLogLevel.Warning, "event-3");
             var snapshot = stream.Snapshot();
             var afterCursor = snapshot.Events[1].Cursor;
-            Assert.That(IpcLogCursorCodec.TryParse(afterCursor, out _, out var afterSequence), Is.True);
+            var afterSequence = afterCursor.Sequence;
 
             var filtered = new List<DaemonLogEvent>();
             foreach (var daemonLogEvent in snapshot.Events)
             {
-                if (daemonLogEvent.Sequence >= afterSequence
+                if (daemonLogEvent.Cursor.Sequence >= afterSequence
                     && daemonLogEvent.Level == IpcLogLevel.Warning)
                 {
                     filtered.Add(daemonLogEvent);

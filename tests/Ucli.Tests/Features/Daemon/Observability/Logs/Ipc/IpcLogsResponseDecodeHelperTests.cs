@@ -23,9 +23,9 @@ public sealed class IpcLogsResponseDecodeHelperTests
                         Category: "ipc",
                         Message: "Server started.",
                         Raw: null,
-                        Cursor: "stream-1:10"),
+                        Cursor: new IpcLogCursor("abcdef0123456789abcdef0123456789:10")),
                 ],
-                NextCursor: "stream-1:11"));
+                NextCursor: new IpcLogCursor("abcdef0123456789abcdef0123456789:11")));
 
         var result = IpcLogsResponseDecodeHelper.TryDecodeReadPayload<IpcDaemonLogsReadResponse>(
             response,
@@ -37,7 +37,7 @@ public sealed class IpcLogsResponseDecodeHelperTests
         Assert.Null(error);
         var decodedPayload = Assert.IsType<IpcDaemonLogsReadResponse>(payload);
         Assert.Single(decodedPayload.Events);
-        Assert.Equal("stream-1:11", decodedPayload.NextCursor);
+        Assert.Equal("abcdef0123456789abcdef0123456789:11", decodedPayload.NextCursor.Value);
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public sealed class IpcLogsResponseDecodeHelperTests
         var executionError = Assert.IsType<ExecutionError>(error);
         Assert.Equal(ExecutionErrorKind.InternalError, executionError.Kind);
         Assert.Contains(OperationName, executionError.Message, StringComparison.Ordinal);
-        Assert.Contains("NextCursor", executionError.Message, StringComparison.Ordinal);
+        Assert.Contains("payload is invalid", executionError.Message, StringComparison.Ordinal);
     }
 
     private static IpcResponse CreateResponse (

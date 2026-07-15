@@ -49,7 +49,7 @@ public sealed class LogsUnityServiceValidationTests
             [
                 UnityLogsClientReadResult.Success(CreatePayload(
                     events: Array.Empty<IpcUnityLogEvent>(),
-                    nextCursor: "stream-1:1")),
+                    nextCursor: "abcdef0123456789abcdef0123456789:1")),
             ]);
         var service = CreateService(resolver, unityLogsClient);
 

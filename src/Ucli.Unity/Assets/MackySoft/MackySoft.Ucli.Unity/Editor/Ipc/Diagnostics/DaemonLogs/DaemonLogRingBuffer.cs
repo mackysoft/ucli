@@ -47,9 +47,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             lock (syncRoot)
             {
                 var sequence = nextSequence++;
-                var cursor = IpcLogCursorCodec.Encode(streamId, sequence);
+                var cursor = IpcLogCursor.Create(streamId, sequence);
                 var daemonLogEvent = new DaemonLogEvent(
-                    Sequence: sequence,
                     Timestamp: DateTimeOffset.UtcNow,
                     Level: level,
                     Category: category,
@@ -86,8 +85,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 return new DaemonLogSnapshot(
-                    StreamId: streamId,
-                    NextCursor: IpcLogCursorCodec.Encode(streamId, nextSequence),
+                    NextCursor: IpcLogCursor.Create(streamId, nextSequence),
                     Events: snapshotEvents);
             }
         }

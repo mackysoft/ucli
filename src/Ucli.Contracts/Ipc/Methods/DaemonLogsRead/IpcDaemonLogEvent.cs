@@ -14,7 +14,7 @@ public sealed record IpcDaemonLogEvent
         string Category,
         string Message,
         string? Raw,
-        string Cursor)
+        IpcLogCursor Cursor)
     {
         if (!ContractLiteralCodec.IsDefined(Level))
         {
@@ -26,7 +26,7 @@ public sealed record IpcDaemonLogEvent
         this.Category = ContractArgumentGuard.RequireValue(Category, nameof(Category));
         this.Message = ContractArgumentGuard.RequireValue(Message, nameof(Message));
         this.Raw = Raw;
-        this.Cursor = ContractArgumentGuard.RequireValue(Cursor, nameof(Cursor));
+        this.Cursor = ContractArgumentGuard.RequireNotNull(Cursor, nameof(Cursor));
     }
 
     /// <summary> Gets the event timestamp and its timezone offset. </summary>
@@ -46,5 +46,5 @@ public sealed record IpcDaemonLogEvent
     public string? Raw { get; }
 
     /// <summary> Gets the opaque cursor assigned to this event. </summary>
-    public string Cursor { get; }
+    public IpcLogCursor Cursor { get; }
 }
