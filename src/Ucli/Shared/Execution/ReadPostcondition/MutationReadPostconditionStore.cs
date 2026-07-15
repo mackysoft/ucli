@@ -13,6 +13,8 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
 {
     private const int SchemaVersion = 1;
 
+    private static readonly TimeSpan WriteLockAcquireTimeout = TimeSpan.FromSeconds(5);
+
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -116,6 +118,11 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
         try
         {
             var mergedRequirements = MergeRequirements(readPostcondition.Requirements);
+            using var writeLock = await FileExclusiveLock.AcquireAsync(
+                    documentPath + ".lock",
+                    WriteLockAcquireTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
             IReadOnlyList<IpcExecuteReadPostconditionRequirement> existingRequirements = [];
             var existingReadResult = await ReadOrNullAsync(storageRoot, projectFingerprint, cancellationToken).ConfigureAwait(false);
             if (!existingReadResult.IsSuccess)
@@ -149,7 +156,7 @@ internal sealed class MutationReadPostconditionStore : IMutationReadPostconditio
             return MutationReadPostconditionStoreOperationResult.Failure(ExecutionError.InvalidArgument(
                 $"Mutation read postcondition path is invalid: {documentPath}. {exception.Message}"));
         }
-        catch (Exception exception) when (IsIoFailure(exception))
+        catch (Exception exception) when (IsIoFailure(exception) || exception is TimeoutException)
         {
             return MutationReadPostconditionStoreOperationResult.Failure(ExecutionError.InternalError(
                 $"Failed to write mutation read postcondition file: {documentPath}. {exception.Message}"));

@@ -89,6 +89,66 @@ public sealed class MutationReadPostconditionStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task WriteMerged_WhenStoresWriteConcurrently_PreservesEveryDistinctRequirement ()
+    {
+        const int writerCount = 16;
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "concurrent-merge");
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
+        using var startBarrier = new Barrier(writerCount);
+        var writeTasks = Enumerable
+            .Range(0, writerCount)
+            .Select(index => Task.Factory.StartNew(
+                () =>
+                {
+                    if (!startBarrier.SignalAndWait(TimeSpan.FromSeconds(10)))
+                    {
+                        throw new TimeoutException("Concurrent mutation read-postcondition writers did not reach the start barrier.");
+                    }
+
+                    var store = new MutationReadPostconditionStore();
+                    return store.WriteMergedAsync(
+                            scope.FullPath,
+                            projectFingerprint,
+                            new IpcExecuteReadPostcondition(
+                            [
+                                new IpcExecuteReadPostconditionRequirement(
+                                    Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
+                                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00").AddMinutes(index),
+                                    ScenePath: new UnityScenePath($"Assets/Scenes/Concurrent-{index:D2}.unity")),
+                            ]),
+                            CancellationToken.None)
+                        .AsTask()
+                        .GetAwaiter()
+                        .GetResult();
+                },
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default))
+            .ToArray();
+
+        var writeResults = await Task.WhenAll(writeTasks);
+        Assert.All(writeResults, static result => Assert.True(result.IsSuccess, result.Error?.Message));
+
+        var readResult = await new MutationReadPostconditionStore().ReadOrNullAsync(
+            scope.FullPath,
+            projectFingerprint,
+            CancellationToken.None);
+
+        Assert.True(readResult.IsSuccess, readResult.Error?.Message);
+        var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
+        Assert.Equal(writerCount, readPostcondition.Requirements.Count);
+        for (var index = 0; index < writerCount; index++)
+        {
+            var expectedScenePath = new UnityScenePath($"Assets/Scenes/Concurrent-{index:D2}.unity");
+            Assert.Contains(
+                readPostcondition.Requirements,
+                requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.SceneTreeLite
+                    && requirement.ScenePath == expectedScenePath);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task WriteMerged_WhenSceneTreeLiteHasNoScenePath_PersistsWildcardRequirement ()
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "scene-tree-lite-wildcard");
