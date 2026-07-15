@@ -59,7 +59,7 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         BuildRunArtifactPaths paths;
         try
         {
-            paths = ResolvePaths(unityProject, runId);
+            paths = ResolvePaths(unityProject.RepositoryRoot, runId);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -532,20 +532,18 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     }
 
     private static BuildRunArtifactPaths ResolvePaths (
-        ResolvedUnityProjectContext unityProject,
+        string repositoryRoot,
         Guid runId)
     {
         var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint,
+            repositoryRoot,
             runId);
         var runnerOutputDirectory = UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
-            unityProject.RepositoryRoot,
-            unityProject.ProjectFingerprint,
+            repositoryRoot,
             runId);
 
         return new BuildRunArtifactPaths(
-            unityProject.RepositoryRoot,
+            repositoryRoot,
             runId,
             artifactsDirectory,
             Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildMetadataFileName),
@@ -638,19 +636,13 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         BuildRunArtifactPaths paths,
         string artifactsDirectory)
     {
-        var relativePath = NormalizeRepositoryRelativePath(paths.RepositoryRoot, artifactsDirectory);
-        var segments = relativePath.Split('/');
-        if (segments.Length != 7
-            || !string.Equals(segments[0], UcliStoragePathNames.UcliDirectoryName, StringComparison.Ordinal)
-            || !string.Equals(segments[1], UcliStoragePathNames.LocalDirectoryName, StringComparison.Ordinal)
-            || !string.Equals(segments[2], UcliStoragePathNames.FingerprintsDirectoryName, StringComparison.Ordinal)
-            || !string.Equals(segments[4], UcliStoragePathNames.ArtifactsDirectoryName, StringComparison.Ordinal)
-            || !string.Equals(segments[5], UcliStoragePathNames.BuildArtifactsDirectoryName, StringComparison.Ordinal)
-            || !Guid.TryParseExact(segments[6], "D", out var pathRunId)
-            || pathRunId != paths.RunId)
+        var expectedArtifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
+            paths.RepositoryRoot,
+            paths.RunId);
+        if (!PathIdentity.IsSamePath(artifactsDirectory, expectedArtifactsDirectory))
         {
             throw new InvalidOperationException(
-                $"Artifact directory must use the build-run storage layout: {paths.ArtifactsDirectory}");
+                $"Artifact directory must be {expectedArtifactsDirectory}: {paths.ArtifactsDirectory}");
         }
     }
 
@@ -672,7 +664,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
     {
         var expectedRunnerOutputDirectory = UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
             paths.RepositoryRoot,
-            ResolveProjectFingerprintFromArtifactsDirectory(paths),
             paths.RunId);
         var normalizedActualPath = Path.GetFullPath(paths.RunnerOutputDirectory);
         if (!PathIdentity.IsSamePath(normalizedActualPath, expectedRunnerOutputDirectory))
@@ -680,25 +671,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
             throw new InvalidOperationException(
                 $"Runner output directory must be {expectedRunnerOutputDirectory}: {paths.RunnerOutputDirectory}");
         }
-    }
-
-    private static ProjectFingerprint ResolveProjectFingerprintFromArtifactsDirectory (BuildRunArtifactPaths paths)
-    {
-        var relativePath = NormalizeRepositoryRelativePath(paths.RepositoryRoot, paths.ArtifactsDirectory);
-        var segments = relativePath.Split('/');
-        if (segments.Length < 4)
-        {
-            throw new InvalidOperationException(
-                $"Artifact directory must include a project fingerprint segment: {paths.ArtifactsDirectory}");
-        }
-
-        if (!ProjectFingerprint.TryParse(segments[3], out var projectFingerprint))
-        {
-            throw new InvalidOperationException(
-                $"Artifact directory contains an invalid project fingerprint segment: {paths.ArtifactsDirectory}");
-        }
-
-        return projectFingerprint;
     }
 
     private static void EnsureSeparatedOutputRoots (BuildRunArtifactPaths paths)
@@ -1612,19 +1584,6 @@ internal sealed class FileBuildRunArtifactStore : IBuildRunArtifactStore
         }
 
         return relativePath;
-    }
-
-    private static string NormalizeRepositoryRelativePath (
-        string repositoryRoot,
-        string path)
-    {
-        var result = RepositoryPathNormalizer.TryNormalize(repositoryRoot, path);
-        if (!result.IsSuccess)
-        {
-            throw new InvalidOperationException(result.DiagnosticMessage);
-        }
-
-        return result.RepositoryRelativeSlashPath!;
     }
 
     private static void EnsureWritableArtifactPath (string path)

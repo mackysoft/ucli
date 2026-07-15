@@ -11,26 +11,26 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveIndexDirectory_ReturnsFingerprintScopedPath ()
+    public void ResolveIndexDirectory_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveIndexDirectory(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveReadIndexWriteLockPath_ReturnsFingerprintScopedPath ()
+    public void ResolveReadIndexWriteLockPath_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveReadIndexWriteLockPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.ReadIndexWriteLockFileName);
@@ -38,13 +38,13 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveReadIndexCurrentGenerationPath_ReturnsFingerprintScopedPath ()
+    public void ResolveReadIndexCurrentGenerationPath_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveReadIndexCurrentGenerationPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.ReadIndexCurrentGenerationFileName);
@@ -59,7 +59,7 @@ public sealed class UcliStoragePathResolverIndexContractTests
             UcliStoragePathResolverTestSupport.ProjectFingerprint,
             GenerationId);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.ReadIndexGenerationsDirectoryName,
@@ -87,7 +87,7 @@ public sealed class UcliStoragePathResolverIndexContractTests
             UcliStoragePathResolverTestSupport.ProjectFingerprint,
             GenerationId);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.ReadIndexRetentionDirectoryName,
@@ -108,13 +108,13 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveIndexCatalogsDirectory_ReturnsFingerprintScopedPath ()
+    public void ResolveIndexCatalogsDirectory_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveIndexCatalogsDirectory(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.CatalogsDirectoryName);
@@ -122,13 +122,13 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveTypesCatalogPath_ReturnsFingerprintScopedPath ()
+    public void ResolveTypesCatalogPath_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveTypesCatalogPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.CatalogsDirectoryName,
@@ -137,13 +137,13 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveSchemasCatalogPath_ReturnsFingerprintScopedPath ()
+    public void ResolveSchemasCatalogPath_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveSchemasCatalogPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.CatalogsDirectoryName,
@@ -152,14 +152,14 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveOpsCatalogPath_ReturnsFingerprintScopedPath ()
+    public void ResolveOpsCatalogPath_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveOpsCatalogPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint,
             GenerationId);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.ReadIndexGenerationsDirectoryName,
@@ -169,7 +169,7 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveOpsDescribePath_ReturnsFingerprintScopedPath ()
+    public void ResolveOpsDescribePath_ReturnsProjectScopedPath ()
     {
         var opKey = Sha256Digest.Compute(Encoding.UTF8.GetBytes("ucli.go.describe"));
 
@@ -178,7 +178,7 @@ public sealed class UcliStoragePathResolverIndexContractTests
             UcliStoragePathResolverTestSupport.ProjectFingerprint,
             opKey);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.ReadIndexOpsDirectoryName,
@@ -200,14 +200,14 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveAssetSearchLookupPath_ReturnsFingerprintScopedPath ()
+    public void ResolveAssetSearchLookupPath_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveAssetSearchLookupPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint,
             GenerationId);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.ReadIndexGenerationsDirectoryName,
@@ -217,14 +217,14 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveGuidPathLookupPath_ReturnsFingerprintScopedPath ()
+    public void ResolveGuidPathLookupPath_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint,
             GenerationId);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.ReadIndexGenerationsDirectoryName,
@@ -234,13 +234,13 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveSceneTreeLiteLookupDirectory_ReturnsFingerprintScopedPath ()
+    public void ResolveSceneTreeLiteLookupDirectory_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupDirectory(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.ReadIndexScenesDirectoryName);
@@ -257,7 +257,7 @@ public sealed class UcliStoragePathResolverIndexContractTests
             UcliStoragePathResolverTestSupport.ProjectFingerprint,
             scenePath);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.ReadIndexScenesDirectoryName,
@@ -267,14 +267,14 @@ public sealed class UcliStoragePathResolverIndexContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveIndexInputsManifestPath_ReturnsFingerprintScopedPath ()
+    public void ResolveIndexInputsManifestPath_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint,
             GenerationId);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.IndexDirectoryName,
             UcliStoragePathNames.ReadIndexGenerationsDirectoryName,

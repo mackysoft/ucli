@@ -64,7 +64,7 @@ public sealed class ScreenshotPayloadSchemaArtifactTests
             {{artifactPrefix}}
             "kind": "screenshot",
             "mediaType": "image/png",
-            "path": ".ucli/local/fingerprints/pf_test/artifacts/screenshot/capture/screenshot.png",
+            "path": ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png",
             "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
             "sizeBytes": 1,
             "createdAtUtc": "2026-07-11T00:00:00+00:00"

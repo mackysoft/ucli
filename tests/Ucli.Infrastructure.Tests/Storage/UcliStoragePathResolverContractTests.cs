@@ -22,7 +22,7 @@ public sealed class UcliStoragePathResolverContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveSessionOwnershipLockPaths_ReturnFingerprintScopedPaths ()
+    public void ResolveSessionOwnershipLockPaths_ReturnProjectScopedPaths ()
     {
         var sessionLockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
@@ -31,10 +31,10 @@ public sealed class UcliStoragePathResolverContractTests
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             sessionLockPath,
             UcliStoragePathNames.DaemonSessionLockFileName);
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             supervisorLockPath,
             UcliStoragePathNames.GuiSupervisorManifestLockFileName);
     }
@@ -53,50 +53,94 @@ public sealed class UcliStoragePathResolverContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolvePlanTokenKeyPath_ReturnsFingerprintScopedPath ()
+    public void ResolvePlanTokenKeyPath_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolvePlanTokenKeyPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.PlanTokenKeyFileName);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveUnityUcliPluginMarkerCachePath_ReturnsFingerprintScopedPath ()
+    public void ResolveUnityUcliPluginMarkerCachePath_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveUnityUcliPluginMarkerCachePath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.UnityUcliPluginMarkerCacheFileName);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveMutationReadPostconditionPath_ReturnsFingerprintScopedPath ()
+    public void ResolveMutationReadPostconditionPath_ReturnsProjectScopedPath ()
     {
         var resolvedPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(
             UcliStoragePathResolverTestSupport.StorageRoot,
             UcliStoragePathResolverTestSupport.ProjectFingerprint);
 
-        UcliStoragePathResolverTestSupport.AssertFingerprintPath(
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
             resolvedPath,
             UcliStoragePathNames.MutationReadPostconditionFileName);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ResolveFingerprintDirectory_WithNullProjectFingerprint_ThrowsArgumentNullException ()
+    public void ResolveProjectDirectory_WithNullProjectFingerprint_ThrowsArgumentNullException ()
     {
         Assert.Throws<ArgumentNullException>(() =>
-            UcliStoragePathResolver.ResolveFingerprintDirectory(
+            UcliStoragePathResolver.ResolveProjectDirectory(
                 UcliStoragePathResolverTestSupport.StorageRoot,
                 null!));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveUcliDirectoryPath_WithMaximumSupportedWindowsStorageRootLength_Succeeds ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var storageRoot = CreateRootedPathWithLength(
+            UcliStoragePathResolver.MaximumSupportedWindowsStorageRootLength);
+
+        var resolvedPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(storageRoot);
+
+        Assert.Equal(
+            Path.Combine(storageRoot, UcliStoragePathNames.UcliDirectoryName),
+            resolvedPath);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveUcliDirectoryPath_AboveMaximumSupportedWindowsStorageRootLength_ThrowsPathTooLongException ()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        var storageRoot = CreateRootedPathWithLength(
+            UcliStoragePathResolver.MaximumSupportedWindowsStorageRootLength + 1);
+
+        var exception = Assert.Throws<PathTooLongException>(() =>
+            UcliStoragePathResolver.ResolveUcliDirectoryPath(storageRoot));
+
+        Assert.Contains("Move the repository to a shorter path", exception.Message, StringComparison.Ordinal);
+    }
+
+    private static string CreateRootedPathWithLength (int length)
+    {
+        var root = Path.GetPathRoot(Environment.CurrentDirectory)
+            ?? throw new InvalidOperationException("Current directory root could not be resolved.");
+        return root + new string('r', length - root.Length);
     }
 }

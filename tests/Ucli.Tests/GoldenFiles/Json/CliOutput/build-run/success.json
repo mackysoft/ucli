@@ -50,7 +50,7 @@
       },
       "output": {
         "manifestRef": "buildOutputManifest",
-        "manifestDigest": "1047a19f8c4eb95c4258d04da06d8b7335d006b88bcdc7c34dc6dbb78f98cdba",
+        "manifestDigest": "5676e19e1fc5c210fba288de8bed4841cbd2efbc2bc352653fd6306505e83264",
         "entryCount": 1,
         "fileCount": 2,
         "totalBytes": 33
@@ -331,7 +331,7 @@
             "evidenceRef": "build",
             "data": {
               "manifestRef": "buildOutputManifest",
-              "manifestDigest": "1047a19f8c4eb95c4258d04da06d8b7335d006b88bcdc7c34dc6dbb78f98cdba",
+              "manifestDigest": "5676e19e1fc5c210fba288de8bed4841cbd2efbc2bc352653fd6306505e83264",
               "entryCount": 1,
               "fileCount": 2,
               "totalBytes": 33
@@ -348,7 +348,7 @@
         "verifierRef": "build",
         "statement": "Build output manifest digest was verified against the written artifact.",
         "subject": {
-          "manifestDigest": "1047a19f8c4eb95c4258d04da06d8b7335d006b88bcdc7c34dc6dbb78f98cdba"
+          "manifestDigest": "5676e19e1fc5c210fba288de8bed4841cbd2efbc2bc352653fd6306505e83264"
         },
         "evidence": [
           {

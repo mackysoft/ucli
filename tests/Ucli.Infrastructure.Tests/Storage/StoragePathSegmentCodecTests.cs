@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -15,6 +16,17 @@ public sealed class StoragePathSegmentCodecTests
 
     private static readonly Guid GuidValue =
         Guid.Parse("00112233-4455-6677-8899-aabbccddeeff");
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void EncodeProjectFingerprint_ReturnsKnownLowercaseBase32HexVector ()
+    {
+        var projectFingerprint = new ProjectFingerprint(Sha256Hex);
+
+        var segment = StoragePathSegmentCodec.EncodeProjectFingerprint(projectFingerprint);
+
+        Assert.Equal(Sha256Segment, segment);
+    }
 
     [Fact]
     [Trait("Size", "Small")]

@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 
 namespace MackySoft.Ucli.Infrastructure.Storage;
@@ -8,6 +9,17 @@ internal static class StoragePathSegmentCodec
 {
     private const int GuidByteCount = 16;
     private const string Base32HexAlphabet = "0123456789abcdefghijklmnopqrstuv";
+
+    /// <summary> Encodes a project fingerprint as an unpadded lowercase Base32hex path segment. </summary>
+    internal static string EncodeProjectFingerprint (ProjectFingerprint projectFingerprint)
+    {
+        if (projectFingerprint == null)
+        {
+            throw new ArgumentNullException(nameof(projectFingerprint));
+        }
+
+        return EncodeCanonicalHex(projectFingerprint.ToString(), Sha256LowerHex.ByteCount);
+    }
 
     /// <summary> Encodes a SHA-256 digest as an unpadded lowercase Base32hex path segment. </summary>
     internal static string EncodeSha256Digest (Sha256Digest digest)

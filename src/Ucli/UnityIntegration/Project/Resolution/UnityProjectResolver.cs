@@ -41,7 +41,18 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
                 ProjectContextErrorCodes.UnityProjectMarkerMissing));
         }
 
-        var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectRoot);
+        string repositoryRoot;
+        try
+        {
+            repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectRoot);
+        }
+        catch (PathTooLongException exception)
+        {
+            return UnityProjectResolutionResult.Failure(ExecutionError.InvalidArgument(
+                $"UnityProject storage root is too long. {exception.Message}",
+                ProjectContextErrorCodes.ProjectStorageRootTooLong));
+        }
+
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(repositoryRoot, unityProjectRoot);
         var unityVersion = ReadUnityVersionOrUnknown(projectVersionPath);
         return UnityProjectResolutionResult.Success(ResolvedUnityProjectContext.Create(

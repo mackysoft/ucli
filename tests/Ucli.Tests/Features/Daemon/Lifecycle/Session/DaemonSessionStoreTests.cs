@@ -144,11 +144,11 @@ public sealed class DaemonSessionStoreTests
         Assert.True(writeResult.IsSuccess);
 
         var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(scope.FullPath);
-        var fingerprintDirectoryPath = UcliStoragePathResolver.ResolveFingerprintDirectory(scope.FullPath, session.ProjectFingerprint);
+        var projectDirectoryPath = UcliStoragePathResolver.ResolveProjectDirectory(scope.FullPath, session.ProjectFingerprint);
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
 
         PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(localDirectoryPath);
-        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(fingerprintDirectoryPath);
+        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(projectDirectoryPath);
         PosixAccessBoundaryAssert.FileIsOwnerOnly(sessionPath);
     }
 
@@ -171,11 +171,11 @@ public sealed class DaemonSessionStoreTests
         Assert.True(writeResult.IsSuccess);
 
         var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(scope.FullPath);
-        var fingerprintDirectoryPath = UcliStoragePathResolver.ResolveFingerprintDirectory(scope.FullPath, session.ProjectFingerprint);
+        var projectDirectoryPath = UcliStoragePathResolver.ResolveProjectDirectory(scope.FullPath, session.ProjectFingerprint);
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
 
         WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(localDirectoryPath);
-        WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(fingerprintDirectoryPath);
+        WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(projectDirectoryPath);
         WindowsAccessBoundaryAssert.FileIsCurrentUserOnly(sessionPath);
     }
 
@@ -188,7 +188,7 @@ public sealed class DaemonSessionStoreTests
             scope.FullPath,
             UcliStoragePathNames.UcliDirectoryName,
             UcliStoragePathNames.LocalDirectoryName,
-            UcliStoragePathNames.FingerprintsDirectoryName);
+            UcliStoragePathNames.ProjectsDirectoryName);
         Directory.CreateDirectory(Path.GetDirectoryName(blockedPath)!);
         await File.WriteAllTextAsync(blockedPath, "blocked", CancellationToken.None);
 

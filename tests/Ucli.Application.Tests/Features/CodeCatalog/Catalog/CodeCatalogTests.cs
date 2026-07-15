@@ -106,6 +106,57 @@ public sealed class CodeCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Constructor_WithApplicationContributors_RegistersProjectContextCodesForTheirResolutionBoundaries ()
+    {
+        UcliCommand[] projectResolvingCommands =
+        [
+            UcliCommandIds.Status,
+            UcliCommandIds.Ready,
+            UcliCommandIds.Compile,
+            UcliCommandIds.BuildRun,
+            UcliCommandIds.Verify,
+            UcliCommandIds.DaemonStart,
+            UcliCommandIds.DaemonStop,
+            UcliCommandIds.DaemonCleanup,
+            UcliCommandIds.DaemonStatus,
+            UcliCommandIds.DaemonList,
+            UcliCommandIds.LogsDaemonRead,
+            UcliCommandIds.LogsUnityRead,
+            UcliCommandIds.LogsUnityClear,
+            UcliCommandIds.Screenshot,
+            UcliCommandIds.Play,
+            UcliCommandIds.Validate,
+            UcliCommandIds.Plan,
+            UcliCommandIds.Call,
+            UcliCommandIds.Eval,
+            UcliCommandIds.Resolve,
+            UcliCommandIds.Query,
+            UcliCommandIds.Refresh,
+            UcliCommandIds.Ops,
+            UcliCommandIds.TestRun,
+        ];
+        var catalog = CodeCatalogTestSupport.CreateCoreCatalog();
+
+        UcliCode[] projectPathCodes =
+        [
+            ProjectContextErrorCodes.ProjectPathInvalidFormat,
+            ProjectContextErrorCodes.ProjectPathNotFound,
+            ProjectContextErrorCodes.UnityProjectMarkerMissing,
+        ];
+        foreach (var code in projectPathCodes)
+        {
+            Assert.True(catalog.TryFind(code, out var descriptor));
+            Assert.Equal(projectResolvingCommands, descriptor.AppliesTo);
+        }
+
+        Assert.True(catalog.TryFind(ProjectContextErrorCodes.ProjectStorageRootTooLong, out var storageRootDescriptor));
+        Assert.Equal(
+            [UcliCommandIds.Init, .. projectResolvingCommands],
+            storageRootDescriptor.AppliesTo);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Constructor_WithProductionContributors_DoesNotExposePolicyReasonCodes ()
     {
         var catalog = CodeCatalogTestSupport.CreateProductionCatalog();

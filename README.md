@@ -385,7 +385,8 @@ ucli build run \
 
 The build profile defines the default `buildTarget`, scenes, options, and output policy. Pass `--buildTarget` to override the profile `buildTarget` for one run. `ucli build run` writes the final JSON result to standard output, and may write progress entries to standard error before that final result.
 
-Build artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/build/<runId>/`.
+Build artifacts are written under `.ucli/local/build-runs/<runStorageKey>/artifacts/`, while Unity writes its working output under the sibling `work/output/` directory.
+The run storage key is a lowercase Base32hex path segment derived from the full run ID; command output and JSON retain the UUID value. Project identity remains part of the command and IPC contracts rather than the build-run path.
 
 | Artifact | Use it for |
 | --- | --- |
@@ -409,7 +410,8 @@ Use `--unityEditorPath <path>` when the job must use a specific Unity executable
 For repeated test settings, generate a profile with `ucli test profile init --outputPath test.profile.json` and pass it to `ucli test run` with `--profilePath test.profile.json`.
 
 The command result includes `payload.artifactsDir` and `payload.summaryJsonPath`.
-Test artifacts are written under `.ucli/local/fingerprints/<projectFingerprint>/artifacts/test/<runId>/`.
+Test artifacts are written under `.ucli/local/projects/<projectStorageKey>/artifacts/test/<runStorageKey>/`.
+The storage keys are lowercase Base32hex path segments derived from the full project fingerprint and run ID; command output and JSON retain the original values.
 
 | Artifact | Use it for |
 | --- | --- |
@@ -764,6 +766,8 @@ Common options:
 Use `--mode daemon` when CI must fail specifically because no daemon is running. With `--mode auto`, a missing daemon may start a one-shot Unity process; if startup fails, inspect `payload.startup`, `payload.diagnosis`, and `retryDisposition`.
 
 > **NOTE:** Project path resolution uses `--projectPath`, then `UCLI_PROJECT_PATH`, then the command default. The default is usually the current working directory.
+
+On Windows, the normalized repository root used for `.ucli/local` must be at most 112 characters. uCLI rejects a longer root before writing local state so every fixed uCLI-managed path remains within the path limit used by supported Unity Editor versions.
 
 ### Lifecycle Lock Location
 

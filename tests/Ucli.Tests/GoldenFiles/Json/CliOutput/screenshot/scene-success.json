@@ -26,7 +26,7 @@
     "artifact": {
       "kind": "screenshot",
       "mediaType": "image/png",
-      "path": ".ucli/local/fingerprints/<projectFingerprint>/artifacts/screenshot/89abcdef0123456789abcdef01234567/screenshot.png",
+      "path": ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png",
       "digest": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
       "sizeBytes": 35219,
       "createdAtUtc": "2026-07-11T01:02:04+00:00"

@@ -4,6 +4,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
 
@@ -182,7 +183,9 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         Assert.Equal(5432, diagnosis.ProcessId);
         Assert.Equal(processStartedAtUtc, diagnosis.ProcessStartedAtUtc);
         Assert.Equal(
-            Path.Combine(context.RepositoryRoot, ".ucli", "local", "fingerprints", context.ProjectFingerprint.ToString(), "unity.log"),
+            UcliStoragePathResolver.ResolveUnityLogPath(
+                context.RepositoryRoot,
+                context.ProjectFingerprint),
             diagnosis.UnityLogPath);
         Assert.Equal(DaemonDiagnosisStartupPhase.EndpointRegistration, diagnosis.StartupPhase);
         Assert.Equal(DaemonDiagnosisActionRequired.InspectUnityLog, diagnosis.ActionRequired);

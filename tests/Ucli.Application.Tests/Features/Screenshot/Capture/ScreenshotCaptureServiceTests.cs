@@ -607,7 +607,7 @@ public sealed class ScreenshotCaptureServiceTests
             {
                 store.CommitRequests.Add(staging);
                 return ValueTask.FromResult(store.CommitResult ?? ScreenshotArtifactCommitResult.Success(new ScreenshotArtifact(
-                    path: ".ucli/local/fingerprints/project-fingerprint/artifacts/screenshot/22222222222222222222222222222222/screenshot.png",
+                    path: ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png",
                     digest: Sha256Digest.Parse(new string('b', 64)),
                     sizeBytes: 1024,
                     createdAtUtc: CreatedAtUtc)));

@@ -83,12 +83,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectIdentity.ProjectPath);
-            var fingerprintDirectory = UcliStoragePathResolver.ResolveFingerprintDirectory(
+            var projectDirectory = UcliStoragePathResolver.ResolveProjectDirectory(
                 storageRoot,
                 projectIdentity.ProjectFingerprint);
             using var process = Process.GetCurrentProcess();
             return new FileRecoverableIpcOperationStore(
-                Path.Combine(fingerprintDirectory, UcliStoragePathNames.IpcOperationsDirectoryName),
+                Path.Combine(projectDirectory, UcliStoragePathNames.IpcOperationsDirectoryName),
                 projectIdentity.ProjectFingerprint,
                 process.Id,
                 hostEditorInstanceId);
@@ -485,12 +485,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private string ResolveRecordPath (Guid requestId)
         {
-            if (requestId == Guid.Empty)
-            {
-                throw new ArgumentException("Request id must not be empty.", nameof(requestId));
-            }
-
-            return Path.Combine(operationsDirectoryPath, requestId.ToString("N"), RecordFileName);
+            return Path.Combine(
+                operationsDirectoryPath,
+                StoragePathSegmentCodec.EncodeGuid(requestId, nameof(requestId)),
+                RecordFileName);
         }
 
         private bool IsValidRecord (

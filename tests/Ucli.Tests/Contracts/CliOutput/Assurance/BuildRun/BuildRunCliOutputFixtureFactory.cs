@@ -12,7 +12,7 @@ internal static class BuildRunCliOutputFixtureFactory
 {
     private static readonly AssuranceVerifierId BuildVerifierId = new("build");
 
-    private static readonly Sha256Digest SuccessManifestDigest = Sha256Digest.Parse("1047a19f8c4eb95c4258d04da06d8b7335d006b88bcdc7c34dc6dbb78f98cdba");
+    private static readonly Sha256Digest SuccessManifestDigest = Sha256Digest.Parse("5676e19e1fc5c210fba288de8bed4841cbd2efbc2bc352653fd6306505e83264");
     private static readonly Sha256Digest FailedManifestDigest = Sha256Digest.Parse("04d7d7e1eb32bc4521986964ba5e86b772fe46a3b50a73e4dd3783d4c4577d21");
 
     private static readonly Sha256Digest BuildDigest = Sha256Digest.Parse(new string('a', 64));

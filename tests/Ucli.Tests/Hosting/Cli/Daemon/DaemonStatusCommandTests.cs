@@ -101,7 +101,7 @@ public sealed class DaemonStatusCommandTests
             ProcessId: 1234,
             EditorInstancePath: null,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
-            UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
+            UnityLogPath: "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/unity.log",
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
             ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
             PrimaryDiagnostic: null);
@@ -111,8 +111,8 @@ public sealed class DaemonStatusCommandTests
             StartupBlockingReason: DaemonStartupBlockingReason.EndpointNotRegistered,
             RetryDisposition: DaemonStartupRetryDisposition.RetryImmediately,
             ProcessAction: DaemonStartupProcessAction.Kept,
-            ArtifactPath: "/repo/.ucli/local/fingerprints/fp/launch-attempts/0123456789abcdef0123456789abcdef/startup-diagnosis.json",
-            UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
+            ArtifactPath: "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/launch-attempts/04hkaps9lf6uu0938ljojaudts/startup-diagnosis.json",
+            UnityLogPath: "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/unity.log",
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 6, TimeSpan.Zero),
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
@@ -154,14 +154,14 @@ public sealed class DaemonStatusCommandTests
                     .HasString("startupBlockingReason", "endpointNotRegistered")
                     .HasString("retryDisposition", "retryImmediately")
                     .HasString("processAction", "kept")
-                    .HasString("artifactPath", "/repo/.ucli/local/fingerprints/fp/launch-attempts/0123456789abcdef0123456789abcdef/startup-diagnosis.json")
-                    .HasString("unityLogPath", "/repo/.ucli/local/fingerprints/fp/unity.log")
+                    .HasString("artifactPath", "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/launch-attempts/04hkaps9lf6uu0938ljojaudts/startup-diagnosis.json")
+                    .HasString("unityLogPath", "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/unity.log")
                     .HasString("updatedAtUtc", "2026-03-12T04:05:06+00:00")
                     .HasInt32("processId", 1234)
                     .HasString("processStartedAtUtc", "2026-03-12T04:05:00+00:00")
                     .HasProperty("diagnosis", diagnosisJson => diagnosisJson
                         .HasString("reason", ContractLiteralCodec.ToValue(DaemonDiagnosisReason.GuiEndpointNotRegistered))
-                        .HasString("unityLogPath", "/repo/.ucli/local/fingerprints/fp/unity.log")
+                        .HasString("unityLogPath", "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/unity.log")
                         .HasString("startupPhase", ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration))
                         .HasString("actionRequired", ContractLiteralCodec.ToValue(DaemonDiagnosisActionRequired.InspectUnityLog)))));
 

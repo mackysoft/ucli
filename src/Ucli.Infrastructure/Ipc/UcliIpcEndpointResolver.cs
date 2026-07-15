@@ -38,7 +38,7 @@ internal static class UcliIpcEndpointResolver
         }
 
         var preferredSocketPath = Path.Combine(
-            UcliStoragePathResolver.ResolveFingerprintDirectory(normalizedStorageRoot, projectFingerprint),
+            UcliStoragePathResolver.ResolveProjectDirectory(normalizedStorageRoot, projectFingerprint),
             UcliIpcEndpointNames.UnixSocketFileName);
 
         if (Encoding.UTF8.GetByteCount(preferredSocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
@@ -82,7 +82,7 @@ internal static class UcliIpcEndpointResolver
         }
 
         var preferredSocketPath = Path.Combine(
-            UcliStoragePathResolver.ResolveFingerprintDirectory(normalizedStorageRoot, projectFingerprint),
+            UcliStoragePathResolver.ResolveProjectDirectory(normalizedStorageRoot, projectFingerprint),
             "gui-supervisor.sock");
 
         if (Encoding.UTF8.GetByteCount(preferredSocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)

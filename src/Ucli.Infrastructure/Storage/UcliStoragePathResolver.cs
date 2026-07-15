@@ -1,4 +1,6 @@
-using System.Diagnostics.CodeAnalysis;
+#if !NET8_0_OR_GREATER
+using System.Runtime.InteropServices;
+#endif
 using System.Text;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
@@ -10,6 +12,9 @@ namespace MackySoft.Ucli.Infrastructure.Storage;
 /// <summary> Resolves repository-root and shared <c>.ucli</c> storage paths. </summary>
 public static class UcliStoragePathResolver
 {
+    /// <summary> Gets the longest Windows storage-root path supported by all fixed uCLI-managed paths. </summary>
+    internal const int MaximumSupportedWindowsStorageRootLength = 112;
+
     /// <summary> Tries to resolve a repository root path by scanning parent directories for a <c>.git</c> marker. </summary>
     /// <param name="startPath"> The starting directory path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <returns> The repository root path when marker is found; otherwise <see langword="null" />. </returns>
@@ -66,12 +71,14 @@ public static class UcliStoragePathResolver
         var repositoryRoot = TryResolveRepositoryRoot(fullStartPath);
         if (repositoryRoot is not null)
         {
+            EnsureSupportedStorageRootLength(repositoryRoot);
             return repositoryRoot;
         }
 
         // NOTE:
         // Local and CI environments may not have a Git repository.
         // Use the starting path as a deterministic fallback storage root.
+        EnsureSupportedStorageRootLength(fullStartPath);
         return fullStartPath;
     }
 
@@ -85,7 +92,9 @@ public static class UcliStoragePathResolver
             throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
         }
 
-        return NormalizePathArgument(storageRoot, nameof(storageRoot));
+        var normalizedStorageRoot = NormalizePathArgument(storageRoot, nameof(storageRoot));
+        EnsureSupportedStorageRootLength(normalizedStorageRoot);
+        return normalizedStorageRoot;
     }
 
     /// <summary> Resolves the absolute path to the <c>.ucli</c> directory. </summary>
@@ -222,29 +231,24 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.SupervisorLaunchAgentPlistFileName);
     }
 
-    /// <summary> Resolves the absolute path to one fingerprint directory under <c>.ucli/local/fingerprints</c>. </summary>
+    /// <summary> Resolves one project-scoped directory under <c>.ucli/local/projects/&lt;projectStorageKey&gt;</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
-    /// <returns> The absolute fingerprint directory path. </returns>
+    /// <returns> The absolute project-scoped storage directory path. </returns>
     /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
-    public static string ResolveFingerprintDirectory (
+    public static string ResolveProjectDirectory (
         string storageRoot,
         ProjectFingerprint projectFingerprint)
     {
-        if (projectFingerprint is null)
-        {
-            throw new ArgumentNullException(nameof(projectFingerprint));
-        }
-
         return ResolveUnderStorageRoot(
             storageRoot,
             UcliStoragePathNames.UcliDirectoryName,
             UcliStoragePathNames.LocalDirectoryName,
-            UcliStoragePathNames.FingerprintsDirectoryName,
-            projectFingerprint.ToString());
+            UcliStoragePathNames.ProjectsDirectoryName,
+            StoragePathSegmentCodec.EncodeProjectFingerprint(projectFingerprint));
     }
 
-    /// <summary> Resolves the absolute path to one read-index directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/index</c>. </summary>
+    /// <summary> Resolves one read-index directory under <c>.ucli/local/projects/&lt;projectStorageKey&gt;/index</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <returns> The absolute read-index directory path. </returns>
@@ -254,7 +258,7 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.IndexDirectoryName);
     }
 
@@ -372,7 +376,7 @@ public static class UcliStoragePathResolver
             StoragePathSegmentCodec.EncodeGuid(generationId, nameof(generationId)));
     }
 
-    /// <summary> Resolves the absolute path to one read-index catalogs directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/index/catalogs</c>. </summary>
+    /// <summary> Resolves one read-index catalogs directory under <c>.ucli/local/projects/&lt;projectStorageKey&gt;/index/catalogs</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <returns> The absolute read-index catalogs directory path. </returns>
@@ -553,38 +557,38 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.IndexInputsManifestFileName);
     }
 
-    /// <summary> Resolves the absolute path to one fingerprint artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts</c>. </summary>
+    /// <summary> Resolves one artifacts directory under <c>.ucli/local/projects/&lt;projectStorageKey&gt;/artifacts</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
-    /// <returns> The absolute fingerprint artifacts directory path. </returns>
+    /// <returns> The absolute project-scoped artifacts directory path. </returns>
     /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
     public static string ResolveArtifactsDirectory (
         string storageRoot,
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.ArtifactsDirectoryName);
     }
 
-    /// <summary> Resolves the absolute path to one fingerprint work directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/work</c>. </summary>
+    /// <summary> Resolves one work directory under <c>.ucli/local/projects/&lt;projectStorageKey&gt;/work</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
-    /// <returns> The absolute fingerprint work directory path. </returns>
+    /// <returns> The absolute project-scoped work directory path. </returns>
     /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
     public static string ResolveWorkDirectory (
         string storageRoot,
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.WorkDirectoryName);
     }
 
-    /// <summary> Resolves the absolute path to one fingerprint test-artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/test</c>. </summary>
+    /// <summary> Resolves one test-artifacts directory under <c>.ucli/local/projects/&lt;projectStorageKey&gt;/artifacts/test</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
-    /// <returns> The absolute fingerprint test-artifacts directory path. </returns>
+    /// <returns> The absolute project-scoped test-artifacts directory path. </returns>
     /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
     public static string ResolveTestArtifactsDirectory (
         string storageRoot,
@@ -595,10 +599,10 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.TestArtifactsDirectoryName);
     }
 
-    /// <summary> Resolves the absolute path to one fingerprint compile-artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/compile</c>. </summary>
+    /// <summary> Resolves one compile-artifacts directory under <c>.ucli/local/projects/&lt;projectStorageKey&gt;/artifacts/compile</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
-    /// <returns> The absolute fingerprint compile-artifacts directory path. </returns>
+    /// <returns> The absolute project-scoped compile-artifacts directory path. </returns>
     /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
     public static string ResolveCompileArtifactsDirectory (
         string storageRoot,
@@ -609,21 +613,7 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.CompileArtifactsDirectoryName);
     }
 
-    /// <summary> Resolves the absolute path to one fingerprint build-artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/build</c>. </summary>
-    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
-    /// <returns> The absolute fingerprint build-artifacts directory path. </returns>
-    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
-    public static string ResolveBuildArtifactsDirectory (
-        string storageRoot,
-        ProjectFingerprint projectFingerprint)
-    {
-        return Path.Combine(
-            ResolveArtifactsDirectory(storageRoot, projectFingerprint),
-            UcliStoragePathNames.BuildArtifactsDirectoryName);
-    }
-
-    /// <summary> Resolves the fingerprint-scoped screenshot artifact directory. </summary>
+    /// <summary> Resolves the project-scoped screenshot artifact directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <returns> The absolute screenshot artifact directory path. </returns>
@@ -649,7 +639,7 @@ public static class UcliStoragePathResolver
     {
         return Path.Combine(
             ResolveScreenshotArtifactsDirectory(storageRoot, projectFingerprint),
-            GetScreenshotCaptureIdPathSegment(captureId));
+            StoragePathSegmentCodec.EncodeGuid(captureId, nameof(captureId)));
     }
 
     /// <summary> Resolves one final screenshot PNG artifact path. </summary>
@@ -668,7 +658,7 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.ScreenshotPngFileName);
     }
 
-    /// <summary> Resolves the fingerprint-scoped screenshot work directory. </summary>
+    /// <summary> Resolves the project-scoped screenshot work directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <returns> The absolute screenshot work directory path. </returns>
@@ -694,7 +684,7 @@ public static class UcliStoragePathResolver
     {
         return Path.Combine(
             ResolveScreenshotWorkDirectory(storageRoot, projectFingerprint),
-            GetScreenshotCaptureIdPathSegment(captureId));
+            StoragePathSegmentCodec.EncodeGuid(captureId, nameof(captureId)));
     }
 
     /// <summary> Resolves one normalized raw screenshot staging file path. </summary>
@@ -713,21 +703,7 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.ScreenshotRawStagingFileName);
     }
 
-    /// <summary> Resolves the absolute path to one fingerprint build-work directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/work/build</c>. </summary>
-    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
-    /// <returns> The absolute fingerprint build-work directory path. </returns>
-    /// <exception cref="ArgumentException"> Thrown when any argument is <see langword="null" />, empty, or whitespace. </exception>
-    public static string ResolveBuildWorkDirectory (
-        string storageRoot,
-        ProjectFingerprint projectFingerprint)
-    {
-        return Path.Combine(
-            ResolveWorkDirectory(storageRoot, projectFingerprint),
-            UcliStoragePathNames.BuildWorkDirectoryName);
-    }
-
-    /// <summary> Resolves the absolute path to one mutation read-postcondition file under one fingerprint directory. </summary>
+    /// <summary> Resolves the mutation read-postcondition file under one project-scoped directory. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <returns> The absolute mutation read-postcondition file path. </returns>
@@ -737,11 +713,11 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.MutationReadPostconditionFileName);
     }
 
-    /// <summary> Resolves the absolute path to one test-run artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/test/&lt;runId&gt;</c>. </summary>
+    /// <summary> Resolves one test-run directory under <c>.ucli/local/projects/&lt;projectStorageKey&gt;/artifacts/test/&lt;runStorageKey&gt;</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <param name="runId"> The non-empty run identifier. </param>
@@ -754,10 +730,10 @@ public static class UcliStoragePathResolver
     {
         return Path.Combine(
             ResolveTestArtifactsDirectory(storageRoot, projectFingerprint),
-            GetRunIdPathSegment(runId));
+            StoragePathSegmentCodec.EncodeGuid(runId, nameof(runId)));
     }
 
-    /// <summary> Resolves the absolute path to one compile-run artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/compile/&lt;runId&gt;</c>. </summary>
+    /// <summary> Resolves one compile-run directory under <c>.ucli/local/projects/&lt;projectStorageKey&gt;/artifacts/compile/&lt;runStorageKey&gt;</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <param name="runId"> The non-empty run identifier. </param>
@@ -770,39 +746,52 @@ public static class UcliStoragePathResolver
     {
         return Path.Combine(
             ResolveCompileArtifactsDirectory(storageRoot, projectFingerprint),
-            GetRunIdPathSegment(runId));
+            StoragePathSegmentCodec.EncodeGuid(runId, nameof(runId)));
     }
 
-    /// <summary> Resolves the absolute path to one build-run artifacts directory under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/artifacts/build/&lt;runId&gt;</c>. </summary>
+    /// <summary> Resolves one build-run directory under <c>.ucli/local/build-runs/&lt;runStorageKey&gt;</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <param name="runId"> The non-empty run identifier. </param>
+    /// <returns> The absolute build-run storage directory path. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> is <see langword="null" />, empty, or whitespace, or when <paramref name="runId" /> is empty. </exception>
+    public static string ResolveBuildRunDirectory (
+        string storageRoot,
+        Guid runId)
+    {
+        return ResolveUnderStorageRoot(
+            storageRoot,
+            UcliStoragePathNames.UcliDirectoryName,
+            UcliStoragePathNames.LocalDirectoryName,
+            UcliStoragePathNames.BuildRunsDirectoryName,
+            StoragePathSegmentCodec.EncodeGuid(runId, nameof(runId)));
+    }
+
+    /// <summary> Resolves one build-run artifacts directory under <c>.ucli/local/build-runs/&lt;runStorageKey&gt;/artifacts</c>. </summary>
+    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
     /// <param name="runId"> The non-empty run identifier. </param>
     /// <returns> The absolute build-run artifacts directory path. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> is <see langword="null" />, empty, or whitespace, or when <paramref name="runId" /> is empty. </exception>
     public static string ResolveBuildRunArtifactsDirectory (
         string storageRoot,
-        ProjectFingerprint projectFingerprint,
         Guid runId)
     {
         return Path.Combine(
-            ResolveBuildArtifactsDirectory(storageRoot, projectFingerprint),
-            GetRunIdPathSegment(runId));
+            ResolveBuildRunDirectory(storageRoot, runId),
+            UcliStoragePathNames.ArtifactsDirectoryName);
     }
 
-    /// <summary> Resolves the absolute runner output directory for one build run under <c>.ucli/local/fingerprints/&lt;projectFingerprint&gt;/work/build/&lt;runId&gt;/output</c>. </summary>
+    /// <summary> Resolves one runner output directory under <c>.ucli/local/build-runs/&lt;runStorageKey&gt;/work/output</c>. </summary>
     /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <param name="runId"> The non-empty run identifier. </param>
     /// <returns> The absolute runner output directory path. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> is <see langword="null" />, empty, or whitespace, or when <paramref name="runId" /> is empty. </exception>
     public static string ResolveBuildRunOutputDirectory (
         string storageRoot,
-        ProjectFingerprint projectFingerprint,
         Guid runId)
     {
         return Path.Combine(
-            ResolveBuildWorkDirectory(storageRoot, projectFingerprint),
-            GetRunIdPathSegment(runId),
+            ResolveBuildRunDirectory(storageRoot, runId),
+            UcliStoragePathNames.WorkDirectoryName,
             UcliStoragePathNames.BuildOutputDirectoryName);
     }
 
@@ -815,7 +804,7 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.SessionFileName);
     }
 
@@ -825,7 +814,7 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.OneshotBootstrapDirectoryName);
     }
 
@@ -835,14 +824,10 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint,
         Guid bootstrapId)
     {
-        if (bootstrapId == Guid.Empty)
-        {
-            throw new ArgumentException("Bootstrap identifier must not be empty.", nameof(bootstrapId));
-        }
-
         return Path.Combine(
             ResolveOneshotBootstrapDirectory(storageRoot, projectFingerprint),
-            bootstrapId.ToString("N") + UcliStoragePathNames.OneshotBootstrapFileExtension);
+            StoragePathSegmentCodec.EncodeGuid(bootstrapId, nameof(bootstrapId))
+                + UcliStoragePathNames.OneshotBootstrapFileExtension);
     }
 
     /// <summary> Resolves the absolute daemon session-generation lock path. </summary>
@@ -854,7 +839,7 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.DaemonSessionLockFileName);
     }
 
@@ -867,7 +852,7 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.DaemonDiagnosisFileName);
     }
 
@@ -880,7 +865,7 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.DaemonLifecycleFileName);
     }
 
@@ -893,7 +878,7 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.GuiSupervisorManifestFileName);
     }
 
@@ -906,11 +891,11 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.GuiSupervisorManifestLockFileName);
     }
 
-    /// <summary> Resolves the absolute path to the daemon launch-attempts directory under one fingerprint directory. </summary>
+    /// <summary> Resolves the daemon launch-attempts directory under one project-scoped directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <returns> The absolute daemon launch-attempts directory path. </returns>
@@ -919,7 +904,7 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.LaunchAttemptsDirectoryName);
     }
 
@@ -935,7 +920,7 @@ public static class UcliStoragePathResolver
     {
         return Path.Combine(
             ResolveLaunchAttemptsDirectory(storageRoot, projectFingerprint),
-            GetLaunchAttemptIdPathSegment(launchAttemptId));
+            StoragePathSegmentCodec.EncodeGuid(launchAttemptId, nameof(launchAttemptId)));
     }
 
     /// <summary> Resolves the absolute path to one daemon launch-attempt startup diagnosis file. </summary>
@@ -953,7 +938,7 @@ public static class UcliStoragePathResolver
             UcliStoragePathNames.StartupDiagnosisFileName);
     }
 
-    /// <summary> Resolves the absolute path to the uCLI Unity plugin marker cache file under one fingerprint directory. </summary>
+    /// <summary> Resolves the uCLI Unity plugin marker cache file under one project-scoped directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <returns> The absolute plugin marker cache file path. </returns>
@@ -962,7 +947,7 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.UnityUcliPluginMarkerCacheFileName);
     }
 
@@ -975,11 +960,11 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.UnityLogFileName);
     }
 
-    /// <summary> Resolves the absolute path to plan-token key file under one fingerprint directory. </summary>
+    /// <summary> Resolves the plan-token key file under one project-scoped directory. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <returns> The absolute plan-token key file path. </returns>
@@ -988,7 +973,7 @@ public static class UcliStoragePathResolver
         ProjectFingerprint projectFingerprint)
     {
         return Path.Combine(
-            ResolveFingerprintDirectory(storageRoot, projectFingerprint),
+            ResolveProjectDirectory(storageRoot, projectFingerprint),
             UcliStoragePathNames.PlanTokenKeyFileName);
     }
 
@@ -1024,47 +1009,26 @@ public static class UcliStoragePathResolver
         return pathResult.FullPath!;
     }
 
-    private static string GetRunIdPathSegment (Guid runId)
+    private static void EnsureSupportedStorageRootLength (string storageRoot)
     {
-        if (runId == Guid.Empty)
+        var storageRootLength = PathStringNormalizer
+            .TrimTrailingDirectorySeparators(storageRoot)
+            .Length;
+        if (IsWindows()
+            && storageRootLength > MaximumSupportedWindowsStorageRootLength)
         {
-            throw new ArgumentException("Run identifier must not be empty.", nameof(runId));
+            throw new PathTooLongException(
+                $"Storage root exceeds the {MaximumSupportedWindowsStorageRootLength}-character Windows limit supported by uCLI local storage: {storageRootLength} characters. Move the repository to a shorter path.");
         }
-
-        return runId.ToString("D");
     }
 
-    private static string GetLaunchAttemptIdPathSegment (Guid launchAttemptId)
+    private static bool IsWindows ()
     {
-        if (launchAttemptId == Guid.Empty)
-        {
-            throw new ArgumentException("Launch attempt identifier must not be empty.", nameof(launchAttemptId));
-        }
-
-        return launchAttemptId.ToString("N");
+#if NET8_0_OR_GREATER
+        return OperatingSystem.IsWindows();
+#else
+        return RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+#endif
     }
 
-    private static string GetScreenshotCaptureIdPathSegment (Guid captureId)
-    {
-        if (captureId == Guid.Empty)
-        {
-            throw new ArgumentException("Capture identifier must not be empty.", nameof(captureId));
-        }
-
-        return captureId.ToString("N");
-    }
-
-    private static bool TryTrimToNonEmpty (
-        string? value,
-        [NotNullWhen(true)] out string? normalizedValue)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            normalizedValue = null;
-            return false;
-        }
-
-        normalizedValue = value.Trim();
-        return true;
-    }
 }

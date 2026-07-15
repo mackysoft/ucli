@@ -8,7 +8,7 @@
     {
       "id": "output-0001",
       "kind": "directory",
-      "sourcePath": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/work/build/4d4f6988-c38a-4f9c-9d80-49d46beadf4a/output/player"
+      "sourcePath": "/workspace/UnityProject/.ucli/local/build-runs/9l7mj263h97pp7c097a6nqmv98/work/output/player"
     }
   ],
   "entryCount": 1,
@@ -18,7 +18,7 @@
     {
       "entryId": "output-0001",
       "logicalPath": "output-0001/Data/config.json",
-      "sourcePath": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/work/build/4d4f6988-c38a-4f9c-9d80-49d46beadf4a/output/player/Data/config.json",
+      "sourcePath": "/workspace/UnityProject/.ucli/local/build-runs/9l7mj263h97pp7c097a6nqmv98/work/output/player/Data/config.json",
       "artifactPath": "output/output-0001/Data/config.json",
       "sizeBytes": 19,
       "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
@@ -26,11 +26,11 @@
     {
       "entryId": "output-0001",
       "logicalPath": "output-0001/Game.x86_64",
-      "sourcePath": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/work/build/4d4f6988-c38a-4f9c-9d80-49d46beadf4a/output/player/Game.x86_64",
+      "sourcePath": "/workspace/UnityProject/.ucli/local/build-runs/9l7mj263h97pp7c097a6nqmv98/work/output/player/Game.x86_64",
       "artifactPath": "output/output-0001/Game.x86_64",
       "sizeBytes": 14,
       "sha256": "2222222222222222222222222222222222222222222222222222222222222222"
     }
   ],
-  "manifestDigest": "1047a19f8c4eb95c4258d04da06d8b7335d006b88bcdc7c34dc6dbb78f98cdba"
+  "manifestDigest": "5676e19e1fc5c210fba288de8bed4841cbd2efbc2bc352653fd6306505e83264"
 }

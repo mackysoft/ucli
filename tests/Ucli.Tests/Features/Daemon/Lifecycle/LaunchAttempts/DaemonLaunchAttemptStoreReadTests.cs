@@ -31,10 +31,12 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         Assert.Equal(DaemonStartupStatus.Blocked, actual.StartupStatus);
         Assert.Equal(attempt.UnityLogPath, actual.UnityLogPath);
         Assert.Equal(attempt.UnityLogPath, actual.Diagnosis.UnityLogPath);
-        Assert.EndsWith(
-            Path.Combine("launch-attempts", attempt.LaunchAttemptId.ToString("N"), "startup-diagnosis.json"),
-            actual.ArtifactPath,
-            StringComparison.Ordinal);
+        Assert.Equal(
+            UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
+                scope.FullPath,
+                ProjectFingerprint,
+                attempt.LaunchAttemptId),
+            actual.ArtifactPath);
         Assert.True(File.Exists(actual.ArtifactPath));
     }
 

@@ -100,7 +100,7 @@ public sealed class ScreenshotCommandTests
             .HasProperty("artifact", artifact => artifact
                 .HasString("kind", "screenshot")
                 .HasString("mediaType", "image/png")
-                .HasString("path", ".ucli/local/fingerprints/pf_test/artifacts/screenshot/capture/screenshot.png")
+                .HasString("path", ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png")
                 .HasString("digest", new string('a', 64))
                 .HasInt32("sizeBytes", 4096)
                 .HasString("createdAtUtc", "2026-07-11T01:02:03+00:00"));
@@ -164,7 +164,7 @@ public sealed class ScreenshotCommandTests
                         IsPlaying: true,
                         IsPlayingOrWillChangePlaymode: true))),
             new ScreenshotArtifact(
-                ".ucli/local/fingerprints/pf_test/artifacts/screenshot/capture/screenshot.png",
+                ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png",
                 Sha256Digest.Parse(new string('a', 64)),
                 4096,
                 new DateTimeOffset(2026, 7, 11, 1, 2, 3, TimeSpan.Zero)));

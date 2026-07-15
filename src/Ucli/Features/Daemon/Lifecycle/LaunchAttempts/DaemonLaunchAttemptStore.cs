@@ -230,9 +230,9 @@ internal sealed class DaemonLaunchAttemptStore : IDaemonLaunchAttemptStore
             }
 
             var launchAttemptIdPathSegment = Path.GetFileName(attemptDirectory);
-            if (!Guid.TryParseExact(launchAttemptIdPathSegment, "N", out var launchAttemptId)
-                || launchAttemptId == Guid.Empty
-                || !string.Equals(launchAttemptIdPathSegment, launchAttemptId.ToString("N"), StringComparison.Ordinal))
+            if (!StoragePathSegmentCodec.TryDecodeNonEmptyGuid(
+                    launchAttemptIdPathSegment,
+                    out var launchAttemptId))
             {
                 if (failOnInvalidPayload)
                 {

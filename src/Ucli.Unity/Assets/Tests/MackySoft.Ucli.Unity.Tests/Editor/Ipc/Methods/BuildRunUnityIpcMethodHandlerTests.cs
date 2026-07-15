@@ -1489,7 +1489,7 @@ namespace MackySoft.Ucli.Unity.Tests
             string? buildReportPath = null,
             string? buildLogPath = null)
         {
-            var paths = ResolveRequestArtifactPaths(projectPath, identity);
+            var paths = ResolveRequestArtifactPaths(projectPath);
             if (!IpcBuildOutputLayoutResolver.TryResolve(
                 paths.OutputPath,
                 BuildTargetStableName.StandaloneLinux64,
@@ -1530,7 +1530,7 @@ namespace MackySoft.Ucli.Unity.Tests
             IpcProjectIdentity identity,
             string method)
         {
-            var paths = ResolveRequestArtifactPaths(projectPath, identity);
+            var paths = ResolveRequestArtifactPaths(projectPath);
             return new IpcBuildRunRequest(
                 RunId: RunId,
                 InputKind: BuildProfileInputsKind.Explicit,
@@ -1621,7 +1621,7 @@ namespace MackySoft.Ucli.Unity.Tests
             string projectPath,
             IpcProjectIdentity identity)
         {
-            var paths = ResolveRequestArtifactPaths(projectPath, identity);
+            var paths = ResolveRequestArtifactPaths(projectPath);
             return new IpcBuildRunRequest(
                 RunId: RunId,
                 InputKind: BuildProfileInputsKind.UnityBuildProfile,
@@ -1651,16 +1651,14 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static (string OutputPath, string BuildReportPath, string BuildLogPath) ResolveRequestArtifactPaths (
-            string projectPath,
-            IpcProjectIdentity identity)
+            string projectPath)
         {
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
             var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
                 storageRoot,
-                identity.ProjectFingerprint,
                 RunId);
             return (
-                UcliStoragePathResolver.ResolveBuildRunOutputDirectory(storageRoot, identity.ProjectFingerprint, RunId),
+                UcliStoragePathResolver.ResolveBuildRunOutputDirectory(storageRoot, RunId),
                 Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
                 Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName));
         }

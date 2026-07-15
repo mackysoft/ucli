@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
-/// <summary> Deserializes <c>scene-tree-lite/&lt;sceneKey&gt;.lookup.json</c> contracts. </summary>
+/// <summary> Deserializes <c>scenes/&lt;sceneStorageKey&gt;.json</c> contracts. </summary>
 internal static class IndexSceneTreeLiteLookupJsonContractSerializer
 {
     /// <summary> Deserializes one scene-tree-lite lookup JSON text to contract. </summary>

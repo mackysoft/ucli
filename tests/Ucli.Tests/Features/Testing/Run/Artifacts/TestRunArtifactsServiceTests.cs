@@ -6,6 +6,7 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -32,16 +33,13 @@ public sealed class TestRunArtifactsServiceTests
         Assert.True(result.IsSuccess);
         var session = Assert.IsType<ArtifactsSession>(result.Session);
         Assert.NotEqual(Guid.Empty, session.RunId);
-        Assert.Equal(session.RunId.ToString("D"), Path.GetFileName(session.Paths.ArtifactsDir));
+        Assert.Equal(
+            StoragePathSegmentCodec.EncodeGuid(session.RunId, nameof(session.RunId)),
+            Path.GetFileName(session.Paths.ArtifactsDir));
         Assert.StartsWith(
-            Path.Combine(
+            UcliStoragePathResolver.ResolveTestArtifactsDirectory(
                 scope.FullPath,
-                ".ucli",
-                "local",
-                "fingerprints",
-                configuration.UnityProject.ProjectFingerprint.ToString(),
-                "artifacts",
-                "test"),
+                configuration.UnityProject.ProjectFingerprint),
             session.Paths.ArtifactsDir,
             StringComparison.Ordinal);
         Assert.True(File.Exists(session.Paths.MetaJsonPath));

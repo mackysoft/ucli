@@ -26,27 +26,14 @@ public sealed class FileBuildRunArtifactStorePrepareTests
         Assert.True(Directory.Exists(paths.RunnerOutputDirectory));
         Assert.False(Directory.Exists(paths.ArtifactOutputDirectory));
         Assert.Equal(
-            Path.Combine(
+            UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
                 scope.FullPath,
-                UcliStoragePathNames.UcliDirectoryName,
-                UcliStoragePathNames.LocalDirectoryName,
-                UcliStoragePathNames.FingerprintsDirectoryName,
-                project.ProjectFingerprint.ToString(),
-                UcliStoragePathNames.ArtifactsDirectoryName,
-                UcliStoragePathNames.BuildArtifactsDirectoryName,
-                RunIdTestValues.BuildText),
+                RunIdTestValues.Build),
             paths.ArtifactsDirectory);
         Assert.Equal(
-            Path.Combine(
+            UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
                 scope.FullPath,
-                UcliStoragePathNames.UcliDirectoryName,
-                UcliStoragePathNames.LocalDirectoryName,
-                UcliStoragePathNames.FingerprintsDirectoryName,
-                project.ProjectFingerprint.ToString(),
-                UcliStoragePathNames.WorkDirectoryName,
-                UcliStoragePathNames.BuildWorkDirectoryName,
-                RunIdTestValues.BuildText,
-                UcliStoragePathNames.BuildOutputDirectoryName),
+                RunIdTestValues.Build),
             paths.RunnerOutputDirectory);
     }
 
@@ -93,7 +80,6 @@ public sealed class FileBuildRunArtifactStorePrepareTests
         var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
         var artifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
             project.RepositoryRoot,
-            project.ProjectFingerprint,
             RunIdTestValues.Build);
         Directory.CreateDirectory(artifactsDirectory);
         File.WriteAllText(Path.Combine(artifactsDirectory, "build-summary.json"), "{}");

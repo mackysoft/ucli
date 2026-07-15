@@ -23,7 +23,7 @@ public sealed class OpsCatalogAccessServiceDescribeSourceFallbackTests
                 new PersistedOpsCatalogReadFailure(
                     PersistedOpsCatalogReadFailureKind.Malformed,
                     ReadIndexErrorCodes.ReadIndexFormatInvalid,
-                    "Index contract file 'catalogs/ops.describe/<opKey>.json' is malformed.")),
+                    "Index contract file 'ops/<operationStorageKey>.json' is malformed.")),
         };
         var generatedAtUtc = DateTimeOffset.Parse("2026-03-07T00:00:00+00:00");
         var sourceRefreshService = new RecordingOpsCatalogSourceRefreshService
@@ -43,7 +43,7 @@ public sealed class OpsCatalogAccessServiceDescribeSourceFallbackTests
         OpsCatalogAccessInvocationAssert.SourceRefreshedFromPreflightWithReasonContaining(
             sourceRefreshService,
             context,
-            "ops.describe",
+            "ops/<operationStorageKey>.json",
             CancellationToken.None);
     }
 

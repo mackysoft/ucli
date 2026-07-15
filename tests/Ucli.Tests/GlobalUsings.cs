@@ -14,7 +14,6 @@ global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Recovery;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
-global using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Conversion;
 global using MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 global using MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 global using MackySoft.Ucli.Application.Shared.Context.Project;

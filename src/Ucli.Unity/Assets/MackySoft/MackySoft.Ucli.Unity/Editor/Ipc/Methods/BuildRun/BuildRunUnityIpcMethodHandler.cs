@@ -806,11 +806,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectIdentity.ProjectPath);
                 var expectedArtifactsDirectory = UcliStoragePathResolver.ResolveBuildRunArtifactsDirectory(
                     storageRoot,
-                    projectIdentity.ProjectFingerprint,
                     runId);
                 expectedOutputPath = UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
                     storageRoot,
-                    projectIdentity.ProjectFingerprint,
                     runId);
                 expectedBuildReportPath = Path.GetFullPath(Path.Combine(
                     expectedArtifactsDirectory,

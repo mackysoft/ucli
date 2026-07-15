@@ -3,6 +3,7 @@ using System.Text;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Infrastructure.Tests.Ipc;
 
@@ -41,7 +42,9 @@ public sealed class UcliIpcEndpointResolverTests
             return;
         }
 
-        var preferredPath = Path.Combine(storageRoot, ".ucli", "local", "fingerprints", FingerprintText, "ipc.sock");
+        var preferredPath = Path.Combine(
+            UcliStoragePathResolver.ResolveProjectDirectory(storageRoot, Fingerprint),
+            "ipc.sock");
 
         Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);
         Assert.True(Encoding.UTF8.GetByteCount(endpoint.Address) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes);

@@ -44,7 +44,7 @@ public sealed class FileBuildRunArtifactStoreTests
         var metadataWriteResult = await store.WriteMetadataAsync(
             new BuildRunMetadataWriteRequest(
                 paths,
-                CreateMetadata(paths.RunId),
+                CreateMetadata(paths.RunId, paths.RunnerOutputDirectory),
                 result),
             CancellationToken.None);
 
@@ -140,7 +140,7 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.Equal("buildPipeline", buildRoot.GetProperty("runner").GetProperty("kind").GetString());
         Assert.Equal("file", buildRoot.GetProperty("runner").GetProperty("outputLayout").GetProperty("shape").GetString());
         Assert.Equal(
-            $"/repo/.ucli/local/fingerprints/fingerprint/work/build/{RunIdTestValues.BuildText}/output/player/Player",
+            Path.Combine(paths.RunnerOutputDirectory, "player", "Player"),
             buildRoot.GetProperty("runner").GetProperty("outputLayout").GetProperty("locationPathName").GetString());
         var inputs = buildRoot.GetProperty("inputs");
         Assert.Equal("explicit", inputs.GetProperty("inputKind").GetString());
@@ -300,7 +300,7 @@ public sealed class FileBuildRunArtifactStoreTests
         var result = await store.WriteMetadataAsync(
             new BuildRunMetadataWriteRequest(
                 paths,
-                CreateMetadata(Guid.NewGuid()),
+                CreateMetadata(Guid.NewGuid(), paths.RunnerOutputDirectory),
                 accounting),
             CancellationToken.None);
 
@@ -310,14 +310,35 @@ public sealed class FileBuildRunArtifactStoreTests
         Assert.False(File.Exists(paths.BuildJsonPath));
     }
 
-    private static BuildRunMetadataDocument CreateMetadata (Guid runId)
+    private static BuildRunMetadataDocument CreateMetadata (
+        Guid runId,
+        string runnerOutputDirectory)
     {
+        var runner = ParseJsonElement(JsonSerializer.Serialize(new
+        {
+            kind = "buildPipeline",
+            method = (string?)null,
+            invocation = new
+            {
+                arguments = new Dictionary<string, string>(),
+                environment = new
+                {
+                    variables = Array.Empty<string>(),
+                    secrets = Array.Empty<string>(),
+                },
+            },
+            outputLayout = new
+            {
+                shape = "file",
+                locationPathName = Path.Combine(runnerOutputDirectory, "player", "Player"),
+            },
+        }));
         return new BuildRunMetadataDocument(
             1,
             runId,
             ParseJsonElement("""{"path":"/repo/.ucli/build/player.json","digest":"profile-digest"}"""),
             ParseJsonElement("""{"inputKind":"explicit","target":{"stableName":"standaloneLinux64","unityBuildTarget":"StandaloneLinux64"},"scenes":{"source":"explicit","paths":["Assets/Scenes/Main.unity"]},"options":{"development":true}}"""),
-            ParseJsonElement($$$"""{"kind":"buildPipeline","method":null,"invocation":{"arguments":{},"environment":{"variables":[],"secrets":[]}},"outputLayout":{"shape":"file","locationPathName":"/repo/.ucli/local/fingerprints/fingerprint/work/build/{{{RunIdTestValues.BuildText}}}/output/player/Player"}}"""),
+            runner,
             ParseJsonElement("""{"source":"buildPipelineBuildReport","status":"succeeded","summary":{"durationMilliseconds":1,"errorCount":0,"warningCount":0},"diagnostics":[],"buildReportRef":"buildReport"}"""),
             ParseJsonElement("""{"state":"completed"}"""),
             ParseJsonElement("""{"compile":"42","domainReload":"7"}"""),

@@ -24,7 +24,7 @@ public sealed class DaemonStartCommandFailurePayloadTests
             ProcessId: 1234,
             EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 0, TimeSpan.Zero),
-            UnityLogPath: "/repo/.ucli/local/fingerprints/fp/unity.log",
+            UnityLogPath: "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/unity.log",
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
             ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
@@ -63,7 +63,9 @@ public sealed class DaemonStartCommandFailurePayloadTests
             diagnosisJson.GetProperty("reason").GetString());
         Assert.Equal("/repo/UnityProject/Library/EditorInstance.json", diagnosisJson.GetProperty("editorInstancePath").GetString());
         Assert.Equal("2026-03-12T04:05:00+00:00", diagnosisJson.GetProperty("processStartedAtUtc").GetString());
-        Assert.Equal("/repo/.ucli/local/fingerprints/fp/unity.log", diagnosisJson.GetProperty("unityLogPath").GetString());
+        Assert.Equal(
+            "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/unity.log",
+            diagnosisJson.GetProperty("unityLogPath").GetString());
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration), diagnosisJson.GetProperty("startupPhase").GetString());
         Assert.Equal(
             ContractLiteralCodec.ToValue(DaemonDiagnosisActionRequired.InspectUnityLog),
@@ -97,7 +99,7 @@ public sealed class DaemonStartCommandFailurePayloadTests
             ProcessId: 4321,
             StartedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 1, TimeSpan.Zero),
             ElapsedMilliseconds: 2500,
-            ArtifactPath: "/repo/.ucli/local/fingerprints/fp/launchAttempts/0123456789abcdef0123456789abcdef/startup-diagnosis.json");
+            ArtifactPath: "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/launch-attempts/04hkaps9lf6uu0938ljojaudts/startup-diagnosis.json");
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Failure(
             ExecutionError.InternalError("Unity startup is blocked.", DaemonErrorCodes.DaemonStartupBlocked),
             DaemonStartFailureExecutionOutput.Create(
@@ -141,7 +143,7 @@ public sealed class DaemonStartCommandFailurePayloadTests
                 .HasInt32("elapsedMilliseconds", 2500)
                 .HasString("processAction", ContractLiteralCodec.ToValue(DaemonStartupProcessAction.Kept))
                 .IsNull("processTermination")
-                .HasString("artifactPath", "/repo/.ucli/local/fingerprints/fp/launchAttempts/0123456789abcdef0123456789abcdef/startup-diagnosis.json")
+                .HasString("artifactPath", "/repo/.ucli/local/projects/04hkaps9lf6uu0938ljojaudts0i6hb7h6lsrro14d2mf2dbpnng/launch-attempts/04hkaps9lf6uu0938ljojaudts/startup-diagnosis.json")
                 .HasString("retryDisposition", ContractLiteralCodec.ToValue(DaemonStartupRetryDisposition.RetryAfterFix)))
             .HasProperty("diagnosis", diagnosisJson => diagnosisJson
                 .HasString("reason", ContractLiteralCodec.ToValue(DaemonDiagnosisReason.UnityScriptCompilationFailed)));

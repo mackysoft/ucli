@@ -52,7 +52,7 @@ public sealed class DaemonLaunchAttemptStoreSymlinkSafetyTests
         var store = new DaemonLaunchAttemptStore();
         var attemptsDirectory = UcliStoragePathResolver.ResolveLaunchAttemptsDirectory(scope.FullPath, ProjectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(attemptsDirectory)!);
-        var targetAttemptDirectory = Path.Combine(targetScope.FullPath, CreateLaunchAttemptId(1).ToString("N"));
+        var targetAttemptDirectory = Path.Combine(targetScope.FullPath, "target-attempt");
         Directory.CreateDirectory(targetAttemptDirectory);
         Directory.CreateSymbolicLink(attemptsDirectory, targetScope.FullPath);
 
@@ -80,7 +80,10 @@ public sealed class DaemonLaunchAttemptStoreSymlinkSafetyTests
         Directory.CreateDirectory(attemptsDirectory);
         var targetAttemptDirectory = Path.Combine(targetScope.FullPath, "target-attempt");
         Directory.CreateDirectory(targetAttemptDirectory);
-        var attemptDirectory = Path.Combine(attemptsDirectory, CreateLaunchAttemptId(1).ToString("N"));
+        var attemptDirectory = UcliStoragePathResolver.ResolveLaunchAttemptDirectory(
+            scope.FullPath,
+            ProjectFingerprint,
+            CreateLaunchAttemptId(1));
         Directory.CreateSymbolicLink(attemptDirectory, targetAttemptDirectory);
 
         var readResult = await store.ReadLastFailureAsync(scope.FullPath, ProjectFingerprint, CancellationToken.None);
@@ -107,7 +110,10 @@ public sealed class DaemonLaunchAttemptStoreSymlinkSafetyTests
         Directory.CreateDirectory(attemptsDirectory);
         var targetAttemptDirectory = Path.Combine(targetScope.FullPath, "target-attempt");
         Directory.CreateDirectory(targetAttemptDirectory);
-        var attemptDirectory = Path.Combine(attemptsDirectory, CreateLaunchAttemptId(1).ToString("N"));
+        var attemptDirectory = UcliStoragePathResolver.ResolveLaunchAttemptDirectory(
+            scope.FullPath,
+            ProjectFingerprint,
+            CreateLaunchAttemptId(1));
         Directory.CreateSymbolicLink(attemptDirectory, targetAttemptDirectory);
 
         var pruneResult = await store.PruneAsync(scope.FullPath, ProjectFingerprint, keepCount: 0, CancellationToken.None);

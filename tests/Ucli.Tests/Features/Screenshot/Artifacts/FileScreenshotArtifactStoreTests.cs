@@ -13,7 +13,7 @@ public sealed class FileScreenshotArtifactStoreTests
     private static readonly Guid CaptureId =
         Guid.Parse("01234567-89ab-cdef-0123-456789abcdef");
 
-    private const string CaptureIdPathSegment = "0123456789abcdef0123456789abcdef";
+    private const string CaptureIdPathSegment = "04hkaps9lf6uu0938ljojaudts";
 
     private static readonly DateTimeOffset CreatedAtUtc = DateTimeOffset.Parse(
         "2026-07-11T12:00:00Z",

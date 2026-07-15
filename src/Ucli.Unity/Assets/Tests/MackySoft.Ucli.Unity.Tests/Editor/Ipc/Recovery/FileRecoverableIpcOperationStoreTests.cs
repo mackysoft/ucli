@@ -97,7 +97,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Is.EqualTo(EditorInstanceId));
                 Assert.That(
                     Path.GetFileName(Path.GetDirectoryName(recordPath)),
-                    Is.EqualTo(requestId.ToString("N")));
+                    Is.EqualTo("fdmko5orhp7ih8n628q5cu4qng"));
                 Assert.That(readResult.Record.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
                 Assert.That(readResult.Record.Method, Is.EqualTo(UnityIpcMethod.PlayEnter));
                 Assert.That(readResult.Record.RequestId, Is.EqualTo(requestId));
@@ -867,10 +867,10 @@ namespace MackySoft.Ucli.Unity.Tests
         private static string ResolveOperationsDirectoryPath (string projectPath)
         {
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
-            var fingerprintDirectory = UcliStoragePathResolver.ResolveFingerprintDirectory(
+            var projectDirectory = UcliStoragePathResolver.ResolveProjectDirectory(
                 storageRoot,
                 ProjectFingerprint);
-            return Path.Combine(fingerprintDirectory, UcliStoragePathNames.IpcOperationsDirectoryName);
+            return Path.Combine(projectDirectory, UcliStoragePathNames.IpcOperationsDirectoryName);
         }
 
         private static string ReadOperationRecordText (string projectPath)

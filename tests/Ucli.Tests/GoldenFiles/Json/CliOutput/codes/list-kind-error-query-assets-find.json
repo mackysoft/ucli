@@ -220,6 +220,12 @@
         "summary": "The project path does not exist."
       },
       {
+        "code": "PROJECT_STORAGE_ROOT_TOO_LONG",
+        "kind": "error",
+        "category": "projectContext",
+        "summary": "The repository storage root is too long."
+      },
+      {
         "code": "PROTOCOL_VERSION_MISMATCH",
         "kind": "error",
         "category": "ipc",
