@@ -31,17 +31,6 @@ public sealed class IpcSessionTokenTests
         new string('A', 42) + "B",
     };
 
-    public static TheoryData<string?, bool> PresentedEncodedValues => new()
-    {
-        { CanonicalEncodedValue, true },
-        { "B" + new string('A', 42), false },
-        { new string('A', 21) + "B" + new string('A', 21), false },
-        { new string('A', 42) + "E", false },
-        { new string('A', 42) + "B", false },
-        { new string('A', 42), false },
-        { null, false },
-    };
-
     [Fact]
     [Trait("Size", "Small")]
     public void CreateRandom_ReturnsCanonicalEncodedValue ()
@@ -54,7 +43,6 @@ public sealed class IpcSessionTokenTests
             var encodedValue = token.GetEncodedValue();
 
             Assert.Equal(43, encodedValue.Length);
-            Assert.True(IpcSessionToken.IsValidEncodedValue(encodedValue));
             Assert.True(IpcSessionToken.TryParse(encodedValue, out var parsedToken));
             Assert.Equal(token, parsedToken);
         }
@@ -75,28 +63,12 @@ public sealed class IpcSessionTokenTests
     [Theory]
     [MemberData(nameof(InvalidEncodedValues))]
     [Trait("Size", "Small")]
-    public void ValidationApis_WithInvalidEncodedValue_RejectIt (string? encodedValue)
+    public void TryParse_WithInvalidEncodedValue_ReturnsFalse (string? encodedValue)
     {
-        var isValid = IpcSessionToken.IsValidEncodedValue(encodedValue);
         var isParsed = IpcSessionToken.TryParse(encodedValue, out var token);
 
-        Assert.False(isValid);
         Assert.False(isParsed);
         Assert.Null(token);
-    }
-
-    [Theory]
-    [MemberData(nameof(PresentedEncodedValues))]
-    [Trait("Size", "Small")]
-    public void Matches_WithPresentedEncodedValue_ReturnsExpectedResult (
-        string? presentedEncodedValue,
-        bool expectedResult)
-    {
-        var token = ParseToken(CanonicalEncodedValue);
-
-        var result = token.Matches(presentedEncodedValue);
-
-        Assert.Equal(expectedResult, result);
     }
 
     [Fact]
@@ -122,7 +94,7 @@ public sealed class IpcSessionTokenTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void MatchesAndEquality_DoNotAllocateComparisonBuffers ()
+    public void Equality_DoesNotAllocateComparisonBuffers ()
     {
         const int IterationCount = 10_000;
         var token = ParseToken(CanonicalEncodedValue);
@@ -130,7 +102,6 @@ public sealed class IpcSessionTokenTests
 
         for (var i = 0; i < 100; i++)
         {
-            _ = token.Matches(CanonicalEncodedValue);
             _ = token.Equals(sameValue);
         }
 
@@ -139,11 +110,6 @@ public sealed class IpcSessionTokenTests
         var matchCount = 0;
         for (var i = 0; i < IterationCount; i++)
         {
-            if (token.Matches(CanonicalEncodedValue))
-            {
-                matchCount++;
-            }
-
             if (token.Equals(sameValue))
             {
                 matchCount++;
@@ -152,7 +118,7 @@ public sealed class IpcSessionTokenTests
 
         var allocatedAfter = GC.GetAllocatedBytesForCurrentThread();
 
-        Assert.Equal(IterationCount * 2, matchCount);
+        Assert.Equal(IterationCount, matchCount);
         Assert.Equal(0, allocatedAfter - allocatedBefore);
     }
 

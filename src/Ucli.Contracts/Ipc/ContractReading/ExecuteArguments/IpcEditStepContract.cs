@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 /// <param name="Actions"> The ordered edit action list. </param>
 /// <param name="Commit"> The save-boundary mode. </param>
 internal sealed record IpcEditStepContract (
-    string Id,
+    IpcExecuteStepId Id,
     IpcEditStepContract.EditContext Context,
     IpcEditStepContract.EditSelection Selection,
     IReadOnlyList<IpcEditStepContract.EditAction> Actions,

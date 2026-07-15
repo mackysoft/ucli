@@ -10,6 +10,7 @@ public sealed class IpcDaemonContractSerializationTests
 {
     private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
     private static readonly ProjectFingerprint ProjectFingerprint = new(ProjectFingerprintText);
+    private static readonly Guid LaunchAttemptId = Guid.Parse("01234567-89ab-cdef-0123-456789abcdef");
 
     [Fact]
     [Trait("Size", "Small")]
@@ -32,7 +33,7 @@ public sealed class IpcDaemonContractSerializationTests
                 120000,
                 DaemonEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Terminate,
-                "attempt-1",
+                LaunchAttemptId,
                 DaemonSessionOwnerKind.Cli,
                 true,
                 1234,
@@ -61,7 +62,7 @@ public sealed class IpcDaemonContractSerializationTests
             .HasInt32("timeoutMilliseconds", 120000)
             .HasString("editorMode", "batchmode")
             .HasString("onStartupBlocked", "terminate")
-            .HasString("launchAttemptId", "attempt-1")
+            .HasString("launchAttemptId", LaunchAttemptId.ToString("D"))
             .HasString("ownerKind", "cli")
             .HasBoolean("canShutdownProcess", true)
             .HasInt32("processId", 1234)
@@ -85,6 +86,68 @@ public sealed class IpcDaemonContractSerializationTests
             .HasString("lifecycleState", "ready")
             .HasValueKind("blockingReason", JsonValueKind.Null)
             .HasBoolean("canAcceptExecutionRequests", true);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DaemonStartStartupObservationProgressEntry_WithEmptyLaunchAttemptId_ThrowsArgumentException ()
+    {
+        Assert.Throws<ArgumentException>(() => new DaemonStartStartupObservationProgressEntry(
+            DaemonStartProgressPayloadKind.StartupObservation,
+            ProjectFingerprint,
+            120000,
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            Guid.Empty,
+            DaemonSessionOwnerKind.Cli,
+            true,
+            1234,
+            DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
+            DaemonStartupStatus.Blocked,
+            DaemonStartupBlockingReason.Compile,
+            DaemonDiagnosisStartupPhase.ScriptCompilation,
+            DaemonStartupRetryDisposition.RetryAfterFix,
+            "Unity scripts failed to compile.",
+            "UNITY_SCRIPT_COMPILATION_FAILED"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DaemonStartStartupObservationProgressEntry_WithMismatchedPayloadKind_ThrowsArgumentOutOfRangeException ()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new DaemonStartStartupObservationProgressEntry(
+            DaemonStartProgressPayloadKind.LifecycleSnapshot,
+            ProjectFingerprint,
+            120000,
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            LaunchAttemptId,
+            DaemonSessionOwnerKind.Cli,
+            true,
+            1234,
+            DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
+            DaemonStartupStatus.Blocked,
+            DaemonStartupBlockingReason.Compile,
+            DaemonDiagnosisStartupPhase.ScriptCompilation,
+            DaemonStartupRetryDisposition.RetryAfterFix,
+            "Unity scripts failed to compile.",
+            "UNITY_SCRIPT_COMPILATION_FAILED"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DaemonStartLifecycleSnapshotProgressEntry_WithInconsistentLifecycleTuple_ThrowsArgumentException ()
+    {
+        Assert.Throws<ArgumentException>(() => new DaemonStartLifecycleSnapshotProgressEntry(
+            DaemonStartProgressPayloadKind.LifecycleSnapshot,
+            ProjectFingerprint,
+            120000,
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            IpcEditorLifecycleState.Compiling,
+            IpcEditorBlockingReason.Busy,
+            new IpcUnityGenerationSnapshot(1, 2, 3, 4),
+            false));
     }
 
     [Fact]

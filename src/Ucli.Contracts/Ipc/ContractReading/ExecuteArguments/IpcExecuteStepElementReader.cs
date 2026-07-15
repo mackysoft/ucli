@@ -10,7 +10,7 @@ internal static class IpcExecuteStepElementReader
         JsonElement stepElement,
         int stepIndex,
         in IpcExecuteArgumentsContractReadProfile profile,
-        HashSet<string>? duplicateStepIdDetector,
+        HashSet<IpcExecuteStepId>? duplicateStepIdDetector,
         out IpcExecuteStepContract? step,
         out IpcExecuteArgumentsContractReadError error)
     {
@@ -32,7 +32,7 @@ internal static class IpcExecuteStepElementReader
         JsonElement stepElement,
         int stepIndex,
         in IpcExecuteArgumentsContractReadProfile profile,
-        HashSet<string>? duplicateStepIdDetector,
+        HashSet<IpcExecuteStepId>? duplicateStepIdDetector,
         out IpcExecuteStepContract? step,
         out IpcExecuteArgumentsContractReadError error)
     {
@@ -150,22 +150,26 @@ internal static class IpcExecuteStepElementReader
         JsonElement stepElement,
         int stepIndex,
         in IpcExecuteArgumentsContractReadProfile profile,
-        out string? stepId,
+        out IpcExecuteStepId? stepId,
         out IpcExecuteArgumentsContractReadError error)
     {
+        stepId = null;
         if (!JsonStringContractReader.TryRead(
             stepElement,
             "id",
             ResolveStringPresenceRequirement(profile.RequireStepObject),
             rejectEmptyOrWhitespace: true,
             rejectOuterWhitespace: true,
-            out stepId,
+            out var stepIdValue,
             out var readError))
         {
             error = IpcExecuteArgumentsContractReadError.StepIdContractViolation(stepIndex, readError);
             return false;
         }
 
+        stepId = stepIdValue == null
+            ? null
+            : new IpcExecuteStepId(stepIdValue);
         error = IpcExecuteArgumentsContractReadError.None;
         return true;
     }
@@ -173,7 +177,7 @@ internal static class IpcExecuteStepElementReader
     private static bool TryReadStepShape (
         JsonElement stepElement,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         IpcExecuteStepKind? stepKind,
         in IpcExecuteArgumentsContractReadProfile profile,
         out string? operationName,
@@ -197,7 +201,7 @@ internal static class IpcExecuteStepElementReader
     private static bool TryReadStepOp (
         JsonElement stepElement,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
         out string? operationName,
         out IpcExecuteArgumentsContractReadError error)
@@ -213,7 +217,7 @@ internal static class IpcExecuteStepElementReader
     private static bool TryReadOperationName (
         JsonElement stepElement,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
         out string? operationName,
         out IpcExecuteArgumentsContractReadError error)
@@ -238,7 +242,7 @@ internal static class IpcExecuteStepElementReader
     private static bool TryValidateArgsObject (
         JsonElement stepElement,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
         out IpcExecuteArgumentsContractReadError error)
     {
@@ -253,7 +257,7 @@ internal static class IpcExecuteStepElementReader
 
     private static bool TryConvertArgsError (
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
         StepPropertyReadErrorKind propertyErrorKind,
         out IpcExecuteArgumentsContractReadError error)
@@ -270,8 +274,8 @@ internal static class IpcExecuteStepElementReader
 
     private static bool TryTrackStepId (
         int stepIndex,
-        string? stepId,
-        HashSet<string>? duplicateStepIdDetector,
+        IpcExecuteStepId? stepId,
+        HashSet<IpcExecuteStepId>? duplicateStepIdDetector,
         out IpcExecuteArgumentsContractReadError error)
     {
         if (stepId is not null

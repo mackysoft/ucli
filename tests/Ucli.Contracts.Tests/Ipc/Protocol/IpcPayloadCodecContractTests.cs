@@ -1,4 +1,6 @@
+using System.Reflection;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -41,9 +43,9 @@ public sealed class IpcPayloadCodecContractTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ReferenceSemanticStringValues_RoundTripAsJsonStrings ()
+    public void ReferenceValues_RoundTripAssetGuidAsStandardJsonGuid ()
     {
-        using var document = JsonDocument.Parse("{\"var\":\"created\",\"assetGuid\":\"11111111111111111111111111111111\"}");
+        using var document = JsonDocument.Parse("{\"var\":\"created\",\"assetGuid\":\"11111111-1111-1111-1111-111111111111\"}");
 
         var result = IpcPayloadCodec.TryDeserialize<AssetReferenceArgs>(
             document.RootElement,
@@ -52,13 +54,29 @@ public sealed class IpcPayloadCodecContractTests
 
         Assert.True(result, error.Message);
         Assert.Equal("created", args.Alias!.Value);
-        Assert.Equal("11111111111111111111111111111111", args.AssetGuid!.Value);
+        Assert.Equal(Guid.Parse("11111111-1111-1111-1111-111111111111"), args.AssetGuid);
 
         var payload = IpcPayloadCodec.SerializeToElement(args);
 
         JsonAssert.For(payload)
             .HasString("var", "created")
-            .HasString("assetGuid", "11111111111111111111111111111111");
+            .HasString("assetGuid", "11111111-1111-1111-1111-111111111111");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveSelectorArgs_WhenJsonAssetGuidIsEmpty_ReturnsDeserializeFailed ()
+    {
+        using var document = JsonDocument.Parse("{\"assetGuid\":\"00000000-0000-0000-0000-000000000000\"}");
+
+        var result = IpcPayloadCodec.TryDeserialize<ResolveSelectorArgs>(
+            document.RootElement,
+            out var args,
+            out var error);
+
+        Assert.False(result);
+        Assert.Null(args);
+        Assert.Equal(IpcPayloadReadErrorKind.DeserializeFailed, error.Kind);
     }
 
     [Fact]
@@ -195,18 +213,57 @@ public sealed class IpcPayloadCodecContractTests
         Assert.Contains("Rejected value.", error.Message, StringComparison.Ordinal);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryDeserialize_WhenRuntimeWrapsContractRejection_ReturnsDeserializeFailed ()
+    {
+        using var document = JsonDocument.Parse("{} ");
+
+        var result = IpcPayloadCodec.TryDeserialize(
+            document.RootElement,
+            out RuntimeWrappedContract? payload,
+            out var error);
+
+        Assert.False(result);
+        Assert.Null(payload);
+        Assert.Equal(IpcPayloadReadErrorKind.DeserializeFailed, error.Kind);
+        Assert.Equal("Rejected wrapped contract.", error.Message);
+    }
+
     private sealed record PayloadEnvelope (string ServerVersion);
 
     private sealed record RejectingValueEnvelope (RejectingStringValue Value);
 
+    [JsonConverter(typeof(RuntimeWrappedContractJsonConverter))]
+    private sealed record RuntimeWrappedContract;
+
     private readonly record struct StructPayload (string ServerVersion);
 
-    private sealed record RejectingStringValue : UcliStringValue
+    private sealed class RejectingStringValue : UcliStringValue
     {
         public RejectingStringValue (string value)
             : base(value)
         {
             throw new ArgumentException("Rejected value.", nameof(value));
+        }
+    }
+
+    private sealed class RuntimeWrappedContractJsonConverter : JsonConverter<RuntimeWrappedContract>
+    {
+        public override RuntimeWrappedContract Read (
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options)
+        {
+            throw new TargetInvocationException(new ArgumentException("Rejected wrapped contract."));
+        }
+
+        public override void Write (
+            Utf8JsonWriter writer,
+            RuntimeWrappedContract value,
+            JsonSerializerOptions options)
+        {
+            throw new NotSupportedException();
         }
     }
 

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -58,10 +59,14 @@ public sealed class IpcIndexReadContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcIndexSceneTreeLiteReadContracts_SerializeWithCamelCaseFields ()
     {
-        var requestPayload = new IpcIndexSceneTreeLiteReadRequest(ScenePath: "Assets/Scenes/Sample.unity");
+        var scenePath = new UnityScenePath("Packages/com.example/Scenes/Sample.unity");
+        var requestPayload = new IpcIndexSceneTreeLiteReadRequest(
+            ScenePath: scenePath,
+            FailFast: false,
+            LoadedSceneOnly: false);
         var responsePayload = new IpcIndexSceneTreeLiteReadResponse(
             GeneratedAtUtc: DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
-            ScenePath: "Assets/Scenes/Sample.unity",
+            ScenePath: scenePath,
             Roots:
             [
                 new IndexSceneTreeLiteNodeJsonContract(
@@ -73,9 +78,9 @@ public sealed class IpcIndexReadContractSerializationTests
                             name: "Child",
                             globalObjectId: string.Empty,
                             children: Array.Empty<IndexSceneTreeLiteNodeJsonContract>(),
-                            childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                            childrenState: IndexSceneTreeLiteNodeChildrenState.Complete),
                     ],
-                    childrenState: IndexSceneTreeLiteNodeChildrenStateValues.Complete),
+                    childrenState: IndexSceneTreeLiteNodeChildrenState.Complete),
             ],
             SourceState: new SceneTreeSourceState(SceneTreeSourceStateKind.LoadedScene, isDirty: true));
 
@@ -83,12 +88,12 @@ public sealed class IpcIndexReadContractSerializationTests
         var response = IpcPayloadCodec.SerializeToElement(responsePayload);
 
         JsonAssert.For(request)
-            .HasString("scenePath", "Assets/Scenes/Sample.unity")
+            .HasString("scenePath", "Packages/com.example/Scenes/Sample.unity")
             .HasBoolean("failFast", false)
             .HasBoolean("loadedSceneOnly", false);
         JsonAssert.For(response)
             .HasString("generatedAtUtc", "2026-03-06T00:00:00+00:00")
-            .HasString("scenePath", "Assets/Scenes/Sample.unity")
+            .HasString("scenePath", "Packages/com.example/Scenes/Sample.unity")
             .HasProperty("sourceState", state => state
                 .HasString("kind", "loadedScene")
                 .HasBoolean("isDirty", true))
@@ -96,7 +101,24 @@ public sealed class IpcIndexReadContractSerializationTests
             .HasProperty("roots", 0, node => node
                 .HasString("name", "Root")
                 .HasString("globalObjectId", "GlobalObjectId_V1-2-3-4-5-6")
-                .HasString("childrenState", IndexSceneTreeLiteNodeChildrenStateValues.Complete)
+                .HasString("childrenState", "complete")
                 .HasArrayLength("children", 1));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcIndexSceneTreeLiteReadRequest_WhenReadinessControlsAreMissing_DeserializesAsFalse ()
+    {
+        var request = JsonSerializer.Deserialize<IpcIndexSceneTreeLiteReadRequest>(
+            """
+            {
+              "scenePath": "Assets/Scenes/Main.unity"
+            }
+            """,
+            IpcJsonSerializerOptions.Default);
+
+        Assert.NotNull(request);
+        Assert.False(request.FailFast);
+        Assert.False(request.LoadedSceneOnly);
     }
 }

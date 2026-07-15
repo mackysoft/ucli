@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Contracts.Ipc.Validation;
 
@@ -11,14 +12,14 @@ public sealed class IpcExecuteArgumentsContractViolationClassifierTests
     {
         var readError = IpcExecuteArgumentsContractReadError.StepArgsContractViolation(
             stepIndex: 2,
-            stepId: "step-2",
+            stepId: new IpcExecuteStepId("step-2"),
             propertyReadErrorKind: StepPropertyReadErrorKind.TypeMismatch);
 
         var violation = IpcExecuteArgumentsContractViolationClassifier.Classify(readError);
 
         Assert.Equal(IpcExecuteArgumentsContractViolationKind.StepArgsTypeMismatch, violation.Kind);
         Assert.Equal(2, violation.StepIndex);
-        Assert.Equal("step-2", violation.StepId);
+        Assert.Equal("step-2", violation.StepId!.Value);
     }
 
     [Fact]
@@ -42,12 +43,12 @@ public sealed class IpcExecuteArgumentsContractViolationClassifierTests
     {
         var readError = IpcExecuteArgumentsContractReadError.DuplicatedStepIdError(
             stepIndex: 3,
-            duplicatedStepId: "duplicate-step");
+            duplicatedStepId: new IpcExecuteStepId("duplicate-step"));
 
         var violation = IpcExecuteArgumentsContractViolationClassifier.Classify(readError);
 
         Assert.Equal(IpcExecuteArgumentsContractViolationKind.DuplicatedStepId, violation.Kind);
-        Assert.Equal("duplicate-step", violation.DuplicatedStepId);
+        Assert.Equal("duplicate-step", violation.DuplicatedStepId!.Value);
     }
 
     [Fact]
@@ -56,13 +57,13 @@ public sealed class IpcExecuteArgumentsContractViolationClassifierTests
     {
         var readError = IpcExecuteArgumentsContractReadError.StepSelectContractViolation(
             stepIndex: 0,
-            stepId: "edit-1",
+            stepId: new IpcExecuteStepId("edit-1"),
             propertyReadErrorKind: StepPropertyReadErrorKind.Missing);
 
         var violation = IpcExecuteArgumentsContractViolationClassifier.Classify(readError);
 
         Assert.Equal(IpcExecuteArgumentsContractViolationKind.StepSelectMissing, violation.Kind);
-        Assert.Equal("edit-1", violation.StepId);
+        Assert.Equal("edit-1", violation.StepId!.Value);
         Assert.Equal(0, violation.StepIndex);
     }
 
@@ -72,13 +73,13 @@ public sealed class IpcExecuteArgumentsContractViolationClassifierTests
     {
         var readError = IpcExecuteArgumentsContractReadError.StepCommitContractViolation(
             stepIndex: 1,
-            stepId: "edit-2",
+            stepId: new IpcExecuteStepId("edit-2"),
             jsonStringReadError: new JsonStringReadError(JsonStringReadErrorKind.TypeMismatch, "commit"));
 
         var violation = IpcExecuteArgumentsContractViolationClassifier.Classify(readError);
 
         Assert.Equal(IpcExecuteArgumentsContractViolationKind.StepCommitTypeMismatch, violation.Kind);
-        Assert.Equal("edit-2", violation.StepId);
+        Assert.Equal("edit-2", violation.StepId!.Value);
         Assert.Equal(1, violation.StepIndex);
         Assert.Equal("commit", violation.PropertyPath);
     }
@@ -89,13 +90,13 @@ public sealed class IpcExecuteArgumentsContractViolationClassifierTests
     {
         var readError = IpcExecuteArgumentsContractReadError.StepCommitContractViolation(
             stepIndex: 2,
-            stepId: "edit-3",
+            stepId: new IpcExecuteStepId("edit-3"),
             jsonStringReadError: new JsonStringReadError(JsonStringReadErrorKind.Missing, "commit"));
 
         var violation = IpcExecuteArgumentsContractViolationClassifier.Classify(readError);
 
         Assert.Equal(IpcExecuteArgumentsContractViolationKind.StepCommitMissing, violation.Kind);
-        Assert.Equal("edit-3", violation.StepId);
+        Assert.Equal("edit-3", violation.StepId!.Value);
         Assert.Equal(2, violation.StepIndex);
     }
 
@@ -105,12 +106,12 @@ public sealed class IpcExecuteArgumentsContractViolationClassifierTests
     {
         var readError = IpcExecuteArgumentsContractReadError.StepActionMustBeObject(
             stepIndex: 4,
-            stepId: "edit-4");
+            stepId: new IpcExecuteStepId("edit-4"));
 
         var violation = IpcExecuteArgumentsContractViolationClassifier.Classify(readError);
 
         Assert.Equal(IpcExecuteArgumentsContractViolationKind.StepActionMustBeObject, violation.Kind);
-        Assert.Equal("edit-4", violation.StepId);
+        Assert.Equal("edit-4", violation.StepId!.Value);
         Assert.Equal(4, violation.StepIndex);
     }
 
@@ -120,13 +121,13 @@ public sealed class IpcExecuteArgumentsContractViolationClassifierTests
     {
         var readError = IpcExecuteArgumentsContractReadError.StepOnContractViolation(
             stepIndex: 5,
-            stepId: "edit-5",
+            stepId: new IpcExecuteStepId("edit-5"),
             propertyReadErrorKind: StepPropertyReadErrorKind.Missing);
 
         var violation = IpcExecuteArgumentsContractViolationClassifier.Classify(readError);
 
         Assert.Equal(IpcExecuteArgumentsContractViolationKind.StepOnMissing, violation.Kind);
-        Assert.Equal("edit-5", violation.StepId);
+        Assert.Equal("edit-5", violation.StepId!.Value);
         Assert.Equal(5, violation.StepIndex);
     }
 }

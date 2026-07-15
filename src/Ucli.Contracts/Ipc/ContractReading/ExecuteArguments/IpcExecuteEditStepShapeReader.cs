@@ -8,7 +8,7 @@ internal static class IpcExecuteEditStepShapeReader
     public static bool TryRead (
         JsonElement stepElement,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
         out IpcExecuteArgumentsContractReadError error)
     {
@@ -22,7 +22,7 @@ internal static class IpcExecuteEditStepShapeReader
     private static bool TryReadContext (
         JsonElement stepElement,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
         out IpcExecuteArgumentsContractReadError error)
     {
@@ -39,7 +39,7 @@ internal static class IpcExecuteEditStepShapeReader
     private static bool TryReadSelection (
         JsonElement stepElement,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
         out IpcExecuteArgumentsContractReadError error)
     {
@@ -57,9 +57,9 @@ internal static class IpcExecuteEditStepShapeReader
         JsonElement stepElement,
         string propertyName,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
-        Func<int, string?, StepPropertyReadErrorKind, IpcExecuteArgumentsContractReadError> createError,
+        Func<int, IpcExecuteStepId?, StepPropertyReadErrorKind, IpcExecuteArgumentsContractReadError> createError,
         out IpcExecuteArgumentsContractReadError error)
     {
         if (IpcExecuteStepPropertyReader.TryReadRequiredObject(stepElement, propertyName, profile.RequireStepObject, out var errorKind))
@@ -74,7 +74,7 @@ internal static class IpcExecuteEditStepShapeReader
     private static bool TryReadActions (
         JsonElement stepElement,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
         out IpcExecuteArgumentsContractReadError error)
     {
@@ -89,7 +89,7 @@ internal static class IpcExecuteEditStepShapeReader
     private static bool TryReadCommit (
         JsonElement stepElement,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
         out IpcExecuteArgumentsContractReadError error)
     {
@@ -113,7 +113,7 @@ internal static class IpcExecuteEditStepShapeReader
     private static bool TryValidateFullEditContract (
         JsonElement stepElement,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
         out IpcExecuteArgumentsContractReadError error)
     {
@@ -129,10 +129,10 @@ internal static class IpcExecuteEditStepShapeReader
 
     private static bool TryConvertPropertyError (
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         in IpcExecuteArgumentsContractReadProfile profile,
         StepPropertyReadErrorKind errorKind,
-        Func<int, string?, StepPropertyReadErrorKind, IpcExecuteArgumentsContractReadError> createError,
+        Func<int, IpcExecuteStepId?, StepPropertyReadErrorKind, IpcExecuteArgumentsContractReadError> createError,
         out IpcExecuteArgumentsContractReadError error)
     {
         if (profile.RequireStepObject || errorKind == StepPropertyReadErrorKind.TypeMismatch)

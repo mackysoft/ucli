@@ -27,7 +27,7 @@ internal static class IpcExecuteStepPropertyReader
     public static bool ValidateActionElements (
         JsonElement actionsElement,
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         out IpcExecuteArgumentsContractReadError error)
     {
         foreach (var actionElement in actionsElement.EnumerateArray())

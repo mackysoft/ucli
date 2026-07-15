@@ -2,6 +2,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -24,18 +25,15 @@ public sealed class IpcCompileContractSerializationTests
     [Trait("Size", "Small")]
     public void IpcCompileContracts_SerializeWithCamelCaseFields ()
     {
-        var requestPayload = new IpcCompileRequest(RunId)
-        {
-            TimeoutMilliseconds = 10000,
-        };
+        var requestPayload = new IpcCompileRequest(RunId);
         var responsePayload = new IpcCompileResponse(CreateCompileSummary(RunId));
 
         var request = IpcPayloadCodec.SerializeToElement(requestPayload);
         var response = IpcPayloadCodec.SerializeToElement(responsePayload);
 
         JsonAssert.For(request)
-            .HasString("runId", RunIdText)
-            .HasInt32("timeoutMilliseconds", 10000);
+            .HasString("runId", RunIdText);
+        Assert.False(request.TryGetProperty("timeoutMilliseconds", out _));
         JsonAssert.For(response)
             .HasProperty("summary", summary => summary
                 .HasString("runId", RunIdText)
@@ -70,13 +68,13 @@ public sealed class IpcCompileContractSerializationTests
         var startedPayload = new CompileStartedEntry(
             RunId: RunId,
             ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
-            RequestedMode: "auto",
-            ResolvedMode: "oneshot",
-            SessionKind: "transientProbe",
+            RequestedMode: AssuranceRequestedExecutionMode.Auto,
+            ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
+            SessionKind: AssuranceSessionKind.TransientProbe,
             TimeoutMilliseconds: 10000);
         var refreshPayload = new CompileRefreshStartedEntry(
             RunId: RunId,
-            RefreshOrigin: "assetDatabaseRefresh",
+            RefreshOrigin: CompileRefreshOrigin.AssetDatabaseRefresh,
             ObservationSource: "hostDispatch");
         var recoveredPayload = new CompileRecoveredEntry(
             RunId: RunId,
@@ -85,9 +83,9 @@ public sealed class IpcCompileContractSerializationTests
             PollAttempts: 2);
         var diagnosticPayload = new CompileDiagnosticEntry(
             RunId: RunId,
-            RefreshOrigin: "diagnosticsRead",
+            RefreshOrigin: CompileRefreshOrigin.DiagnosticsRead,
             PrimaryDiagnostic: new IpcPrimaryDiagnostic(
-                Kind: "compiler",
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS1002",
                 File: "Assets/Broken.cs",
                 Line: 4,
@@ -95,7 +93,7 @@ public sealed class IpcCompileContractSerializationTests
                 Message: "; expected"));
         var completedPayload = new CompileCompletedEntry(
             RunId: RunId,
-            Verdict: "fail",
+            Verdict: AssuranceVerdict.Fail,
             ErrorCount: 1,
             WarningCount: 0,
             SummaryJsonPath: "/tmp/ucli/compile/run-1/summary.json",
@@ -146,7 +144,7 @@ public sealed class IpcCompileContractSerializationTests
     private static IpcCompileSummary CreateCompileSummary (Guid runId)
     {
         var primaryDiagnostic = new IpcPrimaryDiagnostic(
-            Kind: "compiler",
+            Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
             Code: "CS1002",
             File: "Assets/Broken.cs",
             Line: 4,
@@ -159,7 +157,7 @@ public sealed class IpcCompileContractSerializationTests
             StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00+00:00"),
             CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02+00:00"),
             Refresh: new IpcCompileSummary.RefreshEvidence(
-                Origin: "assetDatabaseRefresh",
+                Origin: CompileRefreshOrigin.AssetDatabaseRefresh,
                 Requested: true,
                 StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00+00:00"),
                 CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:01+00:00"),
@@ -197,7 +195,7 @@ public sealed class IpcCompileContractSerializationTests
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02+00:00"),
-                ActionRequired: "fixCompileErrors",
+                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: primaryDiagnostic));
     }
 }

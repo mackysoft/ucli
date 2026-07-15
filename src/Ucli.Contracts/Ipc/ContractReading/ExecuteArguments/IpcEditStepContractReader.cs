@@ -41,13 +41,16 @@ internal static class IpcEditStepContractReader
 
     private static bool TryReadHeader (
         JsonElement stepElement,
-        out string? stepId,
+        out IpcExecuteStepId? stepId,
         out string errorMessage)
     {
-        if (!IpcEditStepContractReadHelpers.TryReadRequiredString(stepElement, "id", "step.id", out stepId, out errorMessage))
+        stepId = null;
+        if (!IpcEditStepContractReadHelpers.TryReadRequiredString(stepElement, "id", "step.id", out var stepIdValue, out errorMessage))
         {
             return false;
         }
+
+        stepId = new IpcExecuteStepId(stepIdValue!);
 
         if (!IpcEditStepContractReadHelpers.TryReadRequiredString(stepElement, "kind", "step.kind", out var kindLiteral, out errorMessage))
         {

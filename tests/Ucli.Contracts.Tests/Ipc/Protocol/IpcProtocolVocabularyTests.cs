@@ -42,8 +42,8 @@ public sealed class IpcProtocolVocabularyTests
     public void IpcProtocol_ExposesStableLiterals ()
     {
         Assert.Equal(1, IpcProtocol.CurrentVersion);
-        Assert.Equal("ok", IpcProtocol.StatusOk);
-        Assert.Equal("error", IpcProtocol.StatusError);
+        Assert.Equal("ok", ContractLiteralCodec.ToValue(IpcResponseStatus.Ok));
+        Assert.Equal("error", ContractLiteralCodec.ToValue(IpcResponseStatus.Error));
     }
 
     [Theory]
@@ -62,11 +62,12 @@ public sealed class IpcProtocolVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UnityIpcMethod_WhenUnspecified_IsNotMapped ()
+    public void UnityIpcMethod_WhenValueIsZero_IsNotMapped ()
     {
-        Assert.Equal(0, (int)UnityIpcMethod.Unspecified);
-        Assert.False(ContractLiteralCodec.IsDefined(UnityIpcMethod.Unspecified));
-        Assert.False(ContractLiteralCodec.TryToValue(UnityIpcMethod.Unspecified, out var literal));
+        const UnityIpcMethod method = (UnityIpcMethod)0;
+
+        Assert.False(ContractLiteralCodec.IsDefined(method));
+        Assert.False(ContractLiteralCodec.TryToValue(method, out var literal));
         Assert.Null(literal);
     }
 
@@ -89,7 +90,7 @@ public sealed class IpcProtocolVocabularyTests
         var result = ContractLiteralCodec.TryParse(literal, out UnityIpcMethod method);
 
         Assert.False(result);
-        Assert.Equal(UnityIpcMethod.Unspecified, method);
+        Assert.Equal(default, method);
     }
 
     [Fact]
@@ -159,46 +160,36 @@ public sealed class IpcProtocolVocabularyTests
         Assert.Equal(0, (int)IpcPlayModeTransition.None);
         Assert.Equal(1, (int)IpcPlayModeTransition.Entering);
         Assert.Equal(2, (int)IpcPlayModeTransition.Exiting);
-        Assert.Equal("enter", IpcPlayTransitionCommandNames.Enter);
-        Assert.Equal("exit", IpcPlayTransitionCommandNames.Exit);
-        Assert.Equal("entered", IpcPlayTransitionResultNames.Entered);
-        Assert.Equal("alreadyEntered", IpcPlayTransitionResultNames.AlreadyEntered);
-        Assert.Equal("exited", IpcPlayTransitionResultNames.Exited);
-        Assert.Equal("alreadyExited", IpcPlayTransitionResultNames.AlreadyExited);
-        Assert.Equal("timeout", IpcPlayTransitionResultNames.Timeout);
-        Assert.Equal("blocked", IpcPlayTransitionResultNames.Blocked);
-        Assert.Equal("notApplied", IpcPlayApplicationStateNames.NotApplied);
-        Assert.Equal("applied", IpcPlayApplicationStateNames.Applied);
-        Assert.Equal("indeterminate", IpcPlayApplicationStateNames.Indeterminate);
-        Assert.Equal("unknown", IpcPlayApplicationStateNames.Unknown);
+        Assert.Equal(["enter", "exit"], ContractLiteralCodec.GetLiterals<IpcPlayTransitionCommand>());
+        Assert.Equal(
+            ["entered", "alreadyEntered", "exited", "alreadyExited", "timeout", "blocked"],
+            ContractLiteralCodec.GetLiterals<IpcPlayTransitionOutcome>());
+        Assert.Equal(
+            ["notApplied", "applied", "indeterminate", "unknown"],
+            ContractLiteralCodec.GetLiterals<IpcApplicationState>());
+        Assert.False(ContractLiteralCodec.IsDefined((IpcPlayTransitionCommand)0));
+        Assert.False(ContractLiteralCodec.IsDefined((IpcPlayTransitionOutcome)0));
+        Assert.False(ContractLiteralCodec.IsDefined((IpcApplicationState)0));
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcExecuteReadPostconditionSurfaceNames_ExposeExpectedLiterals ()
+    public void IpcExecuteLiteralEnums_ExposeExpectedLiterals ()
     {
-        Assert.Equal("assetSearch", IpcExecuteReadPostconditionSurfaceNames.AssetSearch);
-        Assert.Equal("guidPath", IpcExecuteReadPostconditionSurfaceNames.GuidPath);
-        Assert.Equal("sceneTreeLite", IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite);
-    }
+        Assert.Equal(["info", "warning", "error"], ContractLiteralCodec.GetLiterals<UcliDiagnosticSeverity>());
+        Assert.Equal(["none", "partial", "indeterminate"], ContractLiteralCodec.GetLiterals<IpcExecuteDiagnosticCoverageImpact>());
+        Assert.Equal(["validate", "plan", "call", "skipped"], ContractLiteralCodec.GetLiterals<IpcExecuteOperationPhase>());
+        Assert.Equal(["assetSearch", "guidPath", "sceneTreeLite"], ContractLiteralCodec.GetLiterals<IpcExecuteReadPostconditionSurface>());
+        Assert.Equal(["edit", "operation", "refresh"], ContractLiteralCodec.GetLiterals<IpcExecutePostReadSourceKind>());
+        Assert.Equal(["none", "context", "project"], ContractLiteralCodec.GetLiterals<IpcExecutePostReadCommit>());
+        Assert.Equal(["deterministic", "unavailable"], ContractLiteralCodec.GetLiterals<IpcExecuteExpectedPostState>());
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcExecuteApplicationStateNames_ExposeExpectedLiterals ()
-    {
-        Assert.Equal("notApplied", IpcExecuteApplicationStateNames.NotApplied);
-        Assert.Equal("applied", IpcExecuteApplicationStateNames.Applied);
-        Assert.Equal("indeterminate", IpcExecuteApplicationStateNames.Indeterminate);
-        Assert.Equal("unknown", IpcExecuteApplicationStateNames.Unknown);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void IpcExecuteOperationPhaseNames_ExposeExpectedLiterals ()
-    {
-        Assert.Equal("validate", IpcExecuteOperationPhaseNames.Validate);
-        Assert.Equal("plan", IpcExecuteOperationPhaseNames.Plan);
-        Assert.Equal("call", IpcExecuteOperationPhaseNames.Call);
-        Assert.Equal("skipped", IpcExecuteOperationPhaseNames.Skipped);
+        Assert.False(ContractLiteralCodec.IsDefined((UcliDiagnosticSeverity)0));
+        Assert.False(ContractLiteralCodec.IsDefined((IpcExecuteDiagnosticCoverageImpact)0));
+        Assert.False(ContractLiteralCodec.IsDefined((IpcExecuteOperationPhase)0));
+        Assert.False(ContractLiteralCodec.IsDefined((IpcExecuteReadPostconditionSurface)0));
+        Assert.False(ContractLiteralCodec.IsDefined((IpcExecutePostReadSourceKind)0));
+        Assert.False(ContractLiteralCodec.IsDefined((IpcExecutePostReadCommit)0));
+        Assert.False(ContractLiteralCodec.IsDefined((IpcExecuteExpectedPostState)0));
     }
 }

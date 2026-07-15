@@ -51,7 +51,7 @@ public sealed class IpcExecuteArgumentsContractReaderEditStepTests
         var step = Assert.Single(parsedArguments.Steps!);
         Assert.NotNull(step);
         Assert.Equal(IpcExecuteStepKind.Edit, step!.Kind);
-        Assert.Equal("edit-1", step.Id);
+        Assert.Equal("edit-1", step.Id!.Value);
         Assert.Null(step.OperationName);
     }
 
@@ -91,7 +91,7 @@ public sealed class IpcExecuteArgumentsContractReaderEditStepTests
         Assert.False(result);
         Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.StepSelectContractViolation, error.Kind);
         Assert.Equal(0, error.StepIndex);
-        Assert.Equal("edit-1", error.StepId);
+        Assert.Equal("edit-1", error.StepId!.Value);
         Assert.Equal(StepPropertyReadErrorKind.TypeMismatch, error.StepPropertyReadErrorKind);
     }
 
@@ -137,7 +137,7 @@ public sealed class IpcExecuteArgumentsContractReaderEditStepTests
         var step = Assert.Single(parsedArguments.Steps!);
         Assert.NotNull(step);
         Assert.Equal(IpcExecuteStepKind.Edit, step!.Kind);
-        Assert.Equal("edit-1", step.Id);
+        Assert.Equal("edit-1", step.Id!.Value);
         Assert.Null(step.OperationName);
     }
 
@@ -180,7 +180,7 @@ public sealed class IpcExecuteArgumentsContractReaderEditStepTests
         Assert.False(result);
         Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.StepEditContractViolation, error.Kind);
         Assert.Equal(0, error.StepIndex);
-        Assert.Equal("edit-unsupported-commit", error.StepId);
+        Assert.Equal("edit-unsupported-commit", error.StepId!.Value);
         Assert.Equal("Edit step property 'step.commit' must be one of 'none', 'context', or 'project'.", error.DiagnosticMessage);
     }
 
@@ -230,7 +230,7 @@ public sealed class IpcExecuteArgumentsContractReaderEditStepTests
         Assert.False(result);
         Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.StepEditContractViolation, error.Kind);
         Assert.Equal(0, error.StepIndex);
-        Assert.Equal("edit-query-extra", error.StepId);
+        Assert.Equal("edit-query-extra", error.StepId!.Value);
         Assert.Equal("Edit step property 'step.select.from' contains an unknown property: extra.", error.DiagnosticMessage);
     }
 }

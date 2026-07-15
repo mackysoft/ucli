@@ -10,10 +10,10 @@ namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 internal readonly record struct IpcExecuteArgumentsContractViolation (
     IpcExecuteArgumentsContractViolationKind Kind,
     int StepIndex,
-    string? StepId,
+    IpcExecuteStepId? StepId,
     string? UnknownPropertyName,
     string? PropertyPath,
-    string? DuplicatedStepId)
+    IpcExecuteStepId? DuplicatedStepId)
 {
     public static IpcExecuteArgumentsContractViolation None => new(
         Kind: IpcExecuteArgumentsContractViolationKind.None,

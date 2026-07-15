@@ -50,7 +50,9 @@ public sealed class IpcPingContractSerializationTests
                     Transition: IpcPlayModeTransition.None,
                     IsPlaying: true,
                     IsPlayingOrWillChangePlaymode: true)),
-            observedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"));
+            observedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
+            actionRequired: null,
+            primaryDiagnostic: null);
 
         var json = IpcPayloadCodec.SerializeToElement(response);
 

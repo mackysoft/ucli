@@ -23,7 +23,7 @@ public sealed class IpcGuiBootstrapArgumentsCodecTests
                 "-projectPath",
                 "/repo/UnityProject",
                 IpcGuiBootstrapArgumentNames.Target,
-                IpcGuiBootstrapTargetValues.Daemon,
+                "daemon",
                 IpcGuiBootstrapArgumentNames.OwnerProcessId,
                 "123",
                 IpcGuiBootstrapArgumentNames.CanShutdownProcess,
@@ -40,7 +40,7 @@ public sealed class IpcGuiBootstrapArgumentsCodecTests
         {
             "Unity",
             IpcGuiBootstrapArgumentNames.Target,
-            IpcGuiBootstrapTargetValues.Daemon,
+            "daemon",
             IpcGuiBootstrapArgumentNames.OwnerProcessId,
             "123",
             IpcGuiBootstrapArgumentNames.CanShutdownProcess,
@@ -69,7 +69,7 @@ public sealed class IpcGuiBootstrapArgumentsCodecTests
         {
             "Unity",
             IpcGuiBootstrapArgumentNames.Target,
-            IpcGuiBootstrapTargetValues.Daemon,
+            "daemon",
             IpcGuiBootstrapArgumentNames.OwnerProcessId,
             "456",
             IpcGuiBootstrapArgumentNames.CanShutdownProcess,
@@ -148,7 +148,7 @@ public sealed class IpcGuiBootstrapArgumentsCodecTests
         {
             "Unity",
             IpcGuiBootstrapArgumentNames.Target,
-            IpcGuiBootstrapTargetValues.Daemon,
+            "daemon",
             IpcGuiBootstrapArgumentNames.OwnerProcessId,
             rawValue,
             IpcGuiBootstrapArgumentNames.CanShutdownProcess,
@@ -169,7 +169,7 @@ public sealed class IpcGuiBootstrapArgumentsCodecTests
         {
             "Unity",
             IpcGuiBootstrapArgumentNames.Target,
-            IpcGuiBootstrapTargetValues.Daemon,
+            "daemon",
             IpcGuiBootstrapArgumentNames.OwnerProcessId,
             "123",
             IpcGuiBootstrapArgumentNames.CanShutdownProcess,

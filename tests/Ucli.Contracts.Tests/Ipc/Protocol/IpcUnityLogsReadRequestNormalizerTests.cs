@@ -18,7 +18,7 @@ public sealed class IpcUnityLogsReadRequestNormalizerTests
                 Query: " socket ",
                 QueryTarget: null,
                 Source: null,
-                StackTrace: "none",
+                StackTrace: IpcUnityLogStackTraceMode.None,
                 StackTraceMaxFrames: 8,
                 StackTraceMaxChars: 4096),
             out var normalizedRequest,
@@ -28,10 +28,10 @@ public sealed class IpcUnityLogsReadRequestNormalizerTests
 
         Assert.True(result);
         Assert.NotNull(normalizedRequest);
-        Assert.Equal(IpcDaemonLogsLevelCodec.All, normalizedRequest.Level);
-        Assert.Equal(IpcDaemonLogsQueryTargetCodec.Message, normalizedRequest.QueryTarget);
-        Assert.Equal(IpcUnityLogsSourceCodec.All, normalizedRequest.Source);
-        Assert.Equal(IpcUnityLogsStackTraceModeCodec.None, normalizedRequest.StackTrace);
+        Assert.Null(normalizedRequest.Level);
+        Assert.Equal(IpcLogQueryTarget.Message, normalizedRequest.QueryTarget);
+        Assert.Null(normalizedRequest.Source);
+        Assert.Equal(IpcUnityLogStackTraceMode.None, normalizedRequest.StackTrace);
         Assert.Null(normalizedRequest.StackTraceMaxFrames);
         Assert.Null(normalizedRequest.StackTraceMaxChars);
         Assert.Equal("socket", normalizedRequest.Query);
@@ -86,7 +86,7 @@ public sealed class IpcUnityLogsReadRequestNormalizerTests
                 Query: null,
                 QueryTarget: null,
                 Source: null,
-                StackTrace: IpcUnityLogsStackTraceModeCodec.All,
+                StackTrace: IpcUnityLogStackTraceMode.All,
                 StackTraceMaxFrames: null,
                 StackTraceMaxChars: IpcUnityLogsReadRequestNormalizer.MinimumStackTraceMaxChars - 1),
             out var normalizedRequest,

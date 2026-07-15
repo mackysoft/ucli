@@ -6,7 +6,7 @@ using MackySoft.Ucli.Contracts.Text;
 namespace MackySoft.Ucli.Contracts.Ipc.Authorization;
 
 /// <summary> Represents one canonical IPC session token without exposing its encoded value through general string conversion. </summary>
-internal sealed class IpcSessionToken : IEquatable<IpcSessionToken>
+public sealed class IpcSessionToken : IEquatable<IpcSessionToken>
 {
     private const int RandomByteCount = 32;
 
@@ -18,22 +18,12 @@ internal sealed class IpcSessionToken : IEquatable<IpcSessionToken>
 
     private IpcSessionToken (string encodedValue)
     {
-        if (encodedValue == null)
-        {
-            throw new ArgumentNullException(nameof(encodedValue));
-        }
-
-        if (!IsValidEncodedValue(encodedValue))
-        {
-            throw new ArgumentException("IPC session token must be a canonical 32-byte base64url value.", nameof(encodedValue));
-        }
-
         this.encodedValue = encodedValue;
     }
 
     /// <summary> Creates a token from 32 cryptographically secure random bytes. </summary>
     /// <returns> A token encoded as exactly 43 unpadded canonical base64url characters. </returns>
-    internal static IpcSessionToken CreateRandom ()
+    public static IpcSessionToken CreateRandom ()
     {
         Span<byte> randomBytes = stackalloc byte[RandomByteCount];
         RandomNumberGenerator.Fill(randomBytes);
@@ -44,12 +34,13 @@ internal sealed class IpcSessionToken : IEquatable<IpcSessionToken>
     /// <param name="encodedValue"> The candidate encoded token. </param>
     /// <param name="token"> The token when parsing succeeds; otherwise <see langword="null" />. </param>
     /// <returns> <see langword="true" /> when the value is exactly 43 unpadded canonical base64url characters; otherwise <see langword="false" />. </returns>
-    internal static bool TryParse (
+    public static bool TryParse (
         string? encodedValue,
         [NotNullWhen(true)] out IpcSessionToken? token)
     {
         token = null;
-        if (!IsValidEncodedValue(encodedValue))
+        if (encodedValue is not { Length: EncodedCharacterCount }
+            || !Base64UrlCodec.IsCanonical(encodedValue))
         {
             return false;
         }
@@ -58,27 +49,9 @@ internal sealed class IpcSessionToken : IEquatable<IpcSessionToken>
         return true;
     }
 
-    /// <summary> Determines whether a string is one canonical encoded token without creating a token object. </summary>
-    /// <param name="value"> The candidate encoded token. </param>
-    /// <returns> <see langword="true" /> when the value is exactly 43 unpadded canonical base64url characters; otherwise <see langword="false" />. </returns>
-    internal static bool IsValidEncodedValue ([NotNullWhen(true)] string? value)
-    {
-        return value is { Length: EncodedCharacterCount }
-            && Base64UrlCodec.IsCanonical(value);
-    }
-
-    /// <summary> Compares a presented encoded value with this token without allocating comparison buffers. </summary>
-    /// <param name="presentedEncodedValue"> The candidate encoded token presented by an IPC request. </param>
-    /// <returns> <see langword="true" /> when the candidate is canonical and has the same encoded value; otherwise <see langword="false" />. </returns>
-    internal bool Matches (string? presentedEncodedValue)
-    {
-        return IsValidEncodedValue(presentedEncodedValue)
-            && FixedTimeEquals(encodedValue, presentedEncodedValue);
-    }
-
     /// <summary> Gets the canonical encoded value for an explicit IPC or persistence boundary. </summary>
     /// <returns> The 43-character canonical base64url value. </returns>
-    internal string GetEncodedValue ()
+    public string GetEncodedValue ()
     {
         return encodedValue;
     }

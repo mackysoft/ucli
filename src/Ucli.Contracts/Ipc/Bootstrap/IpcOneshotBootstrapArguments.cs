@@ -1,43 +1,15 @@
-using System.Text.Json.Serialization;
-
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Represents one Unity oneshot bootstrap argument payload. </summary>
+/// <summary> Identifies one persisted Unity oneshot bootstrap envelope from command-line arguments. </summary>
 public sealed record IpcOneshotBootstrapArguments : IpcBatchmodeBootstrapArguments
 {
-    /// <summary> Initializes one validated Unity oneshot bootstrap argument payload. </summary>
-    [JsonConstructor]
-    public IpcOneshotBootstrapArguments (
-        int ParentProcessId,
-        ProjectFingerprint ProjectFingerprint,
-        string SessionToken,
-        DateTimeOffset ExitDeadlineUtc,
-        string EndpointTransportKind,
-        string EndpointAddress)
+    /// <summary> Initializes one validated Unity oneshot bootstrap reference. </summary>
+    /// <param name="BootstrapId"> The non-empty bootstrap-envelope identifier. </param>
+    public IpcOneshotBootstrapArguments (Guid BootstrapId)
     {
-        this.ParentProcessId = ContractArgumentGuard.RequirePositive(ParentProcessId, nameof(ParentProcessId));
-        this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
-        this.SessionToken = ContractArgumentGuard.RequireValue(SessionToken, nameof(SessionToken));
-        this.ExitDeadlineUtc = ExitDeadlineUtc;
-        this.EndpointTransportKind = ContractArgumentGuard.RequireValue(EndpointTransportKind, nameof(EndpointTransportKind));
-        this.EndpointAddress = ContractArgumentGuard.RequireValue(EndpointAddress, nameof(EndpointAddress));
+        this.BootstrapId = ContractArgumentGuard.RequireNonEmptyGuid(BootstrapId, nameof(BootstrapId));
     }
 
-    /// <summary> Gets the positive originating CLI process identifier. </summary>
-    public int ParentProcessId { get; }
-
-    /// <summary> Gets the project fingerprint. </summary>
-    public ProjectFingerprint ProjectFingerprint { get; }
-
-    /// <summary> Gets the non-empty dedicated oneshot session token. </summary>
-    public string SessionToken { get; }
-
-    /// <summary> Gets the absolute UTC deadline after which the oneshot host must exit itself. </summary>
-    public DateTimeOffset ExitDeadlineUtc { get; }
-
-    /// <summary> Gets the non-empty endpoint transport kind literal. </summary>
-    public string EndpointTransportKind { get; }
-
-    /// <summary> Gets the non-empty endpoint address. </summary>
-    public string EndpointAddress { get; }
+    /// <summary> Gets the non-empty bootstrap-envelope identifier. </summary>
+    public Guid BootstrapId { get; }
 }

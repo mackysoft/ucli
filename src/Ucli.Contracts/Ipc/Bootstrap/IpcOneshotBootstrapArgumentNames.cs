@@ -3,12 +3,6 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <summary> Defines command-line argument names used to bootstrap Unity oneshot mode. </summary>
 public static class IpcOneshotBootstrapArgumentNames
 {
-    /// <summary> Gets the argument name that carries one originating CLI parent process identifier. </summary>
-    public const string ParentProcessId = "-ucliOneshotParentProcessId";
-
-    /// <summary> Gets the argument name that carries one oneshot-only session token. </summary>
-    public const string SessionToken = "-ucliOneshotSessionToken";
-
-    /// <summary> Gets the argument name that carries the absolute UTC deadline for oneshot self-exit. </summary>
-    public const string ExitDeadlineUtc = "-ucliOneshotExitDeadlineUtc";
+    /// <summary> Gets the argument name that carries the non-secret bootstrap-envelope identifier. </summary>
+    public const string BootstrapId = "-ucliOneshotBootstrapId";
 }

@@ -5,13 +5,9 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <summary> Defines the methods supported by Unity IPC endpoints. </summary>
 public enum UnityIpcMethod
 {
-    /// <summary> No Unity IPC method is specified. </summary>
-    [UcliContractLiteralIgnore]
-    Unspecified = 0,
-
     /// <summary> Checks connectivity to a Unity IPC endpoint. </summary>
     [UcliContractLiteral("ping")]
-    Ping,
+    Ping = 1,
 
     /// <summary> Executes one Unity command request. </summary>
     [UcliContractLiteral("execute")]

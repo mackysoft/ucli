@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Bootstrap;
 
@@ -22,10 +23,11 @@ public sealed class IpcBootstrapVocabularyTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IpcBatchmodeBootstrapTargetValues_HasStableStringValues ()
+    public void IpcBootstrapTarget_HasStableLiteralsAndInvalidDefault ()
     {
-        Assert.Equal("daemon", IpcBatchmodeBootstrapTargetValues.Daemon);
-        Assert.Equal("oneshot", IpcBatchmodeBootstrapTargetValues.Oneshot);
+        Assert.Equal("daemon", ContractLiteralCodec.ToValue(IpcBootstrapTarget.Daemon));
+        Assert.Equal("oneshot", ContractLiteralCodec.ToValue(IpcBootstrapTarget.Oneshot));
+        Assert.False(Enum.IsDefined(default(IpcBootstrapTarget)));
     }
 
     [Fact]
@@ -48,8 +50,6 @@ public sealed class IpcBootstrapVocabularyTests
     [Trait("Size", "Small")]
     public void IpcOneshotBootstrapArgumentNames_HasStableStringValues ()
     {
-        Assert.Equal("-ucliOneshotParentProcessId", IpcOneshotBootstrapArgumentNames.ParentProcessId);
-        Assert.Equal("-ucliOneshotSessionToken", IpcOneshotBootstrapArgumentNames.SessionToken);
-        Assert.Equal("-ucliOneshotExitDeadlineUtc", IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc);
+        Assert.Equal("-ucliOneshotBootstrapId", IpcOneshotBootstrapArgumentNames.BootstrapId);
     }
 }

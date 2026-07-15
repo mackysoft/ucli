@@ -21,4 +21,16 @@ public enum IpcBatchmodeBootstrapParseErrorKind
     /// <summary> The project fingerprint argument value is invalid. </summary>
     InvalidProjectFingerprint,
 
+    /// <summary> The daemon session generation identifier argument value is invalid. </summary>
+    InvalidSessionGenerationId,
+
+    /// <summary> The endpoint transport-kind argument value is invalid. </summary>
+    InvalidEndpointTransportKind,
+
+    /// <summary> The endpoint address argument value is invalid for its transport. </summary>
+    InvalidEndpointAddress,
+
+    /// <summary> The oneshot bootstrap identifier argument value is invalid. </summary>
+    InvalidBootstrapId,
+
 }

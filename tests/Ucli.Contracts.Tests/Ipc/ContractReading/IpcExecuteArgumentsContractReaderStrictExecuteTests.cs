@@ -25,7 +25,7 @@ public sealed class IpcExecuteArgumentsContractReaderStrictExecuteTests
         Assert.False(result);
         Assert.Equal(IpcExecuteArgumentsContractReadErrorKind.DuplicatedStepId, error.Kind);
         Assert.Equal(1, error.StepIndex);
-        Assert.Equal("same", error.DuplicatedStepId);
+        Assert.Equal("same", error.DuplicatedStepId!.Value);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public sealed class IpcExecuteArgumentsContractReaderStrictExecuteTests
         var step = Assert.Single(parsedArguments.Steps!);
         Assert.NotNull(step);
         Assert.Equal(IpcExecuteStepKind.Op, step!.Kind);
-        Assert.Equal("op-1", step.Id);
+        Assert.Equal("op-1", step.Id!.Value);
         Assert.Equal(UcliPrimitiveOperationNames.Resolve, step.OperationName);
     }
 

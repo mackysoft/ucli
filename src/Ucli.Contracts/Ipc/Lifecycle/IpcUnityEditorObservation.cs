@@ -1,4 +1,6 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -6,6 +8,16 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record IpcUnityEditorObservation
 {
     /// <summary> Initializes one Unity Editor observation exposed by the IPC protocol. </summary>
+    /// <param name="serverVersion"> The non-empty daemon server version. </param>
+    /// <param name="unityVersion"> The non-empty Unity Editor version. </param>
+    /// <param name="projectFingerprint"> The Unity project fingerprint served by the IPC host. </param>
+    /// <param name="state"> The comparable Unity Editor state. </param>
+    /// <param name="observedAtUtc"> The non-default observation timestamp. </param>
+    /// <param name="actionRequired"> The optional action required to resolve the lifecycle blocker. </param>
+    /// <param name="primaryDiagnostic"> The optional primary lifecycle diagnostic. </param>
+    /// <exception cref="ArgumentException"> Thrown when a required version has no content. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> or <paramref name="state" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="observedAtUtc" /> is the default value or <paramref name="actionRequired" /> is undefined. </exception>
     [JsonConstructor]
     public IpcUnityEditorObservation (
         string serverVersion,
@@ -13,8 +25,8 @@ public sealed record IpcUnityEditorObservation
         ProjectFingerprint projectFingerprint,
         UnityEditorStateSnapshot state,
         DateTimeOffset observedAtUtc,
-        string? actionRequired = null,
-        IpcPrimaryDiagnostic? primaryDiagnostic = null)
+        DaemonDiagnosisActionRequired? actionRequired,
+        IpcPrimaryDiagnostic? primaryDiagnostic)
     {
         if (string.IsNullOrWhiteSpace(serverVersion))
         {
@@ -32,6 +44,11 @@ public sealed record IpcUnityEditorObservation
                 nameof(observedAtUtc),
                 observedAtUtc,
                 "Observation timestamp must be specified.");
+        }
+
+        if (actionRequired.HasValue && !ContractLiteralCodec.IsDefined(actionRequired.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(actionRequired), actionRequired, "Unsupported daemon diagnosis action.");
         }
 
         ServerVersion = serverVersion;
@@ -61,7 +78,7 @@ public sealed record IpcUnityEditorObservation
     public DateTimeOffset ObservedAtUtc { get; }
 
     /// <summary> Gets the normalized action required to resolve the current lifecycle state. </summary>
-    public string? ActionRequired { get; }
+    public DaemonDiagnosisActionRequired? ActionRequired { get; }
 
     /// <summary> Gets the primary machine-readable diagnostic for the current lifecycle state. </summary>
     public IpcPrimaryDiagnostic? PrimaryDiagnostic { get; }

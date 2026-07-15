@@ -9,6 +9,6 @@ namespace MackySoft.Ucli.Contracts.Ipc.ContractReading;
 /// <param name="Element"> The cloned public step JSON object. </param>
 internal sealed record IpcExecuteStepContract (
     IpcExecuteStepKind? Kind,
-    string? Id,
+    IpcExecuteStepId? Id,
     string? OperationName,
     JsonElement Element);

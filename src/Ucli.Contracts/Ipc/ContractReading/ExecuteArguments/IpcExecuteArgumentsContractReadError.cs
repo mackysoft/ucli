@@ -13,8 +13,8 @@ internal readonly record struct IpcExecuteArgumentsContractReadError (
     IpcExecuteArgumentsContractReadErrorKind Kind,
     int StepIndex,
     string? UnknownPropertyName,
-    string? StepId,
-    string? DuplicatedStepId,
+    IpcExecuteStepId? StepId,
+    IpcExecuteStepId? DuplicatedStepId,
     string? DiagnosticMessage,
     JsonStringReadError JsonStringReadError,
     StepPropertyReadErrorKind StepPropertyReadErrorKind)
@@ -109,7 +109,7 @@ internal readonly record struct IpcExecuteArgumentsContractReadError (
 
     public static IpcExecuteArgumentsContractReadError StepOpContractViolation (
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         JsonStringReadError jsonStringReadError)
     {
         return Create(
@@ -121,7 +121,7 @@ internal readonly record struct IpcExecuteArgumentsContractReadError (
 
     public static IpcExecuteArgumentsContractReadError StepArgsContractViolation (
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
         return Create(
@@ -133,7 +133,7 @@ internal readonly record struct IpcExecuteArgumentsContractReadError (
 
     public static IpcExecuteArgumentsContractReadError StepOnContractViolation (
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
         return Create(
@@ -145,7 +145,7 @@ internal readonly record struct IpcExecuteArgumentsContractReadError (
 
     public static IpcExecuteArgumentsContractReadError StepSelectContractViolation (
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
         return Create(
@@ -157,7 +157,7 @@ internal readonly record struct IpcExecuteArgumentsContractReadError (
 
     public static IpcExecuteArgumentsContractReadError StepActionsContractViolation (
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         StepPropertyReadErrorKind propertyReadErrorKind)
     {
         return Create(
@@ -169,7 +169,7 @@ internal readonly record struct IpcExecuteArgumentsContractReadError (
 
     public static IpcExecuteArgumentsContractReadError StepActionMustBeObject (
         int stepIndex,
-        string? stepId)
+        IpcExecuteStepId? stepId)
     {
         return Create(
             IpcExecuteArgumentsContractReadErrorKind.StepActionMustBeObject,
@@ -179,7 +179,7 @@ internal readonly record struct IpcExecuteArgumentsContractReadError (
 
     public static IpcExecuteArgumentsContractReadError StepCommitContractViolation (
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         JsonStringReadError jsonStringReadError)
     {
         return Create(
@@ -191,7 +191,7 @@ internal readonly record struct IpcExecuteArgumentsContractReadError (
 
     public static IpcExecuteArgumentsContractReadError StepEditContractViolation (
         int stepIndex,
-        string? stepId,
+        IpcExecuteStepId? stepId,
         string diagnosticMessage)
     {
         return Create(
@@ -203,7 +203,7 @@ internal readonly record struct IpcExecuteArgumentsContractReadError (
 
     public static IpcExecuteArgumentsContractReadError DuplicatedStepIdError (
         int stepIndex,
-        string duplicatedStepId)
+        IpcExecuteStepId duplicatedStepId)
     {
         return Create(
             IpcExecuteArgumentsContractReadErrorKind.DuplicatedStepId,
@@ -216,8 +216,8 @@ internal readonly record struct IpcExecuteArgumentsContractReadError (
         IpcExecuteArgumentsContractReadErrorKind kind,
         int stepIndex = -1,
         string? unknownPropertyName = null,
-        string? stepId = null,
-        string? duplicatedStepId = null,
+        IpcExecuteStepId? stepId = null,
+        IpcExecuteStepId? duplicatedStepId = null,
         string? diagnosticMessage = null,
         JsonStringReadError jsonStringReadError = default,
         StepPropertyReadErrorKind stepPropertyReadErrorKind = StepPropertyReadErrorKind.None)

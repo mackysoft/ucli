@@ -152,10 +152,10 @@ internal static class IpcExecuteArgumentsContractReader
         return true;
     }
 
-    private static HashSet<string>? CreateDuplicateStepIdDetector (in IpcExecuteArgumentsContractReadProfile profile)
+    private static HashSet<IpcExecuteStepId>? CreateDuplicateStepIdDetector (in IpcExecuteArgumentsContractReadProfile profile)
     {
         return profile.RejectDuplicatedStepId
-            ? new HashSet<string>(StringComparer.Ordinal)
+            ? new HashSet<IpcExecuteStepId>()
             : null;
     }
 

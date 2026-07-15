@@ -1,5 +1,6 @@
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -18,21 +19,21 @@ public sealed class IpcBuildPreconditionContractSerializationTests
             new IpcBuildDirtyState(
                 Checked: true,
                 Dirty: true,
-                Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
+                Coverage: IpcBuildDirtyStateCoverage.Full,
                 Items:
                 [
                     new IpcBuildDirtyStateItem(
-                        ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene),
+                        IpcBuildDirtyStateItemKind.Scene,
                         "Assets/Scenes/Main.unity"),
                 ]));
         var inputProbe = IpcPayloadCodec.SerializeToElement(
             new IpcBuildInputProbe(
-                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
-                BuildTarget: "standaloneLinux64",
+                InputKind: BuildProfileInputsKind.Explicit,
+                BuildTarget: BuildTargetStableName.StandaloneLinux64,
                 UnityBuildTarget: "StandaloneLinux64",
                 UnityBuildTargetGroup: "Standalone",
-                SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
-                Scenes: ["Assets/Scenes/Main.unity"],
+                SceneSource: BuildProfileSceneSource.Explicit,
+                Scenes: [new SceneAssetPath("Assets/Scenes/Main.unity")],
                 BuildOptions: "Development"));
         var lifecycle = IpcPayloadCodec.SerializeToElement(
             new IpcUnityEditorObservation(
@@ -54,9 +55,9 @@ public sealed class IpcBuildPreconditionContractSerializationTests
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                actionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+                actionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
                 primaryDiagnostic: new IpcPrimaryDiagnostic(
-                    Kind: "compiler",
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                     Code: "CS1002",
                     File: "Assets/Broken.cs",
                     Line: 4,
@@ -86,7 +87,7 @@ public sealed class IpcBuildPreconditionContractSerializationTests
             .HasString("unityVersion", "6000.0.0f1")
             .HasString("projectFingerprint", TestProjectFingerprint.ToString())
             .HasString("observedAtUtc", "2026-06-12T00:00:00+00:00")
-            .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.FixCompileErrors)
+            .HasString("actionRequired", ContractLiteralCodec.ToValue(DaemonDiagnosisActionRequired.FixCompileErrors))
             .HasProperty("primaryDiagnostic", diagnostic => diagnostic
                 .HasString("kind", "compiler")
                 .HasString("code", "CS1002")

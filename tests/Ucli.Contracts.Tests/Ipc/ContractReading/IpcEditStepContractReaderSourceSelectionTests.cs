@@ -41,7 +41,7 @@ public sealed class IpcEditStepContractReaderSourceSelectionTests
         var result = IpcEditStepContractReader.TryRead(document.RootElement, out var contract, out var errorMessage);
 
         Assert.True(result, errorMessage);
-        Assert.Equal("edit-query", contract.Id);
+        Assert.Equal("edit-query", contract.Id.Value);
         Assert.Equal(IpcEditStepContract.ContextKind.Scene, contract.Context.Kind);
         Assert.Equal("Assets/Scenes/Main.unity", contract.Context.Path);
         Assert.Equal(IpcEditStepContract.SelectionKind.From, contract.Selection.Kind);
