@@ -239,7 +239,7 @@ namespace MackySoft.Ucli.Unity.Build
                 throw new InvalidOperationException(result.DiagnosticMessage);
             }
 
-            return result.RepositoryRelativeSlashPath!;
+            return new ProjectMutationAuditPath(result.RepositoryRelativeSlashPath!);
         }
 
         private static Sha256Digest CalculateAggregateDigest (IReadOnlyList<ProjectMutationFileEntry> files)
@@ -247,7 +247,7 @@ namespace MackySoft.Ucli.Unity.Build
             var builder = new StringBuilder();
             for (var i = 0; i < files.Count; i++)
             {
-                builder.Append(files[i].Path);
+                builder.Append(files[i].Path.Value);
                 builder.Append('\0');
                 builder.Append(files[i].Sha256);
                 builder.Append('\n');

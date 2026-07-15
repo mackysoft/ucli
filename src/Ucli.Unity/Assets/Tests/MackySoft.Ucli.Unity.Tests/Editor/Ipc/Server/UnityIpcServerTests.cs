@@ -1109,7 +1109,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var payload = response.Payload.Deserialize<IpcDaemonLogsReadResponse>(SerializerOptions);
             Assert.That(payload, Is.Not.Null);
             Assert.That(payload.Events.Count, Is.GreaterThanOrEqualTo(1));
-            Assert.That(payload.NextCursor, Is.Not.Empty);
+            Assert.That(payload.NextCursor.StreamId, Is.Not.EqualTo(Guid.Empty));
         });
 
         [UnityTest]
@@ -1130,7 +1130,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(payload, Is.Not.Null);
             Assert.That(payload.Events.Count, Is.GreaterThanOrEqualTo(1));
             Assert.That(payload.Events[0].Source, Is.EqualTo(IpcUnityLogSource.Runtime));
-            Assert.That(payload.NextCursor, Is.Not.Empty);
+            Assert.That(payload.NextCursor.StreamId, Is.Not.EqualTo(Guid.Empty));
         });
 
         [UnityTest]

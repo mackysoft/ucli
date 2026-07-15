@@ -80,8 +80,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 targetKey,
                 "m_Text",
                 wasPrefabOverrideBeforeRequest: false,
-                valueHashBeforeSet: "before",
-                valueHashAfterSet: "after",
+                valueSignatureBeforeSet: "before",
+                valueSignatureAfterSet: "after",
                 requiresExplicitPrefabAssetMutation: false);
 
             var result = executionContext.TryCollectPrefabOverridePropertyChanges(
@@ -108,8 +108,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 targetKey,
                 "m_Text",
                 wasPrefabOverrideBeforeRequest: false,
-                valueHashBeforeSet: "before",
-                valueHashAfterSet: "after",
+                valueSignatureBeforeSet: "before",
+                valueSignatureAfterSet: "after",
                 requiresExplicitPrefabAssetMutation: false);
 
             var result = executionContext.TryCollectPrefabOverridePropertyChanges(
