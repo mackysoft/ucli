@@ -43,7 +43,7 @@ internal sealed class SupervisorExitHandler
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(managedProcess);
 
-        if (!DaemonSessionTerminationPolicy.CanShutdownProcess(managedProcess.Session))
+        if (!managedProcess.Session.CanShutdownProcess)
         {
             return;
         }
@@ -98,7 +98,7 @@ internal sealed class SupervisorExitHandler
             var diagnosisWriteResult = await diagnosisWriter.WriteUnexpectedAsync(
                     managedProcess.UnityProject,
                     managedProcess.Session,
-                    DaemonDiagnosisReasonValues.UnexpectedExit,
+                    DaemonDiagnosisReason.UnexpectedExit,
                     $"Unity daemon process exited unexpectedly. ProcessId={managedProcess.ProcessId}.",
                     cancellationToken)
                 .ConfigureAwait(false);

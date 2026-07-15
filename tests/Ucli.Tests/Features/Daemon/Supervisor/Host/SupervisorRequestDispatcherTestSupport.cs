@@ -69,13 +69,20 @@ internal static class SupervisorRequestDispatcherTestSupport
             StartupBlockingReason: DaemonStartupBlockingReason.Compile,
             LaunchAttemptId: null,
             ProcessAction: DaemonStartupProcessAction.Kept,
-            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix);
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
+            EditorMode: null,
+            OwnerKind: null,
+            CanShutdownProcess: null,
+            ProcessId: null,
+            StartedAtUtc: null,
+            ElapsedMilliseconds: null,
+            ArtifactPath: null);
     }
 
     public static async Task<IpcResponse> SendRequestAsync (
         SupervisorRequestDispatcher dispatcher,
         SupervisorRuntimeContext runtimeContext,
-        IpcRequest request)
+        IpcRequestEnvelope request)
     {
         return await SendFramedRequestAsync(dispatcher, runtimeContext, request).ConfigureAwait(false);
     }
@@ -91,7 +98,7 @@ internal static class SupervisorRequestDispatcherTestSupport
     public static async Task<IpcResponse> SendRequestWithCallerDisconnectAsync (
         SupervisorRequestDispatcher dispatcher,
         SupervisorRuntimeContext runtimeContext,
-        IpcRequest request)
+        IpcRequestEnvelope request)
     {
         using var stream = new CallerDisconnectingMemoryStream();
         await IpcFrameCodec.WriteModelAsync(
@@ -119,7 +126,7 @@ internal static class SupervisorRequestDispatcherTestSupport
     public static async Task<IReadOnlyList<IpcStreamFrame>> SendStreamingRequestAsync (
         SupervisorRequestDispatcher dispatcher,
         SupervisorRuntimeContext runtimeContext,
-        IpcRequest request)
+        IpcRequestEnvelope request)
     {
         using var stream = new DuplexMemoryStream(await CreateRequestFrameBytesAsync(request).ConfigureAwait(false));
 
@@ -139,7 +146,7 @@ internal static class SupervisorRequestDispatcherTestSupport
                     IpcJsonSerializerOptions.Default)
                 .ConfigureAwait(false);
             frames.Add(frame);
-            if (string.Equals(frame.Kind, IpcStreamFrameKinds.Terminal, StringComparison.Ordinal))
+            if (frame.Kind == IpcStreamFrameKind.Terminal)
             {
                 return frames;
             }
@@ -149,7 +156,7 @@ internal static class SupervisorRequestDispatcherTestSupport
     public static async Task<IReadOnlyList<IpcStreamFrame>> SendStreamingRequestWithTransientWriteFailureAsync (
         SupervisorRequestDispatcher dispatcher,
         SupervisorRuntimeContext runtimeContext,
-        IpcRequest request)
+        IpcRequestEnvelope request)
     {
         using var stream = new DuplexMemoryStream(await CreateRequestFrameBytesAsync(request).ConfigureAwait(false))
         {
@@ -204,7 +211,7 @@ internal static class SupervisorRequestDispatcherTestSupport
             .ConfigureAwait(false);
     }
 
-    private static async Task<byte[]> CreateRequestFrameBytesAsync (IpcRequest request)
+    private static async Task<byte[]> CreateRequestFrameBytesAsync (IpcRequestEnvelope request)
     {
         using var stream = new MemoryStream();
         await IpcFrameCodec.WriteModelAsync(

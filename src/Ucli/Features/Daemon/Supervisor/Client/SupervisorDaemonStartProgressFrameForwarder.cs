@@ -108,51 +108,31 @@ internal sealed class SupervisorDaemonStartProgressFrameForwarder
 
     private bool IsValidStartupObservation (DaemonStartStartupObservationProgressEntry entry)
     {
-        return HasExpectedEnvelope(entry.PayloadKind, DaemonStartProgressPayloadKind.StartupObservation, entry.ProjectFingerprint, entry.TimeoutMilliseconds, entry.EditorMode, entry.OnStartupBlocked)
-            && IsOptionalDefined(entry.OwnerKind)
-            && IsOptionalDefined(entry.StartupStatus)
-            && IsOptionalDefined(entry.StartupBlockingReason)
-            && IsOptionalDefined(entry.StartupPhase)
-            && IsOptionalDefined(entry.RetryDisposition)
-            && !IsBlankWhenPresent(entry.LaunchAttemptId)
-            && !IsBlankWhenPresent(entry.Message)
-            && !IsBlankWhenPresent(entry.ErrorCode);
+        return HasExpectedEnvelope(
+            entry.ProjectFingerprint,
+            entry.TimeoutMilliseconds,
+            entry.EditorMode,
+            entry.OnStartupBlocked);
     }
 
     private bool IsValidLifecycleSnapshot (DaemonStartLifecycleSnapshotProgressEntry entry)
     {
-        return HasExpectedEnvelope(entry.PayloadKind, DaemonStartProgressPayloadKind.LifecycleSnapshot, entry.ProjectFingerprint, entry.TimeoutMilliseconds, entry.EditorMode, entry.OnStartupBlocked)
-            && IpcEditorLifecycleSemantics.IsConsistent(
-                entry.LifecycleState,
-                entry.BlockingReason,
-                entry.CanAcceptExecutionRequests);
+        return HasExpectedEnvelope(
+            entry.ProjectFingerprint,
+            entry.TimeoutMilliseconds,
+            entry.EditorMode,
+            entry.OnStartupBlocked);
     }
 
     private bool HasExpectedEnvelope (
-        DaemonStartProgressPayloadKind payloadKind,
-        DaemonStartProgressPayloadKind expectedPayloadKind,
         ProjectFingerprint entryProjectFingerprint,
         int entryTimeoutMilliseconds,
         DaemonEditorMode? entryEditorMode,
         DaemonStartupBlockedProcessPolicy entryOnStartupBlocked)
     {
-        return payloadKind == expectedPayloadKind
-            && entryProjectFingerprint == projectFingerprint
+        return entryProjectFingerprint == projectFingerprint
             && entryTimeoutMilliseconds == timeoutMilliseconds
-            && ContractLiteralCodec.IsDefined(entryOnStartupBlocked)
             && entryOnStartupBlocked == onStartupBlocked
-            && IsOptionalDefined(entryEditorMode)
             && (!editorMode.HasValue || entryEditorMode == editorMode);
-    }
-
-    private static bool IsOptionalDefined<TEnum> (TEnum? value)
-        where TEnum : struct, Enum
-    {
-        return !value.HasValue || ContractLiteralCodec.IsDefined(value.Value);
-    }
-
-    private static bool IsBlankWhenPresent (string? value)
-    {
-        return value is not null && string.IsNullOrWhiteSpace(value);
     }
 }

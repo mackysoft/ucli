@@ -18,16 +18,18 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: string.Empty,
                 method: "unknown",
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue));
 
-        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        Assert.Equal(IpcResponseStatus.Error, response.Status);
         var error = Assert.Single(response.Errors);
         Assert.Equal(IpcSessionErrorCodes.SessionTokenRequired, error.Code);
     }
@@ -42,16 +44,18 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "invalid-token",
                 method: "unknown",
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue));
 
-        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        Assert.Equal(IpcResponseStatus.Error, response.Status);
         var error = Assert.Single(response.Errors);
         Assert.Equal(IpcSessionErrorCodes.SessionTokenInvalid, error.Code);
     }
@@ -66,18 +70,76 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion + 1,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: "unknown",
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue));
 
-        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        Assert.Equal(IpcResponseStatus.Error, response.Status);
         var error = Assert.Single(response.Errors);
         Assert.Equal(IpcProtocolErrorCodes.ProtocolVersionMismatch, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenStreamRequestProtocolVersionIsUnsupported_WritesCurrentVersionTerminalFrame ()
+    {
+        var dispatcher = CreateDispatcher();
+        var runtimeContext = CreateRuntimeContext();
+        var requestId = Guid.NewGuid();
+
+        var frames = await SendStreamingRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion + 1,
+                requestId: requestId,
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
+                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
+                payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue));
+
+        var terminalFrame = Assert.Single(frames);
+        Assert.Equal(IpcProtocol.CurrentVersion, terminalFrame.ProtocolVersion);
+        Assert.Equal(requestId, terminalFrame.RequestId);
+        var response = Assert.IsType<IpcResponse>(terminalFrame.Response);
+        Assert.Equal(IpcProtocol.CurrentVersion, response.ProtocolVersion);
+        Assert.Equal(requestId, response.RequestId);
+        Assert.Equal(IpcProtocolErrorCodes.ProtocolVersionMismatch, Assert.Single(response.Errors).Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenPingDeadlineExpired_ReturnsTimeoutInsteadOfSuccess ()
+    {
+        var dispatcher = CreateDispatcher();
+        var runtimeContext = CreateRuntimeContext();
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
+                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
+                payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.UnixEpoch,
+                requestDeadlineRemainingMilliseconds: 1000));
+
+        Assert.Equal(IpcResponseStatus.Error, response.Status);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, Assert.Single(response.Errors).Code);
     }
 
     [Theory]
@@ -97,19 +159,49 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: method!,
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue));
 
         Assert.Equal(requestId, response.RequestId);
-        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        Assert.Equal(IpcResponseStatus.Error, response.Status);
         var error = Assert.Single(response.Errors);
         Assert.Equal(IpcProtocolErrorCodes.IpcMethodNotSupported, error.Code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenMethodContainsNewlineAndLongLiteral_DoesNotReflectUntrustedLiteral ()
+    {
+        var dispatcher = CreateDispatcher();
+        var runtimeContext = CreateRuntimeContext();
+        var untrustedMarker = "untrusted-method-marker";
+        var method = untrustedMarker + "\n" + new string('m', 4096);
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
+                method: method,
+                payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue));
+
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(IpcProtocolErrorCodes.IpcMethodNotSupported, error.Code);
+        Assert.DoesNotContain(untrustedMarker, error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain('\n', error.Message);
     }
 
     [Fact]
@@ -128,13 +220,15 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 Payload = IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
                 ResponseMode = ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                RequestDeadlineUtc = DateTimeOffset.MaxValue,
+                RequestDeadlineRemainingMilliseconds = int.MaxValue,
             },
             IpcJsonSerializerOptions.Default);
 
         var response = await SendRawJsonRequestAsync(dispatcher, runtimeContext, rawRequest);
 
         Assert.Equal(requestId, response.RequestId);
-        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        Assert.Equal(IpcResponseStatus.Error, response.Status);
         var error = Assert.Single(response.Errors);
         Assert.Equal(IpcProtocolErrorCodes.IpcMethodNotSupported, error.Code);
     }
@@ -149,25 +243,27 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var frames = await SendStreamingRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: "unknown",
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue));
 
         var terminalFrame = Assert.Single(frames);
         var response = Assert.IsType<IpcResponse>(terminalFrame.Response);
-        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        Assert.Equal(IpcResponseStatus.Error, response.Status);
         var error = Assert.Single(response.Errors);
         Assert.Equal(IpcProtocolErrorCodes.IpcMethodNotSupported, error.Code);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task HandleConnection_WhenResponseModeIsUnsupported_ReturnsInvalidArgumentWithoutStartOperation ()
+    public async Task HandleConnection_WhenResponseModeIsUnsupported_ReturnsGenericInvalidArgumentWithoutStartOperation ()
     {
         var startOperation = new RecordingDaemonStartOperation();
         var dispatcher = CreateDispatcher(startOperation);
@@ -178,7 +274,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
@@ -187,22 +283,51 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
-                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto")),
-                responseMode: "unsupported"));
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
+                responseMode: "unsupported",
+                requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
+                requestDeadlineRemainingMilliseconds: 1000));
 
         DaemonStartOperationAssert.EnsureRunningRequestRejectedBeforeStartOperation(
             response,
             startOperation,
             UcliCoreErrorCodes.InvalidArgument,
-            "Unsupported IPC response mode: unsupported.");
+            "Unsupported supervisor IPC response mode.");
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task HandleConnection_WhenResponseModeIsNull_ReturnsInvalidArgumentWithNullPlaceholder ()
+    public async Task HandleConnection_WhenResponseModeContainsNewlineAndLongLiteral_DoesNotReflectUntrustedLiteral ()
+    {
+        var dispatcher = CreateDispatcher();
+        var runtimeContext = CreateRuntimeContext();
+        var untrustedMarker = "untrusted-response-mode-marker";
+        var responseMode = untrustedMarker + "\n" + new string('r', 4096);
+
+        var response = await SendRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
+                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
+                payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
+                responseMode: responseMode,
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue));
+
+        var error = Assert.Single(response.Errors);
+        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
+        Assert.DoesNotContain(untrustedMarker, error.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain('\n', error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenResponseModeIsNull_ReturnsGenericInvalidArgument ()
     {
         var startOperation = new RecordingDaemonStartOperation();
         var dispatcher = CreateDispatcher(startOperation);
@@ -213,7 +338,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
@@ -222,22 +347,22 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
-                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto")),
-                responseMode: null!));
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
+                responseMode: null!,
+                requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
+                requestDeadlineRemainingMilliseconds: 1000));
 
         DaemonStartOperationAssert.EnsureRunningRequestRejectedBeforeStartOperation(
             response,
             startOperation,
             UcliCoreErrorCodes.InvalidArgument,
-            "Unsupported IPC response mode: <null>.");
+            "Unsupported supervisor IPC response mode.");
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task HandleConnection_WhenResponseModeIsMissing_ReturnsInvalidArgumentWithNullPlaceholder ()
+    public async Task HandleConnection_WhenResponseModeIsMissing_ReturnsGenericInvalidArgument ()
     {
         var startOperation = new RecordingDaemonStartOperation();
         var dispatcher = CreateDispatcher(startOperation);
@@ -248,10 +373,8 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             new SupervisorIpcContracts.EnsureRunningRequest(
                 UnityProjectRoot: unityProjectRoot,
                 ProjectFingerprint: projectFingerprint,
-                DeadlineUtc: CreateEnsureRunningDeadline(1000),
-                AttemptTimeoutMilliseconds: 1000,
                 EditorMode: null,
-                OnStartupBlocked: "auto"));
+                OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto));
         var rawRequest = JsonSerializer.SerializeToElement(
             new
             {
@@ -260,6 +383,8 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                 SessionToken = runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 Method = ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 Payload = payload,
+                RequestDeadlineUtc = CreateEnsureRunningDeadline(1000),
+                RequestDeadlineRemainingMilliseconds = 1000,
             },
             IpcJsonSerializerOptions.Default);
 
@@ -269,7 +394,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
             response,
             startOperation,
             UcliCoreErrorCodes.InvalidArgument,
-            "Unsupported IPC response mode: <null>.");
+            "Unsupported supervisor IPC response mode.");
     }
 
     [Fact]
@@ -282,19 +407,21 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var frames = await SendStreamingRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue));
 
         var terminalFrame = Assert.Single(frames);
-        Assert.Equal(IpcStreamFrameKinds.Terminal, terminalFrame.Kind);
+        Assert.Equal(IpcStreamFrameKind.Terminal, terminalFrame.Kind);
         var response = Assert.IsType<IpcResponse>(terminalFrame.Response);
-        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        Assert.Equal(IpcResponseStatus.Error, response.Status);
         var error = Assert.Single(response.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Contains(ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), error.Message, StringComparison.Ordinal);
@@ -310,7 +437,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var invalidResponse = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
@@ -319,29 +446,31 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: "bad\u0000path",
                         ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
-                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
-                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto")),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
+                requestDeadlineRemainingMilliseconds: 1000));
 
-        Assert.Equal(IpcProtocol.StatusError, invalidResponse.Status);
+        Assert.Equal(IpcResponseStatus.Error, invalidResponse.Status);
         var invalidError = Assert.Single(invalidResponse.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, invalidError.Code);
 
         var pingResponse = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue));
 
-        Assert.Equal(IpcProtocol.StatusOk, pingResponse.Status);
+        Assert.Equal(IpcResponseStatus.Ok, pingResponse.Status);
         Assert.Empty(pingResponse.Errors);
     }
 
@@ -356,7 +485,7 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
@@ -365,13 +494,13 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: ProjectFingerprintTestFactory.Create("mismatched-fingerprint"),
-                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
-                        AttemptTimeoutMilliseconds: 1000,
                         EditorMode: null,
-                        OnStartupBlocked: "auto")),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
+                requestDeadlineRemainingMilliseconds: 1000));
 
-        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        Assert.Equal(IpcResponseStatus.Error, response.Status);
         var error = Assert.Single(response.Errors);
         Assert.Equal(UcliCoreErrorCodes.InvalidArgument, error.Code);
         Assert.Contains("Project fingerprint does not match", error.Message, StringComparison.Ordinal);
@@ -390,20 +519,23 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
-                payload: IpcPayloadCodec.SerializeToElement(
-                    new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
-                        ProjectFingerprint: projectFingerprint,
-                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
-                        AttemptTimeoutMilliseconds: 1000,
-                        EditorMode: "unsupported",
-                        OnStartupBlocked: "auto")),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                payload: JsonSerializer.SerializeToElement(
+                    new
+                    {
+                        UnityProjectRoot = unityProjectRoot,
+                        ProjectFingerprint = projectFingerprint,
+                        EditorMode = "unsupported",
+                        OnStartupBlocked = "auto",
+                    },
+                    IpcJsonSerializerOptions.Default),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
+                requestDeadlineRemainingMilliseconds: 1000));
 
         DaemonStartOperationAssert.EnsureRunningRequestRejectedBeforeStartOperation(
             response,
@@ -424,20 +556,23 @@ public sealed class SupervisorRequestDispatcherRequestValidationTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
-                payload: IpcPayloadCodec.SerializeToElement(
-                    new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
-                        ProjectFingerprint: projectFingerprint,
-                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
-                        AttemptTimeoutMilliseconds: 1000,
-                        EditorMode: null,
-                        OnStartupBlocked: "unsupported")),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                payload: JsonSerializer.SerializeToElement(
+                    new
+                    {
+                        UnityProjectRoot = unityProjectRoot,
+                        ProjectFingerprint = projectFingerprint,
+                        EditorMode = (string?)null,
+                        OnStartupBlocked = "unsupported",
+                    },
+                    IpcJsonSerializerOptions.Default),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
+                requestDeadlineRemainingMilliseconds: 1000));
 
         DaemonStartOperationAssert.EnsureRunningRequestRejectedBeforeStartOperation(
             response,

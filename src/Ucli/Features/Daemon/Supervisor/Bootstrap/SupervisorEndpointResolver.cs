@@ -40,17 +40,10 @@ internal sealed class SupervisorEndpointResolver
         string storageRoot,
         string generationIdentity)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(generationIdentity);
-        var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
-        var worktreeIdentity = ComputeIdentityHash(normalizedStorageRoot)[..24];
-        var generationHash = ComputeIdentityHash(generationIdentity)[..12];
-        return $"{UcliIpcEndpointNames.SupervisorAddressPrefix}{worktreeIdentity}-{generationHash}";
-    }
-
-    private static string ComputeIdentityHash (string normalizedStorageRoot)
-    {
-        return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(normalizedStorageRoot));
+        var worktreeIdentity = SupervisorWorktreeIdentity.Create(storageRoot);
+        var generationHash = Sha256Digest.Compute(Encoding.UTF8.GetBytes(generationIdentity)).ToString()[..12];
+        return $"{UcliIpcEndpointNames.SupervisorAddressPrefix}{worktreeIdentity.NamedPipeAddressSegment}-{generationHash}";
     }
 
     private static string NormalizeStorageRoot (string storageRoot)

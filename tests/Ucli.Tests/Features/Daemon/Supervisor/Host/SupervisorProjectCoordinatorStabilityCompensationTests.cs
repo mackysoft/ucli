@@ -1,5 +1,4 @@
 using System.Reflection;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -50,7 +49,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
 
         var ensureRunningTask = coordinator.EnsureRunningAsync(
                 unityProject,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: cancellationTokenSource.Token)
@@ -127,7 +126,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         {
             var result = await coordinator.EnsureRunningAsync(
                 unityProject,
-                TimeSpan.FromMilliseconds(70),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(70), timeProvider),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None);
@@ -180,7 +179,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         {
             var result = await coordinator.EnsureRunningAsync(
                 unityProject,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None);
@@ -253,7 +252,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         {
             var result = await coordinator.EnsureRunningAsync(
                 unityProject,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None);
@@ -323,7 +322,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         {
             var ensureRunningResult = await coordinator.EnsureRunningAsync(
                 unityProject,
-                TimeSpan.FromMilliseconds(70),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(70), timeProvider),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None);
@@ -333,7 +332,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
 
             var stopTask = coordinator.StopProjectAsync(
                     unityProject,
-                    TimeSpan.FromMilliseconds(50),
+                    ExecutionDeadline.Start(TimeSpan.FromMilliseconds(50), TimeProvider.System),
                     CancellationToken.None)
                 .AsTask();
             var stopResult = await TestAwaiter.WaitAsync(stopTask, "Supervisor stop project result", SignalWaitTimeout);

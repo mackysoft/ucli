@@ -1,10 +1,25 @@
 using System.Text;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Features.Daemon.Supervisor;
 
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorEndpointResolverTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void WorktreeIdentity_UsesNormalizedStorageRootForFixedPurposeSpecificSegments ()
+    {
+        var storageRoot = Path.Combine(".", "sandbox", "Supervisor", "..");
+
+        var identity = SupervisorWorktreeIdentity.Create(storageRoot);
+
+        Assert.Equal(Path.GetFullPath(storageRoot), identity.NormalizedStorageRoot);
+        Assert.Equal(16, identity.LaunchServiceNameSuffix.Length);
+        Assert.Equal(24, identity.NamedPipeAddressSegment.Length);
+        Assert.StartsWith(identity.LaunchServiceNameSuffix, identity.NamedPipeAddressSegment, StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void SupervisorUnixSocketCleanupTarget_WithRelativePath_ThrowsArgumentException ()
@@ -25,7 +40,11 @@ public sealed class SupervisorEndpointResolverTests
 
         Assert.Equal(first, firstAgain);
         Assert.NotEqual(first, second);
-        Assert.StartsWith(UcliIpcEndpointNames.SupervisorAddressPrefix, first, StringComparison.Ordinal);
+        var worktreeIdentity = SupervisorWorktreeIdentity.Create(storageRoot);
+        Assert.StartsWith(
+            UcliIpcEndpointNames.SupervisorAddressPrefix + worktreeIdentity.NamedPipeAddressSegment + "-",
+            first,
+            StringComparison.Ordinal);
     }
 
     [Fact]

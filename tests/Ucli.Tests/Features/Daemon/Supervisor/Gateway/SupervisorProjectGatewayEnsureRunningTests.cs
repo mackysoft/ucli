@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -70,14 +69,11 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         _ = IpcRequestAssert.SingleRequestId(requests);
         var firstPayload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(requests[0]);
         var replayPayload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(requests[1]);
-        Assert.Equal(firstPayload.DeadlineUtc, replayPayload.DeadlineUtc);
-        Assert.True(firstPayload.AttemptTimeoutMilliseconds > replayPayload.AttemptTimeoutMilliseconds);
-        Assert.Equal(
-            firstPayload with
-            {
-                AttemptTimeoutMilliseconds = replayPayload.AttemptTimeoutMilliseconds,
-            },
-            replayPayload);
+        Assert.Equal(requests[0].RequestDeadlineUtc, requests[1].RequestDeadlineUtc);
+        Assert.True(
+            requests[0].RequestDeadlineRemainingMilliseconds
+            > requests[1].RequestDeadlineRemainingMilliseconds);
+        Assert.Equal(firstPayload, replayPayload);
     }
 
     [Fact]
@@ -147,8 +143,8 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             scope.FullPath,
             timeProvider);
         var observedEnsureRunningTimeout = TimeSpan.Zero;
-        var observedEditorMode = (string?)null;
-        var observedOnStartupBlocked = (string?)null;
+        var observedEditorMode = (DaemonEditorMode?)null;
+        var observedOnStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto;
         scenario.TransportClient.SendHandler = (endpoint, request, timeout, cancellationToken) =>
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -164,7 +160,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), StringComparison.Ordinal))
             {
                 var payload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(request);
-                observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(payload.AttemptTimeoutMilliseconds);
+                observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(request.RequestDeadlineRemainingMilliseconds);
                 observedEditorMode = payload.EditorMode;
                 observedOnStartupBlocked = payload.OnStartupBlocked;
                 return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateStartedEnsureRunningResponse(request));
@@ -191,8 +187,8 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         Assert.NotNull(result.Session);
         Assert.True(observedEnsureRunningTimeout > TimeSpan.Zero);
         Assert.True(observedEnsureRunningTimeout < TimeSpan.FromMilliseconds(SupervisorProjectGatewayTestSupport.StartTimeoutMilliseconds));
-        Assert.Equal("gui", observedEditorMode);
-        Assert.Equal("keep", observedOnStartupBlocked);
+        Assert.Equal(DaemonEditorMode.Gui, observedEditorMode);
+        Assert.Equal(DaemonStartupBlockedProcessPolicy.Keep, observedOnStartupBlocked);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
             ContractLiteralCodec.ToValue(DaemonStartProgressEvent.SupervisorBootstrapStarted),
@@ -230,7 +226,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
                         ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
                         DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                             projectFingerprint: payload.ProjectFingerprint,
-                            timeoutMilliseconds: payload.AttemptTimeoutMilliseconds,
+                            timeoutMilliseconds: request.RequestDeadlineRemainingMilliseconds,
                             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                             startupStatus: DaemonStartupStatus.WaitingForEndpoint,
                             startupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration)),
@@ -280,8 +276,8 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
 
             if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), StringComparison.Ordinal))
             {
-                var payload = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(request);
-                observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(payload.AttemptTimeoutMilliseconds);
+                _ = SupervisorProjectGatewayTestSupport.ReadEnsureRunningRequest(request);
+                observedEnsureRunningTimeout = TimeSpan.FromMilliseconds(request.RequestDeadlineRemainingMilliseconds);
                 return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateStartedEnsureRunningResponse(request));
             }
 

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Supervisor;
 using MackySoft.Ucli.Infrastructure.Storage;
 using Microsoft.Extensions.DependencyInjection;

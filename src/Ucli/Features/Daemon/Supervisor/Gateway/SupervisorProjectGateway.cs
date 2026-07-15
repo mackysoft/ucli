@@ -119,14 +119,13 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
         }
 
         var ensureRunningRequestId = Guid.NewGuid();
-        var ensureRunningDeadlineUtc = timeProvider.GetUtcNow().Add(ensureRunningTimeout);
+        var ensureRunningDeadline = ExecutionDeadline.Start(ensureRunningTimeout, timeProvider);
         var manifest = bootstrapResult.Manifest!;
         var startResult = await supervisorClient.EnsureRunningAsync(
                 manifest,
                 ensureRunningRequestId,
                 unityProject,
-                ensureRunningDeadlineUtc,
-                ensureRunningTimeout,
+                ensureRunningDeadline,
                 editorMode,
                 onStartupBlocked,
                 supervisorProgressSink,
@@ -134,7 +133,7 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
             .ConfigureAwait(false);
         if (IsSessionTokenInvalid(startResult.Error))
         {
-            if (!timeoutBudget.TryGetRemainingTimeout(out var manifestReloadTimeout))
+            if (!ensureRunningDeadline.TryGetRemainingTimeout(out var manifestReloadTimeout))
             {
                 startResult = DaemonStartResult.Failure(ExecutionError.Timeout(
                     "Timed out before reloading the successor supervisor manifest."));
@@ -153,25 +152,16 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 }
                 else if (reloadResult.Manifest != null)
                 {
-                    if (!timeoutBudget.TryGetRemainingTimeout(out var replayTimeout))
-                    {
-                        startResult = DaemonStartResult.Failure(ExecutionError.Timeout(
-                            "Timed out before replaying ensureRunning against the successor supervisor."));
-                    }
-                    else
-                    {
-                        startResult = await supervisorClient.EnsureRunningAsync(
-                                reloadResult.Manifest,
-                                ensureRunningRequestId,
-                                unityProject,
-                                ensureRunningDeadlineUtc,
-                                replayTimeout,
-                                editorMode,
-                                onStartupBlocked,
-                                supervisorProgressSink,
-                                cancellationToken)
-                            .ConfigureAwait(false);
-                    }
+                    startResult = await supervisorClient.EnsureRunningAsync(
+                            reloadResult.Manifest,
+                            ensureRunningRequestId,
+                            unityProject,
+                            ensureRunningDeadline,
+                            editorMode,
+                            onStartupBlocked,
+                            supervisorProgressSink,
+                            cancellationToken)
+                        .ConfigureAwait(false);
                 }
             }
         }
@@ -315,20 +305,12 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 return null;
             }
 
-            if (!deadline.TryGetRemainingTimeout(out var stopTimeout))
-            {
-                return DaemonStopResult.Failure(ExecutionError.Timeout(
-                    "Timed out before supervisor stopProject could begin."));
-            }
-
             var stopProjectRequestId = Guid.NewGuid();
-            var stopProjectDeadlineUtc = timeProvider.GetUtcNow().Add(stopTimeout);
             var stopResult = await supervisorClient.StopProjectAsync(
                     manifest,
                     stopProjectRequestId,
                     unityProject,
-                    stopProjectDeadlineUtc,
-                    stopTimeout,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!IsSessionTokenInvalid(stopResult.Error))
@@ -364,18 +346,11 @@ internal sealed class SupervisorProjectGateway : IDaemonProjectLifecycleGateway
                 return stopResult;
             }
 
-            if (!deadline.TryGetRemainingTimeout(out var replayTimeout))
-            {
-                return DaemonStopResult.Failure(ExecutionError.Timeout(
-                    "Timed out before replaying stopProject against the successor supervisor."));
-            }
-
             return await supervisorClient.StopProjectAsync(
                     reloadResult.Manifest,
                     stopProjectRequestId,
                     unityProject,
-                    stopProjectDeadlineUtc,
-                    replayTimeout,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }

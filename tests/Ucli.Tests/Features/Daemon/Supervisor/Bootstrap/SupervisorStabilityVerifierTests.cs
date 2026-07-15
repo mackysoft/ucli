@@ -1,7 +1,5 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -38,16 +36,88 @@ public sealed class SupervisorStabilityVerifierTests
         var result = await verifier.EnsureStableAsync(
             unityProject,
             session,
-            TimeSpan.FromMilliseconds(180),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(180), timeProvider),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error.Kind);
         var diagnosis = DaemonDiagnosisStoreAssert.DiagnosisWrittenFor(diagnosisStore, unityProject);
-        Assert.Equal(DaemonDiagnosisReasonValues.StartupUnstable, diagnosis.Reason);
+        Assert.Equal(DaemonDiagnosisReason.StartupUnstable, diagnosis.Reason);
         Assert.Equal("Unity daemon stability verification exceeded the remaining timeout.", diagnosis.Message);
         DaemonPingClientAssert.StabilityVerificationAttemptedBeforeRemainingTimeoutExhausted(pingClient);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureStable_WhenPingIgnoresCancellation_ReturnsAtDeadlineAndRejectsLateSuccess ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var pingStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pingCancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pingCompletion = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pingFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var pingClient = new RecordingDaemonPingClient(async (_, _, _, cancellationToken) =>
+        {
+            _ = cancellationToken.UnsafeRegister(
+                static state => ((TaskCompletionSource)state!).TrySetResult(),
+                pingCancellationObserved);
+            pingStarted.TrySetResult();
+            try
+            {
+                await pingCompletion.Task.ConfigureAwait(false);
+            }
+            finally
+            {
+                pingFinished.TrySetResult();
+            }
+        });
+        var verifier = new SupervisorStabilityVerifier(
+            pingClient,
+            new SupervisorDiagnosisWriter(new RecordingDaemonDiagnosisStore()),
+            new DaemonCompensationOperationOwner(),
+            timeProvider);
+        var timeout = TimeSpan.FromMilliseconds(500);
+        var verificationTask = verifier.EnsureStableAsync(
+                ResolvedUnityProjectContextTestFactory.Create(
+                    unityProjectRoot: "/tmp/unity-project",
+                    repositoryRoot: "/tmp/repo-root",
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-non-cooperative-stability-ping")),
+                DaemonSessionTestFactory.Create(sessionToken: "session-token"),
+                ExecutionDeadline.Start(timeout, timeProvider),
+                CancellationToken.None)
+            .AsTask();
+
+        try
+        {
+            await TestAwaiter.WaitAsync(pingStarted.Task, "Non-cooperative stability ping", SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(
+                timeProvider.WaitForTimerDueWithinAsync(timeout),
+                "Stability ping deadline timer",
+                SignalWaitTimeout);
+            timeProvider.Advance(timeout);
+
+            var result = await TestAwaiter.WaitAsync(
+                verificationTask,
+                "Non-cooperative stability ping deadline result",
+                SignalWaitTimeout);
+            await TestAwaiter.WaitAsync(
+                pingCancellationObserved.Task,
+                "Non-cooperative stability ping cancellation",
+                SignalWaitTimeout);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
+
+            pingCompletion.TrySetResult();
+            await TestAwaiter.WaitAsync(pingFinished.Task, "Late stability ping completion", SignalWaitTimeout);
+            Assert.False((await verificationTask).IsSuccess);
+        }
+        finally
+        {
+            pingCompletion.TrySetResult();
+            await TestAwaiter.WaitAsync(pingFinished.Task, "Stability ping cleanup", SignalWaitTimeout);
+        }
     }
 
     [Fact]
@@ -73,7 +143,7 @@ public sealed class SupervisorStabilityVerifierTests
                     repositoryRoot: "/tmp/repo-root",
                     projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
                 DaemonSessionTestFactory.Create(sessionToken: "session-token"),
-                TimeSpan.FromSeconds(5),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
         for (var i = 0; i < 8 && !verificationTask.IsCompleted; i++)
@@ -117,7 +187,7 @@ public sealed class SupervisorStabilityVerifierTests
         var result = await verifier.EnsureStableAsync(
             unityProject,
             DaemonSessionTestFactory.Create(sessionToken: "session-token"),
-            TimeSpan.FromMilliseconds(400),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(400), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -150,7 +220,7 @@ public sealed class SupervisorStabilityVerifierTests
                 repositoryRoot: "/tmp/repo-root",
                 projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")),
             DaemonSessionTestFactory.Create(sessionToken: "session-token"),
-            TimeSpan.FromMilliseconds(400),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(400), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -183,7 +253,7 @@ public sealed class SupervisorStabilityVerifierTests
         var verificationTask = verifier.EnsureStableAsync(
                 unityProject,
                 DaemonSessionTestFactory.Create(sessionToken: "session-token"),
-                TimeSpan.FromMilliseconds(180),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(180), timeProvider),
                 CancellationToken.None)
             .AsTask();
         await TestAwaiter.WaitAsync(

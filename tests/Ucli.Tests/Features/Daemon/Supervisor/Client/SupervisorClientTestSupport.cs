@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -9,11 +10,6 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 internal static class SupervisorClientTestSupport
 {
     private static readonly ProjectFingerprint DefaultProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
-
-    public static DateTimeOffset CreateDeadline (TimeSpan timeout)
-    {
-        return TimeProvider.System.GetUtcNow().Add(timeout);
-    }
 
     public static SupervisorInstanceManifest CreateManifest (
         byte sessionTokenDiscriminator = 1,
@@ -75,39 +71,44 @@ internal static class SupervisorClientTestSupport
             StartupBlockingReason: DaemonStartupBlockingReason.Compile,
             LaunchAttemptId: null,
             ProcessAction: DaemonStartupProcessAction.Kept,
-            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix);
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
+            EditorMode: null,
+            OwnerKind: null,
+            CanShutdownProcess: null,
+            ProcessId: null,
+            StartedAtUtc: null,
+            ElapsedMilliseconds: null,
+            ArtifactPath: null);
     }
 
     public static IpcResponse CreateEnsureRunningResponse (
-        IpcRequest request,
-        string startStatus = "started",
-        string daemonStatus = "running",
+        IpcRequestEnvelope request,
+        DaemonStartStatus startStatus = DaemonStartStatus.Started,
         DaemonSession? session = null,
         IpcUnityEditorObservation? lifecycleObservation = null)
     {
         return new IpcResponse(
             protocolVersion: request.ProtocolVersion,
             requestId: request.RequestId,
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.EnsureRunningResponse(
                     StartStatus: startStatus,
-                    DaemonStatus: daemonStatus,
                     Session: DaemonSessionContractMapper.ToContract(session ?? CreateGuiDaemonSession()),
                     LifecycleObservation: lifecycleObservation ?? CreateReadyLifecycleObservation())),
             errors: []);
     }
 
     public static IpcResponse CreateEnsureRunningFailureResponse (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         DaemonDiagnosis diagnosis,
         DaemonStartupObservation startup,
-        string daemonStatus = "stale")
+        DaemonStatusKind daemonStatus = DaemonStatusKind.Stale)
     {
         return new IpcResponse(
             protocolVersion: request.ProtocolVersion,
             requestId: request.RequestId,
-            status: IpcProtocol.StatusError,
+            status: IpcResponseStatus.Error,
             payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.EnsureRunningFailureResponse(daemonStatus, diagnosis, startup)),
             errors:
@@ -117,7 +118,7 @@ internal static class SupervisorClientTestSupport
     }
 
     public static async ValueTask<IpcResponse> ForwardProgressThenReturnStartedAsync (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         IpcStreamFrame progressFrame,
         CancellationToken cancellationToken)
@@ -127,26 +128,26 @@ internal static class SupervisorClientTestSupport
     }
 
     public static IpcStreamFrame CreateProgressFrame<TPayload> (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         string eventName,
         TPayload payload)
     {
         return new IpcStreamFrame(
             IpcProtocol.CurrentVersion,
             request.RequestId,
-            IpcStreamFrameKinds.Progress,
+            IpcStreamFrameKind.Progress,
             eventName,
             IpcPayloadCodec.SerializeToElement(payload),
             response: null);
     }
 
     public static IpcStreamFrame CreateWaitingForEndpointProgressFrame (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         DaemonStartupBlockedProcessPolicy onStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto,
         string? message = null)
     {
         var progressPayload = DaemonStartProgressEntryTestFactory.CreateStartupObservation(
-            timeoutMilliseconds: 5000,
+            timeoutMilliseconds: request.RequestDeadlineRemainingMilliseconds,
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: onStartupBlocked,
             processId: 42,
@@ -162,7 +163,7 @@ internal static class SupervisorClientTestSupport
     }
 
     public static IpcStreamFrame CreateLifecycleSnapshotProgressFrame (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Compiling,
         IpcEditorBlockingReason? blockingReason = IpcEditorBlockingReason.Compile,
         bool canAcceptExecutionRequests = false)
@@ -170,7 +171,7 @@ internal static class SupervisorClientTestSupport
         var progressPayload = new DaemonStartLifecycleSnapshotProgressEntry(
             DaemonStartProgressPayloadKind.LifecycleSnapshot,
             DefaultProjectFingerprint,
-            5000,
+            request.RequestDeadlineRemainingMilliseconds,
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
             lifecycleState,

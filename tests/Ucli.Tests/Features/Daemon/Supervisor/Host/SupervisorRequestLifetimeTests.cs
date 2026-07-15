@@ -1,5 +1,3 @@
-using MackySoft.Tests;
-
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorRequestLifetimeTests

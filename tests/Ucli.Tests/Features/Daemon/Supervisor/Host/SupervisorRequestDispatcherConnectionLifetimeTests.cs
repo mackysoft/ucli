@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using static MackySoft.Ucli.Tests.Supervisor.SupervisorRequestDispatcherTestSupport;
@@ -135,18 +134,20 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
         var timeProvider = new ManualTimeProvider();
         var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
-        var request = new IpcRequest(
+        var request = new IpcRequestEnvelope(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
             sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
             method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
             payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
+            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue);
 
         var response = await SendRequestAsync(dispatcher, runtimeContext, request);
 
-        Assert.Equal(IpcProtocol.StatusOk, response.Status);
+        Assert.Equal(IpcResponseStatus.Ok, response.Status);
         Assert.Equal(0, timeProvider.ActiveTimerCount);
     }
 
@@ -157,14 +158,16 @@ public sealed class SupervisorRequestDispatcherConnectionLifetimeTests
         var timeProvider = new ManualTimeProvider();
         var dispatcher = CreateDispatcher(timeProvider: timeProvider);
         var runtimeContext = CreateRuntimeContext();
-        var request = new IpcRequest(
+        var request = new IpcRequestEnvelope(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
             sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
             method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping),
             payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.PingRequest(SupervisorConstants.PingClientVersion)),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
+            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue);
         using var requestBytes = new MemoryStream();
         await IpcFrameCodec.WriteModelAsync(
             requestBytes,

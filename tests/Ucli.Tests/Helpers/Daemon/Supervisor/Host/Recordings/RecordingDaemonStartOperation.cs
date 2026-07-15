@@ -18,18 +18,21 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
 
     public async ValueTask<DaemonStartResult> StartAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
+        _ = deadline.TryGetRemainingTimeout(out var remainingTimeout);
 
         invocations.Add(new Invocation(
             unityProject,
-            timeout,
+            deadline,
+            remainingTimeout,
             editorMode,
             onStartupBlocked,
             progressObserver,
@@ -73,7 +76,8 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
+        TimeSpan RemainingTimeout,
         DaemonEditorMode? EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         IDaemonStartProgressObserver? ProgressObserver,

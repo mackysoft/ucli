@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -44,7 +43,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
 
         var ensureRunningResult = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -52,7 +51,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
 
         var stopResult = await coordinator.StopProjectAsync(
                 unityProject,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
                 CancellationToken.None);
 
         Assert.False(stopResult.IsSuccess);
@@ -60,7 +59,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
         await daemonProcess.TerminateAndAwaitCoordinatorAsync(coordinator);
 
         var diagnosis = DaemonDiagnosisStoreAssert.DiagnosisWrittenFor(diagnosisStore, unityProject);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnexpectedExit, diagnosis.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UnexpectedExit, diagnosis.Reason);
     }
 
     [Fact]
@@ -102,7 +101,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
         {
             var ensureRunningResult = await coordinator.EnsureRunningAsync(
                 unityProject,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None);
@@ -147,7 +146,7 @@ public sealed class SupervisorProjectCoordinatorExitCleanupTests
 
         var ensureRunningResult = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

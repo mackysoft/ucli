@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -13,7 +12,7 @@ public sealed class SupervisorClientStopProjectTests
     public async Task StopProject_WhenTerminalArrivesAfterCommandDeadlineWithinGrace_PreservesResult ()
     {
         var timeProvider = new ManualTimeProvider();
-        var requestObserved = new TaskCompletionSource<IpcRequest>(
+        var requestObserved = new TaskCompletionSource<IpcRequestEnvelope>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var terminalResponseSource = new TaskCompletionSource<IpcResponse>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -27,13 +26,13 @@ public sealed class SupervisorClientStopProjectTests
         };
         var client = new SupervisorClient(transportClient, timeProvider);
         var commandTimeout = TimeSpan.FromSeconds(1);
+        var deadline = ExecutionDeadline.Start(commandTimeout, timeProvider);
 
         var resultTask = client.StopProjectAsync(
                 SupervisorClientTestSupport.CreateManifest(),
                 Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
-                timeProvider.GetUtcNow().Add(commandTimeout),
-                commandTimeout,
+                deadline,
                 CancellationToken.None)
             .AsTask();
         var request = await requestObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -71,13 +70,13 @@ public sealed class SupervisorClientStopProjectTests
         var client = new SupervisorClient(transportClient, timeProvider);
         var commandTimeout = TimeSpan.FromSeconds(1);
         var terminalTimeout = commandTimeout.Add(SupervisorConstants.StopProjectTerminalResponseGrace);
+        var deadline = ExecutionDeadline.Start(commandTimeout, timeProvider);
 
         var resultTask = client.StopProjectAsync(
                 SupervisorClientTestSupport.CreateManifest(),
                 Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
-                timeProvider.GetUtcNow().Add(commandTimeout),
-                commandTimeout,
+                deadline,
                 CancellationToken.None)
             .AsTask();
         await requestObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
@@ -110,8 +109,7 @@ public sealed class SupervisorClientStopProjectTests
                 SupervisorClientTestSupport.CreateManifest(),
                 Guid.Empty,
                 SupervisorClientTestSupport.CreateUnityProject(),
-                SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromSeconds(1)),
-                TimeSpan.FromSeconds(1),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
                 CancellationToken.None)
             .AsTask());
 

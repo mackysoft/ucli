@@ -1,5 +1,4 @@
 using System.Text;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -122,8 +121,11 @@ public sealed class SupervisorProjectGatewayStopTests
         _ = IpcRequestAssert.SingleRequestId(requests);
         var firstPayload = SupervisorProjectGatewayTestSupport.ReadStopProjectRequest(requests[0]);
         var replayPayload = SupervisorProjectGatewayTestSupport.ReadStopProjectRequest(requests[1]);
-        Assert.Equal(firstPayload.DeadlineUtc, replayPayload.DeadlineUtc);
-        Assert.True(firstPayload.AttemptTimeoutMilliseconds > replayPayload.AttemptTimeoutMilliseconds);
+        Assert.Equal(requests[0].RequestDeadlineUtc, requests[1].RequestDeadlineUtc);
+        Assert.True(
+            requests[0].RequestDeadlineRemainingMilliseconds
+            > requests[1].RequestDeadlineRemainingMilliseconds);
+        Assert.Equal(firstPayload, replayPayload);
     }
 
     [Fact]
@@ -279,8 +281,8 @@ public sealed class SupervisorProjectGatewayStopTests
 
             if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject), StringComparison.Ordinal))
             {
-                var payload = SupervisorProjectGatewayTestSupport.ReadStopProjectRequest(request);
-                observedStopTimeout = TimeSpan.FromMilliseconds(payload.AttemptTimeoutMilliseconds);
+                _ = SupervisorProjectGatewayTestSupport.ReadStopProjectRequest(request);
+                observedStopTimeout = TimeSpan.FromMilliseconds(request.RequestDeadlineRemainingMilliseconds);
                 return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateStopProjectStoppedResponse(request));
             }
 

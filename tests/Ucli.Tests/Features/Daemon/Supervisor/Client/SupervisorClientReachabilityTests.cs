@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -97,5 +98,73 @@ public sealed class SupervisorClientReachabilityTests
             CancellationToken.None);
 
         Assert.Equal(SupervisorReachabilityProbeStatus.TimedOut, result);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ProbeReachability_WhenTransportIgnoresCancellation_ReturnsAtDeadline ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var cancellationObserved = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var responseSource = new TaskCompletionSource<IpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = (_, _, _, cancellationToken) =>
+            {
+                _ = cancellationToken.Register(() => cancellationObserved.TrySetResult());
+                return new ValueTask<IpcResponse>(responseSource.Task);
+            },
+        };
+        var client = new SupervisorClient(transportClient, timeProvider);
+        var timeout = TimeSpan.FromSeconds(1);
+        var resultTask = client.ProbeReachabilityAsync(
+                SupervisorClientTestSupport.CreateManifest(),
+                timeout,
+                CancellationToken.None)
+            .AsTask();
+        await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
+
+        try
+        {
+            timeProvider.Advance(timeout);
+
+            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
+
+            Assert.Equal(SupervisorReachabilityProbeStatus.TimedOut, result);
+            await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        }
+        finally
+        {
+            responseSource.TrySetException(new TimeoutException("Release non-cooperative reachability probe."));
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ProbeReachability_WhenManifestIsNull_ThrowsArgumentNullException ()
+    {
+        var client = new SupervisorClient(new StubIpcTransportClient(), TimeProvider.System);
+
+        var exception = await Assert.ThrowsAsync<ArgumentNullException>(() => client
+            .ProbeReachabilityAsync(null!, TimeSpan.FromSeconds(1), CancellationToken.None)
+            .AsTask());
+
+        Assert.Equal("manifest", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task ProbeReachability_WhenTimeoutIsNotPositive_ThrowsArgumentOutOfRangeException ()
+    {
+        var client = new SupervisorClient(new StubIpcTransportClient(), TimeProvider.System);
+
+        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client
+            .ProbeReachabilityAsync(
+                SupervisorClientTestSupport.CreateManifest(),
+                TimeSpan.Zero,
+                CancellationToken.None)
+            .AsTask());
+
+        Assert.Equal("timeout", exception.ParamName);
     }
 }

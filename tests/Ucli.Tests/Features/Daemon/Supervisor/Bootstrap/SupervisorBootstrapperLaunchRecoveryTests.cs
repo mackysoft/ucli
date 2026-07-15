@@ -1,5 +1,4 @@
 using System.Text;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;

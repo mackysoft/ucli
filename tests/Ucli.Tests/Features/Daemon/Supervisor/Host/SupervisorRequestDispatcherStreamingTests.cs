@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -37,7 +36,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 Assert.NotNull(progressObserver);
                 await progressObserver!.EmitWaitingForEndpointAsync(
                         new DaemonStartStartupProgressObservation(
-                            LaunchAttemptId: "attempt-1",
+                            LaunchAttemptId: Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
                             EditorMode: DaemonEditorMode.Gui,
                             OwnerKind: DaemonSessionOwnerKind.User,
                             CanShutdownProcess: false,
@@ -61,7 +60,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         var frames = await SendStreamingRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
@@ -70,31 +69,31 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
-                        AttemptTimeoutMilliseconds: 1000,
-                        EditorMode: "gui",
-                        OnStartupBlocked: "auto")),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
+                        EditorMode: DaemonEditorMode.Gui,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
+                requestDeadlineRemainingMilliseconds: 1000));
 
         Assert.Equal(2, frames.Count);
-        Assert.Equal(IpcStreamFrameKinds.Progress, frames[0].Kind);
+        Assert.Equal(IpcStreamFrameKind.Progress, frames[0].Kind);
         Assert.Equal(ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint), frames[0].Event);
         JsonAssert.For(frames[0].Payload)
             .HasString("payloadKind", "startupObservation")
             .HasString("projectFingerprint", projectFingerprint.ToString())
             .HasInt32("timeoutMilliseconds", 1000)
             .HasString("message", "Waiting for daemon endpoint.");
-        Assert.Equal(IpcStreamFrameKinds.Terminal, frames[1].Kind);
+        Assert.Equal(IpcStreamFrameKind.Terminal, frames[1].Kind);
         Assert.Null(frames[1].Event);
         var terminalResponse = Assert.IsType<IpcResponse>(frames[1].Response);
         Assert.True(
-            string.Equals(IpcProtocol.StatusOk, terminalResponse.Status, StringComparison.Ordinal),
+            terminalResponse.Status == IpcResponseStatus.Ok,
             string.Join(Environment.NewLine, terminalResponse.Errors.Select(static error => $"{error.Code}: {error.Message}")));
         Assert.True(IpcPayloadCodec.TryDeserialize(
             terminalResponse.Payload,
             out SupervisorIpcContracts.EnsureRunningResponse terminalPayload,
             out _));
-        Assert.Equal("started", terminalPayload.StartStatus);
+        Assert.Equal(DaemonStartStatus.Started, terminalPayload.StartStatus);
         Assert.Equal(DaemonSessionContractMapper.ToContract(session), terminalPayload.Session);
         DaemonStartOperationAssert.EnsureRunningStreamRequested(
             startOperation,
@@ -104,6 +103,72 @@ public sealed class SupervisorRequestDispatcherStreamingTests
             TimeSpan.FromMilliseconds(1000),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task HandleConnection_WhenProgressIsEmittedAfterResponseFrameWriteTimeout_KeepsRequestStreamOpen ()
+    {
+        var startEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var emitProgress = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var timeProvider = new ManualTimeProvider();
+        var startOperation = new RecordingDaemonStartOperation
+        {
+            OnStart = async (progressObserver, cancellationToken) =>
+            {
+                startEntered.TrySetResult();
+                await emitProgress.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
+                await progressObserver!.EmitWaitingForEndpointAsync(
+                        new DaemonStartStartupProgressObservation(
+                            LaunchAttemptId: Guid.Parse("11234567-89ab-cdef-0123-456789abcdef"),
+                            EditorMode: DaemonEditorMode.Batchmode,
+                            OwnerKind: DaemonSessionOwnerKind.Cli,
+                            CanShutdownProcess: true,
+                            ProcessId: 42,
+                            ProcessStartedAtUtc: timeProvider.GetUtcNow(),
+                            StartupStatus: DaemonStartupStatus.WaitingForEndpoint,
+                            StartupBlockingReason: null,
+                            StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
+                            RetryDisposition: null,
+                            Message: "Still starting.",
+                            ErrorCode: null),
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            },
+        };
+        var dispatcher = CreateDispatcher(startOperation, timeProvider);
+        var runtimeContext = CreateRuntimeContext();
+        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
+        var sendTask = SendStreamingRequestAsync(
+            dispatcher,
+            runtimeContext,
+            new IpcRequestEnvelope(
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
+                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
+                payload: IpcPayloadCodec.SerializeToElement(
+                    new SupervisorIpcContracts.EnsureRunningRequest(
+                        UnityProjectRoot: unityProjectRoot,
+                        ProjectFingerprint: projectFingerprint,
+                        EditorMode: DaemonEditorMode.Batchmode,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                requestDeadlineUtc: timeProvider.GetUtcNow().AddSeconds(5),
+                requestDeadlineRemainingMilliseconds: 5000));
+        await TestAwaiter.WaitAsync(
+            startEntered.Task,
+            "Supervisor start operation",
+            SignalWaitTimeout);
+
+        timeProvider.Advance(TimeSpan.FromSeconds(2));
+        emitProgress.TrySetResult();
+        var frames = await sendTask;
+
+        Assert.Equal(2, frames.Count);
+        Assert.Equal(IpcStreamFrameKind.Progress, frames[0].Kind);
+        Assert.Equal(IpcStreamFrameKind.Terminal, frames[1].Kind);
     }
 
     [Fact]
@@ -121,7 +186,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                     () => progressWriteCancellationObserved.TrySetResult());
                 await progressObserver!.EmitWaitingForEndpointAsync(
                         new DaemonStartStartupProgressObservation(
-                            LaunchAttemptId: "attempt-1",
+                            LaunchAttemptId: Guid.Parse("01234567-89ab-cdef-0123-456789abcdef"),
                             EditorMode: DaemonEditorMode.Batchmode,
                             OwnerKind: DaemonSessionOwnerKind.Cli,
                             CanShutdownProcess: true,
@@ -145,7 +210,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         var frames = await SendStreamingRequestWithTransientWriteFailureAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
@@ -154,11 +219,11 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
-                        AttemptTimeoutMilliseconds: 1000,
-                        EditorMode: "batchmode",
-                        OnStartupBlocked: "auto")),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
+                        EditorMode: DaemonEditorMode.Batchmode,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
+                requestDeadlineRemainingMilliseconds: 1000));
 
         await TestAwaiter.WaitAsync(
             progressWriteCancellationObserved.Task,
@@ -192,7 +257,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         var runtimeContext = CreateRuntimeContext();
         var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
-        var request = new IpcRequest(
+        var request = new IpcRequestEnvelope(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
             sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
@@ -201,11 +266,11 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 new SupervisorIpcContracts.EnsureRunningRequest(
                     UnityProjectRoot: unityProjectRoot,
                     ProjectFingerprint: projectFingerprint,
-                    DeadlineUtc: CreateEnsureRunningDeadline(1000),
-                    AttemptTimeoutMilliseconds: 1000,
-                    EditorMode: "batchmode",
-                    OnStartupBlocked: "auto")),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
+                    EditorMode: DaemonEditorMode.Batchmode,
+                    OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
+            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
+            requestDeadlineRemainingMilliseconds: 1000);
 
         var actualException = await Assert.ThrowsAsync<OperationCanceledException>(
             () => SendRequestAsync(dispatcher, runtimeContext, request));
@@ -232,7 +297,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                 });
                 await progressObserver!.EmitWaitingForEndpointAsync(
                         new DaemonStartStartupProgressObservation(
-                            LaunchAttemptId: "attempt-blocking-cancellation",
+                            LaunchAttemptId: Guid.Parse("21234567-89ab-cdef-0123-456789abcdef"),
                             EditorMode: DaemonEditorMode.Batchmode,
                             OwnerKind: DaemonSessionOwnerKind.Cli,
                             CanShutdownProcess: true,
@@ -256,7 +321,7 @@ public sealed class SupervisorRequestDispatcherStreamingTests
         var sendTask = SendStreamingRequestWithTransientWriteFailureAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
@@ -265,11 +330,11 @@ public sealed class SupervisorRequestDispatcherStreamingTests
                     new SupervisorIpcContracts.EnsureRunningRequest(
                         UnityProjectRoot: unityProjectRoot,
                         ProjectFingerprint: projectFingerprint,
-                        DeadlineUtc: CreateEnsureRunningDeadline(1000),
-                        AttemptTimeoutMilliseconds: 1000,
-                        EditorMode: "batchmode",
-                        OnStartupBlocked: "auto")),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream)));
+                        EditorMode: DaemonEditorMode.Batchmode,
+                        OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                requestDeadlineUtc: CreateEnsureRunningDeadline(1000),
+                requestDeadlineRemainingMilliseconds: 1000));
         await TestAwaiter.WaitAsync(
             cancellationCallbackEntered.Task,
             "Supervisor blocking cancellation callback",

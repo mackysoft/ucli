@@ -1,7 +1,7 @@
 using System.Net.Sockets;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -228,13 +228,14 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         {
             SendHandler = async (_, request, _, cancellationToken) =>
             {
-                if (firstManifest.SessionToken.Matches(request.SessionToken))
+                Assert.True(IpcSessionToken.TryParse(request.SessionToken, out var requestSessionToken));
+                if (firstManifest.SessionToken == requestSessionToken)
                 {
                     await manifestStore.WriteAsync(scope.FullPath, successorManifest, cancellationToken);
                     return CreateSessionTokenInvalidResponse(request.RequestId);
                 }
 
-                Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), request.SessionToken);
+                Assert.Equal(successorManifest.SessionToken, requestSessionToken);
                 return CreatePingResponse(request.RequestId, successorManifest);
             },
         };
@@ -272,7 +273,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            status: IpcProtocol.StatusError,
+            status: IpcResponseStatus.Error,
             payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
             errors:
             [
@@ -290,7 +291,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         return new IpcResponse(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             payload: IpcPayloadCodec.SerializeToElement(new SupervisorIpcContracts.PingResponse(
                 manifest.ProcessId,
                 manifest.IssuedAtUtc)),

@@ -54,10 +54,10 @@ public sealed class SupervisorIpcMethodTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ToValue_WhenMethodIsUnspecified_ThrowsArgumentOutOfRangeException ()
+    public void ToValue_WhenMethodIsUndefinedZero_ThrowsArgumentOutOfRangeException ()
     {
         var method = default(SupervisorIpcMethod);
-        Assert.Equal(SupervisorIpcMethod.Unspecified, method);
+        Assert.Equal(0, (int)method);
         Assert.Throws<ArgumentOutOfRangeException>(
             () => ContractLiteralCodec.ToValue(method));
     }

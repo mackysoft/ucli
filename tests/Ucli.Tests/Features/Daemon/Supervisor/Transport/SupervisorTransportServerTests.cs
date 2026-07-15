@@ -1,5 +1,4 @@
 using System.Runtime.Versioning;
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Tests.Helpers;
@@ -27,7 +26,7 @@ public sealed class SupervisorTransportServerTests
             endpoint,
             async (stream, cancellationToken) =>
             {
-                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
+                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
                         stream,
                         IpcJsonSerializerOptions.Default,
                         cancellationToken: cancellationToken)
@@ -44,7 +43,7 @@ public sealed class SupervisorTransportServerTests
                 var response = new IpcResponse(
                     protocolVersion: request.ProtocolVersion,
                     requestId: request.RequestId,
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     payload: IpcPayloadCodec.SerializeToElement(new TransportServerResponse(request.Method)),
                     errors: Array.Empty<IpcError>());
                 await IpcFrameCodec.WriteModelAsync(
@@ -67,7 +66,9 @@ public sealed class SupervisorTransportServerTests
         {
             await TestAwaiter.WaitAsync(startedTaskSource.Task, "Supervisor transport start", SignalWaitTimeout);
 
-            var client = new IpcTransportClient();
+            var client = new IpcTransportClient(
+                new IpcTransportConnector(),
+                TimeProvider.System);
             var slowRequestTask = client.SendAsync(
                     endpoint,
                     CreateRequest("slow"),
@@ -145,7 +146,9 @@ public sealed class SupervisorTransportServerTests
             connectionDrainTimeout: SupervisorConstants.ConnectionDrainTimeout,
             cancellationToken: cancellationTokenSource.Token);
 
-        var client = new IpcTransportClient();
+        var client = new IpcTransportClient(
+            new IpcTransportConnector(),
+            TimeProvider.System);
         Task<IpcResponse>? firstRequestTask = null;
         Task<IpcResponse>? secondRequestTask = null;
         try
@@ -164,7 +167,7 @@ public sealed class SupervisorTransportServerTests
                 "Second supervisor response",
                 SignalWaitTimeout);
 
-            Assert.Equal(IpcProtocol.StatusOk, secondResponse.Status);
+            Assert.Equal(IpcResponseStatus.Ok, secondResponse.Status);
             Assert.Equal(2, Volatile.Read(ref handlerCallCount));
 
             releaseFirstHandler.TrySetResult();
@@ -172,7 +175,7 @@ public sealed class SupervisorTransportServerTests
                 firstRequestTask,
                 "First supervisor response",
                 SignalWaitTimeout);
-            Assert.Equal(IpcProtocol.StatusOk, firstResponse.Status);
+            Assert.Equal(IpcResponseStatus.Ok, firstResponse.Status);
         }
         finally
         {
@@ -249,11 +252,14 @@ public sealed class SupervisorTransportServerTests
             await TestAwaiter.WaitAsync(originalServerTask, "Original supervisor transport shutdown", SignalWaitTimeout);
 
             Assert.True(File.Exists(endpoint.Address));
-            var response = await new IpcTransportClient().SendAsync(
+            var response = await new IpcTransportClient(
+                    new IpcTransportConnector(),
+                    TimeProvider.System)
+                .SendAsync(
                 endpoint,
                 CreateRequest("successor"),
                 SignalWaitTimeout);
-            Assert.Equal(IpcProtocol.StatusOk, response.Status);
+            Assert.Equal(IpcResponseStatus.Ok, response.Status);
         }
         finally
         {
@@ -320,11 +326,14 @@ public sealed class SupervisorTransportServerTests
                 endpoint.Address,
                 out var restoredGenerationAddress));
             Assert.Equal(originalGenerationAddress, restoredGenerationAddress);
-            var response = await new IpcTransportClient().SendAsync(
+            var response = await new IpcTransportClient(
+                    new IpcTransportConnector(),
+                    TimeProvider.System)
+                .SendAsync(
                 endpoint,
                 CreateRequest("restored-original"),
                 SignalWaitTimeout);
-            Assert.Equal(IpcProtocol.StatusOk, response.Status);
+            Assert.Equal(IpcResponseStatus.Ok, response.Status);
         }
         finally
         {
@@ -558,7 +567,7 @@ public sealed class SupervisorTransportServerTests
             async (stream, cancellationToken) =>
             {
                 Interlocked.Increment(ref handlerCallCount);
-                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
+                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
                         stream,
                         IpcJsonSerializerOptions.Default,
                         cancellationToken: cancellationToken)
@@ -573,7 +582,7 @@ public sealed class SupervisorTransportServerTests
                         new IpcResponse(
                             protocolVersion: request.ProtocolVersion,
                             requestId: request.RequestId,
-                            status: IpcProtocol.StatusOk,
+                            status: IpcResponseStatus.Ok,
                             payload: IpcPayloadCodec.SerializeToElement(new TransportServerResponse(request.Method)),
                             errors: Array.Empty<IpcError>()),
                         IpcJsonSerializerOptions.Default,
@@ -589,7 +598,9 @@ public sealed class SupervisorTransportServerTests
             connectionDrainTimeout: SupervisorConstants.ConnectionDrainTimeout,
             cancellationToken: cancellationTokenSource.Token);
 
-        var client = new IpcTransportClient();
+        var client = new IpcTransportClient(
+            new IpcTransportConnector(),
+            TimeProvider.System);
         Task<IpcResponse>? firstRequestTask = null;
         try
         {
@@ -615,7 +626,7 @@ public sealed class SupervisorTransportServerTests
                 firstRequestTask,
                 "First supervisor response",
                 SignalWaitTimeout);
-            Assert.Equal(IpcProtocol.StatusOk, firstResponse.Status);
+            Assert.Equal(IpcResponseStatus.Ok, firstResponse.Status);
         }
         finally
         {
@@ -659,7 +670,9 @@ public sealed class SupervisorTransportServerTests
             connectionDrainTimeout: TimeSpan.FromMilliseconds(50),
             cancellationToken: cancellationTokenSource.Token);
 
-        var client = new IpcTransportClient();
+        var client = new IpcTransportClient(
+            new IpcTransportConnector(),
+            TimeProvider.System);
         var requestTask = Task.CompletedTask;
         var returnedAtDrainDeadline = false;
         try
@@ -707,7 +720,7 @@ public sealed class SupervisorTransportServerTests
         Stream stream,
         CancellationToken cancellationToken)
     {
-        var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
+        var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
                 stream,
                 IpcJsonSerializerOptions.Default,
                 cancellationToken: cancellationToken)
@@ -720,7 +733,7 @@ public sealed class SupervisorTransportServerTests
                 new IpcResponse(
                     protocolVersion: request.ProtocolVersion,
                     requestId: request.RequestId,
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     payload: IpcPayloadCodec.SerializeToElement(new TransportServerResponse(request.Method)),
                     errors: Array.Empty<IpcError>()),
                 IpcJsonSerializerOptions.Default,
@@ -745,15 +758,17 @@ public sealed class SupervisorTransportServerTests
                 storageRoot).SocketPath);
     }
 
-    private static IpcRequest CreateRequest (string method)
+    private static IpcRequestEnvelope CreateRequest (string method)
     {
-        return new IpcRequest(
+        return new IpcRequestEnvelope(
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: Guid.NewGuid(),
             sessionToken: "session-token",
             method: method,
             payload: IpcPayloadCodec.SerializeToElement(new { }),
-            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single));
+            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: DateTimeOffset.MaxValue,
+                requestDeadlineRemainingMilliseconds: int.MaxValue);
     }
 
     private sealed record TransportServerResponse (string? Method);

@@ -1,5 +1,9 @@
+using System.Text.Json.Serialization;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 
@@ -23,53 +27,44 @@ internal static class SupervisorIpcContracts
     /// <summary> Represents the payload used to ensure one Unity daemon is running. </summary>
     /// <param name="UnityProjectRoot"> The absolute Unity project root path. </param>
     /// <param name="ProjectFingerprint"> The Unity project fingerprint. </param>
-    /// <param name="DeadlineUtc"> The absolute UTC deadline shared by client delivery and server execution. </param>
-    /// <param name="AttemptTimeoutMilliseconds"> The monotonic caller budget remaining when this delivery attempt starts. </param>
     /// <param name="EditorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="OnStartupBlocked"> The requested startup-blocked process policy. </param>
     internal sealed record EnsureRunningRequest (
         string UnityProjectRoot,
         ProjectFingerprint ProjectFingerprint,
-        DateTimeOffset DeadlineUtc,
-        int AttemptTimeoutMilliseconds,
-        string? EditorMode,
-        string OnStartupBlocked);
+        DaemonEditorMode? EditorMode,
+        [property: JsonRequired]
+        DaemonStartupBlockedProcessPolicy OnStartupBlocked);
 
     /// <summary> Represents the payload returned after one ensure-running request. </summary>
-    /// <param name="StartStatus"> The daemon start-status literal. </param>
-    /// <param name="DaemonStatus"> The daemon status literal. </param>
+    /// <param name="StartStatus"> The daemon start status. </param>
     /// <param name="Session"> The active daemon session. </param>
     /// <param name="LifecycleObservation"> The endpoint-registered lifecycle observation when available. </param>
     internal sealed record EnsureRunningResponse (
-        string StartStatus,
-        string DaemonStatus,
+        [property: JsonRequired]
+        DaemonStartStatus StartStatus,
         DaemonSessionJsonContract Session,
-        IpcUnityEditorObservation? LifecycleObservation = null);
+        IpcUnityEditorObservation? LifecycleObservation);
 
     /// <summary> Represents the payload returned when ensure-running fails with optional startup metadata. </summary>
     /// <param name="DaemonStatus"> The daemon status after the failed start attempt. </param>
     /// <param name="Diagnosis"> The daemon diagnosis attached to the start failure when available. </param>
     /// <param name="Startup"> The startup observation attached to the start failure when available. </param>
     internal sealed record EnsureRunningFailureResponse (
-        string? DaemonStatus,
+        DaemonStatusKind? DaemonStatus,
         DaemonDiagnosis? Diagnosis,
-        DaemonStartupObservation? Startup = null);
+        DaemonStartupObservation? Startup);
 
     /// <summary> Represents the payload used to stop one Unity daemon. </summary>
     /// <param name="UnityProjectRoot"> The absolute Unity project root path. </param>
     /// <param name="ProjectFingerprint"> The Unity project fingerprint. </param>
-    /// <param name="DeadlineUtc"> The shared absolute command deadline. </param>
-    /// <param name="AttemptTimeoutMilliseconds"> The monotonic caller budget remaining when this delivery attempt starts. </param>
     internal sealed record StopProjectRequest (
         string UnityProjectRoot,
-        ProjectFingerprint ProjectFingerprint,
-        DateTimeOffset DeadlineUtc,
-        int AttemptTimeoutMilliseconds);
+        ProjectFingerprint ProjectFingerprint);
 
     /// <summary> Represents the payload returned after one stop-project request. </summary>
-    /// <param name="StopStatus"> The daemon stop-status literal. </param>
-    /// <param name="DaemonStatus"> The daemon status literal after stop processing. </param>
+    /// <param name="StopStatus"> The daemon stop status. </param>
     internal sealed record StopProjectResponse (
-        string StopStatus,
-        string DaemonStatus);
+        [property: JsonRequired]
+        DaemonStopStatus StopStatus);
 }

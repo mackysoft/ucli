@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests.Supervisor;

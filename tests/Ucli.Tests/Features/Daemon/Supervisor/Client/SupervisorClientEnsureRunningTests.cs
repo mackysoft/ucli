@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -15,8 +14,8 @@ public sealed class SupervisorClientEnsureRunningTests
     {
         var timeProvider = new ManualTimeProvider();
         var observedDeadlineUtc = default(DateTimeOffset);
-        var observedAttemptTimeoutMilliseconds = 0;
-        var observedOnStartupBlocked = (string?)null;
+        var observedRequestDeadlineRemainingMilliseconds = 0;
+        var observedOnStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto;
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = (endpoint, request, timeout, cancellationToken) =>
@@ -25,8 +24,8 @@ public sealed class SupervisorClientEnsureRunningTests
                     request.Payload,
                     out SupervisorIpcContracts.EnsureRunningRequest payload,
                     out _));
-                observedDeadlineUtc = payload.DeadlineUtc;
-                observedAttemptTimeoutMilliseconds = payload.AttemptTimeoutMilliseconds;
+                observedDeadlineUtc = request.RequestDeadlineUtc;
+                observedRequestDeadlineRemainingMilliseconds = request.RequestDeadlineRemainingMilliseconds;
                 observedOnStartupBlocked = payload.OnStartupBlocked;
 
                 return ValueTask.FromResult(SupervisorClientTestSupport.CreateEnsureRunningResponse(
@@ -36,13 +35,13 @@ public sealed class SupervisorClientEnsureRunningTests
         };
         var client = new SupervisorClient(transportClient, timeProvider);
         var requestedTimeout = TimeSpan.FromSeconds(5);
+        var deadline = ExecutionDeadline.Start(requestedTimeout, timeProvider);
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
-            timeProvider.GetUtcNow().Add(requestedTimeout),
-            attemptTimeout: requestedTimeout,
+            deadline,
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
@@ -56,9 +55,9 @@ public sealed class SupervisorClientEnsureRunningTests
         SupervisorTransportAssert.EnsureRunningRequestedWithUnboundedResponseWait(
             transportClient,
             requestedTimeout);
-        Assert.Equal(timeProvider.GetUtcNow().Add(requestedTimeout), observedDeadlineUtc);
-        Assert.Equal(checked((int)requestedTimeout.TotalMilliseconds), observedAttemptTimeoutMilliseconds);
-        Assert.Equal("terminate", observedOnStartupBlocked);
+        Assert.Equal(deadline.UtcDeadline, observedDeadlineUtc);
+        Assert.Equal(checked((int)requestedTimeout.TotalMilliseconds), observedRequestDeadlineRemainingMilliseconds);
+        Assert.Equal(DaemonStartupBlockedProcessPolicy.Terminate, observedOnStartupBlocked);
     }
 
     [Fact]
@@ -72,7 +71,7 @@ public sealed class SupervisorClientEnsureRunningTests
             SendHandler = (endpoint, request, timeout, cancellationToken) => ValueTask.FromResult(
                 SupervisorClientTestSupport.CreateEnsureRunningResponse(
                     request,
-                    startStatus: "attached",
+                    startStatus: DaemonStartStatus.Attached,
                     session: session,
                     lifecycleObservation: lifecycleObservation)),
         };
@@ -82,8 +81,7 @@ public sealed class SupervisorClientEnsureRunningTests
             SupervisorClientTestSupport.CreateManifest(),
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
-            SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(100)),
-            attemptTimeout: TimeSpan.FromMilliseconds(100),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), TimeProvider.System),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -109,8 +107,7 @@ public sealed class SupervisorClientEnsureRunningTests
             SupervisorClientTestSupport.CreateManifest(),
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(ProjectFingerprintTestFactory.Create("different-project-fingerprint")),
-            SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(100)),
-            attemptTimeout: TimeSpan.FromMilliseconds(100),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), TimeProvider.System),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -138,8 +135,7 @@ public sealed class SupervisorClientEnsureRunningTests
             SupervisorClientTestSupport.CreateManifest(),
             Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
-            SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(100)),
-            attemptTimeout: TimeSpan.FromMilliseconds(100),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), TimeProvider.System),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -157,7 +153,7 @@ public sealed class SupervisorClientEnsureRunningTests
     {
         var diagnosis = DaemonDiagnosisTestFactory.CreateGuiEndpointNotRegistered();
         var startup = SupervisorClientTestSupport.CreateStartupObservation();
-        var requestObserved = new TaskCompletionSource<IpcRequest>(
+        var requestObserved = new TaskCompletionSource<IpcRequestEnvelope>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var terminalResponseSource = new TaskCompletionSource<IpcResponse>(
             TaskCreationOptions.RunContinuationsAsynchronously);
@@ -175,8 +171,7 @@ public sealed class SupervisorClientEnsureRunningTests
                 SupervisorClientTestSupport.CreateManifest(),
                 Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
-                SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(1)),
-                attemptTimeout: TimeSpan.FromMilliseconds(1),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(1), TimeProvider.System),
                 editorMode: DaemonEditorMode.Gui,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
@@ -216,8 +211,7 @@ public sealed class SupervisorClientEnsureRunningTests
                 SupervisorClientTestSupport.CreateManifest(),
                 Guid.NewGuid(),
                 SupervisorClientTestSupport.CreateUnityProject(),
-                SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromMilliseconds(1)),
-                attemptTimeout: TimeSpan.FromMilliseconds(1),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(1), TimeProvider.System),
                 editorMode: DaemonEditorMode.Gui,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)
@@ -243,26 +237,27 @@ public sealed class SupervisorClientEnsureRunningTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task EnsureRunning_WhenTimeoutExceedsIpcMillisecondContract_ThrowsBeforeTransport ()
+    public async Task EnsureRunning_WhenDeadlineExceedsIpcMillisecondContract_ClampsWireRemainingTime ()
     {
-        var transportClient = new StubIpcTransportClient();
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = (_, request, _, _) => ValueTask.FromResult(
+                SupervisorClientTestSupport.CreateEnsureRunningResponse(request)),
+        };
         var client = new SupervisorClient(transportClient, TimeProvider.System);
         var timeout = TimeSpan.FromMilliseconds(int.MaxValue).Add(TimeSpan.FromMinutes(1));
 
-        var exception = await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => client
-            .EnsureRunningAsync(
-                SupervisorClientTestSupport.CreateManifest(),
-                Guid.NewGuid(),
-                SupervisorClientTestSupport.CreateUnityProject(),
-                SupervisorClientTestSupport.CreateDeadline(timeout),
-                attemptTimeout: timeout,
-                editorMode: DaemonEditorMode.Gui,
-                onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
-                cancellationToken: CancellationToken.None)
-            .AsTask());
+        var result = await client.EnsureRunningAsync(
+            SupervisorClientTestSupport.CreateManifest(),
+            Guid.NewGuid(),
+            SupervisorClientTestSupport.CreateUnityProject(),
+            ExecutionDeadline.Start(timeout, TimeProvider.System),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
 
-        Assert.Equal("attemptTimeout", exception.ParamName);
-        Assert.Empty(transportClient.Invocations);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(int.MaxValue, Assert.Single(transportClient.Invocations).Request.RequestDeadlineRemainingMilliseconds);
     }
 
     [Fact]
@@ -277,8 +272,7 @@ public sealed class SupervisorClientEnsureRunningTests
                 SupervisorClientTestSupport.CreateManifest(),
                 Guid.Empty,
                 SupervisorClientTestSupport.CreateUnityProject(),
-                SupervisorClientTestSupport.CreateDeadline(TimeSpan.FromSeconds(1)),
-                attemptTimeout: TimeSpan.FromSeconds(1),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
                 editorMode: DaemonEditorMode.Gui,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None)

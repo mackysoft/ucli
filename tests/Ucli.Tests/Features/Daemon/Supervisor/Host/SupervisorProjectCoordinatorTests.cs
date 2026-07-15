@@ -28,7 +28,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -59,7 +59,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
@@ -90,7 +90,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var pingClient = new RecordingDaemonPingClient(async (_, _, _, cancellationToken) =>
         {
             await releasePing.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
-            throw new SocketException((int)SocketError.ConnectionRefused);
+            throw IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused);
         });
         var coordinator = CreateCoordinator(
             startOperation,
@@ -101,7 +101,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -140,7 +140,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -180,7 +180,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

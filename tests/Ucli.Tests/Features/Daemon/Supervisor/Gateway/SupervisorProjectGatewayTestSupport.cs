@@ -1,4 +1,4 @@
-using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -85,7 +85,7 @@ internal static class SupervisorProjectGatewayTestSupport
     }
 
     public static IpcResponse CreateSupervisorPingResponse (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         SupervisorInstanceManifest manifest)
     {
         return IpcResponseTestFactory.CreateSuccess(
@@ -95,24 +95,22 @@ internal static class SupervisorProjectGatewayTestSupport
                 manifest.IssuedAtUtc));
     }
 
-    public static IpcResponse CreateStartedEnsureRunningResponse (IpcRequest request)
+    public static IpcResponse CreateStartedEnsureRunningResponse (IpcRequestEnvelope request)
     {
         return SupervisorClientTestSupport.CreateEnsureRunningResponse(
             request,
-            startStatus: "started",
-            daemonStatus: "running");
+            startStatus: DaemonStartStatus.Started);
     }
 
-    public static IpcResponse CreateStopProjectStoppedResponse (IpcRequest request)
+    public static IpcResponse CreateStopProjectStoppedResponse (IpcRequestEnvelope request)
     {
         return IpcResponseTestFactory.CreateSuccess(
             request,
             new SupervisorIpcContracts.StopProjectResponse(
-                StopStatus: "stopped",
-                DaemonStatus: "notRunning"));
+                StopStatus: DaemonStopStatus.Stopped));
     }
 
-    public static SupervisorIpcContracts.EnsureRunningRequest ReadEnsureRunningRequest (IpcRequest request)
+    public static SupervisorIpcContracts.EnsureRunningRequest ReadEnsureRunningRequest (IpcRequestEnvelope request)
     {
         Assert.True(IpcPayloadCodec.TryDeserialize(
             request.Payload,
@@ -121,7 +119,7 @@ internal static class SupervisorProjectGatewayTestSupport
         return payload;
     }
 
-    public static SupervisorIpcContracts.StopProjectRequest ReadStopProjectRequest (IpcRequest request)
+    public static SupervisorIpcContracts.StopProjectRequest ReadStopProjectRequest (IpcRequestEnvelope request)
     {
         Assert.True(IpcPayloadCodec.TryDeserialize(
             request.Payload,

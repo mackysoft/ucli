@@ -1,7 +1,4 @@
-using System.Text;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 
@@ -32,8 +29,9 @@ internal sealed class SystemdRunSupervisorProcessLauncher
 
         try
         {
-            var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
-            var unitName = BuildSystemdUnitName(normalizedStorageRoot);
+            var worktreeIdentity = SupervisorWorktreeIdentity.Create(storageRoot);
+            var normalizedStorageRoot = worktreeIdentity.NormalizedStorageRoot;
+            var unitName = BuildSystemdUnitName(worktreeIdentity);
             var arguments = BuildArguments(normalizedStorageRoot, unitName, launchCommand);
 
             var launchResult = await processRunner.RunAsync(
@@ -59,9 +57,9 @@ internal sealed class SystemdRunSupervisorProcessLauncher
         }
     }
 
-    private static string BuildSystemdUnitName (string normalizedStorageRoot)
+    private static string BuildSystemdUnitName (SupervisorWorktreeIdentity worktreeIdentity)
     {
-        return "mackysoft-ucli-supervisor-" + BuildIdentityHash(normalizedStorageRoot)[..16];
+        return "mackysoft-ucli-supervisor-" + worktreeIdentity.LaunchServiceNameSuffix;
     }
 
     internal static IReadOnlyList<string> BuildArguments (
@@ -85,10 +83,5 @@ internal sealed class SystemdRunSupervisorProcessLauncher
         arguments.AddRange(launchCommand.Arguments);
         arguments.AddRange(SupervisorInvocationArguments.Build(normalizedStorageRoot));
         return arguments;
-    }
-
-    private static string BuildIdentityHash (string normalizedStorageRoot)
-    {
-        return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(normalizedStorageRoot));
     }
 }

@@ -40,21 +40,20 @@ internal sealed class SupervisorStabilityVerifier
     /// <summary> Ensures that one started daemon stays reachable for the supervisor stability probe sequence. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The daemon session returned by daemon start. </param>
-    /// <param name="timeout"> The remaining command timeout. </param>
+    /// <param name="deadline"> The command deadline shared with daemon start. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The stability-verification result. </returns>
     public async ValueTask<SupervisorStabilityVerificationResult> EnsureStableAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(session);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var stabilityDeadline = ExecutionDeadline.Start(timeout, timeProvider);
         var successCount = 0;
         var retryDelay = TimeSpan.FromMilliseconds(
             Math.Max(1, (int)Math.Ceiling(
@@ -64,7 +63,7 @@ internal sealed class SupervisorStabilityVerifier
         while (successCount < SupervisorConstants.StabilitySuccessCount)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!stabilityDeadline.TryGetRemainingTimeout(out var remainingTimeout))
+            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
             {
                 return await FailStabilityTimeoutCheckAsync(unityProject, session).ConfigureAwait(false);
             }
@@ -72,19 +71,33 @@ internal sealed class SupervisorStabilityVerifier
             var attemptTimeout = remainingTimeout < SupervisorConstants.PingTimeout
                 ? remainingTimeout
                 : SupervisorConstants.PingTimeout;
+            var attemptDeadline = remainingTimeout <= SupervisorConstants.PingTimeout
+                ? deadline
+                : deadline.CreateCappedDeadline(SupervisorConstants.PingTimeout);
 
             try
             {
-                using var pingCancellationScope = TimeProviderCancellationScope.CreateLinked(
+                var pingOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                    attemptDeadline,
                     cancellationToken,
-                    attemptTimeout,
-                    timeProvider);
-                await daemonPingClient.PingSessionAsync(
-                        unityProject,
-                        session,
-                        attemptTimeout,
-                        pingCancellationScope.Token)
+                    "Timed out before a supervisor stability ping could begin.",
+                    "Timed out while waiting for a supervisor stability ping.",
+                    async token =>
+                    {
+                        await daemonPingClient.PingSessionAsync(
+                                unityProject,
+                                session,
+                                attemptTimeout,
+                                token)
+                            .ConfigureAwait(false);
+                        return true;
+                    })
                     .ConfigureAwait(false);
+                if (!pingOperation.IsSuccess)
+                {
+                    return await FailStabilityTimeoutCheckAsync(unityProject, session).ConfigureAwait(false);
+                }
+
                 successCount++;
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -107,7 +120,7 @@ internal sealed class SupervisorStabilityVerifier
 
             if (successCount < SupervisorConstants.StabilitySuccessCount)
             {
-                if (!stabilityDeadline.TryGetRemainingTimeout(out var remainingDelayTimeout))
+                if (!deadline.TryGetRemainingTimeout(out var remainingDelayTimeout))
                 {
                     return await FailStabilityTimeoutCheckAsync(unityProject, session).ConfigureAwait(false);
                 }
@@ -120,7 +133,7 @@ internal sealed class SupervisorStabilityVerifier
                     return await FailStabilityTimeoutCheckAsync(unityProject, session).ConfigureAwait(false);
                 }
 
-                await TimeProviderDelay.DelayAsync(delay, timeProvider, cancellationToken).ConfigureAwait(false);
+                await TimeProviderDelay.DelayAsync(delay, deadline.Clock, cancellationToken).ConfigureAwait(false);
             }
         }
 
@@ -185,7 +198,7 @@ internal sealed class SupervisorStabilityVerifier
                 (_, ownedCancellationToken) => diagnosisWriter.WriteUnexpectedAsync(
                     unityProject,
                     session,
-                    DaemonDiagnosisReasonValues.StartupUnstable,
+                    DaemonDiagnosisReason.StartupUnstable,
                     message,
                     ownedCancellationToken))
             .ConfigureAwait(false);

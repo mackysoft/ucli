@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using static MackySoft.Ucli.Tests.Supervisor.SupervisorRequestDispatcherTestSupport;
@@ -7,41 +6,6 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorRequestDispatcherStopProjectTests
 {
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task HandleConnection_WhenAttemptTimeoutExceedsIntegerContract_ReturnsInvalidArgumentWithoutDispatch ()
-    {
-        var stopOperation = new RecordingDaemonStopOperation();
-        var dispatcher = CreateDispatcher(stopOperation: stopOperation);
-        var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
-        var projectFingerprint = UnityProjectFingerprintCalculator.Create(
-            runtimeContext.StorageRoot,
-            unityProjectRoot);
-
-        var response = await SendRequestAsync(
-            dispatcher,
-            runtimeContext,
-            new IpcRequest(
-                protocolVersion: IpcProtocol.CurrentVersion,
-                requestId: Guid.NewGuid(),
-                sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
-                method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject),
-                payload: IpcPayloadCodec.SerializeToElement(
-                    new
-                    {
-                        UnityProjectRoot = unityProjectRoot,
-                        ProjectFingerprint = projectFingerprint,
-                        DeadlineUtc = DateTimeOffset.MaxValue,
-                        AttemptTimeoutMilliseconds = (long)int.MaxValue + 1,
-                    }),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
-
-        Assert.Equal(IpcProtocol.StatusError, response.Status);
-        Assert.Equal(UcliCoreErrorCodes.InvalidArgument, Assert.Single(response.Errors).Code);
-        Assert.Empty(stopOperation.Invocations);
-    }
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task HandleConnection_WhenRequestDeliveryIsDelayed_UsesDeadlineRemainingAtReceipt ()
@@ -62,7 +26,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
@@ -70,14 +34,14 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
                         UnityProjectRoot: unityProjectRoot,
-                        ProjectFingerprint: projectFingerprint,
-                        DeadlineUtc: deadlineUtc,
-                        AttemptTimeoutMilliseconds: 800)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                        ProjectFingerprint: projectFingerprint)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: deadlineUtc,
+                requestDeadlineRemainingMilliseconds: 800));
 
-        Assert.Equal(IpcProtocol.StatusOk, response.Status);
+        Assert.Equal(IpcResponseStatus.Ok, response.Status);
         var invocation = Assert.Single(stopOperation.Invocations);
-        Assert.Equal(TimeSpan.FromMilliseconds(600), invocation.Timeout);
+        Assert.Equal(TimeSpan.FromMilliseconds(600), invocation.RemainingTimeout);
     }
 
     [Fact]
@@ -100,7 +64,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
@@ -108,13 +72,13 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
                         UnityProjectRoot: unityProjectRoot,
-                        ProjectFingerprint: projectFingerprint,
-                        DeadlineUtc: deadlineUtc,
-                        AttemptTimeoutMilliseconds: 700)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                        ProjectFingerprint: projectFingerprint)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: deadlineUtc,
+                requestDeadlineRemainingMilliseconds: 700));
 
-        Assert.Equal(IpcProtocol.StatusOk, response.Status);
-        Assert.Equal(TimeSpan.FromMilliseconds(700), Assert.Single(stopOperation.Invocations).Timeout);
+        Assert.Equal(IpcResponseStatus.Ok, response.Status);
+        Assert.Equal(TimeSpan.FromMilliseconds(700), Assert.Single(stopOperation.Invocations).RemainingTimeout);
     }
 
     [Fact]
@@ -137,7 +101,7 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
         var response = await SendRequestAsync(
             dispatcher,
             runtimeContext,
-            new IpcRequest(
+            new IpcRequestEnvelope(
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: runtimeContext.Manifest.SessionToken.GetEncodedValue(),
@@ -145,12 +109,12 @@ public sealed class SupervisorRequestDispatcherStopProjectTests
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.StopProjectRequest(
                         UnityProjectRoot: unityProjectRoot,
-                        ProjectFingerprint: projectFingerprint,
-                        DeadlineUtc: deadlineUtc,
-                        AttemptTimeoutMilliseconds: 700)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single)));
+                        ProjectFingerprint: projectFingerprint)),
+                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                requestDeadlineUtc: deadlineUtc,
+                requestDeadlineRemainingMilliseconds: 700));
 
-        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        Assert.Equal(IpcResponseStatus.Error, response.Status);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, Assert.Single(response.Errors).Code);
         Assert.Empty(stopOperation.Invocations);
     }
