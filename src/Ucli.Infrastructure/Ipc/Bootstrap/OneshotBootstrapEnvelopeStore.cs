@@ -43,7 +43,7 @@ internal static class OneshotBootstrapEnvelopeStore
             envelope.ProjectFingerprint,
             envelope.BootstrapId);
         FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-        CleanupExpiredCore(directoryPath, DateTimeOffset.UtcNow);
+        CleanupExpiredCore(directoryPath, envelope.ProjectFingerprint, DateTimeOffset.UtcNow);
 
         var json = JsonSerializer.Serialize(ToContract(envelope), SerializeOptions) + Environment.NewLine;
         var payload = StrictUtf8.GetBytes(json);
@@ -52,14 +52,12 @@ internal static class OneshotBootstrapEnvelopeStore
             throw new InvalidOperationException("Oneshot bootstrap envelope exceeds its storage limit.");
         }
 
-        var temporaryPath = Path.Combine(directoryPath, "." + Path.GetRandomFileName());
+        var temporaryPath = string.Empty;
         try
         {
-            using (var stream = new FileStream(
-                       temporaryPath,
-                       FileMode.CreateNew,
-                       FileAccess.Write,
-                       FileShare.None))
+            using (var stream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
+                       directoryPath,
+                       out temporaryPath))
             {
                 stream.Write(payload, 0, payload.Length);
                 stream.Flush();
@@ -72,7 +70,11 @@ internal static class OneshotBootstrapEnvelopeStore
         }
         catch
         {
-            TryDeleteFile(temporaryPath);
+            if (temporaryPath.Length != 0)
+            {
+                TryDeleteFile(temporaryPath);
+            }
+
             throw;
         }
     }
@@ -264,24 +266,32 @@ internal static class OneshotBootstrapEnvelopeStore
 
     private static void CleanupExpiredCore (
         string directoryPath,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset nowUtc)
     {
-        var paths = Directory.GetFiles(
-            directoryPath,
-            "*" + UcliStoragePathNames.OneshotBootstrapFileExtension,
-            SearchOption.TopDirectoryOnly);
-        var count = Math.Min(paths.Length, MaximumMaintenanceFiles);
-        for (var index = 0; index < count; index++)
+        foreach (var path in Directory.EnumerateFiles(
+                     directoryPath,
+                     "*" + UcliStoragePathNames.OneshotBootstrapFileExtension,
+                     SearchOption.TopDirectoryOnly)
+                 .Take(MaximumMaintenanceFiles))
         {
+            if (!TryGetOwnedBootstrapId(path, out var bootstrapId))
+            {
+                continue;
+            }
+
             try
             {
-                var envelope = ReadEnvelope(paths[index]);
-                if (envelope.ExitDeadlineUtc <= nowUtc
+                var envelope = ReadEnvelope(path);
+                if (envelope.BootstrapId == bootstrapId
+                    && envelope.ProjectFingerprint == projectFingerprint
+                    && (envelope.ExitDeadlineUtc <= nowUtc
                     || !ProcessLivenessProbe.IsSameProcess(
                         envelope.ParentProcessId,
-                        envelope.ParentProcessStartedAtUtc))
+                        envelope.ParentProcessStartedAtUtc)))
                 {
-                    File.Delete(paths[index]);
+                    FileUtilities.EnsureRegularFile(path, "Oneshot bootstrap envelope");
+                    File.Delete(path);
                 }
             }
             catch (Exception exception) when (exception is InvalidDataException
@@ -290,6 +300,24 @@ internal static class OneshotBootstrapEnvelopeStore
             {
             }
         }
+    }
+
+    private static bool TryGetOwnedBootstrapId (
+        string path,
+        out Guid bootstrapId)
+    {
+        if (!string.Equals(
+                Path.GetExtension(path),
+                UcliStoragePathNames.OneshotBootstrapFileExtension,
+                StringComparison.Ordinal))
+        {
+            bootstrapId = Guid.Empty;
+            return false;
+        }
+
+        return StoragePathSegmentCodec.TryDecodeNonEmptyGuid(
+            Path.GetFileNameWithoutExtension(path),
+            out bootstrapId);
     }
 
     private static JsonSerializerOptions CreateSerializerOptions (bool writeIndented)
