@@ -49,7 +49,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             SessionGenerationId = sessionGenerationId;
             SessionToken = sessionToken ?? throw new ArgumentNullException(nameof(sessionToken));
             ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
-            IssuedAtUtc = issuedAtUtc;
+            IssuedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(issuedAtUtc, nameof(issuedAtUtc));
             Endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
             CanShutdownProcess = canShutdownProcess;
         }

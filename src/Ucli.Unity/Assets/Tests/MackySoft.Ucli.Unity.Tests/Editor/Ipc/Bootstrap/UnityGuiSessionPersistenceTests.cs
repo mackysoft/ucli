@@ -51,6 +51,23 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(exception.ParamName, Is.EqualTo("editorInstanceId"));
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public void UnityGuiSessionRegistration_WhenIssuedAtUtcIsNotCanonicalUtc_ThrowsArgumentException ()
+        {
+            var exception = Assert.Throws<ArgumentException>(() => new UnityGuiSessionRegistration(
+                sessionPath: "session.json",
+                sessionLockPath: "session.lock",
+                sessionGenerationId: Guid.NewGuid(),
+                sessionToken: ParseSessionToken(FirstCanonicalSessionToken),
+                projectFingerprint: ProjectFingerprint,
+                issuedAtUtc: new DateTimeOffset(2026, 7, 15, 9, 0, 0, TimeSpan.FromHours(9)),
+                endpoint: CreateDefaultEndpoint(),
+                canShutdownProcess: false));
+
+            Assert.That(exception.ParamName, Is.EqualTo("issuedAtUtc"));
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator GuiSupervisorDelete_WhenExpectedTokenDoesNotOwnCurrentManifest_PreservesSuccessorManifest () => UniTask.ToCoroutine(async () =>

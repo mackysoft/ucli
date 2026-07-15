@@ -401,11 +401,20 @@ internal sealed class SupervisorManifestStore
                 exception);
         }
 
-        return new SupervisorInstanceManifest(
-            contract.ProcessId,
-            sessionToken,
-            endpoint,
-            contract.IssuedAtUtc);
+        try
+        {
+            return new SupervisorInstanceManifest(
+                contract.ProcessId,
+                sessionToken,
+                endpoint,
+                contract.IssuedAtUtc);
+        }
+        catch (ArgumentException exception)
+        {
+            throw new InvalidDataException(
+                $"Supervisor manifest values are invalid. {manifestPath}",
+                exception);
+        }
     }
 
     private async ValueTask WriteWhileMutationLockIsHeldAsync (
@@ -491,12 +500,6 @@ internal sealed class SupervisorManifestStore
         {
             throw new InvalidDataException($"Supervisor manifest contains required empty values. {manifestPath}");
         }
-
-        if (manifest.IssuedAtUtc == default)
-        {
-            throw new InvalidDataException($"Supervisor manifest issuedAtUtc is invalid. {manifestPath}");
-        }
-
     }
 
     /// <summary> Owns one immutable snapshot of exact manifest file bytes and its content identity. </summary>

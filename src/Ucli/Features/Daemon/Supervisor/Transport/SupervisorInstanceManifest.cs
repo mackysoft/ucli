@@ -22,15 +22,10 @@ internal sealed record SupervisorInstanceManifest
         }
 
         ArgumentException.ThrowIfNullOrWhiteSpace(endpoint.Address);
-        if (issuedAtUtc == default)
-        {
-            throw new ArgumentException("Supervisor issue timestamp must not be the default value.", nameof(issuedAtUtc));
-        }
-
         ProcessId = processId;
         SessionToken = sessionToken;
         Endpoint = endpoint;
-        IssuedAtUtc = issuedAtUtc;
+        IssuedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(issuedAtUtc, nameof(issuedAtUtc));
     }
 
     /// <summary> Gets the supervisor process identifier. </summary>

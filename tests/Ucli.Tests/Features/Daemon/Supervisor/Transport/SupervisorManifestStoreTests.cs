@@ -234,6 +234,35 @@ public sealed class SupervisorManifestStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Read_WhenIssuedAtUtcHasNonZeroOffset_RejectsManifest ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "supervisor-manifest-store",
+            "non-utc-issued-at");
+        var store = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
+        var manifest = CreateManifest();
+        var contract = new SupervisorInstanceManifestJsonContract(
+            manifest.ProcessId,
+            manifest.SessionToken.GetEncodedValue(),
+            ContractLiteralCodec.ToValue(manifest.Endpoint.TransportKind),
+            manifest.Endpoint.Address,
+            manifest.IssuedAtUtc.ToOffset(TimeSpan.FromHours(9)));
+        var manifestPath = UcliStoragePathResolver.ResolveSupervisorManifestPath(scope.FullPath);
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        await File.WriteAllTextAsync(
+            manifestPath,
+            JsonSerializer.Serialize(contract),
+            CancellationToken.None);
+
+        var exception = await Assert.ThrowsAsync<SupervisorManifestFormatException>(
+            () => store.ReadOrNullAsync(scope.FullPath, CancellationToken.None).AsTask());
+
+        var invalidDataException = Assert.IsType<InvalidDataException>(exception.InnerException);
+        Assert.IsType<ArgumentException>(invalidDataException.InnerException);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     [SupportedOSPlatform("macos")]
     [SupportedOSPlatform("linux")]
     public async Task CleanupObservedRuntime_OnUnix_RemovesPublishedGenerationSocket ()
