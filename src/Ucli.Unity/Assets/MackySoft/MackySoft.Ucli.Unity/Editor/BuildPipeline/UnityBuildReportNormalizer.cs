@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using UnityEditor.Build.Reporting;
 
 namespace MackySoft.Ucli.Unity.Build
@@ -42,7 +41,7 @@ namespace MackySoft.Ucli.Unity.Build
             var steps = CreateSteps(snapshot.Steps);
             return new IpcBuildReportArtifact(
                 SchemaVersion: BuildReportSchemaVersion,
-                Result: ContractLiteralCodec.ToValue(snapshot.Result),
+                Result: snapshot.Result,
                 UnityBuildTarget: snapshot.UnityBuildTarget ?? string.Empty,
                 OutputPath: snapshot.OutputPath ?? string.Empty,
                 DurationMilliseconds: ToMilliseconds(snapshot.Duration),
@@ -54,9 +53,9 @@ namespace MackySoft.Ucli.Unity.Build
         }
 
         /// <summary> Maps BuildReport result to a log completion reason. </summary>
-        public static IpcBuildLogCompletionReason ToCompletionReason (string result)
+        public static IpcBuildLogCompletionReason ToCompletionReason (IpcBuildReportResult result)
         {
-            return IpcBuildLogCompletionReasonResolver.FromReportResultLiteral(result);
+            return IpcBuildLogCompletionReasonResolver.FromReportResult(result);
         }
 
         private static IpcBuildReportResult ToIpcResult (BuildResult result)

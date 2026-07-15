@@ -1,4 +1,7 @@
 using System;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable
 
@@ -9,11 +12,11 @@ namespace MackySoft.Ucli.Unity
     {
         /// <summary> Initializes a new instance of the <see cref="UcliBuildRunnerDiagnostic" /> class. </summary>
         /// <param name="code"> The diagnostic code. </param>
-        /// <param name="severity"> The diagnostic severity literal: <c>info</c>, <c>warning</c>, or <c>error</c>. </param>
+        /// <param name="severity"> The diagnostic severity. </param>
         /// <param name="message"> The diagnostic message. </param>
         public UcliBuildRunnerDiagnostic (
             string code,
-            string severity,
+            UcliDiagnosticSeverity severity,
             string message)
         {
             if (string.IsNullOrWhiteSpace(code))
@@ -21,9 +24,9 @@ namespace MackySoft.Ucli.Unity
                 throw new ArgumentException("code must not be empty.", nameof(code));
             }
 
-            if (string.IsNullOrWhiteSpace(severity))
+            if (!ContractLiteralCodec.IsDefined(severity))
             {
-                throw new ArgumentException("severity must not be empty.", nameof(severity));
+                throw new ArgumentOutOfRangeException(nameof(severity), severity, "severity must be specified.");
             }
 
             if (string.IsNullOrWhiteSpace(message))
@@ -39,8 +42,8 @@ namespace MackySoft.Ucli.Unity
         /// <summary> Gets the diagnostic code. </summary>
         public string Code { get; }
 
-        /// <summary> Gets the diagnostic severity literal. </summary>
-        public string Severity { get; }
+        /// <summary> Gets the diagnostic severity. </summary>
+        public UcliDiagnosticSeverity Severity { get; }
 
         /// <summary> Gets the diagnostic message. </summary>
         public string Message { get; }

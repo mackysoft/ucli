@@ -49,41 +49,44 @@ namespace MackySoft.Ucli.Unity.Build
                     lifecycleBefore));
             }
 
-            if (!TryValidateProfilePath(request.UnityBuildProfile.Path, out var profilePath, out var error))
-            {
-                return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
-                    error!,
-                    request.UnityBuildProfile,
-                    lifecycleBefore));
-            }
+            var profilePath = request.UnityBuildProfile.Path;
 
-            var profile = AssetDatabase.LoadAssetAtPath<BuildProfile>(profilePath);
+            var profile = AssetDatabase.LoadAssetAtPath<BuildProfile>(profilePath.Value);
             if (profile == null)
             {
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
                     CreateInvalidProfileError($"Unity Build Profile asset could not be resolved: {profilePath}."),
-                    new IpcUnityBuildProfileInput(profilePath),
+                    new IpcUnityBuildProfileInput(
+                        Path: profilePath,
+                        Digest: null,
+                        ApplyAudit: null),
                     lifecycleBefore));
             }
 
             var canonicalPath = AssetDatabase.GetAssetPath(profile);
-            if (!string.Equals(profilePath, canonicalPath, StringComparison.Ordinal))
+            if (!string.Equals(profilePath.Value, canonicalPath, StringComparison.Ordinal))
             {
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
                     CreateInvalidProfileError($"Unity Build Profile path must match the asset canonical path: {profilePath}."),
-                    new IpcUnityBuildProfileInput(profilePath),
+                    new IpcUnityBuildProfileInput(
+                        Path: profilePath,
+                        Digest: null,
+                        ApplyAudit: null),
                     lifecycleBefore));
             }
 
-            if (!TryResolveScenePaths(profile, out var scenePaths, out error))
+            if (!TryResolveScenePaths(profile, out var scenePaths, out var error))
             {
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
                     error!,
-                    new IpcUnityBuildProfileInput(profilePath),
+                    new IpcUnityBuildProfileInput(
+                        Path: profilePath,
+                        Digest: null,
+                        ApplyAudit: null),
                     lifecycleBefore));
             }
 
-            string digest;
+            Sha256Digest digest;
             try
             {
                 digest = ComputeAssetDigest(profilePath);
@@ -97,13 +100,16 @@ namespace MackySoft.Ucli.Unity.Build
             {
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
                     CreateInvalidProfileError($"Unity Build Profile asset could not be applied: {profilePath}. {exception.Message}"),
-                    new IpcUnityBuildProfileInput(profilePath),
+                    new IpcUnityBuildProfileInput(
+                        Path: profilePath,
+                        Digest: null,
+                        ApplyAudit: null),
                     lifecycleBefore));
             }
 
             var unityBuildProfile = CreateAppliedUnityBuildProfile(profilePath, digest, lifecycleBefore);
             var activeBuildTarget = EditorUserBuildSettings.activeBuildTarget;
-            if (!TryResolveBuildTarget(activeBuildTarget, out var stableBuildTarget, out var unityBuildTargetLiteral))
+            if (!UnityBuildTargetSupportProbe.TryGetStableName(activeBuildTarget, out var stableBuildTarget))
             {
                 return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
                     CreateInvalidProfileError($"Unity Build Profile build target is unsupported: {activeBuildTarget}."),
@@ -126,10 +132,9 @@ namespace MackySoft.Ucli.Unity.Build
 
             var development = EditorUserBuildSettings.development;
             var preconditionInput = new UnityBuildPreconditionInput(
-                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                InputKind: BuildProfileInputsKind.UnityBuildProfile,
                 BuildTarget: stableBuildTarget,
-                UnityBuildTarget: unityBuildTargetLiteral,
-                SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
+                SceneSource: BuildProfileSceneSource.UnityBuildProfile,
                 ScenePaths: scenePaths,
                 Development: development,
                 AllowedEditorModes: request.AllowedEditorModes);
@@ -139,43 +144,9 @@ namespace MackySoft.Ucli.Unity.Build
                 unityBuildProfile));
         }
 
-        private static bool TryValidateProfilePath (
-            string? path,
-            out string profilePath,
-            out IpcError? error)
-        {
-            profilePath = string.Empty;
-            if (!UnityAssetPathContract.TryNormalizeBuildProfileAssetPath(path, out var normalizedPath)
-                || !string.Equals(path, normalizedPath, StringComparison.Ordinal))
-            {
-                error = CreateInvalidProfileError("Unity Build Profile path must be a normalized project-relative asset path under Assets and must not reference a .meta file.");
-                return false;
-            }
-
-            profilePath = normalizedPath;
-            error = null;
-            return true;
-        }
-
-        private static bool TryResolveBuildTarget (
-            BuildTarget target,
-            out string stableBuildTarget,
-            out string unityBuildTargetLiteral)
-        {
-            unityBuildTargetLiteral = target.ToString();
-            if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolveStableName(unityBuildTargetLiteral, out var stableName))
-            {
-                stableBuildTarget = string.Empty;
-                return false;
-            }
-
-            stableBuildTarget = ContractLiteralCodec.ToValue(stableName);
-            return true;
-        }
-
         private static bool TryResolveScenePaths (
             BuildProfile profile,
-            out string[] scenePaths,
+            out SceneAssetPath[] scenePaths,
             out IpcError? error)
         {
             if (profile.overrideGlobalScenes && profile.scenes != null)
@@ -185,7 +156,7 @@ namespace MackySoft.Ucli.Unity.Build
                     var scene = profile.scenes[i];
                     if (!scene.enabled)
                     {
-                        scenePaths = Array.Empty<string>();
+                        scenePaths = Array.Empty<SceneAssetPath>();
                         error = new IpcError(
                             BuildErrorCodes.BuildSceneDisabled,
                             $"Unity Build Profile scene at index {i} is disabled: {scene.path}.",
@@ -196,13 +167,13 @@ namespace MackySoft.Ucli.Unity.Build
             }
 
             var scenesForBuild = profile.GetScenesForBuild();
-            var paths = new List<string>(scenesForBuild.Length);
+            var paths = new List<SceneAssetPath>(scenesForBuild.Length);
             for (var i = 0; i < scenesForBuild.Length; i++)
             {
                 var scene = scenesForBuild[i];
                 if (!scene.enabled)
                 {
-                    scenePaths = Array.Empty<string>();
+                    scenePaths = Array.Empty<SceneAssetPath>();
                     error = new IpcError(
                         BuildErrorCodes.BuildSceneDisabled,
                         $"Unity Build Profile scene at index {i} is disabled: {scene.path}.",
@@ -210,19 +181,19 @@ namespace MackySoft.Ucli.Unity.Build
                     return false;
                 }
 
-                if (!UnityAssetPathContract.IsNormalizedSceneAssetPath(scene.path))
+                if (!SceneAssetPath.TryParse(scene.path, out var scenePath))
                 {
-                    scenePaths = Array.Empty<string>();
+                    scenePaths = Array.Empty<SceneAssetPath>();
                     error = CreateInvalidProfileError($"Unity Build Profile scene path is invalid at index {i}: {scene.path}.");
                     return false;
                 }
 
-                paths.Add(scene.path);
+                paths.Add(scenePath);
             }
 
             if (paths.Count == 0)
             {
-                scenePaths = Array.Empty<string>();
+                scenePaths = Array.Empty<SceneAssetPath>();
                 error = new IpcError(
                     BuildErrorCodes.BuildInputsInvalid,
                     "Unity Build Profile must resolve at least one enabled scene.",
@@ -237,10 +208,10 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static bool TryResolveOutputLayout (
             string outputPath,
-            string stableBuildTarget,
+            BuildTargetStableName stableBuildTarget,
             out IpcBuildOutputLayout? outputLayout)
         {
-            var androidAppBundle = ContractLiteralCodec.Matches(stableBuildTarget, BuildTargetStableName.Android)
+            var androidAppBundle = stableBuildTarget == BuildTargetStableName.Android
                 && EditorUserBuildSettings.buildAppBundle;
             return IpcBuildOutputLayoutResolver.TryResolve(
                 outputPath,
@@ -250,8 +221,8 @@ namespace MackySoft.Ucli.Unity.Build
         }
 
         private IpcUnityBuildProfileInput CreateAppliedUnityBuildProfile (
-            string profilePath,
-            string digest,
+            UnityBuildProfileAssetPath profilePath,
+            Sha256Digest digest,
             IpcUnityEditorObservation lifecycleBefore)
         {
             // NOTE: After SetActiveBuildProfile succeeds, the editor has already been mutated.
@@ -270,10 +241,10 @@ namespace MackySoft.Ucli.Unity.Build
                 ApplyAudit: applyAudit);
         }
 
-        private static string ComputeAssetDigest (string profilePath)
+        private static Sha256Digest ComputeAssetDigest (UnityBuildProfileAssetPath profilePath)
         {
-            var absolutePath = UnityAssetPathUtility.ToAbsolutePath(profilePath);
-            return Sha256LowerHex.Compute(File.ReadAllBytes(absolutePath));
+            var absolutePath = UnityAssetPathUtility.ToAbsolutePath(profilePath.Value);
+            return Sha256Digest.Compute(File.ReadAllBytes(absolutePath));
         }
 
         private static IpcError CreateInvalidProfileError (string message)

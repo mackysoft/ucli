@@ -87,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Build
                         null));
             }
 
-            var targetSupport = targetSupportProbe.Probe(input.UnityBuildTarget);
+            var targetSupport = targetSupportProbe.Probe(input.BuildTarget);
             cancellationToken.ThrowIfCancellationRequested();
             if (!targetSupport.IsValidTarget)
             {
@@ -98,7 +98,7 @@ namespace MackySoft.Ucli.Unity.Build
                     null,
                     new IpcError(
                         BuildErrorCodes.BuildInputsInvalid,
-                        $"Unity build target literal is invalid: {input.UnityBuildTarget}.",
+                        $"Unity build target is invalid: {ContractLiteralCodec.ToValue(input.BuildTarget)}.",
                         null));
             }
 
@@ -108,7 +108,7 @@ namespace MackySoft.Ucli.Unity.Build
                     projectIdentity,
                     lifecycleBefore,
                     null,
-                    CreateInputProbe(input, targetSupport, Array.Empty<string>(), BuildOptions.None),
+                    CreateInputProbe(input, targetSupport, Array.Empty<SceneAssetPath>(), BuildOptions.None),
                     new IpcError(
                         BuildErrorCodes.BuildTargetModuleMissing,
                         $"Unity buildTarget module is not installed or not supported: {targetSupport.UnityBuildTarget}.",
@@ -121,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Build
                     projectIdentity,
                     lifecycleBefore,
                     null,
-                    CreateInputProbe(input, targetSupport, Array.Empty<string>(), BuildOptions.None),
+                    CreateInputProbe(input, targetSupport, Array.Empty<SceneAssetPath>(), BuildOptions.None),
                     inputError!);
             }
 
@@ -141,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Build
                         null));
             }
 
-            if (ContractLiteralCodec.Matches(dirtyState.Coverage, IpcBuildDirtyStateCoverage.Partial))
+            if (dirtyState.Coverage == IpcBuildDirtyStateCoverage.Partial)
             {
                 return UnityBuildPreconditionProbeResult.Failure(
                     projectIdentity,
@@ -205,7 +205,7 @@ namespace MackySoft.Ucli.Unity.Build
                 var normalizedPath = NormalizeLoadedScenePath(scene.path);
                 AddDirtyItem(
                     itemsByPath,
-                    ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene),
+                    IpcBuildDirtyStateItemKind.Scene,
                     normalizedPath);
             }
 
@@ -223,7 +223,7 @@ namespace MackySoft.Ucli.Unity.Build
             return new IpcBuildDirtyState(
                 Checked: true,
                 Dirty: items.Count != 0,
-                Coverage: ContractLiteralCodec.ToValue(coverage),
+                Coverage: coverage,
                 Items: items);
         }
 
@@ -255,13 +255,13 @@ namespace MackySoft.Ucli.Unity.Build
                     continue;
                 }
 
-                AddDirtyItem(itemsByPath, ContractLiteralCodec.ToValue(ClassifyDirtyItem(path)), path);
+                AddDirtyItem(itemsByPath, ClassifyDirtyItem(path), path);
             }
         }
 
         private static void AddDirtyItem (
             Dictionary<string, IpcBuildDirtyStateItem> itemsByPath,
-            string kind,
+            IpcBuildDirtyStateItemKind kind,
             string path)
         {
             if (!itemsByPath.ContainsKey(path))
@@ -338,21 +338,11 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static bool IsEditorModeAllowed (
             DaemonEditorMode editorMode,
-            IReadOnlyList<string> allowedEditorModes)
+            IReadOnlyList<DaemonEditorMode> allowedEditorModes)
         {
-            if (allowedEditorModes == null || allowedEditorModes.Count == 0)
-            {
-                return false;
-            }
-
-            if (!ContractLiteralCodec.IsDefined(editorMode))
-            {
-                return false;
-            }
-
             for (var i = 0; i < allowedEditorModes.Count; i++)
             {
-                if (ContractLiteralCodec.Matches(allowedEditorModes[i], editorMode))
+                if (allowedEditorModes[i] == editorMode)
                 {
                     return true;
                 }
@@ -364,22 +354,12 @@ namespace MackySoft.Ucli.Unity.Build
         private static bool TryResolveScenePaths (
             UnityBuildPreconditionInput input,
             CancellationToken cancellationToken,
-            out string[] scenePaths,
+            out SceneAssetPath[] scenePaths,
             out IpcError? error)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (!ContractLiteralCodec.TryParse<BuildProfileSceneSource>(input.SceneSource, out var sceneSource))
-            {
-                scenePaths = Array.Empty<string>();
-                error = new IpcError(
-                    BuildErrorCodes.BuildInputsInvalid,
-                    $"Build scene source is invalid: {input.SceneSource}.",
-                    null);
-                return false;
-            }
-
-            if (sceneSource == BuildProfileSceneSource.Explicit
-                || sceneSource == BuildProfileSceneSource.UnityBuildProfile)
+            if (input.SceneSource == BuildProfileSceneSource.Explicit
+                || input.SceneSource == BuildProfileSceneSource.UnityBuildProfile)
             {
                 return TryResolveExplicitScenePaths(input.ScenePaths, cancellationToken, out scenePaths, out error);
             }
@@ -388,15 +368,15 @@ namespace MackySoft.Ucli.Unity.Build
         }
 
         private static bool TryResolveExplicitScenePaths (
-            IReadOnlyList<string> paths,
+            IReadOnlyList<SceneAssetPath> paths,
             CancellationToken cancellationToken,
-            out string[] scenePaths,
+            out SceneAssetPath[] scenePaths,
             out IpcError? error)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (paths == null || paths.Count == 0)
+            if (paths.Count == 0)
             {
-                scenePaths = Array.Empty<string>();
+                scenePaths = Array.Empty<SceneAssetPath>();
                 error = new IpcError(
                     BuildErrorCodes.BuildInputsInvalid,
                     "Explicit build scene input must contain at least one scene path.",
@@ -404,16 +384,16 @@ namespace MackySoft.Ucli.Unity.Build
                 return false;
             }
 
-            return TryValidateScenePaths(paths, cancellationToken, out scenePaths, out error);
+            return TryResolveSceneAssets(paths, cancellationToken, out scenePaths, out error);
         }
 
         private static bool TryResolveEditorBuildSettingsScenePaths (
             CancellationToken cancellationToken,
-            out string[] scenePaths,
+            out SceneAssetPath[] scenePaths,
             out IpcError? error)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var enabledScenes = new List<string>();
+            var enabledScenes = new List<SceneAssetPath>();
             var editorBuildSettingsScenes = EditorBuildSettings.scenes;
             for (var i = 0; i < editorBuildSettingsScenes.Length; i++)
             {
@@ -425,12 +405,22 @@ namespace MackySoft.Ucli.Unity.Build
                     continue;
                 }
 
-                enabledScenes.Add(scene.path);
+                if (!SceneAssetPath.TryParse(scene.path, out var scenePath))
+                {
+                    scenePaths = Array.Empty<SceneAssetPath>();
+                    error = new IpcError(
+                        BuildErrorCodes.BuildInputsInvalid,
+                        $"Editor Build Settings scene path is invalid at index {i}: {scene.path}.",
+                        null);
+                    return false;
+                }
+
+                enabledScenes.Add(scenePath);
             }
 
             if (enabledScenes.Count == 0)
             {
-                scenePaths = Array.Empty<string>();
+                scenePaths = Array.Empty<SceneAssetPath>();
                 error = new IpcError(
                     BuildErrorCodes.BuildInputsInvalid,
                     "Editor Build Settings must contain at least one enabled scene.",
@@ -438,65 +428,45 @@ namespace MackySoft.Ucli.Unity.Build
                 return false;
             }
 
-            return TryValidateScenePaths(enabledScenes, cancellationToken, out scenePaths, out error);
+            return TryResolveSceneAssets(enabledScenes, cancellationToken, out scenePaths, out error);
         }
 
-        private static bool TryValidateScenePaths (
-            IReadOnlyList<string> paths,
+        private static bool TryResolveSceneAssets (
+            IReadOnlyList<SceneAssetPath> paths,
             CancellationToken cancellationToken,
-            out string[] scenePaths,
+            out SceneAssetPath[] scenePaths,
             out IpcError? error)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            scenePaths = new string[paths.Count];
+            scenePaths = new SceneAssetPath[paths.Count];
             for (var i = 0; i < paths.Count; i++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var rawPath = paths[i];
-                if (string.IsNullOrWhiteSpace(rawPath))
-                {
-                    scenePaths = Array.Empty<string>();
-                    error = new IpcError(
-                        BuildErrorCodes.BuildInputsInvalid,
-                        $"Build scene path at index {i} must not be empty.",
-                        null);
-                    return false;
-                }
-
-                if (!UnityAssetPathContract.IsNormalizedSceneAssetPath(rawPath))
-                {
-                    scenePaths = Array.Empty<string>();
-                    error = new IpcError(
-                        BuildErrorCodes.BuildInputsInvalid,
-                        $"Build scene path at index {i} must be a normalized project-relative scene path under Assets ending with '{UnityAssetPathContract.SceneAssetExtension}': {rawPath}.",
-                        null);
-                    return false;
-                }
-
-                var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(rawPath);
+                var path = paths[i];
+                var sceneAsset = AssetDatabase.LoadAssetAtPath<SceneAsset>(path.Value);
                 if (sceneAsset == null)
                 {
-                    scenePaths = Array.Empty<string>();
+                    scenePaths = Array.Empty<SceneAssetPath>();
                     error = new IpcError(
                         BuildErrorCodes.BuildSceneNotFound,
-                        $"Build scene path at index {i} does not resolve to a scene asset: {rawPath}.",
+                        $"Build scene path at index {i} does not resolve to a scene asset: {path.Value}.",
                         null);
                     return false;
                 }
 
                 var canonicalPath = AssetDatabase.GetAssetPath(sceneAsset);
-                if (!string.Equals(rawPath, canonicalPath, StringComparison.Ordinal))
+                if (!string.Equals(path.Value, canonicalPath, StringComparison.Ordinal))
                 {
-                    scenePaths = Array.Empty<string>();
+                    scenePaths = Array.Empty<SceneAssetPath>();
                     error = new IpcError(
                         BuildErrorCodes.BuildInputsInvalid,
-                        $"Build scene path at index {i} must match the scene asset's canonical project path: {rawPath}.",
+                        $"Build scene path at index {i} must match the scene asset's canonical project path: {path.Value}.",
                         null);
                     return false;
                 }
 
-                scenePaths[i] = canonicalPath;
+                scenePaths[i] = path;
             }
 
             error = null;
@@ -511,7 +481,7 @@ namespace MackySoft.Ucli.Unity.Build
         private IpcBuildInputProbe CreateInputProbe (
             UnityBuildPreconditionInput input,
             UnityBuildTargetSupportProbeResult targetSupport,
-            IReadOnlyList<string> scenePaths,
+            IReadOnlyList<SceneAssetPath> scenePaths,
             BuildOptions buildOptions)
         {
             return new IpcBuildInputProbe(

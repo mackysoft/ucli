@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity;
 using UnityEditor;
 
@@ -26,6 +26,7 @@ namespace MackySoft.Ucli.Unity.Build
         /// <summary> Invokes the executeMethod runner described by an IPC build.run request. </summary>
         public BuildExecuteMethodInvocationResult Run (
             IpcBuildRunRequest request,
+            Sha256Digest profileDigest,
             IpcProjectIdentity projectIdentity,
             UnityBuildResolvedInput resolvedInput,
             IBuildExecuteMethodProgressSink? progressSink = null)
@@ -40,6 +41,11 @@ namespace MackySoft.Ucli.Unity.Build
                 throw new ArgumentNullException(nameof(projectIdentity));
             }
 
+            if (profileDigest == null)
+            {
+                throw new ArgumentNullException(nameof(profileDigest));
+            }
+
             if (resolvedInput == null)
             {
                 throw new ArgumentNullException(nameof(resolvedInput));
@@ -52,7 +58,7 @@ namespace MackySoft.Ucli.Unity.Build
                     "Build executeMethod runner.method must not be empty.");
             }
 
-            if (string.IsNullOrWhiteSpace(request.ProfilePath) || string.IsNullOrWhiteSpace(request.ProfileDigest))
+            if (string.IsNullOrWhiteSpace(request.ProfilePath))
             {
                 return Failure(
                     BuildErrorCodes.BuildRunnerInvocationFailed,
@@ -62,12 +68,12 @@ namespace MackySoft.Ucli.Unity.Build
             var resolution = resolver.Resolve(request.RunnerMethod!);
             if (!resolution.IsSuccess)
             {
-                return Failure(resolution.ErrorCode!.Value, resolution.ErrorMessage!);
+                return Failure(resolution.ErrorCode!, resolution.ErrorMessage!);
             }
 
             progressSink?.OnRunnerResolved();
 
-            var context = CreateContext(request, projectIdentity, resolvedInput);
+            var context = CreateContext(request, profileDigest, projectIdentity, resolvedInput);
             UcliBuildRunnerResult? result;
             try
             {
@@ -102,41 +108,46 @@ namespace MackySoft.Ucli.Unity.Build
             if (!TryValidateResult(result, context.OutputDir, out var validationCode, out var validationMessage))
             {
                 return Failure(
-                    validationCode!.Value,
+                    validationCode!,
                     validationMessage!);
             }
 
             var runnerResult = new IpcBuildRunnerResultArtifact(
-                Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult),
+                Source: IpcBuildRunnerResultSource.UcliBuildRunnerResult,
                 Status: result.Status,
                 DurationMilliseconds: result.Summary.DurationMilliseconds,
                 ErrorCount: result.Summary.ErrorCount,
                 WarningCount: result.Summary.WarningCount,
-                Diagnostics: CreateDiagnostics(result.Diagnostics))
-            {
-                Outputs = CopyOutputs(result.Outputs),
-                BuildReport = result.BuildReport == null
+                Diagnostics: CreateDiagnostics(result.Diagnostics),
+                Outputs: CopyOutputs(result.Outputs),
+                BuildReport: result.BuildReport == null
                     ? null
-                    : new IpcBuildRunnerResultBuildReport(result.BuildReport.Path),
-            };
+                    : new IpcBuildRunnerResultBuildReport(result.BuildReport.Path));
             progressSink?.OnRunnerCompleted(runnerResult);
             return BuildExecuteMethodInvocationResult.Success(runnerResult);
         }
 
         private static UcliBuildRunnerContext CreateContext (
             IpcBuildRunRequest request,
+            Sha256Digest profileDigest,
             IpcProjectIdentity projectIdentity,
             UnityBuildResolvedInput resolvedInput)
         {
+            var scenes = new string[resolvedInput.ScenePaths.Length];
+            for (var i = 0; i < resolvedInput.ScenePaths.Length; i++)
+            {
+                scenes[i] = resolvedInput.ScenePaths[i].Value;
+            }
+
             return new UcliBuildRunnerContext(
                 request.RunId,
                 projectIdentity.ProjectPath,
                 projectIdentity.ProjectFingerprint,
                 request.OutputPath,
                 request.ProfilePath!,
-                request.ProfileDigest!,
-                new UcliResolvedBuildTarget(request.BuildTarget!, resolvedInput.UnityBuildTarget),
-                resolvedInput.ScenePaths,
+                profileDigest,
+                new UcliResolvedBuildTarget(request.BuildTarget!.Value, resolvedInput.UnityBuildTarget),
+                scenes,
                 new UcliBuildOptions((resolvedInput.Options & BuildOptions.Development) == BuildOptions.Development),
                 request.RunnerArguments,
                 request.RunnerEnvironmentVariableValues,
@@ -160,14 +171,6 @@ namespace MackySoft.Ucli.Unity.Build
             out UcliCode? errorCode,
             out string? errorMessage)
         {
-            if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(result.Status, out var status)
-                || status == IpcBuildReportResult.Unknown)
-            {
-                errorCode = BuildErrorCodes.BuildRunnerResultInvalid;
-                errorMessage = "Build executeMethod runner result status is invalid.";
-                return false;
-            }
-
             if (result.Summary.DurationMilliseconds < 0
                 || result.Summary.ErrorCount < 0
                 || result.Summary.WarningCount < 0)
@@ -184,7 +187,7 @@ namespace MackySoft.Ucli.Unity.Build
                 return false;
             }
 
-            if (status == IpcBuildReportResult.Succeeded && result.Outputs.Count == 0)
+            if (result.Status == IpcBuildReportResult.Succeeded && result.Outputs.Count == 0)
             {
                 errorCode = BuildErrorCodes.BuildRunnerResultInvalid;
                 errorMessage = "Build executeMethod runner result requires at least one output when status is succeeded.";
@@ -267,24 +270,13 @@ namespace MackySoft.Ucli.Unity.Build
 
             for (var i = 0; i < diagnostics.Count; i++)
             {
-                var diagnostic = diagnostics[i];
-                if (diagnostic == null
-                    || string.IsNullOrWhiteSpace(diagnostic.Code)
-                    || !IsKnownDiagnosticSeverity(diagnostic.Severity)
-                    || string.IsNullOrWhiteSpace(diagnostic.Message))
+                if (diagnostics[i] == null)
                 {
                     return false;
                 }
             }
 
             return true;
-        }
-
-        private static bool IsKnownDiagnosticSeverity (string severity)
-        {
-            return severity is IpcExecuteDiagnosticSeverityNames.Info
-                or IpcExecuteDiagnosticSeverityNames.Warning
-                or IpcExecuteDiagnosticSeverityNames.Error;
         }
 
         private static BuildExecuteMethodInvocationResult Failure (

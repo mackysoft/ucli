@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor;
 
 #nullable enable
@@ -12,6 +13,6 @@ namespace MackySoft.Ucli.Unity.Build
     internal sealed record UnityBuildResolvedInput (
         BuildTarget UnityBuildTarget,
         BuildTargetGroup UnityBuildTargetGroup,
-        string[] ScenePaths,
+        SceneAssetPath[] ScenePaths,
         BuildOptions Options);
 }

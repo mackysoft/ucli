@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using MackySoft.Ucli.Contracts;
 
@@ -28,13 +29,26 @@ namespace MackySoft.Ucli.Unity.Build
 
         public static BuildExecuteMethodResolutionResult Success (MethodInfo method)
         {
-            return new BuildExecuteMethodResolutionResult(method, null, null);
+            return new BuildExecuteMethodResolutionResult(
+                method ?? throw new ArgumentNullException(nameof(method)),
+                null,
+                null);
         }
 
         public static BuildExecuteMethodResolutionResult Failure (
             UcliCode errorCode,
             string errorMessage)
         {
+            if (errorCode == null)
+            {
+                throw new ArgumentNullException(nameof(errorCode));
+            }
+
+            if (string.IsNullOrWhiteSpace(errorMessage))
+            {
+                throw new ArgumentException("Error message must not be empty.", nameof(errorMessage));
+            }
+
             return new BuildExecuteMethodResolutionResult(null, errorCode, errorMessage);
         }
     }

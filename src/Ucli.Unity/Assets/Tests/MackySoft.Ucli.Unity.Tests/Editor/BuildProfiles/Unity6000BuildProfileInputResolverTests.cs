@@ -1,5 +1,6 @@
 #if UNITY_6000_0_OR_NEWER
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading;
@@ -10,7 +11,6 @@ using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Build;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Project;
@@ -72,23 +72,23 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(result.UnityBuildProfile, Is.Not.Null);
 
                 var preconditionInput = result.PreconditionInput!;
-                Assert.That(preconditionInput.InputKind, Is.EqualTo(ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile)));
+                Assert.That(preconditionInput.InputKind, Is.EqualTo(BuildProfileInputsKind.UnityBuildProfile));
                 Assert.That(preconditionInput.BuildTarget, Is.EqualTo(stableBuildTarget));
                 Assert.That(preconditionInput.UnityBuildTarget, Is.EqualTo(unityBuildTargetLiteral));
-                Assert.That(preconditionInput.SceneSource, Is.EqualTo(ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile)));
-                Assert.That(preconditionInput.ScenePaths, Is.EqualTo(new[] { requestedScenePath }));
+                Assert.That(preconditionInput.SceneSource, Is.EqualTo(BuildProfileSceneSource.UnityBuildProfile));
+                Assert.That(preconditionInput.ScenePaths, Is.EqualTo(new[] { new SceneAssetPath(requestedScenePath) }));
 
                 Assert.That(IpcBuildOutputLayoutResolver.TryResolve(
                     outputScope.OutputPath,
                     stableBuildTarget,
-                    ContractLiteralCodec.Matches(stableBuildTarget, BuildTargetStableName.Android)
+                    stableBuildTarget == BuildTargetStableName.Android
                         && EditorUserBuildSettings.buildAppBundle,
                     out var expectedOutputLayout), Is.True);
                 Assert.That(result.OutputLayout!.Shape, Is.EqualTo(expectedOutputLayout!.Shape));
                 Assert.That(result.OutputLayout.LocationPathName, Is.EqualTo(expectedOutputLayout.LocationPathName));
 
                 var unityBuildProfile = result.UnityBuildProfile!;
-                Assert.That(unityBuildProfile.Path, Is.EqualTo(requestedProfilePath));
+                Assert.That(unityBuildProfile.Path.Value, Is.EqualTo(requestedProfilePath));
                 Assert.That(unityBuildProfile.Digest, Is.EqualTo(ComputeAssetDigest(requestedProfilePath)));
                 Assert.That(unityBuildProfile.ApplyAudit, Is.Not.Null);
 
@@ -133,7 +133,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(result.LifecycleBefore, Is.Not.Null);
                 Assert.That(result.DirtyState, Is.Not.Null);
                 Assert.That(result.UnityBuildProfile, Is.Not.Null);
-                Assert.That(result.UnityBuildProfile!.Path, Is.EqualTo(profilePath));
+                Assert.That(result.UnityBuildProfile!.Path.Value, Is.EqualTo(profilePath));
                 Assert.That(result.UnityBuildProfile.Digest, Is.EqualTo(ComputeAssetDigest(profilePath)));
                 Assert.That(result.UnityBuildProfile.ApplyAudit, Is.Not.Null);
                 Assert.That(result.UnityBuildProfile.ApplyAudit!.Applied, Is.True);
@@ -168,7 +168,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(result.Error, Is.Not.Null);
                 Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildSceneDisabled));
                 Assert.That(result.UnityBuildProfile, Is.Not.Null);
-                Assert.That(result.UnityBuildProfile!.Path, Is.EqualTo(profilePath));
+                Assert.That(result.UnityBuildProfile!.Path.Value, Is.EqualTo(profilePath));
                 Assert.That(result.UnityBuildProfile.Digest, Is.Null);
                 Assert.That(result.UnityBuildProfile.ApplyAudit, Is.Null);
             }
@@ -189,7 +189,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(result.Error, Is.Not.Null);
                 Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildUnityBuildProfileInvalid));
                 Assert.That(result.UnityBuildProfile, Is.Not.Null);
-                Assert.That(result.UnityBuildProfile!.Path, Is.EqualTo("Assets/MissingBuildProfile.asset"));
+                Assert.That(result.UnityBuildProfile!.Path.Value, Is.EqualTo("Assets/MissingBuildProfile.asset"));
             }
         }
 
@@ -212,7 +212,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(result.Error, Is.Not.Null);
                 Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildUnityBuildProfileInvalid));
                 Assert.That(result.UnityBuildProfile, Is.Not.Null);
-                Assert.That(result.UnityBuildProfile!.Path, Is.EqualTo(profilePath));
+                Assert.That(result.UnityBuildProfile!.Path.Value, Is.EqualTo(profilePath));
             }
         }
 
@@ -239,20 +239,30 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new IpcBuildRunRequest(
                 RunId: RunId,
-                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+                InputKind: BuildProfileInputsKind.UnityBuildProfile,
                 BuildTarget: null,
-                UnityBuildTarget: null,
                 SceneSource: null,
-                ScenePaths: Array.Empty<string>(),
+                ScenePaths: Array.Empty<SceneAssetPath>(),
                 Development: false,
                 OutputPath: outputPath,
                 OutputLayout: null,
                 BuildReportPath: Path.Combine(outputPath, "build-report.json"),
                 BuildLogPath: Path.Combine(outputPath, "build.log"),
-                AllowedEditorModes: new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) },
-                ProjectMutationMode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
-                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline),
-                UnityBuildProfile: new IpcUnityBuildProfileInput(profilePath));
+                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
+                RunnerKind: BuildRunnerKind.BuildPipeline,
+                ProfileDigest: Sha256Digest.Parse(new string('a', 64)),
+                UnityBuildProfile: new IpcUnityBuildProfileInput(
+                    Path: new UnityBuildProfileAssetPath(profilePath),
+                    Digest: null,
+                    ApplyAudit: null),
+                ProfilePath: null,
+                RunnerMethod: null,
+                RunnerArguments: new Dictionary<string, string>(StringComparer.Ordinal),
+                RunnerEnvironmentVariables: Array.Empty<string>(),
+                RunnerEnvironmentSecrets: Array.Empty<string>(),
+                RunnerEnvironmentVariableValues: new Dictionary<string, string>(StringComparer.Ordinal),
+                RunnerEnvironmentSecretValues: new Dictionary<string, string>(StringComparer.Ordinal));
         }
 
         private static BuildProfile CreateBuildProfileAsset (
@@ -260,7 +270,7 @@ namespace MackySoft.Ucli.Unity.Tests
             string prefix,
             string[] scenePaths,
             bool scenesEnabled,
-            out string stableBuildTarget,
+            out BuildTargetStableName stableBuildTarget,
             out string unityBuildTargetLiteral,
             out string profilePath)
         {
@@ -325,17 +335,17 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static bool TryResolveStableBuildTarget (
             BuildTarget target,
-            out string stableBuildTarget,
+            out BuildTargetStableName stableBuildTarget,
             out string unityBuildTargetLiteral)
         {
             unityBuildTargetLiteral = target.ToString();
             if (!BuildTargetStableNameUnityBuildTargetResolver.TryResolveStableName(unityBuildTargetLiteral, out var stableName))
             {
-                stableBuildTarget = string.Empty;
+                stableBuildTarget = default;
                 return false;
             }
 
-            stableBuildTarget = ContractLiteralCodec.ToValue(stableName);
+            stableBuildTarget = stableName;
             return true;
         }
 
@@ -400,7 +410,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class CountingBuildTargetSupportProbe : IUnityBuildTargetSupportProbe
         {
-            public UnityBuildTargetSupportProbeResult Probe (string unityBuildTargetLiteral)
+            public UnityBuildTargetSupportProbeResult Probe (BuildTargetStableName buildTarget)
             {
                 return UnityBuildTargetSupportProbeResult.Resolved(
                     BuildTarget.StandaloneLinux64,

@@ -4,8 +4,9 @@ using System.IO;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Build;
 using NUnit.Framework;
 using UnityEditor;
@@ -18,6 +19,7 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private const string TypeName = "MackySoft.Ucli.Unity.Tests.BuildExecuteMethodRunnerTests";
         private static readonly Guid RunId = Guid.Parse("00000000-0000-0000-0000-000000000602");
+        private static readonly Sha256Digest ProfileDigest = Sha256Digest.Parse(new string('a', 64));
 
         private static readonly ProjectFingerprint ProjectFingerprint =
             ProjectFingerprintTestFactory.Create("project-fingerprint");
@@ -81,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = new BuildExecuteMethodResolver().Resolve(methodName);
 
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.ErrorCode!.Value.Value, Is.EqualTo(expectedCode));
+            Assert.That(result.ErrorCode!.Value, Is.EqualTo(expectedCode));
         }
 
         [Test]
@@ -92,6 +94,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = runner.Run(
                 CreateRequest(TypeName + ".ContextualSuccess"),
+                ProfileDigest,
                 CreateProjectIdentity(),
                 CreateResolvedInput());
 
@@ -101,19 +104,19 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(capturedContext, Is.Not.Null);
             Assert.That(capturedContext!.RunId, Is.EqualTo(RunId));
             Assert.That(capturedContext.ProfilePath, Is.EqualTo("/workspace/build.ucli.json"));
-            Assert.That(capturedContext.ProfileDigest, Is.EqualTo(new string('a', 64)));
+            Assert.That(capturedContext.ProfileDigest, Is.EqualTo(ProfileDigest));
             Assert.That(capturedContext.ProjectPath, Is.EqualTo("/workspace/UnityProject"));
             Assert.That(capturedContext.ProjectFingerprint, Is.EqualTo(ProjectFingerprint));
             Assert.That(capturedContext.OutputDir, Is.EqualTo(OutputDirectory));
-            Assert.That(capturedContext.Target.StableName, Is.EqualTo("standaloneLinux64"));
+            Assert.That(capturedContext.Target.StableName, Is.EqualTo(BuildTargetStableName.StandaloneLinux64));
             Assert.That(capturedContext.Target.UnityBuildTarget, Is.EqualTo(BuildTarget.StandaloneLinux64));
             Assert.That(capturedContext.Scenes, Is.EqualTo(new[] { "Assets/Scenes/Main.unity" }));
             Assert.That(capturedContext.Options.Development, Is.True);
             Assert.That(capturedContext.Arguments["output"], Is.EqualTo(OutputDirectory));
             Assert.That(capturedContext.Environment.Variables["UCLI_MODE"], Is.EqualTo("release"));
             Assert.That(capturedContext.Environment.Secrets["UCLI_SECRET"], Is.EqualTo("secret-value"));
-            Assert.That(result.RunnerResult!.Source, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.UcliBuildRunnerResult)));
-            Assert.That(result.RunnerResult.Status, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
+            Assert.That(result.RunnerResult!.Source, Is.EqualTo(IpcBuildRunnerResultSource.UcliBuildRunnerResult));
+            Assert.That(result.RunnerResult.Status, Is.EqualTo(IpcBuildReportResult.Succeeded));
             Assert.That(result.RunnerResult.DurationMilliseconds, Is.EqualTo(1234));
             Assert.That(result.RunnerResult.WarningCount, Is.EqualTo(2));
             Assert.That(result.RunnerResult.Outputs, Is.EqualTo(new[] { "player.txt" }));
@@ -128,13 +131,14 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = runner.Run(
                 CreateRequest(TypeName + ".ParameterlessSuccess"),
+                ProfileDigest,
                 CreateProjectIdentity(),
                 CreateResolvedInput());
 
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(UcliBuildRunnerContext.Current, Is.Null);
             Assert.That(currentAtInvocation, Is.Not.Null);
-            Assert.That(result.RunnerResult!.Status, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Canceled)));
+            Assert.That(result.RunnerResult!.Status, Is.EqualTo(IpcBuildReportResult.Canceled));
         }
 
         [Test]
@@ -145,6 +149,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = runner.Run(
                 CreateRequest(TypeName + ".Throws"),
+                ProfileDigest,
                 CreateProjectIdentity(),
                 CreateResolvedInput());
 
@@ -162,6 +167,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = runner.Run(
                 CreateRequest(TypeName + ".ReturnsNull"),
+                ProfileDigest,
                 CreateProjectIdentity(),
                 CreateResolvedInput());
 
@@ -172,19 +178,33 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Run_WhenMethodReturnsEnvironmentValueAsStatus_ReturnsRunnerResultInvalidWithoutLeakingValue ()
+        [TestCase((IpcBuildReportResult)0)]
+        [TestCase(IpcBuildReportResult.Unknown)]
+        [TestCase((IpcBuildReportResult)999)]
+        public void UcliBuildRunnerResult_WhenStatusIsNotTerminal_Throws (IpcBuildReportResult status)
         {
-            var runner = new BuildExecuteMethodRunner(new BuildExecuteMethodResolver());
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new UcliBuildRunnerResult(
+                    status,
+                    Array.Empty<string>(),
+                    new UcliBuildRunnerSummary(0, 0, 0),
+                    diagnostics: null,
+                    buildReport: null));
+        }
 
-            var result = runner.Run(
-                CreateRequest(TypeName + ".ReturnsSecretStatus"),
-                CreateProjectIdentity(),
-                CreateResolvedInput());
+        [Test]
+        [Category("Size.Small")]
+        public void UcliBuildRunnerResult_ConstructorParametersHaveNoDefaultValues ()
+        {
+            var constructors = typeof(UcliBuildRunnerResult).GetConstructors();
+            Assert.That(constructors, Has.Length.EqualTo(1));
+            var constructor = constructors[0];
 
-            Assert.That(result.IsSuccess, Is.False);
-            Assert.That(UcliBuildRunnerContext.Current, Is.Null);
-            Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildRunnerResultInvalid));
-            Assert.That(result.Error.Message, Does.Not.Contain("secret-value"));
+            foreach (var parameter in constructor.GetParameters())
+            {
+                Assert.That(parameter.IsOptional, Is.False);
+                Assert.That(parameter.HasDefaultValue, Is.False);
+            }
         }
 
         public static UcliBuildRunnerResult ContextualSuccess (UcliBuildRunnerContext context)
@@ -214,14 +234,6 @@ namespace MackySoft.Ucli.Unity.Tests
         public static UcliBuildRunnerResult? ReturnsNull ()
         {
             return null;
-        }
-
-        public static UcliBuildRunnerResult ReturnsSecretStatus (UcliBuildRunnerContext context)
-        {
-            return new UcliBuildRunnerResult(
-                context.Environment.Secrets["UCLI_SECRET"],
-                Array.Empty<string>(),
-                new UcliBuildRunnerSummary(0, 0, 0));
         }
 
         public UcliBuildRunnerResult NonStatic ()
@@ -296,38 +308,36 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new IpcBuildRunRequest(
                 RunId: RunId,
-                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
-                BuildTarget: "standaloneLinux64",
-                UnityBuildTarget: "StandaloneLinux64",
-                SceneSource: "explicit",
-                ScenePaths: new[] { "Assets/Scenes/Main.unity" },
+                InputKind: BuildProfileInputsKind.Explicit,
+                BuildTarget: BuildTargetStableName.StandaloneLinux64,
+                SceneSource: BuildProfileSceneSource.Explicit,
+                ScenePaths: new[] { new SceneAssetPath("Assets/Scenes/Main.unity") },
                 Development: true,
                 OutputPath: OutputDirectory,
                 OutputLayout: null,
                 BuildReportPath: "/workspace/.ucli/build-report.json",
                 BuildLogPath: "/workspace/.ucli/build.log",
-                AllowedEditorModes: new[] { "batchmode" },
-                ProjectMutationMode: "forbid",
-                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.ExecuteMethod))
-            {
-                ProfilePath = "/workspace/build.ucli.json",
-                ProfileDigest = new string('a', 64),
-                RunnerMethod = method,
-                RunnerArguments = new Dictionary<string, string>(StringComparer.Ordinal)
+                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
+                RunnerKind: BuildRunnerKind.ExecuteMethod,
+                ProfileDigest: ProfileDigest,
+                UnityBuildProfile: null,
+                ProfilePath: "/workspace/build.ucli.json",
+                RunnerMethod: method,
+                RunnerArguments: new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["output"] = OutputDirectory,
                 },
-                RunnerEnvironmentVariables = new[] { "UCLI_MODE" },
-                RunnerEnvironmentSecrets = new[] { "UCLI_SECRET" },
-                RunnerEnvironmentVariableValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                RunnerEnvironmentVariables: new[] { "UCLI_MODE" },
+                RunnerEnvironmentSecrets: new[] { "UCLI_SECRET" },
+                RunnerEnvironmentVariableValues: new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["UCLI_MODE"] = "release",
                 },
-                RunnerEnvironmentSecretValues = new Dictionary<string, string>(StringComparer.Ordinal)
+                RunnerEnvironmentSecretValues: new Dictionary<string, string>(StringComparer.Ordinal)
                 {
                     ["UCLI_SECRET"] = "secret-value",
-                },
-            };
+                });
         }
 
         private static IpcProjectIdentity CreateProjectIdentity ()
@@ -343,7 +353,7 @@ namespace MackySoft.Ucli.Unity.Tests
             return new UnityBuildResolvedInput(
                 UnityBuildTarget: BuildTarget.StandaloneLinux64,
                 UnityBuildTargetGroup: BuildTargetGroup.Standalone,
-                ScenePaths: new[] { "Assets/Scenes/Main.unity" },
+                ScenePaths: new[] { new SceneAssetPath("Assets/Scenes/Main.unity") },
                 Options: BuildOptions.Development);
         }
     }

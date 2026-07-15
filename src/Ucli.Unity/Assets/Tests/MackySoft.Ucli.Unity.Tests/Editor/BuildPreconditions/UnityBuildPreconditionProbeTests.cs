@@ -5,9 +5,9 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Build;
 using MackySoft.Ucli.Unity.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
@@ -31,19 +31,21 @@ namespace MackySoft.Ucli.Unity.Tests
             var (scenePath, _) = CreateSavedScene(scope, "BuildPreconditionClean", NewSceneMode.Single);
             var probe = CreateProbe();
 
-            var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(scenePath), CancellationToken.None);
+            var result = await probe.ProbeBeforeBuildAsync(
+                CreateExplicitInput(new SceneAssetPath(scenePath)),
+                CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.Error, Is.Null);
             Assert.That(result.DirtyState, Is.Not.Null);
             Assert.That(result.DirtyState!.Checked, Is.True);
             Assert.That(result.DirtyState.Dirty, Is.False);
-            Assert.That(result.DirtyState.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
+            Assert.That(result.DirtyState.Coverage, Is.EqualTo(IpcBuildDirtyStateCoverage.Full));
             Assert.That(result.DirtyState.Items, Is.Empty);
             Assert.That(result.ResolvedInput, Is.Not.Null);
             Assert.That(result.ResolvedInput!.UnityBuildTarget, Is.EqualTo(BuildTarget.StandaloneLinux64));
             Assert.That(result.ResolvedInput.UnityBuildTargetGroup, Is.EqualTo(BuildTargetGroup.Standalone));
-            Assert.That(result.ResolvedInput.ScenePaths, Is.EqualTo(new[] { scenePath }));
+            Assert.That(result.ResolvedInput.ScenePaths, Is.EqualTo(new[] { new SceneAssetPath(scenePath) }));
             Assert.That(result.ResolvedInput.Options, Is.EqualTo(BuildOptions.None));
             Assert.That(result.InputProbe, Is.Not.Null);
             Assert.That(result.InputProbe!.UnityBuildTarget, Is.EqualTo("StandaloneLinux64"));
@@ -62,7 +64,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var probe = CreateProbe();
 
             var result = await probe.ProbeBeforeBuildAsync(
-                CreateExplicitInput(zScenePath, aScenePath),
+                CreateExplicitInput(new SceneAssetPath(zScenePath), new SceneAssetPath(aScenePath)),
                 CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
@@ -71,9 +73,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.DirtyState, Is.Not.Null);
             Assert.That(result.DirtyState!.Checked, Is.True);
             Assert.That(result.DirtyState.Dirty, Is.True);
-            Assert.That(result.DirtyState.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
+            Assert.That(result.DirtyState.Coverage, Is.EqualTo(IpcBuildDirtyStateCoverage.Full));
             Assert.That(result.DirtyState.Items, Has.Count.EqualTo(2));
-            Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene)));
+            Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(IpcBuildDirtyStateItemKind.Scene));
             Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(aScenePath));
             Assert.That(result.DirtyState.Items[1].Path, Is.EqualTo(zScenePath));
             Assert.That(result.ResolvedInput, Is.Null);
@@ -89,7 +91,9 @@ namespace MackySoft.Ucli.Unity.Tests
             MarkSceneDirty(unrelatedScene, "UnrelatedDirty");
             var probe = CreateProbe();
 
-            var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(targetScenePath), CancellationToken.None);
+            var result = await probe.ProbeBeforeBuildAsync(
+                CreateExplicitInput(new SceneAssetPath(targetScenePath)),
+                CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
@@ -97,9 +101,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.DirtyState, Is.Not.Null);
             Assert.That(result.DirtyState!.Checked, Is.True);
             Assert.That(result.DirtyState.Dirty, Is.True);
-            Assert.That(result.DirtyState.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
+            Assert.That(result.DirtyState.Coverage, Is.EqualTo(IpcBuildDirtyStateCoverage.Full));
             Assert.That(result.DirtyState.Items, Has.Count.EqualTo(1));
-            Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene)));
+            Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(IpcBuildDirtyStateItemKind.Scene));
             Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(unrelatedScenePath));
         }
 
@@ -118,19 +122,21 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorUtility.SetDirty(prefab);
             var probe = CreateProbe();
 
-            var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(scenePath), CancellationToken.None);
+            var result = await probe.ProbeBeforeBuildAsync(
+                CreateExplicitInput(new SceneAssetPath(scenePath)),
+                CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildDirtyStatePresent));
             Assert.That(result.DirtyState, Is.Not.Null);
-            Assert.That(result.DirtyState!.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
+            Assert.That(result.DirtyState!.Coverage, Is.EqualTo(IpcBuildDirtyStateCoverage.Full));
             Assert.That(result.DirtyState.Items, Has.Count.EqualTo(2));
             AssertOrderedByPath(result.DirtyState.Items);
             var assetItem = FindDirtyItem(result.DirtyState.Items, assetPath);
             var prefabItem = FindDirtyItem(result.DirtyState.Items, prefabPath);
-            Assert.That(assetItem.Kind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Asset)));
-            Assert.That(prefabItem.Kind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Prefab)));
+            Assert.That(assetItem.Kind, Is.EqualTo(IpcBuildDirtyStateItemKind.Asset));
+            Assert.That(prefabItem.Kind, Is.EqualTo(IpcBuildDirtyStateItemKind.Prefab));
         }
 
         [Test]
@@ -147,16 +153,18 @@ namespace MackySoft.Ucli.Unity.Tests
 
             try
             {
-                var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(scenePath), CancellationToken.None);
+                var result = await probe.ProbeBeforeBuildAsync(
+                    CreateExplicitInput(new SceneAssetPath(scenePath)),
+                    CancellationToken.None);
 
                 Assert.That(result.IsSuccess, Is.False);
                 Assert.That(result.Error, Is.Not.Null);
                 Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildDirtyStatePresent));
                 Assert.That(result.DirtyState, Is.Not.Null);
-                Assert.That(result.DirtyState!.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
+                Assert.That(result.DirtyState!.Coverage, Is.EqualTo(IpcBuildDirtyStateCoverage.Full));
                 Assert.That(result.DirtyState.Items, Has.Count.EqualTo(1));
                 Assert.That(result.DirtyState.Items[0].Path, Is.EqualTo(projectSettingsPath));
-                Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.ProjectSettings)));
+                Assert.That(result.DirtyState.Items[0].Kind, Is.EqualTo(IpcBuildDirtyStateItemKind.ProjectSettings));
             }
             finally
             {
@@ -195,44 +203,35 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await probe.ProbeBeforeBuildAsync(
                 new UnityBuildPreconditionInput(
-                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
-                    BuildTarget: "standaloneLinux64",
-                    UnityBuildTarget: "StandaloneLinux64",
-                    SceneSource: SceneSourceLiteral(BuildProfileSceneSource.EditorBuildSettings),
-                    ScenePaths: Array.Empty<string>(),
+                    InputKind: BuildProfileInputsKind.Explicit,
+                    BuildTarget: BuildTargetStableName.StandaloneLinux64,
+                    SceneSource: BuildProfileSceneSource.EditorBuildSettings,
+                    ScenePaths: Array.Empty<SceneAssetPath>(),
                     AllowedEditorModes: AllowedBatchmodeEditorModes(),
                     Development: true),
                 CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True, result.Error?.Message);
             Assert.That(result.ResolvedInput, Is.Not.Null);
-            Assert.That(result.ResolvedInput!.ScenePaths, Is.EqualTo(new[] { enabledScenePath }));
+            Assert.That(result.ResolvedInput!.ScenePaths, Is.EqualTo(new[] { new SceneAssetPath(enabledScenePath) }));
             Assert.That(result.ResolvedInput.Options, Is.EqualTo(BuildOptions.Development));
             Assert.That(result.DirtyState, Is.Not.Null);
             Assert.That(result.DirtyState!.Dirty, Is.False);
-            Assert.That(result.DirtyState.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full)));
+            Assert.That(result.DirtyState.Coverage, Is.EqualTo(IpcBuildDirtyStateCoverage.Full));
         }
 
         [Test]
         [Category("Size.Small")]
-        public async Task ProbeBeforeBuildAsync_WhenSceneSourceIsInvalid_ReturnsBuildInputsInvalid ()
+        public void UnityBuildPreconditionInput_WhenSceneSourceIsUndefined_Throws ()
         {
-            var probe = CreateProbe();
-
-            var result = await probe.ProbeBeforeBuildAsync(
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
                 new UnityBuildPreconditionInput(
-                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
-                    BuildTarget: "standaloneLinux64",
-                    UnityBuildTarget: "StandaloneLinux64",
-                    SceneSource: "unsupported",
-                    ScenePaths: Array.Empty<string>(),
+                    InputKind: BuildProfileInputsKind.Explicit,
+                    BuildTarget: BuildTargetStableName.StandaloneLinux64,
+                    SceneSource: (BuildProfileSceneSource)0,
+                    ScenePaths: Array.Empty<SceneAssetPath>(),
                     AllowedEditorModes: AllowedBatchmodeEditorModes(),
-                    Development: false),
-                CancellationToken.None);
-
-            AssertBuildInputsInvalidResult(result);
-            Assert.That(result.InputProbe, Is.Not.Null);
-            Assert.That(result.InputProbe!.SceneSource, Is.EqualTo("unsupported"));
+                    Development: false));
         }
 
         [Test]
@@ -243,11 +242,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await probe.ProbeBeforeBuildAsync(
                 new UnityBuildPreconditionInput(
-                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
-                    BuildTarget: "standaloneLinux64",
-                    UnityBuildTarget: "StandaloneLinux64",
-                    SceneSource: SceneSourceLiteral(BuildProfileSceneSource.Explicit),
-                    ScenePaths: Array.Empty<string>(),
+                    InputKind: BuildProfileInputsKind.Explicit,
+                    BuildTarget: BuildTargetStableName.StandaloneLinux64,
+                    SceneSource: BuildProfileSceneSource.Explicit,
+                    ScenePaths: Array.Empty<SceneAssetPath>(),
                     AllowedEditorModes: AllowedBatchmodeEditorModes(),
                     Development: false),
                 CancellationToken.None);
@@ -267,38 +265,17 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await probe.ProbeBeforeBuildAsync(
                 new UnityBuildPreconditionInput(
-                    InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
-                    BuildTarget: "standaloneLinux64",
-                    UnityBuildTarget: "StandaloneLinux64",
-                    SceneSource: SceneSourceLiteral(BuildProfileSceneSource.EditorBuildSettings),
-                    ScenePaths: Array.Empty<string>(),
+                    InputKind: BuildProfileInputsKind.Explicit,
+                    BuildTarget: BuildTargetStableName.StandaloneLinux64,
+                    SceneSource: BuildProfileSceneSource.EditorBuildSettings,
+                    ScenePaths: Array.Empty<SceneAssetPath>(),
                     AllowedEditorModes: AllowedBatchmodeEditorModes(),
                     Development: false),
                 CancellationToken.None);
 
             AssertBuildInputsInvalidResult(result);
             Assert.That(result.InputProbe, Is.Not.Null);
-            Assert.That(result.InputProbe!.SceneSource, Is.EqualTo(SceneSourceLiteral(BuildProfileSceneSource.EditorBuildSettings)));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        [TestCase(" Assets/Scenes/Main.unity")]
-        [TestCase("Assets/Scenes/Main.unity ")]
-        [TestCase("Assets\\Scenes\\Main.unity")]
-        [TestCase("Assets/../Scenes/Main.unity")]
-        [TestCase("/Assets/Scenes/Main.unity")]
-        [TestCase("C:/Project/Assets/Scenes/Main.unity")]
-        [TestCase("Packages/Scenes/Main.unity")]
-        public async Task ProbeBeforeBuildAsync_WhenExplicitScenePathIsInvalid_ReturnsBuildInputsInvalid (string scenePath)
-        {
-            var probe = CreateProbe();
-
-            var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(scenePath), CancellationToken.None);
-
-            AssertBuildInputsInvalidResult(result);
-            Assert.That(result.InputProbe, Is.Not.Null);
-            Assert.That(result.InputProbe!.Scenes, Is.Empty);
+            Assert.That(result.InputProbe!.SceneSource, Is.EqualTo(BuildProfileSceneSource.EditorBuildSettings));
         }
 
         [Test]
@@ -307,7 +284,9 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var probe = CreateProbe();
 
-            var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput("Assets/Scenes/Missing.unity"), CancellationToken.None);
+            var result = await probe.ProbeBeforeBuildAsync(
+                CreateExplicitInput(new SceneAssetPath("Assets/Scenes/Missing.unity")),
+                CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
@@ -327,7 +306,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var caseMismatchedPath = "Assets/" + scenePath.Substring("Assets/".Length).ToLowerInvariant();
             var probe = CreateProbe();
 
-            var result = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(caseMismatchedPath), CancellationToken.None);
+            var result = await probe.ProbeBeforeBuildAsync(
+                CreateExplicitInput(new SceneAssetPath(caseMismatchedPath)),
+                CancellationToken.None);
 
             Assert.That(caseMismatchedPath, Is.Not.EqualTo(scenePath));
             AssertBuildInputsInvalidResult(result);
@@ -347,7 +328,7 @@ namespace MackySoft.Ucli.Unity.Tests
                         isSupported: false)));
 
             var result = await probe.ProbeBeforeBuildAsync(
-                CreateExplicitInput("Assets/Scenes/NotReached.unity"),
+                CreateExplicitInput(new SceneAssetPath("Assets/Scenes/NotReached.unity")),
                 CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
@@ -360,21 +341,18 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        [TestCase("999999")]
-        [TestCase(" StandaloneLinux64")]
-        [TestCase("StandaloneLinux64 ")]
-        public void UnityBuildTargetSupportProbe_WhenLiteralIsNotCanonical_ReturnsInvalid (string unityBuildTargetLiteral)
+        public void UnityBuildTargetSupportProbe_WhenStableTargetIsUndefined_ReturnsInvalid ()
         {
-            var result = new UnityBuildTargetSupportProbe().Probe(unityBuildTargetLiteral);
+            var result = new UnityBuildTargetSupportProbe().Probe(default);
 
             Assert.That(result.IsValidTarget, Is.False);
         }
 
         [Test]
         [Category("Size.Small")]
-        public void UnityBuildTargetSupportProbe_WhenLiteralIsCanonical_ReturnsResolvedTarget ()
+        public void UnityBuildTargetSupportProbe_WhenStableTargetIsDefined_ReturnsResolvedTarget ()
         {
-            var result = new UnityBuildTargetSupportProbe().Probe("StandaloneLinux64");
+            var result = new UnityBuildTargetSupportProbe().Probe(BuildTargetStableName.StandaloneLinux64);
 
             Assert.That(result.IsValidTarget, Is.True);
             Assert.That(result.UnityBuildTarget, Is.EqualTo(BuildTarget.StandaloneLinux64));
@@ -389,7 +367,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 targetSupportProbe: new StubBuildTargetSupportProbe(UnityBuildTargetSupportProbeResult.Invalid()));
 
             var result = await probe.ProbeBeforeBuildAsync(
-                CreateExplicitInput("Assets/Scenes/NotReached.unity"),
+                CreateExplicitInput(new SceneAssetPath("Assets/Scenes/NotReached.unity")),
                 CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
@@ -414,7 +392,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.CatchAsync<OperationCanceledException>(async () =>
                 await probe.ProbeBeforeBuildAsync(
-                    CreateExplicitInput("Assets/Scenes/NotReached.unity"),
+                    CreateExplicitInput(new SceneAssetPath("Assets/Scenes/NotReached.unity")),
                     cancellationTokenSource.Token));
         }
 
@@ -429,7 +407,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 domainReloadGeneration: 12));
             var probe = CreateProbe(readinessGate);
 
-            var beforeResult = await probe.ProbeBeforeBuildAsync(CreateExplicitInput(scenePath), CancellationToken.None);
+            var beforeResult = await probe.ProbeBeforeBuildAsync(
+                CreateExplicitInput(new SceneAssetPath(scenePath)),
+                CancellationToken.None);
             readinessGate.Snapshot = CreateSnapshot(
                 compileGeneration: 21,
                 domainReloadGeneration: 22);
@@ -461,7 +441,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var probe = CreateProbe(readinessGate, targetSupportProbe);
 
             var result = await probe.ProbeBeforeBuildAsync(
-                CreateExplicitInput("Assets/Scenes/NotReached.unity"),
+                CreateExplicitInput(new SceneAssetPath("Assets/Scenes/NotReached.unity")),
                 CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
@@ -487,7 +467,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var probe = CreateProbe(readinessGate, targetSupportProbe);
 
             var result = await probe.ProbeBeforeBuildAsync(
-                CreateExplicitInput("Assets/Scenes/NotReached.unity"),
+                CreateExplicitInput(new SceneAssetPath("Assets/Scenes/NotReached.unity")),
                 CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.False);
@@ -524,25 +504,25 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var audit = probe.Complete(
                 projectRootPath!,
-                ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit),
+                BuildProfileProjectMutationMode.Audit,
                 baseline);
 
-            Assert.That(audit.Mode, Is.EqualTo(ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit)));
-            Assert.That(audit.Coverage, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full)));
+            Assert.That(audit.Mode, Is.EqualTo(BuildProfileProjectMutationMode.Audit));
+            Assert.That(audit.Coverage, Is.EqualTo(IpcBuildProjectMutationAuditCoverage.Full));
             Assert.That(audit.Mutated, Is.True);
             Assert.That(audit.BeforeDigest, Is.Not.EqualTo(audit.AfterDigest));
             AssertOrderedByPath(audit.Items);
             var addedItem = FindMutationItem(audit.Items, addedPath);
             var modifiedItem = FindMutationItem(audit.Items, modifiedPath);
             var deletedItem = FindMutationItem(audit.Items, deletedPath);
-            Assert.That(addedItem.ChangeKind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added)));
+            Assert.That(addedItem.ChangeKind, Is.EqualTo(IpcBuildProjectMutationChangeKind.Added));
             Assert.That(addedItem.BeforeSha256, Is.Null);
             Assert.That(addedItem.AfterSha256, Is.Not.Null);
-            Assert.That(modifiedItem.ChangeKind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Modified)));
+            Assert.That(modifiedItem.ChangeKind, Is.EqualTo(IpcBuildProjectMutationChangeKind.Modified));
             Assert.That(modifiedItem.BeforeSha256, Is.Not.Null);
             Assert.That(modifiedItem.AfterSha256, Is.Not.Null);
             Assert.That(modifiedItem.BeforeSha256, Is.Not.EqualTo(modifiedItem.AfterSha256));
-            Assert.That(deletedItem.ChangeKind, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Deleted)));
+            Assert.That(deletedItem.ChangeKind, Is.EqualTo(IpcBuildProjectMutationChangeKind.Deleted));
             Assert.That(deletedItem.BeforeSha256, Is.Not.Null);
             Assert.That(deletedItem.AfterSha256, Is.Null);
         }
@@ -565,21 +545,20 @@ namespace MackySoft.Ucli.Unity.Tests
                         isSupported: true)));
         }
 
-        private static UnityBuildPreconditionInput CreateExplicitInput (params string[] scenePaths)
+        private static UnityBuildPreconditionInput CreateExplicitInput (params SceneAssetPath[] scenePaths)
         {
             return new UnityBuildPreconditionInput(
-                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
-                BuildTarget: "standaloneLinux64",
-                UnityBuildTarget: "StandaloneLinux64",
-                SceneSource: SceneSourceLiteral(BuildProfileSceneSource.Explicit),
+                InputKind: BuildProfileInputsKind.Explicit,
+                BuildTarget: BuildTargetStableName.StandaloneLinux64,
+                SceneSource: BuildProfileSceneSource.Explicit,
                 ScenePaths: scenePaths,
                 AllowedEditorModes: AllowedBatchmodeEditorModes(),
                 Development: false);
         }
 
-        private static string[] AllowedBatchmodeEditorModes ()
+        private static DaemonEditorMode[] AllowedBatchmodeEditorModes ()
         {
-            return new[] { ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode) };
+            return new[] { DaemonEditorMode.Batchmode };
         }
 
         private static void AssertBuildInputsInvalidResult (UnityBuildPreconditionProbeResult result)
@@ -589,11 +568,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Error!.Code, Is.EqualTo(BuildErrorCodes.BuildInputsInvalid));
             Assert.That(result.DirtyState, Is.Null);
             Assert.That(result.ResolvedInput, Is.Null);
-        }
-
-        private static string SceneSourceLiteral (BuildProfileSceneSource source)
-        {
-            return ContractLiteralCodec.ToValue(source);
         }
 
         private static (string Path, Scene Scene) CreateSavedScene (
@@ -747,7 +721,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.result = result;
             }
 
-            public UnityBuildTargetSupportProbeResult Probe (string unityBuildTargetLiteral)
+            public UnityBuildTargetSupportProbeResult Probe (BuildTargetStableName buildTarget)
             {
                 return result;
             }
@@ -764,7 +738,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public int CallCount { get; private set; }
 
-            public UnityBuildTargetSupportProbeResult Probe (string unityBuildTargetLiteral)
+            public UnityBuildTargetSupportProbeResult Probe (BuildTargetStableName buildTarget)
             {
                 CallCount++;
                 return result;
@@ -784,7 +758,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 this.result = result;
             }
 
-            public UnityBuildTargetSupportProbeResult Probe (string unityBuildTargetLiteral)
+            public UnityBuildTargetSupportProbeResult Probe (BuildTargetStableName buildTarget)
             {
                 cancellationTokenSource.Cancel();
                 return result;

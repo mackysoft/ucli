@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using NUnit.Framework;
@@ -74,8 +76,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
                 outputDir: outputDirectory,
                 profilePath: "/workspace/build.ucli.json",
-                profileDigest: new string('a', 64),
-                target: new UcliResolvedBuildTarget("standaloneLinux64", BuildTarget.StandaloneLinux64),
+                profileDigest: Sha256Digest.Parse(new string('a', 64)),
+                target: new UcliResolvedBuildTarget(BuildTargetStableName.StandaloneLinux64, BuildTarget.StandaloneLinux64),
                 scenes: new[] { "Assets/Scenes/Main.unity" },
                 options: new UcliBuildOptions(development: true),
                 arguments: new Dictionary<string, string>(StringComparer.Ordinal),
@@ -87,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new IpcBuildReportArtifact(
                 SchemaVersion: 1,
-                Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                Result: IpcBuildReportResult.Succeeded,
                 UnityBuildTarget: "StandaloneLinux64",
                 OutputPath: Path.Combine(outputDirectory, "player"),
                 DurationMilliseconds: 1,

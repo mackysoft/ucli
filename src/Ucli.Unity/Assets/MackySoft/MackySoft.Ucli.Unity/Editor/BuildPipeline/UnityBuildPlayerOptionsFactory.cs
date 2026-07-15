@@ -34,9 +34,15 @@ namespace MackySoft.Ucli.Unity.Build
                 throw new ArgumentException("BuildPipeline outputLayout.locationPathName must not be empty.", nameof(request));
             }
 
+            var scenePaths = new string[resolvedInput.ScenePaths.Length];
+            for (var i = 0; i < resolvedInput.ScenePaths.Length; i++)
+            {
+                scenePaths[i] = resolvedInput.ScenePaths[i].Value;
+            }
+
             return new BuildPlayerOptions
             {
-                scenes = resolvedInput.ScenePaths,
+                scenes = scenePaths,
                 target = resolvedInput.UnityBuildTarget,
                 targetGroup = resolvedInput.UnityBuildTargetGroup,
                 options = resolvedInput.Options,

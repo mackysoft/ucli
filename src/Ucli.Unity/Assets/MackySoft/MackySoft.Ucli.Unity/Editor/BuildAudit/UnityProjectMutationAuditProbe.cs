@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using System.IO;
 using System.Security.Cryptography;
 using System.Text;
+using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 #nullable enable
@@ -31,7 +32,7 @@ namespace MackySoft.Ucli.Unity.Build
         /// <returns> The completed project mutation audit. </returns>
         public IpcBuildProjectMutationAudit Complete (
             string projectPath,
-            string mode,
+            BuildProfileProjectMutationMode mode,
             ProjectMutationSnapshot baseline)
         {
             if (baseline == null)
@@ -44,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Build
             var coverage = ResolveCoverage(baseline.Coverage, after.Coverage);
             return new IpcBuildProjectMutationAudit(
                 Mode: mode,
-                Coverage: ContractLiteralCodec.ToValue(coverage),
+                Coverage: coverage,
                 Mutated: items.Count != 0,
                 BeforeDigest: baseline.Digest,
                 AfterDigest: after.Digest,
@@ -178,7 +179,7 @@ namespace MackySoft.Ucli.Unity.Build
                 {
                     items.Add(new IpcBuildProjectMutationAuditItem(
                         path,
-                        ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added),
+                        IpcBuildProjectMutationChangeKind.Added,
                         BeforeSha256: null,
                         AfterSha256: afterEntry!.Sha256));
                     continue;
@@ -188,7 +189,7 @@ namespace MackySoft.Ucli.Unity.Build
                 {
                     items.Add(new IpcBuildProjectMutationAuditItem(
                         path,
-                        ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Deleted),
+                        IpcBuildProjectMutationChangeKind.Deleted,
                         beforeEntry!.Sha256,
                         AfterSha256: null));
                     continue;
@@ -196,11 +197,11 @@ namespace MackySoft.Ucli.Unity.Build
 
                 if (hadBefore
                     && hasAfter
-                    && !string.Equals(beforeEntry!.Sha256, afterEntry!.Sha256, StringComparison.Ordinal))
+                    && beforeEntry!.Sha256 != afterEntry!.Sha256)
                 {
                     items.Add(new IpcBuildProjectMutationAuditItem(
                         path,
-                        ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Modified),
+                        IpcBuildProjectMutationChangeKind.Modified,
                         beforeEntry.Sha256,
                         afterEntry.Sha256));
                 }
@@ -241,7 +242,7 @@ namespace MackySoft.Ucli.Unity.Build
             return result.RepositoryRelativeSlashPath!;
         }
 
-        private static string CalculateAggregateDigest (IReadOnlyList<ProjectMutationFileEntry> files)
+        private static Sha256Digest CalculateAggregateDigest (IReadOnlyList<ProjectMutationFileEntry> files)
         {
             var builder = new StringBuilder();
             for (var i = 0; i < files.Count; i++)
@@ -252,13 +253,10 @@ namespace MackySoft.Ucli.Unity.Build
                 builder.Append('\n');
             }
 
-            using (var sha256 = SHA256.Create())
-            {
-                return ToLowerHex(sha256.ComputeHash(Encoding.UTF8.GetBytes(builder.ToString())));
-            }
+            return Sha256Digest.Compute(Encoding.UTF8.GetBytes(builder.ToString()));
         }
 
-        private static string ComputeFileSha256 (string path)
+        private static Sha256Digest ComputeFileSha256 (string path)
         {
             using (var sha256 = SHA256.Create())
             using (var stream = new FileStream(
@@ -269,28 +267,17 @@ namespace MackySoft.Ucli.Unity.Build
                        FileStreamBufferSize,
                        FileOptions.SequentialScan))
             {
-                return ToLowerHex(sha256.ComputeHash(stream));
+                return Sha256Digest.FromHashBytes(sha256.ComputeHash(stream));
             }
-        }
-
-        private static string ToLowerHex (byte[] bytes)
-        {
-            var builder = new StringBuilder(bytes.Length * 2);
-            for (var i = 0; i < bytes.Length; i++)
-            {
-                builder.Append(bytes[i].ToString("x2", System.Globalization.CultureInfo.InvariantCulture));
-            }
-
-            return builder.ToString();
         }
 
         internal sealed record ProjectMutationSnapshot (
             IpcBuildProjectMutationAuditCoverage Coverage,
-            string Digest,
+            Sha256Digest Digest,
             IReadOnlyDictionary<string, ProjectMutationFileEntry> FilesByPath);
 
         internal sealed record ProjectMutationFileEntry (
             string Path,
-            string Sha256);
+            Sha256Digest Sha256);
     }
 }

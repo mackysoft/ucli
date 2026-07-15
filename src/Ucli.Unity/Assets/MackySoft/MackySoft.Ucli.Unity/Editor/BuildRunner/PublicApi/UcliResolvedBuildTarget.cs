@@ -1,4 +1,6 @@
 using System;
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Text;
 using UnityEditor;
 
 #nullable enable
@@ -12,12 +14,12 @@ namespace MackySoft.Ucli.Unity
         /// <param name="stableName"> The uCLI build target stable name. </param>
         /// <param name="unityBuildTarget"> The Unity build target value. </param>
         public UcliResolvedBuildTarget (
-            string stableName,
+            BuildTargetStableName stableName,
             BuildTarget unityBuildTarget)
         {
-            if (string.IsNullOrWhiteSpace(stableName))
+            if (!ContractLiteralCodec.IsDefined(stableName))
             {
-                throw new ArgumentException("stableName must not be empty.", nameof(stableName));
+                throw new ArgumentOutOfRangeException(nameof(stableName), stableName, "Build target must be specified.");
             }
 
             StableName = stableName;
@@ -25,7 +27,7 @@ namespace MackySoft.Ucli.Unity
         }
 
         /// <summary> Gets the uCLI build target stable name. </summary>
-        public string StableName { get; }
+        public BuildTargetStableName StableName { get; }
 
         /// <summary> Gets the Unity build target value used for runner invocation. </summary>
         public BuildTarget UnityBuildTarget { get; }

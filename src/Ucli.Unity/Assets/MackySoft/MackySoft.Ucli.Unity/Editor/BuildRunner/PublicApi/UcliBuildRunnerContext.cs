@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 
 #nullable enable
 
@@ -16,7 +17,7 @@ namespace MackySoft.Ucli.Unity
             ProjectFingerprint projectFingerprint,
             string outputDir,
             string profilePath,
-            string profileDigest,
+            Sha256Digest profileDigest,
             UcliResolvedBuildTarget target,
             IReadOnlyList<string> scenes,
             UcliBuildOptions options,
@@ -34,7 +35,7 @@ namespace MackySoft.Ucli.Unity
             ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             OutputDir = RequireValue(outputDir, nameof(outputDir));
             ProfilePath = RequireValue(profilePath, nameof(profilePath));
-            ProfileDigest = RequireValue(profileDigest, nameof(profileDigest));
+            ProfileDigest = profileDigest ?? throw new ArgumentNullException(nameof(profileDigest));
             Target = target ?? throw new ArgumentNullException(nameof(target));
             Scenes = scenes ?? throw new ArgumentNullException(nameof(scenes));
             Options = options ?? throw new ArgumentNullException(nameof(options));
@@ -61,7 +62,7 @@ namespace MackySoft.Ucli.Unity
         public string ProfilePath { get; }
 
         /// <summary> Gets the canonical build profile digest. </summary>
-        public string ProfileDigest { get; }
+        public Sha256Digest ProfileDigest { get; }
 
         /// <summary> Gets the resolved build target. </summary>
         public UcliResolvedBuildTarget Target { get; }

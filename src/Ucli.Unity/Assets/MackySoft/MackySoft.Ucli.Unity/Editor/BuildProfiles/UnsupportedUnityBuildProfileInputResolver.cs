@@ -18,7 +18,10 @@ namespace MackySoft.Ucli.Unity.Build
             cancellationToken.ThrowIfCancellationRequested();
             var unityBuildProfile = request.UnityBuildProfile == null
                 ? null
-                : new IpcUnityBuildProfileInput(request.UnityBuildProfile.Path);
+                : new IpcUnityBuildProfileInput(
+                    Path: request.UnityBuildProfile.Path,
+                    Digest: null,
+                    ApplyAudit: null);
             return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
                 new IpcError(
                     BuildErrorCodes.BuildUnityBuildProfileInvalid,
