@@ -64,18 +64,6 @@ internal sealed class PlayStatusService : IPlayStatusService
         }
 
         var playContext = contextResult.Context!;
-        var observedStatus = await TryCreateOutputFromLifecycleObservationAsync(
-                playContext,
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        // A non-ready sidecar is authoritative negative evidence because the Unity generation published it
-        // before entering mutation work. Ready is never affirmative evidence: IPC must confirm that state.
-        if (IsAuthoritativeSidecarStatus(observedStatus))
-        {
-            return PlayStatusExecutionResult.Success(observedStatus!.Output);
-        }
-
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.PlayStatus,
                 UnityExecutionMode.Daemon,
@@ -87,25 +75,21 @@ internal sealed class PlayStatusService : IPlayStatusService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            if (executionResult.FailureInfo!.Code == ExecutionErrorCodes.IpcTimeout)
-            {
-                var fallbackStatus = await TryCreateOutputFromLifecycleObservationAsync(
-                        playContext,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                if (IsAuthoritativeSidecarStatus(fallbackStatus))
-                {
-                    return PlayStatusExecutionResult.Success(fallbackStatus!.Output);
-                }
-            }
-
-            return PlayStatusExecutionResult.Failure(CreateErrorFromUnityRequestFailure(executionResult.FailureInfo!));
+            return await ResolveFailureAsync(
+                    playContext,
+                    CreateErrorFromUnityRequestFailure(executionResult.FailureInfo!),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         var response = executionResult.Response!;
         if (response.Errors.Count != 0)
         {
-            return PlayStatusExecutionResult.Failure(CreateErrorFromResponse(response));
+            return await ResolveFailureAsync(
+                    playContext,
+                    CreateErrorFromResponse(response),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPlayStatusResponse statusResponse, out var payloadError))
@@ -150,13 +134,27 @@ internal sealed class PlayStatusService : IPlayStatusService
         return PlayStatusExecutionResult.Success(output);
     }
 
-    private static bool IsAuthoritativeSidecarStatus (ObservedPlayStatus? observedStatus)
+    private async ValueTask<PlayStatusExecutionResult> ResolveFailureAsync (
+        PlayCommandExecutionContext playContext,
+        ExecutionError error,
+        CancellationToken cancellationToken)
     {
-        return observedStatus is not null
-            && observedStatus.LifecycleState != IpcEditorLifecycleState.Ready;
+        if (error.Code == ExecutionErrorCodes.IpcTimeout)
+        {
+            var fallbackStatus = await TryCreateOutputFromLifecycleObservationAsync(
+                    playContext,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (fallbackStatus is { LifecycleState: not IpcEditorLifecycleState.Ready })
+            {
+                return PlayStatusExecutionResult.Success(fallbackStatus);
+            }
+        }
+
+        return PlayStatusExecutionResult.Failure(error);
     }
 
-    private async ValueTask<ObservedPlayStatus?> TryCreateOutputFromLifecycleObservationAsync (
+    private async ValueTask<PlayStatusExecutionOutput?> TryCreateOutputFromLifecycleObservationAsync (
         PlayCommandExecutionContext playContext,
         CancellationToken cancellationToken)
     {
@@ -198,7 +196,7 @@ internal sealed class PlayStatusService : IPlayStatusService
             PrimaryDiagnostic: ToOutput(observation.PrimaryDiagnostic),
             PlayMode: observation.State.PlayMode,
             TimeoutMilliseconds: playContext.TimeoutMilliseconds);
-        return new ObservedPlayStatus(output, observation.State.LifecycleState);
+        return output;
     }
 
     private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)
@@ -246,9 +244,4 @@ internal sealed class PlayStatusService : IPlayStatusService
     {
         return ExecutionError.InternalError(message, PlayModeErrorCodes.PlayModeStateUnknown);
     }
-
-    /// <summary> Couples one CLI output projection with the typed lifecycle state used by pre-IPC policy. </summary>
-    private sealed record ObservedPlayStatus (
-        PlayStatusExecutionOutput Output,
-        IpcEditorLifecycleState LifecycleState);
 }

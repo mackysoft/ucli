@@ -12,6 +12,40 @@ public sealed class PlayStatusServiceSidecarTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenOlderNonReadySidecarExistsAndIpcSucceeds_ReturnsIpcStatus ()
+    {
+        var session = CreatePlaySession();
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
+        var lifecycleStore = new RecordingDaemonLifecycleStore
+        {
+            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
+                session,
+                IpcEditorLifecycleState.PlayMode,
+                playModeGeneration: 1)),
+        };
+        var processIdentityAssessor = CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(
+            CreateStatusResponse(playModeGeneration: 2))));
+        var service = CreateService(
+            PlayProjectContext,
+            sessionStore,
+            requestExecutor,
+            lifecycleStore,
+            processIdentityAssessor);
+
+        var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
+        Assert.Equal(IpcEditorLifecycleState.Ready, output.LifecycleState);
+        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
+        Assert.Equal(2, output.Generations!.PlayModeGeneration);
+        Assert.Empty(lifecycleStore.ReadInvocations);
+        UnityRequestExecutorInvocationAssert.PlayStatusOnce(requestExecutor);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenIpcExecutionTimesOutAndFreshLifecycleSidecarReportsReady_ReturnsTimeoutError ()
     {
         var session = CreatePlaySession();
@@ -43,57 +77,7 @@ public sealed class PlayStatusServiceSidecarTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
-        DaemonLifecycleObservationAssert.LifecycleObservationReadTwiceFor(
-            lifecycleStore,
-            PlayProjectContext,
-            CancellationToken.None);
-        UnityRequestExecutorInvocationAssert.PlayStatusOnce(requestExecutor);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenIpcTimesOutAfterSidecarChangesFromReadyToBusy_ReturnsLatestBusyStatus ()
-    {
-        var session = CreatePlaySession();
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
-        var readyObservation = CreateLifecycleObservation(
-            session,
-            IpcEditorLifecycleState.Ready,
-            playModeState: IpcPlayModeState.Stopped,
-            isPlaying: false,
-            isPlayingOrWillChangePlaymode: false);
-        var busyObservation = CreateLifecycleObservation(
-            session,
-            IpcEditorLifecycleState.Busy,
-            playModeState: IpcPlayModeState.Stopped,
-            isPlaying: false,
-            isPlayingOrWillChangePlaymode: false);
-        var lifecycleStore = new RecordingDaemonLifecycleStore();
-        lifecycleStore.ReadAsyncHandler = (_, _, _) => ValueTask.FromResult(
-            DaemonLifecycleObservationReadResult.Success(
-                lifecycleStore.ReadInvocations.Count == 1
-                    ? readyObservation
-                    : busyObservation));
-        var processIdentityAssessor = CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
-        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
-            UnityRequestFailureKind.General,
-            ExecutionErrorCodes.IpcTimeout,
-            "play status timed out")));
-        var service = CreateService(
-            PlayProjectContext,
-            sessionStore,
-            requestExecutor,
-            lifecycleStore,
-            processIdentityAssessor);
-
-        var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
-
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
-        Assert.Equal(IpcEditorLifecycleState.Busy, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReason.Busy, output.BlockingReason);
-        Assert.False(output.CanAcceptExecutionRequests);
-        DaemonLifecycleObservationAssert.LifecycleObservationReadTwiceFor(
+        DaemonLifecycleObservationAssert.LifecycleObservationReadOnceFor(
             lifecycleStore,
             PlayProjectContext,
             CancellationToken.None);
@@ -129,13 +113,13 @@ public sealed class PlayStatusServiceSidecarTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
-        DaemonLifecycleObservationAssert.LifecycleObservationReadTwiceFor(lifecycleStore, PlayProjectContext, CancellationToken.None);
+        DaemonLifecycleObservationAssert.LifecycleObservationReadOnceFor(lifecycleStore, PlayProjectContext, CancellationToken.None);
         UnityRequestExecutorInvocationAssert.PlayStatusOnce(requestExecutor);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenFreshLifecycleSidecarReportsPlayMode_ReturnsWithoutIpcCall ()
+    public async Task Execute_WhenIpcTimesOutAndFreshLifecycleSidecarReportsPlayMode_ReturnsSidecarStatus ()
     {
         var session = CreatePlaySession();
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
@@ -144,7 +128,10 @@ public sealed class PlayStatusServiceSidecarTests
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session)),
         };
         var processIdentityAssessor = CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
-        var requestExecutor = new UnexpectedUnityRequestExecutor();
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityRequestFailureKind.General,
+            ExecutionErrorCodes.IpcTimeout,
+            "play status timed out")));
         var service = CreateService(
             PlayProjectContext,
             sessionStore,
@@ -159,11 +146,16 @@ public sealed class PlayStatusServiceSidecarTests
         Assert.Equal("0.5.0", output.ServerVersion);
         Assert.Equal(IpcEditorLifecycleState.PlayMode, output.LifecycleState);
         Assert.Equal(IpcPlayModeState.Playing, output.PlayMode.State);
+        DaemonLifecycleObservationAssert.LifecycleObservationReadOnceFor(
+            lifecycleStore,
+            PlayProjectContext,
+            CancellationToken.None);
+        UnityRequestExecutorInvocationAssert.PlayStatusOnce(requestExecutor);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenLifecycleSidecarDoesNotMatchLiveProcess_ReturnsIpcStatus ()
+    public async Task Execute_WhenIpcResponseReportsTimeoutAndFreshLifecycleSidecarReportsPlayMode_ReturnsSidecarStatus ()
     {
         var session = CreatePlaySession();
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
@@ -171,8 +163,10 @@ public sealed class PlayStatusServiceSidecarTests
         {
             ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session)),
         };
-        var processIdentityAssessor = CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.DifferentProcess);
-        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse())));
+        var processIdentityAssessor = CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess);
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateErrorResponse(
+            ExecutionErrorCodes.IpcTimeout,
+            "play status timed out")));
         var service = CreateService(
             PlayProjectContext,
             sessionStore,
@@ -184,9 +178,47 @@ public sealed class PlayStatusServiceSidecarTests
 
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
-        Assert.Equal(IpcEditorLifecycleState.Ready, output.LifecycleState);
-        Assert.Equal(IpcPlayModeState.Stopped, output.PlayMode.State);
-        Assert.Equal(2, output.Generations!.PlayModeGeneration);
+        Assert.Equal(IpcEditorLifecycleState.PlayMode, output.LifecycleState);
+        Assert.Equal(IpcPlayModeState.Playing, output.PlayMode.State);
+        DaemonLifecycleObservationAssert.LifecycleObservationReadOnceFor(
+            lifecycleStore,
+            PlayProjectContext,
+            CancellationToken.None);
+        UnityRequestExecutorInvocationAssert.PlayStatusOnce(requestExecutor);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Execute_WhenIpcTimesOutAndLifecycleSidecarDoesNotMatchLiveProcess_ReturnsTimeoutError ()
+    {
+        var session = CreatePlaySession();
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
+        var lifecycleStore = new RecordingDaemonLifecycleStore
+        {
+            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(session)),
+        };
+        var processIdentityAssessor = CreateProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.DifferentProcess);
+        var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityRequestFailureKind.General,
+            ExecutionErrorCodes.IpcTimeout,
+            "play status timed out")));
+        var service = CreateService(
+            PlayProjectContext,
+            sessionStore,
+            requestExecutor,
+            lifecycleStore,
+            processIdentityAssessor);
+
+        var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
+        DaemonLifecycleObservationAssert.LifecycleObservationReadOnceFor(
+            lifecycleStore,
+            PlayProjectContext,
+            CancellationToken.None);
         UnityRequestExecutorInvocationAssert.PlayStatusOnce(requestExecutor);
     }
 }
