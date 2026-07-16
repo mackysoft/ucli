@@ -17,7 +17,7 @@ internal static class SupervisorRequestDispatcherTestSupport
         RecordingDaemonStopOperation? stopOperation = null)
     {
         var effectiveTimeProvider = timeProvider ?? FixedUtcTimeProvider.Instance;
-        var activityTracker = new SupervisorActivityTracker();
+        var activityTracker = new SupervisorActivityTracker(effectiveTimeProvider);
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var runtimeLogger = new SupervisorRuntimeLogger();
         var coordinator = new SupervisorProjectCoordinator(

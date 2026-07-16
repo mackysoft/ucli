@@ -91,6 +91,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
             utcShift: TimeSpan.FromDays(-1));
         var startOperation = new RecordingDaemonStartOperation();
         var dispatcher = CreateDispatcher(startOperation, timeProvider);
+        timeProvider.ArmForRequestDeadlineObservation();
         var runtimeContext = CreateRuntimeContext();
         var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(
@@ -275,7 +276,7 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
 
         private readonly TimeSpan utcShift;
 
-        private int transitionPending = 1;
+        private int timestampReadsUntilTransition;
 
         public DeadlineObservationTransitionTimeProvider (
             TimeSpan monotonicAdvance,
@@ -296,10 +297,17 @@ public sealed class SupervisorRequestDispatcherEnsureRunningTests
 
         public override DateTimeOffset GetUtcNow () => inner.GetUtcNow();
 
+        public void ArmForRequestDeadlineObservation ()
+        {
+            Volatile.Write(ref timestampReadsUntilTransition, 2);
+        }
+
         public override long GetTimestamp ()
         {
             var timestamp = inner.GetTimestamp();
-            if (Interlocked.Exchange(ref transitionPending, 0) == 1)
+            var readsRemaining = Volatile.Read(ref timestampReadsUntilTransition);
+            if (readsRemaining > 0
+                && Interlocked.Decrement(ref timestampReadsUntilTransition) == 0)
             {
                 inner.Advance(monotonicAdvance);
                 inner.ShiftUtc(utcShift);
