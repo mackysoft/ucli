@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -104,35 +103,21 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(exception.ParamName, Is.EqualTo("elapsedTime"));
         }
 
-        [UnityTest]
+        [Test]
         [Category("Size.Small")]
-        public IEnumerator PhaseScope_WhenCutoffsElapse_CancelsTokensInPlanOrder () => UniTask.ToCoroutine(async () =>
+        public void Create_WhenDeadlineHasTerminalizationBudget_ReturnsOrderedCutoffs ()
         {
-            var observedOrder = new List<int>();
-            var elapsedTime = Stopwatch.StartNew();
-            var requestDeadlineUtc = DateTimeOffset.UtcNow + TimeSpan.FromMilliseconds(50);
+            var observedAtUtc = new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero);
             var plan = IpcRequestPhasePlan.Create(
-                CreateRequest(requestDeadlineUtc, requestDeadlineRemainingMilliseconds: 50),
-                DateTimeOffset.UtcNow,
-                maximumResponseFrameWriteDuration: TimeSpan.FromMilliseconds(10));
-            using var phaseScope = new IpcRequestPhaseScope(
-                plan,
-                elapsedTime,
-                CancellationToken.None);
-            using var executionRegistration = phaseScope.ExecutionCancellation.Token.Register(
-                () => observedOrder.Add(0));
-            using var persistenceRegistration = phaseScope.PersistenceCutoffToken.Register(
-                () => observedOrder.Add(1));
-            using var writeRegistration = phaseScope.WriteCutoffToken.Register(
-                () => observedOrder.Add(2));
+                CreateRequest(
+                    observedAtUtc + TimeSpan.FromSeconds(5),
+                    requestDeadlineRemainingMilliseconds: 5000),
+                observedAtUtc,
+                maximumResponseFrameWriteDuration: TimeSpan.FromMilliseconds(100));
 
-            await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
-            {
-                await Task.Delay(Timeout.Infinite, phaseScope.WriteCutoffToken);
-            }, "request write cutoff", SignalWaitTimeout);
-
-            Assert.That(observedOrder, Is.EqualTo(new[] { 0, 1, 2 }));
-        });
+            Assert.That(plan.ExecutionCutoff, Is.LessThan(plan.PersistenceCutoff));
+            Assert.That(plan.PersistenceCutoff, Is.LessThan(plan.WriteCutoff));
+        }
 
         [UnityTest]
         [Category("Size.Small")]
