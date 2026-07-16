@@ -767,8 +767,6 @@ Use `--mode daemon` when CI must fail specifically because no daemon is running.
 
 > **NOTE:** Project path resolution uses `--projectPath`, then `UCLI_PROJECT_PATH`, then the command default. The default is usually the current working directory.
 
-On Windows, the normalized repository root used for `.ucli/local` must be at most 112 characters. uCLI rejects a longer root before writing local state so every fixed uCLI-managed path remains within the path limit used by supported Unity Editor versions.
-
 ### Lifecycle Lock Location
 
 Lifecycle lock files are stored in the current user's OS local application data directory, not under repo-local `.ucli` state:
