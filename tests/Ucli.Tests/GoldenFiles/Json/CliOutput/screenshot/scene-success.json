@@ -20,7 +20,12 @@
       "colorSpace": "gamma",
       "lifecycleStateAtCapture": "ready",
       "compileStateAtCapture": "ready",
-      "domainReloadGeneration": 8,
+      "generations": {
+        "compileGeneration": 6,
+        "domainReloadGeneration": 8,
+        "assetRefreshGeneration": 12,
+        "playModeGeneration": 14
+      },
       "playModeState": "stopped"
     },
     "artifact": {

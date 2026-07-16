@@ -22,6 +22,20 @@ public sealed class ScreenshotPayloadSchemaArtifactTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public void ScreenshotPayloadSchemas_RejectCaptureStateOutsideSuccessfulContract ()
+    {
+        var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
+        using var playing = JsonDocument.Parse(CreateGamePayload(
+            artifactPrefix: string.Empty,
+            playModeState: "playing"));
+
+        Assert.NotEmpty(schemaSet.Validate(
+            "cli-output/payload/screenshot.game.schema.json",
+            playing.RootElement));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public void ScreenshotPayloadSchemas_RejectRoleInlineImageAndMismatchedSizeModes ()
     {
         var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
@@ -38,7 +52,8 @@ public sealed class ScreenshotPayloadSchemaArtifactTests
 
     private static string CreateGamePayload (
         string artifactPrefix,
-        string sizeMode = "requestedResolution")
+        string sizeMode = "requestedResolution",
+        string playModeState = "stopped")
     {
         return $$"""
         {
@@ -57,8 +72,13 @@ public sealed class ScreenshotPayloadSchemaArtifactTests
             "colorSpace": "linear",
             "lifecycleStateAtCapture": "ready",
             "compileStateAtCapture": "ready",
-            "domainReloadGeneration": 7,
-            "playModeState": "playing"
+            "generations": {
+              "compileGeneration": 5,
+              "domainReloadGeneration": 7,
+              "assetRefreshGeneration": 11,
+              "playModeGeneration": 13
+            },
+            "playModeState": "{{playModeState}}"
           },
           "artifact": {
             {{artifactPrefix}}

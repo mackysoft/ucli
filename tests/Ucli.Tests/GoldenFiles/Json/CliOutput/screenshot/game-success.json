@@ -18,10 +18,15 @@
       "width": 1920,
       "height": 1080,
       "colorSpace": "linear",
-      "lifecycleStateAtCapture": "playmode",
+      "lifecycleStateAtCapture": "ready",
       "compileStateAtCapture": "ready",
-      "domainReloadGeneration": 7,
-      "playModeState": "playing"
+      "generations": {
+        "compileGeneration": 5,
+        "domainReloadGeneration": 7,
+        "assetRefreshGeneration": 11,
+        "playModeGeneration": 13
+      },
+      "playModeState": "stopped"
     },
     "artifact": {
       "kind": "screenshot",
