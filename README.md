@@ -378,12 +378,10 @@ ucli eval --mode daemon --allowDangerous \
 Use `ucli build run` to run Unity BuildPipeline from a build profile and collect machine-readable build results:
 
 ```bash
-ucli build run \
-  --profilePath .ucli/build/player.json \
-  --buildTarget standaloneLinux64
+ucli build run --profilePath .ucli/build/player.json
 ```
 
-The build profile defines the default `buildTarget`, scenes, options, and output policy. Pass `--buildTarget` to override the profile `buildTarget` for one run. `ucli build run` writes the final JSON result to standard output, and may write progress entries to standard error before that final result.
+The build profile defines `inputs.buildTarget`, scenes, options, and output policy. The CLI does not override the profile build target for one run. `ucli build run` writes the final JSON result to standard output, and may write progress entries to standard error before that final result.
 
 Build artifacts are written under `.ucli/local/build-runs/<runStorageKey>/artifacts/`, while Unity writes its working output under the sibling `work/output/` directory.
 The run storage key is a lowercase Base32hex path segment derived from the full run ID; command output and JSON retain the UUID value. Project identity remains part of the command and IPC contracts rather than the build-run path.

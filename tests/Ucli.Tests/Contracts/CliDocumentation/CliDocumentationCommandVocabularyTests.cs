@@ -20,6 +20,15 @@ public sealed class CliDocumentationCommandVocabularyTests
         Assert.Empty(violations);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Readme_DoesNotAdvertiseUnsupportedBuildTargetOption ()
+    {
+        var readme = File.ReadAllText(TestRepositoryPaths.GetFullPath("README.md"));
+
+        Assert.DoesNotContain(UcliContractConstants.CliOption.BuildTarget, readme, StringComparison.Ordinal);
+    }
+
     private static IEnumerable<string> EnumerateDocumentedArtifactPaths ()
     {
         var readmePath = TestRepositoryPaths.GetFullPath("README.md");
