@@ -144,6 +144,8 @@ public sealed class SupervisorBootstrapperManifestFailureTests
     public async Task EnsureReady_WhenManifestIsUnreachable_DeletesOnlyResolvedSupervisorEndpoint ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "stale-manifest-cleanup");
+        using var testTimeoutSource = new CancellationTokenSource(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        var timeProvider = new ManualTimeProvider();
         var endpointResolver = new SupervisorEndpointResolver();
         var cleanupTarget = endpointResolver.ResolveUnixSocketCleanupTargetOrNull(scope.FullPath);
         if (cleanupTarget is not null)
@@ -166,7 +168,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
             : new IpcEndpoint(IpcTransportKind.NamedPipe, $"ucli-do-not-delete-{Guid.NewGuid():N}");
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest(
             endpoint: manifestEndpoint);
-        var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System);
+        var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider);
         await manifestStore.WriteAsync(scope.FullPath, manifest, CancellationToken.None);
         var transportClient = new StubIpcTransportClient
         {
@@ -180,18 +182,22 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         };
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
-            new SupervisorClient(transportClient, TimeProvider.System),
+            new SupervisorClient(transportClient, timeProvider),
             processManager,
-            new SupervisorBootstrapLockProvider(TimeProvider.System),
+            new SupervisorBootstrapLockProvider(timeProvider),
             endpointResolver,
-            TimeProvider.System);
+            timeProvider);
 
         var result = await bootstrapper.EnsureReadyAsync(
             scope.FullPath,
             TimeSpan.FromSeconds(1),
-            CancellationToken.None);
+            testTimeoutSource.Token);
 
         Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, result.Error.Kind);
+        Assert.Contains("stop after cleanup", result.Error.Message, StringComparison.Ordinal);
+        Assert.Single(processManager.Invocations);
         Assert.Null(await manifestStore.ReadOrNullAsync(scope.FullPath, CancellationToken.None));
         Assert.True(File.Exists(maliciousPath));
         if (cleanupTarget is not null)
