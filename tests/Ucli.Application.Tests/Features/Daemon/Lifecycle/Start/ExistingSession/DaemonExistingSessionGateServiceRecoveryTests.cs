@@ -12,6 +12,7 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             isNotRunning: static _ => false,
             isSessionTokenInvalid: static exception => exception is SessionTokenInvalidTestException,
             isRetryableBeforeRequestWrite: static _ => false,
+            isRequestTimeout: static exception => exception is TimeoutException,
             isRecoverableResponseInterruption: static exception => exception is ResponseInterruptedTestException);
 
     [Fact]

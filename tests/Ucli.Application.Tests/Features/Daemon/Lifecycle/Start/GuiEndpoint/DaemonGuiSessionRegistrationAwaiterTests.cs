@@ -19,6 +19,7 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
             isNotRunning: static _ => false,
             isSessionTokenInvalid: static exception => exception is SessionTokenInvalidTestException,
             isRetryableBeforeRequestWrite: static _ => false,
+            isRequestTimeout: static exception => exception is TimeoutException,
             isRecoverableResponseInterruption: static exception => exception is ResponseInterruptedTestException);
 
     public static TheoryData<DateTimeOffset> InvalidExpectedProcessStartedAtUtcValues => new()
@@ -537,6 +538,44 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task WaitForSession_WhenDaemonReportsRequestTimeout_RetriesWithNewRequestId ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var unityProject = DaemonCommandExecutionContextTestFactory.Create(5000).Context.UnityProject;
+        var session = CreateGuiSession(unityProject.ProjectFingerprint, processId: 4321);
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(session));
+        var pingClient = new RecordingDaemonPingInfoClient(
+            new RequestTimeoutTestException(),
+            CreatePingResponse(unityProject.ProjectFingerprint, DaemonEditorMode.Gui));
+        var classifier = new DelegatingDaemonReachabilityClassifier(
+            isNotRunning: static _ => false,
+            isSessionTokenInvalid: static _ => false,
+            isRetryableBeforeRequestWrite: static _ => false,
+            isRequestTimeout: static exception => exception is RequestTimeoutTestException,
+            isRecoverableResponseInterruption: static _ => false);
+        var awaiter = CreateAwaiter(sessionStore, pingClient, classifier);
+        var resultTask = awaiter.WaitForSessionAsync(
+                unityProject,
+                expectedProcessId: 4321,
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+                expectedProcessStartedAtUtc: DefaultExpectedProcessStartedAtUtc)
+            .AsTask();
+
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            resultTask,
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var result = await resultTask;
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, sessionStore.ReadInvocations.Count);
+        Assert.Equal(2, pingClient.Invocations.Count);
+        Assert.Equal(2, pingClient.Invocations.Select(static invocation => invocation.RequestId).Distinct().Count());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task WaitForSession_WhenPingThrowsReachabilityError_RetriesUntilOverallTimeout ()
     {
         var timeProvider = new ManualTimeProvider();
@@ -680,6 +719,10 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
     }
 
     private sealed class ResponseInterruptedTestException : IOException
+    {
+    }
+
+    private sealed class RequestTimeoutTestException : Exception
     {
     }
 

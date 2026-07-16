@@ -127,7 +127,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         }
 
         var probeFailure = probeResult.ProbeFailure!;
-        var isTimeout = probeFailure is TimeoutException;
+        var isTimeout = reachabilityClassifier.IsRequestTimeout(probeFailure);
         var isNotRunning = reachabilityClassifier.IsNotRunning(probeFailure);
         if (!isTimeout && !isNotRunning)
         {
@@ -283,7 +283,7 @@ internal sealed class DaemonExistingSessionGateService : IDaemonExistingSessionG
         }
 
         var probeFailure = probeResult.ProbeFailure!;
-        return probeFailure is TimeoutException
+        return reachabilityClassifier.IsRequestTimeout(probeFailure)
             || reachabilityClassifier.IsNotRunning(probeFailure)
             || reachabilityClassifier.IsSessionTokenInvalid(probeFailure)
             || reachabilityClassifier.IsRecoverableResponseInterruption(probeFailure)

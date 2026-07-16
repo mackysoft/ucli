@@ -18,6 +18,11 @@ internal interface IDaemonReachabilityClassifier
     /// <returns> <see langword="true" /> when the same logical request can be retried safely. </returns>
     bool IsRetryableBeforeRequestWrite (Exception exception);
 
+    /// <summary> Determines whether one exception means a daemon request exceeded its processing deadline. </summary>
+    /// <param name="exception"> The exception to classify. </param>
+    /// <returns> <see langword="true" /> when the request timed out; otherwise <see langword="false" />. </returns>
+    bool IsRequestTimeout (Exception exception);
+
     /// <summary> Determines whether a read-only request may be replayed after response delivery was interrupted. </summary>
     /// <param name="exception"> The exception to classify. </param>
     /// <returns> <see langword="true" /> when request transmission may have completed but replay is safe. </returns>

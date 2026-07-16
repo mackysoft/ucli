@@ -448,6 +448,11 @@ public sealed class DaemonListQueryServiceProbeFailureTests
             return false;
         }
 
+        public bool IsRequestTimeout (Exception exception)
+        {
+            return exception is TimeoutException;
+        }
+
         public bool IsRecoverableResponseInterruption (Exception exception)
         {
             return false;

@@ -9,17 +9,21 @@ internal sealed class DelegatingDaemonReachabilityClassifier :
 
     private readonly Func<Exception, bool> isRetryableBeforeRequestWrite;
 
+    private readonly Func<Exception, bool> isRequestTimeout;
+
     private readonly Func<Exception, bool> isRecoverableResponseInterruption;
 
     public DelegatingDaemonReachabilityClassifier (
         Func<Exception, bool> isNotRunning,
         Func<Exception, bool> isSessionTokenInvalid,
         Func<Exception, bool> isRetryableBeforeRequestWrite,
+        Func<Exception, bool> isRequestTimeout,
         Func<Exception, bool> isRecoverableResponseInterruption)
     {
         this.isNotRunning = isNotRunning ?? throw new ArgumentNullException(nameof(isNotRunning));
         this.isSessionTokenInvalid = isSessionTokenInvalid ?? throw new ArgumentNullException(nameof(isSessionTokenInvalid));
         this.isRetryableBeforeRequestWrite = isRetryableBeforeRequestWrite ?? throw new ArgumentNullException(nameof(isRetryableBeforeRequestWrite));
+        this.isRequestTimeout = isRequestTimeout ?? throw new ArgumentNullException(nameof(isRequestTimeout));
         this.isRecoverableResponseInterruption = isRecoverableResponseInterruption ?? throw new ArgumentNullException(nameof(isRecoverableResponseInterruption));
     }
 
@@ -36,6 +40,11 @@ internal sealed class DelegatingDaemonReachabilityClassifier :
     public bool IsRetryableBeforeRequestWrite (Exception exception)
     {
         return isRetryableBeforeRequestWrite(exception);
+    }
+
+    public bool IsRequestTimeout (Exception exception)
+    {
+        return isRequestTimeout(exception);
     }
 
     public bool IsRecoverableResponseInterruption (Exception exception)

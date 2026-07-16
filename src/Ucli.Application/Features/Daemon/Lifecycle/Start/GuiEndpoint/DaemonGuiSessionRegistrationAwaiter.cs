@@ -147,7 +147,7 @@ internal sealed class DaemonGuiSessionRegistrationAwaiter : IDaemonGuiSessionReg
         }
 
         var probeFailure = probeResult.ProbeFailure!;
-        return probeFailure is TimeoutException
+        return reachabilityClassifier.IsRequestTimeout(probeFailure)
             || reachabilityClassifier.IsNotRunning(probeFailure)
             || reachabilityClassifier.IsSessionTokenInvalid(probeFailure)
             || reachabilityClassifier.IsRecoverableResponseInterruption(probeFailure)

@@ -262,7 +262,7 @@ internal sealed class DaemonListQueryService : IDaemonListQueryService
         }
 
         var probeFailure = probeResult.ProbeFailure!;
-        if (probeFailure is TimeoutException)
+        if (daemonReachabilityClassifier.IsRequestTimeout(probeFailure))
         {
             if (deadline.IsExpired)
             {

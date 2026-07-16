@@ -24,6 +24,11 @@ internal sealed class StubDaemonReachabilityClassifier : IDaemonReachabilityClas
         return false;
     }
 
+    public bool IsRequestTimeout (Exception exception)
+    {
+        return exception is TimeoutException;
+    }
+
     public bool IsRecoverableResponseInterruption (Exception exception)
     {
         return false;

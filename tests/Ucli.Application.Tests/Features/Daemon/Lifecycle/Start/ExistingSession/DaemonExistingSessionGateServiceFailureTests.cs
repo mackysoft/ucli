@@ -94,6 +94,7 @@ public sealed class DaemonExistingSessionGateServiceFailureTests
             isNotRunning: static _ => false,
             isSessionTokenInvalid: static _ => false,
             isRetryableBeforeRequestWrite: static _ => false,
+            isRequestTimeout: static exception => exception is TimeoutException,
             isRecoverableResponseInterruption: static exception => exception is TimeoutException);
         var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
             daemonPingInfoClient: new RecordingDaemonPingInfoClient(

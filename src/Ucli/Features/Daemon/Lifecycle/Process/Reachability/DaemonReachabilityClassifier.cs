@@ -30,6 +30,15 @@ internal sealed class DaemonReachabilityClassifier : IDaemonReachabilityClassifi
     }
 
     /// <inheritdoc />
+    public bool IsRequestTimeout (Exception exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+        return exception is TimeoutException
+            || (exception is DaemonPingResponseException pingResponseException
+                && pingResponseException.ErrorCode == IpcTransportErrorCodes.IpcTimeout);
+    }
+
+    /// <inheritdoc />
     public bool IsRecoverableResponseInterruption (Exception exception)
     {
         ArgumentNullException.ThrowIfNull(exception);

@@ -163,7 +163,7 @@ internal sealed class DaemonStatusOperation : IDaemonStatusOperation
                 "Timed out while probing daemon status."));
         }
 
-        if (probeFailure is TimeoutException
+        if (reachabilityClassifier.IsRequestTimeout(probeFailure)
             || reachabilityClassifier.IsNotRunning(probeFailure))
         {
             return await ResolveStaleStatusAsync(
