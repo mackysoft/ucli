@@ -2,7 +2,7 @@ using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
 {
-    /// <summary> Maps one top-origin SceneView window presentation into physical framebuffer coordinates. </summary>
+    /// <summary> Maps one SceneView window presentation into physical framebuffer coordinates. </summary>
     internal sealed record UnitySceneViewPresentationMapping (
         int FramebufferWidth,
         int FramebufferHeight,
@@ -13,23 +13,15 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
         Rect ContentRect,
         Vector4 SourceUvTransform)
     {
-        /// <summary> Resolves a physical crop for the independently validated top-origin source capability. </summary>
+        /// <summary> Maps the bottom-origin SceneView camera viewport into the top-origin GUIView bitmap. </summary>
         public static bool TryResolve (
             Rect windowRect,
             Rect contentRect,
             float backingScale,
-            bool sourceStartsAtTop,
             out UnitySceneViewPresentationMapping mapping,
             out string errorMessage)
         {
             mapping = null;
-            if (!sourceStartsAtTop)
-            {
-                errorMessage =
-                    "SceneView framebuffer orientation is outside the independently validated top-origin capture capability.";
-                return false;
-            }
-
             if (!UnityScreenshotMath.IsFinitePositive(backingScale)
                 || !UnityScreenshotMath.IsFinitePositive(windowRect.width)
                 || !UnityScreenshotMath.IsFinitePositive(windowRect.height)
@@ -50,20 +42,21 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
             var framebufferWidth = Mathf.RoundToInt(windowRect.width * backingScale);
             var framebufferHeight = Mathf.RoundToInt(windowRect.height * backingScale);
             var contentX = Mathf.RoundToInt(contentRect.x * backingScale);
-            var contentTop = Mathf.RoundToInt(contentRect.y * backingScale);
+            var contentBottom = Mathf.RoundToInt(contentRect.y * backingScale);
             var contentRight = Mathf.RoundToInt(contentRect.xMax * backingScale);
-            var contentBottomFromTop = Mathf.RoundToInt(contentRect.yMax * backingScale);
+            var contentTopFromBottom = Mathf.RoundToInt(contentRect.yMax * backingScale);
             var contentWidth = contentRight - contentX;
-            var contentHeight = contentBottomFromTop - contentTop;
-            var contentBottom = framebufferHeight - contentBottomFromTop;
+            var contentHeight = contentTopFromBottom - contentBottom;
+            var contentTop = framebufferHeight - contentTopFromBottom;
+            var contentBottomFromTop = framebufferHeight - contentBottom;
             if (framebufferWidth <= 0
                 || framebufferHeight <= 0
                 || contentWidth <= 0
                 || contentHeight <= 0
                 || contentX < 0
-                || contentBottom < 0
+                || contentTop < 0
                 || contentX + contentWidth > framebufferWidth
-                || contentBottom + contentHeight > framebufferHeight)
+                || contentBottomFromTop > framebufferHeight)
             {
                 errorMessage = "SceneView physical content rectangle is outside its framebuffer.";
                 return false;

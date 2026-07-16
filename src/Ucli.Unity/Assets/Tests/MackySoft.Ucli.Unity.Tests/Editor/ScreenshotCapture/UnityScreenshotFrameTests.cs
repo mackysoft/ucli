@@ -82,21 +82,5 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcScreenshotColorSpace.Linear,
                     new byte[byteLength]));
         }
-
-        [Test]
-        [Category("Size.Small")]
-        public void ResultPipeline_WithValidatedFrame_PreservesFrameIdentity ()
-        {
-            var frame = new UnityScreenshotFrame(
-                width: 1,
-                height: 1,
-                IpcScreenshotColorSpace.Linear,
-                new byte[4]);
-
-            var normalizationResult = UnityScreenshotNormalizationResult.Success(frame);
-            var backendResult = UnityScreenshotBackendResult.Success(normalizationResult.Frame);
-
-            Assert.That(backendResult.Frame, Is.SameAs(frame));
-        }
     }
 }

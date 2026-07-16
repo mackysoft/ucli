@@ -39,17 +39,11 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
         public async Task<UnityScreenshotBackendResult> CaptureAsync (
             IpcScreenshotCaptureRequest request,
-            UnityScreenshotPresentationStateFence.PresentationState presentationState,
             CancellationToken cancellationToken)
         {
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
-            }
-
-            if (presentationState == null)
-            {
-                throw new ArgumentNullException(nameof(presentationState));
             }
 
             if (request.RequestedWidth.HasValue)
@@ -122,14 +116,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                         await editorUpdateAwaiter.WaitForNextUpdateAsync(cancellationToken);
                         completedEditorUpdateGeneration = unchecked(completedEditorUpdateGeneration + 1u);
                         cancellationToken.ThrowIfCancellationRequested();
-                        if (!UnityScreenshotPresentationStateFence.TryValidateCurrentStable(
-                            presentationState,
-                            out var loopPresentationError))
-                        {
-                            captureResult = Unsupported(loopPresentationError);
-                            break;
-                        }
-
                         if (!presentationAdapter.TryGetSource(out var candidate, out _))
                         {
                             continue;
@@ -166,14 +152,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                         }
 
                         cancellationToken.ThrowIfCancellationRequested();
-                        if (!UnityScreenshotPresentationStateFence.TryValidateCurrentStable(
-                            presentationState,
-                            out loopPresentationError))
-                        {
-                            captureResult = Unsupported(loopPresentationError);
-                            break;
-                        }
-
                         if (!presentationAdapter.TryGetSource(out candidate, out _))
                         {
                             continue;
@@ -218,14 +196,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
                 var colorSpace = UnityScreenshotPixelNormalizer.ResolveColorSpace();
                 if (captureResult == null
-                    && !UnityScreenshotPresentationStateFence.TryValidateCurrentStable(
-                        presentationState,
-                        out var capturePresentationError))
-                {
-                    captureResult = Unsupported(capturePresentationError);
-                }
-
-                if (captureResult == null
                     && !UnityScreenshotSourceFormatPolicy.TryValidateGameViewSource(
                         source.RenderTexture,
                         colorSpace,
@@ -252,14 +222,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                     if (!presentationAdapter.TryValidateSource(source, out sourceError))
                     {
                         captureResult = Unsupported(sourceError);
-                    }
-
-                    if (captureResult.IsSuccess
-                        && !UnityScreenshotPresentationStateFence.TryValidateCurrentStable(
-                            presentationState,
-                            out capturePresentationError))
-                    {
-                        captureResult = Unsupported(capturePresentationError);
                     }
 
                     if (captureResult.IsSuccess

@@ -27,23 +27,25 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             cancellationToken.ThrowIfCancellationRequested();
             if (source == null)
             {
-                return Unsupported("Screenshot source texture is unavailable.");
+                return UnityScreenshotNormalizationResult.Failure("Screenshot source texture is unavailable.");
             }
 
             if (!SystemInfo.IsFormatSupported(source.graphicsFormat, GraphicsFormatUsage.Sample))
             {
-                return Unsupported($"Screenshot source format is not sampleable: {source.graphicsFormat}.");
+                return UnityScreenshotNormalizationResult.Failure(
+                    $"Screenshot source format is not sampleable: {source.graphicsFormat}.");
             }
 
             if (!TryValidateStagingFormat(out var formatError))
             {
-                return Unsupported(formatError);
+                return UnityScreenshotNormalizationResult.Failure(formatError);
             }
 
             var shader = Shader.Find(NormalizeShaderName);
             if (shader == null || !shader.isSupported)
             {
-                return Unsupported($"Screenshot normalization shader is unavailable: {NormalizeShaderName}.");
+                return UnityScreenshotNormalizationResult.Failure(
+                    $"Screenshot normalization shader is unavailable: {NormalizeShaderName}.");
             }
 
             Material material = null;
@@ -67,7 +69,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     out staging,
                     out var stagingError))
                 {
-                    return Unsupported(stagingError);
+                    return UnityScreenshotNormalizationResult.Failure(stagingError);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -79,7 +81,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     cancellationToken,
                     out var drawError))
                 {
-                    return Unsupported(drawError);
+                    return UnityScreenshotNormalizationResult.Failure(drawError);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -90,7 +92,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     out var rawBytes,
                     out var readError))
                 {
-                    return Unsupported(readError);
+                    return UnityScreenshotNormalizationResult.Failure(readError);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -101,7 +103,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     out var rawIsTopDown,
                     out var calibrationError))
                 {
-                    return Unsupported(calibrationError);
+                    return UnityScreenshotNormalizationResult.Failure(calibrationError);
                 }
 
                 if (!rawIsTopDown)
@@ -404,11 +406,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
 
             errorMessage = null;
             return true;
-        }
-
-        private static UnityScreenshotNormalizationResult Unsupported (string message)
-        {
-            return UnityScreenshotNormalizationResult.Failure(message);
         }
 
         private static void ReverseRowsInPlace (

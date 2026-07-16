@@ -46,29 +46,8 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
                     gameView,
                     out _,
                     out var backingScale,
-                    out var hdrActive,
                     out errorMessage))
                 {
-                    return false;
-                }
-
-                if (hdrActive)
-                {
-                    errorMessage = "HDR GameView presentation is not supported by the SDR screenshot backend.";
-                    return false;
-                }
-
-                var gizmosField = UnityEditorReflection.FindField(gameViewType, "m_Gizmos");
-                if (gizmosField?.GetValue(gameView) is not bool gizmosEnabled)
-                {
-                    errorMessage = "GameView Gizmos state could not be resolved.";
-                    return false;
-                }
-
-                if (gizmosEnabled)
-                {
-                    errorMessage =
-                        "GameView Editor Gizmos are enabled and cannot be removed without changing the observed presentation.";
                     return false;
                 }
 
@@ -241,7 +220,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
 
                 if (!UnityEditorHostViewProbe.TryGetSelectedState(
                     gameView,
-                    out _,
                     out _,
                     out _,
                     out errorMessage))
