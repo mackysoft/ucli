@@ -36,14 +36,14 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         {
             SendHandler = static (_, _, _, _) => throw new SocketException((int)SocketError.ConnectionRefused),
         };
-        var launcher = new RecordingSupervisorProcessLauncher
+        var processManager = new RecordingSupervisorProcessManager
         {
             LaunchError = ExecutionError.InternalError("Owned valid runtime must not be relaunched."),
         };
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
             new SupervisorClient(transportClient, TimeProvider.System),
-            launcher,
+            processManager,
             new SupervisorBootstrapLockProvider(TimeProvider.System),
             endpointResolver,
             TimeProvider.System);
@@ -56,7 +56,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error?.Kind);
         Assert.Equal(manifest, await manifestStore.ReadOrNullAsync(scope.FullPath, CancellationToken.None));
-        Assert.Empty(launcher.Invocations);
+        Assert.Empty(processManager.Invocations);
         Assert.NotEmpty(transportClient.Invocations);
         if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
@@ -81,14 +81,14 @@ public sealed class SupervisorBootstrapperManifestFailureTests
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException(
                 "Malformed runtime ownership must block endpoint probing."),
         };
-        var launcher = new RecordingSupervisorProcessLauncher
+        var processManager = new RecordingSupervisorProcessManager
         {
             LaunchError = ExecutionError.InternalError("Owned malformed runtime must not be relaunched."),
         };
         var bootstrapper = new SupervisorBootstrapper(
             SupervisorManifestStoreTestSupport.CreateFileBacked(TimeProvider.System),
             new SupervisorClient(transportClient, TimeProvider.System),
-            launcher,
+            processManager,
             new SupervisorBootstrapLockProvider(TimeProvider.System),
             new SupervisorEndpointResolver(),
             TimeProvider.System);
@@ -101,7 +101,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error?.Kind);
         Assert.True(File.Exists(manifestPath));
-        Assert.Empty(launcher.Invocations);
+        Assert.Empty(processManager.Invocations);
         Assert.Empty(transportClient.Invocations);
     }
 
@@ -123,7 +123,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
             new SupervisorClient(transportClient, timeProvider),
-            new RecordingSupervisorProcessLauncher(),
+            new RecordingSupervisorProcessManager(),
             new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
@@ -172,7 +172,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         {
             SendHandler = static (_, _, _, _) => throw new SocketException((int)SocketError.ConnectionRefused),
         };
-        var launcher = new RecordingSupervisorProcessLauncher
+        var processManager = new RecordingSupervisorProcessManager
         {
             LaunchHandler = static (_, _) => ValueTask.FromResult<ExecutionError?>(
                 ExecutionError.InternalError("stop after cleanup")),
@@ -180,7 +180,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
             new SupervisorClient(transportClient, TimeProvider.System),
-            launcher,
+            processManager,
             new SupervisorBootstrapLockProvider(TimeProvider.System),
             endpointResolver,
             TimeProvider.System);
@@ -239,14 +239,14 @@ public sealed class SupervisorBootstrapperManifestFailureTests
                 return CreatePingResponse(request.RequestId, successorManifest);
             },
         };
-        var launcher = new RecordingSupervisorProcessLauncher
+        var processManager = new RecordingSupervisorProcessManager
         {
             LaunchError = ExecutionError.InternalError("A successor manifest must be observed before relaunch."),
         };
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
             new SupervisorClient(transportClient, TimeProvider.System),
-            launcher,
+            processManager,
             new SupervisorBootstrapLockProvider(TimeProvider.System),
             endpointResolver,
             TimeProvider.System);
@@ -258,7 +258,7 @@ public sealed class SupervisorBootstrapperManifestFailureTests
 
         Assert.True(result.IsSuccess);
         Assert.Equal(successorManifest, result.Manifest);
-        Assert.Empty(launcher.Invocations);
+        Assert.Empty(processManager.Invocations);
         Assert.Equal(
             successorManifest,
             await manifestStore.ReadOrNullAsync(scope.FullPath, CancellationToken.None));

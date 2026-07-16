@@ -2,14 +2,14 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 
-/// <summary> Launches the worktree-local supervisor through <c>systemd-run --user</c>. </summary>
+/// <summary> Launches the worktree-local supervisor through <c>systemd-run --user --collect</c>. </summary>
 internal sealed class SystemdRunSupervisorProcessLauncher
 {
-    private readonly SupervisorExternalProcessRunner processRunner;
+    private readonly IProcessRunner processRunner;
 
     /// <summary> Initializes a new instance of the <see cref="SystemdRunSupervisorProcessLauncher" /> class. </summary>
     /// <param name="processRunner"> The external process-runner dependency. </param>
-    public SystemdRunSupervisorProcessLauncher (SupervisorExternalProcessRunner processRunner)
+    public SystemdRunSupervisorProcessLauncher (IProcessRunner processRunner)
     {
         this.processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
     }
@@ -22,7 +22,7 @@ internal sealed class SystemdRunSupervisorProcessLauncher
     public async ValueTask<ExecutionError?> LaunchAsync (
         string storageRoot,
         SupervisorLaunchCommand launchCommand,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(launchCommand);
@@ -35,17 +35,25 @@ internal sealed class SystemdRunSupervisorProcessLauncher
             var arguments = BuildArguments(normalizedStorageRoot, unitName, launchCommand);
 
             var launchResult = await processRunner.RunAsync(
-                    "systemd-run",
-                    arguments,
+                    new ProcessRunRequest(
+                        FileName: "systemd-run",
+                        Arguments: arguments,
+                        Timeout: SupervisorConstants.ProcessManagerCommandTimeout,
+                        CaptureStandardOutput: false,
+                        OutputDrainMode: ProcessOutputDrainMode.WaitForCompletion,
+                        TerminationPolicy: ProcessTerminationPolicy.ForceKill),
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (launchResult.ExitCode == 0)
+            cancellationToken.ThrowIfCancellationRequested();
+            if (launchResult.Status == ProcessRunStatus.Exited && launchResult.ExitCode == 0)
             {
                 return null;
             }
 
-            return ExecutionError.InternalError(
-                $"Failed to launch supervisor with systemd-run. {SupervisorExternalProcessRunner.FormatFailure(launchResult)}");
+            var message = launchResult.ErrorMessage ?? $"Process status={launchResult.Status}.";
+            return launchResult.Status == ProcessRunStatus.TimedOut
+                ? ExecutionError.Timeout($"Timed out while launching supervisor with systemd-run. {message}")
+                : ExecutionError.InternalError($"Failed to launch supervisor with systemd-run. {message}");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {

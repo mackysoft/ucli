@@ -147,7 +147,7 @@ public sealed class SupervisorProjectGatewayStopTests
         var gateway = SupervisorProjectGatewayTestSupport.CreateGateway(
             manifestStore,
             client,
-            new RecordingSupervisorProcessLauncher(),
+            new RecordingSupervisorProcessManager(),
             timeProvider);
 
         var result = await gateway.TryStopProjectAsync(
@@ -195,7 +195,7 @@ public sealed class SupervisorProjectGatewayStopTests
         var gateway = SupervisorProjectGatewayTestSupport.CreateGateway(
             manifestStore,
             client,
-            new RecordingSupervisorProcessLauncher(),
+            new RecordingSupervisorProcessManager(),
             timeProvider);
 
         var result = await gateway.TryStopProjectAsync(
@@ -243,7 +243,7 @@ public sealed class SupervisorProjectGatewayStopTests
         var gateway = SupervisorProjectGatewayTestSupport.CreateGateway(
             manifestStore,
             new SupervisorClient(transportClient, timeProvider),
-            new RecordingSupervisorProcessLauncher(),
+            new RecordingSupervisorProcessManager(),
             timeProvider);
 
         var result = await gateway.TryStopProjectAsync(

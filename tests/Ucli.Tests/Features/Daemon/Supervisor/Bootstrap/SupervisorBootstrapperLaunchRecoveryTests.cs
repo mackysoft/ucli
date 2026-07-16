@@ -1,5 +1,6 @@
 using System.Text;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 
@@ -26,7 +27,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             deleteIfExists: static _ => { });
         var transportClient = CreatePingTransport(manifest);
         var launchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var launcher = new RecordingSupervisorProcessLauncher
+        var processManager = new RecordingSupervisorProcessManager
         {
             LaunchHandler = (_, _) =>
             {
@@ -38,7 +39,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
             new SupervisorClient(transportClient, TimeProvider.System),
-            launcher,
+            processManager,
             new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
@@ -60,6 +61,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Manifest);
         Assert.Equal(1, launchCount);
+        Assert.Empty(processManager.ReleaseInvocations);
     }
 
     [Fact]
@@ -77,7 +79,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             writeAllBytesAtomically: static (_, _, _) => ValueTask.CompletedTask,
             deleteIfExists: static _ => { });
         var transportClient = CreatePingTransport(manifest);
-        var launcher = new RecordingSupervisorProcessLauncher
+        var processManager = new RecordingSupervisorProcessManager
         {
             LaunchHandler = (_, _) =>
             {
@@ -88,7 +90,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
             new SupervisorClient(transportClient, TimeProvider.System),
-            launcher,
+            processManager,
             new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
@@ -136,18 +138,19 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor transport should not be called without a manifest."),
         };
-        var launcher = new RecordingSupervisorProcessLauncher
+        var processManager = new RecordingSupervisorProcessManager
         {
             LaunchHandler = (_, _) =>
             {
                 launchCount++;
                 return ValueTask.FromResult<ExecutionError?>(null);
             },
+            ReleaseHandler = static (_, _, _) => ValueTask.FromResult<ExecutionError?>(null),
         };
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
             new SupervisorClient(transportClient, TimeProvider.System),
-            launcher,
+            processManager,
             new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
@@ -176,6 +179,9 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error.Kind);
         Assert.Contains("did not publish a reachable manifest", result.Error.Message, StringComparison.Ordinal);
         Assert.Equal(2, launchCount);
+        var releaseInvocation = Assert.Single(processManager.ReleaseInvocations);
+        Assert.Equal(UcliStoragePathResolver.NormalizeStorageRootPath(scope.FullPath), releaseInvocation.StorageRoot);
+        Assert.Equal(SupervisorProcessReleaseMode.AwaitTermination, releaseInvocation.ReleaseMode);
     }
 
     private static StubIpcTransportClient CreatePingTransport (SupervisorInstanceManifest manifest)

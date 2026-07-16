@@ -367,7 +367,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor IPC should not be used when bootstrap launch fails."),
         };
         var client = new SupervisorClient(transportClient, timeProvider);
-        var launcher = new RecordingSupervisorProcessLauncher
+        var processManager = new RecordingSupervisorProcessManager
         {
             LaunchError = ExecutionError.InternalError(
                 "supervisor launch failed",
@@ -376,7 +376,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
         var gateway = SupervisorProjectGatewayTestSupport.CreateGateway(
             manifestStore,
             client,
-            launcher,
+            processManager,
             timeProvider);
         var progressSink = new CollectingCommandProgressSink();
         var progressEmitter = SupervisorProjectGatewayTestSupport.CreateStartProgressEmitter(progressSink);
@@ -391,7 +391,7 @@ public sealed class SupervisorProjectGatewayEnsureRunningTests
 
         SupervisorProjectGatewayAssert.BootstrapFailureProgressEmitted(
             result,
-            launcher,
+            processManager,
             progressSink,
             expectedStorageRoot: scope.FullPath,
             expectedErrorCode: UcliCoreErrorCodes.InternalError);

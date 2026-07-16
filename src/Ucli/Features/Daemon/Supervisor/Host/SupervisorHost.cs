@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
@@ -22,6 +23,12 @@ internal sealed class SupervisorHost
 
     private readonly SupervisorRuntimeLogger runtimeLogger;
 
+    private readonly ISupervisorProcessManager processManager;
+
+    private readonly SupervisorBootstrapLockProvider bootstrapLockProvider;
+
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="SupervisorHost" /> class. </summary>
     public SupervisorHost (
         SupervisorManifestStore manifestStore,
@@ -31,7 +38,10 @@ internal sealed class SupervisorHost
         SupervisorRequestDispatcher requestDispatcher,
         SupervisorProjectCoordinator projectCoordinator,
         SupervisorActivityTracker activityTracker,
-        SupervisorRuntimeLogger runtimeLogger)
+        SupervisorRuntimeLogger runtimeLogger,
+        ISupervisorProcessManager processManager,
+        SupervisorBootstrapLockProvider bootstrapLockProvider,
+        TimeProvider timeProvider)
     {
         this.manifestStore = manifestStore ?? throw new ArgumentNullException(nameof(manifestStore));
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
@@ -41,6 +51,9 @@ internal sealed class SupervisorHost
         this.projectCoordinator = projectCoordinator ?? throw new ArgumentNullException(nameof(projectCoordinator));
         this.activityTracker = activityTracker ?? throw new ArgumentNullException(nameof(activityTracker));
         this.runtimeLogger = runtimeLogger ?? throw new ArgumentNullException(nameof(runtimeLogger));
+        this.processManager = processManager ?? throw new ArgumentNullException(nameof(processManager));
+        this.bootstrapLockProvider = bootstrapLockProvider ?? throw new ArgumentNullException(nameof(bootstrapLockProvider));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Runs the supervisor host for the specified storage root. </summary>
@@ -82,13 +95,31 @@ internal sealed class SupervisorHost
             return 1;
         }
 
+        (int ExitCode, bool CanReleaseProcessRegistration) hostResult = (1, false);
+        SupervisorManifestCleanupStatus? cleanupStatus = null;
         using (runtimeOwnership)
         {
-            return await RunWhileOwningRuntimeAsync(runtimeContext, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                hostResult = await RunWhileOwningRuntimeAsync(runtimeContext, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                cleanupStatus = await CleanupManifestIfOwnedAsync(runtimeContext, CancellationToken.None).ConfigureAwait(false);
+                transportServer.Release();
+            }
         }
+
+        if (hostResult.CanReleaseProcessRegistration
+            && cleanupStatus is SupervisorManifestCleanupStatus.Missing or SupervisorManifestCleanupStatus.Removed)
+        {
+            await ReleaseProcessRegistrationIfUnclaimedAsync(runtimeContext.StorageRoot).ConfigureAwait(false);
+        }
+
+        return hostResult.ExitCode;
     }
 
-    private async Task<int> RunWhileOwningRuntimeAsync (
+    private async Task<(int ExitCode, bool CanReleaseProcessRegistration)> RunWhileOwningRuntimeAsync (
         SupervisorRuntimeContext runtimeContext,
         CancellationToken cancellationToken)
     {
@@ -96,6 +127,7 @@ internal sealed class SupervisorHost
 
         using var hostCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         var hostCancellationToken = hostCancellationTokenSource.Token;
+        var idleShutdownRequested = false;
 
         try
         {
@@ -144,8 +176,10 @@ internal sealed class SupervisorHost
             {
                 hostCancellationTokenSource.Cancel();
                 await projectCoordinator.AwaitManagedProcessesAsync().ConfigureAwait(false);
-                await idleMonitorTask.ConfigureAwait(false);
+                idleShutdownRequested = await idleMonitorTask.ConfigureAwait(false);
             }
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             await runtimeLogger.WriteAsync(
                     runtimeContext.StorageRoot,
@@ -153,13 +187,13 @@ internal sealed class SupervisorHost
                     "Supervisor stopped normally.",
                     CancellationToken.None)
                 .ConfigureAwait(false);
-            return 0;
+            return (0, true);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            return 1;
+            return (1, false);
         }
-        catch (OperationCanceledException) when (hostCancellationTokenSource.IsCancellationRequested)
+        catch (OperationCanceledException) when (idleShutdownRequested)
         {
             await runtimeLogger.WriteAsync(
                     runtimeContext.StorageRoot,
@@ -167,7 +201,7 @@ internal sealed class SupervisorHost
                     "Supervisor stopped by cancellation.",
                     CancellationToken.None)
                 .ConfigureAwait(false);
-            return 0;
+            return (0, true);
         }
         catch (Exception exception)
         {
@@ -177,12 +211,7 @@ internal sealed class SupervisorHost
                     $"Supervisor crashed. {exception}",
                     CancellationToken.None)
                 .ConfigureAwait(false);
-            return 1;
-        }
-        finally
-        {
-            await CleanupManifestIfOwnedAsync(runtimeContext, CancellationToken.None).ConfigureAwait(false);
-            transportServer.Release();
+            return (1, true);
         }
     }
 
@@ -200,35 +229,44 @@ internal sealed class SupervisorHost
                 issuedAtUtc: DateTimeOffset.UtcNow));
     }
 
-    private async Task RunIdleMonitorAsync (
+    private async Task<bool> RunIdleMonitorAsync (
         CancellationTokenSource hostCancellationTokenSource,
         CancellationToken cancellationToken)
     {
-        while (!cancellationToken.IsCancellationRequested)
+        try
         {
-            await Task.Delay(TimeSpan.FromSeconds(1), cancellationToken).ConfigureAwait(false);
-            if (projectCoordinator.HasActiveProjectWork || activityTracker.HasActiveRequests)
+            while (!cancellationToken.IsCancellationRequested)
             {
-                continue;
-            }
+                await TimeProviderDelay.DelayAsync(TimeSpan.FromSeconds(1), timeProvider, cancellationToken)
+                    .ConfigureAwait(false);
+                if (projectCoordinator.HasActiveProjectWork || activityTracker.HasActiveRequests)
+                {
+                    continue;
+                }
 
-            if (!activityTracker.IsIdle(SupervisorConstants.IdleShutdownDelay))
-            {
-                continue;
-            }
+                if (!activityTracker.IsIdle(SupervisorConstants.IdleShutdownDelay))
+                {
+                    continue;
+                }
 
-            hostCancellationTokenSource.Cancel();
-            return;
+                hostCancellationTokenSource.Cancel();
+                return true;
+            }
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+        }
+
+        return false;
     }
 
-    private async Task CleanupManifestIfOwnedAsync (
+    private async Task<SupervisorManifestCleanupStatus?> CleanupManifestIfOwnedAsync (
         SupervisorRuntimeContext runtimeContext,
         CancellationToken cancellationToken)
     {
         try
         {
-            _ = await manifestStore.CleanupOwnedRuntimeIfManifestMatchesAsync(
+            return await manifestStore.CleanupOwnedRuntimeIfManifestMatchesAsync(
                     runtimeContext.StorageRoot,
                     runtimeContext.Manifest,
                     endpointResolver.ResolveUnixSocketCleanupTargetOrNull(runtimeContext.StorageRoot),
@@ -240,7 +278,52 @@ internal sealed class SupervisorHost
         {
             // NOTE:
             // best-effort cleanup should not mask supervisor exit.
+            return null;
         }
     }
 
+    private async Task ReleaseProcessRegistrationIfUnclaimedAsync (string storageRoot)
+    {
+        try
+        {
+            await using var bootstrapLock = await bootstrapLockProvider.AcquireAsync(
+                    storageRoot,
+                    SupervisorConstants.ManifestPublicationTimeout,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            var currentManifest = await manifestStore.ReadAfterEndpointPublicationAsync(
+                    storageRoot,
+                    SupervisorConstants.ManifestMutationLockTimeout,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (currentManifest is not null)
+            {
+                return;
+            }
+
+            var releaseError = await processManager.ReleaseAsync(
+                    storageRoot,
+                    SupervisorProcessReleaseMode.CurrentProcess,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+            if (releaseError is not null)
+            {
+                await runtimeLogger.WriteAsync(
+                        storageRoot,
+                        "error",
+                        $"Supervisor process registration release failed. {releaseError.Message}",
+                        CancellationToken.None)
+                    .ConfigureAwait(false);
+            }
+        }
+        catch (Exception exception)
+        {
+            await runtimeLogger.WriteAsync(
+                    storageRoot,
+                    "error",
+                    $"Supervisor process registration release crashed. {exception}",
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+    }
 }

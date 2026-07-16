@@ -112,12 +112,11 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<SupervisorRequestDispatcher>();
         services.AddSingleton<SupervisorTransportServer>();
         services.AddSingleton<SupervisorLaunchCommandResolver>();
-        services.AddSingleton<SupervisorExternalProcessRunner>();
-        services.AddSingleton<LaunchdSupervisorProcessLauncher>();
+        services.AddSingleton<LaunchdSupervisorProcessManager>();
         services.AddSingleton<SystemdRunSupervisorProcessLauncher>();
         services.AddSingleton<WindowsDetachedSupervisorProcessLauncher>();
-        services.AddSingleton<SupervisorProcessLauncher>();
-        services.AddSingleton<ISupervisorProcessLauncher>(provider => provider.GetRequiredService<SupervisorProcessLauncher>());
+        services.AddSingleton<SupervisorProcessManager>();
+        services.AddSingleton<ISupervisorProcessManager>(provider => provider.GetRequiredService<SupervisorProcessManager>());
         services.AddSingleton<SupervisorBootstrapper>();
         services.AddSingleton<SupervisorClient>();
         services.AddSingleton<IDaemonProjectLifecycleGateway, SupervisorProjectGateway>();

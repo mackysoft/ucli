@@ -26,6 +26,9 @@ internal static class SupervisorConstants
     /// <summary> Gets the maximum time allowed for one supervisor host to claim runtime ownership. </summary>
     public static readonly TimeSpan RuntimeOwnershipLockTimeout = TimeSpan.FromSeconds(1);
 
+    /// <summary> Gets the maximum time allowed for one platform process-manager command. </summary>
+    public static readonly TimeSpan ProcessManagerCommandTimeout = TimeSpan.FromSeconds(10);
+
     /// <summary> Gets the idle delay after which an unused supervisor exits. </summary>
     public static readonly TimeSpan IdleShutdownDelay = TimeSpan.FromSeconds(10);
 

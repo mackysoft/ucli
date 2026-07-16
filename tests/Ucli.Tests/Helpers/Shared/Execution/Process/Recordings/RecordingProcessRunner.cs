@@ -15,6 +15,8 @@ internal sealed class RecordingProcessRunner : IProcessRunner
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
+    public Func<ProcessRunRequest, CancellationToken, Task<ProcessRunResult>>? RunHandler { get; set; }
+
     public Task<ProcessRunResult> RunAsync (
         ProcessRunRequest request,
         CancellationToken cancellationToken = default)
@@ -23,6 +25,11 @@ internal sealed class RecordingProcessRunner : IProcessRunner
         cancellationToken.ThrowIfCancellationRequested();
 
         invocations.Add(new Invocation(request, cancellationToken));
+        if (RunHandler is not null)
+        {
+            return RunHandler(request, cancellationToken);
+        }
+
         if (!results.TryDequeue(out var result))
         {
             throw new InvalidOperationException("Process run result is not configured.");

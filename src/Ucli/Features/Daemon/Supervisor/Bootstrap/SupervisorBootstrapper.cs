@@ -19,7 +19,7 @@ internal sealed class SupervisorBootstrapper
 
     private readonly SupervisorClient supervisorClient;
 
-    private readonly ISupervisorProcessLauncher processLauncher;
+    private readonly ISupervisorProcessManager processManager;
 
     private readonly SupervisorBootstrapLockProvider bootstrapLockProvider;
 
@@ -30,21 +30,21 @@ internal sealed class SupervisorBootstrapper
     /// <summary> Initializes a new instance of the <see cref="SupervisorBootstrapper" /> class. </summary>
     /// <param name="manifestStore"> The supervisor manifest-store dependency. </param>
     /// <param name="supervisorClient"> The supervisor client dependency. </param>
-    /// <param name="processLauncher"> The supervisor process-launcher dependency. </param>
+    /// <param name="processManager"> The supervisor process-manager dependency. </param>
     /// <param name="bootstrapLockProvider"> The bootstrap-lock provider dependency. </param>
     /// <param name="endpointResolver"> The supervisor endpoint resolver dependency. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     public SupervisorBootstrapper (
         SupervisorManifestStore manifestStore,
         SupervisorClient supervisorClient,
-        ISupervisorProcessLauncher processLauncher,
+        ISupervisorProcessManager processManager,
         SupervisorBootstrapLockProvider bootstrapLockProvider,
         SupervisorEndpointResolver endpointResolver,
         TimeProvider timeProvider)
     {
         this.manifestStore = manifestStore ?? throw new ArgumentNullException(nameof(manifestStore));
         this.supervisorClient = supervisorClient ?? throw new ArgumentNullException(nameof(supervisorClient));
-        this.processLauncher = processLauncher ?? throw new ArgumentNullException(nameof(processLauncher));
+        this.processManager = processManager ?? throw new ArgumentNullException(nameof(processManager));
         this.bootstrapLockProvider = bootstrapLockProvider ?? throw new ArgumentNullException(nameof(bootstrapLockProvider));
         this.endpointResolver = endpointResolver ?? throw new ArgumentNullException(nameof(endpointResolver));
         this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
@@ -115,91 +115,120 @@ internal sealed class SupervisorBootstrapper
         await using var acquiredLock = lockHandle;
         var launchAttemptCount = 0;
         long? latestLaunchTimestamp = null;
+        var ownsLaunchRegistration = false;
 
-        while (true)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var isWithinLaunchGrace = latestLaunchTimestamp is long launchTimestamp
-                && IsWithinManifestPublicationGrace(launchTimestamp);
-            var manifestProbe = await ProbeManifestAvailabilityAsync(
-                    normalizedStorageRoot,
-                    deadline,
-                    isWithinLaunchGrace,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (manifestProbe.ReadyManifest != null)
+            while (true)
             {
-                return SupervisorBootstrapResult.Success(manifestProbe.ReadyManifest);
-            }
+                cancellationToken.ThrowIfCancellationRequested();
 
-            if (manifestProbe.Error != null)
-            {
-                return SupervisorBootstrapResult.Failure(manifestProbe.Error);
-            }
-
-            if (manifestProbe.ShouldLaunchSupervisor)
-            {
-                // NOTE:
-                // launchd/systemd/dotnet startup can take several seconds before the supervisor
-                // writes manifest.json. During that window, relaunching or deleting the socket can
-                // destroy a healthy startup path before it becomes observable to the bootstrapper.
-                if (launchAttemptCount > 0 && isWithinLaunchGrace)
+                var isWithinLaunchGrace = latestLaunchTimestamp is long launchTimestamp
+                    && IsWithinManifestPublicationGrace(launchTimestamp);
+                var manifestProbe = await ProbeManifestAvailabilityAsync(
+                        normalizedStorageRoot,
+                        deadline,
+                        isWithinLaunchGrace,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (manifestProbe.ReadyManifest != null)
                 {
-                    if (!await TryDelayBeforeNextProbeAsync(deadline, cancellationToken).ConfigureAwait(false))
+                    ownsLaunchRegistration = false;
+                    return SupervisorBootstrapResult.Success(manifestProbe.ReadyManifest);
+                }
+
+                if (manifestProbe.Error != null)
+                {
+                    return SupervisorBootstrapResult.Failure(manifestProbe.Error);
+                }
+
+                if (manifestProbe.ShouldLaunchSupervisor)
+                {
+                    // NOTE:
+                    // launchd/systemd/dotnet startup can take several seconds before the supervisor
+                    // writes manifest.json. During that window, relaunching or deleting the socket can
+                    // destroy a healthy startup path before it becomes observable to the bootstrapper.
+                    if (launchAttemptCount > 0 && isWithinLaunchGrace)
                     {
-                        return SupervisorBootstrapResult.Failure(ExecutionError.Timeout(
-                            $"Timed out while waiting for supervisor bootstrap. Timeout={timeout.TotalMilliseconds:0}ms."));
+                        if (!await TryDelayBeforeNextProbeAsync(deadline, cancellationToken).ConfigureAwait(false))
+                        {
+                            return SupervisorBootstrapResult.Failure(ExecutionError.Timeout(
+                                $"Timed out while waiting for supervisor bootstrap. Timeout={timeout.TotalMilliseconds:0}ms."));
+                        }
+
+                        continue;
                     }
 
-                    continue;
+                    if (launchAttemptCount >= MaxLaunchAttempts)
+                    {
+                        return SupervisorBootstrapResult.Failure(ExecutionError.InternalError(
+                            $"{LaunchFailureMessage} Attempts={launchAttemptCount}."));
+                    }
+
+                    if (!deadline.TryGetRemainingTimeout(out var launchTimeout))
+                    {
+                        return SupervisorBootstrapResult.Failure(ExecutionError.Timeout(
+                            "Timed out before supervisor launch could begin."));
+                    }
+
+                    ExecutionError? launchError;
+                    using var launchCancellationScope = TimeProviderCancellationScope.CreateLinked(
+                        cancellationToken,
+                        launchTimeout,
+                        timeProvider);
+                    try
+                    {
+                        launchError = await processManager.LaunchAsync(
+                                normalizedStorageRoot,
+                                launchCancellationScope.Token)
+                            .ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested
+                                                              && launchCancellationScope.HasTimedOut)
+                    {
+                        return SupervisorBootstrapResult.Failure(ExecutionError.Timeout(
+                            $"Timed out while launching supervisor. Timeout={launchTimeout.TotalMilliseconds:0}ms."));
+                    }
+
+                    if (launchError != null)
+                    {
+                        return SupervisorBootstrapResult.Failure(launchError);
+                    }
+
+                    ownsLaunchRegistration = true;
+                    launchAttemptCount++;
+                    latestLaunchTimestamp = timeProvider.GetTimestamp();
                 }
 
-                if (launchAttemptCount >= MaxLaunchAttempts)
-                {
-                    return SupervisorBootstrapResult.Failure(ExecutionError.InternalError(
-                        $"{LaunchFailureMessage} Attempts={launchAttemptCount}."));
-                }
-
-                if (!deadline.TryGetRemainingTimeout(out var launchTimeout))
+                if (!await TryDelayBeforeNextProbeAsync(deadline, cancellationToken).ConfigureAwait(false))
                 {
                     return SupervisorBootstrapResult.Failure(ExecutionError.Timeout(
-                        "Timed out before supervisor launch could begin."));
+                        $"Timed out while waiting for supervisor bootstrap. Timeout={timeout.TotalMilliseconds:0}ms."));
                 }
-
-                ExecutionError? launchError;
-                using var launchCancellationScope = TimeProviderCancellationScope.CreateLinked(
-                    cancellationToken,
-                    launchTimeout,
-                    timeProvider);
-                try
-                {
-                    launchError = await processLauncher.LaunchAsync(
-                            normalizedStorageRoot,
-                            launchCancellationScope.Token)
-                        .ConfigureAwait(false);
-                }
-                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested
-                                                          && launchCancellationScope.HasTimedOut)
-                {
-                    return SupervisorBootstrapResult.Failure(ExecutionError.Timeout(
-                        $"Timed out while launching supervisor. Timeout={launchTimeout.TotalMilliseconds:0}ms."));
-                }
-
-                if (launchError != null)
-                {
-                    return SupervisorBootstrapResult.Failure(launchError);
-                }
-
-                launchAttemptCount++;
-                latestLaunchTimestamp = timeProvider.GetTimestamp();
             }
-
-            if (!await TryDelayBeforeNextProbeAsync(deadline, cancellationToken).ConfigureAwait(false))
+        }
+        finally
+        {
+            if (ownsLaunchRegistration)
             {
-                return SupervisorBootstrapResult.Failure(ExecutionError.Timeout(
-                    $"Timed out while waiting for supervisor bootstrap. Timeout={timeout.TotalMilliseconds:0}ms."));
+                await ReleaseLaunchRegistrationBestEffortAsync(normalizedStorageRoot).ConfigureAwait(false);
             }
+        }
+    }
+
+    private async ValueTask ReleaseLaunchRegistrationBestEffortAsync (string storageRoot)
+    {
+        try
+        {
+            _ = await processManager.ReleaseAsync(
+                    storageRoot,
+                    SupervisorProcessReleaseMode.AwaitTermination,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        {
+            // Registration rollback is secondary to the bootstrap failure or cancellation being returned.
         }
     }
 

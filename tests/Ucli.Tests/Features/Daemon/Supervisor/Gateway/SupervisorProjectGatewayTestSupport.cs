@@ -23,11 +23,11 @@ internal static class SupervisorProjectGatewayTestSupport
 
         var transportClient = new StubIpcTransportClient();
         var client = new SupervisorClient(transportClient, effectiveTimeProvider);
-        var launcher = new RecordingSupervisorProcessLauncher();
+        var processManager = new RecordingSupervisorProcessManager();
         var gateway = CreateGateway(
             manifestStore,
             client,
-            launcher,
+            processManager,
             effectiveTimeProvider);
 
         return new SupervisorProjectGatewayScenario(
@@ -41,7 +41,7 @@ internal static class SupervisorProjectGatewayTestSupport
     public static SupervisorProjectGateway CreateGateway (
         SupervisorManifestStore manifestStore,
         SupervisorClient client,
-        RecordingSupervisorProcessLauncher launcher,
+        RecordingSupervisorProcessManager processManager,
         TimeProvider timeProvider)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
@@ -50,7 +50,7 @@ internal static class SupervisorProjectGatewayTestSupport
             new SupervisorBootstrapper(
                 manifestStore,
                 client,
-                launcher,
+                processManager,
                 new SupervisorBootstrapLockProvider(timeProvider),
                 new SupervisorEndpointResolver(),
                 timeProvider),

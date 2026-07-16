@@ -17,7 +17,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor ping should not be called before launch succeeds."),
         };
         var launchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
-        var launcher = new RecordingSupervisorProcessLauncher
+        var processManager = new RecordingSupervisorProcessManager
         {
             LaunchHandler = static async (_, cancellationToken) =>
             {
@@ -29,7 +29,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
         var bootstrapper = new SupervisorBootstrapper(
             SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider),
             new SupervisorClient(transportClient, timeProvider),
-            launcher,
+            processManager,
             new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
@@ -47,7 +47,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error.Kind);
-        Assert.True(launcher.ObservedCancellation);
+        Assert.True(processManager.ObservedCancellation);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
             new SupervisorClient(transportClient, timeProvider),
-            new RecordingSupervisorProcessLauncher(),
+            new RecordingSupervisorProcessManager(),
             new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
@@ -104,18 +104,26 @@ public sealed class SupervisorBootstrapperTimeoutTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "launch-poll-deadline");
         var timeProvider = new ManualTimeProvider();
+        var releaseStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseAllowed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor transport should not be called without a manifest."),
         };
-        var launcher = new RecordingSupervisorProcessLauncher
+        var processManager = new RecordingSupervisorProcessManager
         {
             LaunchHandler = static (_, _) => ValueTask.FromResult<ExecutionError?>(null),
+            ReleaseHandler = async (_, _, _) =>
+            {
+                releaseStarted.TrySetResult();
+                await releaseAllowed.Task.ConfigureAwait(false);
+                return null;
+            },
         };
         var bootstrapper = new SupervisorBootstrapper(
             SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider),
             new SupervisorClient(transportClient, timeProvider),
-            launcher,
+            processManager,
             new SupervisorBootstrapLockProvider(timeProvider),
             new SupervisorEndpointResolver(),
             timeProvider);
@@ -134,10 +142,55 @@ public sealed class SupervisorBootstrapperTimeoutTests
             timeProvider.Advance(TimeSpan.FromMilliseconds(50));
         }
 
+        await TestAwaiter.WaitAsync(
+            releaseStarted.Task,
+            "Supervisor launch registration rollback start",
+            SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+        Assert.False(resultTask.IsCompleted);
+        releaseAllowed.TrySetResult();
+
         var result = await TestAwaiter.WaitAsync(resultTask, "Supervisor poll deadline result", SupervisorBootstrapperTestSupport.SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error.Kind);
+        Assert.Equal(
+            SupervisorProcessReleaseMode.AwaitTermination,
+            Assert.Single(processManager.ReleaseInvocations).ReleaseMode);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task EnsureReady_WhenCanceledAfterLaunch_RollsBackRegistration ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "post-launch-cancellation");
+        var timeProvider = new ManualTimeProvider();
+        var processManager = new RecordingSupervisorProcessManager
+        {
+            LaunchHandler = static (_, _) => ValueTask.FromResult<ExecutionError?>(null),
+            ReleaseHandler = static (_, _, _) => ValueTask.FromResult<ExecutionError?>(null),
+        };
+        var bootstrapper = new SupervisorBootstrapper(
+            SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider),
+            new SupervisorClient(new StubIpcTransportClient(), timeProvider),
+            processManager,
+            new SupervisorBootstrapLockProvider(timeProvider),
+            new SupervisorEndpointResolver(),
+            timeProvider);
+        using var cancellation = new CancellationTokenSource();
+        var resultTask = bootstrapper.EnsureReadyAsync(
+                scope.FullPath,
+                TimeSpan.FromSeconds(5),
+                cancellation.Token)
+            .AsTask();
+        await timeProvider.WaitForTimerDueWithinAsync(SupervisorConstants.BootstrapPollDelay)
+            .WaitAsync(SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+
+        cancellation.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => resultTask);
+        Assert.Equal(
+            SupervisorProcessReleaseMode.AwaitTermination,
+            Assert.Single(processManager.ReleaseInvocations).ReleaseMode);
     }
 }
