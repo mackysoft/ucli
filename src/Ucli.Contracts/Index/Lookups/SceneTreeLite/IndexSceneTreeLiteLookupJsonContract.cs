@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Contracts.Index;
 
-/// <summary> Represents persisted <c>scene-tree-lite/&lt;sceneKey&gt;.lookup.json</c> contract fields. </summary>
+/// <summary> Represents persisted <c>scenes/&lt;sceneStorageKey&gt;.json</c> contract fields. </summary>
 /// <param name="SchemaVersion"> The schema-version value. </param>
 /// <param name="GeneratedAtUtc"> The generated-at timestamp. </param>
 /// <param name="ScenePath"> The project-relative scene path represented by this lookup. </param>

@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Status.Common.Contracts;
 
@@ -30,7 +31,7 @@ internal sealed record StatusExecutionOutput (
     bool CanAcceptExecutionRequests,
     DaemonEditorMode? EditorMode,
     int TimeoutMilliseconds,
-    DateTimeOffset? ObservedAtUtc = null,
-    string? ActionRequired = null,
-    DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic = null,
-    IpcPlayModeSnapshot? PlayMode = null);
+    DateTimeOffset? ObservedAtUtc,
+    DaemonDiagnosisActionRequired? ActionRequired,
+    DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic,
+    IpcPlayModeSnapshot? PlayMode);

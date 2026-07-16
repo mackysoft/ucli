@@ -9,6 +9,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Runtime;
 using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
@@ -25,14 +26,18 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private readonly CsEvalReturnValueSerializer returnValueSerializer;
 
+        private readonly IUnityMutationLaneControl mutationLaneControl;
+
         public CsEvalOperation (
             CsEvalCompilationService compilationService,
             CsEvalEntryPointReflectionResolver entryPointResolver,
-            CsEvalReturnValueSerializer returnValueSerializer)
+            CsEvalReturnValueSerializer returnValueSerializer,
+            IUnityMutationLaneControl mutationLaneControl)
         {
             this.compilationService = compilationService ?? throw new ArgumentNullException(nameof(compilationService));
             this.entryPointResolver = entryPointResolver ?? throw new ArgumentNullException(nameof(entryPointResolver));
             this.returnValueSerializer = returnValueSerializer ?? throw new ArgumentNullException(nameof(returnValueSerializer));
+            this.mutationLaneControl = mutationLaneControl ?? throw new ArgumentNullException(nameof(mutationLaneControl));
         }
 
         public override UcliOperationMetadata Metadata { get; } = CreateMetadata();
@@ -87,7 +92,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     compilation.SourceKind,
                     compilation.ResolvedEntryPoint,
                     compilation.ExecutionDigest,
-                    new CsEvalCompileResult(CsEvalCompileStatusValues.Failed, emitDiagnostics),
+                    new CsEvalCompileResult(CsEvalCompileStatus.Failed, emitDiagnostics),
                     durationMilliseconds: null,
                     logs: null,
                     returnValue: null,
@@ -139,7 +144,11 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
             try
             {
-                returnObject = await CsEvalEntryPointReturnValueResolver.ResolveAsync(method.ReturnType, returnObject, cancellationToken);
+                returnObject = await CsEvalEntryPointReturnValueResolver.ResolveAsync(
+                    method.ReturnType,
+                    returnObject,
+                    cancellationToken,
+                    mutationLaneControl.Quarantine);
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
             {
@@ -168,6 +177,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             }
 
             stopwatch.Stop();
+            cancellationToken.ThrowIfCancellationRequested();
             if (!returnValueSerializer.TrySerialize(returnObject, out var returnValue, out var returnValueError))
             {
                 return CreatePostInvocationInvalidArgumentFailure(
@@ -201,10 +211,10 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 },
                 touchedKinds: new[]
                 {
-                    UcliTouchedResourceKindNames.Scene,
-                    UcliTouchedResourceKindNames.Prefab,
-                    UcliTouchedResourceKindNames.Asset,
-                    UcliTouchedResourceKindNames.ProjectSettings,
+                    UcliTouchedResourceKind.Scene,
+                    UcliTouchedResourceKind.Prefab,
+                    UcliTouchedResourceKind.Asset,
+                    UcliTouchedResourceKind.ProjectSettings,
                 },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Compile the supplied C# source and validate the required entry point without invoking user code.",
@@ -229,10 +239,10 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 new[]
                 {
                     new UcliCodeSourceFormContract(
-                        CsEvalSourceKindValues.CompilationUnit,
+                        UcliCodeSourceFormKind.CompilationUnit,
                         "Complete C# compilation unit containing using directives, namespace or type declarations, and exactly one public static Run(UcliCsEvalContext context) method with a supported synchronous or task-like return type."),
                     new UcliCodeSourceFormContract(
-                        CsEvalSourceKindValues.Snippet,
+                        UcliCodeSourceFormKind.Snippet,
                         "Run method body snippet. Leading using directives, statements, await expressions, explicit return, no return, and one expression are accepted; snippets without return produce null."),
                 },
                 new[] { typeof(UcliCsEvalContext) });
@@ -318,7 +328,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
 
         private static bool IsChanged (CsEvalTouchedResources touchedResources)
         {
-            return !string.Equals(touchedResources.State, CsEvalTouchedResourceStateValues.None, StringComparison.Ordinal);
+            return touchedResources.State != CsEvalTouchedResourceState.None;
         }
 
         private static IReadOnlyList<OperationReadInvalidation> CreateReadInvalidations ()

@@ -42,7 +42,7 @@ internal static class IpcProtocolErrorCodeDescriptors
             possiblePhases: ["ipcHandshake", "staticValidation"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["protocolVersion", "status", UcliErrorInspectTargets.DaemonStatusCommand],
             nextActions:
             [
@@ -61,7 +61,7 @@ internal static class IpcProtocolErrorCodeDescriptors
             possiblePhases: ["ipcDispatch"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["command", "payload.method", UcliErrorInspectTargets.DaemonStatusCommand],
             nextActions:
             [
@@ -80,7 +80,7 @@ internal static class IpcProtocolErrorCodeDescriptors
             possiblePhases: ["ipcDispatch", "responseRead"],
             impliesNotApplied: null,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["errors[].message", "payload.requestId", "payload.opResults", UcliErrorInspectTargets.DaemonErrorLogsCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [

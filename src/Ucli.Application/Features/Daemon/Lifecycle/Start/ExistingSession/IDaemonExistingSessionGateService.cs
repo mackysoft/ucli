@@ -12,7 +12,7 @@ internal interface IDaemonExistingSessionGateService
     /// </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="session"> The existing daemon session snapshot. </param>
-    /// <param name="timeout"> The timeout used for daemon ping and stale cleanup. </param>
+    /// <param name="deadline"> The deadline shared by the daemon-start workflow. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="progressObserver"> The optional observer for supervisor-internal start progress. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
@@ -23,7 +23,7 @@ internal interface IDaemonExistingSessionGateService
     ValueTask<DaemonStartResult?> TryHandleExistingSessionAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode? editorMode,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default);

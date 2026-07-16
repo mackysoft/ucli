@@ -20,25 +20,23 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
         private readonly IOperationPhaseExecutor operationPhaseExecutor;
         private readonly IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator;
         private readonly IUnityEditorReadinessGate readinessGate;
-        private readonly IUnityMainThreadRequestExecutor mainThreadRequestExecutor;
 
         /// <summary> Initializes a new instance of the <see cref="ExecuteRequestDispatcher" /> class. </summary>
         /// <param name="requestNormalizer"> The execute-request normalizer dependency. </param>
         /// <param name="operationPhaseExecutor"> The operation-phase executor dependency. </param>
         /// <param name="requestIdempotencyCoordinator"> The request-id idempotency coordinator dependency. </param>
+        /// <param name="readinessGate"> The Unity lifecycle readiness dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
         public ExecuteRequestDispatcher (
             IExecuteRequestNormalizer requestNormalizer,
             IOperationPhaseExecutor operationPhaseExecutor,
             IExecuteRequestIdempotencyCoordinator requestIdempotencyCoordinator,
-            IUnityEditorReadinessGate readinessGate,
-            IUnityMainThreadRequestExecutor mainThreadRequestExecutor)
+            IUnityEditorReadinessGate readinessGate)
         {
             this.requestNormalizer = requestNormalizer ?? throw new ArgumentNullException(nameof(requestNormalizer));
             this.operationPhaseExecutor = operationPhaseExecutor ?? throw new ArgumentNullException(nameof(operationPhaseExecutor));
             this.requestIdempotencyCoordinator = requestIdempotencyCoordinator ?? throw new ArgumentNullException(nameof(requestIdempotencyCoordinator));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
-            this.mainThreadRequestExecutor = mainThreadRequestExecutor ?? throw new ArgumentNullException(nameof(mainThreadRequestExecutor));
         }
 
         /// <summary> Dispatches one execute request and returns the response envelope. </summary>
@@ -129,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                     normalizationError.OpId);
             }
 
-            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken, request.AllowPlayMode).ConfigureAwait(false);
+            var readinessResult = await readinessGate.EnsureExecutionReadyAsync(request.FailFast, cancellationToken, request.AllowPlayMode);
             if (!readinessResult.IsReady)
             {
                 var lifecycleError = readinessResult.Error!;
@@ -142,11 +140,11 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
 
             try
             {
-                return await mainThreadRequestExecutor.ExecuteAsync(async () =>
-                {
-                    var trace = await operationPhaseExecutor.ExecuteAsync(executionCommand, normalizationResult.Request!, cancellationToken);
-                    return ExecuteResponseBuilder.CreateExecutionResponse(context, trace);
-                }, cancellationToken).ConfigureAwait(false);
+                var trace = await operationPhaseExecutor.ExecuteAsync(
+                    executionCommand,
+                    normalizationResult.Request!,
+                    cancellationToken);
+                return ExecuteResponseBuilder.CreateExecutionResponse(context, trace);
             }
             catch (OperationCanceledException)
             {

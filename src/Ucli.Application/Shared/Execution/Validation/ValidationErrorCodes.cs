@@ -3,9 +3,6 @@ namespace MackySoft.Ucli.Application.Shared.Execution;
 /// <summary> Defines machine-readable validation error codes for static request validation. </summary>
 internal static class ValidationErrorCodes
 {
-    /// <summary> Gets the error code used when requestId is not a valid UUID. </summary>
-    public static readonly UcliCode RequestIdInvalid = new UcliCode("REQUEST_ID_INVALID");
-
     /// <summary> Gets the error code used when steps is missing. </summary>
     public static readonly UcliCode StepsRequired = new UcliCode("STEPS_REQUIRED");
 
@@ -41,14 +38,13 @@ internal static class ValidationErrorCodes
     /// <summary> Returns whether the specified code belongs to static request validation. </summary>
     public static bool Contains (UcliCode code)
     {
-        return code.IsValid && AllCodes.Contains(code);
+        return code is not null && AllCodes.Contains(code);
     }
 
     private static IReadOnlySet<UcliCode> CreateAllCodes ()
     {
         return new HashSet<UcliCode>
         {
-            RequestIdInvalid,
             StepsRequired,
             StepIdRequired,
             StepIdDuplicated,

@@ -5,7 +5,7 @@ internal sealed class CodeCatalog : ICodeCatalog
 {
     private static readonly HashSet<UcliCommand> KnownCommandSet = new(UcliPublicCommandCatalog.KnownCommands);
 
-    private readonly IReadOnlyDictionary<string, CodeCatalogDescriptor> descriptorsByCode;
+    private readonly IReadOnlyDictionary<UcliCode, CodeCatalogDescriptor> descriptorsByCode;
 
     /// <summary> Initializes a new instance of the <see cref="CodeCatalog" /> class. </summary>
     /// <param name="contributors"> The contributor set to aggregate. The sequence must not be <see langword="null" /> and must not contain <see langword="null" /> entries. </param>
@@ -20,9 +20,8 @@ internal sealed class CodeCatalog : ICodeCatalog
             .OrderBy(static descriptor => descriptor.Code.Value, StringComparer.Ordinal)
             .ToArray();
         descriptorsByCode = Descriptors.ToDictionary(
-            static descriptor => descriptor.Code.Value,
-            static descriptor => descriptor,
-            StringComparer.Ordinal);
+            static descriptor => descriptor.Code,
+            static descriptor => descriptor);
     }
 
     /// <inheritdoc />
@@ -33,13 +32,8 @@ internal sealed class CodeCatalog : ICodeCatalog
         UcliCode code,
         out CodeCatalogDescriptor descriptor)
     {
-        if (!code.IsValid)
-        {
-            descriptor = null!;
-            return false;
-        }
-
-        return descriptorsByCode.TryGetValue(code.Value, out descriptor!);
+        ArgumentNullException.ThrowIfNull(code);
+        return descriptorsByCode.TryGetValue(code, out descriptor!);
     }
 
     private static List<CodeCatalogDescriptor> CollectDescriptors (IEnumerable<ICodeCatalogContributor> contributors)
@@ -87,10 +81,9 @@ internal sealed class CodeCatalog : ICodeCatalog
             throw new InvalidOperationException($"Code catalog contributor '{contributor.GetType().FullName}' returned a null descriptor.");
         }
 
-        ValidateCodeValue(descriptor.Code);
-        if (!CodeCatalogKindValues.IsSupported(descriptor.Kind))
+        if (descriptor.Kind == CodeCatalogKind.Unknown)
         {
-            throw new InvalidOperationException($"Code catalog descriptor '{descriptor.Code}' has unsupported kind '{descriptor.Kind}'.");
+            throw new InvalidOperationException($"Code catalog descriptor '{descriptor.Code}' uses the reserved unknown kind.");
         }
 
         ValidateRequiredString(descriptor.Code, descriptor.Category, nameof(descriptor.Category));
@@ -136,7 +129,7 @@ internal sealed class CodeCatalog : ICodeCatalog
         var seenCommands = new HashSet<UcliCommand>();
         for (var i = 0; i < commands.Count; i++)
         {
-            if (!commands[i].IsValid)
+            if (commands[i] is null)
             {
                 throw new InvalidOperationException($"Code catalog descriptor '{code}' has invalid {propertyName} item at index {i}.");
             }
@@ -161,14 +154,6 @@ internal sealed class CodeCatalog : ICodeCatalog
         if (string.IsNullOrWhiteSpace(value))
         {
             throw new InvalidOperationException($"Code catalog descriptor '{code}' has empty {propertyName}.");
-        }
-    }
-
-    private static void ValidateCodeValue (UcliCode code)
-    {
-        if (!code.IsValid)
-        {
-            throw new InvalidOperationException($"Code catalog descriptor code is invalid. {UcliCode.InvalidValueMessage}");
         }
     }
 
@@ -197,7 +182,7 @@ internal sealed class CodeCatalog : ICodeCatalog
             for (var j = 0; j < descriptor.RelatedCodes.Count; j++)
             {
                 var relatedCode = descriptor.RelatedCodes[j];
-                if (!relatedCode.IsValid)
+                if (relatedCode is null)
                 {
                     throw new InvalidOperationException($"Code catalog descriptor '{descriptor.Code}' has invalid related code at index {j}.");
                 }

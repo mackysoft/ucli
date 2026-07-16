@@ -4,14 +4,14 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 internal static class IpcUnityLogsStackTraceOptionsNormalizer
 {
     public static bool TryNormalize (
-        string stackTraceMode,
+        IpcUnityLogStackTraceMode stackTraceMode,
         int? rawMaxFrames,
         int? rawMaxChars,
         out int? stackTraceMaxFrames,
         out int? stackTraceMaxChars,
         out string? errorMessage)
     {
-        if (string.Equals(stackTraceMode, IpcUnityLogsStackTraceModeCodec.None, StringComparison.Ordinal))
+        if (stackTraceMode == IpcUnityLogStackTraceMode.None)
         {
             stackTraceMaxFrames = null;
             stackTraceMaxChars = null;

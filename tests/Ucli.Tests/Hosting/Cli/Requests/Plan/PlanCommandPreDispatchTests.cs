@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Hosting.Cli.Requests.Plan.Preflight;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -60,6 +59,7 @@ public sealed class PlanCommandPreDispatchTests
             timeout: "abc",
             cancellationToken: CancellationToken.None));
 
+        Assert.NotEqual(Guid.Empty, Assert.Single(preflightService.Invocations).RequestId);
         PlanCommandAssert.InvalidArgumentReturnedWithoutPlanExecution(
             result,
             service,

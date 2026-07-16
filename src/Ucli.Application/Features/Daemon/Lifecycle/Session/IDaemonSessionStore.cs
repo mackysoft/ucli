@@ -10,7 +10,7 @@ internal interface IDaemonSessionStore
     /// <returns> The daemon session read result. </returns>
     ValueTask<DaemonSessionReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 
     /// <summary> Writes daemon session metadata to local storage. </summary>
@@ -30,6 +30,6 @@ internal interface IDaemonSessionStore
     /// <returns> The daemon session storage operation result. </returns>
     ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 }

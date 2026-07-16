@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Hosting.Cli.Play;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -27,7 +26,7 @@ public sealed class PlayStatusCommandPayloadTests
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasProperty("project", project => project
                 .HasString("projectPath", PlayCommandOutputTestData.ProjectPath)
-                .HasString("projectFingerprint", PlayCommandOutputTestData.ProjectFingerprint)
+                .HasString("projectFingerprint", PlayCommandOutputTestData.ProjectFingerprint.ToString())
                 .HasString("unityVersion", PlayCommandOutputTestData.UnityVersion))
             .HasString("daemonStatus", "running")
             .HasString("serverVersion", "0.5.0")

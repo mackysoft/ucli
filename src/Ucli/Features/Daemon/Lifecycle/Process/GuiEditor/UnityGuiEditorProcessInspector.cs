@@ -228,9 +228,10 @@ internal sealed class UnityGuiEditorProcessInspector : IUnityGuiEditorProcessIns
 
     private static string? TryRunAndReadStandardOutput (DiagnosticsProcessStartInfo startInfo)
     {
+        DiagnosticsProcess? process = null;
         try
         {
-            using var process = DiagnosticsProcess.Start(startInfo);
+            process = DiagnosticsProcess.Start(startInfo);
             if (process == null)
             {
                 return null;
@@ -248,7 +249,19 @@ internal sealed class UnityGuiEditorProcessInspector : IUnityGuiEditorProcessIns
         }
         catch (Exception)
         {
+            if (process != null)
+            {
+                TryKill(process);
+            }
+
             return null;
+        }
+        finally
+        {
+            if (process != null)
+            {
+                TryDispose(process);
+            }
         }
     }
 
@@ -257,6 +270,18 @@ internal sealed class UnityGuiEditorProcessInspector : IUnityGuiEditorProcessIns
         try
         {
             process.Kill(entireProcessTree: true);
+            _ = process.WaitForExit(ProcessCommandExitTimeoutMilliseconds);
+        }
+        catch (Exception)
+        {
+        }
+    }
+
+    private static void TryDispose (DiagnosticsProcess process)
+    {
+        try
+        {
+            process.Dispose();
         }
         catch (Exception)
         {

@@ -22,7 +22,9 @@
           "additionalProperties": false,
           "properties": {
             "runId": {
-              "type": "string"
+              "type": "string",
+              "format": "uuid",
+              "pattern": "^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
             },
             "profile": {
               "type": "object",
@@ -620,9 +622,6 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "checked": {
-              "type": "boolean"
-            },
             "dirty": {
               "type": "boolean"
             },
@@ -645,8 +644,7 @@
                       "scene",
                       "prefab",
                       "asset",
-                      "projectSettings",
-                      "unknown"
+                      "projectSettings"
                     ]
                   },
                   "path": {
@@ -661,7 +659,6 @@
             }
           },
           "required": [
-            "checked",
             "dirty",
             "coverage",
             "items"

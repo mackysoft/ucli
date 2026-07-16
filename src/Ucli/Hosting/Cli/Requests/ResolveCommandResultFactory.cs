@@ -16,7 +16,7 @@ internal static class ResolveCommandResultFactory
 
         var payload = new Dictionary<string, object?>
         {
-            ["requestId"] = serviceResult.RequestId,
+            ["requestId"] = serviceResult.RequestId.ToString("D"),
         };
         if (serviceResult.Project != null)
         {
@@ -52,9 +52,11 @@ internal static class ResolveCommandResultFactory
     }
 
     /// <summary> Creates one command result for <c>resolve</c> from a normalized execution error. </summary>
-    public static CommandResult CreateExecutionError (ExecutionError error)
+    public static CommandResult CreateExecutionError (
+        Guid requestId,
+        ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return Create(ResolveServiceResultFactory.FromExecutionError(Guid.NewGuid().ToString("D"), error));
+        return Create(ResolveServiceResultFactory.FromExecutionError(requestId, error));
     }
 }

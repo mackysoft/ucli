@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The Unity-log read response payload. </returns>
         public IpcUnityLogsReadResponse Create (
             IReadOnlyList<UnityLogsReadEvent> events,
-            string nextCursor)
+            IpcLogCursor nextCursor)
         {
             if (events == null)
             {

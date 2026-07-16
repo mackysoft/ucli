@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using static MackySoft.Ucli.Tests.Execution.Mode.IpcDaemonPingClientTestSupport;
@@ -14,25 +13,29 @@ public sealed class IpcDaemonPingClientPayloadTests
         var unityIpcClient = new RecordingIpcTransportClient(request =>
             CreateResponse(
                 request,
-                IpcProtocol.StatusOk,
+                IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
                 IpcUnityEditorObservationTestFactory.Create(
                     serverVersion: "0.5.0",
                     editorMode: DaemonEditorMode.Batchmode,
                     unityVersion: "2022.3.5f1",
-                    projectFingerprint: "fingerprint",
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
                     compileState: IpcCompileState.Ready)));
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateResolvedSessionStore("resolved-token")),
+            TimeProvider.System);
 
         var result = await pingClient.PingAndReadAsync(
             CreateFingerprintMatchedProject(),
             DefaultTimeout,
+            validateProjectFingerprint: true,
             cancellationToken: CancellationToken.None);
 
         Assert.Equal("0.5.0", result.ServerVersion);
         Assert.Equal(DaemonEditorMode.Batchmode, result.State.EditorMode);
         Assert.Equal("2022.3.5f1", result.UnityVersion);
-        Assert.Equal("fingerprint", result.ProjectFingerprint);
+        Assert.Equal(ProjectFingerprintTestFactory.Create("fingerprint"), result.ProjectFingerprint);
         Assert.Equal(IpcCompileState.Ready, result.State.CompileState);
     }
 
@@ -43,9 +46,12 @@ public sealed class IpcDaemonPingClientPayloadTests
         var unityIpcClient = new RecordingIpcTransportClient(request =>
             CreateResponse(
                 request,
-                IpcProtocol.StatusOk,
+                IpcResponseStatus.Ok,
                 Array.Empty<IpcError>()));
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateResolvedSessionStore("resolved-token")),
+            TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
@@ -53,6 +59,7 @@ public sealed class IpcDaemonPingClientPayloadTests
                 pingClient.PingAndReadAsync(
                     CreateFingerprintMatchedProject(),
                     DefaultTimeout,
+                    validateProjectFingerprint: true,
                     cancellationToken: CancellationToken.None).AsTask(),
                 "Invalid ping payload result",
                 AsyncWaitTimeout);
@@ -68,16 +75,19 @@ public sealed class IpcDaemonPingClientPayloadTests
         var unityIpcClient = new RecordingIpcTransportClient(request =>
             CreateResponse(
                 request,
-                IpcProtocol.StatusOk,
+                IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
                 new
                 {
                     serverVersion = "0.5.0",
                     editorMode = "batchmode",
                     unityVersion = "2022.3.5f1",
-                    projectFingerprint = "fingerprint",
+                    projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint").ToString(),
                 }));
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateResolvedSessionStore("resolved-token")),
+            TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
@@ -85,6 +95,7 @@ public sealed class IpcDaemonPingClientPayloadTests
                 pingClient.PingAndReadAsync(
                     CreateFingerprintMatchedProject(),
                     DefaultTimeout,
+                    validateProjectFingerprint: true,
                     cancellationToken: CancellationToken.None).AsTask(),
                 "Missing editor state ping result",
                 AsyncWaitTimeout);

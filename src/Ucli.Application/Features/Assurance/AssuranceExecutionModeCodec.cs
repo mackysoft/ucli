@@ -1,46 +1,38 @@
 namespace MackySoft.Ucli.Application.Features.Assurance;
 
-/// <summary> Converts Unity execution mode and target values to assurance payload literals. </summary>
+/// <summary> Maps internal Unity execution decisions to public assurance contract values. </summary>
 internal static class AssuranceExecutionModeCodec
 {
-    public const string Auto = "auto";
-
-    public const string Daemon = "daemon";
-
-    public const string Oneshot = "oneshot";
-
-    public const string NotApplicable = "notApplicable";
-
-    /// <summary> Converts one requested mode to its public literal. </summary>
-    public static string ToRequestedModeValue (UnityExecutionMode mode)
+    /// <summary> Maps one requested application mode to its public assurance value. </summary>
+    public static AssuranceRequestedExecutionMode ToRequestedMode (UnityExecutionMode mode)
     {
         return mode switch
         {
-            UnityExecutionMode.Auto => Auto,
-            UnityExecutionMode.Daemon => Daemon,
-            UnityExecutionMode.Oneshot => Oneshot,
+            UnityExecutionMode.Auto => AssuranceRequestedExecutionMode.Auto,
+            UnityExecutionMode.Daemon => AssuranceRequestedExecutionMode.Daemon,
+            UnityExecutionMode.Oneshot => AssuranceRequestedExecutionMode.Oneshot,
             _ => throw new ArgumentOutOfRangeException(nameof(mode), mode, "Unsupported execution mode."),
         };
     }
 
-    /// <summary> Converts one resolved target to its public mode literal. </summary>
-    public static string ToResolvedModeValue (UnityExecutionTarget target)
+    /// <summary> Maps one resolved application target to its public assurance value. </summary>
+    public static AssuranceResolvedExecutionMode ToResolvedMode (UnityExecutionTarget target)
     {
         return target switch
         {
-            UnityExecutionTarget.Daemon => Daemon,
-            UnityExecutionTarget.Oneshot => Oneshot,
+            UnityExecutionTarget.Daemon => AssuranceResolvedExecutionMode.Daemon,
+            UnityExecutionTarget.Oneshot => AssuranceResolvedExecutionMode.Oneshot,
             _ => throw new ArgumentOutOfRangeException(nameof(target), target, "Unsupported execution target."),
         };
     }
 
-    /// <summary> Converts one resolved target to its session-kind literal. </summary>
-    public static string ToSessionKindValue (UnityExecutionTarget target)
+    /// <summary> Converts one resolved target to its assurance session kind. </summary>
+    public static AssuranceSessionKind ToSessionKind (UnityExecutionTarget target)
     {
         return target switch
         {
-            UnityExecutionTarget.Daemon => AssuranceSessionKindValues.Daemon,
-            UnityExecutionTarget.Oneshot => AssuranceSessionKindValues.TransientProbe,
+            UnityExecutionTarget.Daemon => AssuranceSessionKind.Daemon,
+            UnityExecutionTarget.Oneshot => AssuranceSessionKind.TransientProbe,
             _ => throw new ArgumentOutOfRangeException(nameof(target), target, "Unsupported execution target."),
         };
     }

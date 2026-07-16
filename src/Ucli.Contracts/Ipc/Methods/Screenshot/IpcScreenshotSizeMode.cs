@@ -7,9 +7,9 @@ public enum IpcScreenshotSizeMode
 {
     /// <summary> Captures the current target-surface size. </summary>
     [UcliContractLiteral("currentSurface")]
-    CurrentSurface = 0,
+    CurrentSurface = 1,
 
     /// <summary> Captures an explicitly requested GameView resolution. </summary>
     [UcliContractLiteral("requestedResolution")]
-    RequestedResolution = 1,
+    RequestedResolution = 2,
 }

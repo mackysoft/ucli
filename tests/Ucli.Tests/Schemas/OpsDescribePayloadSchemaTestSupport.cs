@@ -181,8 +181,11 @@ internal static class OpsDescribePayloadSchemaTestSupport
     public static void AssertSchemasUseSupportedSubset (JsonElement operation)
     {
         Assert.True(
-            IndexJsonSchemaSubsetValidator.IsValidPublicRawOpArgsSchema(operation.GetProperty("argsSchema").GetRawText()),
+            IndexJsonSchemaSubsetValidator.TryParsePublicRawOpArgsSchema(
+                operation.GetProperty("argsSchema").GetRawText(),
+                out var argsSchema),
             "Documented ops describe argsSchema must use the uCLI-supported public raw op schema subset.");
+        Assert.Equal(JsonValueKind.Object, argsSchema.ValueKind);
 
         var resultSchema = operation.GetProperty("resultSchema");
         if (resultSchema.ValueKind == JsonValueKind.Null)
@@ -191,8 +194,9 @@ internal static class OpsDescribePayloadSchemaTestSupport
         }
 
         Assert.True(
-            IndexJsonSchemaSubsetValidator.IsValidObjectSchema(resultSchema.GetRawText()),
+            IndexJsonSchemaSubsetValidator.TryParseObjectSchema(resultSchema.GetRawText(), out var parsedResultSchema),
             "Documented ops describe resultSchema must use the uCLI-supported schema subset.");
+        Assert.Equal(JsonValueKind.Object, parsedResultSchema.ValueKind);
     }
 
     public readonly record struct InvalidPayloadCase (

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
@@ -26,17 +27,17 @@ internal sealed class UnityIpcExecutionTargetResolver
     /// <summary> Resolves the execution target within the shared timeout budget. </summary>
     /// <param name="mode"> The requested execution mode. </param>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="budget"> The shared execution timeout budget. </param>
+    /// <param name="deadline"> The shared execution deadline. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The resolved target, or a classified failure. </returns>
     public async ValueTask<UnityIpcExecutionTargetResolutionResult> ResolveAsync (
         UnityExecutionMode mode,
         ResolvedUnityProjectContext unityProject,
-        UnityIpcExecutionBudget budget,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentNullException.ThrowIfNull(budget);
+        ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
 
         if (mode == UnityExecutionMode.Daemon)
@@ -44,7 +45,7 @@ internal sealed class UnityIpcExecutionTargetResolver
             return UnityIpcExecutionTargetResolutionResult.Success(UnityExecutionTarget.Daemon);
         }
 
-        if (!budget.TryGetRemainingTimeout(out var modeDecisionTimeout))
+        if (!deadline.TryGetRemainingTimeout(out var modeDecisionTimeout))
         {
             return UnityIpcExecutionTargetResolutionResult.FailureResult(UnityIpcFailureClassifier.Timeout(
                 "Timed out before Unity execution mode decision could begin."));
@@ -76,7 +77,7 @@ internal sealed class UnityIpcExecutionTargetResolver
             return await ResolveContractFailureAsync(
                     modeDecisionResult.ContractError!,
                     unityProject,
-                    budget,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -92,7 +93,7 @@ internal sealed class UnityIpcExecutionTargetResolver
         {
             var pluginFailure = await pluginVerifier.VerifyWithinBudgetAsync(
                     unityProject.UnityProjectRoot,
-                    budget,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (pluginFailure != null)
@@ -107,17 +108,14 @@ internal sealed class UnityIpcExecutionTargetResolver
     private async ValueTask<UnityIpcExecutionTargetResolutionResult> ResolveContractFailureAsync (
         UnityExecutionModeDecisionContractError contractError,
         ResolvedUnityProjectContext unityProject,
-        UnityIpcExecutionBudget budget,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        if (string.Equals(
-                contractError.Code,
-                UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
-                StringComparison.Ordinal))
+        if (contractError.Code == UnityExecutionModeDecisionErrorCodes.DaemonNotRunning)
         {
             var pluginFailure = await pluginVerifier.VerifyWithinBudgetAsync(
                     unityProject.UnityProjectRoot,
-                    budget,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (pluginFailure != null)

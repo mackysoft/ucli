@@ -4,7 +4,9 @@ internal sealed class RecordingUnityGuiEditorProcessLauncher : IUnityGuiEditorPr
 {
     private readonly List<Invocation> invocations = [];
 
-    public UnityDaemonLaunchResult NextResult { get; set; } = UnityDaemonLaunchResult.Success(2000, DateTimeOffset.UtcNow);
+    public UnityDaemonLaunchResult? NextResult { get; set; }
+
+    public Func<ResolvedUnityProjectContext, string, CancellationToken, ValueTask<UnityDaemonLaunchResult>>? Handler { get; set; }
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
@@ -15,7 +17,13 @@ internal sealed class RecordingUnityGuiEditorProcessLauncher : IUnityGuiEditorPr
     {
         cancellationToken.ThrowIfCancellationRequested();
         invocations.Add(new Invocation(unityProject, unityLogPath, cancellationToken));
-        return ValueTask.FromResult(NextResult);
+        if (Handler is not null)
+        {
+            return Handler(unityProject, unityLogPath, cancellationToken);
+        }
+
+        return ValueTask.FromResult(NextResult
+            ?? throw new InvalidOperationException("A GUI Editor process launch result must be configured before launch."));
     }
 
     internal readonly record struct Invocation (

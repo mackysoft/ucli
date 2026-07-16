@@ -7,5 +7,5 @@ public enum IpcScreenshotPixelFormat
 {
     /// <summary> Four-channel, 8-bit-per-channel, sRGB-encoded RGBA pixels. </summary>
     [UcliContractLiteral("rgba8Srgb")]
-    Rgba8Srgb = 0,
+    Rgba8Srgb = 1,
 }

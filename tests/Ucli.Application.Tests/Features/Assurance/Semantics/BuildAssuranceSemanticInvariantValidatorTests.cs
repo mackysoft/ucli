@@ -27,12 +27,11 @@ public sealed class BuildAssuranceSemanticInvariantValidatorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Validate_WithBuildVerifierEffectsSubset_ReturnsNoViolations ()
+    public void Validate_WithBuildVerifierEffectsSubset_ReturnsEffectsPath ()
     {
         var result = ValidateBuildPayload(CreateBuildPayload(verifierEffects: ["unityBuildPipeline"]));
 
-        Assert.True(result.IsValid);
-        Assert.Empty(result.Violations);
+        AssertViolationPath(result, "$.verifiers[0].effects");
     }
 
     [Fact]

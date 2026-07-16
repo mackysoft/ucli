@@ -1,6 +1,10 @@
 using System;
 using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 #nullable enable annotations
 
@@ -10,9 +14,9 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal sealed class RecoverableIpcOperationContext
     {
         private readonly IRecoverableIpcOperationStore store;
-        private readonly string method;
-        private readonly string requestId;
-        private readonly string requestPayloadHash;
+        private readonly UnityIpcMethod method;
+        private readonly Guid requestId;
+        private readonly Sha256Digest requestPayloadHash;
 
         private DateTimeOffset startedAtUtc;
         private JsonElement recoveryPayload;
@@ -21,25 +25,25 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Initializes a new instance of the <see cref="RecoverableIpcOperationContext" /> class. </summary>
         public RecoverableIpcOperationContext (
             IRecoverableIpcOperationStore store,
-            string method,
-            string requestId,
-            string requestPayloadHash,
+            UnityIpcMethod method,
+            Guid requestId,
+            Sha256Digest requestPayloadHash,
             RecoverableIpcOperationRecord? record)
         {
             this.store = store ?? throw new ArgumentNullException(nameof(store));
-            if (string.IsNullOrWhiteSpace(method))
+            if (!ContractLiteralCodec.IsDefined(method))
             {
-                throw new ArgumentException("Method must not be empty.", nameof(method));
+                throw new ArgumentOutOfRangeException(nameof(method), method, "Unity IPC method must be defined.");
             }
 
-            if (string.IsNullOrWhiteSpace(requestId))
+            if (requestId == Guid.Empty)
             {
                 throw new ArgumentException("Request id must not be empty.", nameof(requestId));
             }
 
-            if (string.IsNullOrWhiteSpace(requestPayloadHash))
+            if (requestPayloadHash == null)
             {
-                throw new ArgumentException("Request payload hash must not be empty.", nameof(requestPayloadHash));
+                throw new ArgumentNullException(nameof(requestPayloadHash));
             }
 
             this.method = method;
@@ -83,32 +87,39 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <summary> Marks the operation pending before the method performs its state-changing action. </summary>
-        public bool TryMarkPending<TPayload> (
+        public async ValueTask<RecoverableIpcOperationStoreResult> MarkPendingAsync<TPayload> (
             TPayload payload,
-            out string errorMessage)
+            CancellationToken cancellationToken)
         {
-            if (!hasRecord)
-            {
-                startedAtUtc = DateTimeOffset.UtcNow;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
+            var nextStartedAtUtc = hasRecord ? startedAtUtc : DateTimeOffset.UtcNow;
 
             var nextRecoveryPayload = IpcPayloadCodec.SerializeToElement(payload);
             // NOTE: Pending state is written before the handler performs its Unity
             // state-changing action. Domain reload recovery depends on this payload.
-            if (!store.TryWritePending(method, requestId, requestPayloadHash, startedAtUtc, nextRecoveryPayload, out errorMessage))
+            var result = await store.WritePendingAsync(
+                method,
+                requestId,
+                requestPayloadHash,
+                nextStartedAtUtc,
+                nextRecoveryPayload,
+                cancellationToken)
+                .ConfigureAwait(false);
+            if (!result.IsSuccess)
             {
-                return false;
+                return result;
             }
 
             hasRecord = true;
+            startedAtUtc = nextStartedAtUtc;
             recoveryPayload = nextRecoveryPayload.Clone();
-            return true;
+            return result;
         }
 
         /// <summary> Marks the operation completed with the response returned by the method handler. </summary>
-        public bool TryMarkCompleted (
+        public ValueTask<RecoverableIpcOperationStoreResult> MarkCompletedAsync (
             IpcResponse response,
-            out string errorMessage)
+            CancellationToken cancellationToken)
         {
             if (response == null)
             {
@@ -117,11 +128,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (!hasRecord)
             {
-                errorMessage = null;
-                return true;
+                return new ValueTask<RecoverableIpcOperationStoreResult>(
+                    RecoverableIpcOperationStoreResult.Success());
             }
 
-            return store.TryWriteCompleted(
+            return store.WriteCompletedAsync(
                 method,
                 requestId,
                 requestPayloadHash,
@@ -129,7 +140,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 DateTimeOffset.UtcNow,
                 recoveryPayload,
                 response,
-                out errorMessage);
+                cancellationToken);
         }
     }
 }

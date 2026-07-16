@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Assurance;
 
 namespace MackySoft.Ucli.Tests;
@@ -29,7 +28,9 @@ public sealed class BuildRunCliOutputSemanticContractTests
         var root = document.RootElement;
         var payload = root.GetProperty("payload");
 
-        Assert.Equal(IpcProtocol.StatusOk, root.GetProperty("status").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
+            root.GetProperty("status").GetString());
         Assert.Equal(1, root.GetProperty("exitCode").GetInt32());
         Assert.Equal("fail", payload.GetProperty("verdict").GetString());
         Assert.Equal("failed", payload.GetProperty("build").GetProperty("summary").GetProperty("result").GetString());
@@ -48,9 +49,11 @@ public sealed class BuildRunCliOutputSemanticContractTests
         var dirtyState = payload.GetProperty("dirtyState");
         var dirtyItem = dirtyState.GetProperty("items")[0];
 
-        Assert.Equal(IpcProtocol.StatusError, root.GetProperty("status").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            root.GetProperty("status").GetString());
         Assert.Equal(BuildErrorCodes.BuildDirtyStatePresent.Value, root.GetProperty("errors")[0].GetProperty("code").GetString());
-        Assert.True(dirtyState.GetProperty("checked").GetBoolean());
+        Assert.False(dirtyState.TryGetProperty("checked", out _));
         Assert.True(dirtyState.GetProperty("dirty").GetBoolean());
         Assert.Equal("full", dirtyState.GetProperty("coverage").GetString());
         Assert.Equal("scene", dirtyItem.GetProperty("kind").GetString());

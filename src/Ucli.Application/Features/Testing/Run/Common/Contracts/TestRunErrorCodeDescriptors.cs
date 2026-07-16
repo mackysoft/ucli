@@ -13,7 +13,7 @@ internal static class TestRunErrorCodeDescriptors
             possiblePhases: ["testProcessExecution"],
             impliesNotApplied: null,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.testRun", "payload.artifacts", UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
@@ -36,7 +36,7 @@ internal static class TestRunErrorCodeDescriptors
             possiblePhases: ["testProcessExecution"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.testRun", "payload.artifacts", UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
@@ -59,7 +59,7 @@ internal static class TestRunErrorCodeDescriptors
             possiblePhases: ["testResultEvaluation"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.artifactsDir", "payload.summaryJsonPath", "errors[].message"],
             nextActions:
             [
@@ -78,7 +78,7 @@ internal static class TestRunErrorCodeDescriptors
             possiblePhases: ["testResultRead"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.artifacts", "errors[].message"],
             nextActions:
             [
@@ -97,7 +97,7 @@ internal static class TestRunErrorCodeDescriptors
             possiblePhases: ["testResultRead"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.artifacts", "errors[].message"],
             nextActions:
             [
@@ -120,7 +120,7 @@ internal static class TestRunErrorCodeDescriptors
             possiblePhases: ["testResultProjection"],
             impliesNotApplied: false,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.artifacts", "errors[].message"],
             nextActions:
             [

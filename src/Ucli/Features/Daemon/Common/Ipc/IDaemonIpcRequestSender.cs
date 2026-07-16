@@ -1,3 +1,4 @@
+using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -9,7 +10,8 @@ internal interface IDaemonIpcRequestSender
     /// <summary> Sends one single-response daemon IPC request. </summary>
     ValueTask<DaemonIpcSendResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
-        Func<string, IpcRequest> createRequest,
+        UnityIpcMethod method,
+        JsonElement payload,
         TimeSpan timeout,
         CancellationToken cancellationToken = default);
 }

@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
@@ -22,10 +23,10 @@ internal sealed class UnityDaemonReadinessGate
     /// <param name="timeProvider"> The time provider used for retry delays. </param>
     public UnityDaemonReadinessGate (
         IDaemonPingInfoClient daemonPingInfoClient,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.daemonPingInfoClient = daemonPingInfoClient ?? throw new ArgumentNullException(nameof(daemonPingInfoClient));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Tries to read readiness gate settings from one dispatch request. </summary>
@@ -39,7 +40,7 @@ internal sealed class UnityDaemonReadinessGate
         ArgumentNullException.ThrowIfNull(dispatchRequest);
 
         opsReadRequest = null;
-        if (!string.Equals(dispatchRequest.Method, IpcMethodNames.OpsRead, StringComparison.Ordinal))
+        if (dispatchRequest.Method != UnityIpcMethod.OpsRead)
         {
             return false;
         }
@@ -62,7 +63,7 @@ internal sealed class UnityDaemonReadinessGate
     /// <param name="unityProject"> The resolved Unity project context. </param>
     /// <param name="dispatchRequest"> The original IPC dispatch request. </param>
     /// <param name="opsReadRequest"> The parsed ops.read request payload. </param>
-    /// <param name="budget"> The shared execution timeout budget. </param>
+    /// <param name="deadline"> The shared execution deadline. </param>
     /// <param name="daemonIpcClient"> The daemon IPC client. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The Unity request execution result. </returns>
@@ -70,14 +71,14 @@ internal sealed class UnityDaemonReadinessGate
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
         IpcOpsReadRequest opsReadRequest,
-        UnityIpcExecutionBudget budget,
+        ExecutionDeadline deadline,
         IUnityIpcClient daemonIpcClient,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(dispatchRequest);
         ArgumentNullException.ThrowIfNull(opsReadRequest);
-        ArgumentNullException.ThrowIfNull(budget);
+        ArgumentNullException.ThrowIfNull(deadline);
         ArgumentNullException.ThrowIfNull(daemonIpcClient);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -86,7 +87,7 @@ internal sealed class UnityDaemonReadinessGate
             var readinessFailure = await WaitUntilReadyAsync(
                     unityProject,
                     opsReadRequest.FailFast,
-                    budget,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (readinessFailure != null)
@@ -95,7 +96,7 @@ internal sealed class UnityDaemonReadinessGate
             }
 
             var failFastDispatchRequest = CreateFailFastDispatchRequest(dispatchRequest, opsReadRequest);
-            if (!budget.TryGetRemainingTimeout(out var requestTimeout))
+            if (!deadline.TryGetRemainingTimeout(out _))
             {
                 return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.Timeout(
                     "Timed out before Unity IPC request dispatch could begin."));
@@ -104,7 +105,7 @@ internal sealed class UnityDaemonReadinessGate
             var dispatchResult = await daemonIpcClient.SendAsync(
                     unityProject,
                     failFastDispatchRequest,
-                    requestTimeout,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
 
@@ -120,29 +121,27 @@ internal sealed class UnityDaemonReadinessGate
     private async ValueTask<UnityRequestFailure?> WaitUntilReadyAsync (
         ResolvedUnityProjectContext unityProject,
         bool failFast,
-        UnityIpcExecutionBudget budget,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (!budget.TryGetRemainingTimeout(out var remainingTimeout))
+            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
             {
-                return CreateDaemonTimeoutFailure(budget.Timeout);
+                return CreateDaemonTimeoutFailure(deadline.Timeout);
             }
 
-            var attemptTimeout = remainingTimeout < DaemonTimeouts.ProbeAttemptTimeoutCap
-                ? remainingTimeout
-                : DaemonTimeouts.ProbeAttemptTimeoutCap;
             try
             {
                 var pingResponse = await daemonPingInfoClient.PingAndReadAsync(
                         unityProject,
-                        attemptTimeout,
+                        remainingTimeout,
+                        validateProjectFingerprint: true,
                         cancellationToken: cancellationToken)
                     .ConfigureAwait(false);
-                var readinessDecision = UnityDaemonReadinessPolicy.Evaluate(pingResponse, failFast);
+                var readinessDecision = UnityEditorReadinessPolicy.Evaluate(pingResponse, failFast);
                 if (readinessDecision.IsReady)
                 {
                     return null;
@@ -151,7 +150,7 @@ internal sealed class UnityDaemonReadinessGate
                 if (readinessDecision.IsFailure)
                 {
                     return UnityIpcFailureClassifier.FromCodeAndMessage(
-                        readinessDecision.ErrorCode!.Value,
+                        readinessDecision.ErrorCode!,
                         readinessDecision.ErrorMessage!);
                 }
             }
@@ -172,9 +171,9 @@ internal sealed class UnityDaemonReadinessGate
                     $"Failed while waiting for Unity daemon readiness. {exception.Message}");
             }
 
-            if (!budget.TryGetRemainingTimeout(out remainingTimeout))
+            if (!deadline.TryGetRemainingTimeout(out remainingTimeout))
             {
-                return CreateDaemonTimeoutFailure(budget.Timeout);
+                return CreateDaemonTimeoutFailure(deadline.Timeout);
             }
 
             await TimeProviderDelay.DelayAsync(
@@ -199,7 +198,10 @@ internal sealed class UnityDaemonReadinessGate
             FailFast = true,
         });
 
-        return new UnityIpcDispatchRequest(dispatchRequest.Method, payload);
+        return new UnityIpcDispatchRequest(
+            dispatchRequest.Method,
+            payload,
+            dispatchRequest.LaunchOptions);
     }
 
     private static UnityRequestFailure CreateDaemonTimeoutFailure (TimeSpan timeout)

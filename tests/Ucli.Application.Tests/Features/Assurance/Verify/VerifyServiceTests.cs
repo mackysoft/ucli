@@ -1,13 +1,9 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
-using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Assurance;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Verify.VerifyServiceTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify;
@@ -81,17 +77,17 @@ public sealed class VerifyServiceTests
             progressSink);
 
         Assert.True(result.IsSuccess);
-        Assert.DoesNotContain(result.Output!.Verifiers, static verifier => string.Equals(verifier.Kind, VerifyStepKindValues.PostRead, StringComparison.Ordinal));
-        Assert.DoesNotContain(result.Output.Verifiers, static verifier => string.Equals(verifier.Kind, VerifyStepKindValues.Logs, StringComparison.Ordinal));
+        Assert.DoesNotContain(result.Output!.Verifiers, static verifier => verifier.Kind == AssuranceVerifierKind.PostRead);
+        Assert.DoesNotContain(result.Output.Verifiers, static verifier => verifier.Kind == AssuranceVerifierKind.Logs);
         var skippedEntries = progressSink.Entries
             .Where(static entry => string.Equals(entry.EventName, VerifyProgressEventNames.StepSkipped, StringComparison.Ordinal))
             .Select(static entry => Assert.IsType<VerifyStepProgressEntry>(entry.Payload))
             .ToArray();
         Assert.Contains(skippedEntries, static entry =>
-            string.Equals(entry.Kind, VerifyStepKindValues.PostRead, StringComparison.Ordinal)
+            entry.Kind == VerifyStepKind.PostRead
             && string.Equals(entry.SkipReason, VerifyStepSkipReasons.PostReadNotNeeded, StringComparison.Ordinal));
         Assert.Contains(skippedEntries, static entry =>
-            string.Equals(entry.Kind, VerifyStepKindValues.Logs, StringComparison.Ordinal)
+            entry.Kind == VerifyStepKind.Logs
             && string.Equals(entry.SkipReason, VerifyStepSkipReasons.LogsNotNeeded, StringComparison.Ordinal));
     }
 
@@ -119,8 +115,8 @@ public sealed class VerifyServiceTests
         Assert.DoesNotContain(progressSink.Entries, static entry => string.Equals(entry.EventName, VerifyProgressEventNames.Completed, StringComparison.Ordinal));
         var diagnosticEntry = Assert.Single(progressSink.Entries, static entry => string.Equals(entry.EventName, VerifyProgressEventNames.Diagnostic, StringComparison.Ordinal));
         var diagnostic = Assert.IsType<VerifyDiagnosticEntry>(diagnosticEntry.Payload);
-        Assert.Equal(VerifyStepKindValues.Compile, diagnostic.StepKind);
-        Assert.Equal("error", diagnostic.Severity);
+        Assert.Equal(VerifyStepKind.Compile, diagnostic.StepKind);
+        Assert.Equal(UcliDiagnosticSeverity.Error, diagnostic.Severity);
         Assert.Equal("Compile command failed.", diagnostic.Message);
     }
 
@@ -183,7 +179,7 @@ public sealed class VerifyServiceTests
     public async Task Execute_WithFromFingerprintMismatch_ReturnsProjectFingerprintMismatch ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithFromFingerprintMismatch_ReturnsProjectFingerprintMismatch));
-        var fromPath = scope.WriteFile("from.json", CreateFromJson("other-fingerprint", coverageImpact: "none"));
+        var fromPath = scope.WriteFile("from.json", CreateFromJson(ProjectFingerprintTestFactory.Create("other-fingerprint"), coverageImpact: "none"));
         var readyService = new RecordingVerifyReadyService(input => CreateReadyResult(input.Target, ProjectIdentityInfoTestFactory.CreateForRepositoryRoot(scope.FullPath)));
         var service = CreateService(scope.FullPath, readyService: readyService);
 
@@ -278,13 +274,13 @@ public sealed class VerifyServiceTests
         var compileService = new RecordingVerifyCompileService(_ =>
         {
             timeProvider.Advance(TimeSpan.FromMilliseconds(999));
-            return CreateCompileResult(project, CompileClaimStatusValues.Failed);
+            return CreateCompileResult(project, AssuranceClaimStatus.Failed);
         });
         var logsService = new RecordingVerifyLogsUnityService((_, _, cancellationToken) =>
         {
             timeProvider.Advance(TimeSpan.FromMilliseconds(1));
             cancellationToken.ThrowIfCancellationRequested();
-            return ValueTask.FromResult(LogsReadServiceResult.Success());
+            return ValueTask.FromResult(LogsReadServiceResult.Completed(0, null));
         });
         var service = CreateService(
             scope.FullPath,

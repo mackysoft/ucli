@@ -1,11 +1,11 @@
 using System.Net.Sockets;
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -28,7 +28,7 @@ public sealed class UnityDaemonReadinessGateTests
             unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
-            UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), timeProvider),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider),
             daemonClient,
             CancellationToken.None).AsTask();
 
@@ -48,13 +48,13 @@ public sealed class UnityDaemonReadinessGateTests
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
             IpcEditorLifecycleState.Busy));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
 
         var result = await gate.ExecuteAsync(
             CreateContext("fail-fast-busy"),
             CreateOpsReadDispatchRequest(failFast: true),
             new IpcOpsReadRequest(FailFast: true, RequireReadinessGate: true),
-            UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
@@ -71,14 +71,14 @@ public sealed class UnityDaemonReadinessGateTests
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
             IpcEditorLifecycleState.DomainReloading));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("domain-reloading");
 
         var result = await gate.ExecuteAsync(
             unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
-            UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
@@ -97,14 +97,14 @@ public sealed class UnityDaemonReadinessGateTests
             IpcEditorLifecycleState.PlayMode,
             DaemonEditorMode.Gui));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("gui-playmode");
 
         var result = await gate.ExecuteAsync(
             unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
-            UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
@@ -130,7 +130,7 @@ public sealed class UnityDaemonReadinessGateTests
             unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
-            UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), timeProvider),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider),
             daemonClient,
             CancellationToken.None).AsTask();
 
@@ -147,16 +147,17 @@ public sealed class UnityDaemonReadinessGateTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenReadinessProbeReportsDaemonNotRunning_ReturnsFailureWithoutDispatch ()
     {
-        var pingClient = new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused));
+        var pingClient = new RecordingDaemonPingInfoClient(
+            IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("probe-daemon-not-running");
 
         var result = await gate.ExecuteAsync(
             unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
-            UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
@@ -173,14 +174,14 @@ public sealed class UnityDaemonReadinessGateTests
     {
         var pingClient = new RecordingDaemonPingInfoClient(new InvalidOperationException("probe failed"));
         var daemonClient = new RecordingUnityIpcClient(CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("probe-unexpected");
 
         var result = await gate.ExecuteAsync(
             unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
-            UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
@@ -204,14 +205,14 @@ public sealed class UnityDaemonReadinessGateTests
                 EditorLifecycleErrorCodes.EditorBusy,
                 "Unity editor is busy with internal work."))),
             CreateSuccessResult());
-        var gate = new UnityDaemonReadinessGate(pingClient);
+        var gate = new UnityDaemonReadinessGate(pingClient, TimeProvider.System);
         var unityProject = CreateContext("late-regression");
 
         var result = await gate.ExecuteAsync(
             unityProject,
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
-            UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             daemonClient,
             CancellationToken.None);
 
@@ -225,7 +226,7 @@ public sealed class UnityDaemonReadinessGateTests
     public async Task Execute_WhenBudgetIsExhausted_ReturnsTimeoutWithoutDispatch ()
     {
         var timeProvider = new ManualTimeProvider();
-        var budget = UnityIpcExecutionBudget.Start(TimeSpan.FromMilliseconds(100), timeProvider);
+        var deadline = ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), timeProvider);
         timeProvider.Advance(TimeSpan.FromMilliseconds(120));
         var pingClient = new RecordingDaemonPingInfoClient(CreatePingPayload(
             IpcEditorLifecycleState.Ready));
@@ -236,7 +237,7 @@ public sealed class UnityDaemonReadinessGateTests
             CreateContext("timeout"),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
-            budget,
+                deadline,
             daemonClient,
             CancellationToken.None);
 
@@ -252,13 +253,15 @@ public sealed class UnityDaemonReadinessGateTests
     {
         using var cancellationTokenSource = new CancellationTokenSource();
         await cancellationTokenSource.CancelAsync();
-        var gate = new UnityDaemonReadinessGate(new RecordingDaemonPingInfoClient());
+        var gate = new UnityDaemonReadinessGate(
+            new RecordingDaemonPingInfoClient(),
+            TimeProvider.System);
 
         await Assert.ThrowsAsync<OperationCanceledException>(async () => await gate.ExecuteAsync(
             CreateContext("canceled"),
             CreateOpsReadDispatchRequest(failFast: false),
             new IpcOpsReadRequest(FailFast: false, RequireReadinessGate: true),
-            UnityIpcExecutionBudget.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             new RecordingUnityIpcClient(CreateSuccessResult()),
             cancellationTokenSource.Token).AsTask());
     }
@@ -272,20 +275,21 @@ public sealed class UnityDaemonReadinessGateTests
     private static UnityIpcDispatchRequest CreateOpsReadDispatchRequest (bool failFast)
     {
         return new UnityIpcDispatchRequest(
-            IpcMethodNames.OpsRead,
+            UnityIpcMethod.OpsRead,
             IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
                 FailFast: failFast,
-                RequireReadinessGate: true)));
+                RequireReadinessGate: true)),
+            UnityBatchmodeLaunchOptions.Default);
     }
 
     private static UnityRequestExecutionResult CreateSuccessResult ()
     {
         return UnityRequestExecutionResult.Success(UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-success",
-            Status: IpcProtocol.StatusOk,
-            Payload: EmptyPayload(),
-            Errors: [])));
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcResponseStatus.Ok,
+            payload: EmptyPayload(),
+            errors: [])));
     }
 
     private static IpcResponse CreateErrorResponse (
@@ -293,11 +297,11 @@ public sealed class UnityDaemonReadinessGateTests
         string message)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-error",
-            Status: IpcProtocol.StatusError,
-            Payload: EmptyPayload(),
-            Errors:
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcResponseStatus.Error,
+            payload: EmptyPayload(),
+            errors:
             [
                 new IpcError(code, message, null),
             ]);

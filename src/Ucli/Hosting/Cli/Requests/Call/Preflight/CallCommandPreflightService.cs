@@ -16,18 +16,23 @@ internal sealed class CallCommandPreflightService : ICallCommandPreflightService
 
     /// <inheritdoc />
     public async ValueTask<CallCommandPreflightResult> PrepareAsync (
+        Guid requestId,
         string? projectPath,
         string requestJson,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
 
         var requestPreparationResult = await requestPreparationService.PrepareAsync(
                 projectPath,
                 requestJson,
                 cancellationToken)
             .ConfigureAwait(false);
-        var output = CallExecutionOutputFactory.TryCreateBase(requestPreparationResult.PreparedRequest);
+        var output = CallExecutionOutputFactory.TryCreateBase(requestId, requestPreparationResult.PreparedRequest);
         if (requestPreparationResult.Error != null)
         {
             return CallCommandPreflightResult.Failure(
@@ -35,6 +40,6 @@ internal sealed class CallCommandPreflightService : ICallCommandPreflightService
         }
 
         return CallCommandPreflightResult.Success(
-            CallExecutionOutputFactory.CreateBase(requestPreparationResult.PreparedRequest!));
+            CallExecutionOutputFactory.CreateBase(requestId, requestPreparationResult.PreparedRequest!));
     }
 }

@@ -38,7 +38,7 @@ internal sealed class PlanCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes the plan command and emits the JSON result contract. </summary>
+    /// <summary> Plans the JSON request read from redirected standard input and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
@@ -59,6 +59,7 @@ internal sealed class PlanCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+        var requestId = Guid.NewGuid();
 
         var normalizedReadIndexModeResult = ReadIndexModeOptionNormalizer.Normalize(readIndexMode);
         if (!normalizedReadIndexModeResult.IsSuccess)
@@ -89,6 +90,7 @@ internal sealed class PlanCommand
             }
 
             var preflightResult = await planCommandPreflightService.PrepareAsync(
+                    requestId,
                     projectPath,
                     requestInputReadResult.Json!,
                     normalizedReadIndexModeResult.Mode,
@@ -110,6 +112,7 @@ internal sealed class PlanCommand
             }
 
             var preflightResult = await planCommandPreflightService.PrepareAsync(
+                    requestId,
                     projectPath,
                     requestInputReadResult.Json!,
                     normalizedReadIndexModeResult.Mode,
@@ -128,6 +131,7 @@ internal sealed class PlanCommand
         }
 
         var serviceResult = await planService.ExecuteAsync(
+                requestId,
                 new PlanCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,

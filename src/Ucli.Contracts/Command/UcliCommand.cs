@@ -1,17 +1,16 @@
+using System.Diagnostics.CodeAnalysis;
+
 namespace MackySoft.Ucli.Contracts;
 
 /// <summary> Represents one command identifier used by CLI/IPC contracts. </summary>
-public readonly record struct UcliCommand
+public sealed record UcliCommand
 {
     /// <summary> Gets the command identifier string. </summary>
     public string Name { get; }
 
-    /// <summary> Gets whether this instance represents a valid command identifier. </summary>
-    public bool IsValid => IsValidName(Name);
-
-    /// <summary> Initializes a new instance of the <see cref="UcliCommand" /> struct. </summary>
+    /// <summary> Initializes a command identifier after validating its dot-delimited syntax. </summary>
     /// <param name="name"> The command identifier string. </param>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="name" /> is null, empty, or whitespace. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="name" /> is null, empty, consists only of whitespace, contains an ASCII space, tab, carriage return, or line feed, or contains an empty dot-delimited segment. </exception>
     public UcliCommand (
         string name)
     {
@@ -23,60 +22,65 @@ public readonly record struct UcliCommand
         Name = name;
     }
 
-    private UcliCommand (
-        string name,
-        bool _)
-    {
-        Name = name;
-    }
-
-    /// <summary> Converts one command identifier into its string form. </summary>
-    /// <param name="command"> The command identifier to convert. </param>
-    public static implicit operator string (UcliCommand command)
-    {
-        return command.Name;
-    }
-
     /// <summary> Tries to create one validated command identifier. </summary>
-    /// <param name="name"> The raw command identifier string. </param>
-    /// <param name="command"> The validated command when successful. </param>
-    /// <returns> <see langword="true" /> when the input is a valid command identifier; otherwise <see langword="false" />. </returns>
+    /// <param name="name"> The candidate command identifier. </param>
+    /// <param name="command"> The validated command when successful; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when the value contains a non-whitespace character, contains no ASCII space, tab, carriage return, or line feed, and has no empty dot-delimited segment; otherwise <see langword="false" />. </returns>
     public static bool TryCreate (
         string? name,
-        out UcliCommand command)
+        [NotNullWhen(true)] out UcliCommand? command)
     {
         if (!IsValidName(name))
         {
-            command = default;
+            command = null;
             return false;
         }
 
-        command = new UcliCommand(name!, true);
+        command = new UcliCommand(name);
         return true;
     }
 
-    /// <summary> Determines whether the specified string is a valid command identifier. </summary>
-    /// <param name="name"> The command identifier string to validate. </param>
-    /// <returns> <see langword="true" /> when valid; otherwise <see langword="false" />. </returns>
-    public static bool IsValidName (string? name)
+    /// <inheritdoc />
+    public override string ToString ()
     {
-        if (string.IsNullOrWhiteSpace(name))
+        return Name;
+    }
+
+    /// <summary> Determines whether the specified string is a valid command identifier. </summary>
+    /// <param name="name"> The candidate command identifier. </param>
+    /// <returns> <see langword="true" /> when the value satisfies the whitespace and dot-delimited segment constraints; otherwise <see langword="false" />. </returns>
+    public static bool IsValidName ([NotNullWhen(true)] string? name)
+    {
+        if (string.IsNullOrEmpty(name))
         {
             return false;
         }
 
-        if (name.IndexOfAny(new[] { ' ', '\t', '\r', '\n' }) >= 0)
+        var hasNonWhitespaceCharacter = false;
+        var segmentStart = true;
+        for (var index = 0; index < name.Length; index++)
         {
-            return false;
+            var character = name[index];
+            if (character is ' ' or '\t' or '\r' or '\n')
+            {
+                return false;
+            }
+
+            hasNonWhitespaceCharacter |= !char.IsWhiteSpace(character);
+            if (character == '.')
+            {
+                if (segmentStart)
+                {
+                    return false;
+                }
+
+                segmentStart = true;
+                continue;
+            }
+
+            segmentStart = false;
         }
 
-        if (name.StartsWith(".", StringComparison.Ordinal)
-            || name.EndsWith(".", StringComparison.Ordinal)
-            || name.Contains("..", StringComparison.Ordinal))
-        {
-            return false;
-        }
-
-        return true;
+        return hasNonWhitespaceCharacter && !segmentStart;
     }
 }

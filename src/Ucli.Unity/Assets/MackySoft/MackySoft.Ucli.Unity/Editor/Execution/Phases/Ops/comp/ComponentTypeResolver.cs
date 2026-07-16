@@ -15,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The validation error message when resolution fails. </param>
         /// <returns> <see langword="true" /> when a concrete <see cref="Component" /> type is resolved; otherwise <see langword="false" />. </returns>
         public static bool TryResolveComponentType (
-            string typeId,
+            string? typeId,
             [NotNullWhen(true)] out Type? componentType,
             out string errorMessage)
         {

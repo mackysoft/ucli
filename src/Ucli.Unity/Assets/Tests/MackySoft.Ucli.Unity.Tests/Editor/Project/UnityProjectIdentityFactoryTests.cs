@@ -29,7 +29,8 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Create_WhenExpectedFingerprintDoesNotMatchCurrentProject_Throws ()
         {
             var exception = Assert.Throws<System.ArgumentException>(() =>
-                UnityProjectIdentityFactory.Create("mismatched-project-fingerprint"));
+                UnityProjectIdentityFactory.Create(
+                    ProjectFingerprintTestFactory.Create("mismatched-project-fingerprint")));
 
             Assert.That(exception!.ParamName, Is.EqualTo("expectedProjectFingerprint"));
         }

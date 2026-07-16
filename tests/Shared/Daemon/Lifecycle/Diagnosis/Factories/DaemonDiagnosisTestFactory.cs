@@ -6,15 +6,19 @@ namespace MackySoft.Ucli.TestSupport;
 internal static class DaemonDiagnosisTestFactory
 {
     public static DaemonDiagnosis Create (
-        string reason = DaemonDiagnosisReasonValues.ShutdownRequested,
+        DaemonDiagnosisReason reason = DaemonDiagnosisReason.ShutdownRequested,
         string message = "daemon shutdown completed",
-        string reportedBy = DaemonDiagnosisReportedByValues.Unity,
+        DaemonDiagnosisReportedBy reportedBy = DaemonDiagnosisReportedBy.Unity,
         bool isInferred = false,
         DateTimeOffset? updatedAtUtc = null,
         int? processId = 1234,
         string? editorInstancePath = null,
         DateTimeOffset? sessionIssuedAtUtc = null,
-        DateTimeOffset? processStartedAtUtc = null)
+        DateTimeOffset? processStartedAtUtc = null,
+        string? unityLogPath = null,
+        DaemonDiagnosisStartupPhase? startupPhase = null,
+        DaemonDiagnosisActionRequired? actionRequired = null,
+        DaemonPrimaryDiagnostic? primaryDiagnostic = null)
     {
         return new DaemonDiagnosis(
             Reason: reason,
@@ -25,15 +29,19 @@ internal static class DaemonDiagnosisTestFactory
             ProcessId: processId,
             EditorInstancePath: editorInstancePath,
             SessionIssuedAtUtc: sessionIssuedAtUtc ?? new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            ProcessStartedAtUtc: processStartedAtUtc);
+            ProcessStartedAtUtc: processStartedAtUtc,
+            UnityLogPath: unityLogPath,
+            StartupPhase: startupPhase,
+            ActionRequired: actionRequired,
+            PrimaryDiagnostic: primaryDiagnostic);
     }
 
     public static DaemonDiagnosis CreateGuiEndpointNotRegistered ()
     {
         return Create(
-            reason: DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
+            reason: DaemonDiagnosisReason.GuiEndpointNotRegistered,
             message: "GUI endpoint not registered.",
-            reportedBy: DaemonDiagnosisReportedByValues.Cli,
+            reportedBy: DaemonDiagnosisReportedBy.Cli,
             isInferred: true,
             updatedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 3, 0, TimeSpan.Zero),
             editorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",

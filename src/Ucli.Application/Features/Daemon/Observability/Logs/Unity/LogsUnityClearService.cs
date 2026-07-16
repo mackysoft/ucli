@@ -5,8 +5,6 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 /// <summary> Implements <c>logs unity clear</c> command orchestration. </summary>
 internal sealed class LogsUnityClearService : ILogsUnityClearService
 {
-    private const string ClearedStatus = "cleared";
-
     private readonly IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver;
 
     private readonly IUnityConsoleClearClient unityConsoleClearClient;
@@ -51,7 +49,6 @@ internal sealed class LogsUnityClearService : ILogsUnityClearService
         }
 
         return LogsUnityClearServiceResult.Success(new LogsUnityClearServiceOutput(
-            ClearStatus: ClearedStatus,
             TimeoutMilliseconds: (int)context.Timeout.TotalMilliseconds));
     }
 }

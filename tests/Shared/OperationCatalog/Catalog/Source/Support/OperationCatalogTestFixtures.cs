@@ -9,7 +9,13 @@ internal static class OperationCatalogTestFixtures
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexOpEntryJsonContract> operations)
     {
-        if (!OpsCatalogSnapshot.TryCreate(generatedAtUtc, operations, "operations", out var snapshot, out var error))
+        if (!OpsCatalogSnapshot.TryCreate(
+                generatedAtUtc,
+                operations,
+                "operations",
+                allowEditLoweringOnlyEntries: false,
+                out var snapshot,
+                out var error))
         {
             throw new InvalidOperationException($"Operation catalog test fixture is invalid. {error}");
         }
@@ -22,6 +28,14 @@ internal static class OperationCatalogTestFixtures
         IReadOnlyList<IndexOpEntryJsonContract> operations)
     {
         return OpsCatalogFetchResult.Success(CreateSnapshot(generatedAtUtc, operations));
+    }
+
+    public static ValidatedOpsOperation CreateValidatedOperation (IndexOpEntryJsonContract operation)
+    {
+        ArgumentNullException.ThrowIfNull(operation);
+        return CreateSnapshot(
+            DateTimeOffset.Parse("2026-03-06T00:00:00+00:00"),
+            [operation]).Operations[0];
     }
 
     public static PersistedOpsCatalogReadResult CreatePersistedReadResult (
@@ -75,7 +89,7 @@ internal static class OperationCatalogTestFixtures
             ResultContract = UcliOperationResultContract.NoResult("No operation-specific result is emitted."),
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: [UcliOperationSideEffect.SceneSave],
-                touchedKinds: [UcliTouchedResourceKindNames.Scene],
+                touchedKinds: [UcliTouchedResourceKind.Scene],
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Observe save-relevant project state without writing project files.",
                 callSemantics: "Persist save-relevant Unity state.",
@@ -109,10 +123,10 @@ internal static class OperationCatalogTestFixtures
                 ],
                 touchedKinds:
                 [
-                    UcliTouchedResourceKindNames.Scene,
-                    UcliTouchedResourceKindNames.Prefab,
-                    UcliTouchedResourceKindNames.Asset,
-                    UcliTouchedResourceKindNames.ProjectSettings,
+                    UcliTouchedResourceKind.Scene,
+                    UcliTouchedResourceKind.Prefab,
+                    UcliTouchedResourceKind.Asset,
+                    UcliTouchedResourceKind.ProjectSettings,
                 ],
                 planMode: UcliOperationPlanMode.ValidationOnly,
                 planSemantics: "Validate source shape without executing user code.",
@@ -128,7 +142,7 @@ internal static class OperationCatalogTestFixtures
     {
         return new UcliOperationAssuranceContract(
             sideEffects: sideEffects,
-            touchedKinds: Array.Empty<string>(),
+            touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
             planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",
             callSemantics: "Read Unity state without applying mutation.",

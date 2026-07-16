@@ -41,7 +41,7 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
         {
             return RequestStaticValidationPreflightResult.Failure(
                 CreateMetadataResolutionError(
-                    validationCatalogResolutionResult.ErrorCode!.Value,
+                    validationCatalogResolutionResult.ErrorCode!,
                     validationCatalogResolutionResult.ErrorMessage!),
                 preparedRequest,
                 validationCatalogResolutionResult.ReadIndex,
@@ -79,10 +79,7 @@ internal sealed class RequestStaticValidationPreflightService : IRequestStaticVa
         UcliCode errorCode,
         string message)
     {
-        if (!errorCode.IsValid)
-        {
-            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
-        }
+        ArgumentNullException.ThrowIfNull(errorCode);
 
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 

@@ -22,11 +22,11 @@ internal sealed class RecordingDaemonGuiStartupObserver : IDaemonGuiStartupObser
         int processId,
         DateTimeOffset processStartedAtUtc,
         string unityLogPath,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        invocations.Add(new Invocation(unityProject, processId, processStartedAtUtc, unityLogPath, timeout, cancellationToken));
+        invocations.Add(new Invocation(unityProject, processId, processStartedAtUtc, unityLogPath, deadline, cancellationToken));
         if (Handler is not null)
         {
             return Handler(cancellationToken);
@@ -40,6 +40,6 @@ internal sealed class RecordingDaemonGuiStartupObserver : IDaemonGuiStartupObser
         int ProcessId,
         DateTimeOffset ProcessStartedAtUtc,
         string UnityLogPath,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
         CancellationToken CancellationToken);
 }

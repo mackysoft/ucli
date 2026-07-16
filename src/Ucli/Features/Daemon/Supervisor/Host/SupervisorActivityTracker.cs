@@ -3,9 +3,19 @@ namespace MackySoft.Ucli.Features.Daemon.Supervisor.Host;
 /// <summary> Tracks request activity and idle timing for one supervisor host instance. </summary>
 internal sealed class SupervisorActivityTracker
 {
+    private readonly TimeProvider timeProvider;
+
     private int activeRequestCount;
 
-    private long lastActivityUnixTimeMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+    private long lastActivityTimestamp;
+
+    /// <summary> Initializes a new instance of the <see cref="SupervisorActivityTracker" /> class. </summary>
+    /// <param name="timeProvider"> The monotonic clock used for idle-duration measurement. </param>
+    public SupervisorActivityTracker (TimeProvider timeProvider)
+    {
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
+        lastActivityTimestamp = timeProvider.GetTimestamp();
+    }
 
     /// <summary> Gets a value indicating whether one supervisor request is currently being processed. </summary>
     public bool HasActiveRequests => Volatile.Read(ref activeRequestCount) > 0;
@@ -19,10 +29,10 @@ internal sealed class SupervisorActivityTracker
         return new RequestScope(this);
     }
 
-    /// <summary> Updates the last observed activity timestamp to the current UTC time. </summary>
+    /// <summary> Updates the last observed activity timestamp by using the monotonic clock. </summary>
     public void Touch ()
     {
-        Volatile.Write(ref lastActivityUnixTimeMilliseconds, DateTimeOffset.UtcNow.ToUnixTimeMilliseconds());
+        Volatile.Write(ref lastActivityTimestamp, timeProvider.GetTimestamp());
     }
 
     /// <summary> Determines whether the host has been idle for the specified delay. </summary>
@@ -32,13 +42,14 @@ internal sealed class SupervisorActivityTracker
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(idleDelay, TimeSpan.Zero);
 
-        var lastActivity = DateTimeOffset.FromUnixTimeMilliseconds(
-            Volatile.Read(ref lastActivityUnixTimeMilliseconds));
-        return DateTimeOffset.UtcNow - lastActivity >= idleDelay;
+        return timeProvider.GetElapsedTime(
+            Volatile.Read(ref lastActivityTimestamp),
+            timeProvider.GetTimestamp()) >= idleDelay;
     }
 
     private void EndRequest ()
     {
+        Touch();
         Interlocked.Decrement(ref activeRequestCount);
     }
 

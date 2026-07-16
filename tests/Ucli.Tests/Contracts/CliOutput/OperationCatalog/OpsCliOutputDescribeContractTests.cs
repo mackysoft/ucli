@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Tests.OpsCliOutputContractTestSupport;
 

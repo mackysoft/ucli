@@ -50,7 +50,7 @@ internal static class DaemonListExecutionOutputAssert
         string? BranchRef,
         string Head,
         string ProjectPath,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         int ProcessId,
         DaemonEditorMode EditorMode,
         DaemonSessionOwnerKind OwnerKind,

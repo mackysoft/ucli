@@ -37,7 +37,7 @@ internal sealed class CallCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes the call command and emits the JSON result contract. </summary>
+    /// <summary> Applies the JSON request read from redirected standard input and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
@@ -62,6 +62,7 @@ internal sealed class CallCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+        var requestId = Guid.NewGuid();
 
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
@@ -73,6 +74,7 @@ internal sealed class CallCommand
             }
 
             var preflightResult = await callCommandPreflightService.PrepareAsync(
+                    requestId,
                     projectPath,
                     requestInputReadResult.Json!,
                     cancellationToken)
@@ -93,6 +95,7 @@ internal sealed class CallCommand
             }
 
             var preflightResult = await callCommandPreflightService.PrepareAsync(
+                    requestId,
                     projectPath,
                     requestInputReadResult.Json!,
                     cancellationToken)
@@ -110,6 +113,7 @@ internal sealed class CallCommand
         }
 
         var serviceResult = await callService.ExecuteAsync(
+                requestId,
                 new CallCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,

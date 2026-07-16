@@ -50,7 +50,7 @@ public sealed class CliOutputGoldenCodeCatalogContractTests
         {
             if (error.ValueKind == JsonValueKind.Object && CliOutputGoldenContractTestSupport.TryGetString(error, "code", out var code))
             {
-                AssertCatalogCode(catalog, code, CodeCatalogKindValues.Error, $"$.errors[{index}].code");
+                AssertCatalogCode(catalog, code, CodeCatalogKind.Error, $"$.errors[{index}].code");
             }
 
             index++;
@@ -109,7 +109,7 @@ public sealed class CliOutputGoldenCodeCatalogContractTests
 
                 if (CliOutputGoldenContractTestSupport.TryGetString(claim, "id", out var claimId))
                 {
-                    AssertCatalogCode(catalog, claimId, CodeCatalogKindValues.Claim, $"$.payload.claims[{claimIndex}].id");
+                    AssertCatalogCode(catalog, claimId, CodeCatalogKind.Claim, $"$.payload.claims[{claimIndex}].id");
                 }
 
                 ValidateResidualRiskCodes(
@@ -138,7 +138,7 @@ public sealed class CliOutputGoldenCodeCatalogContractTests
         {
             if (residualRisk.ValueKind == JsonValueKind.Object && CliOutputGoldenContractTestSupport.TryGetString(residualRisk, "code", out var code))
             {
-                AssertCatalogCode(catalog, code, CodeCatalogKindValues.Risk, $"{path}[{index}].code");
+                AssertCatalogCode(catalog, code, CodeCatalogKind.Risk, $"{path}[{index}].code");
             }
 
             index++;
@@ -181,14 +181,14 @@ public sealed class CliOutputGoldenCodeCatalogContractTests
     private static void AssertCatalogCode (
         ICodeCatalog catalog,
         string code,
-        string? expectedKind,
+        CodeCatalogKind? expectedKind,
         string path)
     {
         Assert.True(UcliCode.TryCreate(code, out var codeValue), $"{path} contains an invalid uCLI code value '{code}'.");
         Assert.True(catalog.TryFind(codeValue, out var descriptor), $"{path} code '{code}' is not registered in the production code catalog.");
-        if (expectedKind != null)
+        if (expectedKind.HasValue)
         {
-            Assert.Equal(expectedKind, descriptor.Kind);
+            Assert.Equal(expectedKind.Value, descriptor.Kind);
         }
     }
 }

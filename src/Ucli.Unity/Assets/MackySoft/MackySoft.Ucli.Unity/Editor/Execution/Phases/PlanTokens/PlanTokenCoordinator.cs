@@ -57,8 +57,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             try
             {
                 var snapshot = environment.Capture();
-                var requestDigest = Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.ToArray());
-                var compiledExecutionDigest = Sha256LowerHex.Compute(compiledDigestPayloadUtf8.ToArray());
+                var requestDigest = Sha256Digest.Compute(request.CanonicalDigestPayloadUtf8.Span);
+                var compiledExecutionDigest = Sha256Digest.Compute(compiledDigestPayloadUtf8.Span);
                 var stateFingerprint = PlanTokenStateFingerprintCalculator.Compute(snapshot, operationTraces, cancellationToken);
 
                 if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var signingKey, out var keyErrorMessage))
@@ -72,15 +72,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var issuedAtUtc = environment.UtcNow;
                 var expiresAtUtc = issuedAtUtc.Add(DefaultTokenTtl);
                 var payload = new PlanTokenPayload(
-                    Version: PlanTokenCompactCodec.TokenVersion,
-                    KeyId: PlanTokenCompactCodec.TokenKeyId,
-                    ProjectFingerprint: snapshot.ProjectFingerprint,
-                    RequestDigest: requestDigest,
-                    CompiledExecutionDigest: compiledExecutionDigest,
-                    StateFingerprint: stateFingerprint,
-                    IssuedAtUtc: issuedAtUtc,
-                    ExpiresAtUtc: expiresAtUtc,
-                    Nonce: PlanTokenCompactCodec.CreateNonce());
+                    projectFingerprint: snapshot.ProjectFingerprint,
+                    requestDigest: requestDigest,
+                    compiledExecutionDigest: compiledExecutionDigest,
+                    stateFingerprint: stateFingerprint,
+                    issuedAtUtc: issuedAtUtc,
+                    expiresAtUtc: expiresAtUtc,
+                    nonce: PlanTokenNonce.Create());
 
                 var token = PlanTokenCompactCodec.CreateSignedToken(signingKey, payload);
                 return PlanTokenIssueResult.Success(token);
@@ -176,20 +174,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 var payload = decodedToken.Payload;
-                if (!string.IsNullOrWhiteSpace(payload.CompiledExecutionDigest))
+                var compiledExecutionDigest = Sha256Digest.Compute(compiledDigestPayloadUtf8.Span);
+                if (compiledExecutionDigest != payload.CompiledExecutionDigest)
                 {
-                    var compiledExecutionDigest = Sha256LowerHex.Compute(compiledDigestPayloadUtf8.ToArray());
-                    if (!string.Equals(compiledExecutionDigest, payload.CompiledExecutionDigest, StringComparison.Ordinal))
-                    {
-                        return PlanTokenValidationResult.Failed(new OperationFailure(
-                            Code: PlanTokenErrorCodes.StateChangedSincePlan,
-                            Message: "Compiled execution changed since plan token issuance.",
-                            OpId: null));
-                    }
+                    return PlanTokenValidationResult.Failed(new OperationFailure(
+                        Code: PlanTokenErrorCodes.StateChangedSincePlan,
+                        Message: "Compiled execution changed since plan token issuance.",
+                        OpId: null));
                 }
 
                 var stateFingerprint = PlanTokenStateFingerprintCalculator.Compute(snapshot, operationTraces, cancellationToken);
-                if (!string.Equals(stateFingerprint, payload.StateFingerprint, StringComparison.Ordinal))
+                if (stateFingerprint != payload.StateFingerprint)
                 {
                     return PlanTokenValidationResult.Failed(new OperationFailure(
                         Code: PlanTokenErrorCodes.StateChangedSincePlan,
@@ -245,12 +240,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!PlanTokenCompactCodec.IsSupported(parsedToken))
-            {
-                failure = CreateInvalidTokenFailure("Plan token header values are not supported.");
-                return false;
-            }
-
             if (!PlanTokenKeyStore.TryLoadOrCreate(snapshot, out var signingKey, out var keyErrorMessage))
             {
                 failure = new OperationFailure(
@@ -267,7 +256,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var payload = parsedToken.Payload;
-            if (!string.Equals(payload.ProjectFingerprint, snapshot.ProjectFingerprint, StringComparison.Ordinal))
+            if (payload.ProjectFingerprint != snapshot.ProjectFingerprint)
             {
                 failure = CreateInvalidTokenFailure("Plan token project fingerprint does not match current project.");
                 return false;
@@ -289,8 +278,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var requestDigest = Sha256LowerHex.Compute(request.CanonicalDigestPayloadUtf8.ToArray());
-            if (!string.Equals(requestDigest, payload.RequestDigest, StringComparison.Ordinal))
+            var requestDigest = Sha256Digest.Compute(request.CanonicalDigestPayloadUtf8.Span);
+            if (requestDigest != payload.RequestDigest)
             {
                 failure = new OperationFailure(
                     Code: PlanTokenErrorCodes.PlanTokenRequestMismatch,

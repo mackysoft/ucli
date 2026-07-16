@@ -11,11 +11,13 @@ namespace MackySoft.Ucli.Application.Tests.Execution.OperationExecute;
 
 internal static class OperationExecuteServiceTestSupport
 {
+    public static readonly Guid RequestId = Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
+
     private static readonly JsonElement EmptyArgs = JsonSerializer.SerializeToElement(new { });
 
     public static readonly OperationExecuteDefinition RefreshOperation = new(
         Command: UcliCommandIds.Refresh,
-        OperationId: "refresh",
+        OperationId: new IpcExecuteStepId("refresh"),
         Descriptor: new UcliOperationDescriptor(
             Name: UcliPrimitiveOperationNames.ProjectRefresh,
             Kind: UcliOperationKind.Command,
@@ -37,7 +39,7 @@ internal static class OperationExecuteServiceTestSupport
             authorizationService,
             unityRequestExecutor,
             readPostconditionStore ?? new TestMutationReadPostconditionStore(),
-            timeProvider);
+            timeProvider ?? TimeProvider.System);
     }
 
     public static StaticProjectContextResolver CreateProjectContextResolver (UcliConfig? config = null)
@@ -67,7 +69,7 @@ internal static class OperationExecuteServiceTestSupport
     public static UnityRequestExecutionResult CreatePlanSuccessResult (string planToken)
     {
         return UnityRequestExecutionResult.Success(ExecuteUnityRequestResponseTestFactory.Create(
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             opResults:
             [
                 CreatePlanOperationResult(),
@@ -79,11 +81,11 @@ internal static class OperationExecuteServiceTestSupport
     public static UnityRequestExecutionResult CreateCallSuccessResult (
         JsonElement? result = null,
         IReadOnlyList<IpcExecuteTouchedResource>? touched = null,
-        OperationExecutionReadPostcondition? readPostcondition = null,
+        IpcExecuteReadPostcondition? readPostcondition = null,
         bool changed = true)
     {
         return UnityRequestExecutionResult.Success(ExecuteUnityRequestResponseTestFactory.Create(
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             opResults:
             [
                 CreateCallOperationResult(result, touched, changed),
@@ -95,9 +97,9 @@ internal static class OperationExecuteServiceTestSupport
     public static IpcExecuteOperationResult CreatePlanOperationResult ()
     {
         return new IpcExecuteOperationResult(
-            OpId: "refresh",
+            OpId: new IpcExecuteStepId("refresh"),
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
-            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,
             Changed: false,
             Touched: []);
@@ -109,9 +111,9 @@ internal static class OperationExecuteServiceTestSupport
         bool changed = true)
     {
         return new IpcExecuteOperationResult(
-            OpId: "refresh",
+            OpId: new IpcExecuteStepId("refresh"),
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
-            Phase: IpcExecuteOperationPhaseNames.Call,
+            Phase: IpcExecuteOperationPhase.Call,
             Applied: true,
             Changed: changed,
             Touched: touched ?? [])

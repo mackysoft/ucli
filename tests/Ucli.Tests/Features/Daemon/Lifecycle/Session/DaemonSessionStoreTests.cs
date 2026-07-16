@@ -6,7 +6,6 @@ using System.Runtime.Versioning;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Daemon;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Tests;
@@ -16,11 +15,58 @@ public sealed class DaemonSessionStoreTests
 {
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Write_WhenSessionGenerationLockIsOwned_DoesNotPublishAnotherSession ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "write-generation-lock-owned");
+        var store = new DaemonSessionStore();
+        var session = DaemonSessionTestFactory.Create(
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-write-generation-lock-owned"),
+            sessionToken: "successor-token");
+        var lockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
+            scope.FullPath,
+            session.ProjectFingerprint);
+        using var sessionLock = FileExclusiveLock.Acquire(
+            lockPath,
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+
+        Assert.False(writeResult.IsSuccess);
+        Assert.False(File.Exists(UcliStoragePathResolver.ResolveSessionPath(
+            scope.FullPath,
+            session.ProjectFingerprint)));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Delete_WhenSessionGenerationLockIsOwned_DoesNotDeleteCurrentSession ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "delete-generation-lock-owned");
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-delete-generation-lock-owned");
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        await File.WriteAllTextAsync(sessionPath, "current-session", CancellationToken.None);
+        var lockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(scope.FullPath, projectFingerprint);
+        using var sessionLock = FileExclusiveLock.Acquire(
+            lockPath,
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+        var store = new DaemonSessionStore();
+
+        var deleteResult = await store.DeleteAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+
+        Assert.False(deleteResult.IsSuccess);
+        Assert.Equal("current-session", await File.ReadAllTextAsync(sessionPath, CancellationToken.None));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task WriteReadDelete_RoundTripsSessionJson ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "roundtrip");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-roundtrip", sessionToken: "token-1");
+        var store = new DaemonSessionStore();
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-roundtrip"), sessionToken: "token-1");
         var gitIgnorePath = Path.Combine(
             scope.FullPath,
             UcliStoragePathNames.UcliDirectoryName,
@@ -38,16 +84,19 @@ public sealed class DaemonSessionStoreTests
         Assert.True(readResult.IsSuccess);
         Assert.True(readResult.Exists);
         var loadedSession = Assert.IsType<DaemonSession>(readResult.Session);
-        Assert.Equal(session.SchemaVersion, loadedSession.SchemaVersion);
         Assert.Equal(session.SessionToken, loadedSession.SessionToken);
         Assert.Equal(session.ProjectFingerprint, loadedSession.ProjectFingerprint);
         Assert.Equal(session.EditorMode, loadedSession.EditorMode);
         Assert.Equal(session.OwnerKind, loadedSession.OwnerKind);
         Assert.Equal(session.CanShutdownProcess, loadedSession.CanShutdownProcess);
-        Assert.Equal(session.EndpointTransportKind, loadedSession.EndpointTransportKind);
-        Assert.Equal(session.EndpointAddress, loadedSession.EndpointAddress);
+        Assert.Equal(session.Endpoint, loadedSession.Endpoint);
         Assert.Equal(session.ProcessId, loadedSession.ProcessId);
         Assert.Equal(session.ProcessStartedAtUtc, loadedSession.ProcessStartedAtUtc);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
+        Assert.Equal(
+            DaemonSessionArtifactIdentity.Create(await File.ReadAllBytesAsync(sessionPath, CancellationToken.None)),
+            readResult.ArtifactIdentity);
+        Assert.Null(readResult.InvalidEvidence);
 
         var deleteResult = await store.DeleteAsync(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
 
@@ -62,8 +111,8 @@ public sealed class DaemonSessionStoreTests
     public async Task Write_WhenGitIgnoreAlreadyExists_DoesNotOverwriteExistingContents ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "existing-gitignore");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-existing-gitignore", sessionToken: "token-1");
+        var store = new DaemonSessionStore();
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-existing-gitignore"), sessionToken: "token-1");
         var relativeGitIgnorePath = Path.Combine(
             UcliStoragePathNames.UcliDirectoryName,
             UcliStoragePathNames.GitIgnoreFileName);
@@ -87,19 +136,19 @@ public sealed class DaemonSessionStoreTests
         }
 
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "owner-only");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-owner-only", sessionToken: "token-1");
+        var store = new DaemonSessionStore();
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-owner-only"), sessionToken: "token-1");
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
 
         var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(scope.FullPath);
-        var fingerprintDirectoryPath = UcliStoragePathResolver.ResolveFingerprintDirectory(scope.FullPath, session.ProjectFingerprint);
+        var projectDirectoryPath = UcliStoragePathResolver.ResolveProjectDirectory(scope.FullPath, session.ProjectFingerprint);
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
 
         PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(localDirectoryPath);
-        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(fingerprintDirectoryPath);
+        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(projectDirectoryPath);
         PosixAccessBoundaryAssert.FileIsOwnerOnly(sessionPath);
     }
 
@@ -114,19 +163,19 @@ public sealed class DaemonSessionStoreTests
         }
 
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "current-user-only");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-current-user-only", sessionToken: "token-1");
+        var store = new DaemonSessionStore();
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-current-user-only"), sessionToken: "token-1");
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
 
         var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(scope.FullPath);
-        var fingerprintDirectoryPath = UcliStoragePathResolver.ResolveFingerprintDirectory(scope.FullPath, session.ProjectFingerprint);
+        var projectDirectoryPath = UcliStoragePathResolver.ResolveProjectDirectory(scope.FullPath, session.ProjectFingerprint);
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
 
         WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(localDirectoryPath);
-        WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(fingerprintDirectoryPath);
+        WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(projectDirectoryPath);
         WindowsAccessBoundaryAssert.FileIsCurrentUserOnly(sessionPath);
     }
 
@@ -139,12 +188,12 @@ public sealed class DaemonSessionStoreTests
             scope.FullPath,
             UcliStoragePathNames.UcliDirectoryName,
             UcliStoragePathNames.LocalDirectoryName,
-            UcliStoragePathNames.FingerprintsDirectoryName);
+            UcliStoragePathNames.ProjectsDirectoryName);
         Directory.CreateDirectory(Path.GetDirectoryName(blockedPath)!);
         await File.WriteAllTextAsync(blockedPath, "blocked", CancellationToken.None);
 
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-blocked", sessionToken: "token-1");
+        var store = new DaemonSessionStore();
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-blocked"), sessionToken: "token-1");
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
@@ -159,16 +208,19 @@ public sealed class DaemonSessionStoreTests
     public async Task Read_WhenSessionJsonIsMalformed_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "malformed-json");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, "fingerprint-malformed");
+        var store = new DaemonSessionStore();
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-malformed"));
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
         await File.WriteAllTextAsync(sessionPath, "{", CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-malformed", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-malformed"), CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
         Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
+        Assert.Equal(
+            DaemonSessionArtifactIdentity.Create(System.Text.Encoding.UTF8.GetBytes("{")),
+            readResult.ArtifactIdentity);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("invalid", error.Message, StringComparison.OrdinalIgnoreCase);
@@ -176,65 +228,101 @@ public sealed class DaemonSessionStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Write_WhenTransportKindIsInvalid_ReturnsInvalidArgument ()
+    public async Task Read_WhenSessionJsonExceedsStorageLimit_ReturnsIoFailure ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-transport");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fingerprint-invalid-transport",
-            sessionToken: "token-1") with
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "oversized-json");
+        var store = new DaemonSessionStore();
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-oversized-json");
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        await File.WriteAllBytesAsync(
+            sessionPath,
+            new byte[DaemonSessionStorageContract.MaximumFileSizeBytes + 1],
+            CancellationToken.None);
+
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        Assert.False(readResult.Exists);
+        Assert.Equal(DaemonSessionReadFailureKind.IoFailure, readResult.FailureKind);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("maximum size", error.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Theory]
+    [InlineData(SessionTimestamp.IssuedAtUtc, "issuedAtUtc")]
+    [InlineData(SessionTimestamp.ProcessStartedAtUtc, "processStartedAtUtc")]
+    [Trait("Size", "Medium")]
+    public async Task Read_WhenSessionTimestampHasNonZeroOffset_ReturnsInvalidArgument (
+        SessionTimestamp timestamp,
+        string expectedParameterName)
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "non-utc-timestamp");
+        var store = new DaemonSessionStore();
+        var projectFingerprint = ProjectFingerprintTestFactory.Create($"fingerprint-non-utc-{expectedParameterName}");
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: projectFingerprint);
+        var contract = DaemonSessionContractMapper.ToContract(session);
+        var nonUtcTimestamp = new DateTimeOffset(2026, 7, 13, 9, 0, 0, TimeSpan.FromHours(9));
+        var invalidContract = timestamp switch
         {
-            EndpointTransportKind = (IpcTransportKind)int.MaxValue,
+            SessionTimestamp.IssuedAtUtc => contract with
+            {
+                IssuedAtUtc = nonUtcTimestamp,
+            },
+            SessionTimestamp.ProcessStartedAtUtc => contract with
+            {
+                ProcessStartedAtUtc = nonUtcTimestamp,
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(timestamp), timestamp, null),
         };
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        await File.WriteAllTextAsync(
+            sessionPath,
+            DaemonSessionJsonContractSerializer.Serialize(invalidContract),
+            CancellationToken.None);
 
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
 
-        Assert.False(writeResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.False(readResult.IsSuccess);
+        Assert.False(readResult.Exists);
+        Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("endpointTransportKind", error.Message, StringComparison.Ordinal);
+        Assert.Contains(expectedParameterName, error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Write_WhenEditorModeIsUnsupported_ReturnsInvalidArgument ()
+    public async Task Read_WhenEditorInstanceIdIsNotGuid_ReturnsInvalidArgument ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-editor-mode");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "non-guid-editor-instance-id");
+        var store = new DaemonSessionStore();
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-non-guid-editor-instance-id");
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fingerprint-invalid-editor-mode",
-            sessionToken: "token-1") with
-        {
-            EditorMode = (DaemonEditorMode)int.MaxValue,
-        };
+            projectFingerprint: projectFingerprint,
+            editorMode: DaemonEditorMode.Gui,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var validJson = Serialize(session);
+        var serializedEditorInstanceId = DaemonSessionTestFactory.DefaultEditorInstanceId.ToString("D");
+        Assert.Contains(serializedEditorInstanceId, validJson, StringComparison.Ordinal);
+        var invalidJson = validJson.Replace(serializedEditorInstanceId, "not-a-guid", StringComparison.Ordinal);
+        await File.WriteAllTextAsync(sessionPath, invalidJson, CancellationToken.None);
 
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
 
-        Assert.False(writeResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(writeResult.Error);
+        Assert.False(readResult.IsSuccess);
+        Assert.False(readResult.Exists);
+        Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
+        Assert.Equal(
+            DaemonSessionArtifactIdentity.Create(System.Text.Encoding.UTF8.GetBytes(invalidJson)),
+            readResult.ArtifactIdentity);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("editorMode", error.Message, StringComparison.OrdinalIgnoreCase);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Write_WhenOwnerKindIsNotCli_ReturnsInvalidArgument ()
-    {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "invalid-owner-kind");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fingerprint-invalid-owner-kind",
-            sessionToken: "token-1") with
-        {
-            OwnerKind = (DaemonSessionOwnerKind)int.MaxValue,
-        };
-
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
-
-        Assert.False(writeResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(writeResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("ownerKind", error.Message, StringComparison.Ordinal);
+        Assert.Contains("editorInstanceId", error.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -242,16 +330,15 @@ public sealed class DaemonSessionStoreTests
     public async Task Read_WhenSessionFingerprintDoesNotMatchRequestedFingerprint_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "fingerprint-mismatch");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var requestedFingerprint = "fingerprint-requested";
-        var mismatchedSession = DaemonSessionTestFactory.Create(projectFingerprint: "fingerprint-other", sessionToken: "token-1");
+        var store = new DaemonSessionStore();
+        var requestedFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-requested");
+        var mismatchedSession = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-other"), sessionToken: "token-1");
 
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
-        var serializer = new DaemonSessionJsonSerializer();
         await File.WriteAllTextAsync(
             sessionPath,
-            serializer.Serialize(mismatchedSession) + Environment.NewLine,
+            Serialize(mismatchedSession) + Environment.NewLine,
             CancellationToken.None);
 
         var readResult = await store.ReadAsync(scope.FullPath, requestedFingerprint, CancellationToken.None);
@@ -269,14 +356,13 @@ public sealed class DaemonSessionStoreTests
     public async Task Read_WhenEditorModeIsUnsupported_ReturnsInvalidArgument ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "read-invalid-editor-mode");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var requestedFingerprint = "fingerprint-read-invalid-editor-mode";
+        var store = new DaemonSessionStore();
+        var requestedFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-read-invalid-editor-mode");
         var session = DaemonSessionTestFactory.Create(projectFingerprint: requestedFingerprint, sessionToken: "token-1");
 
         var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
-        var serializer = new DaemonSessionJsonSerializer();
-        var json = serializer.Serialize(session);
+        var json = Serialize(session);
         var editorModeProperty = $"\"editorMode\": \"{ContractLiteralCodec.ToValue(session.EditorMode)}\"";
         Assert.Contains(editorModeProperty, json, StringComparison.Ordinal);
         await File.WriteAllTextAsync(
@@ -299,45 +385,33 @@ public sealed class DaemonSessionStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Write_WhenOwnerKindIsUserAndCanShutdownProcessIsTrue_ReturnsInvalidArgument ()
-    {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "user-owner-can-shutdown-true");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
-        var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fingerprint-user-owner-can-shutdown-true",
-            sessionToken: "token-1") with
-        {
-            EditorMode = DaemonEditorMode.Gui,
-            OwnerKind = DaemonSessionOwnerKind.User,
-            CanShutdownProcess = true,
-        };
-
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
-
-        Assert.False(writeResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(writeResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("canShutdownProcess=false", error.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task Write_WhenGuiUserSessionCannotShutdownProcess_Succeeds ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "gui-user-owner");
-        var store = new DaemonSessionStore(new DaemonSessionJsonSerializer(), new DaemonSessionValidator());
+        var store = new DaemonSessionStore();
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fingerprint-gui-user-owner",
-            sessionToken: "token-1") with
-        {
-            EditorMode = DaemonEditorMode.Gui,
-            OwnerKind = DaemonSessionOwnerKind.User,
-            CanShutdownProcess = false,
-        };
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-gui-user-owner"),
+            sessionToken: "token-1",
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
 
         var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
+    }
+
+    private static string Serialize (DaemonSession session)
+    {
+        return DaemonSessionJsonContractSerializer.Serialize(
+            DaemonSessionContractMapper.ToContract(session));
+    }
+
+    public enum SessionTimestamp
+    {
+        IssuedAtUtc,
+        ProcessStartedAtUtc,
     }
 
 }

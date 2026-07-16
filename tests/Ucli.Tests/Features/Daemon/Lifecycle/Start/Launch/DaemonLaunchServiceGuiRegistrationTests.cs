@@ -4,6 +4,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using static MackySoft.Ucli.Tests.Daemon.DaemonLaunchServiceTestSupport;
 
@@ -13,18 +14,21 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGui_LaunchesGuiAndWaitsForRegisteredSessionWithoutPrewritingSession ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-success");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-success"));
+        var timeProvider = new ManualTimeProvider(new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero));
+        var processStartedAtUtc = timeProvider.GetUtcNow();
         var registeredSession = DaemonSessionTestFactory.Create(
             processId: 4321,
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
             editorMode: DaemonEditorMode.Gui,
-            endpointAddress: LaunchEndpointAddress);
+            endpointAddress: LaunchEndpointAddress,
+            processStartedAtUtc: processStartedAtUtc);
         var launchSessionService = new RecordingDaemonLaunchSessionService();
         var batchmodeLauncher = new RecordingUnityDaemonProcessLauncher();
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
-            NextResult = UnityDaemonLaunchResult.Success(4321, DateTimeOffset.UtcNow),
+            NextResult = UnityDaemonLaunchResult.Success(4321, processStartedAtUtc),
         };
         var guiStartupObserver = new RecordingDaemonGuiStartupObserver
         {
@@ -43,13 +47,14 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             batchmodeLauncher,
             readinessProbe,
             compensationService,
+            timeProvider,
             diagnosisStore,
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver);
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
@@ -71,17 +76,16 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenGuiLaunchAndRegistrationSucceed_EmitsStartupProgress ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-progress");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-progress"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var registeredSession = DaemonSessionTestFactory.Create(
             processId: 4321,
             sessionToken: LaunchSessionToken,
             projectFingerprint: context.ProjectFingerprint,
             editorMode: DaemonEditorMode.Gui,
-            endpointAddress: LaunchEndpointAddress) with
-        {
-            ProcessStartedAtUtc = processStartedAtUtc,
-        };
+            endpointAddress: LaunchEndpointAddress,
+            processStartedAtUtc: processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(4321, processStartedAtUtc),
@@ -101,13 +105,14 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             new RecordingUnityDaemonProcessLauncher(),
             new RecordingDaemonStartupReadinessProbe(),
             new RecordingDaemonLaunchCompensationService(),
+            timeProvider,
             new RecordingDaemonDiagnosisStore(),
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver);
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
             progressObserver,
@@ -133,8 +138,9 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiRegistrationTimesOut_WritesGuiEndpointDiagnosis ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-timeout");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-timeout"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var launchSessionService = new RecordingDaemonLaunchSessionService();
         var batchmodeLauncher = new RecordingUnityDaemonProcessLauncher();
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
@@ -154,6 +160,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             batchmodeLauncher,
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             diagnosisStore,
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver,
@@ -161,7 +168,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -171,17 +178,19 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
         var diagnosis = DaemonDiagnosisStoreAssert.LatestDiagnosisWrittenFor(diagnosisStore, context);
-        Assert.Equal(DaemonDiagnosisReasonValues.GuiEndpointNotRegistered, diagnosis.Reason);
+        Assert.Equal(DaemonDiagnosisReason.GuiEndpointNotRegistered, diagnosis.Reason);
         Assert.True(diagnosis.IsInferred);
         Assert.Equal(5432, diagnosis.ProcessId);
         Assert.Equal(processStartedAtUtc, diagnosis.ProcessStartedAtUtc);
         Assert.Equal(
-            Path.GetFullPath(Path.Combine("/tmp/repo-root", ".ucli", "local", "fingerprints", context.ProjectFingerprint, "unity.log")),
+            UcliStoragePathResolver.ResolveUnityLogPath(
+                context.RepositoryRoot,
+                context.ProjectFingerprint),
             diagnosis.UnityLogPath);
         Assert.Equal(DaemonDiagnosisStartupPhase.EndpointRegistration, diagnosis.StartupPhase);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, diagnosis.ActionRequired);
+        Assert.Equal(DaemonDiagnosisActionRequired.InspectUnityLog, diagnosis.ActionRequired);
         Assert.Equal(
-            Path.Combine("/tmp/unity-project", "Library", "EditorInstance.json"),
+            Path.Combine(context.UnityProjectRoot, "Library", "EditorInstance.json"),
             diagnosis.EditorInstancePath);
         DaemonLaunchInvocationAssert.StartupFailureKeptProcessWithoutCompensation(
             result,
@@ -195,8 +204,9 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiRegistrationTimesOutAndTerminatePolicy_CleansFailedProcess ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-timeout-cleanup-success");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-timeout-cleanup-success"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(5434, processStartedAtUtc),
@@ -213,6 +223,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             new RecordingUnityDaemonProcessLauncher(),
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             new RecordingDaemonDiagnosisStore(),
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver,
@@ -220,7 +231,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
@@ -242,8 +253,9 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
     [Trait("Size", "Small")]
     public async Task Launch_WhenEditorModeGuiRegistrationTimesOutAndCompensationFails_RecordsUnknownProcessAction ()
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-timeout-cleanup-fail");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-timeout-cleanup-fail"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(5433, processStartedAtUtc),
@@ -263,6 +275,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
             new RecordingUnityDaemonProcessLauncher(),
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             new RecordingDaemonDiagnosisStore(),
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver,
@@ -270,7 +283,7 @@ public sealed class DaemonLaunchServiceGuiRegistrationTests
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);

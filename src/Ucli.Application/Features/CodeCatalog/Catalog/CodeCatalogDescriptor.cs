@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 
 /// <summary> Describes one globally unique machine-readable code value. </summary>
@@ -13,16 +15,62 @@ namespace MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 /// <param name="ExecutionSemantics"> Optional static execution and retry semantics. </param>
 /// <param name="Inspect"> Response fields or diagnostic commands callers should inspect. </param>
 /// <param name="RelatedCodes"> Adjacent globally unique code values. </param>
-internal sealed record CodeCatalogDescriptor (
-    UcliCode Code,
-    string Kind,
-    string Category,
-    string Summary,
-    string? Meaning,
-    IReadOnlyList<string> AppearsIn,
-    IReadOnlyList<UcliCommand> AppliesTo,
-    object? CoverageImpact,
-    object? VerdictSemantics,
-    UcliErrorExecutionSemantics? ExecutionSemantics,
-    IReadOnlyList<string> Inspect,
-    IReadOnlyList<UcliCode> RelatedCodes);
+internal sealed record CodeCatalogDescriptor
+{
+    public CodeCatalogDescriptor (
+        UcliCode Code,
+        CodeCatalogKind Kind,
+        string Category,
+        string Summary,
+        string? Meaning,
+        IReadOnlyList<string> AppearsIn,
+        IReadOnlyList<UcliCommand> AppliesTo,
+        object? CoverageImpact,
+        object? VerdictSemantics,
+        UcliErrorExecutionSemantics? ExecutionSemantics,
+        IReadOnlyList<string> Inspect,
+        IReadOnlyList<UcliCode> RelatedCodes)
+    {
+        this.Code = Code ?? throw new ArgumentNullException(nameof(Code));
+        if (!ContractLiteralCodec.IsDefined(Kind))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Code catalog kind must be specified.");
+        }
+
+        this.Kind = Kind;
+        this.Category = Category;
+        this.Summary = Summary;
+        this.Meaning = Meaning;
+        this.AppearsIn = AppearsIn;
+        this.AppliesTo = AppliesTo;
+        this.CoverageImpact = CoverageImpact;
+        this.VerdictSemantics = VerdictSemantics;
+        this.ExecutionSemantics = ExecutionSemantics;
+        this.Inspect = Inspect;
+        this.RelatedCodes = RelatedCodes;
+    }
+
+    public UcliCode Code { get; }
+
+    public CodeCatalogKind Kind { get; }
+
+    public string Category { get; init; }
+
+    public string Summary { get; init; }
+
+    public string? Meaning { get; init; }
+
+    public IReadOnlyList<string> AppearsIn { get; init; }
+
+    public IReadOnlyList<UcliCommand> AppliesTo { get; init; }
+
+    public object? CoverageImpact { get; init; }
+
+    public object? VerdictSemantics { get; init; }
+
+    public UcliErrorExecutionSemantics? ExecutionSemantics { get; init; }
+
+    public IReadOnlyList<string> Inspect { get; init; }
+
+    public IReadOnlyList<UcliCode> RelatedCodes { get; init; }
+}

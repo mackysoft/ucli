@@ -15,12 +15,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The validation error message when resolution fails. </param>
         /// <returns> <see langword="true" /> when a runtime type is resolved; otherwise <see langword="false" />. </returns>
         public static bool TryResolveRuntimeType (
-            string typeId,
+            string? typeId,
             [NotNullWhen(true)] out Type? runtimeType,
             out string errorMessage)
         {
             runtimeType = null;
-            if (string.IsNullOrWhiteSpace(typeId))
+            if (typeId == null || string.IsNullOrWhiteSpace(typeId))
             {
                 errorMessage = "TypeId must not be empty or whitespace.";
                 return false;

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -13,15 +12,18 @@ internal sealed class RecordingDaemonShutdownClient : IDaemonShutdownClient
 
     public ManualTimeProvider? TimeProvider { get; set; }
 
+    public Action? OnSend { get; set; }
+
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<DaemonShutdownAttemptResult> SendShutdownAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
-        invocations.Add(new Invocation(unityProject, session, timeout, cancellationToken));
+        invocations.Add(new Invocation(unityProject, session, deadline, cancellationToken));
+        OnSend?.Invoke();
         if (Delay > TimeSpan.Zero)
         {
             if (TimeProvider != null)
@@ -40,6 +42,6 @@ internal sealed class RecordingDaemonShutdownClient : IDaemonShutdownClient
     public readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         DaemonSession Session,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
         CancellationToken CancellationToken);
 }

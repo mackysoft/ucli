@@ -10,7 +10,7 @@ namespace MackySoft.Ucli.Hosting.Cli.Requests;
 /// <summary> Provides the <c>query asset schema</c> CLI command entry point. </summary>
 internal sealed class QueryAssetSchemaCommand
 {
-    private const string OperationId = "asset.schema";
+    private static readonly IpcExecuteStepId OperationId = new("asset.schema");
 
     private readonly IQueryService queryService;
 
@@ -27,7 +27,7 @@ internal sealed class QueryAssetSchemaCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes <c>query asset schema</c> and emits the JSON result contract. </summary>
+    /// <summary> Describes a Unity asset schema and emits the JSON result contract. Requires exactly one selector: --type, --globalObjectId, --assetGuid, --assetPath, or --projectAssetPath. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
@@ -56,19 +56,21 @@ internal sealed class QueryAssetSchemaCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+        var requestId = Guid.NewGuid();
 
         var commonOptionsResult = QueryCommonOptionsNormalizer.Normalize(projectPath, mode, timeout, readIndexMode, failFast);
         if (!commonOptionsResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetSchema, commonOptionsResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QueryAssetSchema, commonOptionsResult.Error!);
         }
 
         if (!TryCreateArgs(type, globalObjectId, assetGuid, assetPath, projectAssetPath, out var args, out var error))
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetSchema, error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QueryAssetSchema, error!);
         }
 
         return await QueryCommandExecutionHelper.ExecuteAsync(
+                requestId,
                 queryService,
                 commonOptionsResult.Options!,
                 new QueryUnityOperationRequest(
@@ -131,25 +133,54 @@ internal sealed class QueryAssetSchemaCommand
             return true;
         }
 
-        var target = new Dictionary<string, string>(StringComparer.Ordinal);
-        AddIfNotNull(target, "globalObjectId", normalizedGlobalObjectId);
-        AddIfNotNull(target, "assetGuid", normalizedAssetGuid);
-        AddIfNotNull(target, "assetPath", normalizedAssetPath);
-        AddIfNotNull(target, "projectAssetPath", normalizedProjectAssetPath);
-        args = QueryOperationArgsFactory.CreateAssetSchemaTarget(target);
-        return true;
-    }
-
-    private static void AddIfNotNull (
-        IDictionary<string, string> target,
-        string name,
-        string? value)
-    {
-        if (value is null)
+        UnityGlobalObjectId? typedGlobalObjectId = null;
+        if (normalizedGlobalObjectId is not null
+            && !UnityGlobalObjectId.TryParse(normalizedGlobalObjectId, out typedGlobalObjectId))
         {
-            return;
+            error = ExecutionError.InvalidArgument(
+                "Selector '--globalObjectId' must be a supported non-null Unity GlobalObjectId.");
+            return false;
         }
 
-        target.Add(name, value);
+        Guid? typedAssetGuid = null;
+        if (normalizedAssetGuid is not null)
+        {
+            if (!Guid.TryParse(normalizedAssetGuid, out var parsedAssetGuid)
+                || parsedAssetGuid == Guid.Empty)
+            {
+                error = ExecutionError.InvalidArgument(
+                    "Selector '--assetGuid' must be a non-empty GUID.");
+                return false;
+            }
+
+            typedAssetGuid = parsedAssetGuid;
+        }
+
+        UnityAssetPath? typedAssetPath = null;
+        if (normalizedAssetPath is not null
+            && !UnityAssetPath.TryParse(normalizedAssetPath, out typedAssetPath))
+        {
+            error = ExecutionError.InvalidArgument(
+                "Selector '--assetPath' must be a normalized path below 'Assets/'.");
+            return false;
+        }
+
+        ProjectSettingsAssetPath? typedProjectAssetPath = null;
+        if (normalizedProjectAssetPath is not null
+            && !ProjectSettingsAssetPath.TryParse(normalizedProjectAssetPath, out typedProjectAssetPath))
+        {
+            error = ExecutionError.InvalidArgument(
+                "Selector '--projectAssetPath' must be a normalized path below 'ProjectSettings/'.");
+            return false;
+        }
+
+        var target = new AssetReferenceArgs(
+            alias: null,
+            globalObjectId: typedGlobalObjectId,
+            assetGuid: typedAssetGuid,
+            assetPath: typedAssetPath,
+            projectAssetPath: typedProjectAssetPath);
+        args = QueryOperationArgsFactory.CreateAssetSchemaTarget(target);
+        return true;
     }
 }

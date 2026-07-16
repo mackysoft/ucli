@@ -26,17 +26,6 @@ internal static class RequestServiceResultInvariants
                 throw new ArgumentException("Failure errors must not contain null entries.", nameof(errors));
             }
 
-            if (!error.Code.IsValid)
-            {
-                throw new ArgumentException("Failure error code must not be empty.", nameof(errors));
-            }
-
-            ArgumentException.ThrowIfNullOrWhiteSpace(error.Message, nameof(errors));
-            if (error.Outcome == ApplicationOutcome.Success)
-            {
-                throw new ArgumentException("Failure outcome must not be success.", nameof(errors));
-            }
-
             snapshot[i] = error;
         }
 

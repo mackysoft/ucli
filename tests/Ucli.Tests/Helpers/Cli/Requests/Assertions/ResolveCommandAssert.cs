@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve.Cont
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using static MackySoft.Ucli.Tests.ResolveCommandTestData;
 
 namespace MackySoft.Tests;
 
@@ -20,6 +21,7 @@ internal static class ResolveCommandAssert
         string expectedHierarchyPath)
     {
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.NotEqual(Guid.Empty, Assert.Single(service.RequestIds));
         var invocation = Assert.Single(service.Invocations);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
         Assert.Equal(expectedProjectPath, invocation.Input.ProjectPath);
@@ -28,8 +30,8 @@ internal static class ResolveCommandAssert
         Assert.Equal(expectedReadIndexMode, invocation.Input.ReadIndexMode);
         Assert.Equal(expectedFailFast, invocation.Input.FailFast);
         var selector = Assert.IsType<ResolveSceneHierarchySelectorInput>(invocation.Input.Selector);
-        Assert.Equal(expectedScene, selector.Scene);
-        Assert.Equal(expectedHierarchyPath, selector.HierarchyPath);
+        Assert.Equal(expectedScene, selector.Scene.Value);
+        Assert.Equal(expectedHierarchyPath, selector.HierarchyPath.Value);
     }
 
     public static void SucceededWithPayload (
@@ -48,17 +50,17 @@ internal static class ResolveCommandAssert
                 .HasString("requestId", expectedRequestId)
                 .HasProperty("project", project => project
                     .HasString("projectPath", ProjectIdentityInfoTestFactory.DefaultProjectPath)
-                    .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint)
+                    .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint.ToString())
                     .HasString("unityVersion", ProjectIdentityInfoTestFactory.UnityVersion))
                 .HasArrayLength("opResults", 1)
                 .HasProperty("opResults", 0, op => op
                     .HasString("opId", "resolve")
                     .HasString("op", UcliPrimitiveOperationNames.Resolve)
-                    .HasString("phase", IpcExecuteOperationPhaseNames.Plan)
+                    .HasString("phase", ContractLiteralCodec.ToValue(IpcExecuteOperationPhase.Plan))
                     .HasBoolean("applied", false)
                     .HasBoolean("changed", false)
                     .HasProperty("result", result => result
-                        .HasString("globalObjectId", "GlobalObjectId_V1-1-2-3-4-5-6")))
+                        .HasString("globalObjectId", GlobalObjectId)))
                 .HasProperty("readIndex", readIndex => readIndex
                     .HasBoolean("used", true)
                     .HasString("source", "index")

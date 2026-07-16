@@ -28,21 +28,27 @@ internal sealed class CallService : ICallService
         IPhaseExecutionPreflightService phaseExecutionPreflightService,
         ICallDangerousOperationGuard dangerousOperationGuard,
         ICallUnityExecutionService callUnityExecutionService,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.requestPreparationService = requestPreparationService ?? throw new ArgumentNullException(nameof(requestPreparationService));
         this.phaseExecutionPreflightService = phaseExecutionPreflightService ?? throw new ArgumentNullException(nameof(phaseExecutionPreflightService));
         this.dangerousOperationGuard = dangerousOperationGuard ?? throw new ArgumentNullException(nameof(dangerousOperationGuard));
         this.callUnityExecutionService = callUnityExecutionService ?? throw new ArgumentNullException(nameof(callUnityExecutionService));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
     public async ValueTask<CallServiceResult> ExecuteAsync (
+        Guid requestId,
         CallCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         ArgumentNullException.ThrowIfNull(input);
 
         var requestPreparationResult = await requestPreparationService.PrepareAsync(
@@ -51,7 +57,7 @@ internal sealed class CallService : ICallService
                 cancellationToken)
             .ConfigureAwait(false);
         var preparedRequestContext = requestPreparationResult.PreparedRequest;
-        var baseOutput = CallExecutionOutputFactory.TryCreateBase(preparedRequestContext);
+        var baseOutput = CallExecutionOutputFactory.TryCreateBase(requestId, preparedRequestContext);
         if (requestPreparationResult.Error != null)
         {
             return CallFailureResultFactory.FromExecutionError(requestPreparationResult.Error, baseOutput);
@@ -88,7 +94,7 @@ internal sealed class CallService : ICallService
             .ConfigureAwait(false);
 
         var preparedRequest = preflightResult.PreparedRequest;
-        baseOutput = CallExecutionOutputFactory.TryCreateBase(preparedRequest?.PreparedRequest);
+        baseOutput = CallExecutionOutputFactory.TryCreateBase(requestId, preparedRequest?.PreparedRequest);
         if (preflightResult.Error != null)
         {
             return CallFailureResultFactory.FromExecutionError(preflightResult.Error, baseOutput, preflightResult.ErrorCode);
@@ -117,6 +123,7 @@ internal sealed class CallService : ICallService
         }
 
         return await callUnityExecutionService.ExecuteAsync(
+                requestId,
                 preparedRequest,
                 executionMode,
                 input,

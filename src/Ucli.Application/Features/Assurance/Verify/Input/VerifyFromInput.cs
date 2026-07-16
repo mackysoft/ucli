@@ -3,7 +3,7 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 /// <summary> Represents normalized data read from <c>verify --from</c> input. </summary>
 internal sealed record VerifyFromInput (
     string Command,
-    string ProjectFingerprint,
+    ProjectFingerprint ProjectFingerprint,
     IReadOnlyList<VerifyFromOperationResult> OpResults,
     int ReadPostconditionRequirementCount)
 {

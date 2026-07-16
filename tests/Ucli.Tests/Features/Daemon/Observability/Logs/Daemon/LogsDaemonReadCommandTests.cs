@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -21,27 +20,27 @@ public sealed class LogsDaemonReadCommandTests
         {
             await onEvent(
                 CreateEvent(
-                    cursor: "stream-1:1",
+                    cursor: "abcdef0123456789abcdef0123456789:1",
                     category: "ipc",
                     message: "server started",
                     raw: null),
-                "stream-1:3",
+                "abcdef0123456789abcdef0123456789:3",
                 cancellationToken);
             await onEvent(
                 CreateEvent(
-                    cursor: "stream-1:2",
+                    cursor: "abcdef0123456789abcdef0123456789:2",
                     category: "transport",
                     message: "socket timeout",
                     raw: "{\"socket\":true}"),
-                "stream-1:3",
+                "abcdef0123456789abcdef0123456789:3",
                 cancellationToken);
-            return LogsReadServiceResult.Success(count: 2, nextCursor: "stream-1:3");
-        }), CommandResultTestWriter.Create());
+            return LogsReadServiceResult.Completed(count: 2, nextCursor: "abcdef0123456789abcdef0123456789:3");
+        }), CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "json"));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
-        AssertSuccessResult(standardOutput, count: 2, nextCursor: "stream-1:3");
+        AssertSuccessResult(standardOutput, count: 2, nextCursor: "abcdef0123456789abcdef0123456789:3");
         var lines = standardError.Split(Environment.NewLine, StringSplitOptions.RemoveEmptyEntries);
         Assert.Equal(2, lines.Length);
         using var firstLine = JsonDocument.Parse(lines[0]);
@@ -52,8 +51,8 @@ public sealed class LogsDaemonReadCommandTests
         var secondPayload = secondLine.RootElement.GetProperty("payload");
         Assert.Equal("ipc", firstPayload.GetProperty("category").GetString());
         Assert.Equal("server started", firstPayload.GetProperty("message").GetString());
-        Assert.Equal("stream-1:1", firstPayload.GetProperty("cursor").GetString());
-        Assert.Equal("stream-1:3", firstPayload.GetProperty("nextCursor").GetString());
+        Assert.Equal("abcdef0123456789abcdef0123456789:1", firstPayload.GetProperty("cursor").GetString());
+        Assert.Equal("abcdef0123456789abcdef0123456789:3", firstPayload.GetProperty("nextCursor").GetString());
         Assert.Equal("transport", secondPayload.GetProperty("category").GetString());
         Assert.Equal("{\"socket\":true}", secondPayload.GetProperty("raw").GetString());
     }
@@ -66,21 +65,21 @@ public sealed class LogsDaemonReadCommandTests
         {
             await onEvent(
                 CreateEvent(
-                    cursor: "stream-1:1",
+                    cursor: "abcdef0123456789abcdef0123456789:1",
                     category: "ipc",
                     message: "line 1\nline 2",
                     raw: null),
-                "stream-1:2",
+                "abcdef0123456789abcdef0123456789:2",
                 cancellationToken);
-            return LogsReadServiceResult.Success(count: 1, nextCursor: "stream-1:2");
-        }), CommandResultTestWriter.Create());
+            return LogsReadServiceResult.Completed(count: 1, nextCursor: "abcdef0123456789abcdef0123456789:2");
+        }), CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "text"));
 
         Assert.Equal((int)CliExitCode.Success, exitCode);
-        AssertSuccessResult(standardOutput, count: 1, nextCursor: "stream-1:2");
+        AssertSuccessResult(standardOutput, count: 1, nextCursor: "abcdef0123456789abcdef0123456789:2");
         Assert.Equal(
-            "2026-03-05T10:30:00+09:00 info ipc line 1\\nline 2" + Environment.NewLine,
+            "2026-03-05T10:30:00.0000000+09:00 info ipc line 1\\nline 2" + Environment.NewLine,
             standardError);
     }
 
@@ -90,9 +89,9 @@ public sealed class LogsDaemonReadCommandTests
     {
         var service = new RecordingLogsDaemonService(static (_, _, _) =>
         {
-            return ValueTask.FromResult(LogsReadServiceResult.Success(count: 0, nextCursor: "stream-1:1"));
+            return ValueTask.FromResult(LogsReadServiceResult.Completed(count: 0, nextCursor: "abcdef0123456789abcdef0123456789:1"));
         });
-        var command = new LogsDaemonReadCommand(service, CommandResultTestWriter.Create());
+        var command = new LogsDaemonReadCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, _, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(timeout: "1234"));
 
@@ -106,7 +105,7 @@ public sealed class LogsDaemonReadCommandTests
     public async Task Read_WhenTimeoutIsInvalid_WritesInvalidArgumentResultWithoutCallingService ()
     {
         var service = new RecordingLogsDaemonService((_, _, _) => throw new InvalidOperationException("service must not be called"));
-        var command = new LogsDaemonReadCommand(service, CommandResultTestWriter.Create());
+        var command = new LogsDaemonReadCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(timeout: "0"));
 
@@ -122,7 +121,7 @@ public sealed class LogsDaemonReadCommandTests
     public async Task Read_WhenFormatIsInvalid_WritesInvalidArgumentResultWithoutCallingService ()
     {
         var service = new RecordingLogsDaemonService((_, _, _) => throw new InvalidOperationException("service must not be called"));
-        var command = new LogsDaemonReadCommand(service, CommandResultTestWriter.Create());
+        var command = new LogsDaemonReadCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "yaml"));
 
@@ -139,10 +138,13 @@ public sealed class LogsDaemonReadCommandTests
     {
         var command = new LogsDaemonReadCommand(new RecordingLogsDaemonService(static (_, _, _) =>
         {
-            return ValueTask.FromResult(LogsReadServiceResult.Failure(ExecutionError.InternalError(
-                DaemonSessionNotAvailableMessage,
-                DaemonErrorCodes.DaemonSessionNotAvailable)));
-        }), CommandResultTestWriter.Create());
+            return ValueTask.FromResult(LogsReadServiceResult.Failure(
+                ExecutionError.InternalError(
+                    DaemonSessionNotAvailableMessage,
+                    DaemonErrorCodes.DaemonSessionNotAvailable),
+                count: 0,
+                nextCursor: null));
+        }), CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "json"));
 
@@ -171,14 +173,14 @@ public sealed class LogsDaemonReadCommandTests
         {
             await onEvent(
                 CreateEvent(
-                    cursor: "stream-1:1",
+                    cursor: "abcdef0123456789abcdef0123456789:1",
                     category: "ipc",
                     message: "server started",
                     raw: null),
-                "stream-1:2",
+                "abcdef0123456789abcdef0123456789:2",
                 cancellationToken);
             throw new InvalidOperationException("read projection failed");
-        }), CommandResultTestWriter.Create());
+        }), CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(format: "json"));
 
@@ -193,7 +195,7 @@ public sealed class LogsDaemonReadCommandTests
         CommandResultAssert.HasSingleError(commandResult.RootElement, UcliCoreErrorCodes.InternalError);
         var payload = commandResult.RootElement.GetProperty("payload");
         Assert.Equal(1, payload.GetProperty("count").GetInt32());
-        Assert.Equal("stream-1:2", payload.GetProperty("nextCursor").GetString());
+        Assert.Equal("abcdef0123456789abcdef0123456789:2", payload.GetProperty("nextCursor").GetString());
         Assert.Equal("error", payload.GetProperty("completionReason").GetString());
     }
 
@@ -206,16 +208,16 @@ public sealed class LogsDaemonReadCommandTests
         {
             await onEvent(
                 CreateEvent(
-                    cursor: "stream-1:1",
+                    cursor: "abcdef0123456789abcdef0123456789:1",
                     category: "ipc",
                     message: "server started",
                     raw: null),
-                "stream-1:2",
+                "abcdef0123456789abcdef0123456789:2",
                 cancellationToken);
             await cancellationTokenSource.CancelAsync();
             cancellationToken.ThrowIfCancellationRequested();
-            return LogsReadServiceResult.Success(count: 1, nextCursor: "stream-1:2");
-        }), CommandResultTestWriter.Create());
+            return LogsReadServiceResult.Completed(count: 1, nextCursor: "abcdef0123456789abcdef0123456789:2");
+        }), CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var (exitCode, standardOutput, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() => command.ReadAsync(
             format: "json",
@@ -233,7 +235,7 @@ public sealed class LogsDaemonReadCommandTests
         CommandResultAssert.HasSingleError(commandResult.RootElement, ExecutionErrorCodes.Canceled);
         var payload = commandResult.RootElement.GetProperty("payload");
         Assert.Equal(1, payload.GetProperty("count").GetInt32());
-        Assert.Equal("stream-1:2", payload.GetProperty("nextCursor").GetString());
+        Assert.Equal("abcdef0123456789abcdef0123456789:2", payload.GetProperty("nextCursor").GetString());
         Assert.Equal("canceled", payload.GetProperty("completionReason").GetString());
     }
 
@@ -243,7 +245,7 @@ public sealed class LogsDaemonReadCommandTests
     {
         var command = new LogsDaemonReadCommand(
             new RecordingLogsDaemonService(static (_, _, cancellationToken) => throw new OperationCanceledException(cancellationToken)),
-            CommandResultTestWriter.Create());
+            CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
         using var cancellationTokenSource = new CancellationTokenSource();
         cancellationTokenSource.Cancel();
 
@@ -303,12 +305,12 @@ public sealed class LogsDaemonReadCommandTests
         string? raw)
     {
         return new IpcDaemonLogEvent(
-            Timestamp: "2026-03-05T10:30:00+09:00",
-            Level: "info",
+            Timestamp: new DateTimeOffset(2026, 3, 5, 10, 30, 0, TimeSpan.FromHours(9)),
+            Level: IpcLogLevel.Info,
             Category: category,
             Message: message,
             Raw: raw,
-            Cursor: cursor);
+            Cursor: new IpcLogCursor(cursor));
     }
 
 }

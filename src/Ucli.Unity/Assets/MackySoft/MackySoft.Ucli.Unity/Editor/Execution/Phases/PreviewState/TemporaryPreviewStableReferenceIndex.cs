@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using MackySoft.Ucli.Contracts.Ipc;
 using UnityEngine;
 
 #nullable enable
@@ -10,41 +12,41 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Tracks explicit stable GlobalObjectId entries for request-local preview objects. </summary>
     internal sealed class TemporaryPreviewStableReferenceIndex
     {
-        private readonly Dictionary<UnityEngine.Object, string> stableReferencesByPreviewObject =
-            new Dictionary<UnityEngine.Object, string>(ReferenceEqualityComparer.Instance);
+        private readonly Dictionary<UnityEngine.Object, UnityGlobalObjectId> globalObjectIdsByPreviewObject =
+            new Dictionary<UnityEngine.Object, UnityGlobalObjectId>(ReferenceEqualityComparer.Instance);
 
-        private readonly Dictionary<string, UnityEngine.Object> previewObjectsByStableReference =
-            new Dictionary<string, UnityEngine.Object>(StringComparer.Ordinal);
+        private readonly Dictionary<UnityGlobalObjectId, UnityEngine.Object> previewObjectsByGlobalObjectId =
+            new Dictionary<UnityGlobalObjectId, UnityEngine.Object>();
 
         /// <summary> Registers one stable GlobalObjectId for one preview object. </summary>
         /// <param name="previewObject"> The preview object. </param>
-        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
+        /// <param name="globalObjectId"> The stable source identity. </param>
         public void Add (
             UnityEngine.Object previewObject,
-            string stableReference)
+            UnityGlobalObjectId globalObjectId)
         {
             if (previewObject == null)
             {
                 throw new ArgumentNullException(nameof(previewObject));
             }
 
-            if (string.IsNullOrWhiteSpace(stableReference))
+            if (globalObjectId == null)
             {
-                throw new ArgumentException("Stable reference must not be null, empty, or whitespace.", nameof(stableReference));
+                throw new ArgumentNullException(nameof(globalObjectId));
             }
 
-            if (stableReferencesByPreviewObject.TryGetValue(previewObject, out var existingStableReference))
+            if (globalObjectIdsByPreviewObject.TryGetValue(previewObject, out var existingGlobalObjectId))
             {
-                if (string.Equals(existingStableReference, stableReference, StringComparison.Ordinal))
+                if (existingGlobalObjectId.Equals(globalObjectId))
                 {
                     return;
                 }
 
                 throw new InvalidOperationException(
-                    $"Preview object '{previewObject.name}' is already bound to stable reference '{existingStableReference}' and cannot be rebound to '{stableReference}'.");
+                    $"Preview object '{previewObject.name}' is already bound to a different stable reference.");
             }
 
-            if (previewObjectsByStableReference.TryGetValue(stableReference, out var existingPreviewObject))
+            if (previewObjectsByGlobalObjectId.TryGetValue(globalObjectId, out var existingPreviewObject))
             {
                 if (ReferenceEquals(existingPreviewObject, previewObject))
                 {
@@ -52,33 +54,39 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 throw new InvalidOperationException(
-                    $"Stable reference '{stableReference}' is already bound to preview object '{existingPreviewObject.name}' and cannot be rebound to '{previewObject.name}'.");
+                    $"Stable reference is already bound to preview object '{existingPreviewObject.name}' and cannot be rebound to '{previewObject.name}'.");
             }
 
-            stableReferencesByPreviewObject.Add(previewObject, stableReference);
-            previewObjectsByStableReference.Add(stableReference, previewObject);
+            globalObjectIdsByPreviewObject.Add(previewObject, globalObjectId);
+            previewObjectsByGlobalObjectId.Add(globalObjectId, previewObject);
         }
 
-        /// <summary> Tries to resolve one preview object to its stable GlobalObjectId text. </summary>
+        /// <summary> Tries to resolve one preview object to its stable source identity. </summary>
         /// <param name="previewObject"> The preview object. </param>
-        /// <param name="stableReference"> The stable GlobalObjectId text when found. </param>
+        /// <param name="globalObjectId"> The stable source identity when found. </param>
         /// <returns> <see langword="true" /> when the preview object has one stable reference entry; otherwise <see langword="false" />. </returns>
-        public bool TryGetStableReference (
+        public bool TryGetGlobalObjectId (
             UnityEngine.Object previewObject,
-            out string stableReference)
+            [NotNullWhen(true)] out UnityGlobalObjectId? globalObjectId)
         {
-            return stableReferencesByPreviewObject.TryGetValue(previewObject, out stableReference!);
+            return globalObjectIdsByPreviewObject.TryGetValue(previewObject, out globalObjectId);
         }
 
-        /// <summary> Tries to resolve one stable GlobalObjectId text back to its preview object. </summary>
-        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
+        /// <summary> Tries to resolve one stable source identity back to its preview object. </summary>
+        /// <param name="globalObjectId"> The stable source identity. </param>
         /// <param name="previewObject"> The preview object when found. </param>
         /// <returns> <see langword="true" /> when the stable reference maps into the preview index; otherwise <see langword="false" />. </returns>
         public bool TryGetPreviewObject (
-            string stableReference,
+            UnityGlobalObjectId globalObjectId,
             out UnityEngine.Object? previewObject)
         {
-            return previewObjectsByStableReference.TryGetValue(stableReference, out previewObject);
+            if (globalObjectId == null)
+            {
+                previewObject = null;
+                return false;
+            }
+
+            return previewObjectsByGlobalObjectId.TryGetValue(globalObjectId, out previewObject);
         }
 
         private sealed class ReferenceEqualityComparer : IEqualityComparer<UnityEngine.Object>

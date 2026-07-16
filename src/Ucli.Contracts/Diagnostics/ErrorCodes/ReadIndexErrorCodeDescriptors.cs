@@ -22,7 +22,7 @@ internal static class ReadIndexErrorCodeDescriptors
             possiblePhases: ["readIndexBootstrap"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.readIndex", "status", UcliErrorInspectTargets.DaemonErrorLogsCommand, UcliErrorInspectTargets.UnityErrorLogsCommand],
             nextActions:
             [
@@ -45,7 +45,7 @@ internal static class ReadIndexErrorCodeDescriptors
             possiblePhases: ["readIndexLoad"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.readIndex", "errors[].message"],
             nextActions:
             [
@@ -64,7 +64,7 @@ internal static class ReadIndexErrorCodeDescriptors
             possiblePhases: ["readIndexFreshness"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.readIndex", "payload.readIndex.freshness", "status"],
             nextActions:
             [

@@ -1,6 +1,5 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
-using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Contracts.Text;
@@ -63,28 +62,25 @@ internal static class VerifyProfileResolver
     {
         var steps = new List<VerifyProfileStep>
         {
-            new(VerifyStepKindValues.Ready, Required: true, VerifyEffectValues.None)
-            {
-                ReadyTarget = readyTarget,
-            },
+            VerifyProfileStep.CreateReady(required: true, readyTarget),
         };
 
         if (includeCompile)
         {
-            steps.Add(new VerifyProfileStep(VerifyStepKindValues.Compile, Required: true, VerifyEffectValues.Compile));
+            steps.Add(VerifyProfileStep.CreateCompile(required: true));
         }
 
         if (includePostRead)
         {
-            steps.Add(new VerifyProfileStep(VerifyStepKindValues.PostRead, Required: false, VerifyEffectValues.None));
+            steps.Add(VerifyProfileStep.CreatePostRead(required: false));
         }
 
-        steps.Add(new VerifyProfileStep(VerifyStepKindValues.Logs, Required: false, VerifyEffectValues.None));
+        steps.Add(VerifyProfileStep.CreateLogs());
         return VerifyProfileResolutionResult.Success(new VerifyProfileDefinition(
-            VerifyProfileSourceValues.BuiltIn,
+            VerifyProfileSource.BuiltIn,
             profileName,
             RepositoryRelativePath: null,
-            CanonicalizeSteps(steps)));
+            steps));
     }
 
     private static VerifyProfileResolutionResult ReadFileProfile (
@@ -136,20 +132,20 @@ internal static class VerifyProfileResolver
         }
 
         var duplicateStepKind = steps
-            .GroupBy(static step => step.Kind, StringComparer.Ordinal)
-            .Where(static group => group.Count() > 1)
-            .Select(static group => group.Key)
+            .GroupBy(static step => step.Kind)
+            .Where(static group => group.Skip(1).Any())
             .FirstOrDefault();
-        if (!string.IsNullOrWhiteSpace(duplicateStepKind))
+        if (duplicateStepKind != null)
         {
-            return InvalidProfile($"Verify profile contains duplicate step kind '{duplicateStepKind}'.");
+            return InvalidProfile(
+                $"Verify profile contains duplicate step kind '{ContractLiteralCodec.ToValue(duplicateStepKind.Key)}'.");
         }
 
         return VerifyProfileResolutionResult.Success(new VerifyProfileDefinition(
-            VerifyProfileSourceValues.File,
+            VerifyProfileSource.File,
             name,
             repositoryRelativePath,
-            CanonicalizeSteps(steps)));
+            steps));
     }
 
     private static VerifyProfileStepReadResult ReadFileProfileStep (
@@ -161,14 +157,14 @@ internal static class VerifyProfileResolver
             return VerifyProfileStepReadResult.Failure(InvalidProfileError($"Verify profile steps[{index}] must be an object."));
         }
 
-        if (!TryReadRequiredString(stepElement, "kind", out var kind))
+        if (!TryReadRequiredString(stepElement, "kind", out var kindValue))
         {
             return VerifyProfileStepReadResult.Failure(InvalidProfileError($"Verify profile steps[{index}].kind is required."));
         }
 
-        if (!VerifyStepKindValues.IsSupported(kind))
+        if (!ContractLiteralCodec.TryParse(kindValue, out VerifyStepKind kind))
         {
-            return VerifyProfileStepReadResult.Failure(InvalidProfileError($"Verify profile step kind is unsupported: {kind}."));
+            return VerifyProfileStepReadResult.Failure(InvalidProfileError($"Verify profile step kind is unsupported: {kindValue}."));
         }
 
         var allowedProperties = CreateAllowedStepProperties(kind);
@@ -186,116 +182,105 @@ internal static class VerifyProfileResolver
         }
 
         var required = requiredElement.GetBoolean();
-        if (string.Equals(kind, VerifyStepKindValues.Logs, StringComparison.Ordinal) && required)
+        if (kind == VerifyStepKind.Logs && required)
         {
             return VerifyProfileStepReadResult.Failure(InvalidProfileError("The logs verifier must be required=false."));
         }
 
-        var effects = ComputeEffects(kind);
+        var stepResult = ReadTypedStep(stepElement, kind, required, index);
+        if (!stepResult.IsSuccess)
+        {
+            return stepResult;
+        }
+
+        var step = stepResult.Step!;
         if (stepElement.TryGetProperty("effects", out var effectsElement)
-            && !EffectsMatch(effectsElement, effects))
+            && !EffectsMatch(effectsElement, step.Effects))
         {
             return VerifyProfileStepReadResult.Failure(InvalidProfileError(
                 $"Verify profile steps[{index}].effects does not match uCLI computed effects."));
         }
 
-        var step = new VerifyProfileStep(kind, required, effects);
-        if (string.Equals(kind, VerifyStepKindValues.Ready, StringComparison.Ordinal)
-            && stepElement.TryGetProperty("target", out var targetElement))
+        return VerifyProfileStepReadResult.Success(step);
+    }
+
+    private static VerifyProfileStepReadResult ReadTypedStep (
+        JsonElement stepElement,
+        VerifyStepKind kind,
+        bool required,
+        int index)
+    {
+        return kind switch
+        {
+            VerifyStepKind.Ready => ReadReadyStep(stepElement, required, index),
+            VerifyStepKind.Compile => VerifyProfileStepReadResult.Success(VerifyProfileStep.CreateCompile(required)),
+            VerifyStepKind.PostRead => VerifyProfileStepReadResult.Success(VerifyProfileStep.CreatePostRead(required)),
+            VerifyStepKind.Test => ReadTestStep(stepElement, required, index),
+            VerifyStepKind.Logs => VerifyProfileStepReadResult.Success(VerifyProfileStep.CreateLogs()),
+            _ => throw new ArgumentOutOfRangeException(nameof(kind), kind, "Verify step kind must be defined."),
+        };
+    }
+
+    private static VerifyProfileStepReadResult ReadReadyStep (
+        JsonElement stepElement,
+        bool required,
+        int index)
+    {
+        var readyTarget = ReadyTarget.Execution;
+        if (stepElement.TryGetProperty("target", out var targetElement))
         {
             if (targetElement.ValueKind != JsonValueKind.String
                 || targetElement.GetString() is not { } targetValue
-                || !ReadyTargetCodec.TryParseValue(targetValue, out var readyTarget))
+                || !ContractLiteralInputParser.TryParseIgnoreCase(targetValue, out readyTarget))
             {
                 return VerifyProfileStepReadResult.Failure(InvalidProfileError(
                     $"Verify profile steps[{index}].target is invalid."));
             }
-
-            step = step with
-            {
-                ReadyTarget = readyTarget,
-            };
         }
 
-        if (string.Equals(kind, VerifyStepKindValues.Test, StringComparison.Ordinal))
-        {
-            step = ApplyTestStepArgs(stepElement, step, index, out var error);
-            if (error != null)
-            {
-                return VerifyProfileStepReadResult.Failure(error);
-            }
-        }
-
-        return VerifyProfileStepReadResult.Success(step);
+        return VerifyProfileStepReadResult.Success(VerifyProfileStep.CreateReady(required, readyTarget));
     }
 
-    private static VerifyProfileStep ApplyTestStepArgs (
+    private static VerifyProfileStepReadResult ReadTestStep (
         JsonElement stepElement,
-        VerifyProfileStep step,
-        int index,
-        out ExecutionError? error)
+        bool required,
+        int index)
     {
-        error = null;
         TestRunPlatform? testPlatform = null;
         if (stepElement.TryGetProperty("testPlatform", out var testPlatformElement))
         {
             if (testPlatformElement.ValueKind != JsonValueKind.String
                 || !TestRunPlatformCodec.TryParse(testPlatformElement.GetString(), out var parsedTestPlatform))
             {
-                error = InvalidProfileError($"Verify profile steps[{index}].testPlatform is invalid.");
-                return step;
+                return VerifyProfileStepReadResult.Failure(InvalidProfileError(
+                    $"Verify profile steps[{index}].testPlatform is invalid."));
             }
 
             testPlatform = parsedTestPlatform;
         }
 
-        if (!TryReadOptionalStringArray(stepElement, "testCategory", out var testCategory, out error)
+        if (stepElement.TryGetProperty("testFilter", out var testFilterElement)
+            && testFilterElement.ValueKind is not JsonValueKind.String and not JsonValueKind.Null)
+        {
+            return VerifyProfileStepReadResult.Failure(InvalidProfileError(
+                $"Verify profile steps[{index}].testFilter must be a string."));
+        }
+
+        if (!TryReadOptionalStringArray(stepElement, "testCategory", out var testCategory, out var error)
             || !TryReadOptionalStringArray(stepElement, "assemblyName", out var assemblyName, out error))
         {
-            return step;
+            return VerifyProfileStepReadResult.Failure(error!);
         }
 
-        return step with
-        {
-            TestPlatform = testPlatform,
-            TestFilter = ReadOptionalString(stepElement, "testFilter"),
-            TestCategory = testCategory,
-            AssemblyName = assemblyName,
-        };
+        return VerifyProfileStepReadResult.Success(VerifyProfileStep.CreateTest(
+            required,
+            testPlatform,
+            ReadOptionalString(stepElement, "testFilter"),
+            testCategory,
+            assemblyName));
     }
 
-    private static IReadOnlyList<string> ComputeEffects (string kind)
-    {
-        return kind switch
-        {
-            VerifyStepKindValues.Compile => VerifyEffectValues.Compile,
-            VerifyStepKindValues.Test => VerifyEffectValues.Test,
-            _ => VerifyEffectValues.None,
-        };
-    }
-
-    private static IReadOnlyList<VerifyProfileStep> CanonicalizeSteps (IReadOnlyList<VerifyProfileStep> steps)
-    {
-        return steps
-            .OrderBy(static step => GetCanonicalOrderIndex(step.Kind))
-            .ThenBy(static step => step.Kind, StringComparer.Ordinal)
-            .ToArray();
-    }
-
-    private static int GetCanonicalOrderIndex (string kind)
-    {
-        for (var i = 0; i < VerifyStepKindValues.CanonicalOrder.Count; i++)
-        {
-            if (string.Equals(VerifyStepKindValues.CanonicalOrder[i], kind, StringComparison.Ordinal))
-            {
-                return i;
-            }
-        }
-
-        return int.MaxValue;
-    }
-
-    private static HashSet<string> CreateAllowedStepProperties (string kind)
+    private static HashSet<string> CreateAllowedStepProperties (VerifyStepKind kind)
     {
         var properties = new HashSet<string>(StringComparer.Ordinal)
         {
@@ -304,12 +289,12 @@ internal static class VerifyProfileResolver
             "effects",
         };
 
-        if (string.Equals(kind, VerifyStepKindValues.Ready, StringComparison.Ordinal))
+        if (kind == VerifyStepKind.Ready)
         {
             properties.Add("target");
         }
 
-        if (string.Equals(kind, VerifyStepKindValues.Test, StringComparison.Ordinal))
+        if (kind == VerifyStepKind.Test)
         {
             properties.Add("testPlatform");
             properties.Add("testFilter");
@@ -322,7 +307,7 @@ internal static class VerifyProfileResolver
 
     private static bool EffectsMatch (
         JsonElement effectsElement,
-        IReadOnlyList<string> expectedEffects)
+        IReadOnlyList<AssuranceEffect> expectedEffects)
     {
         if (effectsElement.ValueKind != JsonValueKind.Array || effectsElement.GetArrayLength() != expectedEffects.Count)
         {
@@ -333,7 +318,8 @@ internal static class VerifyProfileResolver
         foreach (var effectElement in effectsElement.EnumerateArray())
         {
             if (effectElement.ValueKind != JsonValueKind.String
-                || !string.Equals(effectElement.GetString(), expectedEffects[index], StringComparison.Ordinal))
+                || !ContractLiteralCodec.TryParse(effectElement.GetString(), out AssuranceEffect effect)
+                || effect != expectedEffects[index])
             {
                 return false;
             }

@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodePingRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcPingRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeExecuteRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcExecuteRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -39,7 +39,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeTestRunRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcTestRunRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -52,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeCompileRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcCompileRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -65,7 +65,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeBuildRunRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcBuildRunRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -78,7 +78,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodePlayStatusRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcPlayStatusRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -91,7 +91,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodePlayEnterRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcPlayEnterRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -104,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodePlayExitRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcPlayExitRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -117,7 +117,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeOpsReadRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcOpsReadRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -130,7 +130,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeIndexAssetsReadRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcIndexAssetsReadRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -143,7 +143,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeIndexSceneTreeLiteReadRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcIndexSceneTreeLiteReadRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -156,7 +156,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeShutdownRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcShutdownRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -169,7 +169,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeDaemonLogsReadRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcDaemonLogsReadRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -182,7 +182,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeUnityLogsReadRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcUnityLogsReadRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -195,7 +195,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeUnityConsoleClearRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcUnityConsoleClearRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -208,7 +208,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         public static bool TryDecodeScreenshotCaptureRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             out IpcScreenshotCaptureRequest? payload,
             out IpcResponse? errorResponse)
         {
@@ -223,7 +223,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="errorResponse"> The invalid-argument response when decoding fails. </param>
         /// <returns> <see langword="true" /> when decoding succeeded; otherwise <see langword="false" />. </returns>
         private static bool TryDecodePayload<TPayload> (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             string methodName,
             out TPayload? payload,
             out IpcResponse? errorResponse)

@@ -1,12 +1,15 @@
 using System;
 using System.Collections;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.RequestIdempotency;
+using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
@@ -16,16 +19,22 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
 
+        private static readonly Sha256Digest Fingerprint1 = Sha256Digest.Compute(Encoding.UTF8.GetBytes("fingerprint-1"));
+
+        private static readonly Sha256Digest Fingerprint2 = Sha256Digest.Compute(Encoding.UTF8.GetBytes("fingerprint-2"));
+
+        private static readonly Sha256Digest Fingerprint3 = Sha256Digest.Compute(Encoding.UTF8.GetBytes("fingerprint-3"));
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Execute_WhenSameRequestIdAndSameFingerprintAfterCompletion_ReusesCachedResponse () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = CreateCoordinator();
             var executeCount = 0;
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
             var firstResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -35,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var secondResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -44,8 +53,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
             Assert.That(executeCount, Is.EqualTo(1));
-            Assert.That(firstResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
-            Assert.That(secondResponse.Status, Is.EqualTo(IpcProtocol.StatusOk));
+            Assert.That(firstResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
+            Assert.That(secondResponse.Status, Is.EqualTo(IpcResponseStatus.Ok));
             Assert.That(GetMarker(secondResponse), Is.EqualTo("first"));
         });
 
@@ -56,10 +65,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var coordinator = CreateCoordinator();
             var executeCount = 0;
             var conflictCount = 0;
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
             _ = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -73,7 +82,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var conflictResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-2",
+                requestFingerprint: Fingerprint2,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -87,17 +96,31 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(executeCount, Is.EqualTo(1));
             Assert.That(conflictCount, Is.EqualTo(1));
-            Assert.That(conflictResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
+            Assert.That(conflictResponse.Status, Is.EqualTo(IpcResponseStatus.Error));
             Assert.That(conflictResponse.Errors.Count, Is.EqualTo(1));
             Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.RequestIdConflict));
         });
+
+        [Test]
+        [Category("Size.Small")]
+        public void CompleteSuccess_WhenResponseRequestIdDiffers_ThrowsArgumentException ()
+        {
+            var coordinator = CreateCoordinator();
+            var requestId = Guid.NewGuid();
+            var response = CreateSuccessResponse(Guid.NewGuid(), "other-request");
+
+            var exception = Assert.Throws<ArgumentException>(() =>
+                coordinator.CompleteSuccess(requestId, Fingerprint1, response));
+
+            Assert.That(exception.ParamName, Is.EqualTo("response"));
+        }
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Execute_WhenSameRequestIdAndSameFingerprintInFlight_WaitsForOwnerResponse () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = CreateCoordinator();
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
             var ownerExecutionCount = 0;
             var waiterExecutionCount = 0;
             var ownerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -105,7 +128,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var ownerTask = coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: async _ =>
                 {
                     Interlocked.Increment(ref ownerExecutionCount);
@@ -119,7 +142,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var waiterTask = coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     Interlocked.Increment(ref waiterExecutionCount);
@@ -151,7 +174,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenWaiterCancellationRequestedDuringInFlight_ThrowsWithoutCancelingOwner () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = CreateCoordinator();
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
             var ownerExecutionCount = 0;
             var waiterExecutionCount = 0;
             var ownerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -159,7 +182,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var ownerTask = coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: async _ =>
                 {
                     Interlocked.Increment(ref ownerExecutionCount);
@@ -174,7 +197,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using var waiterCancellationTokenSource = new CancellationTokenSource();
             var waiterTask = coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     Interlocked.Increment(ref waiterExecutionCount);
@@ -216,14 +239,14 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Execute_WhenSameRequestIdAndDifferentFingerprintInFlight_ReturnsConflictWithoutExecuting () => UniTask.ToCoroutine(async () =>
         {
             var coordinator = CreateCoordinator();
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
             var ownerStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var ownerRelease = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             var conflictExecutionCount = 0;
 
             var ownerTask = coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: async _ =>
                 {
                     ownerStarted.TrySetResult(true);
@@ -235,7 +258,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var conflictResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-2",
+                requestFingerprint: Fingerprint2,
                 executeRequest: _ =>
                 {
                     conflictExecutionCount++;
@@ -246,7 +269,7 @@ namespace MackySoft.Ucli.Unity.Tests
             try
             {
                 Assert.That(conflictExecutionCount, Is.EqualTo(0));
-                Assert.That(conflictResponse.Status, Is.EqualTo(IpcProtocol.StatusError));
+                Assert.That(conflictResponse.Status, Is.EqualTo(IpcResponseStatus.Error));
                 Assert.That(conflictResponse.Errors.Count, Is.EqualTo(1));
                 Assert.That(conflictResponse.Errors[0].Code, Is.EqualTo(ExecuteRequestErrorCodes.RequestIdConflict));
             }
@@ -260,16 +283,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Execute_WhenEntryExpires_ReexecutesRequest () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Execute_WhenMonotonicLifetimeReachesTtl_ReexecutesRequest () => UniTask.ToCoroutine(async () =>
         {
-            var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
-            var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 10_000, () => nowUtc);
+            var monotonicClock = new ManualMonotonicClock();
+            var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 10_000, monotonicClock);
             var executeCount = 0;
-            var requestId = "req-1";
+            var requestId = Guid.NewGuid();
 
             var firstResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -277,10 +300,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
-            nowUtc = nowUtc.AddHours(25);
+            monotonicClock.Advance(TimeSpan.FromHours(24) - TimeSpan.FromTicks(1));
             var secondResponse = await coordinator.ExecuteAsync(
                 requestId: requestId,
-                requestFingerprint: "fingerprint-1",
+                requestFingerprint: Fingerprint1,
                 executeRequest: _ =>
                 {
                     executeCount++;
@@ -288,37 +311,86 @@ namespace MackySoft.Ucli.Unity.Tests
                 },
                 createConflictResponse: () => CreateConflictResponse(requestId));
 
+            monotonicClock.Advance(TimeSpan.FromTicks(1));
+            var thirdResponse = await coordinator.ExecuteAsync(
+                requestId: requestId,
+                requestFingerprint: Fingerprint1,
+                executeRequest: _ =>
+                {
+                    executeCount++;
+                    return Task.FromResult(CreateSuccessResponse(requestId, "third"));
+                },
+                createConflictResponse: () => CreateConflictResponse(requestId));
+
             Assert.That(executeCount, Is.EqualTo(2));
             Assert.That(GetMarker(firstResponse), Is.EqualTo("first"));
-            Assert.That(GetMarker(secondResponse), Is.EqualTo("second"));
+            Assert.That(GetMarker(secondResponse), Is.EqualTo("first"));
+            Assert.That(GetMarker(thirdResponse), Is.EqualTo("third"));
         });
+
+        [Test]
+        [Category("Size.Small")]
+        public void CompleteSuccess_WhenConcurrentCompletionsInterleave_PreservesExpirationOrder ()
+        {
+            using var monotonicClock = new BlockingMonotonicClock(blockOnReadNumber: 3);
+            var store = new InMemoryExecuteRequestIdempotencyStore(
+                TimeSpan.FromMinutes(10),
+                maxEntries: 10,
+                monotonicClock);
+            var firstRequestId = Guid.NewGuid();
+            var secondRequestId = Guid.NewGuid();
+            Assert.That(store.Acquire(firstRequestId, Fingerprint1).Kind, Is.EqualTo(ExecuteRequestIdempotencyStoreDecision.DecisionKind.ExecuteOwner));
+            Assert.That(store.Acquire(secondRequestId, Fingerprint2).Kind, Is.EqualTo(ExecuteRequestIdempotencyStoreDecision.DecisionKind.ExecuteOwner));
+
+            var firstCompletion = Task.Run(() => store.CompleteSuccess(
+                firstRequestId,
+                Fingerprint1,
+                CreateSuccessResponse(firstRequestId, "first")));
+            Assert.That(monotonicClock.WaitUntilBlocked(SignalWaitTimeout), Is.True);
+
+            monotonicClock.Advance(TimeSpan.FromMinutes(1));
+            var secondCompletion = Task.Run(() => store.CompleteSuccess(
+                secondRequestId,
+                Fingerprint2,
+                CreateSuccessResponse(secondRequestId, "second")));
+
+            monotonicClock.Release();
+            Assert.That(Task.WaitAll(new[] { firstCompletion, secondCompletion }, SignalWaitTimeout), Is.True);
+
+            monotonicClock.Advance(TimeSpan.FromMinutes(9));
+            Assert.That(store.Acquire(firstRequestId, Fingerprint1).Kind, Is.EqualTo(ExecuteRequestIdempotencyStoreDecision.DecisionKind.ExecuteOwner));
+            Assert.That(store.Acquire(secondRequestId, Fingerprint2).Kind, Is.EqualTo(ExecuteRequestIdempotencyStoreDecision.DecisionKind.ReplayCompleted));
+        }
 
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Execute_WhenCacheExceedsMaxEntries_EvictsOldestEntry () => UniTask.ToCoroutine(async () =>
         {
-            var nowUtc = new DateTimeOffset(2026, 3, 3, 0, 0, 0, TimeSpan.Zero);
-            var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 2, () => nowUtc);
+            var monotonicClock = new ManualMonotonicClock();
+            var coordinator = CreateCoordinator(TimeSpan.FromHours(24), 2, monotonicClock);
             var executeCount = 0;
+            var firstRequestId = Guid.NewGuid();
+            var secondRequestId = Guid.NewGuid();
+            var thirdRequestId = Guid.NewGuid();
 
-            await ExecuteAsync("req-1", "fingerprint-1", "first-1");
-            nowUtc = nowUtc.AddMinutes(1);
-            await ExecuteAsync("req-2", "fingerprint-2", "second-1");
-            nowUtc = nowUtc.AddMinutes(1);
-            await ExecuteAsync("req-3", "fingerprint-3", "third-1");
+            await ExecuteAsync(firstRequestId, Fingerprint1, "first-1");
+            monotonicClock.Advance(TimeSpan.FromMinutes(1));
+            await ExecuteAsync(secondRequestId, Fingerprint2, "second-1");
+            monotonicClock.Advance(TimeSpan.FromMinutes(1));
+            await ExecuteAsync(thirdRequestId, Fingerprint3, "third-1");
 
             // req-1 should be evicted because max entries is 2.
-            nowUtc = nowUtc.AddMinutes(1);
-            var req1ResponseAfterEviction = await ExecuteAsync("req-1", "fingerprint-1", "first-2");
+            monotonicClock.Advance(TimeSpan.FromMinutes(1));
+            var req1ResponseAfterEviction = await ExecuteAsync(firstRequestId, Fingerprint1, "first-2");
 
-            // req-2 should still be cached.
-            var req2ResponseFromCache = await ExecuteAsync("req-2", "fingerprint-2", "second-2");
+            // Re-inserting req-1 evicts req-2 as the next oldest completed entry.
+            var req2ResponseFromCache = await ExecuteAsync(secondRequestId, Fingerprint2, "second-2");
 
             Assert.That(executeCount, Is.EqualTo(5));
             Assert.That(GetMarker(req1ResponseAfterEviction), Is.EqualTo("first-2"));
             Assert.That(GetMarker(req2ResponseFromCache), Is.EqualTo("second-2"));
 
-            async Task<IpcResponse> ExecuteAsync (string requestId, string requestFingerprint, string marker)
+            async Task<IpcResponse> ExecuteAsync (Guid requestId, Sha256Digest requestFingerprint, string marker)
             {
                 return await coordinator.ExecuteAsync(
                     requestId: requestId,
@@ -342,8 +414,8 @@ namespace MackySoft.Ucli.Unity.Tests
             using var secondDocument = JsonDocument.Parse(
                 "{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"protocolVersion\":1,\"ops\":[{\"args\":{\"a\":1,\"b\":2},\"op\":\"__RESOLVE_OP__\",\"id\":\"op-1\"}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, firstDocument.RootElement.Clone());
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, secondDocument.RootElement.Clone());
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, firstDocument.RootElement.Clone());
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, secondDocument.RootElement.Clone());
 
             var firstFingerprint = ExecuteRequestFingerprintCalculator.Create(firstRequest);
             var secondFingerprint = ExecuteRequestFingerprintCalculator.Create(secondRequest);
@@ -358,11 +430,11 @@ namespace MackySoft.Ucli.Unity.Tests
             using var document = JsonDocument.Parse(
                 "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 PlanToken = "token-1",
             };
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 PlanToken = "token-2",
             };
@@ -380,11 +452,11 @@ namespace MackySoft.Ucli.Unity.Tests
             using var document = JsonDocument.Parse(
                 "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 AllowDangerous = false,
             };
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 AllowDangerous = true,
             };
@@ -402,11 +474,11 @@ namespace MackySoft.Ucli.Unity.Tests
             using var document = JsonDocument.Parse(
                 "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 AllowPlayMode = false,
             };
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 AllowPlayMode = true,
             };
@@ -424,11 +496,11 @@ namespace MackySoft.Ucli.Unity.Tests
             using var document = JsonDocument.Parse(
                 "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 PlanToken = "token-1",
             };
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 PlanToken = " token-1 ",
             };
@@ -446,11 +518,11 @@ namespace MackySoft.Ucli.Unity.Tests
             using var document = JsonDocument.Parse(
                 "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"ops\":[{\"id\":\"op-1\",\"op\":\"__RESOLVE_OP__\",\"args\":{}}]}"
                     .Replace("__RESOLVE_OP__", UcliPrimitiveOperationNames.Resolve, StringComparison.Ordinal));
-            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var firstRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 FailFast = false,
             };
-            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call, document.RootElement.Clone())
+            var secondRequest = new IpcExecuteRequest(UcliCommandIds.Call.Name, document.RootElement.Clone())
             {
                 FailFast = true,
             };
@@ -462,25 +534,25 @@ namespace MackySoft.Ucli.Unity.Tests
         }
 
         private static IpcResponse CreateSuccessResponse (
-            string requestId,
+            Guid requestId,
             string marker)
         {
             return new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                Status: IpcProtocol.StatusOk,
-                Payload: JsonSerializer.SerializeToElement(new { marker }),
-                Errors: Array.Empty<IpcError>());
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                status: IpcResponseStatus.Ok,
+                payload: JsonSerializer.SerializeToElement(new { marker }),
+                errors: Array.Empty<IpcError>());
         }
 
-        private static IpcResponse CreateConflictResponse (string requestId)
+        private static IpcResponse CreateConflictResponse (Guid requestId)
         {
             return new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: requestId,
-                Status: IpcProtocol.StatusError,
-                Payload: JsonSerializer.SerializeToElement(new { opResults = Array.Empty<object>() }),
-                Errors: new[]
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: requestId,
+                status: IpcResponseStatus.Error,
+                payload: JsonSerializer.SerializeToElement(new { opResults = Array.Empty<object>() }),
+                errors: new[]
                 {
                     new IpcError(ExecuteRequestErrorCodes.RequestIdConflict, "request id conflict", null),
                 });
@@ -496,18 +568,73 @@ namespace MackySoft.Ucli.Unity.Tests
             return CreateCoordinator(
                 ExecuteRequestIdempotencyCoordinator.DefaultCacheTtl,
                 ExecuteRequestIdempotencyCoordinator.DefaultMaxEntries,
-                static () => DateTimeOffset.UtcNow);
+                new ManualMonotonicClock());
         }
 
         private static ExecuteRequestIdempotencyCoordinator CreateCoordinator (
             TimeSpan cacheTtl,
             int maxEntries,
-            Func<DateTimeOffset> utcNowProvider)
+            IMonotonicClock monotonicClock)
         {
             return new ExecuteRequestIdempotencyCoordinator(new InMemoryExecuteRequestIdempotencyStore(
                 cacheTtl,
                 maxEntries,
-                utcNowProvider));
+                monotonicClock));
+        }
+
+        private sealed class BlockingMonotonicClock : IMonotonicClock, IDisposable
+        {
+            private readonly int blockOnReadNumber;
+
+            private readonly ManualResetEventSlim blocked = new ManualResetEventSlim();
+
+            private readonly ManualResetEventSlim release = new ManualResetEventSlim();
+
+            private long elapsedTicks;
+
+            private int readCount;
+
+            public BlockingMonotonicClock (int blockOnReadNumber)
+            {
+                this.blockOnReadNumber = blockOnReadNumber;
+            }
+
+            public TimeSpan Elapsed
+            {
+                get
+                {
+                    var capturedTicks = Interlocked.Read(ref elapsedTicks);
+                    if (Interlocked.Increment(ref readCount) == blockOnReadNumber)
+                    {
+                        blocked.Set();
+                        release.Wait();
+                    }
+
+                    return new TimeSpan(capturedTicks);
+                }
+            }
+
+            public void Advance (TimeSpan elapsedTime)
+            {
+                Interlocked.Add(ref elapsedTicks, elapsedTime.Ticks);
+            }
+
+            public bool WaitUntilBlocked (TimeSpan timeout)
+            {
+                return blocked.Wait(timeout);
+            }
+
+            public void Release ()
+            {
+                release.Set();
+            }
+
+            public void Dispose ()
+            {
+                release.Set();
+                blocked.Dispose();
+                release.Dispose();
+            }
         }
     }
 }

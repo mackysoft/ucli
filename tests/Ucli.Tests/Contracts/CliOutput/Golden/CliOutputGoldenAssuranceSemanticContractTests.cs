@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Assurance;
 
 namespace MackySoft.Ucli.Tests;
@@ -22,7 +21,10 @@ public sealed class CliOutputGoldenAssuranceSemanticContractTests
     {
         var command = CliOutputGoldenContractTestSupport.ReadRequiredString(root, "command", "$.command");
         if (!IsAssuranceCommand(command)
-            || !string.Equals(CliOutputGoldenContractTestSupport.ReadRequiredString(root, "status", "$.status"), IpcProtocol.StatusOk, StringComparison.Ordinal))
+            || !string.Equals(
+                CliOutputGoldenContractTestSupport.ReadRequiredString(root, "status", "$.status"),
+                ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
+                StringComparison.Ordinal))
         {
             return;
         }

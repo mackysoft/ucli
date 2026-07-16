@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Infrastructure.Text;
 
@@ -55,30 +56,31 @@ internal sealed class TestRunProgressTextProjector : ICliCommandProgressTextProj
 
     private static string CreateDiagnosticTextLine (TestRunDiagnosticEntry entry)
     {
-        var length = checked(entry.Severity.Length + 1 + entry.Code.Length + 2 + entry.Message.Length);
+        var severity = ContractLiteralCodec.ToValue(entry.Severity);
+        var length = checked(severity.Length + 1 + entry.Code.Value.Length + 2 + entry.Message.Length);
         return string.Create(
             length,
-            entry,
+            (Severity: severity, Entry: entry),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(state.Severity);
                 writer.Append(' ');
-                writer.Append(state.Code);
+                writer.Append(state.Entry.Code.Value);
                 writer.Append(": ");
-                writer.Append(state.Message);
+                writer.Append(state.Entry.Message);
             });
     }
 
-    private static string FormatCaseResult (string result)
+    private static string FormatCaseResult (TestCaseResult result)
     {
         return result switch
         {
-            "pass" => "Passed",
-            "fail" => "Failed",
-            "skipped" => "Skipped",
-            "inconclusive" => "Inconclusive",
-            _ => result,
+            TestCaseResult.Pass => "Passed",
+            TestCaseResult.Fail => "Failed",
+            TestCaseResult.Skipped => "Skipped",
+            TestCaseResult.Inconclusive => "Inconclusive",
+            _ => throw new ArgumentOutOfRangeException(nameof(result), result, null),
         };
     }
 

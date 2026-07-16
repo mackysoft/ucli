@@ -1,8 +1,27 @@
+using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents the command-derived BuildPipeline output layout for one <c>build.run</c> request. </summary>
-/// <param name="Shape"> The BuildPipeline output shape literal. </param>
-/// <param name="LocationPathName"> The absolute path passed to <c>BuildPlayerOptions.locationPathName</c>. </param>
-public sealed record IpcBuildOutputLayout (
-    string Shape,
-    string LocationPathName);
+public sealed record IpcBuildOutputLayout
+{
+    /// <summary> Initializes one BuildPipeline output layout. </summary>
+    [JsonConstructor]
+    public IpcBuildOutputLayout (
+        IpcBuildOutputLayoutShape Shape,
+        string LocationPathName)
+    {
+        if (!ContractLiteralCodec.IsDefined(Shape))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Shape), Shape, "Build output layout shape must be specified.");
+        }
+
+        this.Shape = Shape;
+        this.LocationPathName = ContractArgumentGuard.RequireValue(LocationPathName, nameof(LocationPathName));
+    }
+
+    public IpcBuildOutputLayoutShape Shape { get; }
+
+    public string LocationPathName { get; }
+}

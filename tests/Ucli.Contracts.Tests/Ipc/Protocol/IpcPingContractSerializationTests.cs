@@ -8,6 +8,9 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcPingContractSerializationTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private static readonly ProjectFingerprint ProjectFingerprint = new(ProjectFingerprintText);
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcPingRequest_SerializesFailFastOnlyWhenSpecified ()
@@ -32,7 +35,7 @@ public sealed class IpcPingContractSerializationTests
         var response = new IpcUnityEditorObservation(
             serverVersion: "0.5.0",
             unityVersion: "6000.1.4f1",
-            projectFingerprint: "project-fingerprint",
+            projectFingerprint: ProjectFingerprint,
             state: new UnityEditorStateSnapshot(
                 editorMode: DaemonEditorMode.Batchmode,
                 lifecycleState: IpcEditorLifecycleState.PlayMode,
@@ -47,7 +50,9 @@ public sealed class IpcPingContractSerializationTests
                     Transition: IpcPlayModeTransition.None,
                     IsPlaying: true,
                     IsPlayingOrWillChangePlaymode: true)),
-            observedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"));
+            observedAtUtc: DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
+            actionRequired: null,
+            primaryDiagnostic: null);
 
         var json = IpcPayloadCodec.SerializeToElement(response);
 
@@ -66,7 +71,7 @@ public sealed class IpcPingContractSerializationTests
         JsonAssert.For(json)
             .HasString("serverVersion", "0.5.0")
             .HasString("unityVersion", "6000.1.4f1")
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasString("observedAtUtc", "2026-05-21T00:00:00+00:00")
             .HasProperty("state", state => state
                 .HasString("editorMode", "batchmode")

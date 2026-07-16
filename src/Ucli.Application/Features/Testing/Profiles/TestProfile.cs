@@ -11,7 +11,6 @@ namespace MackySoft.Ucli.Application.Features.Testing.Profiles;
 /// <param name="TestFilter"> The optional test filter value. </param>
 /// <param name="TestCategories"> The test-category list. </param>
 /// <param name="AssemblyNames"> The assembly-name list. </param>
-/// <param name="TestSettingsPath"> The optional test settings path. </param>
 /// <param name="Timeout"> The timeout value in milliseconds. </param>
 internal sealed record TestProfile (
     int SchemaVersion,
@@ -22,7 +21,6 @@ internal sealed record TestProfile (
     string? TestFilter,
     string[] TestCategories,
     string[] AssemblyNames,
-    string? TestSettingsPath,
     int Timeout)
 {
     private const int CurrentSchemaVersion = 1;
@@ -42,7 +40,6 @@ internal sealed record TestProfile (
             TestFilter: null,
             TestCategories: [],
             AssemblyNames: [],
-            TestSettingsPath: null,
             Timeout: DefaultTimeoutMilliseconds);
     }
 }

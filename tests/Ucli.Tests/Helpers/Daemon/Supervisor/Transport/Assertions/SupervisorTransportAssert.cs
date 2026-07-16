@@ -10,7 +10,7 @@ internal static class SupervisorTransportAssert
     {
         var invocation = Assert.Single(
             transportClient.Invocations,
-            static invocation => string.Equals(invocation.Request.Method, SupervisorIpcContracts.EnsureRunningMethod, StringComparison.Ordinal));
+            static invocation => string.Equals(invocation.Request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), StringComparison.Ordinal));
         Assert.True(invocation.UsesUnboundedResponseWait);
         if (expectedTimeout.HasValue)
         {

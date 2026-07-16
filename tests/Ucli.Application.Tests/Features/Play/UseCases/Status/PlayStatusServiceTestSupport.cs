@@ -1,5 +1,4 @@
 using System.Globalization;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Play.Common;
@@ -13,7 +12,7 @@ internal static class PlayStatusServiceTestSupport
 {
     public const string PlaySessionEndpointAddress = "ucli-play-status";
 
-    public const string PlaySessionEditorInstanceId = "editor-instance-1";
+    public static readonly Guid PlaySessionEditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
 
     public static readonly DateTimeOffset ObservedAtUtc = DateTimeOffset.Parse("2026-05-21T00:00:00+00:00", CultureInfo.InvariantCulture);
 
@@ -52,10 +51,10 @@ internal static class PlayStatusServiceTestSupport
             new ManualTimeProvider(ObservedAtUtc));
     }
 
-    public static DaemonSession CreatePlaySession (DaemonEditorMode editorMode = DaemonEditorMode.Gui)
+    public static DaemonSession CreatePlaySession ()
     {
         return DaemonSessionTestFactory.CreateUserOwned(
-            editorMode,
+            DaemonEditorMode.Gui,
             PlaySessionEndpointAddress,
             editorInstanceId: PlaySessionEditorInstanceId);
     }
@@ -63,13 +62,7 @@ internal static class PlayStatusServiceTestSupport
     public static RecordingDaemonProcessIdentityAssessor CreateProcessIdentityAssessor (
         DaemonProcessIdentityAssessmentStatus status)
     {
-        return new RecordingDaemonProcessIdentityAssessor
-        {
-            Assessment = new DaemonProcessIdentityAssessment(
-                status,
-                ObservedStartTimeUtc: null,
-                Error: null),
-        };
+        return new RecordingDaemonProcessIdentityAssessor(status);
     }
 
     public static DaemonLifecycleObservation CreateLifecycleObservation (
@@ -79,7 +72,7 @@ internal static class PlayStatusServiceTestSupport
         bool isPlaying = true,
         bool isPlayingOrWillChangePlaymode = true,
         long playModeGeneration = 9,
-        bool includeEditorInstanceId = true)
+        Guid? editorInstanceId = null)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
@@ -104,18 +97,21 @@ internal static class PlayStatusServiceTestSupport
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: "0.5.0",
-            editorInstanceId: includeEditorInstanceId ? session.EditorInstanceId : null);
+            editorInstanceId: editorInstanceId
+                ?? session.EditorInstanceId
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+            recoveryLease: null);
     }
 
     public static IpcPlayStatusResponse CreateStatusResponse (
         IpcPlayModeSnapshot? playMode = null,
         long playModeGeneration = 2,
-        string projectFingerprint = "project-fingerprint")
+        ProjectFingerprint? projectFingerprint = null)
     {
         return new IpcPlayStatusResponse(new IpcUnityEditorObservation(
             serverVersion: "0.5.0",
             unityVersion: "6000.1.4f1",
-            projectFingerprint: projectFingerprint,
+            projectFingerprint: projectFingerprint ?? PlayProjectContext.UnityProject.ProjectFingerprint,
             state: new UnityEditorStateSnapshot(
                 editorMode: DaemonEditorMode.Gui,
                 lifecycleState: IpcEditorLifecycleState.Ready,
@@ -138,11 +134,11 @@ internal static class PlayStatusServiceTestSupport
     public static UnityRequestResponse CreateResponse (IpcPlayStatusResponse payload)
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: []));
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcResponseStatus.Ok,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors: []));
     }
 
     public static UnityRequestResponse CreateErrorResponse (
@@ -150,11 +146,11 @@ internal static class PlayStatusServiceTestSupport
         string message)
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "request-1",
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(new { }),
-            Errors:
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcResponseStatus.Error,
+            payload: IpcPayloadCodec.SerializeToElement(new { }),
+            errors:
             [
                 new IpcError(code, message, null),
             ]));

@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Hosting.Cli.Options;
 
@@ -17,7 +18,7 @@ internal static class ReadyTargetOptionNormalizer
         }
 
         var normalizedValue = optionValue.Trim();
-        return ReadyTargetCodec.TryParseValue(normalizedValue, out var target)
+        return ContractLiteralInputParser.TryParseIgnoreCase<ReadyTarget>(normalizedValue, out var target)
             ? ReadyTargetOptionNormalizationResult.Success(target)
             : ReadyTargetOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(InvalidTargetMessage));
     }

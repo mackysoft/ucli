@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -122,11 +123,11 @@ public sealed class RequestStaticValidationPreflightServiceTests
             new ValidationError(
                 ValidationErrorCodes.OperationArgsInvalid,
                 "Operation args are invalid.",
-                "step-1"),
+                new IpcExecuteStepId("step-1")),
         ];
         var validator = new RecordingRequestStaticValidator
         {
-            Result = new ValidationResult(validationErrors),
+            Result = ValidationResult.Invalid(validationErrors),
         };
         var resolver = new RecordingReadIndexValidationCatalogResolver
         {
@@ -199,12 +200,11 @@ public sealed class RequestStaticValidationPreflightServiceTests
     private static PreparedRequestContext CreatePreparedRequestContext ()
     {
         return new PreparedRequestContext(
-            RequestJson: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""",
-            Request: new ValidateRequest(
+            requestJson: """{"protocolVersion":1,"steps":[]}""",
+            request: new ValidateRequest(
                 ProtocolVersion: 1,
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Steps: Array.Empty<ValidateRequestStep?>()),
-            ProjectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject());
+            projectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject());
     }
 
     private static ReadIndexValidationCatalogResolutionResult CreateCatalogSuccessResult (ReadIndexInfo? readIndex = null)

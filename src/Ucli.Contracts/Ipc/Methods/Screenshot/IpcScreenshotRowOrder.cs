@@ -7,5 +7,5 @@ public enum IpcScreenshotRowOrder
 {
     /// <summary> Orders rows from the top of the image to the bottom. </summary>
     [UcliContractLiteral("topDown")]
-    TopDown = 0,
+    TopDown = 1,
 }

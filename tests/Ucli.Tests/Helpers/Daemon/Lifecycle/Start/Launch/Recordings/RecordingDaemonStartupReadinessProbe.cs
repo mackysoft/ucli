@@ -18,7 +18,7 @@ internal sealed class RecordingDaemonStartupReadinessProbe : IDaemonStartupReadi
 
     public ValueTask<DaemonStartupReadinessProbeResult> WaitUntilReadyAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         int? daemonProcessId = null,
         CancellationToken cancellationToken = default)
     {
@@ -26,7 +26,7 @@ internal sealed class RecordingDaemonStartupReadinessProbe : IDaemonStartupReadi
         OnWaitUntilReady?.Invoke();
         invocations.Add(new Invocation(
             unityProject,
-            timeout,
+            deadline,
             daemonProcessId,
             cancellationToken));
         if (NextException is not null)
@@ -39,7 +39,7 @@ internal sealed class RecordingDaemonStartupReadinessProbe : IDaemonStartupReadi
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
         int? DaemonProcessId,
         CancellationToken CancellationToken);
 }

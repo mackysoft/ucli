@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -17,7 +16,7 @@ public sealed class BuildRunCommandPreDispatchTests
         string? format)
     {
         var service = new RecordingBuildService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new BuildRunCommand(service, CommandResultTestWriter.Create());
+        var command = new BuildRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(
             mode: mode,
@@ -38,7 +37,7 @@ public sealed class BuildRunCommandPreDispatchTests
     public async Task Run_WithoutProfilePath_ReturnsInvalidArgumentWithoutCallingService (string? profilePath)
     {
         var service = new RecordingBuildService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new BuildRunCommand(service, CommandResultTestWriter.Create());
+        var command = new BuildRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(
             profilePath: profilePath,

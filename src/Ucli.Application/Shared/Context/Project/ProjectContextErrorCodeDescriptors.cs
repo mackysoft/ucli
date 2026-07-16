@@ -2,10 +2,13 @@ namespace MackySoft.Ucli.Application.Shared.Context.Project;
 
 internal static class ProjectContextErrorCodeDescriptors
 {
-    private static readonly UcliCommand[] ProjectCommands =
+    private static readonly UcliCommand[] ProjectResolutionCommands =
     [
-        UcliCommandIds.Init,
         UcliCommandIds.Status,
+        UcliCommandIds.Ready,
+        UcliCommandIds.Compile,
+        UcliCommandIds.BuildRun,
+        UcliCommandIds.Verify,
         UcliCommandIds.DaemonStart,
         UcliCommandIds.DaemonStop,
         UcliCommandIds.DaemonCleanup,
@@ -14,6 +17,8 @@ internal static class ProjectContextErrorCodeDescriptors
         UcliCommandIds.LogsDaemonRead,
         UcliCommandIds.LogsUnityRead,
         UcliCommandIds.LogsUnityClear,
+        UcliCommandIds.Screenshot,
+        UcliCommandIds.Play,
         UcliCommandIds.Validate,
         UcliCommandIds.Plan,
         UcliCommandIds.Call,
@@ -23,7 +28,6 @@ internal static class ProjectContextErrorCodeDescriptors
         UcliCommandIds.Refresh,
         UcliCommandIds.Ops,
         UcliCommandIds.TestRun,
-        UcliCommandIds.TestProfileInit,
     ];
 
     public static IReadOnlyList<UcliErrorDescriptor> All { get; } =
@@ -32,49 +36,54 @@ internal static class ProjectContextErrorCodeDescriptors
             ProjectContextErrorCodes.ProjectPathInvalidFormat,
             "The project path cannot be normalized.",
             "The project path argument is not a valid filesystem path for this host.",
-            "projectPathParsing"),
+            "projectPathParsing",
+            "Pass a valid Unity project directory and rerun the command.",
+            ProjectResolutionCommands),
 
         CreateProjectContextDescriptor(
             ProjectContextErrorCodes.ProjectPathNotFound,
             "The project path does not exist.",
             "The resolved project directory is missing, so uCLI cannot establish project context.",
-            "projectPathResolution"),
+            "projectPathResolution",
+            "Pass a valid Unity project directory and rerun the command.",
+            ProjectResolutionCommands),
 
         CreateProjectContextDescriptor(
             ProjectContextErrorCodes.UnityProjectMarkerMissing,
             "The directory is not recognized as a Unity project.",
             "The resolved directory is missing Unity project markers required by uCLI.",
-            "projectValidation"),
+            "projectValidation",
+            "Pass a valid Unity project directory and rerun the command.",
+            ProjectResolutionCommands),
     ];
 
     private static UcliErrorDescriptor CreateProjectContextDescriptor (
         UcliCode code,
         string summary,
         string meaning,
-        string phase)
+        string phase,
+        string nextAction,
+        IReadOnlyList<UcliCommand> appliesTo)
     {
         return UcliErrorDescriptorFactory.Create(
             code: code,
             category: "projectContext",
             summary: summary,
             meaning: meaning,
-            appliesTo: ProjectCommands,
+            appliesTo: appliesTo,
             possiblePhases: [phase],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["projectPath", "cwd", "errors[].message"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
                     When: null,
-                    Action: "Pass a valid Unity project directory and rerun the command."),
+                    Action: nextAction),
             ],
-            relatedCodes: new[]
-            {
-                ProjectContextErrorCodes.ProjectPathInvalidFormat,
-                ProjectContextErrorCodes.ProjectPathNotFound,
-                ProjectContextErrorCodes.UnityProjectMarkerMissing,
-            }.Where(relatedCode => relatedCode != code).ToArray());
+            relatedCodes: ProjectContextErrorCodes.All
+                .Where(relatedCode => relatedCode != code)
+                .ToArray());
     }
 }

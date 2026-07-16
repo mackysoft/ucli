@@ -1,6 +1,6 @@
 using System.Diagnostics;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
@@ -21,16 +21,19 @@ internal static class SupervisorProjectCoordinatorTestSupport
         IDaemonArtifactCleaner? artifactCleaner = null,
         TimeProvider? timeProvider = null)
     {
+        var effectiveTimeProvider = timeProvider ?? new ManualTimeProvider();
         var runtimeLogger = new SupervisorRuntimeLogger();
         var stabilityVerifier = new SupervisorStabilityVerifier(
             pingClient,
             new SupervisorDiagnosisWriter(diagnosisStore),
-            timeProvider);
+            new DaemonCompensationOperationOwner(),
+            effectiveTimeProvider);
         var exitHandler = new SupervisorExitHandler(
             sessionStore,
             artifactCleaner ?? new RecordingDaemonArtifactCleaner(),
             new SupervisorDiagnosisWriter(diagnosisStore),
-            runtimeLogger);
+            runtimeLogger,
+            effectiveTimeProvider);
         return new SupervisorProjectCoordinator(
             startOperation,
             stopOperation,
@@ -39,7 +42,7 @@ internal static class SupervisorProjectCoordinatorTestSupport
             stabilityVerifier,
             exitHandler,
             runtimeLogger,
-            timeProvider);
+            effectiveTimeProvider);
     }
 
     public static TestDirectoryScope CreateUnityProjectScope (string testCaseName)
@@ -52,20 +55,20 @@ internal static class SupervisorProjectCoordinatorTestSupport
 
     public static ResolvedUnityProjectContext CreateUnityProject ()
     {
-        return ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        return ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: ResolvedUnityProjectContextTestFactory.UnityProjectRoot,
             repositoryRoot: ResolvedUnityProjectContextTestFactory.RepositoryRoot,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
     }
 
     public static ResolvedUnityProjectContext CreateUnityProject (TestDirectoryScope scope)
     {
         ArgumentNullException.ThrowIfNull(scope);
 
-        return ResolvedUnityProjectContextTestFactory.Create(
-            unityProjectRoot: "/tmp/unity-project",
+        return ResolvedUnityProjectContextTestFactory.CreateWithPaths(
+            unityProjectRoot: Path.Combine(scope.FullPath, "UnityProject"),
             repositoryRoot: scope.FullPath,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
     }
 
     public static DaemonSession CreateExitedProcessSession ()

@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
-/// <summary> Deserializes <c>ops.describe/&lt;opKey&gt;.json</c> contracts. </summary>
+/// <summary> Deserializes <c>ops/&lt;operationStorageKey&gt;.json</c> contracts. </summary>
 internal static class IndexOpsDescribeJsonContractSerializer
 {
     /// <summary> Deserializes one ops-describe JSON text to contract. </summary>

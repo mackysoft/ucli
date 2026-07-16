@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStartOperationTestSupport;
@@ -11,11 +12,8 @@ public sealed class DaemonStartOperationInvalidSessionTests
     [Trait("Size", "Small")]
     public async Task Start_WhenSessionReadReturnsInvalidSession_CleansArtifactsThenStartsFreshDaemon ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-invalid-session");
-        var readResult = DaemonSessionReadResult.Failure(
-            ExecutionError.InvalidArgument("invalid session"),
-            DaemonSessionReadFailureKind.InvalidSession,
-            DaemonSessionTestFactory.Create(processId: 1111, projectFingerprint: context.ProjectFingerprint));
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-invalid-session"));
+        var readResult = DaemonSessionReadResultTestFactory.Invalid();
         var sessionStore = new RecordingDaemonSessionStore(readResult);
         var cleanupService = new RecordingDaemonSessionCleanupService
         {
@@ -34,7 +32,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -53,11 +51,8 @@ public sealed class DaemonStartOperationInvalidSessionTests
     [Trait("Size", "Small")]
     public async Task Start_WhenSessionReadReturnsInvalidSessionAndCleanupFails_ReturnsFailureWithoutLaunch ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-invalid-session-failure");
-        var readResult = DaemonSessionReadResult.Failure(
-            ExecutionError.InvalidArgument("invalid session"),
-            DaemonSessionReadFailureKind.InvalidSession,
-            DaemonSessionTestFactory.Create(processId: 1111, projectFingerprint: context.ProjectFingerprint));
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-invalid-session-failure"));
+        var readResult = DaemonSessionReadResultTestFactory.Invalid();
         var expectedError = ExecutionError.InternalError("cleanup failed");
         var sessionStore = new RecordingDaemonSessionStore(readResult);
         var cleanupService = new RecordingDaemonSessionCleanupService
@@ -77,7 +72,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -94,17 +89,13 @@ public sealed class DaemonStartOperationInvalidSessionTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Start_WhenLegacyInvalidSessionCannotBeSafelyStopped_ReturnsFailureWithoutLaunch ()
+    public async Task Start_WhenInvalidEvidencePointsToLiveProcess_ReturnsFailureWithoutTerminationOrLaunch ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-invalid-legacy-live");
-        var legacySession = DaemonSessionTestFactory.Create(
-            processId: 1111,
-            projectFingerprint: context.ProjectFingerprint,
-            ownerProcessId: null);
-        var readResult = DaemonSessionReadResult.Failure(
-            ExecutionError.InvalidArgument("invalid session"),
-            DaemonSessionReadFailureKind.InvalidSession,
-            legacySession);
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-invalid-legacy-live"));
+        var readResult = DaemonSessionReadResultTestFactory.Invalid(
+            DaemonInvalidSessionEvidenceTestFactory.Create(
+                projectFingerprint: context.ProjectFingerprint,
+                processId: 3333));
         var sessionStore = new RecordingDaemonSessionStore(readResult);
         var processTerminationService = new RecordingDaemonProcessTerminationService
         {
@@ -114,7 +105,13 @@ public sealed class DaemonStartOperationInvalidSessionTests
         {
             NextResult = DaemonArtifactCleanupResult.Success(),
         };
-        var cleanupService = new DaemonSessionCleanupService(processTerminationService, artifactCleaner);
+        var timeProvider = new ManualTimeProvider();
+        var cleanupService = new DaemonSessionCleanupService(
+            processTerminationService,
+            artifactCleaner,
+            new DaemonInvalidSessionCleanupSafetyEvaluator(
+                RecordingDaemonProcessIdentityAssessor.MatchingLiveProcess(DateTimeOffset.UtcNow)),
+            new DaemonCompensationOperationOwner());
         var launchService = new RecordingDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 3333, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
@@ -123,11 +120,12 @@ public sealed class DaemonStartOperationInvalidSessionTests
             daemonSessionStore: sessionStore,
             daemonSessionCleanupService: cleanupService,
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
-            daemonLaunchService: launchService);
+            daemonLaunchService: launchService,
+            timeProvider: timeProvider);
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -136,7 +134,7 @@ public sealed class DaemonStartOperationInvalidSessionTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains("cannot be safely replaced", error.Message, StringComparison.Ordinal);
-        DaemonStartOperationInvocationAssert.UnsafeLegacyInvalidSessionCleanupSkippedBeforeLaunch(
+        DaemonStartOperationInvocationAssert.UnsafeInvalidSessionCleanupSkippedBeforeLaunch(
             processTerminationService,
             artifactCleaner,
             launchService);
@@ -147,7 +145,9 @@ public sealed class DaemonStartOperationInvalidSessionTests
     public async Task Start_WhenSessionReadReturnsNonInvalidSessionError_ReturnsFailureWithoutCleanupOrLaunch ()
     {
         var expectedError = ExecutionError.InvalidArgument("path invalid");
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Failure(expectedError, DaemonSessionReadFailureKind.PathInvalid));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Failure(
+            expectedError,
+            DaemonSessionReadFailureKind.PathInvalid));
         var cleanupService = new RecordingDaemonSessionCleanupService();
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService();
         var launchService = new RecordingDaemonLaunchService
@@ -161,8 +161,8 @@ public sealed class DaemonStartOperationInvalidSessionTests
             daemonLaunchService: launchService);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-path-invalid"),
-            TimeSpan.FromMilliseconds(500),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-path-invalid")),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

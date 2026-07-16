@@ -6,41 +6,41 @@ public sealed class IpcExecutePostReadSourceRulesTests
 {
     private static readonly PostReadSourceCompatibilityCase[] CompatibleSourceCases =
     [
-        new("edit", "edit", PlayModeMutation: false, Commit: "none", PersistenceExpected: false, ExpectedPostState: "deterministic"),
-        new("edit", "edit", PlayModeMutation: false, Commit: "context", PersistenceExpected: true, ExpectedPostState: "deterministic"),
-        new("edit", "edit", PlayModeMutation: false, Commit: "project", PersistenceExpected: true, ExpectedPostState: "deterministic"),
-        new("edit", "edit", PlayModeMutation: true, Commit: "none", PersistenceExpected: false, ExpectedPostState: "unavailable"),
-        new("edit", "edit", PlayModeMutation: true, Commit: "none", PersistenceExpected: true, ExpectedPostState: "unavailable"),
-        new("ucli.scene.open", "operation", PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: "unavailable"),
-        new("ucli.scene.open", "operation", PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: "unavailable"),
-        new("ucli.project.refresh", "refresh", PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: "unavailable"),
+        new("edit", IpcExecutePostReadSourceKind.Edit, PlayModeMutation: false, Commit: IpcExecutePostReadCommit.None, PersistenceExpected: false, ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
+        new("edit", IpcExecutePostReadSourceKind.Edit, PlayModeMutation: false, Commit: IpcExecutePostReadCommit.Context, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
+        new("edit", IpcExecutePostReadSourceKind.Edit, PlayModeMutation: false, Commit: IpcExecutePostReadCommit.Project, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
+        new("edit", IpcExecutePostReadSourceKind.Edit, PlayModeMutation: true, Commit: IpcExecutePostReadCommit.None, PersistenceExpected: false, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("edit", IpcExecutePostReadSourceKind.Edit, PlayModeMutation: true, Commit: IpcExecutePostReadCommit.None, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("ucli.scene.open", IpcExecutePostReadSourceKind.Operation, PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("ucli.scene.open", IpcExecutePostReadSourceKind.Operation, PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("ucli.project.refresh", IpcExecutePostReadSourceKind.Refresh, PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
     ];
 
     private static readonly PostReadSourceCompatibilityCase[] IncompatibleSourceCases =
     [
-        new("edit", "edit", PlayModeMutation: true, Commit: "none", PersistenceExpected: false, ExpectedPostState: "deterministic"),
-        new("edit", "edit", PlayModeMutation: false, Commit: "context", PersistenceExpected: false, ExpectedPostState: "deterministic"),
-        new("edit", "edit", PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: "deterministic"),
-        new("edit", "edit", PlayModeMutation: false, Commit: "invalid", PersistenceExpected: true, ExpectedPostState: "deterministic"),
-        new("edit", "edit", PlayModeMutation: false, Commit: "none", PersistenceExpected: false, ExpectedPostState: "unavailable"),
-        new("edit", "edit", PlayModeMutation: true, Commit: "context", PersistenceExpected: true, ExpectedPostState: "unavailable"),
-        new("ucli.scene.open", "operation", PlayModeMutation: true, Commit: null, PersistenceExpected: false, ExpectedPostState: "unavailable"),
-        new("ucli.scene.open", "operation", PlayModeMutation: false, Commit: "none", PersistenceExpected: false, ExpectedPostState: "unavailable"),
-        new("ucli.scene.open", "operation", PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: "deterministic"),
-        new("ucli.project.refresh", "operation", PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: "unavailable"),
-        new("ucli.scene.open", "refresh", PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: "unavailable"),
-        new("ucli.project.refresh", "refresh", PlayModeMutation: true, Commit: null, PersistenceExpected: true, ExpectedPostState: "unavailable"),
-        new("ucli.project.refresh", "refresh", PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: "unavailable"),
-        new("ucli.project.refresh", "refresh", PlayModeMutation: false, Commit: "none", PersistenceExpected: true, ExpectedPostState: "unavailable"),
-        new("ucli.project.refresh", "refresh", PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: "deterministic"),
+        new("edit", IpcExecutePostReadSourceKind.Edit, PlayModeMutation: true, Commit: IpcExecutePostReadCommit.None, PersistenceExpected: false, ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
+        new("edit", IpcExecutePostReadSourceKind.Edit, PlayModeMutation: false, Commit: IpcExecutePostReadCommit.Context, PersistenceExpected: false, ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
+        new("edit", IpcExecutePostReadSourceKind.Edit, PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
+        new("edit", IpcExecutePostReadSourceKind.Edit, PlayModeMutation: false, Commit: (IpcExecutePostReadCommit)int.MaxValue, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
+        new("edit", IpcExecutePostReadSourceKind.Edit, PlayModeMutation: false, Commit: IpcExecutePostReadCommit.None, PersistenceExpected: false, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("edit", IpcExecutePostReadSourceKind.Edit, PlayModeMutation: true, Commit: IpcExecutePostReadCommit.Context, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("ucli.scene.open", IpcExecutePostReadSourceKind.Operation, PlayModeMutation: true, Commit: null, PersistenceExpected: false, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("ucli.scene.open", IpcExecutePostReadSourceKind.Operation, PlayModeMutation: false, Commit: IpcExecutePostReadCommit.None, PersistenceExpected: false, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("ucli.scene.open", IpcExecutePostReadSourceKind.Operation, PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
+        new("ucli.project.refresh", IpcExecutePostReadSourceKind.Operation, PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("ucli.scene.open", IpcExecutePostReadSourceKind.Refresh, PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("ucli.project.refresh", IpcExecutePostReadSourceKind.Refresh, PlayModeMutation: true, Commit: null, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("ucli.project.refresh", IpcExecutePostReadSourceKind.Refresh, PlayModeMutation: false, Commit: null, PersistenceExpected: false, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("ucli.project.refresh", IpcExecutePostReadSourceKind.Refresh, PlayModeMutation: false, Commit: IpcExecutePostReadCommit.None, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
+        new("ucli.project.refresh", IpcExecutePostReadSourceKind.Refresh, PlayModeMutation: false, Commit: null, PersistenceExpected: true, ExpectedPostState: IpcExecuteExpectedPostState.Deterministic),
     ];
 
     private static readonly DeterministicMutationSourceCase[] DeterministicMutationSourceCases =
     [
-        new("edit", "deterministic", ExpectedResult: true),
-        new("edit", "unavailable", ExpectedResult: false),
-        new("operation", "unavailable", ExpectedResult: false),
-        new("refresh", "unavailable", ExpectedResult: false),
+        new(IpcExecutePostReadSourceKind.Edit, IpcExecuteExpectedPostState.Deterministic, ExpectedResult: true),
+        new(IpcExecutePostReadSourceKind.Edit, IpcExecuteExpectedPostState.Unavailable, ExpectedResult: false),
+        new(IpcExecutePostReadSourceKind.Operation, IpcExecuteExpectedPostState.Unavailable, ExpectedResult: false),
+        new(IpcExecutePostReadSourceKind.Refresh, IpcExecuteExpectedPostState.Unavailable, ExpectedResult: false),
     ];
 
     [Fact]
@@ -95,14 +95,14 @@ public sealed class IpcExecutePostReadSourceRulesTests
 
     private sealed record PostReadSourceCompatibilityCase (
         string OperationName,
-        string SourceKind,
+        IpcExecutePostReadSourceKind SourceKind,
         bool PlayModeMutation,
-        string? Commit,
+        IpcExecutePostReadCommit? Commit,
         bool PersistenceExpected,
-        string ExpectedPostState);
+        IpcExecuteExpectedPostState ExpectedPostState);
 
     private sealed record DeterministicMutationSourceCase (
-        string SourceKind,
-        string ExpectedPostState,
+        IpcExecutePostReadSourceKind SourceKind,
+        IpcExecuteExpectedPostState ExpectedPostState,
         bool ExpectedResult);
 }

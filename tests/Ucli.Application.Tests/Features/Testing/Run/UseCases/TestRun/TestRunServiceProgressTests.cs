@@ -48,7 +48,7 @@ public sealed class TestRunServiceProgressTests
                     "MyGame.Tests",
                     "editmode",
                     ["smoke"],
-                    "pass",
+                    TestCaseResult.Pass,
                     42,
                     null,
                     null))),
@@ -56,9 +56,9 @@ public sealed class TestRunServiceProgressTests
                 TestRunProgressEventNames.RunDiagnostic,
                 IpcPayloadCodec.SerializeToElement(new TestRunDiagnosticEntry(
                     session.RunId,
-                    "TEST_PROGRESS_STUB",
+                    new UcliCode("TEST_PROGRESS_STUB"),
                     "stub progress",
-                    "info"))),
+                    UcliDiagnosticSeverity.Info))),
         };
 
         var service = CreateService(
@@ -67,7 +67,7 @@ public sealed class TestRunServiceProgressTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             streamingProgressFrames: unityProgressFrames);
@@ -92,7 +92,7 @@ public sealed class TestRunServiceProgressTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             streamingProgressFrame: new UnityRequestProgressFrame(
@@ -123,13 +123,13 @@ public sealed class TestRunServiceProgressTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             streamingProgressFrame: new UnityRequestProgressFrame(
                 TestRunProgressEventNames.CaseStarted,
                 IpcPayloadCodec.SerializeToElement(new TestCaseStartedEntry(
-                    "other-run-id",
+                    OtherRunId,
                     "test-id",
                     "SmokeTest.Passes",
                     "MyGame.Tests",
@@ -160,7 +160,7 @@ public sealed class TestRunServiceProgressTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             streamingProgressFrame: new UnityRequestProgressFrame(
@@ -191,22 +191,24 @@ public sealed class TestRunServiceProgressTests
                 new UnityExecutionModeDecision(UnityExecutionMode.Oneshot, false, UnityExecutionTarget.Oneshot, TimeSpan.FromSeconds(30)))),
             artifactsService: new StubTestRunArtifactsService(
                 prepare: _ => ArtifactsPreparationResult.Success(session),
-                complete: (_, _) => ArtifactsCompletionResult.Success()),
+                complete: (_, _, _) => ArtifactsCompletionResult.Success()),
             unityTestExecutor: new StubUnityTestExecutor((_, _, _, _) => ValueTask.FromResult(UnityTestExecutionResult.Success(0))),
             resultsConverter: new StubUnityResultsConverter(_ => ValueTask.FromResult(UnityResultsConversionResult.Success(false))),
             streamingProgressFrame: new UnityRequestProgressFrame(
                 TestRunProgressEventNames.CaseFinished,
-                IpcPayloadCodec.SerializeToElement(new TestCaseFinishedEntry(
-                    session.RunId,
-                    "test-id",
-                    "SmokeTest.Passes",
-                    "MyGame.Tests",
-                    "editmode",
-                    ["smoke"],
-                    "unknown",
-                    42,
-                    null,
-                    null))));
+                IpcPayloadCodec.SerializeToElement(new
+                {
+                    runId = session.RunId,
+                    testId = "test-id",
+                    testName = "SmokeTest.Passes",
+                    assemblyName = "MyGame.Tests",
+                    testPlatform = "editmode",
+                    categories = new[] { "smoke" },
+                    result = "unknown",
+                    durationMilliseconds = 42,
+                    message = (string?)null,
+                    stackTrace = (string?)null,
+                })));
 
         var result = await service.ExecuteAsync(CreateInput(), progressSink, CancellationToken.None);
 
@@ -214,8 +216,7 @@ public sealed class TestRunServiceProgressTests
         Assert.Equal(TestRunErrorKind.ToolError, result.ErrorKind);
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.Equal(TestRunErrorCodes.UnityTestExecutionFailed, result.ErrorCode);
-        Assert.Contains("progress payload violates contract", result.Message, StringComparison.Ordinal);
-        Assert.Contains("result", result.Message, StringComparison.Ordinal);
+        Assert.Contains("progress payload is invalid", result.Message, StringComparison.Ordinal);
         TestRunProgressAssert.RejectedUnityProgressStoppedAfterRunStarted(progressSink);
     }
 
@@ -227,11 +228,11 @@ public sealed class TestRunServiceProgressTests
             TestRunProgressPayloadValidator.Validate(
                 TestRunProgressEventNames.CaseStarted,
                 new TestRunDiagnosticEntry(
-                    "run-id",
-                    "TEST_PROGRESS_STUB",
+                    RunId,
+                    new UcliCode("TEST_PROGRESS_STUB"),
                     "stub progress",
-                    "info"),
-                "run-id"));
+                    UcliDiagnosticSeverity.Info),
+                RunId));
 
         Assert.Contains("payload type violates contract", exception.Message, StringComparison.Ordinal);
         Assert.Contains(TestRunProgressEventNames.CaseStarted, exception.Message, StringComparison.Ordinal);

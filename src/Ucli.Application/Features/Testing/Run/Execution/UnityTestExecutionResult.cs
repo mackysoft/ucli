@@ -1,27 +1,54 @@
 namespace MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 
 /// <summary> Represents one Unity test-execution result. </summary>
-/// <param name="ProcessExitCode"> The Unity process exit code on success; otherwise <see langword="null" />. </param>
-/// <param name="FailureKind"> The execution failure kind on failure; otherwise <see langword="null" />. </param>
-/// <param name="ErrorMessage"> The user-facing execution error message on failure; otherwise <see langword="null" />. </param>
-/// <param name="ErrorCode"> The machine-readable execution error code on failure; otherwise <see langword="null" />. </param>
-/// <param name="StartupFailure"> The structured startup failure detail when Unity did not reach test execution. </param>
-internal sealed record UnityTestExecutionResult (
-    int? ProcessExitCode,
-    UnityTestExecutionFailureKind? FailureKind,
-    string? ErrorMessage,
-    UcliCode? ErrorCode,
-    StartupFailureDetail? StartupFailure = null)
+internal sealed record UnityTestExecutionResult
 {
+    private UnityTestExecutionResult (
+        int? processExitCode,
+        UnityTestExecutionFailureKind? failureKind,
+        string? errorMessage,
+        UcliCode? errorCode,
+        StartupFailureDetail? startupFailure)
+    {
+        if (processExitCode.HasValue)
+        {
+            if (failureKind is not null || errorMessage is not null || errorCode is not null || startupFailure is not null)
+            {
+                throw new ArgumentException("Successful test execution must not contain failure details.", nameof(failureKind));
+            }
+        }
+        else
+        {
+            ArgumentNullException.ThrowIfNull(failureKind);
+            ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
+        }
+
+        ProcessExitCode = processExitCode;
+        FailureKind = failureKind;
+        ErrorMessage = errorMessage;
+        ErrorCode = errorCode;
+        StartupFailure = startupFailure;
+    }
+
+    public int? ProcessExitCode { get; }
+
+    public UnityTestExecutionFailureKind? FailureKind { get; }
+
+    public string? ErrorMessage { get; }
+
+    public UcliCode? ErrorCode { get; }
+
+    public StartupFailureDetail? StartupFailure { get; }
+
     /// <summary> Gets a value indicating whether execution succeeded. </summary>
-    public bool IsSuccess => ProcessExitCode.HasValue && FailureKind is null;
+    public bool IsSuccess => ProcessExitCode.HasValue;
 
     /// <summary> Creates a successful execution result. </summary>
     /// <param name="processExitCode"> The Unity process exit code. </param>
     /// <returns> The successful execution result. </returns>
     public static UnityTestExecutionResult Success (int processExitCode)
     {
-        return new UnityTestExecutionResult(processExitCode, null, null, null);
+        return new UnityTestExecutionResult(processExitCode, null, null, null, null);
     }
 
     /// <summary> Creates a failed execution result. </summary>
@@ -39,9 +66,7 @@ internal sealed record UnityTestExecutionResult (
             null,
             failureKind,
             errorMessage,
-            errorCode.HasValue && errorCode.Value.IsValid
-                ? errorCode.Value
-                : (UcliCode?)null,
+            errorCode,
             startupFailure);
     }
 }

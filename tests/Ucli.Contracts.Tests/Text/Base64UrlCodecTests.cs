@@ -97,4 +97,31 @@ public sealed class Base64UrlCodecTests
 
         Assert.False(result);
     }
+
+    [Theory]
+    [InlineData(" aGVsbG8")]
+    [InlineData("aGVsbG8 ")]
+    [InlineData("aGVsbG8=")]
+    [InlineData("+A")]
+    [InlineData("/A")]
+    [Trait("Size", "Small")]
+    public void TryDecode_ReturnsFalse_WhenTextIsNotUnpaddedBase64Url (string text)
+    {
+        var result = Base64UrlCodec.TryDecode(text, out var bytes);
+
+        Assert.False(result);
+        Assert.Empty(bytes);
+    }
+
+    [Theory]
+    [InlineData("AB")]
+    [InlineData("AAB")]
+    [Trait("Size", "Small")]
+    public void TryDecode_ReturnsFalse_WhenTrailingBitsAreNotCanonical (string text)
+    {
+        var result = Base64UrlCodec.TryDecode(text, out var bytes);
+
+        Assert.False(result);
+        Assert.Empty(bytes);
+    }
 }

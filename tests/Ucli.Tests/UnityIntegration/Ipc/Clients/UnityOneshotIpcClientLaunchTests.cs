@@ -1,8 +1,6 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
-using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using static MackySoft.Ucli.Tests.Ipc.UnityOneshotIpcClientTestSupport;
@@ -21,33 +19,40 @@ public sealed class UnityOneshotIpcClientLaunchTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
         var lockProvider = new StubProjectLifecycleLockProvider();
-        var client = new UnityOneshotIpcClient(
+        var startedAtUtc = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(startedAtUtc);
+        var client = CreateClient(
             launcher,
             transportClient,
             lockProvider,
-            CreateProjectLockPreflightService());
+            CreateProjectLockPreflightService(),
+            timeProvider: timeProvider);
 
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), timeProvider),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         ProjectLifecycleLockProviderAssert.AcquiredOnceFor(lockProvider, unityProject);
         var bootstrapArguments = UnityOneshotLaunchAssert.LaunchedOnceWithDefaultOptions(launcher, unityProject);
-        var requests = IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.OpsRead);
-        var dispatchRequest = IpcRequestAssert.SingleWithMethod(requests, IpcMethodNames.OpsRead);
+        var requests = IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead);
+        var dispatchRequest = IpcRequestAssert.SingleWithMethod(requests, UnityIpcMethod.OpsRead);
         Assert.Equal(CreateDispatchPayload().GetRawText(), dispatchRequest.Payload.GetRawText());
-        IpcRequestAssert.AllSessionToken(requests, bootstrapArguments.SessionToken);
+        Assert.All(transportClient.UnityInvocations, invocation =>
+        {
+            Assert.Equal(startedAtUtc + TimeSpan.FromSeconds(30), invocation.Request.RequestDeadlineUtc);
+        });
+        IpcRequestAssert.AllSessionToken(requests, bootstrapArguments.SessionToken.GetEncodedValue());
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);
     }
 
@@ -61,14 +66,14 @@ public sealed class UnityOneshotIpcClientLaunchTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.BuildRun => CreateSuccessResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
@@ -77,10 +82,11 @@ public sealed class UnityOneshotIpcClientLaunchTests
         var result = await client.SendAsync(
             unityProject,
             new UnityIpcDispatchRequest(
-                IpcMethodNames.OpsRead,
+                UnityIpcMethod.BuildRun,
                 CreateDispatchPayload(),
-                oneshotActiveBuildProfilePath: "Assets/BuildProfiles/LinuxPlayer.asset"),
-            TimeSpan.FromSeconds(30),
+                new UnityBatchmodeLaunchOptions(new UnityBuildProfileAssetPath(
+                    "Assets/BuildProfiles/LinuxPlayer.asset"))),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -96,9 +102,9 @@ public sealed class UnityOneshotIpcClientLaunchTests
     {
         using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "lock-timeout");
         var launcher = new UnexpectedUnityBatchmodeProcessLauncher("Lifecycle lock timeout should not launch Unity.");
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
-            new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse("unused")),
+            new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse(Guid.NewGuid())),
             new StubProjectLifecycleLockProvider((_, _, cancellationToken) =>
             {
                 cancellationToken.ThrowIfCancellationRequested();
@@ -109,7 +115,7 @@ public sealed class UnityOneshotIpcClientLaunchTests
         var result = await client.SendAsync(
             ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath),
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(1),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);

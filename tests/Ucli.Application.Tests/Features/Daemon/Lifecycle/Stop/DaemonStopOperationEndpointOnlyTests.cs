@@ -17,7 +17,8 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorMode: DaemonEditorMode.Gui);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-disallowed");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
+            ProjectFingerprintTestFactory.Create("fingerprint-stop-disallowed"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.Success(),
@@ -33,12 +34,13 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Null(result.Error);
         DaemonShutdownClientAssert.EndpointShutdownAttempted(shutdownClient, context, session);
         AssertSessionArtifactsInvalidatedWithoutProcessTermination(processTerminationService, artifactCleaner, context);
+        Assert.Equal(session, Assert.Single(artifactCleaner.Invocations).ExpectedSession);
     }
 
     [Fact]
@@ -51,7 +53,8 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             editorMode: DaemonEditorMode.Gui);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-endpoint-timeout");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
+            ProjectFingerprintTestFactory.Create("fingerprint-stop-endpoint-timeout"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.Failure(shutdownError),
@@ -67,9 +70,9 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
-        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        Assert.Null(result.Status);
         Assert.Equal(shutdownError, result.Error);
         DaemonShutdownClientAssert.EndpointShutdownAttempted(shutdownClient, context, session);
         AssertProcessTerminationAndArtifactCleanupSkipped(processTerminationService, artifactCleaner);
@@ -84,7 +87,8 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             ownerKind: DaemonSessionOwnerKind.Cli,
             canShutdownProcess: false,
             editorMode: DaemonEditorMode.Gui);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-cli-endpoint-only");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
+            ProjectFingerprintTestFactory.Create("fingerprint-stop-cli-endpoint-only"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.NotRunning(),
@@ -100,7 +104,7 @@ public sealed class DaemonStopOperationEndpointOnlyTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Null(result.Error);

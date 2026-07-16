@@ -2,8 +2,8 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Projection;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Assets;
@@ -54,7 +54,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
-        IpcIndexAssetsReadResponse? response = null;
+        AssetLookupSnapshot? snapshot = null;
         string? persistFailure = null;
         for (var attempt = 0; attempt < MaxSnapshotStabilityAttempts; attempt++)
         {
@@ -69,7 +69,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
                 .ConfigureAwait(false);
             if (!attemptResult.FetchResult.IsSuccess)
             {
-                if (response != null)
+                if (snapshot != null)
                 {
                     persistFailure = ReadIndexAccessUtilities.CombineFallbackReasons(
                         persistFailure,
@@ -77,10 +77,10 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
                     break;
                 }
 
-                return AssetLookupRefreshResult.Failure(attemptResult.FetchResult.Message, attemptResult.FetchResult.ErrorCode!.Value);
+                return AssetLookupRefreshResult.Failure(attemptResult.FetchResult.Message, attemptResult.FetchResult.ErrorCode!);
             }
 
-            response = attemptResult.FetchResult.Response!;
+            snapshot = attemptResult.FetchResult.Snapshot!;
             persistFailure = attemptResult.PersistFailure;
             if (!attemptResult.ShouldRetry)
             {
@@ -91,7 +91,7 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
         var combinedFallbackReason = ReadIndexAccessUtilities.CombineFallbackReasons(
             fallbackReason,
             persistFailure);
-        return AssetLookupRefreshResult.Success(response!, combinedFallbackReason);
+        return AssetLookupRefreshResult.Success(snapshot!, combinedFallbackReason);
     }
 
     private async ValueTask<(AssetLookupSnapshotFetchResult FetchResult, string? PersistFailure, bool ShouldRetry)> TryReadAndPersistLookupArtifactsAsync (
@@ -124,6 +124,8 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
             return (fetchResult, null, false);
         }
 
+        var snapshot = fetchResult.Snapshot!;
+
         if (snapshotBeforeRead == null)
         {
             return (fetchResult, InputFingerprintFailureMessage, false);
@@ -150,9 +152,9 @@ internal sealed class AssetLookupSourceRefreshService : IAssetLookupSourceRefres
             await artifactWriter.WriteAssetLookupsAsync(
                     project.RepositoryRoot,
                     project.ProjectFingerprint,
-                    fetchResult.Response!.GeneratedAtUtc,
-                    fetchResult.Response.AssetSearchEntries!.ToArray(),
-                    fetchResult.Response.GuidPathEntries!.ToArray(),
+                    snapshot.GeneratedAtUtc,
+                    ReadIndexJsonContractMapper.ToJsonContracts(snapshot.AssetSearchEntries),
+                    ReadIndexJsonContractMapper.ToJsonContracts(snapshot.GuidPathEntries),
                     snapshotAfterRead,
                     cancellationToken)
                 .ConfigureAwait(false);

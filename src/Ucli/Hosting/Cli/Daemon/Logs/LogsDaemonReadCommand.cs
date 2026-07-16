@@ -1,7 +1,9 @@
+using System.Globalization;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
@@ -16,15 +18,20 @@ internal sealed class LogsDaemonReadCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
+    private readonly CliStreamEntryWriterFactory streamEntryWriterFactory;
+
     /// <summary> Initializes a new instance of the LogsDaemonReadCommand class. </summary>
     /// <param name="logsDaemonService"> The daemon-log orchestration service dependency. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
+    /// <param name="streamEntryWriterFactory"> The per-invocation standard-error stream writer factory. </param>
     public LogsDaemonReadCommand (
         ILogsDaemonService logsDaemonService,
-        ICommandResultWriter commandResultWriter)
+        ICommandResultWriter commandResultWriter,
+        CliStreamEntryWriterFactory streamEntryWriterFactory)
     {
         this.logsDaemonService = logsDaemonService ?? throw new ArgumentNullException(nameof(logsDaemonService));
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
+        this.streamEntryWriterFactory = streamEntryWriterFactory ?? throw new ArgumentNullException(nameof(streamEntryWriterFactory));
     }
 
     /// <summary> Executes the logs daemon read command. </summary>
@@ -67,6 +74,7 @@ internal sealed class LogsDaemonReadCommand
                 format,
                 timeout,
                 commandResultWriter,
+                streamEntryWriterFactory,
                 (timeoutMilliseconds, onLogEvent, executeCancellationToken) => logsDaemonService.ExecuteAsync(
                     new LogsDaemonServiceRequest(
                         ProjectPath: projectPath,
@@ -102,12 +110,12 @@ internal sealed class LogsDaemonReadCommand
         return new CliCommandProgressEntry<JsonLinePayload>(
             "logs.daemon.entry",
             new JsonLinePayload(
-                Timestamp: daemonLogEvent.Timestamp,
-                Level: daemonLogEvent.Level,
+                Timestamp: daemonLogEvent.Timestamp.ToString("O", CultureInfo.InvariantCulture),
+                Level: ContractLiteralCodec.ToValue(daemonLogEvent.Level),
                 Category: daemonLogEvent.Category,
                 Message: daemonLogEvent.Message,
                 Raw: daemonLogEvent.Raw,
-                Cursor: daemonLogEvent.Cursor,
+                Cursor: daemonLogEvent.Cursor.Value,
                 NextCursor: nextCursor));
     }
 

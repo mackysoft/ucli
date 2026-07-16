@@ -14,7 +14,7 @@ public sealed class DaemonLaunchServiceBatchmodeReadinessProbeFailureTests
     {
         var probeError = ExecutionError.Timeout("probe failed");
         var scenario = CreateScenario(
-            "fingerprint-probe-fail",
+            ProjectFingerprintTestFactory.Create("fingerprint-probe-fail"),
             probeError,
             launchAttemptStore: new RecordingDaemonLaunchAttemptStore());
 
@@ -49,7 +49,7 @@ public sealed class DaemonLaunchServiceBatchmodeReadinessProbeFailureTests
     {
         using var cancellationSource = new CancellationTokenSource();
         var scenario = CreateScenario(
-            "fingerprint-launch-cancel-during-readiness",
+            ProjectFingerprintTestFactory.Create("fingerprint-launch-cancel-during-readiness"),
             ExecutionError.Timeout("probe failed"));
         scenario.ReadinessProbe.OnWaitUntilReady = cancellationSource.Cancel;
         scenario.ReadinessProbe.NextException = new OperationCanceledException(cancellationSource.Token);

@@ -5,19 +5,23 @@ namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonLifecycleObservationMatcherTests
 {
+    private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+    private static readonly Guid OtherEditorInstanceId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
     [Fact]
     [Trait("Size", "Small")]
-    public void MatchesSession_WhenBothEditorInstanceIdsArePresent_UsesEditorInstanceId ()
+    public void MatchesSession_WhenUserOwnedEditorInstanceIdsMatch_UsesEditorInstanceId ()
     {
         var session = DaemonSessionTestFactory.Create(
             editorMode: DaemonEditorMode.Gui,
-            processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10)) with
-        {
-            EditorInstanceId = "editor-instance-1",
-        };
+            ownerKind: DaemonSessionOwnerKind.User,
+            canShutdownProcess: false,
+            processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
+            editorInstanceId: EditorInstanceId);
         var observation = CreateObservation(
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(20),
-            editorInstanceId: "editor-instance-1");
+            editorInstanceId: EditorInstanceId);
 
         var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
 
@@ -26,18 +30,18 @@ public sealed class DaemonLifecycleObservationMatcherTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void MatchesSession_WhenBothEditorInstanceIdsDiffer_ReturnsFalseWithoutProcessStartFallback ()
+    public void MatchesSession_WhenUserOwnedEditorInstanceIdsDiffer_ReturnsFalseWithoutProcessStartFallback ()
     {
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
             editorMode: DaemonEditorMode.Gui,
-            processStartedAtUtc: startedAtUtc) with
-        {
-            EditorInstanceId = "editor-instance-1",
-        };
+            ownerKind: DaemonSessionOwnerKind.User,
+            canShutdownProcess: false,
+            processStartedAtUtc: startedAtUtc,
+            editorInstanceId: EditorInstanceId);
         var observation = CreateObservation(
             processStartedAtUtc: startedAtUtc,
-            editorInstanceId: "editor-instance-2");
+            editorInstanceId: OtherEditorInstanceId);
 
         var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
 
@@ -46,7 +50,7 @@ public sealed class DaemonLifecycleObservationMatcherTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void MatchesSession_WhenOnlyObservationHasEditorInstanceId_ReturnsFalseWithoutProcessStartFallback ()
+    public void MatchesSession_WhenCliOwnedSessionHasNoEditorInstanceId_UsesProcessIdentity ()
     {
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
@@ -54,40 +58,7 @@ public sealed class DaemonLifecycleObservationMatcherTests
             processStartedAtUtc: startedAtUtc);
         var observation = CreateObservation(
             processStartedAtUtc: startedAtUtc.AddSeconds(1),
-            editorInstanceId: "editor-instance-1");
-
-        var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void MatchesSession_WhenOnlySessionHasEditorInstanceId_ReturnsFalseWithoutProcessStartFallback ()
-    {
-        var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
-        var session = DaemonSessionTestFactory.Create(
-            editorMode: DaemonEditorMode.Gui,
-            processStartedAtUtc: startedAtUtc) with
-        {
-            EditorInstanceId = "editor-instance-1",
-        };
-        var observation = CreateObservation(processStartedAtUtc: startedAtUtc);
-
-        var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void MatchesSession_WhenBothEditorInstanceIdsAreMissing_FallsBackToProcessStartTimeTolerance ()
-    {
-        var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
-        var session = DaemonSessionTestFactory.Create(
-            editorMode: DaemonEditorMode.Gui,
-            processStartedAtUtc: startedAtUtc);
-        var observation = CreateObservation(processStartedAtUtc: startedAtUtc.AddSeconds(1));
+            editorInstanceId: EditorInstanceId);
 
         var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
 
@@ -96,12 +67,14 @@ public sealed class DaemonLifecycleObservationMatcherTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void MatchesSession_WhenBothEditorInstanceIdsAreMissingAndProcessStartDiffersBeyondTolerance_ReturnsFalse ()
+    public void MatchesSession_WhenCliOwnedProcessStartDiffersBeyondTolerance_ReturnsFalse ()
     {
         var session = DaemonSessionTestFactory.Create(
             editorMode: DaemonEditorMode.Gui,
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10));
-        var observation = CreateObservation(processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(13));
+        var observation = CreateObservation(
+            processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(13),
+            editorInstanceId: EditorInstanceId);
 
         var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
 
@@ -110,41 +83,60 @@ public sealed class DaemonLifecycleObservationMatcherTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void MatchesSessionByEditorInstance_WhenIdsMatchAndProcessStartDiffers_ReturnsTrue ()
+    public void MatchesSession_WhenCliOwnedEditorInstanceIdsDiffer_UsesProcessIdentity ()
     {
+        var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
             editorMode: DaemonEditorMode.Gui,
-            processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10)) with
-        {
-            EditorInstanceId = "editor-instance-1",
-        };
+            processStartedAtUtc: startedAtUtc,
+            editorInstanceId: EditorInstanceId);
         var observation = CreateObservation(
-            processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(20),
-            editorInstanceId: "editor-instance-1");
+            processStartedAtUtc: startedAtUtc.AddSeconds(1),
+            editorInstanceId: OtherEditorInstanceId);
 
-        var result = DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(observation, session);
+        var result = DaemonLifecycleObservationMatcher.MatchesSession(observation, session);
 
         Assert.True(result);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void MatchesSessionByEditorInstance_WhenBothEditorInstanceIdsAreMissing_ReturnsFalseWithoutProcessStartFallback ()
+    public void MatchesSessionByEditorInstance_WhenSessionEditorInstanceIdIsMissing_ReturnsFalseWithoutProcessStartFallback ()
     {
         var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
         var session = DaemonSessionTestFactory.Create(
             editorMode: DaemonEditorMode.Gui,
             processStartedAtUtc: startedAtUtc);
-        var observation = CreateObservation(processStartedAtUtc: startedAtUtc);
+        var observation = CreateObservation(
+            processStartedAtUtc: startedAtUtc,
+            editorInstanceId: EditorInstanceId);
 
         var result = DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(observation, session);
 
         Assert.False(result);
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void MatchesSessionByEditorInstance_WhenEditorInstanceIdsMatch_ReturnsTrue ()
+    {
+        var startedAtUtc = DateTimeOffset.UnixEpoch.AddSeconds(10);
+        var session = DaemonSessionTestFactory.Create(
+            editorMode: DaemonEditorMode.Gui,
+            processStartedAtUtc: startedAtUtc,
+            editorInstanceId: EditorInstanceId);
+        var observation = CreateObservation(
+            processStartedAtUtc: startedAtUtc.AddSeconds(20),
+            editorInstanceId: EditorInstanceId);
+
+        var result = DaemonLifecycleObservationMatcher.MatchesSessionByEditorInstance(observation, session);
+
+        Assert.True(result);
+    }
+
     private static DaemonLifecycleObservation CreateObservation (
         DateTimeOffset processStartedAtUtc,
-        string? editorInstanceId = null)
+        Guid editorInstanceId)
     {
         return new DaemonLifecycleObservation(
             processId: 1234,
@@ -163,6 +155,7 @@ public sealed class DaemonLifecycleObservationMatcherTests
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
-            editorInstanceId: editorInstanceId);
+            editorInstanceId: editorInstanceId,
+            recoveryLease: null);
     }
 }

@@ -18,12 +18,12 @@ internal static class BoundedWindowApplicator
             throw new ArgumentNullException(nameof(options));
         }
 
-        if (options.All)
+        if (options.Limit is not int limit)
         {
             return ApplyAll(items);
         }
 
-        return ApplyPage(items, options);
+        return ApplyPage(items, options, limit);
     }
 
     private static BoundedWindowResult<T> ApplyAll<T> (IReadOnlyList<T> items)
@@ -40,17 +40,18 @@ internal static class BoundedWindowApplicator
 
     private static BoundedWindowResult<T> ApplyPage<T> (
         IReadOnlyList<T> items,
-        BoundedWindowOptions options)
+        BoundedWindowOptions options,
+        int limit)
     {
         var offset = Math.Min(options.Offset, items.Count);
         var remaining = items.Count - offset;
-        var count = Math.Min(options.Limit, remaining);
+        var count = Math.Min(limit, remaining);
         var nextOffset = offset + count;
         var isComplete = nextOffset >= items.Count;
         return new BoundedWindowResult<T>(
             Items: CopyRange(items, offset, count),
             Window: new BoundedWindow(
-                limit: options.Limit,
+                limit,
                 cursor: options.Cursor,
                 nextCursor: isComplete ? null : BoundedWindowCursorCodec.Encode(nextOffset),
                 isComplete: isComplete,

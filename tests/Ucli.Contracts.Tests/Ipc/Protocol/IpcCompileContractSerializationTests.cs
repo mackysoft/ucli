@@ -2,34 +2,42 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcCompileContractSerializationTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private const string RunIdText = "11111111-2222-3333-4444-555555555555";
+    private static readonly Guid RunId = Guid.Parse(RunIdText);
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcCompileResponse_WhenSummaryIsNull_ThrowsArgumentNullException ()
+    {
+        var exception = Assert.Throws<ArgumentNullException>(() => new IpcCompileResponse(null!));
+
+        Assert.Equal("Summary", exception.ParamName);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcCompileContracts_SerializeWithCamelCaseFields ()
     {
-        var requestPayload = new IpcCompileRequest("run-1")
-        {
-            TimeoutMilliseconds = 10000,
-        };
-        var responsePayload = new IpcCompileResponse(
-            RunId: "run-1",
-            Summary: CreateCompileSummary());
+        var requestPayload = new IpcCompileRequest(RunId);
+        var responsePayload = new IpcCompileResponse(CreateCompileSummary(RunId));
 
         var request = IpcPayloadCodec.SerializeToElement(requestPayload);
         var response = IpcPayloadCodec.SerializeToElement(responsePayload);
 
         JsonAssert.For(request)
-            .HasString("runId", "run-1")
-            .HasInt32("timeoutMilliseconds", 10000);
+            .HasString("runId", RunIdText);
+        Assert.False(request.TryGetProperty("timeoutMilliseconds", out _));
         JsonAssert.For(response)
-            .HasString("runId", "run-1")
             .HasProperty("summary", summary => summary
-                .HasString("runId", "run-1")
-                .HasString("projectFingerprint", "project-fingerprint")
+                .HasString("runId", RunIdText)
+                .HasString("projectFingerprint", ProjectFingerprintText)
                 .HasBoolean("completed", true)
                 .HasProperty("scriptCompilation", scriptCompilation => scriptCompilation
                     .HasInt32("compileGenerationBefore", 12)
@@ -58,34 +66,34 @@ public sealed class IpcCompileContractSerializationTests
     public void CompileProgressContracts_SerializeWithCamelCaseFields ()
     {
         var startedPayload = new CompileStartedEntry(
-            RunId: "run-1",
-            ProjectFingerprint: "project-fingerprint",
-            RequestedMode: "auto",
-            ResolvedMode: "oneshot",
-            SessionKind: "transientProbe",
+            RunId: RunId,
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
+            RequestedMode: AssuranceRequestedExecutionMode.Auto,
+            ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
+            SessionKind: AssuranceSessionKind.TransientProbe,
             TimeoutMilliseconds: 10000);
         var refreshPayload = new CompileRefreshStartedEntry(
-            RunId: "run-1",
-            RefreshOrigin: "assetDatabaseRefresh",
+            RunId: RunId,
+            RefreshOrigin: CompileRefreshOrigin.AssetDatabaseRefresh,
             ObservationSource: "hostDispatch");
         var recoveredPayload = new CompileRecoveredEntry(
-            RunId: "run-1",
+            RunId: RunId,
             SummaryJsonPath: "/tmp/ucli/compile/run-1/summary.json",
             DispatchFailureCode: IpcTransportErrorCodes.IpcTimeout.Value,
             PollAttempts: 2);
         var diagnosticPayload = new CompileDiagnosticEntry(
-            RunId: "run-1",
-            RefreshOrigin: "diagnosticsRead",
+            RunId: RunId,
+            RefreshOrigin: CompileRefreshOrigin.DiagnosticsRead,
             PrimaryDiagnostic: new IpcPrimaryDiagnostic(
-                Kind: "compiler",
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS1002",
                 File: "Assets/Broken.cs",
                 Line: 4,
                 Column: 16,
                 Message: "; expected"));
         var completedPayload = new CompileCompletedEntry(
-            RunId: "run-1",
-            Verdict: "fail",
+            RunId: RunId,
+            Verdict: AssuranceVerdict.Fail,
             ErrorCount: 1,
             WarningCount: 0,
             SummaryJsonPath: "/tmp/ucli/compile/run-1/summary.json",
@@ -103,29 +111,29 @@ public sealed class IpcCompileContractSerializationTests
         Assert.Equal("compile.diagnostic", CompileProgressEventNames.Diagnostic);
         Assert.Equal("compile.completed", CompileProgressEventNames.Completed);
         JsonAssert.For(started)
-            .HasString("runId", "run-1")
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("runId", RunIdText)
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasString("requestedMode", "auto")
             .HasString("resolvedMode", "oneshot")
             .HasString("sessionKind", "transientProbe")
             .HasInt32("timeoutMilliseconds", 10000);
         JsonAssert.For(refresh)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasString("refreshOrigin", "assetDatabaseRefresh")
             .HasString("observationSource", "hostDispatch");
         JsonAssert.For(recovered)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasString("summaryJsonPath", "/tmp/ucli/compile/run-1/summary.json")
             .HasString("dispatchFailureCode", IpcTransportErrorCodes.IpcTimeout.Value)
             .HasInt32("pollAttempts", 2);
         JsonAssert.For(diagnostic)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasString("refreshOrigin", "diagnosticsRead")
             .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
                 .HasString("kind", "compiler")
                 .HasString("code", "CS1002"));
         JsonAssert.For(completed)
-            .HasString("runId", "run-1")
+            .HasString("runId", RunIdText)
             .HasString("verdict", "fail")
             .HasInt32("errorCount", 1)
             .HasInt32("warningCount", 0)
@@ -133,23 +141,23 @@ public sealed class IpcCompileContractSerializationTests
             .HasString("diagnosticsJsonPath", "/tmp/ucli/compile/run-1/diagnostics.json");
     }
 
-    private static IpcCompileSummary CreateCompileSummary ()
+    private static IpcCompileSummary CreateCompileSummary (Guid runId)
     {
         var primaryDiagnostic = new IpcPrimaryDiagnostic(
-            Kind: "compiler",
+            Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
             Code: "CS1002",
             File: "Assets/Broken.cs",
             Line: 4,
             Column: 16,
             Message: "; expected");
         return new IpcCompileSummary(
-            RunId: "run-1",
-            ProjectFingerprint: "project-fingerprint",
+            RunId: runId,
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
             Completed: true,
             StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00+00:00"),
             CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02+00:00"),
             Refresh: new IpcCompileSummary.RefreshEvidence(
-                Origin: "assetDatabaseRefresh",
+                Origin: CompileRefreshOrigin.AssetDatabaseRefresh,
                 Requested: true,
                 StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00+00:00"),
                 CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:01+00:00"),
@@ -187,7 +195,7 @@ public sealed class IpcCompileContractSerializationTests
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02+00:00"),
-                ActionRequired: "fixCompileErrors",
+                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: primaryDiagnostic));
     }
 }

@@ -13,7 +13,6 @@ using MackySoft.Ucli.UnityIntegration.Indexing.ReadIndex;
 using MackySoft.Ucli.UnityIntegration.Indexing.Scenes;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
-using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
@@ -44,6 +43,8 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<IUnityPluginVerifier, UnityPluginVerifier>();
         services.AddSingleton<IUnityVersionResolver, UnityVersionResolver>();
         services.AddSingleton<IUnityEditorPathResolver, UnityEditorPathResolver>();
+        services.AddSingleton<IReadIndexGenerationPointerStore, FileReadIndexGenerationPointerStore>();
+        services.AddSingleton<FileReadIndexGenerationStore>();
         services.AddSingleton<IReadIndexArtifactReader, FileReadIndexArtifactReader>();
         services.AddSingleton<IReadIndexArtifactWriter, FileReadIndexArtifactWriter>();
         services.AddSingleton<IMutationReadPostconditionStore, MutationReadPostconditionStore>();
@@ -58,9 +59,10 @@ internal static class UnityIntegrationServiceCollectionExtensions
         services.AddSingleton<ISceneTreeLiteDirtySourceProbeService, SceneTreeLiteDirtySourceProbeService>();
         services.AddSingleton<ISceneTreeLiteSourceRefreshService, SceneTreeLiteSourceRefreshService>();
         services.AddSingleton<IPersistedOpsCatalogPersistenceArtifactsReader, PersistedOpsCatalogPersistenceArtifactsReader>();
+        services.AddSingleton<IIpcTransportConnector, IpcTransportConnector>();
         services.AddSingleton<IIpcTransportClient, IpcTransportClient>();
         services.AddSingleton<IUnityIpcTransportClient, UnityIpcTransportClient>();
-        services.AddSingleton<UnityDaemonRecoveryWaiter>();
+        services.AddSingleton(UnityOneshotCleanupPolicy.Default);
         services.AddSingleton<IUnityIpcClient, UnityDaemonIpcClient>();
         services.AddSingleton<IUnityIpcClient, UnityOneshotIpcClient>();
         services.AddSingleton<UnityIpcRequestBuilder>();

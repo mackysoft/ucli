@@ -17,6 +17,7 @@ internal static class RefreshCommandAssert
         bool expectedFailFast)
     {
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.NotEqual(Guid.Empty, Assert.Single(service.RequestIds));
         var invocation = Assert.Single(service.Invocations);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
         Assert.Equal(
@@ -44,7 +45,7 @@ internal static class RefreshCommandAssert
                 .HasString("requestId", expectedRequestId)
                 .HasProperty("project", project => project
                     .HasString("projectPath", ProjectIdentityInfoTestFactory.DefaultProjectPath)
-                    .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint)
+                    .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint.ToString())
                     .HasString("unityVersion", ProjectIdentityInfoTestFactory.UnityVersion))
                 .HasArrayLength("opResults", 1)
                 .HasProperty("opResults", 0, op => op

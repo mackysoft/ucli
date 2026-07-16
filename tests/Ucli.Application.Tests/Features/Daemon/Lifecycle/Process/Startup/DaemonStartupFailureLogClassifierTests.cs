@@ -17,12 +17,12 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.Compile, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, classification.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, classification.Reason);
         Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, classification.ActionRequired);
+        Assert.Equal(DaemonDiagnosisActionRequired.FixCompileErrors, classification.ActionRequired);
         Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, classification.StartupPhase);
         Assert.NotNull(classification.PrimaryDiagnostic);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, classification.PrimaryDiagnostic!.Kind);
         Assert.Equal("CS1739", classification.PrimaryDiagnostic.Code);
         Assert.Equal("Assets/Foo.cs", classification.PrimaryDiagnostic.File);
         Assert.Equal(74, classification.PrimaryDiagnostic.Line);
@@ -42,10 +42,10 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.SafeMode, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.EditorUserActionRequired, classification.Reason);
+        Assert.Equal(DaemonDiagnosisReason.EditorUserActionRequired, classification.Reason);
         Assert.Equal(DaemonStartupRetryDisposition.ManualActionRequired, classification.RetryDisposition);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.ResolveUnityDialog, classification.ActionRequired);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.UnityDialog, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisActionRequired.ResolveUnityDialog, classification.ActionRequired);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.UnityDialog, classification.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -60,9 +60,9 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.Compile, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, classification.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, classification.Reason);
         Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, classification.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -81,10 +81,10 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.PackageResolution, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityPackageResolutionFailed, classification.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UnityPackageResolutionFailed, classification.Reason);
         Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.ResolvePackages, classification.ActionRequired);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.PackageResolution, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisActionRequired.ResolvePackages, classification.ActionRequired);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution, classification.PrimaryDiagnostic!.Kind);
         Assert.Null(classification.PrimaryDiagnostic.Code);
     }
 
@@ -132,8 +132,8 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.PackageResolution, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityPackageResolutionFailed, classification.Reason);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.PackageResolution, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisReason.UnityPackageResolutionFailed, classification.Reason);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution, classification.PrimaryDiagnostic!.Kind);
         Assert.Equal("NUGET_FOR_UNITY_RESTORE_FAILED", classification.PrimaryDiagnostic.Code);
     }
 
@@ -155,7 +155,7 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.PackageResolution, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.PackageResolution, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution, classification.PrimaryDiagnostic!.Kind);
         Assert.NotEqual("NUGET_FOR_UNITY_RESTORE_FAILED", classification.PrimaryDiagnostic.Code);
     }
 
@@ -177,7 +177,7 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.PackageResolution, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.PackageResolution, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution, classification.PrimaryDiagnostic!.Kind);
         Assert.NotEqual("NUGET_FOR_UNITY_RESTORE_FAILED", classification.PrimaryDiagnostic.Code);
     }
 
@@ -196,8 +196,8 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.PackageResolution, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityPackageResolutionFailed, classification.Reason);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.PackageResolution, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisReason.UnityPackageResolutionFailed, classification.Reason);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.PackageResolution, classification.PrimaryDiagnostic!.Kind);
         Assert.Equal("NUGET_FOR_UNITY_RESTORE_FAILED", classification.PrimaryDiagnostic.Code);
     }
 
@@ -213,9 +213,9 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.UcliPlugin, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.UcliPluginDependencyMissing, classification.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UcliPluginDependencyMissing, classification.Reason);
         Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.PluginDependency, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.PluginDependency, classification.PrimaryDiagnostic!.Kind);
         Assert.NotEqual("NUGET_FOR_UNITY_RESTORE_FAILED", classification.PrimaryDiagnostic.Code);
     }
 
@@ -234,8 +234,8 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.PrecompiledAssemblyConflict, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.PrecompiledAssemblyConflict, classification.Reason);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, classification.PrimaryDiagnostic!.Kind);
+        Assert.Equal(DaemonDiagnosisReason.PrecompiledAssemblyConflict, classification.Reason);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, classification.PrimaryDiagnostic!.Kind);
     }
 
     [Fact]
@@ -258,7 +258,7 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.SafeMode, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.EditorUserActionRequired, classification.Reason);
+        Assert.Equal(DaemonDiagnosisReason.EditorUserActionRequired, classification.Reason);
         Assert.Equal(DaemonStartupRetryDisposition.ManualActionRequired, classification.RetryDisposition);
     }
 
@@ -282,7 +282,7 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.ModalDialog, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.EditorUserActionRequired, classification.Reason);
+        Assert.Equal(DaemonDiagnosisReason.EditorUserActionRequired, classification.Reason);
         Assert.Equal(DaemonStartupRetryDisposition.ManualActionRequired, classification.RetryDisposition);
     }
 
@@ -304,7 +304,7 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.PrecompiledAssemblyConflict, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.PrecompiledAssemblyConflict, classification.Reason);
+        Assert.Equal(DaemonDiagnosisReason.PrecompiledAssemblyConflict, classification.Reason);
         Assert.Equal(DaemonStartupRetryDisposition.RetryAfterFix, classification.RetryDisposition);
     }
 
@@ -325,7 +325,7 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.UcliPlugin, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.UcliPluginDependencyMissing, classification.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UcliPluginDependencyMissing, classification.Reason);
     }
 
     [Fact]
@@ -345,6 +345,6 @@ public sealed class DaemonStartupFailureLogClassifierTests
         Assert.True(result);
         Assert.NotNull(classification);
         Assert.Equal(DaemonStartupBlockingReason.PackageResolution, classification!.StartupBlockingReason);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityPackageResolutionFailed, classification.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UnityPackageResolutionFailed, classification.Reason);
     }
 }

@@ -27,45 +27,30 @@ public sealed record ComponentReferenceArgs
         ComponentType = componentType;
     }
 
-    public ComponentReferenceArgs (
-        string? alias,
-        string? globalObjectId,
-        string? scene,
-        string? prefab,
-        string? hierarchyPath,
-        string? componentType)
-        : this(
-            alias == null ? null : new UcliPlanAlias(alias),
-            globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
-            scene == null ? null : new SceneAssetPath(scene),
-            prefab == null ? null : new PrefabAssetPath(prefab),
-            hierarchyPath == null ? null : new UnityHierarchyPath(hierarchyPath),
-            componentType == null ? null : new UnityComponentTypeId(componentType))
-    {
-    }
-
     [UcliDescription("Request-local alias produced by an earlier plan step.")]
     [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UcliPlanAlias? Alias { get; init; }
+    public UcliPlanAlias? Alias { get; }
 
     [UcliDescription("Resolved Unity GlobalObjectId.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityGlobalObjectId? GlobalObjectId { get; init; }
+    public UnityGlobalObjectId? GlobalObjectId { get; }
 
     [UcliDescription("Scene asset path for a hierarchy selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public SceneAssetPath? Scene { get; init; }
+    public SceneAssetPath? Scene { get; }
 
     [UcliDescription("Prefab asset path for a hierarchy selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PrefabAssetPath? Prefab { get; init; }
+    public PrefabAssetPath? Prefab { get; }
 
     [UcliDescription("Unity hierarchy path inside the selected scene or prefab.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityHierarchyPath? HierarchyPath { get; init; }
+    public UnityHierarchyPath? HierarchyPath { get; }
 
     [UcliDescription("Component type identifier.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityComponentTypeId? ComponentType { get; init; }
+    public UnityComponentTypeId? ComponentType { get; }
 }

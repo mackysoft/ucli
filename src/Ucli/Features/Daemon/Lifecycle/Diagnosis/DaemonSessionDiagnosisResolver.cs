@@ -43,21 +43,25 @@ internal sealed class DaemonSessionDiagnosisResolver : IDaemonSessionDiagnosisRe
         }
 
         var diagnosis = new DaemonDiagnosis(
-            Reason: DaemonDiagnosisReasonValues.ExternalTerminationSuspected,
+            Reason: DaemonDiagnosisReason.ExternalTerminationSuspected,
             Message: "Daemon process is no longer alive and no persisted diagnosis matched the current session.",
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            ReportedBy: DaemonDiagnosisReportedBy.Cli,
             IsInferred: true,
             UpdatedAtUtc: DateTimeOffset.UtcNow,
             ProcessId: resolvedProcessId,
             EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc,
-            ProcessStartedAtUtc: session.ProcessStartedAtUtc);
+            ProcessStartedAtUtc: session.ProcessStartedAtUtc,
+            UnityLogPath: null,
+            StartupPhase: null,
+            ActionRequired: null,
+            PrimaryDiagnostic: null);
 
         var writeResult = await daemonDiagnosisStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,
                 diagnosis,
-                CancellationToken.None)
+                cancellationToken)
             .ConfigureAwait(false);
         if (!writeResult.IsSuccess)
         {

@@ -1,4 +1,5 @@
 using System.Text;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 
@@ -10,9 +11,9 @@ public static class UnityProjectFingerprintCalculator
     /// <summary> Creates one deterministic SHA-256 fingerprint for storage-root and Unity-project identity values. </summary>
     /// <param name="storageRoot"> The normalized absolute storage root path. </param>
     /// <param name="unityProjectRoot"> The normalized absolute Unity project root path. </param>
-    /// <returns> The lowercase hexadecimal SHA-256 string. </returns>
+    /// <returns> The canonical project fingerprint. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> or <paramref name="unityProjectRoot" /> is <see langword="null" />, empty, or whitespace. </exception>
-    public static string Create (
+    public static ProjectFingerprint Create (
         string storageRoot,
         string unityProjectRoot)
     {
@@ -26,15 +27,15 @@ public static class UnityProjectFingerprintCalculator
             throw new ArgumentException("Unity project root must not be empty.", nameof(unityProjectRoot));
         }
 
-        var normalizedStorageRoot = NormalizePath(storageRoot);
-        var normalizedUnityProjectRoot = NormalizePath(unityProjectRoot);
+        var normalizedStorageRoot = PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(storageRoot);
+        var normalizedUnityProjectRoot = PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(unityProjectRoot);
         var projectPathFragment = BuildProjectPathFragment(
             normalizedStorageRoot,
             normalizedUnityProjectRoot);
         var fingerprintInput = $"{normalizedStorageRoot}\n{projectPathFragment}";
         var normalizedBytes = Encoding.UTF8.GetBytes(fingerprintInput);
 
-        return Sha256LowerHex.Compute(normalizedBytes);
+        return new ProjectFingerprint(Sha256LowerHex.Compute(normalizedBytes));
     }
 
     /// <summary> Builds a stable project-path fragment used for fingerprint input. </summary>
@@ -59,14 +60,6 @@ public static class UnityProjectFingerprintCalculator
         // Unity project path is expected to be equal to or under storage root.
         // Keep deterministic behavior even for unexpected directory layouts.
         return normalizedUnityProjectRoot;
-    }
-
-    /// <summary> Normalizes path values used in fingerprint input. </summary>
-    /// <param name="pathValue"> The path value. </param>
-    /// <returns> The normalized path value. </returns>
-    private static string NormalizePath (string pathValue)
-    {
-        return PathStringNormalizer.NormalizeAbsolutePathForStableIdentity(pathValue);
     }
 
     /// <summary> Normalizes relative path fragments used for fingerprint input. </summary>

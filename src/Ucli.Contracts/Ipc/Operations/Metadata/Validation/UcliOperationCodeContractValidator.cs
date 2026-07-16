@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -33,8 +34,14 @@ internal static class UcliOperationCodeContractValidator
         string ownerName,
         out string errorMessage)
     {
-        if (string.IsNullOrWhiteSpace(codeContract.Language)
-            || codeContract.EntryPoint == null
+        if (!codeContract.Language.HasValue
+            || !ContractLiteralCodec.IsDefined(codeContract.Language.Value))
+        {
+            errorMessage = $"{ownerName} has an unsupported codeContract language.";
+            return false;
+        }
+
+        if (codeContract.EntryPoint == null
             || string.IsNullOrWhiteSpace(codeContract.EntryPoint.Signature)
             || string.IsNullOrWhiteSpace(codeContract.EntryPoint.MatchRule)
             || codeContract.EntryPoint.ParameterTypes == null
@@ -44,20 +51,6 @@ internal static class UcliOperationCodeContractValidator
             || codeContract.ApiTypes == null)
         {
             errorMessage = $"{ownerName} has invalid codeContract metadata.";
-            return false;
-        }
-
-        return TryValidateLanguage(codeContract.Language, ownerName, out errorMessage);
-    }
-
-    private static bool TryValidateLanguage (
-        string language,
-        string ownerName,
-        out string errorMessage)
-    {
-        if (!string.Equals(language, "csharp", StringComparison.Ordinal))
-        {
-            errorMessage = $"{ownerName} has an unsupported codeContract language.";
             return false;
         }
 
@@ -106,29 +99,22 @@ internal static class UcliOperationCodeContractValidator
         string ownerName,
         out string errorMessage)
     {
-        if (sourceForm == null || string.IsNullOrWhiteSpace(sourceForm.Kind) || string.IsNullOrWhiteSpace(sourceForm.Description))
+        if (sourceForm == null
+            || !sourceForm.Kind.HasValue
+            || string.IsNullOrWhiteSpace(sourceForm.Description))
         {
             errorMessage = $"{ownerName} has an invalid codeContract source form at index {sourceFormIndex}.";
             return false;
         }
 
-        return TryValidateSourceFormKind(sourceForm.Kind, sourceFormIndex, ownerName, out errorMessage);
-    }
-
-    private static bool TryValidateSourceFormKind (
-        string kind,
-        int sourceFormIndex,
-        string ownerName,
-        out string errorMessage)
-    {
-        if (kind is CsEvalSourceKindValues.CompilationUnit or CsEvalSourceKindValues.Snippet)
+        if (!ContractLiteralCodec.IsDefined(sourceForm.Kind.Value))
         {
-            errorMessage = string.Empty;
-            return true;
+            errorMessage = $"{ownerName} has an unsupported codeContract source form at index {sourceFormIndex}.";
+            return false;
         }
 
-        errorMessage = $"{ownerName} has an unsupported codeContract source form at index {sourceFormIndex}.";
-        return false;
+        errorMessage = string.Empty;
+        return true;
     }
 
     private static bool TryValidateApiTypes (
@@ -172,7 +158,7 @@ internal static class UcliOperationCodeContractValidator
         string ownerName,
         out string errorMessage)
     {
-        var memberNames = new HashSet<string>(StringComparer.Ordinal);
+        var memberNames = new HashSet<(string Name, UcliCodeApiMemberKind Kind)>();
         for (var memberIndex = 0; memberIndex < apiType.Members!.Count; memberIndex++)
         {
             if (!UcliOperationCodeApiMemberValidator.TryValidate(apiType.Members[memberIndex], memberIndex, ownerName, memberNames, out errorMessage))

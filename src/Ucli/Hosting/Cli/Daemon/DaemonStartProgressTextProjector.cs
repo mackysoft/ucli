@@ -76,12 +76,13 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
                 || (progressEvent is null && eventName.EndsWith(".started", StringComparison.Ordinal))
                 ? "started"
                 : "completed";
+        var projectFingerprint = entry.ProjectFingerprint.ToString();
         var result = ToOptionalLiteral(entry.Result);
         var length = checked(
             Prefix.Length
             + step.Length
             + ProjectPrefix.Length
-            + entry.ProjectFingerprint.Length
+            + projectFingerprint.Length
             + TimeoutPrefix.Length
             + SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds)
             + SpanTextLength.GetOptionalStringLength(ResultPrefix, result)
@@ -92,14 +93,14 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             + status.Length);
         return string.Create(
             length,
-            (entry, step, status, result),
+            (entry, step, status, projectFingerprint, result),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
                 writer.Append(state.step);
                 writer.Append(ProjectPrefix);
-                writer.Append(state.entry.ProjectFingerprint);
+                writer.Append(state.projectFingerprint);
                 writer.Append(TimeoutPrefix);
                 writer.AppendInvariant(state.entry.TimeoutMilliseconds);
                 writer.AppendOptional(ResultPrefix, state.result);
@@ -135,24 +136,26 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             DaemonStartProgressEvent.SessionRegistered or DaemonStartProgressEvent.EndpointRegistered => "registered",
             _ => "observed",
         };
+        var projectFingerprint = entry.ProjectFingerprint.ToString();
         var editorMode = ToOptionalLiteral(entry.EditorMode);
         var ownerKind = ToOptionalLiteral(entry.OwnerKind);
         var startupStatus = ToOptionalLiteral(entry.StartupStatus);
         var startupBlockingReason = ToOptionalLiteral(entry.StartupBlockingReason);
         var startupPhase = ToOptionalLiteral(entry.StartupPhase);
         var retryDisposition = ToOptionalLiteral(entry.RetryDisposition);
+        var launchAttemptId = entry.LaunchAttemptId?.ToString("D");
         var length = checked(
             Prefix.Length
             + step.Length
             + ProjectPrefix.Length
-            + entry.ProjectFingerprint.Length
+            + projectFingerprint.Length
             + TimeoutPrefix.Length
             + SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds)
             + SpanTextLength.GetOptionalStringLength(EditorModePrefix, editorMode)
             + SpanTextLength.GetOptionalStringLength(OwnerKindPrefix, ownerKind)
             + SpanTextLength.GetOptionalBoolLength(CanShutdownProcessPrefix, entry.CanShutdownProcess)
             + SpanTextLength.GetOptionalInvariantInt64Length(ProcessIdPrefix, entry.ProcessId)
-            + SpanTextLength.GetOptionalStringLength(LaunchAttemptIdPrefix, entry.LaunchAttemptId)
+            + SpanTextLength.GetOptionalStringLength(LaunchAttemptIdPrefix, launchAttemptId)
             + SpanTextLength.GetOptionalStringLength(StartupStatusPrefix, startupStatus)
             + SpanTextLength.GetOptionalStringLength(StartupBlockingReasonPrefix, startupBlockingReason)
             + SpanTextLength.GetOptionalStringLength(StartupPhasePrefix, startupPhase)
@@ -166,8 +169,10 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
                 entry,
                 step,
                 status,
+                projectFingerprint,
                 editorMode,
                 ownerKind,
+                launchAttemptId,
                 startupStatus,
                 startupBlockingReason,
                 startupPhase,
@@ -178,14 +183,14 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
                 writer.Append(Prefix);
                 writer.Append(state.step);
                 writer.Append(ProjectPrefix);
-                writer.Append(state.entry.ProjectFingerprint);
+                writer.Append(state.projectFingerprint);
                 writer.Append(TimeoutPrefix);
                 writer.AppendInvariant(state.entry.TimeoutMilliseconds);
                 writer.AppendOptional(EditorModePrefix, state.editorMode);
                 writer.AppendOptional(OwnerKindPrefix, state.ownerKind);
                 writer.AppendOptionalBool(CanShutdownProcessPrefix, state.entry.CanShutdownProcess);
                 writer.AppendOptionalInvariant(ProcessIdPrefix, state.entry.ProcessId);
-                writer.AppendOptional(LaunchAttemptIdPrefix, state.entry.LaunchAttemptId);
+                writer.AppendOptional(LaunchAttemptIdPrefix, state.launchAttemptId);
                 writer.AppendOptional(StartupStatusPrefix, state.startupStatus);
                 writer.AppendOptional(StartupBlockingReasonPrefix, state.startupBlockingReason);
                 writer.AppendOptional(StartupPhasePrefix, state.startupPhase);
@@ -205,6 +210,7 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             ? "lifecycle"
             : eventName;
         const string status = "observed";
+        var projectFingerprint = entry.ProjectFingerprint.ToString();
         var editorMode = ToOptionalLiteral(entry.EditorMode);
         var lifecycleState = ContractLiteralCodec.ToValue(entry.LifecycleState);
         var blockingReason = ToOptionalLiteral(entry.BlockingReason);
@@ -212,7 +218,7 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             Prefix.Length
             + step.Length
             + ProjectPrefix.Length
-            + entry.ProjectFingerprint.Length
+            + projectFingerprint.Length
             + TimeoutPrefix.Length
             + SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds)
             + SpanTextLength.GetOptionalStringLength(EditorModePrefix, editorMode)
@@ -225,14 +231,14 @@ internal sealed class DaemonStartProgressTextProjector : ICliCommandProgressText
             + status.Length);
         return string.Create(
             length,
-            (entry, step, editorMode, lifecycleState, blockingReason),
+            (entry, step, projectFingerprint, editorMode, lifecycleState, blockingReason),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
                 writer.Append(state.step);
                 writer.Append(ProjectPrefix);
-                writer.Append(state.entry.ProjectFingerprint);
+                writer.Append(state.projectFingerprint);
                 writer.Append(TimeoutPrefix);
                 writer.AppendInvariant(state.entry.TimeoutMilliseconds);
                 writer.AppendOptional(EditorModePrefix, state.editorMode);

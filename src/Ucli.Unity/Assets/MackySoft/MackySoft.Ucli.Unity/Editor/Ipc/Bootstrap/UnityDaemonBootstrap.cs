@@ -1,19 +1,20 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Unity.Runtime;
 using Microsoft.Extensions.DependencyInjection;
 using UnityEditor;
 
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Bootstraps IPC daemon server when Unity is launched in batchmode daemon mode. </summary>
     internal static class UnityDaemonBootstrap
     {
+        private static IServiceProvider RetainedUnsafeServiceProvider { get; set; }
+
         /// <summary> Starts Unity daemon mode after batchmode initialization is ready. </summary>
         /// <returns> A task that completes after daemon mode exits or bootstrap failure requests process exit. </returns>
         internal static async Task StartAsync (IpcDaemonBootstrapArguments bootstrapArguments)
@@ -23,55 +24,67 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(bootstrapArguments));
             }
 
+            var editorInstanceId = UnityEditorSessionStateStore.GetOrCreateEditorInstanceId();
             var daemonLogStream = new DaemonLogRingBuffer();
-            var daemonLogger = new DaemonLogger(daemonLogStream);
+            var daemonLogger = new DaemonLogger(
+                daemonLogStream,
+                UnityMainThreadDaemonConsoleLogSink.CaptureCurrent());
             var daemonStarted = false;
             var diagnosisWritten = false;
 
             try
             {
-                if (!ContractLiteralCodec.TryParse<IpcTransportKind>(bootstrapArguments.EndpointTransportKind, out var transportKind))
-                {
-                    var errorMessage = $"Unsupported endpoint transport kind: {bootstrapArguments.EndpointTransportKind}";
-                    daemonLogger.Error(
-                        DaemonLogCategories.Lifecycle,
-                        errorMessage);
-                    diagnosisWritten = await PersistDiagnosisAsync(
-                        bootstrapArguments,
-                        DaemonDiagnosisReasonValues.StartupFailed,
-                        errorMessage,
-                        daemonLogger);
-                    EditorApplication.Exit(1);
-                    return;
-                }
+                var endpoint = UnityBatchmodeBootstrapEndpointValidator.ResolveValidatedDaemonEndpoint(bootstrapArguments);
+                var sessionToken = await DaemonBootstrapSessionTokenResolver.ResolveAsync(
+                    bootstrapArguments,
+                    CancellationToken.None);
 
                 var services = new ServiceCollection();
                 services
                     .AddUnityIpcApplicationServices(
-                        new FileBackedSessionTokenValidator(bootstrapArguments.SessionPath),
+                        new ExactSessionTokenValidator(sessionToken),
                         bootstrapArguments.ProjectFingerprint,
-                        daemonLogger)
+                        daemonLogger,
+                        DaemonEditorMode.Batchmode)
                     .AddUnityIpcDaemonHostServices(
                         bootstrapArguments,
-                        daemonLogStream);
+                        endpoint,
+                        daemonLogStream,
+                        editorInstanceId);
 
                 IServiceProvider serviceProvider = services.BuildServiceProvider();
+                IUnityIpcServer server = null;
+                IUnityControlPlaneRequestLifetime controlPlaneRequestLifetime = null;
+                IUnityMutationLaneControl mutationLaneControl = null;
+                var generationRetiredSafely = false;
                 try
                 {
-                    var server = serviceProvider.GetRequiredService<IUnityIpcServer>();
+                    server = serviceProvider.GetRequiredService<IUnityIpcServer>();
+                    controlPlaneRequestLifetime = serviceProvider
+                        .GetRequiredService<IUnityControlPlaneRequestLifetime>();
+                    mutationLaneControl = serviceProvider.GetRequiredService<IUnityMutationLaneControl>();
                     var shutdownSignal = serviceProvider.GetRequiredService<IDaemonShutdownSignal>();
-                    using var unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
+                    var unityLogCaptureService = serviceProvider.GetRequiredService<UnityLogCaptureService>();
                     unityLogCaptureService.Start();
 
-                    var endpoint = new IpcEndpoint(transportKind, bootstrapArguments.EndpointAddress);
-                    await server.StartAsync(endpoint, CancellationToken.None);
-                    daemonStarted = true;
+                    using var publicationFence = await server.StartAsync(endpoint, CancellationToken.None);
+                    Task shutdownWaitTask = null;
+                    Task serverTerminationTask = null;
+                    if (!publicationFence.TryCommitActiveOwnership(() =>
+                        {
+                            daemonStarted = true;
+                            shutdownWaitTask = shutdownSignal.WaitAsync(CancellationToken.None);
+                            serverTerminationTask = server.WaitForTerminationAsync(CancellationToken.None);
+                        }))
+                    {
+                        throw new InvalidOperationException(
+                            "IPC listener terminated before daemon endpoint ownership could become active.");
+                    }
+
                     daemonLogger.Info(
                         DaemonLogCategories.Lifecycle,
-                        $"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.EndpointAddress}");
+                        $"uCLI daemon started. repoRoot={bootstrapArguments.RepositoryRoot}, fingerprint={bootstrapArguments.ProjectFingerprint}, endpoint={bootstrapArguments.Endpoint.Address}");
 
-                    var shutdownWaitTask = shutdownSignal.WaitAsync(CancellationToken.None);
-                    var serverTerminationTask = server.WaitForTerminationAsync(CancellationToken.None);
                     var completedTask = await Task.WhenAny(shutdownWaitTask, serverTerminationTask);
                     if (ReferenceEquals(completedTask, serverTerminationTask))
                     {
@@ -82,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                             Message);
                         diagnosisWritten = await PersistDiagnosisAsync(
                             bootstrapArguments,
-                            DaemonDiagnosisReasonValues.ListenerTerminated,
+                            DaemonDiagnosisReason.ListenerTerminated,
                             Message,
                             daemonLogger);
                         throw new InvalidOperationException("IPC server loop terminated before shutdown request was received.");
@@ -92,23 +105,81 @@ namespace MackySoft.Ucli.Unity.Ipc
                     daemonLogger.Info(
                         DaemonLogCategories.Lifecycle,
                         "Daemon shutdown signal received. Stopping IPC server.");
-                    await server.StopAsync(CancellationToken.None);
-                    daemonLogger.Info(
-                        DaemonLogCategories.Lifecycle,
-                        "IPC server stop completed. Exiting Unity batchmode process.");
-                    diagnosisWritten = await PersistDiagnosisAsync(
-                        bootstrapArguments,
-                        DaemonDiagnosisReasonValues.ShutdownRequested,
-                        "Daemon shutdown completed after shutdown request.",
-                        daemonLogger);
                 }
                 finally
                 {
-                    if (serviceProvider is IDisposable disposableServiceProvider)
+                    var serverStoppedSafely = false;
+                    if (server != null)
                     {
-                        disposableServiceProvider.Dispose();
+                        try
+                        {
+                            await server.StopAsync(CancellationToken.None);
+                            serverStoppedSafely = true;
+                        }
+                        catch (Exception exception)
+                        {
+                            daemonLogger.Warning(
+                                DaemonLogCategories.Lifecycle,
+                                $"Daemon IPC server cleanup stop failed. {exception.Message}");
+                        }
+
+                        if (serverStoppedSafely
+                            && controlPlaneRequestLifetime != null
+                            && mutationLaneControl != null)
+                        {
+                            try
+                            {
+                                var retirementTask = Task.WhenAll(
+                                    mutationLaneControl.WaitForRetirementAsync(),
+                                    controlPlaneRequestLifetime.WaitForRetirementAsync());
+                                generationRetiredSafely = await UnityHostGenerationRetirementPolicy
+                                    .WaitWithinForegroundDeadlineAsync(retirementTask);
+                                if (!generationRetiredSafely)
+                                {
+                                    daemonLogger.Warning(
+                                        DaemonLogCategories.Lifecycle,
+                                        $"Daemon request execution retirement exceeded its {UnityHostGenerationRetirementPolicy.ForegroundDeadline.TotalMilliseconds:0}ms foreground deadline.");
+                                }
+                            }
+                            catch (Exception exception)
+                            {
+                                daemonLogger.Warning(
+                                    DaemonLogCategories.Lifecycle,
+                                    $"Daemon request execution retirement failed. {exception.Message}");
+                            }
+                        }
+                    }
+
+                    if (server == null || generationRetiredSafely)
+                    {
+                        if (serviceProvider is IDisposable disposableServiceProvider)
+                        {
+                            disposableServiceProvider.Dispose();
+                        }
+                    }
+                    else
+                    {
+                        RetainedUnsafeServiceProvider = serviceProvider;
+                        daemonLogger.Warning(
+                            DaemonLogCategories.Lifecycle,
+                            "Daemon service provider is retained until process exit because its IPC generation did not retire safely.");
                     }
                 }
+
+                if (!generationRetiredSafely)
+                {
+                    throw new InvalidOperationException(
+                        "Daemon IPC generation did not retire safely during shutdown.");
+                }
+
+                daemonLogger.Info(
+                    DaemonLogCategories.Lifecycle,
+                    "IPC server stop and request execution retirement completed. Exiting Unity batchmode process.");
+                diagnosisWritten = await PersistDiagnosisAsync(
+                    bootstrapArguments,
+                    DaemonDiagnosisReason.ShutdownRequested,
+                    "Daemon shutdown completed after shutdown request.",
+                    daemonLogger);
 
                 EditorApplication.Exit(0);
             }
@@ -123,8 +194,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     diagnosisWritten = await PersistDiagnosisAsync(
                         bootstrapArguments,
                         daemonStarted
-                            ? DaemonDiagnosisReasonValues.UnhandledException
-                            : DaemonDiagnosisReasonValues.StartupFailed,
+                            ? DaemonDiagnosisReason.UnhandledException
+                            : DaemonDiagnosisReason.StartupFailed,
                         daemonStarted
                             ? $"Daemon bootstrap failed with an unhandled exception. {exception.Message}"
                             : $"Daemon startup failed before running state was established. {exception.Message}",
@@ -137,7 +208,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static async Task<bool> PersistDiagnosisAsync (
             IpcDaemonBootstrapArguments bootstrapArguments,
-            string reason,
+            DaemonDiagnosisReason reason,
             string message,
             IDaemonLogger daemonLogger)
         {

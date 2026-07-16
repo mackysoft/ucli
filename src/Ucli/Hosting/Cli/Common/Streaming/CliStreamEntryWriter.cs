@@ -6,11 +6,11 @@ using MackySoft.Ucli.Hosting.Cli.Common.Serialization;
 
 namespace MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 
-/// <summary> Writes public stream entries to standard error. </summary>
+/// <summary> Writes public stream entries to one configured text stream. </summary>
 internal sealed class CliStreamEntryWriter
 {
     private readonly string command;
-    private readonly string streamId;
+    private readonly Guid streamId;
     private readonly TextWriter errorWriter;
     private readonly TimeProvider timeProvider;
     private readonly ArrayBufferWriter<byte> jsonBuffer = new();
@@ -20,15 +20,20 @@ internal sealed class CliStreamEntryWriter
     /// <summary> Initializes a new instance of the <see cref="CliStreamEntryWriter" /> class. </summary>
     public CliStreamEntryWriter (
         string command,
-        TextWriter? errorWriter = null,
-        TimeProvider? timeProvider = null)
+        Guid streamId,
+        TextWriter errorWriter,
+        TimeProvider timeProvider)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(command);
+        if (streamId == Guid.Empty)
+        {
+            throw new ArgumentException("Stream identifier must not be empty.", nameof(streamId));
+        }
 
         this.command = command;
-        this.errorWriter = errorWriter ?? Console.Error;
-        this.timeProvider = timeProvider ?? TimeProvider.System;
-        streamId = $"{command.Replace(' ', '.')}-{Guid.NewGuid():N}";
+        this.streamId = streamId;
+        this.errorWriter = errorWriter ?? throw new ArgumentNullException(nameof(errorWriter));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Writes one JSON entry envelope as one NDJSON line. </summary>

@@ -13,20 +13,6 @@ public sealed class UcliOperationDescribeContract
     /// <param name="inputs"> The input contracts used to build <c>steps[].args</c>. </param>
     /// <param name="resultContract"> The contract for interpreting <c>opResults[].result</c>. </param>
     /// <param name="assurance"> The machine-readable assurance metadata. </param>
-    public UcliOperationDescribeContract (
-        string? description,
-        IReadOnlyList<UcliOperationInputContract>? inputs,
-        UcliOperationResultContract? resultContract,
-        UcliOperationAssuranceContract? assurance)
-        : this(description, inputs, resultContract, assurance, codeContract: null)
-    {
-    }
-
-    /// <summary> Initializes a new instance of the <see cref="UcliOperationDescribeContract" /> class. </summary>
-    /// <param name="description"> The operation purpose description. </param>
-    /// <param name="inputs"> The input contracts used to build <c>steps[].args</c>. </param>
-    /// <param name="resultContract"> The contract for interpreting <c>opResults[].result</c>. </param>
-    /// <param name="assurance"> The machine-readable assurance metadata. </param>
     /// <param name="codeContract"> The optional source-facing code contract. </param>
     public UcliOperationDescribeContract (
         string? description,

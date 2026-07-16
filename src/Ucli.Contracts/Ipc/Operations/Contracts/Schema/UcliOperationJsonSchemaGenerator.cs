@@ -351,7 +351,10 @@ public static class UcliOperationJsonSchemaGenerator
         Type actualType,
         out string? schemaType)
     {
-        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType) || actualType.IsEnum)
+        if (actualType == StringType
+            || actualType == typeof(Guid)
+            || UcliStringValue.IsAssignableFrom(actualType)
+            || actualType.IsEnum)
         {
             schemaType = "string";
             return true;

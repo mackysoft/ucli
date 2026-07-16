@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Identifiers;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -16,7 +17,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
     private readonly IDaemonSessionStore daemonSessionStore;
     private readonly IUnityRequestExecutor unityRequestExecutor;
     private readonly IScreenshotArtifactStore artifactStore;
-    private readonly IScreenshotCaptureIdFactory captureIdFactory;
+    private readonly IGuidGenerator captureIdGenerator;
 
     /// <summary> Initializes a new screenshot capture service. </summary>
     public ScreenshotCaptureService (
@@ -24,13 +25,13 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         IDaemonSessionStore daemonSessionStore,
         IUnityRequestExecutor unityRequestExecutor,
         IScreenshotArtifactStore artifactStore,
-        IScreenshotCaptureIdFactory captureIdFactory)
+        IGuidGenerator captureIdGenerator)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
         this.artifactStore = artifactStore ?? throw new ArgumentNullException(nameof(artifactStore));
-        this.captureIdFactory = captureIdFactory ?? throw new ArgumentNullException(nameof(captureIdFactory));
+        this.captureIdGenerator = captureIdGenerator ?? throw new ArgumentNullException(nameof(captureIdGenerator));
     }
 
     /// <inheritdoc />
@@ -80,7 +81,8 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
                 ScreenshotErrorCodes.ScreenshotRequiresGuiSession));
         }
 
-        var preparation = artifactStore.Prepare(context.UnityProject, captureIdFactory.Create());
+        var captureId = captureIdGenerator.Generate();
+        var preparation = artifactStore.Prepare(context.UnityProject, captureId);
         if (!preparation.IsSuccess)
         {
             return ScreenshotCaptureResult.Failure(preparation.Error!);
@@ -94,6 +96,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
                     input,
                     context,
                     timeoutResult.Timeout!.Value,
+                    captureId,
                     artifactLease,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -121,21 +124,22 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         ScreenshotCaptureInput input,
         ProjectContext context,
         TimeSpan timeout,
+        Guid captureId,
         IScreenshotArtifactLease artifactLease,
         CancellationToken cancellationToken)
     {
+        var screenshotRequest = new IpcScreenshotCaptureRequest(
+            CaptureId: captureId,
+            Target: input.Target,
+            RequestedWidth: input.RequestedWidth,
+            RequestedHeight: input.RequestedHeight);
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.Screenshot,
                 UnityExecutionMode.Daemon,
                 timeout,
                 context.Config,
                 context.UnityProject,
-                new UnityRequestPayload.ScreenshotCapture(
-                    input.Target,
-                    input.RequestedWidth,
-                    input.RequestedHeight,
-                    artifactLease.RawStagingPath,
-                    checked((int)timeout.TotalMilliseconds)),
+                new UnityRequestPayload.ScreenshotCapture(screenshotRequest),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -144,7 +148,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         }
 
         var response = executionResult.Response!;
-        if (response.HasFailureStatus || response.Errors.Count != 0)
+        if (response.Errors.Count != 0)
         {
             return ScreenshotCaptureResult.Failure(CreateError(response));
         }
@@ -158,7 +162,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
                 $"Unity screenshot capture payload is invalid. {payloadError.Message}"));
         }
 
-        var validationError = ValidateResponse(input, screenshotResponse);
+        var validationError = ValidateResponse(input, captureId, screenshotResponse);
         if (validationError is not null)
         {
             return ScreenshotCaptureResult.Failure(validationError);
@@ -167,10 +171,7 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         var capture = screenshotResponse.Capture;
         var staging = screenshotResponse.Staging;
         var commitResult = await artifactLease.CommitAsync(
-                new ScreenshotArtifactCommitRequest(
-                    capture.Width,
-                    capture.Height,
-                    staging),
+                staging,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!commitResult.IsSuccess)
@@ -197,10 +198,15 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
         var hasHeight = input.RequestedHeight.HasValue;
         if (hasWidth != hasHeight
             || (hasWidth && input.RequestedWidth!.Value <= 0)
-            || (hasHeight && input.RequestedHeight!.Value <= 0))
+            || (hasHeight && input.RequestedHeight!.Value <= 0)
+            || (hasWidth && !IpcScreenshotCaptureLimits.TryCalculateRgba8Layout(
+                input.RequestedWidth!.Value,
+                input.RequestedHeight!.Value,
+                out _,
+                out _)))
         {
             return ExecutionError.InvalidArgument(
-                "Requested width and height must be omitted together or specified together as positive integers.");
+                "Requested width and height must be omitted together or specified together within the supported screenshot layout.");
         }
 
         if (input.Target == IpcScreenshotTarget.Scene && hasWidth)
@@ -213,11 +219,12 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
 
     private static ExecutionError? ValidateResponse (
         ScreenshotCaptureInput input,
+        Guid captureId,
         IpcScreenshotCaptureResponse response)
     {
-        if (response.Capture is null || response.Staging is null)
+        if (response.CaptureId != captureId)
         {
-            return InvalidResponse("capture or staging metadata is missing");
+            return InvalidResponse("capture identifier does not match the request");
         }
 
         var capture = response.Capture;
@@ -230,12 +237,6 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
             || capture.RequestedHeight != input.RequestedHeight)
         {
             return InvalidResponse("capture target or requested-size metadata does not match the request");
-        }
-
-        if (input.RequestedWidth.HasValue
-            && (capture.Width != input.RequestedWidth || capture.Height != input.RequestedHeight))
-        {
-            return InvalidResponse("captured dimensions do not satisfy the request");
         }
 
         var state = capture.State;
@@ -264,13 +265,11 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
 
     private static ExecutionError CreateError (UnityRequestResponse response)
     {
-        var firstError = response.Errors.FirstOrDefault();
-        var message = string.IsNullOrWhiteSpace(firstError?.Message)
-            ? $"Unity screenshot IPC failed with status '{response.FailureStatus}'."
-            : firstError!.Message;
-        return firstError?.Code == ExecutionErrorCodes.IpcTimeout
+        var firstError = response.Errors[0];
+        var message = firstError.Message;
+        return firstError.Code == ExecutionErrorCodes.IpcTimeout
             ? ExecutionError.Timeout(message, firstError.Code)
-            : ExecutionError.InternalError(message, firstError?.Code);
+            : ExecutionError.InternalError(message, firstError.Code);
     }
 
     private static ExecutionError InvalidResponse (string detail)

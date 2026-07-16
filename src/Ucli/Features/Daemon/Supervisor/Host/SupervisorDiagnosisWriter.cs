@@ -26,7 +26,7 @@ internal sealed class SupervisorDiagnosisWriter
     public async ValueTask<DaemonDiagnosisStoreOperationResult> WriteUnexpectedAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        string reason,
+        DaemonDiagnosisReason reason,
         string message,
         CancellationToken cancellationToken = default)
     {
@@ -37,12 +37,17 @@ internal sealed class SupervisorDiagnosisWriter
         var diagnosis = new DaemonDiagnosis(
             Reason: reason,
             Message: message,
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            ReportedBy: DaemonDiagnosisReportedBy.Cli,
             IsInferred: false,
             UpdatedAtUtc: DateTimeOffset.UtcNow,
             ProcessId: session.ProcessId,
             EditorInstancePath: null,
-            SessionIssuedAtUtc: session.IssuedAtUtc);
+            SessionIssuedAtUtc: session.IssuedAtUtc,
+            ProcessStartedAtUtc: null,
+            UnityLogPath: null,
+            StartupPhase: null,
+            ActionRequired: null,
+            PrimaryDiagnostic: null);
         return await daemonDiagnosisStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 unityProject.ProjectFingerprint,

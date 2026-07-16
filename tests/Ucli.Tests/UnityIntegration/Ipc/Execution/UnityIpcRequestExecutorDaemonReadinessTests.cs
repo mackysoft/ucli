@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -17,10 +16,10 @@ public sealed class UnityIpcRequestExecutorDaemonReadinessTests
     public async Task Execute_WhenDaemonOpsReadRequiresReadinessGate_ConvertsDispatchToFailFastGate ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "daemon-ops-readiness");
-        var response = CreateSuccessResponse("req-daemon-readiness");
+        var response = CreateSuccessResponse(Guid.NewGuid());
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => response);
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
-        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token"));
+        var sessionStore = new QueuedDaemonSessionStore(CreateSessionReadResult("daemon-token"));
         var readinessProbe = new RecordingDaemonPingInfoClient(
             CreatePingPayload(IpcEditorLifecycleState.Busy),
             CreatePingPayload(IpcEditorLifecycleState.Ready));
@@ -35,7 +34,7 @@ public sealed class UnityIpcRequestExecutorDaemonReadinessTests
                     DefaultTimeout))),
             readinessProbe,
             new RecordingUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, sessionConnectionProvider, launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionStore, launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -62,14 +61,14 @@ public sealed class UnityIpcRequestExecutorDaemonReadinessTests
         var responses = new Queue<IpcResponse>(new[]
         {
             CreateErrorResponse(
-                "req-daemon-busy",
+                Guid.NewGuid(),
                 EditorLifecycleErrorCodes.EditorBusy,
                 "Unity editor is busy with internal work. Retry without --failFast or wait until lifecycleState=ready before executing request."),
-            CreateSuccessResponse("req-daemon-ready"),
+            CreateSuccessResponse(Guid.NewGuid()),
         });
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => responses.Dequeue());
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Oneshot transport must not be called."));
-        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(CreateConnectionResult("daemon-token"));
+        var sessionStore = new QueuedDaemonSessionStore(CreateSessionReadResult("daemon-token"));
         var readinessProbe = new RecordingDaemonPingInfoClient(
             CreatePingPayload(IpcEditorLifecycleState.Ready),
             CreatePingPayload(IpcEditorLifecycleState.Ready));
@@ -84,7 +83,7 @@ public sealed class UnityIpcRequestExecutorDaemonReadinessTests
                     DefaultTimeout))),
             readinessProbe,
             new RecordingUnityUcliPluginLocator(),
-            CreateClients(daemonTransportClient, oneshotTransportClient, sessionConnectionProvider, launcher));
+            CreateClients(daemonTransportClient, oneshotTransportClient, sessionStore, launcher));
 
         var result = await executor.ExecuteAsync(
             UcliCommandIds.Ops,
@@ -125,7 +124,7 @@ public sealed class UnityIpcRequestExecutorDaemonReadinessTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new UnexpectedDaemonSessionConnectionProvider("Fail-fast busy state should not resolve a daemon session."),
+                new UnexpectedDaemonSessionStore("Fail-fast busy state should not resolve a daemon session."),
                 launcher));
 
         var result = await executor.ExecuteAsync(

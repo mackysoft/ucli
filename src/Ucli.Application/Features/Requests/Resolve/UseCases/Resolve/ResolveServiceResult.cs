@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 internal sealed record ResolveServiceResult
 {
     private ResolveServiceResult (
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
@@ -14,6 +14,11 @@ internal sealed record ResolveServiceResult
         ProjectIdentityInfo? project = null,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         RequestId = requestId;
         OpResults = opResults;
         Errors = errors;
@@ -24,7 +29,7 @@ internal sealed record ResolveServiceResult
     }
 
     /// <summary> Gets the request identifier associated with this resolve execution. </summary>
-    public string RequestId { get; }
+    public Guid RequestId { get; }
 
     /// <summary> Gets the per-step execution results. </summary>
     public IReadOnlyList<OperationExecutionOperationResult> OpResults { get; }
@@ -54,14 +59,13 @@ internal sealed record ResolveServiceResult
 
     /// <summary> Creates one successful resolve result. </summary>
     internal static ResolveServiceResult Success (
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
         ReadIndexInfo readIndex,
         ProjectIdentityInfo project,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
         ArgumentNullException.ThrowIfNull(project);
@@ -79,7 +83,7 @@ internal sealed record ResolveServiceResult
 
     /// <summary> Creates one failed resolve result. </summary>
     internal static ResolveServiceResult Failure (
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
@@ -87,7 +91,6 @@ internal sealed record ResolveServiceResult
         ProjectIdentityInfo? project = null,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);

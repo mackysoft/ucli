@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
 namespace MackySoft.Ucli.Contracts.Cryptography;
@@ -12,20 +13,6 @@ internal static class Sha256LowerHex
     internal const int HexCharCount = ByteCount * 2;
 
     private const string HexChars = "0123456789abcdef";
-
-    /// <summary> Computes a SHA-256 digest string from source bytes. </summary>
-    /// <param name="bytes"> The source bytes. </param>
-    /// <returns> The lowercase hexadecimal digest string. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="bytes" /> is <see langword="null" />. </exception>
-    public static string Compute (byte[] bytes)
-    {
-        if (bytes == null)
-        {
-            throw new ArgumentNullException(nameof(bytes));
-        }
-
-        return Compute(bytes.AsSpan());
-    }
 
     /// <summary> Computes a SHA-256 digest string from source bytes. </summary>
     /// <param name="bytes"> The source bytes. </param>
@@ -45,7 +32,7 @@ internal static class Sha256LowerHex
     /// <summary> Completes an incremental SHA-256 hash and returns its lowercase hexadecimal digest. </summary>
     /// <param name="hash"> The incremental SHA-256 hash. </param>
     /// <returns> The lowercase hexadecimal SHA-256 digest. </returns>
-    internal static string GetHashAndReset (IncrementalHash hash)
+    internal static Sha256Digest GetHashAndReset (IncrementalHash hash)
     {
         if (hash == null)
         {
@@ -58,21 +45,7 @@ internal static class Sha256LowerHex
             throw new InvalidOperationException("SHA-256 hash computation failed.");
         }
 
-        return ToLowerHex(hashBytes);
-    }
-
-    /// <summary> Converts SHA-256 digest bytes to lowercase hexadecimal text. </summary>
-    /// <param name="bytes"> The SHA-256 digest bytes. </param>
-    /// <returns> The lowercase hexadecimal SHA-256 digest text. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="bytes" /> is <see langword="null" />. </exception>
-    public static string ToLowerHex (byte[] bytes)
-    {
-        if (bytes == null)
-        {
-            throw new ArgumentNullException(nameof(bytes));
-        }
-
-        return ToLowerHex(bytes.AsSpan());
+        return Sha256Digest.FromHashBytes(hashBytes);
     }
 
     /// <summary> Converts SHA-256 digest bytes to lowercase hexadecimal text. </summary>
@@ -102,7 +75,7 @@ internal static class Sha256LowerHex
     /// <summary> Determines whether a value is one lowercase hexadecimal SHA-256 digest. </summary>
     /// <param name="value"> The value to inspect. </param>
     /// <returns> <see langword="true" /> when <paramref name="value" /> is exactly one lowercase SHA-256 digest; otherwise <see langword="false" />. </returns>
-    internal static bool IsLowerHexDigest (string? value)
+    internal static bool IsLowerHexDigest ([NotNullWhen(true)] string? value)
     {
         if (value == null || value.Length != HexCharCount)
         {

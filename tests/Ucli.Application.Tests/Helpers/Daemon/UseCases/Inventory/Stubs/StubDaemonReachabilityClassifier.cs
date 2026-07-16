@@ -13,4 +13,24 @@ internal sealed class StubDaemonReachabilityClassifier : IDaemonReachabilityClas
     {
         return isNotRunning(exception);
     }
+
+    public bool IsSessionTokenInvalid (Exception exception)
+    {
+        return false;
+    }
+
+    public bool IsRetryableBeforeRequestWrite (Exception exception)
+    {
+        return false;
+    }
+
+    public bool IsRequestTimeout (Exception exception)
+    {
+        return exception is TimeoutException;
+    }
+
+    public bool IsRecoverableResponseInterruption (Exception exception)
+    {
+        return false;
+    }
 }

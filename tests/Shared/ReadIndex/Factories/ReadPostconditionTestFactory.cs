@@ -9,48 +9,35 @@ internal static class ReadPostconditionTestFactory
     public static readonly DateTimeOffset DefaultMinSafeGeneratedAtUtc =
         DateTimeOffset.Parse("2026-04-23T01:02:03+00:00");
 
-    public static OperationExecutionReadPostcondition CreateAssetSearch (
+    public static IpcExecuteReadPostcondition CreateAssetSearch (
         DateTimeOffset? minSafeGeneratedAtUtc = null)
     {
         return Create(
-            IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
+            IpcExecuteReadPostconditionSurface.AssetSearch,
             minSafeGeneratedAtUtc);
     }
 
-    public static OperationExecutionReadPostcondition CreateSceneTreeLite (
+    public static IpcExecuteReadPostcondition CreateSceneTreeLite (
         DateTimeOffset? minSafeGeneratedAtUtc = null,
         string scenePath = SceneTreeLiteScenePath)
     {
         return Create(
-            IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
+            IpcExecuteReadPostconditionSurface.SceneTreeLite,
             minSafeGeneratedAtUtc,
             scenePath);
     }
 
-    public static IpcExecuteReadPostcondition ToIpcContract (OperationExecutionReadPostcondition readPostcondition)
-    {
-        ArgumentNullException.ThrowIfNull(readPostcondition);
-
-        return new IpcExecuteReadPostcondition(readPostcondition.Requirements.Select(static requirement =>
-            new IpcExecuteReadPostconditionRequirement(requirement.Surface, requirement.MinSafeGeneratedAtUtc)
-            {
-                ScenePath = requirement.ScenePath,
-            }).ToArray());
-    }
-
-    private static OperationExecutionReadPostcondition Create (
-        string surface,
+    private static IpcExecuteReadPostcondition Create (
+        IpcExecuteReadPostconditionSurface surface,
         DateTimeOffset? minSafeGeneratedAtUtc,
         string? scenePath = null)
     {
-        return new OperationExecutionReadPostcondition(
+        return new IpcExecuteReadPostcondition(
         [
-            new OperationExecutionReadPostconditionRequirement(
+            new IpcExecuteReadPostconditionRequirement(
                 Surface: surface,
-                MinSafeGeneratedAtUtc: minSafeGeneratedAtUtc ?? DefaultMinSafeGeneratedAtUtc)
-            {
-                ScenePath = scenePath,
-            },
+                MinSafeGeneratedAtUtc: minSafeGeneratedAtUtc ?? DefaultMinSafeGeneratedAtUtc,
+                ScenePath: scenePath == null ? null : new UnityScenePath(scenePath)),
         ]);
     }
 }

@@ -20,16 +20,4 @@ internal static class ReadIndexAccessUtilities
 
         return $"{first} {second}";
     }
-
-    /// <summary> Converts one freshness value to its public literal. </summary>
-    public static string DescribeFreshness (IndexFreshness freshness)
-    {
-        return freshness switch
-        {
-            IndexFreshness.Fresh => "fresh",
-            IndexFreshness.Probable => "probable",
-            IndexFreshness.Stale => "stale",
-            _ => throw new ArgumentOutOfRangeException(nameof(freshness), freshness, "Unsupported index freshness."),
-        };
-    }
 }

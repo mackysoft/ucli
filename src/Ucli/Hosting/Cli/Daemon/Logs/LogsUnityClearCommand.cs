@@ -24,7 +24,7 @@ internal sealed class LogsUnityClearCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes the logs unity clear command and emits the JSON result contract. </summary>
+    /// <summary> Clears the visible Unity Editor Console without deleting entries retained by logs unity read. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path. When omitted, the current working directory is used.</param>
     /// <param name="timeout"> Optional Unity Console clear timeout in milliseconds. When omitted, timeout is resolved from config defaults. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
@@ -71,10 +71,10 @@ internal sealed class LogsUnityClearCommand
         var output = executionResult.Output!;
         return CommandResult.Success(
             command: UcliCommandNames.LogsUnityClear,
-            message: "Unity Console clear completed.",
+            message: "Unity Editor Console display cleared; retained logs remain available to logs unity read.",
             payload: new
             {
-                clearStatus = output.ClearStatus,
+                clearStatus = "cleared",
                 timeoutMilliseconds = output.TimeoutMilliseconds,
             });
     }

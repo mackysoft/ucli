@@ -19,6 +19,8 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IDaemonLogger daemonLogger;
 
+        private readonly IUnityMutationLaneControl mutationLaneControl;
+
         /// <summary> Initializes a new instance of the <see cref="UnityConsoleClearUnityIpcMethodHandler" /> class. </summary>
         /// <param name="unityConsoleClearer"> The Unity Console clear adapter dependency. </param>
         /// <param name="readinessGate"> The editor-readiness gate dependency. </param>
@@ -26,22 +28,24 @@ namespace MackySoft.Ucli.Unity.Ipc
         public UnityConsoleClearUnityIpcMethodHandler (
             IUnityConsoleClearer unityConsoleClearer,
             IUnityEditorReadinessGate readinessGate,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger,
+            IUnityMutationLaneControl mutationLaneControl)
         {
             this.unityConsoleClearer = unityConsoleClearer ?? throw new ArgumentNullException(nameof(unityConsoleClearer));
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
+            this.mutationLaneControl = mutationLaneControl ?? throw new ArgumentNullException(nameof(mutationLaneControl));
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.UnityConsoleClear;
+        public UnityIpcMethod Method => UnityIpcMethod.UnityConsoleClear;
 
         /// <inheritdoc />
         public ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -87,7 +91,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null));
             }
 
-            var clearResult = unityConsoleClearer.Clear();
+            var mutationActivity = mutationLaneControl.BeginMutation();
+            UnityConsoleClearResult clearResult;
+            try
+            {
+                clearResult = unityConsoleClearer.Clear();
+            }
+            finally
+            {
+                mutationActivity.Complete();
+            }
             if (!clearResult.IsSuccess)
             {
                 daemonLogger.Warning(

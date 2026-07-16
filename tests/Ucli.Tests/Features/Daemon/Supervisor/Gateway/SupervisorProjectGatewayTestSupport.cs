@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -6,7 +7,7 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 internal static class SupervisorProjectGatewayTestSupport
 {
-    public const string ProjectFingerprint = "fingerprint";
+    public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
 
     public const int StartTimeoutMilliseconds = 900;
 
@@ -14,22 +15,25 @@ internal static class SupervisorProjectGatewayTestSupport
         string repositoryRoot,
         TimeProvider? timeProvider = null)
     {
+        var effectiveTimeProvider = timeProvider ?? new ManualTimeProvider();
         var manifest = SupervisorClientTestSupport.CreateManifest();
-        var manifestStore = new SupervisorManifestStore();
+        var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(
+            effectiveTimeProvider);
         await manifestStore.WriteAsync(repositoryRoot, manifest, CancellationToken.None).ConfigureAwait(false);
 
         var transportClient = new StubIpcTransportClient();
-        var client = new SupervisorClient(transportClient);
-        var launcher = new RecordingSupervisorProcessLauncher();
+        var client = new SupervisorClient(transportClient, effectiveTimeProvider);
+        var processManager = new RecordingSupervisorProcessManager();
         var gateway = CreateGateway(
             manifestStore,
             client,
-            launcher,
-            timeProvider);
+            processManager,
+            effectiveTimeProvider);
 
         return new SupervisorProjectGatewayScenario(
             repositoryRoot,
             manifest,
+            manifestStore,
             transportClient,
             gateway);
     }
@@ -37,29 +41,33 @@ internal static class SupervisorProjectGatewayTestSupport
     public static SupervisorProjectGateway CreateGateway (
         SupervisorManifestStore manifestStore,
         SupervisorClient client,
-        RecordingSupervisorProcessLauncher launcher,
-        TimeProvider? timeProvider = null)
+        RecordingSupervisorProcessManager processManager,
+        TimeProvider timeProvider)
     {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
         return new SupervisorProjectGateway(
             new SupervisorBootstrapper(
                 manifestStore,
                 client,
-                launcher,
-                new SupervisorBootstrapLockProvider(),
+                processManager,
+                new SupervisorBootstrapLockProvider(timeProvider),
                 new SupervisorEndpointResolver(),
                 timeProvider),
             manifestStore,
             client,
+            new SupervisorBootstrapLockProvider(timeProvider),
+            new SupervisorEndpointResolver(),
             timeProvider);
     }
 
     public static ResolvedUnityProjectContext CreateUnityProject (
         string repositoryRoot,
-        string projectFingerprint = ProjectFingerprint)
+        ProjectFingerprint? projectFingerprint = null)
     {
         return ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(
             repositoryRoot,
-            projectFingerprint: projectFingerprint);
+            projectFingerprint: projectFingerprint ?? ProjectFingerprint);
     }
 
     public static DaemonStartProgressEmitter CreateStartProgressEmitter (
@@ -77,7 +85,7 @@ internal static class SupervisorProjectGatewayTestSupport
     }
 
     public static IpcResponse CreateSupervisorPingResponse (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         SupervisorInstanceManifest manifest)
     {
         return IpcResponseTestFactory.CreateSuccess(
@@ -87,24 +95,22 @@ internal static class SupervisorProjectGatewayTestSupport
                 manifest.IssuedAtUtc));
     }
 
-    public static IpcResponse CreateStartedEnsureRunningResponse (IpcRequest request)
+    public static IpcResponse CreateStartedEnsureRunningResponse (IpcRequestEnvelope request)
     {
         return SupervisorClientTestSupport.CreateEnsureRunningResponse(
             request,
-            startStatus: "started",
-            daemonStatus: "running");
+            startStatus: DaemonStartStatus.Started);
     }
 
-    public static IpcResponse CreateStopProjectStoppedResponse (IpcRequest request)
+    public static IpcResponse CreateStopProjectStoppedResponse (IpcRequestEnvelope request)
     {
         return IpcResponseTestFactory.CreateSuccess(
             request,
             new SupervisorIpcContracts.StopProjectResponse(
-                StopStatus: "stopped",
-                DaemonStatus: "notRunning"));
+                StopStatus: DaemonStopStatus.Stopped));
     }
 
-    public static SupervisorIpcContracts.EnsureRunningRequest ReadEnsureRunningRequest (IpcRequest request)
+    public static SupervisorIpcContracts.EnsureRunningRequest ReadEnsureRunningRequest (IpcRequestEnvelope request)
     {
         Assert.True(IpcPayloadCodec.TryDeserialize(
             request.Payload,
@@ -113,7 +119,7 @@ internal static class SupervisorProjectGatewayTestSupport
         return payload;
     }
 
-    public static SupervisorIpcContracts.StopProjectRequest ReadStopProjectRequest (IpcRequest request)
+    public static SupervisorIpcContracts.StopProjectRequest ReadStopProjectRequest (IpcRequestEnvelope request)
     {
         Assert.True(IpcPayloadCodec.TryDeserialize(
             request.Payload,
@@ -130,23 +136,27 @@ internal sealed class SupervisorProjectGatewayScenario
     public SupervisorProjectGatewayScenario (
         string repositoryRoot,
         SupervisorInstanceManifest manifest,
+        SupervisorManifestStore manifestStore,
         StubIpcTransportClient transportClient,
         SupervisorProjectGateway gateway)
     {
         this.repositoryRoot = repositoryRoot;
         Manifest = manifest;
+        ManifestStore = manifestStore;
         TransportClient = transportClient;
         Gateway = gateway;
     }
 
     public SupervisorInstanceManifest Manifest { get; }
 
+    public SupervisorManifestStore ManifestStore { get; }
+
     public StubIpcTransportClient TransportClient { get; }
 
     public SupervisorProjectGateway Gateway { get; }
 
     public ResolvedUnityProjectContext CreateUnityProject (
-        string projectFingerprint = SupervisorProjectGatewayTestSupport.ProjectFingerprint)
+        ProjectFingerprint? projectFingerprint = null)
     {
         return SupervisorProjectGatewayTestSupport.CreateUnityProject(
             repositoryRoot,

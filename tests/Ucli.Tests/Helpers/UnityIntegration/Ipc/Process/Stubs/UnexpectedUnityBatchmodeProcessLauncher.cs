@@ -14,12 +14,12 @@ internal sealed class UnexpectedUnityBatchmodeProcessLauncher : IUnityBatchmodeP
             : reason;
     }
 
-    public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchAsync (
+    public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchOneshotAsync (
         ResolvedUnityProjectContext unityProject,
-        IpcBatchmodeBootstrapArguments bootstrapArguments,
+        IpcOneshotBootstrapEnvelope bootstrapEnvelope,
         string unityLogPath,
-        UnityBatchmodeLaunchOptions? launchOptions = null,
-        CancellationToken cancellationToken = default)
+        UnityBatchmodeLaunchOptions launchOptions,
+        CancellationToken cancellationToken)
     {
         throw new InvalidOperationException(reason);
     }

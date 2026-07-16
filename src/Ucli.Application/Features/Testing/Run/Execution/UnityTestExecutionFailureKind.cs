@@ -29,4 +29,7 @@ internal enum UnityTestExecutionFailureKind
 
     /// <summary> Indicates streamed Unity test progress violated the public test-run progress contract. </summary>
     ProgressProtocolViolation = 8,
+
+    /// <summary> Indicates the IPC transport ended before the complete response was read. </summary>
+    IpcTransportInterrupted = 9,
 }

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using static MackySoft.Ucli.Tests.Execution.Mode.IpcDaemonPingClientTestSupport;
@@ -16,10 +15,14 @@ public sealed class IpcDaemonPingClientFingerprintTests
         var unityIpcClient = new RecordingIpcTransportClient(request =>
             CreateResponse(
                 request,
-                IpcProtocol.StatusOk,
+                IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
-                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: "different-fingerprint")));
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
+                IpcUnityEditorObservationTestFactory.Create(
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateResolvedSessionStore("resolved-token")),
+            TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<DaemonPingResponseException>(async () =>
         {
@@ -39,10 +42,14 @@ public sealed class IpcDaemonPingClientFingerprintTests
         var unityIpcClient = new RecordingIpcTransportClient(request =>
             CreateResponse(
                 request,
-                IpcProtocol.StatusOk,
+                IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
-                IpcUnityEditorObservationTestFactory.Create(projectFingerprint: "different-fingerprint")));
-        var pingClient = new IpcDaemonPingClient(unityIpcClient, CreateResolvedSessionProvider());
+                IpcUnityEditorObservationTestFactory.Create(
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("different-fingerprint"))));
+        var pingClient = new IpcDaemonPingClient(
+            unityIpcClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(CreateResolvedSessionStore("resolved-token")),
+            TimeProvider.System);
 
         var result = await pingClient.PingAndReadAsync(
             CreateFingerprintMatchedProject(),
@@ -50,7 +57,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
             validateProjectFingerprint: false,
             cancellationToken: CancellationToken.None);
 
-        Assert.Equal("different-fingerprint", result.ProjectFingerprint);
+        Assert.Equal(ProjectFingerprintTestFactory.Create("different-fingerprint"), result.ProjectFingerprint);
     }
 
     private static ValueTask InvokePingMethodAsync (
@@ -66,6 +73,7 @@ public sealed class IpcDaemonPingClientFingerprintTests
             nameof(IpcDaemonPingClient.PingAndReadAsync) => new ValueTask(pingClient.PingAndReadAsync(
                 CreateFingerprintMatchedProject(),
                 DefaultTimeout,
+                validateProjectFingerprint: true,
                 cancellationToken: CancellationToken.None).AsTask()),
             _ => throw new ArgumentOutOfRangeException(nameof(methodName), methodName, "Unsupported ping method."),
         };

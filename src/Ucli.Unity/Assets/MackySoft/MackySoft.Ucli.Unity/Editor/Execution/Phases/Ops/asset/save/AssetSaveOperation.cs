@@ -23,8 +23,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 sideEffects: new[] { UcliOperationSideEffect.AssetSave },
                 touchedKinds: new[]
                 {
-                    UcliTouchedResourceKindNames.Asset,
-                    UcliTouchedResourceKindNames.ProjectSettings,
+                    UcliTouchedResourceKind.Asset,
+                    UcliTouchedResourceKind.ProjectSettings,
                 },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the asset target and observe whether this request dirtied the target.",
@@ -122,7 +122,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             state = default;
             failure = null;
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var reference, out var errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(
+                    args.Target,
+                    "args.target",
+                    operation.AliasReferences,
+                    out var reference,
+                    out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;

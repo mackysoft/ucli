@@ -20,7 +20,7 @@ internal static class SceneTreeLiteSnapshotReaderAssert
         string expectedScenePath)
     {
         var invocation = ReadRequested(reader, UnityExecutionMode.Daemon, expectedFailFast: true);
-        Assert.Equal(expectedScenePath, invocation.ScenePath);
+        Assert.Equal(expectedScenePath, invocation.ScenePath.Value);
         Assert.True(invocation.LoadedSceneOnly);
         return invocation;
     }

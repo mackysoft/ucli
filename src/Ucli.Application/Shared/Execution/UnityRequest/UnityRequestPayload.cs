@@ -1,19 +1,45 @@
-using System.Collections.ObjectModel;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Testing;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 
 /// <summary> Represents a host-executed Unity request without owning the IPC wire envelope. </summary>
 internal abstract record UnityRequestPayload
 {
-    private static readonly IReadOnlyDictionary<string, string> EmptyStringMap =
-        new ReadOnlyDictionary<string, string>(new Dictionary<string, string>(StringComparer.Ordinal));
+    /// <summary> Represents an operation catalog read request prepared by application orchestration. </summary>
+    internal sealed record OpsRead (
+        bool FailFast = false,
+        bool RequireReadinessGate = false,
+        bool IncludeEditLoweringOnly = false) : UnityRequestPayload;
 
-    /// <summary> Represents a request whose method and payload are already owned by a host adapter. </summary>
-    internal sealed record Raw (
-        string Method,
-        JsonElement Payload) : UnityRequestPayload;
+    /// <summary> Represents an asset index read request prepared by application orchestration. </summary>
+    internal sealed record IndexAssetsRead (
+        bool FailFast = false) : UnityRequestPayload;
+
+    /// <summary> Represents a scene tree read request prepared by application orchestration. </summary>
+    internal sealed record IndexSceneTreeLiteRead : UnityRequestPayload
+    {
+        /// <summary> Initializes a scene tree read request. </summary>
+        public IndexSceneTreeLiteRead (
+            UnityScenePath scenePath,
+            bool failFast = false,
+            bool loadedSceneOnly = false)
+        {
+            ScenePath = scenePath ?? throw new ArgumentNullException(nameof(scenePath));
+            FailFast = failFast;
+            LoadedSceneOnly = loadedSceneOnly;
+        }
+
+        /// <summary> Gets the project-relative scene path to read. </summary>
+        public UnityScenePath ScenePath { get; }
+
+        /// <summary> Gets whether readiness gating fails immediately. </summary>
+        public bool FailFast { get; }
+
+        /// <summary> Gets whether only an already loaded scene may be read. </summary>
+        public bool LoadedSceneOnly { get; }
+    }
 
     /// <summary> Represents a lifecycle ping request prepared by application orchestration. </summary>
     internal sealed record Ping (
@@ -21,89 +47,140 @@ internal abstract record UnityRequestPayload
         bool FailFast = false) : UnityRequestPayload;
 
     /// <summary> Represents a compile assurance request prepared by application orchestration. </summary>
-    internal sealed record Compile (
-        string RunId) : UnityRequestPayload;
+    internal sealed record Compile : UnityRequestPayload
+    {
+        /// <summary> Initializes a compile request for one identified assurance run. </summary>
+        /// <param name="runId"> The non-empty run identifier used for progress and result correlation. </param>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="runId" /> is empty. </exception>
+        public Compile (Guid runId)
+        {
+            if (runId == Guid.Empty)
+            {
+                throw new ArgumentException("Run id must not be empty.", nameof(runId));
+            }
+
+            RunId = runId;
+        }
+
+        /// <summary> Gets the non-empty assurance run identifier. </summary>
+        public Guid RunId { get; }
+    }
 
     /// <summary> Represents a build assurance request prepared by application orchestration. </summary>
-    internal sealed record BuildRun (
-        string RunId,
-        string InputKind,
-        string? BuildTarget,
-        string? UnityBuildTarget,
-        string? SceneSource,
-        IReadOnlyList<string> ScenePaths,
-        bool Development,
-        string OutputPath,
-        IpcBuildOutputLayout? OutputLayout,
-        string BuildReportPath,
-        string BuildLogPath,
-        IReadOnlyList<string> AllowedEditorModes,
-        string ProjectMutationMode,
-        string RunnerKind) : UnityRequestPayload
+    internal sealed record BuildRun : UnityRequestPayload
     {
-        /// <summary> Gets the Unity Build Profile asset input when Unity resolves build inputs. </summary>
-        public IpcUnityBuildProfileInput? UnityBuildProfile { get; init; }
+        /// <summary> Initializes a build payload from a validated IPC request. </summary>
+        /// <param name="request"> The validated build request to dispatch without reconstructing its contract. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
+        public BuildRun (IpcBuildRunRequest request)
+        {
+            Request = request ?? throw new ArgumentNullException(nameof(request));
+        }
 
-        /// <summary> Gets the resolved build profile path used for runner context construction. </summary>
-        public string? ProfilePath { get; init; }
-
-        /// <summary> Gets the canonical build profile digest used for runner context construction. </summary>
-        public string? ProfileDigest { get; init; }
-
-        /// <summary> Gets the resolved executeMethod runner method identity. </summary>
-        public string? RunnerMethod { get; init; }
-
-        /// <summary> Gets the substitution-resolved non-secret runner arguments. </summary>
-        public IReadOnlyDictionary<string, string> RunnerArguments { get; init; } = EmptyStringMap;
-
-        /// <summary> Gets the requested non-secret runner environment variable names. </summary>
-        public IReadOnlyList<string> RunnerEnvironmentVariables { get; init; } = Array.Empty<string>();
-
-        /// <summary> Gets the requested secret runner environment names. </summary>
-        public IReadOnlyList<string> RunnerEnvironmentSecrets { get; init; } = Array.Empty<string>();
-
-        /// <summary> Gets non-secret environment values resolved by the uCLI runtime for IPC delivery only. </summary>
-        public IReadOnlyDictionary<string, string> RunnerEnvironmentVariableValues { get; init; } = EmptyStringMap;
-
-        /// <summary> Gets secret environment values resolved by the uCLI runtime for IPC delivery only. </summary>
-        public IReadOnlyDictionary<string, string> RunnerEnvironmentSecretValues { get; init; } = EmptyStringMap;
+        /// <summary> Gets the validated IPC request represented by this application payload. </summary>
+        public IpcBuildRunRequest Request { get; }
     }
 
     /// <summary> Represents a Unity Test Framework run request prepared by application orchestration. </summary>
-    internal sealed record TestRun (
-        string TestPlatform,
-        string? TestFilter,
-        string[] TestCategories,
-        string[] AssemblyNames,
-        string? TestSettingsPath,
-        string ResultsXmlPath,
-        string EditorLogPath,
-        bool FailFast,
-        string RunId) : UnityRequestPayload;
+    internal sealed record TestRun : UnityRequestPayload
+    {
+        /// <summary> Initializes a normalized Unity Test Framework request for one identified run. </summary>
+        /// <param name="testPlatform"> The canonical Unity test platform value. </param>
+        /// <param name="testFilter"> The optional test-name filter. </param>
+        /// <param name="testCategories"> The validated test-category filters. </param>
+        /// <param name="assemblyNames"> The validated assembly-name filters. </param>
+        /// <param name="failFast"> Whether readiness gating fails immediately. </param>
+        /// <param name="runId"> The non-empty run identifier used for progress, artifacts, and result correlation. </param>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="runId" /> is empty. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when a required reference value is <see langword="null" />. </exception>
+        public TestRun (
+            TestRunPlatform testPlatform,
+            string? testFilter,
+            IReadOnlyList<string> testCategories,
+            IReadOnlyList<string> assemblyNames,
+            bool failFast,
+            Guid runId)
+        {
+            if (runId == Guid.Empty)
+            {
+                throw new ArgumentException("Run id must not be empty.", nameof(runId));
+            }
+
+            ArgumentNullException.ThrowIfNull(testCategories);
+            ArgumentNullException.ThrowIfNull(assemblyNames);
+            if (testFilter is not null && string.IsNullOrWhiteSpace(testFilter))
+            {
+                throw new ArgumentException("Test filter must not be empty or whitespace.", nameof(testFilter));
+            }
+
+            TestPlatform = testPlatform;
+            TestFilter = testFilter;
+            TestCategories = CopyFilterValues(testCategories, nameof(testCategories));
+            AssemblyNames = CopyFilterValues(assemblyNames, nameof(assemblyNames));
+            FailFast = failFast;
+            RunId = runId;
+        }
+
+        public TestRunPlatform TestPlatform { get; }
+
+        public string? TestFilter { get; }
+
+        public IReadOnlyList<string> TestCategories { get; }
+
+        public IReadOnlyList<string> AssemblyNames { get; }
+
+        public bool FailFast { get; }
+
+        /// <summary> Gets the non-empty test run identifier. </summary>
+        public Guid RunId { get; }
+
+        private static IReadOnlyList<string> CopyFilterValues (
+            IReadOnlyList<string> values,
+            string parameterName)
+        {
+            if (values.Count == 0)
+            {
+                return Array.Empty<string>();
+            }
+
+            var copy = new string[values.Count];
+            for (var index = 0; index < values.Count; index++)
+            {
+                if (string.IsNullOrWhiteSpace(values[index]))
+                {
+                    throw new ArgumentException(
+                        $"Filter at index {index} must not be empty or whitespace.",
+                        parameterName);
+                }
+
+                copy[index] = values[index];
+            }
+
+            return Array.AsReadOnly(copy);
+        }
+    }
 
     /// <summary> Represents a Play Mode status request prepared by application orchestration. </summary>
     internal sealed record PlayStatus : UnityRequestPayload;
 
     /// <summary> Represents a screenshot capture request prepared by application orchestration. </summary>
-    /// <param name="Target"> The screenshot target. </param>
-    /// <param name="RequestedWidth"> The requested GameView width, or <see langword="null" /> for the current surface size. </param>
-    /// <param name="RequestedHeight"> The requested GameView height, or <see langword="null" /> for the current surface size. </param>
-    /// <param name="StagingPath"> The host-owned absolute raw-image staging path. </param>
-    /// <param name="TimeoutMilliseconds"> The effective server-side capture timeout in milliseconds. </param>
-    internal sealed record ScreenshotCapture (
-        IpcScreenshotTarget Target,
-        int? RequestedWidth,
-        int? RequestedHeight,
-        string StagingPath,
-        int TimeoutMilliseconds) : UnityRequestPayload;
+    internal sealed record ScreenshotCapture : UnityRequestPayload
+    {
+        /// <summary> Initializes a screenshot request payload variant. </summary>
+        public ScreenshotCapture (IpcScreenshotCaptureRequest request)
+        {
+            Request = request ?? throw new ArgumentNullException(nameof(request));
+        }
+
+        /// <summary> Gets the validated screenshot IPC payload. </summary>
+        public IpcScreenshotCaptureRequest Request { get; }
+    }
 
     /// <summary> Represents a Play Mode enter request prepared by application orchestration. </summary>
-    internal sealed record PlayEnter (
-        int TimeoutMilliseconds) : UnityRequestPayload;
+    internal sealed record PlayEnter : UnityRequestPayload;
 
     /// <summary> Represents a Play Mode exit request prepared by application orchestration. </summary>
-    internal sealed record PlayExit (
-        int TimeoutMilliseconds) : UnityRequestPayload;
+    internal sealed record PlayExit : UnityRequestPayload;
 
     /// <summary> Represents an execute request whose execute-arguments JSON was already prepared. </summary>
     internal sealed record ExecuteJson (
@@ -117,8 +194,7 @@ internal abstract record UnityRequestPayload
     /// <summary> Represents a single-operation execute request prepared by application orchestration. </summary>
     internal sealed record ExecuteOperation (
         UcliCommand Command,
-        string RequestId,
-        string OperationId,
+        IpcExecuteStepId OperationId,
         string OperationName,
         JsonElement Args,
         bool FailFast,

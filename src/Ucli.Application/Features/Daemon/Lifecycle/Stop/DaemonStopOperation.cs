@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -18,6 +19,8 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
 
     private readonly IDaemonArtifactCleaner artifactCleaner;
 
+    private readonly DaemonCompensationOperationOwner compensationOperationOwner;
+
     private readonly TimeProvider timeProvider;
 
     /// <summary> Initializes a new instance of the <see cref="DaemonStopOperation" /> class. </summary>
@@ -26,6 +29,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
     /// <param name="shutdownClient"> The shutdown client dependency. </param>
     /// <param name="processTerminationService"> The process termination service dependency. </param>
     /// <param name="artifactCleaner"> The daemon artifact cleaner dependency. </param>
+    /// <param name="compensationOperationOwner"> The owner for compensation that outlives a caller deadline. </param>
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStopOperation (
@@ -34,33 +38,33 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         IDaemonShutdownClient shutdownClient,
         IDaemonProcessTerminationService processTerminationService,
         IDaemonArtifactCleaner artifactCleaner,
-        TimeProvider? timeProvider = null)
+        DaemonCompensationOperationOwner compensationOperationOwner,
+        TimeProvider timeProvider)
     {
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.shutdownClient = shutdownClient ?? throw new ArgumentNullException(nameof(shutdownClient));
         this.processTerminationService = processTerminationService ?? throw new ArgumentNullException(nameof(processTerminationService));
         this.artifactCleaner = artifactCleaner ?? throw new ArgumentNullException(nameof(artifactCleaner));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.compensationOperationOwner = compensationOperationOwner ?? throw new ArgumentNullException(nameof(compensationOperationOwner));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Stops daemon lifecycle for the specified Unity project context. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The daemon stop timeout. </param>
+    /// <param name="deadline"> The deadline shared by all normal daemon-stop phases. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon stop result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<DaemonStopResult> StopAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
         {
             return DaemonStopResult.Failure(CreateTimeoutError("Timed out before daemon stop workflow began."));
@@ -90,110 +94,119 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
                 $"Failed to acquire project lifecycle lock. {exception.Message}"));
         }
 
-        await using var acquiredLock = lockHandle;
-        var readResult = await daemonSessionStore.ReadAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                cancellationToken)
+        var acquiredLock = lockHandle;
+        try
+        {
+            var admissionError = await compensationOperationOwner.WaitForQuiescenceAsync(
+                unityProject,
+                deadline,
+                cancellationToken,
+                "Timed out waiting for prior daemon compensation to quiesce.")
             .ConfigureAwait(false);
-        if (!readResult.IsSuccess)
-        {
-            return DaemonStopResult.Failure(readResult.Error!);
-        }
-
-        if (!readResult.Exists)
-        {
-            return DaemonStopResult.NotRunning();
-        }
-
-        var session = readResult.Session!;
-        var stopCapability = DaemonSessionTerminationPolicy.ResolveStopCapability(session);
-        if (stopCapability == DaemonSessionTerminationPolicy.StopCapability.EndpointOnly)
-        {
-            return await StopEndpointOnlySessionAsync(
-                    unityProject,
-                    session,
-                    deadline,
-                    cancellationToken)
-                .ConfigureAwait(false);
-        }
-
-        if (stopCapability != DaemonSessionTerminationPolicy.StopCapability.ProcessShutdown)
-        {
-            return DaemonStopResult.Failure(ExecutionError.InvalidArgument(
-                "Daemon session does not allow process shutdown."));
-        }
-
-        if (!deadline.TryGetRemainingTimeout(out var shutdownTimeout))
-        {
-            return DaemonStopResult.Failure(CreateTimeoutError(
-                "Timed out before daemon shutdown request could be sent."));
-        }
-
-        var shutdownResult = await shutdownClient.SendShutdownAsync(unityProject, session, shutdownTimeout, cancellationToken).ConfigureAwait(false);
-
-        if (shutdownResult.IsNotRunning)
-        {
-            var hasTerminationBudget = deadline.TryGetRemainingTimeout(out var notRunningTerminationTimeout);
-            if (!hasTerminationBudget)
+            if (admissionError is not null)
             {
-                notRunningTerminationTimeout = DaemonTimeouts.StopCompensationTimeout;
+                return DaemonStopResult.Failure(admissionError);
             }
 
-            var notRunningStopAndCleanupResult = await EnsureStoppedAndCleanupAsync(
-                    unityProject,
-                    session,
-                    notRunningTerminationTimeout,
-                    cancellationToken)
+            var sessionReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                    deadline,
+                    cancellationToken,
+                    "Timed out before daemon session read could begin.",
+                    "Timed out while reading daemon session before stop.",
+                    token => daemonSessionStore.ReadAsync(
+                        unityProject.RepositoryRoot,
+                        unityProject.ProjectFingerprint,
+                        token))
                 .ConfigureAwait(false);
-            return notRunningStopAndCleanupResult.IsSuccess
-                ? hasTerminationBudget
+            if (!sessionReadOperation.IsSuccess)
+            {
+                return DaemonStopResult.Failure(sessionReadOperation.Error!);
+            }
+
+            var readResult = sessionReadOperation.Value!;
+            if (!readResult.IsSuccess)
+            {
+                return DaemonStopResult.Failure(readResult.Error!);
+            }
+
+            if (!readResult.Exists)
+            {
+                return DaemonStopResult.NotRunning();
+            }
+
+            var session = readResult.Session!;
+            if (!session.CanShutdownProcess)
+            {
+                return await StopEndpointOnlySessionAsync(
+                        unityProject,
+                        session,
+                        deadline,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
+            if (!deadline.TryGetRemainingTimeout(out _))
+            {
+                return DaemonStopResult.Failure(CreateTimeoutError(
+                    "Timed out before daemon shutdown request could be sent."));
+            }
+
+            var shutdownResult = await shutdownClient.SendShutdownAsync(unityProject, session, deadline, cancellationToken).ConfigureAwait(false);
+
+            if (shutdownResult.IsNotRunning)
+            {
+                var notRunningStopAndCleanupResult = await ExecuteStopCompensationAsync(
+                        unityProject,
+                        session,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (!notRunningStopAndCleanupResult.IsSuccess)
+                {
+                    return DaemonStopResult.Failure(notRunningStopAndCleanupResult.Error!);
+                }
+
+                return deadline.TryGetRemainingTimeout(out _)
                     ? DaemonStopResult.Stopped()
                     : DaemonStopResult.Failure(CreateTimeoutError(
-                        "Timed out before daemon process termination could be completed."))
-                : DaemonStopResult.Failure(notRunningStopAndCleanupResult.Error!);
-        }
-
-        if (!shutdownResult.IsSuccess
-            && !DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out _))
-        {
-            return DaemonStopResult.Failure(shutdownResult.Error!);
-        }
-
-        if (!deadline.TryGetRemainingTimeout(out var processTerminationTimeout))
-        {
-            var fallbackStopResult = await EnsureStoppedAndCleanupAsync(
-                    unityProject,
-                    session,
-                    DaemonTimeouts.StopCompensationTimeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (!fallbackStopResult.IsSuccess)
-            {
-                return DaemonStopResult.Failure(fallbackStopResult.Error!);
+                        "Timed out before daemon process termination could be completed."));
             }
 
-            return DaemonStopResult.Failure(CreateTimeoutError(
-                "Timed out before daemon process termination could be completed."));
-        }
+            if (!shutdownResult.IsSuccess
+                && !DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out _))
+            {
+                return DaemonStopResult.Failure(shutdownResult.Error!);
+            }
 
-        var stopAndCleanupResult = await EnsureStoppedAndCleanupAsync(
-                unityProject,
-                session,
-                processTerminationTimeout,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!stopAndCleanupResult.IsSuccess)
+            var stopAndCleanupResult = await ExecuteStopCompensationAsync(
+                    unityProject,
+                    session,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!stopAndCleanupResult.IsSuccess)
+            {
+                return DaemonStopResult.Failure(stopAndCleanupResult.Error!);
+            }
+
+            if (!shutdownResult.IsSuccess)
+            {
+                return DaemonStopResult.Failure(shutdownResult.Error!);
+            }
+
+            if (!deadline.TryGetRemainingTimeout(out _))
+            {
+                return DaemonStopResult.Failure(CreateTimeoutError(
+                    "Timed out before daemon process termination could be completed."));
+            }
+
+            return DaemonStopResult.Stopped();
+        }
+        finally
         {
-            return DaemonStopResult.Failure(stopAndCleanupResult.Error!);
+            if (!compensationOperationOwner.TryTransferLifecycleLease(unityProject, acquiredLock))
+            {
+                await acquiredLock.DisposeAsync().ConfigureAwait(false);
+            }
         }
-
-        if (!shutdownResult.IsSuccess)
-        {
-            return DaemonStopResult.Failure(shutdownResult.Error!);
-        }
-
-        return DaemonStopResult.Stopped();
     }
 
     private async ValueTask<DaemonStopResult> StopEndpointOnlySessionAsync (
@@ -202,7 +215,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        if (!deadline.TryGetRemainingTimeout(out var shutdownTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return DaemonStopResult.Failure(CreateTimeoutError(
                 "Timed out before daemon endpoint shutdown request could be sent."));
@@ -211,7 +224,7 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         var shutdownResult = await shutdownClient.SendShutdownAsync(
                 unityProject,
                 session,
-                shutdownTimeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!shutdownResult.IsSuccess && !shutdownResult.IsNotRunning)
@@ -219,10 +232,20 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
             return DaemonStopResult.Failure(shutdownResult.Error!);
         }
 
-        var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
-        return cleanupResult.IsSuccess
+        var cleanupResult = await ExecuteStopCompensationAsync(
+                unityProject,
+                session,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!cleanupResult.IsSuccess)
+        {
+            return DaemonStopResult.Failure(cleanupResult.Error!);
+        }
+
+        return deadline.TryGetRemainingTimeout(out _)
             ? DaemonStopResult.Stopped()
-            : DaemonStopResult.Failure(cleanupResult.Error!);
+            : DaemonStopResult.Failure(CreateTimeoutError(
+                "Timed out before daemon endpoint cleanup could be completed."));
     }
 
     private static ExecutionError CreateTimeoutError (string message)
@@ -230,17 +253,50 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
         return ExecutionError.Timeout(message);
     }
 
-    private async ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAndCleanupAsync (
+    private async ValueTask<DaemonSessionStoreOperationResult> ExecuteStopCompensationAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        TimeSpan timeout,
         CancellationToken cancellationToken)
     {
-        if (DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out var target))
+        var compensationDeadline = ExecutionDeadline.Start(
+            DaemonTimeouts.StopCompensationTimeout,
+            timeProvider);
+        var executionResult = await compensationOperationOwner.ExecuteAsync(
+                unityProject,
+                DaemonOperationLane.LifecycleCompensation,
+                compensationDeadline,
+                cancellationToken,
+                "Timed out waiting for prior daemon compensation to quiesce.",
+                "Timed out before daemon stop compensation could complete.",
+                (_, ownedCancellationToken) => EnsureStoppedAndCleanupCoreAsync(
+                    unityProject,
+                    session,
+                    compensationDeadline,
+                    ownedCancellationToken))
+            .ConfigureAwait(false);
+        return executionResult.IsSuccess
+            ? executionResult.Value!
+            : DaemonSessionStoreOperationResult.Failure(executionResult.Error!);
+    }
+
+    private async ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAndCleanupCoreAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        ExecutionDeadline compensationDeadline,
+        CancellationToken cancellationToken)
+    {
+        var hasTerminationTarget = DaemonSessionTerminationPolicy.TryGetTerminationTarget(session, out var target);
+        if (hasTerminationTarget)
         {
+            if (!compensationDeadline.TryGetRemainingTimeout(out _))
+            {
+                return DaemonSessionStoreOperationResult.Failure(CreateTimeoutError(
+                    "Timed out before daemon process termination could begin."));
+            }
+
             var stopProcessResult = await processTerminationService.EnsureStoppedAsync(
                     target,
-                    timeout,
+                    compensationDeadline,
                     cancellationToken)
                 .ConfigureAwait(false);
             if (!stopProcessResult.IsSuccess)
@@ -249,9 +305,33 @@ internal sealed class DaemonStopOperation : IDaemonStopOperation
             }
         }
 
-        var cleanupResult = await artifactCleaner.CleanupAsync(unityProject, cancellationToken).ConfigureAwait(false);
-        return cleanupResult.IsSuccess
+        if (!compensationDeadline.TryGetRemainingTimeout(out _))
+        {
+            return DaemonSessionStoreOperationResult.Failure(CreateTimeoutError(
+                "Timed out before daemon artifact cleanup could begin."));
+        }
+
+        var cleanupResult = hasTerminationTarget
+            ? await artifactCleaner.CleanupIfStoppedProcessMatchesAsync(
+                    unityProject,
+                    target,
+                    compensationDeadline,
+                    cancellationToken)
+                .ConfigureAwait(false)
+            : await artifactCleaner.CleanupIfSessionMatchesAsync(
+                    unityProject,
+                    session,
+                    compensationDeadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
+        if (!cleanupResult.IsSuccess)
+        {
+            return DaemonSessionStoreOperationResult.Failure(cleanupResult.Error!);
+        }
+
+        return compensationDeadline.TryGetRemainingTimeout(out _)
             ? DaemonSessionStoreOperationResult.Success()
-            : DaemonSessionStoreOperationResult.Failure(cleanupResult.Error!);
+            : DaemonSessionStoreOperationResult.Failure(CreateTimeoutError(
+                "Timed out before daemon artifact cleanup could complete."));
     }
 }

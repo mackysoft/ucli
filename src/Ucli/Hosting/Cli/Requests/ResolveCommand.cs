@@ -25,7 +25,7 @@ internal sealed class ResolveCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes the resolve command and emits the JSON result contract. </summary>
+    /// <summary> Resolves a Unity object identifier and emits the JSON result contract. Requires exactly one selector: --globalObjectId, --assetGuid, --assetPath, --projectAssetPath, --scene with --hierarchyPath, or --prefab with --hierarchyPath. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
@@ -60,6 +60,7 @@ internal sealed class ResolveCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+        var requestId = Guid.NewGuid();
 
         var selectorResult = ResolveSelectorInputFactory.Create(
             globalObjectId,
@@ -72,7 +73,7 @@ internal sealed class ResolveCommand
             prefab);
         if (!selectorResult.IsSuccess)
         {
-            var errorResult = ResolveCommandResultFactory.CreateExecutionError(selectorResult.Error!);
+            var errorResult = ResolveCommandResultFactory.CreateExecutionError(requestId, selectorResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -80,7 +81,7 @@ internal sealed class ResolveCommand
         var normalizedReadIndexModeResult = ReadIndexModeOptionNormalizer.Normalize(readIndexMode);
         if (!normalizedReadIndexModeResult.IsSuccess)
         {
-            var errorResult = ResolveCommandResultFactory.CreateExecutionError(normalizedReadIndexModeResult.Error!);
+            var errorResult = ResolveCommandResultFactory.CreateExecutionError(requestId, normalizedReadIndexModeResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -88,7 +89,7 @@ internal sealed class ResolveCommand
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
         {
-            var errorResult = ResolveCommandResultFactory.CreateExecutionError(normalizedTimeoutResult.Error!);
+            var errorResult = ResolveCommandResultFactory.CreateExecutionError(requestId, normalizedTimeoutResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -96,12 +97,13 @@ internal sealed class ResolveCommand
         var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
         if (!normalizedModeResult.IsSuccess)
         {
-            var errorResult = ResolveCommandResultFactory.CreateExecutionError(normalizedModeResult.Error!);
+            var errorResult = ResolveCommandResultFactory.CreateExecutionError(requestId, normalizedModeResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
         var serviceResult = await resolveService.ExecuteAsync(
+                requestId,
                 new ResolveCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,

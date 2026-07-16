@@ -3,32 +3,9 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 /// <summary> Provides shared helpers used by scene-tree-lite access services. </summary>
 internal static class SceneTreeLiteAccessUtilities
 {
-    /// <summary> Normalizes and validates one scene path input. </summary>
-    public static bool TryNormalizeScenePath (
-        string scenePath,
-        out string normalizedScenePath,
-        out string errorMessage)
-    {
-        normalizedScenePath = string.Empty;
-        if (string.IsNullOrWhiteSpace(scenePath))
-        {
-            errorMessage = "Property 'path' must not be empty or whitespace.";
-            return false;
-        }
-
-        if (!RelativePathContract.TryNormalize(scenePath, out normalizedScenePath))
-        {
-            errorMessage = "Property 'path' must be a project-relative path without leading or trailing whitespace, empty segments, '.' segments, or '..' segments.";
-            return false;
-        }
-
-        errorMessage = string.Empty;
-        return true;
-    }
-
     /// <summary> Returns one tree snapshot trimmed to the requested depth. </summary>
-    public static IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> TrimToDepth (
-        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
+    public static IReadOnlyList<SceneTreeLiteNode> TrimToDepth (
+        IReadOnlyList<SceneTreeLiteNode> roots,
         int? depth)
     {
         ArgumentNullException.ThrowIfNull(roots);
@@ -38,7 +15,7 @@ internal static class SceneTreeLiteAccessUtilities
             return roots;
         }
 
-        var trimmedRoots = new IndexSceneTreeLiteNodeJsonContract[roots.Count];
+        var trimmedRoots = new SceneTreeLiteNode[roots.Count];
         for (var i = 0; i < roots.Count; i++)
         {
             trimmedRoots[i] = TrimNode(roots[i], currentDepth: 0, maxDepth: depth.Value);
@@ -47,34 +24,34 @@ internal static class SceneTreeLiteAccessUtilities
         return trimmedRoots;
     }
 
-    private static IndexSceneTreeLiteNodeJsonContract TrimNode (
-        IndexSceneTreeLiteNodeJsonContract node,
+    private static SceneTreeLiteNode TrimNode (
+        SceneTreeLiteNode node,
         int currentDepth,
         int maxDepth)
     {
-        var sourceChildren = node.Children ?? Array.Empty<IndexSceneTreeLiteNodeJsonContract>();
+        var sourceChildren = node.Children;
         var children = currentDepth >= maxDepth
-            ? Array.Empty<IndexSceneTreeLiteNodeJsonContract>()
+            ? Array.Empty<SceneTreeLiteNode>()
             : TrimChildren(sourceChildren, currentDepth + 1, maxDepth);
         var childrenState = ResolveChildrenState(node.ChildrenState, sourceChildren.Count, currentDepth, maxDepth);
-        return new IndexSceneTreeLiteNodeJsonContract(
-            name: node.Name,
-            globalObjectId: node.GlobalObjectId,
-            children: children,
-            childrenState: childrenState);
+        return new SceneTreeLiteNode(
+            node.Name,
+            node.GlobalObjectId,
+            children,
+            childrenState);
     }
 
-    private static IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> TrimChildren (
-        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> children,
+    private static IReadOnlyList<SceneTreeLiteNode> TrimChildren (
+        IReadOnlyList<SceneTreeLiteNode> children,
         int childDepth,
         int maxDepth)
     {
         if (children.Count == 0)
         {
-            return Array.Empty<IndexSceneTreeLiteNodeJsonContract>();
+            return Array.Empty<SceneTreeLiteNode>();
         }
 
-        var trimmedChildren = new IndexSceneTreeLiteNodeJsonContract[children.Count];
+        var trimmedChildren = new SceneTreeLiteNode[children.Count];
         for (var i = 0; i < children.Count; i++)
         {
             trimmedChildren[i] = TrimNode(children[i], childDepth, maxDepth);
@@ -83,28 +60,28 @@ internal static class SceneTreeLiteAccessUtilities
         return trimmedChildren;
     }
 
-    private static string ResolveChildrenState (
-        string? sourceChildrenState,
+    private static IndexSceneTreeLiteNodeChildrenState ResolveChildrenState (
+        IndexSceneTreeLiteNodeChildrenState sourceChildrenState,
         int sourceChildCount,
         int currentDepth,
         int maxDepth)
     {
         if (currentDepth >= maxDepth && sourceChildCount > 0)
         {
-            return IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth;
+            return IndexSceneTreeLiteNodeChildrenState.NotExpandedByDepth;
         }
 
-        if (string.Equals(sourceChildrenState, IndexSceneTreeLiteNodeChildrenStateValues.Unknown, StringComparison.Ordinal))
+        if (sourceChildrenState == IndexSceneTreeLiteNodeChildrenState.Unknown)
         {
-            return IndexSceneTreeLiteNodeChildrenStateValues.Unknown;
+            return IndexSceneTreeLiteNodeChildrenState.Unknown;
         }
 
-        if (string.Equals(sourceChildrenState, IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth, StringComparison.Ordinal))
+        if (sourceChildrenState == IndexSceneTreeLiteNodeChildrenState.NotExpandedByDepth)
         {
-            return IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth;
+            return IndexSceneTreeLiteNodeChildrenState.NotExpandedByDepth;
         }
 
-        return IndexSceneTreeLiteNodeChildrenStateValues.Complete;
+        return IndexSceneTreeLiteNodeChildrenState.Complete;
     }
 
 }

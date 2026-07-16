@@ -1,14 +1,15 @@
-using MackySoft.Tests;
-using MackySoft.Ucli.Application.Features.Assurance;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Tests;
 
 internal static class CompileCommandTestData
 {
+    private static readonly AssuranceVerifierId CompileVerifierId = new("compile");
+
     public static JsonGoldenFileNormalization CreateGoldenNormalization ()
     {
         return new JsonGoldenFileNormalization()
@@ -19,33 +20,31 @@ internal static class CompileCommandTestData
     public static CompileCompletedEntry CreateCompletedEntry ()
     {
         return new CompileCompletedEntry(
-            RunId: "run-1",
-            Verdict: "pass",
+            RunId: RunIdTestValues.Compile,
+            Verdict: AssuranceVerdict.Pass,
             ErrorCount: 0,
             WarningCount: 0,
-            SummaryJsonPath: "/tmp/ucli/compile/run-1/summary.json",
-            DiagnosticsJsonPath: "/tmp/ucli/compile/run-1/diagnostics.json");
+            SummaryJsonPath: $"/tmp/ucli/compile/{RunIdTestValues.CompileText}/summary.json",
+            DiagnosticsJsonPath: $"/tmp/ucli/compile/{RunIdTestValues.CompileText}/diagnostics.json");
     }
 
     public static CompileExecutionOutput CreateOutput (int errorCount = 0)
     {
         var compile = CreateCompileOutput(errorCount);
-        var compileStatus = errorCount == 0 ? CompileClaimStatusValues.Passed : CompileClaimStatusValues.Failed;
-        var lifecycleStatus = errorCount == 0 ? CompileClaimStatusValues.Passed : CompileClaimStatusValues.Failed;
+        var compileStatus = errorCount == 0 ? AssuranceClaimStatus.Passed : AssuranceClaimStatus.Failed;
+        var lifecycleStatus = errorCount == 0 ? AssuranceClaimStatus.Passed : AssuranceClaimStatus.Failed;
         return new CompileExecutionOutput(
-            Verdict: errorCount == 0 ? CompileVerdictValues.Pass : CompileVerdictValues.Fail,
+            Verdict: errorCount == 0 ? AssuranceVerdict.Pass : AssuranceVerdict.Fail,
             Project: ProjectIdentityInfoTestFactory.Create(
-                projectPath: "<projectPath>",
-                projectFingerprint: "<projectFingerprint>"),
+                projectFingerprint: ProjectFingerprintTestFactory.Create("<projectFingerprint>")),
             Verifiers:
             [
                 new CompileVerifierOutput(
-                    Id: "compile",
-                    Kind: "compile",
+                    Id: CompileVerifierId,
                     Deterministic: false,
                     Required: true,
-                    PrimaryClaims: CompileClaimCodes.All.Select(static code => code.Value).ToArray(),
-                    Effects: CompileEffectValues.All,
+                    PrimaryClaims: CompileClaimCodes.All,
+                    Effects: AssuranceEffectSets.Compile,
                     ReportRef: "compile.summary"),
             ],
             Claims:
@@ -55,36 +54,36 @@ internal static class CompileCommandTestData
                     compileStatus,
                     "Unity script compilation completed without compiler errors.",
                     "unityCompile",
-                    new CompileEvidenceOutput(CompileEffectValues.ScriptCompilation, "compile.diagnostics", compile.ScriptCompilation)),
+                    new CompileEvidenceOutput(CompileEvidenceKind.ScriptCompilation, "compile.diagnostics", compile.ScriptCompilation)),
                 CreateClaim(
                     CompileClaimCodes.UnityDomainReloadSettled,
-                    CompileClaimStatusValues.Passed,
+                    AssuranceClaimStatus.Passed,
                     "Unity domain reload reached a settled state after compile observation.",
                     "unityDomainReload",
-                    new CompileEvidenceOutput(CompileEffectValues.DomainReload, Data: compile.DomainReload)),
+                    new CompileEvidenceOutput(CompileEvidenceKind.DomainReload, EvidenceRef: null, Data: compile.DomainReload)),
                 CreateClaim(
                     CompileClaimCodes.UnityLifecycleReadyAfterCompile,
                     lifecycleStatus,
                     "Unity lifecycle is ready after compile observation.",
                     "unityLifecycle",
-                    new CompileEvidenceOutput("lifecycleSnapshot", Data: compile.Lifecycle)),
+                    new CompileEvidenceOutput(CompileEvidenceKind.LifecycleSnapshot, EvidenceRef: null, Data: compile.Lifecycle)),
             ],
-            Reports: new Dictionary<string, CompileReportOutput>(StringComparer.Ordinal)
+            Reports: new Dictionary<string, AssuranceReportReference>(StringComparer.Ordinal)
             {
-                ["compile.summary"] = new CompileReportOutput("/tmp/ucli/compile/summary.json"),
-                ["compile.diagnostics"] = new CompileReportOutput("/tmp/ucli/compile/diagnostics.json"),
+                ["compile.summary"] = AssuranceReportReference.FromPath("/tmp/ucli/compile/summary.json", digest: null),
+                ["compile.diagnostics"] = AssuranceReportReference.FromPath("/tmp/ucli/compile/diagnostics.json", digest: null),
             },
             ResidualRisks: [],
-            RequestedMode: AssuranceExecutionModeCodec.Auto,
-            ResolvedMode: AssuranceExecutionModeCodec.Oneshot,
-            SessionKind: AssuranceSessionKindValues.TransientProbe,
+            RequestedMode: AssuranceRequestedExecutionMode.Auto,
+            ResolvedMode: AssuranceResolvedExecutionMode.Oneshot,
+            SessionKind: AssuranceSessionKind.TransientProbe,
             TimeoutMilliseconds: 10000,
             Compile: compile);
     }
 
     private static CompileClaimOutput CreateClaim (
-        string id,
-        string status,
+        UcliCode id,
+        AssuranceClaimStatus status,
         string statement,
         string subjectKind,
         CompileEvidenceOutput evidence)
@@ -92,14 +91,14 @@ internal static class CompileCommandTestData
         return new CompileClaimOutput(
             Id: id,
             Status: status,
-            Coverage: CompileCoverageValues.Full,
+            Coverage: AssuranceCoverage.Full,
             Required: true,
-            VerifierRef: "compile",
+            VerifierRef: CompileVerifierId,
             Statement: statement,
             Subject: new Dictionary<string, object?>(StringComparer.Ordinal)
             {
                 ["kind"] = subjectKind,
-                ["runId"] = "20260517_000000Z_abcdef12",
+                ["runId"] = RunIdTestValues.Compile,
             },
             Evidence: [evidence],
             ResidualRisks: []);
@@ -110,7 +109,7 @@ internal static class CompileCommandTestData
         var primaryDiagnostic = errorCount == 0
             ? null
             : new CompilePrimaryDiagnosticOutput(
-                Kind: "compiler",
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS1002",
                 File: "Assets/Broken.cs",
                 Line: 4,
@@ -118,14 +117,14 @@ internal static class CompileCommandTestData
                 Message: "; expected");
         var canAcceptExecutionRequests = errorCount == 0;
         return new CompileOutput(
-            RunId: "20260517_000000Z_abcdef12",
-            Refresh: new CompileRefreshOutput(
-                Origin: CompileEffectValues.AssetDatabaseRefresh,
+            runId: RunIdTestValues.Compile,
+            refresh: new CompileRefreshOutput(
+                Origin: CompileRefreshOrigin.AssetDatabaseRefresh,
                 Requested: true,
                 StartedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:00Z"),
                 CompletedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:02Z"),
                 Completed: true),
-            ScriptCompilation: new CompileScriptCompilationOutput(
+            scriptCompilation: new CompileScriptCompilationOutput(
                 Started: true,
                 Completed: true,
                 CompileGenerationBefore: 12,
@@ -134,13 +133,13 @@ internal static class CompileCommandTestData
                     ErrorCount: errorCount,
                     WarningCount: 0,
                     PrimaryDiagnostic: primaryDiagnostic)),
-            DomainReload: new CompileDomainReloadOutput(
+            domainReload: new CompileDomainReloadOutput(
                 ReloadRequired: false,
                 ReloadObserved: false,
                 GenerationBefore: 7,
                 GenerationAfter: 7,
                 Settled: true),
-            Lifecycle: new CompileLifecycleOutput(
+            lifecycle: new CompileLifecycleOutput(
                 ServerVersion: "0.5.0",
                 UnityVersion: "6000.1.4f1",
                 EditorMode: DaemonEditorMode.Batchmode,
@@ -156,7 +155,7 @@ internal static class CompileCommandTestData
                 Generations: new IpcUnityGenerationSnapshot(14, 7, 0, 0),
                 CanAcceptExecutionRequests: canAcceptExecutionRequests,
                 ObservedAtUtc: DateTimeOffset.Parse("2026-05-17T00:00:03Z"),
-                ActionRequired: canAcceptExecutionRequests ? null : "fixCompileErrors",
+                ActionRequired: canAcceptExecutionRequests ? null : DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: primaryDiagnostic));
     }
 }

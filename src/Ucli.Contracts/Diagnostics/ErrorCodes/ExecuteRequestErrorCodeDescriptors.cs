@@ -6,9 +6,9 @@ internal static class ExecuteRequestErrorCodeDescriptors
     [
         UcliErrorDescriptorFactory.Create(
             code: ExecuteRequestErrorCodes.RequestIdConflict,
-            category: "request",
-            summary: "A request-id was reused with different request content.",
-            meaning: "The request-id is already associated with another request body, so uCLI cannot safely decide whether the new request is a replay.",
+            category: "ipc",
+            summary: "An IPC request identifier was reused with different request content.",
+            meaning: "The outer IPC request envelope identifier is already associated with another request body, so uCLI cannot safely decide whether the incoming envelope is a replay.",
             appliesTo:
             [
                 UcliCommandIds.Plan,
@@ -21,15 +21,15 @@ internal static class ExecuteRequestErrorCodeDescriptors
             possiblePhases: ["idempotencyCheck"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["requestId", "payload.requestDigest", "errors[].message"],
+            safeToRetry: UcliErrorRetryClass.No,
+            inspect: ["errors[].message", "IPC client retry and recovery logs"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
                     When: null,
-                    Action: "Use a new requestId for changed request content, or resend the exact original request."),
+                    Action: "Do not change payload.requestId or retry automatically; recurring conflicts indicate that the IPC client reused one transport request identifier for different content."),
             ],
-            relatedCodes: [UcliCoreErrorCodes.InvalidArgument]),
+            relatedCodes: [UcliCoreErrorCodes.InternalError]),
 
         UcliErrorDescriptorFactory.Create(
             code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
@@ -47,7 +47,7 @@ internal static class ExecuteRequestErrorCodeDescriptors
             possiblePhases: ["plan", "call"],
             impliesNotApplied: null,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["payload.opResults[].diagnostics[]", "steps[].args.selector.hierarchyPath", "Unity scene hierarchy"],
             nextActions:
             [
@@ -74,7 +74,7 @@ internal static class ExecuteRequestErrorCodeDescriptors
             possiblePhases: ["plan", "call"],
             impliesNotApplied: null,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect:
             [
                 "errors[].code",

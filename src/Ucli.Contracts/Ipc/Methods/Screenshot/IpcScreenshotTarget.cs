@@ -7,9 +7,9 @@ public enum IpcScreenshotTarget
 {
     /// <summary> Captures the main GameView application presentation image. </summary>
     [UcliContractLiteral("game")]
-    Game = 0,
+    Game = 1,
 
     /// <summary> Captures the active SceneView presentation image. </summary>
     [UcliContractLiteral("scene")]
-    Scene = 1,
+    Scene = 2,
 }

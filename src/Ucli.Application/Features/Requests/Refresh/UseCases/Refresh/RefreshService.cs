@@ -11,7 +11,7 @@ internal sealed class RefreshService : IRefreshService
 {
     private static readonly OperationExecuteDefinition RefreshOperation = new(
         Command: UcliCommandIds.Refresh,
-        OperationId: "refresh",
+        OperationId: new IpcExecuteStepId("refresh"),
         Descriptor: new UcliOperationDescriptor(
             Name: UcliPrimitiveOperationNames.ProjectRefresh,
             Kind: UcliOperationKind.Command,
@@ -34,12 +34,14 @@ internal sealed class RefreshService : IRefreshService
 
     /// <inheritdoc />
     public ValueTask<OperationExecuteResult> ExecuteAsync (
+        Guid requestId,
         RefreshCommandInput input,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(input);
 
         return operationExecuteService.ExecuteAsync(
+            requestId,
             RefreshOperation,
             new OperationExecuteInput(
                 ProjectPath: input.ProjectPath,

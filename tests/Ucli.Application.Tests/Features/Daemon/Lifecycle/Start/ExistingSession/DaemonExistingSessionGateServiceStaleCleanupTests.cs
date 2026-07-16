@@ -21,9 +21,9 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
             cleanupService: cleanupService);
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-stale"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale")),
             session,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -46,14 +46,13 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
                 OnPingAndRead = () => timeProvider.Advance(TimeSpan.FromMilliseconds(120)),
             },
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
-            cleanupService: cleanupService,
-            timeProvider: timeProvider);
+            cleanupService: cleanupService);
 
         var session = DaemonSessionTestFactory.Create(processId: 4006);
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-stale-remaining-timeout"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale-remaining-timeout")),
             session,
-            TimeSpan.FromMilliseconds(300),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(300), timeProvider),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -76,13 +75,12 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
                 OnPingAndRead = () => timeProvider.Advance(TimeSpan.FromMilliseconds(80)),
             },
             reachabilityClassifier: new StubDaemonReachabilityClassifier(static _ => true),
-            cleanupService: cleanupService,
-            timeProvider: timeProvider);
+            cleanupService: cleanupService);
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-stale-timeout-before-cleanup"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale-timeout-before-cleanup")),
             DaemonSessionTestFactory.Create(processId: 4007),
-            TimeSpan.FromMilliseconds(20),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(20), timeProvider),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -106,9 +104,9 @@ public sealed class DaemonExistingSessionGateServiceStaleCleanupTests
             cleanupService: cleanupService);
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-stale-failed"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-stale-failed")),
             DaemonSessionTestFactory.Create(processId: 4004),
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 

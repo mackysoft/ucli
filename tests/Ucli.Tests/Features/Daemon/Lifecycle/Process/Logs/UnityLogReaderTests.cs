@@ -14,7 +14,7 @@ public sealed class UnityLogReaderTests
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "missing-log");
         var logReader = new UnityLogReader();
 
-        var readResult = await logReader.ReadTailAsync(scope.FullPath, "fingerprint-missing", cancellationToken: CancellationToken.None);
+        var readResult = await logReader.ReadTailAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-missing"), cancellationToken: CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.Equal(string.Empty, readResult.Text);
@@ -27,7 +27,7 @@ public sealed class UnityLogReaderTests
     public async Task ReadTail_ReturnsTailBytesAndTruncatedFlag ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "tail-bytes");
-        var projectFingerprint = "fingerprint-tail";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-tail");
         var logReader = new UnityLogReader();
         var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(scope.FullPath, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(unityLogPath)!);
@@ -51,7 +51,7 @@ public sealed class UnityLogReaderTests
         using var scope = TestDirectories.CreateTempScope("daemon-log-reader", "invalid-max-bytes");
         var logReader = new UnityLogReader();
 
-        var readResult = await logReader.ReadTailAsync(scope.FullPath, "fingerprint-invalid", maxBytes: 0, cancellationToken: CancellationToken.None);
+        var readResult = await logReader.ReadTailAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), maxBytes: 0, cancellationToken: CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);

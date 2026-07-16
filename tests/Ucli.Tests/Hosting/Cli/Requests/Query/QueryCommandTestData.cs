@@ -8,16 +8,18 @@ internal static class QueryCommandTestData
 {
     public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
 
+    private static readonly Guid RequestGuid = Guid.Parse(RequestId);
+
     public static QueryServiceResult CreateSuccessResult (string commandName)
     {
         return QueryServiceResultFactory.Success(
             commandName,
-            RequestId,
+            RequestGuid,
             [
                 new OperationExecutionOperationResult(
-                    OpId: "assets.find",
+                    OpId: new IpcExecuteStepId("assets.find"),
                     Op: UcliPrimitiveOperationNames.AssetsFind,
-                    Phase: IpcExecuteOperationPhaseNames.Plan,
+                    Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,
                     Changed: false,
                     Touched: [])
@@ -42,12 +44,12 @@ internal static class QueryCommandTestData
     {
         return QueryServiceResultFactory.Failure(
             commandName,
-            RequestId,
+            RequestGuid,
             [],
             [
                 ApplicationFailure.InternalError(
                     "Unity execution failed.",
-                    opId: "assets.find"),
+                    opId: new IpcExecuteStepId("assets.find")),
             ],
             "Unity execution failed.",
             new ReadIndexInfo(

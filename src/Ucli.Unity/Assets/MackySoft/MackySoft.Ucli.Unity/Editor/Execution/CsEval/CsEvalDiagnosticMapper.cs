@@ -1,5 +1,7 @@
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using Microsoft.CodeAnalysis;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -22,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             }
 
             return new CsEvalDiagnostic(
-                diagnostic.Severity.ToString().ToLowerInvariant(),
+                MapSeverity(diagnostic.Severity),
                 diagnostic.Id,
                 LimitMessage(diagnostic.GetMessage()),
                 line,
@@ -34,7 +36,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             string message)
         {
             return new CsEvalDiagnostic(
-                "error",
+                UcliDiagnosticSeverity.Error,
                 id,
                 LimitMessage(message),
                 line: null,
@@ -64,7 +66,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             if (truncatedCount > 0)
             {
                 items.Add(new CsEvalDiagnostic(
-                    "warning",
+                    UcliDiagnosticSeverity.Warning,
                     CsEvalDiagnosticIds.DiagnosticsTruncated,
                     $"C# eval diagnostics were truncated. Omitted diagnostics: {truncatedCount}.",
                     line: null,
@@ -72,6 +74,21 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
             }
 
             return items;
+        }
+
+        private static UcliDiagnosticSeverity MapSeverity (DiagnosticSeverity severity)
+        {
+            switch (severity)
+            {
+                case DiagnosticSeverity.Info:
+                    return UcliDiagnosticSeverity.Info;
+                case DiagnosticSeverity.Warning:
+                    return UcliDiagnosticSeverity.Warning;
+                case DiagnosticSeverity.Error:
+                    return UcliDiagnosticSeverity.Error;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(severity), severity, "Hidden diagnostics must be filtered before mapping.");
+            }
         }
 
         private static string LimitMessage (string message)

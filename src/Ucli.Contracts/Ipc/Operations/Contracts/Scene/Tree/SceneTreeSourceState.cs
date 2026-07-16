@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -11,6 +12,11 @@ public sealed record SceneTreeSourceState
         SceneTreeSourceStateKind kind,
         bool isDirty)
     {
+        if (!ContractLiteralCodec.IsDefined(kind))
+        {
+            throw new ArgumentOutOfRangeException(nameof(kind), kind, "Scene tree source kind must be specified.");
+        }
+
         Kind = kind;
         IsDirty = isDirty;
     }
@@ -18,9 +24,9 @@ public sealed record SceneTreeSourceState
     [UcliRequired]
     [UcliDescription("Source kind used to build the scene tree. Values are temporaryScene, loadedScene, persistedPreview, and readIndex.")]
     [JsonConverter(typeof(SceneTreeSourceStateKindJsonConverter))]
-    public SceneTreeSourceStateKind Kind { get; init; }
+    public SceneTreeSourceStateKind Kind { get; }
 
     [UcliRequired]
     [UcliDescription("Whether the source scene contained unsaved Unity editor changes when the tree was read.")]
-    public bool IsDirty { get; init; }
+    public bool IsDirty { get; }
 }

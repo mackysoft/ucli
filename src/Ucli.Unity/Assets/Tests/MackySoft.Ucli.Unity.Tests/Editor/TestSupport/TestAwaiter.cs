@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using NUnit.Framework;
@@ -47,6 +48,32 @@ namespace MackySoft.Ucli.Unity.Tests
             var taskInstance = task.AsTask();
             await AwaitCompletionAsync(taskInstance, description, timeout);
             return await taskInstance;
+        }
+
+        public static async Task WaitUntilAsync (
+            Func<bool> condition,
+            string description,
+            TimeSpan timeout)
+        {
+            if (condition == null)
+            {
+                throw new ArgumentNullException(nameof(condition));
+            }
+
+            if (string.IsNullOrWhiteSpace(description))
+            {
+                throw new ArgumentException("Description must not be null or whitespace.", nameof(description));
+            }
+
+            var elapsedTime = Stopwatch.StartNew();
+            while (!condition())
+            {
+                Assert.That(
+                    elapsedTime.Elapsed,
+                    Is.LessThan(timeout),
+                    $"{description} did not complete within {timeout}.");
+                await Task.Yield();
+            }
         }
 
         private static async Task AwaitCompletionAsync (

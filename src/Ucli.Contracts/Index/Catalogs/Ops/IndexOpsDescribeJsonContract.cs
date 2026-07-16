@@ -1,6 +1,6 @@
 namespace MackySoft.Ucli.Contracts.Index;
 
-/// <summary> Represents one persisted <c>ops.describe/&lt;opKey&gt;.json</c> detail contract. </summary>
+/// <summary> Represents one persisted <c>ops/&lt;operationStorageKey&gt;.json</c> detail contract. </summary>
 /// <param name="SchemaVersion"> The schema-version value. </param>
 /// <param name="GeneratedAtUtc"> The generated-at timestamp. </param>
 /// <param name="SourceInputsHash"> The source-inputs hash value. </param>

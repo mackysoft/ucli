@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.Results;
 
@@ -11,9 +12,9 @@ namespace MackySoft.Ucli.Application.Shared.Execution.Results;
 /// <param name="Changed"> Whether the step produced persistent changes. </param>
 /// <param name="Touched"> The touched persistence-unit resources. </param>
 internal sealed record OperationExecutionOperationResult (
-    string OpId,
+    IpcExecuteStepId OpId,
     string Op,
-    string Phase,
+    IpcExecuteOperationPhase Phase,
     bool Applied,
     bool Changed,
     IReadOnlyList<OperationExecutionTouchedResource> Touched)

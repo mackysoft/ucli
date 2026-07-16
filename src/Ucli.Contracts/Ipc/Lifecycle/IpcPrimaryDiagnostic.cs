@@ -1,3 +1,7 @@
+using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents the primary machine-readable diagnostic attached to one lifecycle snapshot. </summary>
@@ -7,10 +11,53 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 /// <param name="Line"> The one-based diagnostic line number when available. </param>
 /// <param name="Column"> The one-based diagnostic column number when available. </param>
 /// <param name="Message"> The diagnostic message when available. </param>
-public sealed record IpcPrimaryDiagnostic (
-    string? Kind,
-    string? Code,
-    string? File,
-    int? Line,
-    int? Column,
-    string? Message);
+public sealed record IpcPrimaryDiagnostic
+{
+    /// <summary> Initializes a primary diagnostic with an optional recognized kind. </summary>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="Kind" /> is not a defined diagnostic kind. </exception>
+    [JsonConstructor]
+    public IpcPrimaryDiagnostic (
+        DaemonDiagnosisPrimaryDiagnosticKind? Kind,
+        string? Code,
+        string? File,
+        int? Line,
+        int? Column,
+        string? Message)
+    {
+        if (Kind.HasValue && !ContractLiteralCodec.IsDefined(Kind.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Unsupported primary diagnostic kind.");
+        }
+
+        this.Kind = Kind;
+        this.Code = Code;
+        this.File = File;
+        this.Line = Line;
+        this.Column = Column;
+        this.Message = Message;
+    }
+
+    [JsonInclude]
+    [JsonRequired]
+    public DaemonDiagnosisPrimaryDiagnosticKind? Kind { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public string? Code { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public string? File { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public int? Line { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public int? Column { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public string? Message { get; private init; }
+}

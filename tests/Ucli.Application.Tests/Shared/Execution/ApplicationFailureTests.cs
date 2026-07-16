@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Tests.Execution;
 
 public sealed class ApplicationFailureTests
@@ -36,13 +38,16 @@ public sealed class ApplicationFailureTests
     {
         var futureCode = new UcliCode("FUTURE_TRANSPORT_FAILURE");
 
-        var failure = ApplicationFailure.FromCode(futureCode, "Future transport failed.", "step-1");
+        var failure = ApplicationFailure.FromCode(
+            futureCode,
+            "Future transport failed.",
+            new IpcExecuteStepId("step-1"));
 
         Assert.Equal(ApplicationFailureKind.ContractViolation, failure.Kind);
         Assert.Equal(ApplicationOutcome.ToolError, failure.Outcome);
         Assert.Equal(futureCode, failure.Code);
         Assert.Equal("Future transport failed.", failure.Message);
-        Assert.Equal("step-1", failure.OpId);
+        Assert.Equal("step-1", failure.OpId?.Value);
     }
 
     [Fact]
@@ -52,8 +57,10 @@ public sealed class ApplicationFailureTests
         Assert.ThrowsAny<ArgumentException>(() => new ApplicationFailure(
             ApplicationFailureKind.InternalError,
             ApplicationOutcome.ToolError,
-            default,
-            "Failure message."));
+            null!,
+            "Failure message.",
+            opId: null,
+            startupFailure: null));
     }
 
     [Fact]
@@ -80,7 +87,9 @@ public sealed class ApplicationFailureTests
             ApplicationFailureKind.InternalError,
             ApplicationOutcome.Success,
             UcliCoreErrorCodes.InternalError,
-            "Failure message."));
+            "Failure message.",
+            opId: null,
+            startupFailure: null));
     }
 
     [Fact]

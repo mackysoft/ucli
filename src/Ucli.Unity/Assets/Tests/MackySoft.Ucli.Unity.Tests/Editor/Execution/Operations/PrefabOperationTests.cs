@@ -57,13 +57,13 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Persisted, Is.True);
             AssertTouchSet(
                 result,
-                (OperationTouchKind.Scene, scenePath),
-                (OperationTouchKind.Prefab, prefabPath));
+                (UcliTouchedResourceKind.Scene, scenePath),
+                (UcliTouchedResourceKind.Prefab, prefabPath));
             Assert.That(AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath), Is.Not.Null);
             Assert.That(PrefabUtility.IsPartOfPrefabInstance(root), Is.True);
             Assert.That(PrefabUtility.GetCorrespondingObjectFromOriginalSource(root), Is.Not.Null);
             Assert.That(context.AliasStore.TryGet("created", out var resolvedReference), Is.True);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(UnityObjectReferenceResolver.CreateResolvedReference(root).GlobalObjectId));
+            Assert.That(resolvedReference!.Value, Is.EqualTo(UnityObjectReferenceResolver.CreateGlobalObjectId(root).Value));
             AssertReadInvalidations(
                 result,
                 (OperationReadInvalidationSurface.AssetSearch, null),
@@ -162,12 +162,12 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(createPlanResult, applied: false, changed: true);
             AssertSuccess(setPlanResult, applied: false, changed: true);
             AssertSuccess(applyPlanResult, applied: false, changed: true);
-            AssertTouchSet(applyPlanResult, (OperationTouchKind.Prefab, prefabPath));
+            AssertTouchSet(applyPlanResult, (UcliTouchedResourceKind.Prefab, prefabPath));
             AssertSuccess(ensureCallResult, applied: true, changed: true);
             AssertSuccess(createCallResult, applied: true, changed: true);
             AssertSuccess(setCallResult, applied: true, changed: true);
             AssertSuccess(applyCallResult, applied: true, changed: true);
-            AssertTouchSet(applyCallResult, (OperationTouchKind.Prefab, prefabPath));
+            AssertTouchSet(applyCallResult, (UcliTouchedResourceKind.Prefab, prefabPath));
 
             var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabPath);
             var loadedComponent = loadedPrefabContentsRoot.GetComponent<CompOperationTestComponent>();
@@ -251,7 +251,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(createPlanResult, applied: false, changed: true);
             AssertSuccess(setPlanResult, applied: false, changed: true);
             AssertSuccess(applyPlanResult, applied: false, changed: true);
-            AssertTouchSet(applyPlanResult, (OperationTouchKind.Prefab, prefabPath));
+            AssertTouchSet(applyPlanResult, (UcliTouchedResourceKind.Prefab, prefabPath));
         });
 
         [UnityTest]
@@ -395,7 +395,149 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(firstSetResult, applied: false, changed: true);
             AssertSuccess(secondSetResult, applied: false, changed: true);
             AssertSuccess(applyResult, applied: false, changed: true);
-            AssertTouchSet(applyResult, (OperationTouchKind.Prefab, prefabInstance.PrefabPath));
+            AssertTouchSet(applyResult, (UcliTouchedResourceKind.Prefab, prefabInstance.PrefabPath));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ApplyOverrides_Plan_WhenAliasedComponentShadowReceivesSecondProperty_TracksSecondProperty () => UniTask.ToCoroutine(async () =>
+        {
+            var ensureOperation = new CompEnsureOperation();
+            var setOperation = new CompSetOperation();
+            var applyOperation = new PrefabApplyOverridesOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var prefabInstance = CreateSavedPrefabInstanceWithTestComponent(scope);
+
+            var aliasTarget = new
+            {
+                @var = "component",
+            };
+            var ensureRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompEnsure,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = prefabInstance.ScenePath,
+                        hierarchyPath = "InstanceRoot",
+                    },
+                    type = prefabInstance.ComponentTypeId,
+                },
+                alias: "component",
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var firstSetRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = aliasTarget,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var secondSetRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = aliasTarget,
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "floatValue",
+                            value = 3.5f,
+                        },
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var applyRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
+                args: new
+                {
+                    target = aliasTarget,
+                    targetAssetPath = prefabInstance.PrefabPath,
+                    propertyPaths = new[] { "floatValue" },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(prefabInstance.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+
+            var ensureResult = await ensureOperation.PlanAsync(ensureRequest, context, CancellationToken.None);
+            var firstSetResult = await setOperation.PlanAsync(firstSetRequest, context, CancellationToken.None);
+            var secondSetResult = await setOperation.PlanAsync(secondSetRequest, context, CancellationToken.None);
+            var applyResult = await applyOperation.PlanAsync(applyRequest, context, CancellationToken.None);
+
+            AssertSuccess(ensureResult, applied: false, changed: false);
+            AssertSuccess(firstSetResult, applied: false, changed: true);
+            AssertSuccess(secondSetResult, applied: false, changed: true);
+            AssertSuccess(applyResult, applied: false, changed: true);
+            AssertTouchSet(applyResult, (UcliTouchedResourceKind.Prefab, prefabInstance.PrefabPath));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ApplyOverrides_Plan_WhenSetAndApplyUseEquivalentGlobalObjectIdSpellings_CorrelatesCanonicalTarget () => UniTask.ToCoroutine(async () =>
+        {
+            var setOperation = new CompSetOperation();
+            var applyOperation = new PrefabApplyOverridesOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset()
+                .EnablePrefabStageCleanup();
+            var prefabInstance = CreateSavedPrefabInstanceWithTestComponent(scope);
+            var canonicalGlobalObjectId = UnityObjectReferenceResolver.CreateGlobalObjectId(prefabInstance.Component).Value;
+            var nonCanonicalGlobalObjectId = GlobalObjectIdTestValues.CreateNonCanonicalIdentifierTypeText(canonicalGlobalObjectId);
+            var setRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        globalObjectId = nonCanonicalGlobalObjectId,
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var applyRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
+                args: new
+                {
+                    target = new
+                    {
+                        globalObjectId = canonicalGlobalObjectId,
+                    },
+                    targetAssetPath = prefabInstance.PrefabPath,
+                    propertyPaths = new[] { "integerValue" },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(prefabInstance.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+
+            var setResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var applyResult = await applyOperation.PlanAsync(applyRequest, context, CancellationToken.None);
+
+            AssertSuccess(setResult, applied: false, changed: true);
+            AssertSuccess(applyResult, applied: false, changed: true);
+            AssertTouchSet(applyResult, (UcliTouchedResourceKind.Prefab, prefabInstance.PrefabPath));
         });
 
         [UnityTest]
@@ -614,9 +756,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
-            AssertTouchSet(result, (OperationTouchKind.Prefab, prefabPath));
+            AssertTouchSet(result, (UcliTouchedResourceKind.Prefab, prefabPath));
             Assert.That(context.TryGetTemporaryAliasState("root", out var temporaryAliasState), Is.True);
-            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(UcliTouchedResourceKind.Prefab));
             Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(prefabPath));
             Assert.That(temporaryAliasState.UnityObject, Is.TypeOf<GameObject>());
             Assert.That(
@@ -640,12 +782,13 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     path = prefabPath,
                 },
-                alias: "root");
+                alias: "root",
+                sourceKind: NormalizedOperation.SourceStepKind.Op);
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
-            AssertTouchSet(result, (OperationTouchKind.Prefab, prefabPath));
+            AssertTouchSet(result, (UcliTouchedResourceKind.Prefab, prefabPath));
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out _), Is.False);
             Assert.That(context.TryGetTemporaryAliasState("root", out _), Is.False);
             Assert.That(PrefabStageUtility.GetCurrentPrefabStage(), Is.Null);
@@ -729,7 +872,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(ensureResult, applied: false, changed: true);
             AssertSuccess(setResult, applied: false, changed: true);
             Assert.That(context.TryGetTemporaryAliasState("childComp", out var temporaryAliasState), Is.True);
-            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(UcliTouchedResourceKind.Prefab));
             Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(prefabPath));
             Assert.That(temporaryAliasState.UnityObject, Is.TypeOf<CompOperationTestComponent>());
             Assert.That(((CompOperationTestComponent)temporaryAliasState.UnityObject!).IntegerValue, Is.EqualTo(11));
@@ -760,13 +903,13 @@ namespace MackySoft.Ucli.Unity.Tests
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
             AssertSuccess(result, applied: false, changed: false);
-            AssertTouchSet(result, (OperationTouchKind.Prefab, prefabPath));
+            AssertTouchSet(result, (UcliTouchedResourceKind.Prefab, prefabPath));
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var prefabContentsRoot), Is.True);
             Assert.That(prefabContentsRoot, Is.Not.Null);
             Assert.That(prefabContentsRoot, Is.Not.SameAs(prefabStage.prefabContentsRoot));
             Assert.That(prefabContentsRoot!.transform.GetChild(0).name, Is.EqualTo("Renamed"));
             Assert.That(context.TryGetTemporaryAliasState("root", out var temporaryAliasState), Is.True);
-            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(UcliTouchedResourceKind.Prefab));
             Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(prefabPath));
             Assert.That(temporaryAliasState.UnityObject, Is.SameAs(prefabContentsRoot));
         });
@@ -867,9 +1010,9 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(openResult, applied: false, changed: false);
             AssertSuccess(ensureResult, applied: false, changed: true);
-            AssertTouchSet(ensureResult, (OperationTouchKind.Prefab, prefabPath));
+            AssertTouchSet(ensureResult, (UcliTouchedResourceKind.Prefab, prefabPath));
             Assert.That(context.TryGetTemporaryAliasState("component", out var temporaryAliasState), Is.True);
-            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(temporaryAliasState.Resource.Kind, Is.EqualTo(UcliTouchedResourceKind.Prefab));
             Assert.That(temporaryAliasState.Resource.Path, Is.EqualTo(prefabPath));
             Assert.That(temporaryAliasState.UnityObject, Is.TypeOf<CompOperationTestComponent>());
         });
@@ -942,7 +1085,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(ensureResult, applied: true, changed: true);
             AssertSuccess(setResult, applied: true, changed: true);
             AssertSuccess(saveResult, applied: true, changed: true);
-            AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
+            AssertTouchSet(saveResult, (UcliTouchedResourceKind.Prefab, prefabPath));
             var openedPrefabStage = PrefabStageUtility.GetCurrentPrefabStage();
             Assert.That(openedPrefabStage, Is.Not.Null);
             Assert.That(openedPrefabStage!.prefabContentsRoot.scene.isDirty, Is.False);
@@ -1072,7 +1215,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(saveResult, applied: true, changed: true);
             Assert.That(saveResult.Persisted, Is.True);
-            AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
+            AssertTouchSet(saveResult, (UcliTouchedResourceKind.Prefab, prefabPath));
             Assert.That(prefabStage.prefabContentsRoot.scene.isDirty, Is.False);
             AssertReadInvalidations(
                 saveResult,
@@ -1100,7 +1243,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var saveResult = await saveOperation.PlanAsync(saveRequest, context, CancellationToken.None);
 
             AssertSuccess(saveResult, applied: false, changed: false);
-            AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
+            AssertTouchSet(saveResult, (UcliTouchedResourceKind.Prefab, prefabPath));
         });
 
         [UnityTest]
@@ -1116,7 +1259,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
             var child = new GameObject("SavedChild");
             child.transform.SetParent(temporaryRoot!.transform, worldPositionStays: false);
-            context.MarkRequestAttributedChange(new OperationResource(OperationTouchKind.Prefab, prefabPath));
+            context.MarkRequestAttributedChange(new OperationResource(UcliTouchedResourceKind.Prefab, prefabPath));
             var saveRequest = CreateOperation(
                 opId: "op-prefab-save",
                 opName: UcliPrimitiveOperationNames.PrefabSave,
@@ -1129,8 +1272,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(saveResult, applied: true, changed: true);
             Assert.That(saveResult.Persisted, Is.True);
-            AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
-            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Prefab, prefabPath)), Is.False);
+            AssertTouchSet(saveResult, (UcliTouchedResourceKind.Prefab, prefabPath));
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(UcliTouchedResourceKind.Prefab, prefabPath)), Is.False);
 
             var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabPath);
             Assert.That(loadedPrefabContentsRoot.transform.Find("SavedChild"), Is.Not.Null);
@@ -1168,7 +1311,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(saveResult, applied: true, changed: true);
             Assert.That(saveResult.Persisted, Is.True);
-            AssertTouchSet(saveResult, (OperationTouchKind.Prefab, prefabPath));
+            AssertTouchSet(saveResult, (UcliTouchedResourceKind.Prefab, prefabPath));
             Assert.That(prefabStage.scene.isDirty, Is.False);
             var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabPath);
             Assert.That(loadedPrefabContentsRoot.transform.Find("StageChild"), Is.Not.Null);
@@ -1225,11 +1368,77 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(planSetResult, applied: false, changed: true);
             AssertSuccess(callSetResult, applied: true, changed: true);
             AssertSuccess(revertResult, applied: true, changed: true);
-            AssertTouchSet(revertResult, (OperationTouchKind.Scene, prefabInstance.ScenePath));
+            AssertTouchSet(revertResult, (UcliTouchedResourceKind.Scene, prefabInstance.ScenePath));
             AssertReadInvalidations(
                 revertResult,
                 (OperationReadInvalidationSurface.SceneTreeLite, prefabInstance.ScenePath.Replace('\\', '/')));
             Assert.That(prefabInstance.Component.IntegerValue, Is.EqualTo(1));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator ApplyOverrides_PlanThenCall_WhenTargetUsesTemporaryOnlyAlias_AppliesLiveComponentOverride () => UniTask.ToCoroutine(async () =>
+        {
+            var setOperation = new CompSetOperation();
+            var applyOperation = new PrefabApplyOverridesOperation();
+            using var scope = new EditorTestScope()
+                .EnableEditorSceneReset();
+            var prefabInstance = CreateSavedPrefabInstanceWithTestComponent(scope);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(prefabInstance.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+            context.SetTemporaryAlias(
+                "component",
+                prefabInstance.Component,
+                new OperationResource(UcliTouchedResourceKind.Scene, prefabInstance.ScenePath));
+            Assert.That(context.AliasStore.TryGet("component", out _), Is.False);
+
+            var setRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.CompSet,
+                args: new
+                {
+                    target = new
+                    {
+                        scene = prefabInstance.ScenePath,
+                        hierarchyPath = "InstanceRoot",
+                        componentType = prefabInstance.ComponentTypeId,
+                    },
+                    sets = new object[]
+                    {
+                        new
+                        {
+                            path = "integerValue",
+                            value = 42,
+                        },
+                    },
+                });
+            var applyRequest = CreateOperation(
+                opId: "edit-step",
+                opName: UcliPrimitiveOperationNames.PrefabApplyOverrides,
+                args: new
+                {
+                    target = new
+                    {
+                        @var = "component",
+                    },
+                    targetAssetPath = prefabInstance.PrefabPath,
+                    propertyPaths = new[] { "integerValue" },
+                },
+                sourceKind: NormalizedOperation.SourceStepKind.Edit);
+
+            var setPlanResult = await setOperation.PlanAsync(setRequest, context, CancellationToken.None);
+            var applyPlanResult = await applyOperation.PlanAsync(applyRequest, context, CancellationToken.None);
+            var setCallResult = await setOperation.CallAsync(setRequest, context, CancellationToken.None);
+            var applyCallResult = await applyOperation.CallAsync(applyRequest, context, CancellationToken.None);
+
+            AssertSuccess(setPlanResult, applied: false, changed: true);
+            AssertSuccess(applyPlanResult, applied: false, changed: true);
+            AssertSuccess(setCallResult, applied: true, changed: true);
+            AssertSuccess(applyCallResult, applied: true, changed: true);
+            var loadedPrefabContentsRoot = scope.LoadPrefabContents(prefabInstance.PrefabPath);
+            var loadedComponent = loadedPrefabContentsRoot.GetComponent<CompOperationTestComponent>();
+            Assert.That(loadedComponent, Is.Not.Null);
+            Assert.That(loadedComponent!.IntegerValue, Is.EqualTo(42));
         });
 
         [UnityTest]
@@ -1243,7 +1452,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 .EnablePrefabStageCleanup();
             var fixture = CreateDisconnectedSceneObjectWithMatchingPrefab(scope);
             var context = scope.CreateExecutionContext();
-            context.TrackPlannedPrefabCreation(fixture.Component.gameObject, fixture.PrefabPath);
+            context.TrackPlannedPrefabCreation(
+                fixture.Component.gameObject,
+                new OperationResource(UcliTouchedResourceKind.Scene, fixture.ScenePath),
+                fixture.PrefabPath);
             Assert.That(context.TryEnsureSceneExecutionSession(fixture.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
 
             var target = new
@@ -1267,7 +1479,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     },
                 },
-                suppressPersistenceReporting: true,
+                sourceKind: NormalizedOperation.SourceStepKind.Edit,
+                persistenceReportingPolicy: OperationPersistenceReportingPolicy.SuppressAll,
                 allowExplicitPrefabAssetMutation: true);
             var applyRequest = CreateOperation(
                 opId: "edit-step",
@@ -1285,7 +1498,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(setResult, applied: true, changed: true);
             AssertSuccess(applyResult, applied: true, changed: true);
             Assert.That(applyResult.Persisted, Is.True);
-            AssertTouchSet(applyResult, (OperationTouchKind.Prefab, fixture.PrefabPath));
+            AssertTouchSet(applyResult, (UcliTouchedResourceKind.Prefab, fixture.PrefabPath));
             AssertReadInvalidations(
                 applyResult,
                 (OperationReadInvalidationSurface.AssetSearch, null),
@@ -1307,7 +1520,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 .EnablePrefabStageCleanup();
             var fixture = CreateDisconnectedSceneObjectWithMatchingPrefab(scope);
             var context = scope.CreateExecutionContext();
-            context.TrackPlannedPrefabCreation(fixture.Component.gameObject, fixture.PrefabPath);
+            context.TrackPlannedPrefabCreation(
+                fixture.Component.gameObject,
+                new OperationResource(UcliTouchedResourceKind.Scene, fixture.ScenePath),
+                fixture.PrefabPath);
             Assert.That(context.TryEnsureSceneExecutionSession(fixture.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
 
             var target = new
@@ -1331,7 +1547,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     },
                 },
-                suppressPersistenceReporting: true,
+                sourceKind: NormalizedOperation.SourceStepKind.Edit,
+                persistenceReportingPolicy: OperationPersistenceReportingPolicy.SuppressAll,
                 allowExplicitPrefabAssetMutation: true);
             var revertRequest = CreateOperation(
                 opId: "edit-step",
@@ -1342,7 +1559,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     targetAssetPath = fixture.PrefabPath,
                     propertyPaths = new[] { "integerValue" },
                 },
-                suppressPersistenceReporting: true);
+                sourceKind: NormalizedOperation.SourceStepKind.Edit,
+                persistenceReportingPolicy: OperationPersistenceReportingPolicy.SuppressAll);
 
             var setResult = await setOperation.CallAsync(setRequest, context, CancellationToken.None);
             var revertResult = await revertOperation.CallAsync(revertRequest, context, CancellationToken.None);
@@ -1364,7 +1582,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var fixture = CreateDisconnectedSceneObjectWithMatchingPrefab(scope);
             SetPrefabComponentIntegerValue(scope, fixture.PrefabPath, 7);
             var context = scope.CreateExecutionContext();
-            context.TrackPlannedPrefabCreation(fixture.Component.gameObject, fixture.PrefabPath);
+            context.TrackPlannedPrefabCreation(
+                fixture.Component.gameObject,
+                new OperationResource(UcliTouchedResourceKind.Scene, fixture.ScenePath),
+                fixture.PrefabPath);
             Assert.That(context.TryEnsureSceneExecutionSession(fixture.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
 
             var target = new
@@ -1388,7 +1609,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     },
                 },
-                suppressPersistenceReporting: true,
+                sourceKind: NormalizedOperation.SourceStepKind.Edit,
+                persistenceReportingPolicy: OperationPersistenceReportingPolicy.SuppressAll,
                 allowExplicitPrefabAssetMutation: true);
             var revertRequest = CreateOperation(
                 opId: "edit-step",
@@ -1399,7 +1621,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     targetAssetPath = fixture.PrefabPath,
                     propertyPaths = new[] { "integerValue" },
                 },
-                suppressPersistenceReporting: true);
+                sourceKind: NormalizedOperation.SourceStepKind.Edit,
+                persistenceReportingPolicy: OperationPersistenceReportingPolicy.SuppressAll);
 
             var setResult = await setOperation.CallAsync(setRequest, context, CancellationToken.None);
             var revertResult = await revertOperation.CallAsync(revertRequest, context, CancellationToken.None);
@@ -1443,7 +1666,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     },
                 },
-                suppressPersistenceReporting: true,
+                sourceKind: NormalizedOperation.SourceStepKind.Edit,
+                persistenceReportingPolicy: OperationPersistenceReportingPolicy.SuppressAll,
                 allowExplicitPrefabAssetMutation: true);
             var applyRequest = CreateOperation(
                 opId: "edit-step",
@@ -1479,7 +1703,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var sceneReference = new GameObject("SceneOnlyReference");
             SceneManager.MoveGameObjectToScene(sceneReference, fixture.Component.gameObject.scene);
             var context = scope.CreateExecutionContext();
-            context.TrackPlannedPrefabCreation(fixture.Component.gameObject, fixture.PrefabPath);
+            context.TrackPlannedPrefabCreation(
+                fixture.Component.gameObject,
+                new OperationResource(UcliTouchedResourceKind.Scene, fixture.ScenePath),
+                fixture.PrefabPath);
             Assert.That(context.TryEnsureSceneExecutionSession(fixture.ScenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
 
             var target = new
@@ -1507,7 +1734,8 @@ namespace MackySoft.Ucli.Unity.Tests
                         },
                     },
                 },
-                suppressPersistenceReporting: true,
+                sourceKind: NormalizedOperation.SourceStepKind.Edit,
+                persistenceReportingPolicy: OperationPersistenceReportingPolicy.SuppressAll,
                 allowExplicitPrefabAssetMutation: true);
             var applyRequest = CreateOperation(
                 opId: "edit-step",
@@ -1607,10 +1835,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertSuccess(applySetPlanResult, applied: false, changed: true);
             AssertSuccess(applyPlanResult, applied: false, changed: true);
-            AssertTouchSet(applyPlanResult, (OperationTouchKind.Prefab, prefabInstance.PrefabPath));
+            AssertTouchSet(applyPlanResult, (UcliTouchedResourceKind.Prefab, prefabInstance.PrefabPath));
             AssertSuccess(revertSetPlanResult, applied: false, changed: true);
             AssertSuccess(revertPlanResult, applied: false, changed: true);
-            AssertTouchSet(revertPlanResult, (OperationTouchKind.Scene, prefabInstance.ScenePath));
+            AssertTouchSet(revertPlanResult, (UcliTouchedResourceKind.Scene, prefabInstance.ScenePath));
         });
 
         [UnityTest]
@@ -1780,20 +2008,22 @@ namespace MackySoft.Ucli.Unity.Tests
             string opName,
             object args,
             string? alias = null,
-            NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Op,
-            bool suppressPersistenceReporting = false,
-            bool suppressScenePersistenceReporting = false,
+            NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Edit,
+            OperationPersistenceReportingPolicy persistenceReportingPolicy = OperationPersistenceReportingPolicy.ReportAll,
             bool allowExplicitPrefabAssetMutation = false)
         {
             return new NormalizedOperation(
-                Id: opId,
+                ExecutionKey: sourceKind == NormalizedOperation.SourceStepKind.Edit
+                    ? OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId(opId), primitiveIndex: 0)
+                    : OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: opName,
                 Args: JsonSerializer.SerializeToElement(args),
-                As: alias,
+                As: alias == null
+                    ? null
+                    : RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias(alias)),
                 Expect: null,
-                SourceKind: sourceKind,
-                SuppressPersistenceReporting: suppressPersistenceReporting,
-                SuppressScenePersistenceReporting: suppressScenePersistenceReporting,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: persistenceReportingPolicy,
                 AllowExplicitPrefabAssetMutation: allowExplicitPrefabAssetMutation);
         }
 
@@ -1804,7 +2034,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.Not.Null);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(result.Failure.OpId, Is.EqualTo(expectedOperationId));
+            Assert.That(result.Failure.OpId?.Value, Is.EqualTo(expectedOperationId));
         }
 
         private static void AssertSuccess (
@@ -1820,7 +2050,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static void AssertTouchSet (
             OperationPhaseStepResult result,
-            params (OperationTouchKind Kind, string Path)[] expectedTouches)
+            params (UcliTouchedResourceKind Kind, string Path)[] expectedTouches)
         {
             Assert.That(result.Touched.Count, Is.EqualTo(expectedTouches.Length));
             for (var i = 0; i < expectedTouches.Length; i++)

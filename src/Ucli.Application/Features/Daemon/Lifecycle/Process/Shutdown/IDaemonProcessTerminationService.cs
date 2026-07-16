@@ -6,11 +6,11 @@ internal interface IDaemonProcessTerminationService
 {
     /// <summary> Ensures daemon process is stopped before timeout expires. </summary>
     /// <param name="target"> The daemon process termination target when available. </param>
-    /// <param name="timeout"> The process termination timeout. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="deadline"> The deadline shared by the owning stop or cleanup workflow. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The process termination result. </returns>
     ValueTask<DaemonSessionStoreOperationResult> EnsureStoppedAsync (
         DaemonProcessTerminationTarget? target,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default);
 }

@@ -186,25 +186,13 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
 
         public static bool AreDimensionsSupported (int width, int height)
         {
-            if (width <= 0
-                || height <= 0
-                || width > IpcScreenshotCaptureLimits.MaximumDimension
-                || height > IpcScreenshotCaptureLimits.MaximumDimension
-                || width > SystemInfo.maxTextureSize
-                || height > SystemInfo.maxTextureSize)
-            {
-                return false;
-            }
-
-            try
-            {
-                return checked((long)width * height * 4L)
-                    <= IpcScreenshotCaptureLimits.MaximumRawImageBytes;
-            }
-            catch (OverflowException)
-            {
-                return false;
-            }
+            return width <= SystemInfo.maxTextureSize
+                && height <= SystemInfo.maxTextureSize
+                && IpcScreenshotCaptureLimits.TryCalculateRgba8Layout(
+                    width,
+                    height,
+                    out _,
+                    out _);
         }
 
         public static IpcScreenshotColorSpace ResolveColorSpace ()
@@ -370,7 +358,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     recalculateMipMaps: false);
                 cancellationToken.ThrowIfCancellationRequested();
                 var rawData = cpuTexture.GetRawTextureData<byte>();
-                var expectedLength = checked(source.width * source.height * 4);
+                var expectedLength = checked(
+                    source.width
+                    * source.height
+                    * IpcScreenshotCaptureLimits.Rgba8BytesPerPixel);
                 if (rawData.Length != expectedLength)
                 {
                     errorMessage =
@@ -426,7 +417,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             int height,
             CancellationToken cancellationToken)
         {
-            var rowStride = checked(width * 4);
+            var rowStride = checked(width * IpcScreenshotCaptureLimits.Rgba8BytesPerPixel);
             var rentedRow = ArrayPool<byte>.Shared.Rent(rowStride);
             try
             {

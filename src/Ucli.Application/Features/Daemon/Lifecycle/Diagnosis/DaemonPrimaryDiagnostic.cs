@@ -1,3 +1,6 @@
+using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 
 /// <summary> Represents one machine-readable diagnostic selected as the primary cause of a daemon diagnosis. </summary>
@@ -7,10 +10,38 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 /// <param name="Line"> The one-based diagnostic line number when available. </param>
 /// <param name="Column"> The one-based diagnostic column number when available. </param>
 /// <param name="Message"> The diagnostic message when available. </param>
-internal sealed record DaemonPrimaryDiagnostic (
-    string Kind,
-    string? Code,
-    string? File,
-    int? Line,
-    int? Column,
-    string? Message);
+internal sealed record DaemonPrimaryDiagnostic
+{
+    public DaemonPrimaryDiagnostic (
+        DaemonDiagnosisPrimaryDiagnosticKind Kind,
+        string? Code,
+        string? File,
+        int? Line,
+        int? Column,
+        string? Message)
+    {
+        if (!ContractLiteralCodec.IsDefined(Kind))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Unsupported primary diagnostic kind.");
+        }
+
+        this.Kind = Kind;
+        this.Code = Code;
+        this.File = File;
+        this.Line = Line;
+        this.Column = Column;
+        this.Message = Message;
+    }
+
+    public DaemonDiagnosisPrimaryDiagnosticKind Kind { get; }
+
+    public string? Code { get; }
+
+    public string? File { get; }
+
+    public int? Line { get; }
+
+    public int? Column { get; }
+
+    public string? Message { get; }
+}

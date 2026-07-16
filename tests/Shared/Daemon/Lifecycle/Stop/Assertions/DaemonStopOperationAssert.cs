@@ -10,8 +10,8 @@ internal static class DaemonStopOperationAssert
     {
         var invocation = Assert.Single(daemonStopOperation.Invocations);
         Assert.Equal(context.Context.UnityProject, invocation.UnityProject);
-        Assert.True(invocation.Timeout > TimeSpan.Zero);
-        Assert.True(invocation.Timeout <= context.Timeout);
+        Assert.True(invocation.RemainingTimeout > TimeSpan.Zero);
+        Assert.True(invocation.RemainingTimeout <= context.Timeout);
         return invocation;
     }
 
@@ -22,7 +22,7 @@ internal static class DaemonStopOperationAssert
     {
         var invocation = Assert.Single(stopOperation.Invocations);
         Assert.Equal(expectedUnityProject, invocation.UnityProject);
-        Assert.Equal(expectedTimeout, invocation.Timeout);
+        Assert.Equal(expectedTimeout, invocation.RemainingTimeout);
         return invocation;
     }
 }

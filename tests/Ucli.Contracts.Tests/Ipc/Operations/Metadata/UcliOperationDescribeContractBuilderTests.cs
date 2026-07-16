@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc;
 
@@ -41,12 +42,36 @@ public sealed class UcliOperationDescribeContractBuilderTests
 
         var input = Assert.Single(describe.Inputs!);
         Assert.Equal("path", input.Name);
-        Assert.Equal("Project-relative path to an existing Unity scene asset.", input.Description);
+        Assert.Equal("Project-relative path to a Unity scene asset.", input.Description);
         Assert.Equal("string", input.ValueType);
         Assert.Contains(input.Constraints!, constraint => constraint.Kind == "nonEmpty");
         Assert.Contains(input.Constraints!, constraint =>
             constraint.Kind == "assetExists"
             && constraint.AssetKind == "scene");
+    }
+
+    [Theory]
+    [InlineData(false, "asset")]
+    [InlineData(true, "prefab")]
+    [Trait("Size", "Small")]
+    public void Create_WhenPathIsCreationTarget_PublishesCreatableConstraintWithoutExists (
+        bool prefab,
+        string expectedAssetKind)
+    {
+        var describe = prefab
+            ? UcliOperationDescribeContractBuilder.Create<PrefabCreateArgs, UcliNoResult>(
+                "Creates a prefab asset.",
+                CreateSafeAssurance())
+            : UcliOperationDescribeContractBuilder.Create<AssetCreateArgs, UcliNoResult>(
+                "Creates an asset.",
+                CreateSafeAssurance());
+
+        var input = Assert.Single(describe.Inputs!, candidate => candidate.Name == "path");
+        Assert.Equal(
+            new[] { "nonEmpty", "projectRelativePath", "assetCreatable" },
+            input.Constraints!.Select(static constraint => constraint.Kind));
+        var creatable = Assert.Single(input.Constraints!, constraint => constraint.Kind == "assetCreatable");
+        Assert.Equal(expectedAssetKind, creatable.AssetKind);
     }
 
     [Fact]
@@ -100,11 +125,48 @@ public sealed class UcliOperationDescribeContractBuilderTests
         Assert.Contains(field.Constraints!, constraint => constraint.Kind == "assetGuid");
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WhenInputIsGuid_ReportsJsonStringValueType ()
+    {
+        var describe = UcliOperationDescribeContractBuilder.Create<GuidArgs, UcliNoResult>(
+            "Accepts one GUID.",
+            CreateSafeAssurance());
+
+        var input = Assert.Single(describe.Inputs!);
+        Assert.Equal("string", input.ValueType);
+        Assert.Contains(input.Constraints!, constraint => constraint.Kind == "assetGuid");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WhenInputIsContractLiteralEnum_ReportsJsonStringValueType ()
+    {
+        var describe = UcliOperationDescribeContractBuilder.Create<ContractLiteralArgs, UcliNoResult>(
+            "Accepts one finite contract literal.",
+            CreateSafeAssurance());
+
+        var input = Assert.Single(describe.Inputs!);
+        Assert.Equal("string", input.ValueType);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Create_WhenInputEnumHasUnmappedMember_RejectsContractDuringDiscovery ()
+    {
+        var exception = Assert.Throws<InvalidOperationException>(() =>
+            UcliOperationDescribeContractBuilder.Create<InvalidContractLiteralArgs, UcliNoResult>(
+                "Accepts one incomplete contract literal.",
+                CreateSafeAssurance()));
+
+        Assert.Contains("missing UcliContractLiteralAttribute", exception.Message, StringComparison.Ordinal);
+    }
+
     private static UcliOperationAssuranceContract CreateSafeAssurance ()
     {
         return new UcliOperationAssuranceContract(
             sideEffects: Array.Empty<UcliOperationSideEffect>(),
-            touchedKinds: Array.Empty<string>(),
+            touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
             planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",
             callSemantics: "Read Unity state without applying mutation.",
@@ -112,6 +174,39 @@ public sealed class UcliOperationDescribeContractBuilderTests
             readPostconditionContract: "Does not stale read surfaces by itself.",
             failureSemantics: "Failure means the observation was not fully produced.",
             dangerousNotes: Array.Empty<string>());
+    }
+
+    private sealed record GuidArgs
+    {
+        [UcliDescription("Non-empty asset GUID.")]
+        [UcliInputConstraint(UcliOperationInputConstraintKind.AssetGuid)]
+        public Guid AssetGuid { get; init; }
+    }
+
+    private sealed record ContractLiteralArgs
+    {
+        [UcliDescription("Finite operation mode.")]
+        public ContractLiteralMode Mode { get; init; }
+    }
+
+    private sealed record InvalidContractLiteralArgs
+    {
+        [UcliDescription("Incomplete finite operation mode.")]
+        public InvalidContractLiteralMode Mode { get; init; }
+    }
+
+    private enum ContractLiteralMode
+    {
+        [UcliContractLiteral("enabled")]
+        Enabled,
+    }
+
+    private enum InvalidContractLiteralMode
+    {
+        [UcliContractLiteral("enabled")]
+        Enabled,
+
+        Disabled,
     }
 
 }

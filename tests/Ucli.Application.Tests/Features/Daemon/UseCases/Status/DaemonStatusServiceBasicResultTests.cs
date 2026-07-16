@@ -16,7 +16,7 @@ public sealed class DaemonStatusServiceBasicResultTests
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create();
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Stale(session));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Stale(session, diagnosis: null));
         var service = CreateService(
             resolver,
             daemonStatusOperation);
@@ -84,7 +84,9 @@ public sealed class DaemonStatusServiceBasicResultTests
         var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 2222);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning(
+            diagnosis: null,
+            lastLaunchAttempt: null));
         var service = CreateService(
             resolver,
             daemonStatusOperation);
@@ -101,51 +103,4 @@ public sealed class DaemonStatusServiceBasicResultTests
         Assert.False(output.CanAcceptExecutionRequests);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task GetStatus_WhenDaemonStatusOperationFailsWithoutError_ReturnsFallbackInternalError ()
-    {
-        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 1300);
-        var resolver = new RecordingDaemonCommandExecutionContextResolver(
-            DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(
-            new DaemonStatusResult(DaemonStatusKind.Failed, null, null, null));
-        var service = CreateService(
-            resolver,
-            daemonStatusOperation);
-
-        var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal("Daemon status operation failed without structured error details.", error.Message);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task GetStatus_WhenStatusLiteralIsUnsupported_ReturnsInternalError ()
-    {
-        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 1400);
-        var resolver = new RecordingDaemonCommandExecutionContextResolver(
-            DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(
-            new DaemonStatusResult(
-                Status: (DaemonStatusKind)int.MaxValue,
-                Session: DaemonSessionTestFactory.Create(),
-                Diagnosis: null,
-                Error: null));
-        var service = CreateService(
-            resolver,
-            daemonStatusOperation);
-
-        var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal($"Daemon status returned unsupported status: {(DaemonStatusKind)int.MaxValue}.", error.Message);
-    }
 }

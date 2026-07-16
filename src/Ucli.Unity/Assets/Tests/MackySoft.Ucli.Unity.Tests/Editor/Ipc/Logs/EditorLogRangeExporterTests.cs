@@ -47,6 +47,36 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator ExportRange_WhenRangeIsEmpty_PublishesEmptyDestination () => UniTask.ToCoroutine(async () =>
+        {
+            var sourcePath = Path.Combine(Application.temporaryCachePath, $"editor-log-source-{Guid.NewGuid():N}.log");
+            var destinationPath = Path.Combine(Application.temporaryCachePath, $"editor-log-destination-{Guid.NewGuid():N}.log");
+            File.WriteAllText(sourcePath, "existing source");
+            File.WriteAllText(destinationPath, "stale destination");
+            var exporter = new EditorLogRangeExporter();
+
+            try
+            {
+                var summary = await TestAwaiter.WaitAsync(
+                    exporter.ExportRangeAsync(sourcePath, destinationPath, 8, 8, cancellationToken: CancellationToken.None).AsUniTask(),
+                    "Empty editor log range export",
+                    AsyncWaitTimeout);
+
+                Assert.That(File.Exists(destinationPath), Is.True);
+                Assert.That(new FileInfo(destinationPath).Length, Is.EqualTo(0));
+                Assert.That(summary.EntryCount, Is.EqualTo(0));
+                Assert.That(summary.ErrorCount, Is.EqualTo(0));
+                Assert.That(summary.WarningCount, Is.EqualTo(0));
+            }
+            finally
+            {
+                TryDeleteFile(sourcePath);
+                TryDeleteFile(destinationPath);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator ExportRange_ReturnsSeveritySummaryWithoutCountingBuildTotalsAsErrors () => UniTask.ToCoroutine(async () =>
         {
             var sourcePath = Path.Combine(Application.temporaryCachePath, $"editor-log-source-{Guid.NewGuid():N}.log");

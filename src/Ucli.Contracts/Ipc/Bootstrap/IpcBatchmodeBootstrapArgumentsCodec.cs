@@ -1,4 +1,4 @@
-using System.Globalization;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -11,12 +11,11 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint,
         IpcDaemonBootstrapArgumentNames.RepositoryRoot,
         IpcDaemonBootstrapArgumentNames.SessionPath,
+        IpcDaemonBootstrapArgumentNames.SessionGenerationId,
         IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc,
         IpcEndpointBootstrapArgumentNames.TransportKind,
         IpcEndpointBootstrapArgumentNames.Address,
-        IpcOneshotBootstrapArgumentNames.ParentProcessId,
-        IpcOneshotBootstrapArgumentNames.SessionToken,
-        IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc,
+        IpcOneshotBootstrapArgumentNames.BootstrapId,
     };
 
     /// <summary> Appends batchmode bootstrap argument token pairs to destination list. </summary>
@@ -81,18 +80,21 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             return false;
         }
 
-        if (string.Equals(target, IpcBatchmodeBootstrapTargetValues.Daemon, StringComparison.Ordinal))
+        if (!ContractLiteralCodec.TryParse<IpcBootstrapTarget>(target, out var bootstrapTarget))
         {
-            return TryParseDaemon(args, out arguments, out error);
+            error = InvalidTarget(target);
+            return false;
         }
 
-        if (string.Equals(target, IpcBatchmodeBootstrapTargetValues.Oneshot, StringComparison.Ordinal))
+        switch (bootstrapTarget)
         {
-            return TryParseOneshot(args, out arguments, out error);
+            case IpcBootstrapTarget.Daemon:
+                return TryParseDaemon(args, out arguments, out error);
+            case IpcBootstrapTarget.Oneshot:
+                return TryParseOneshot(args, out arguments, out error);
+            default:
+                throw new InvalidOperationException($"Unsupported IPC bootstrap target: {bootstrapTarget}.");
         }
-
-        error = InvalidTarget(target);
-        return false;
     }
 
     private static bool TryParseDaemon (
@@ -106,18 +108,37 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             return false;
         }
 
-        if (!TryParseTimestamp(values.SessionIssuedAtUtcText, "uCLI daemon bootstrap session issued-at timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.", out var sessionIssuedAtUtc, out error))
+        if (!TryParseProjectFingerprint(values.ProjectFingerprint, out var projectFingerprint, out error))
+        {
+            return false;
+        }
+
+        if (!Guid.TryParseExact(values.SessionGenerationIdText, "D", out var sessionGenerationId)
+            || sessionGenerationId == Guid.Empty)
+        {
+            error = new IpcBatchmodeBootstrapParseError(
+                IpcBatchmodeBootstrapParseErrorKind.InvalidSessionGenerationId,
+                "uCLI daemon bootstrap session generation identifier must be a non-empty GUID in D format.");
+            return false;
+        }
+
+        if (!TryParseTimestamp(values.SessionIssuedAtUtcText, "uCLI daemon bootstrap session issued-at timestamp must be a valid ISO 8601 UTC timestamp.", out var sessionIssuedAtUtc, out error))
+        {
+            return false;
+        }
+
+        if (!TryParseEndpoint(values.EndpointTransportKind, values.EndpointAddress, out var endpoint, out error))
         {
             return false;
         }
 
         arguments = new IpcDaemonBootstrapArguments(
             RepositoryRoot: values.RepositoryRoot,
-            ProjectFingerprint: values.ProjectFingerprint,
+            ProjectFingerprint: projectFingerprint,
             SessionPath: values.SessionPath,
+            SessionGenerationId: sessionGenerationId,
             SessionIssuedAtUtc: sessionIssuedAtUtc,
-            EndpointTransportKind: values.EndpointTransportKind,
-            EndpointAddress: values.EndpointAddress);
+            Endpoint: endpoint);
         error = IpcBatchmodeBootstrapParseError.None;
         return true;
     }
@@ -133,23 +154,16 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
             return false;
         }
 
-        if (!TryParsePositiveInt32(values.ParentProcessIdText, "uCLI oneshot bootstrap parent process identifier must be a positive integer.", out var parentProcessId, out error))
+        if (!Guid.TryParseExact(values.BootstrapIdText, "D", out var bootstrapId)
+            || bootstrapId == Guid.Empty)
         {
+            error = new IpcBatchmodeBootstrapParseError(
+                IpcBatchmodeBootstrapParseErrorKind.InvalidBootstrapId,
+                "uCLI oneshot bootstrap identifier must be a non-empty GUID in D format.");
             return false;
         }
 
-        if (!TryParseTimestamp(values.ExitDeadlineUtcText, "uCLI oneshot bootstrap exit deadline timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.", out var exitDeadlineUtc, out error))
-        {
-            return false;
-        }
-
-        arguments = new IpcOneshotBootstrapArguments(
-            parentProcessId,
-            values.ProjectFingerprint,
-            values.SessionToken,
-            exitDeadlineUtc,
-            values.EndpointTransportKind,
-            values.EndpointAddress);
+        arguments = new IpcOneshotBootstrapArguments(bootstrapId);
         error = IpcBatchmodeBootstrapParseError.None;
         return true;
     }
@@ -161,7 +175,8 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         out IpcBatchmodeBootstrapParseError error)
     {
         if (IpcIso8601TimestampCodec.TryParseOptionalWithTimezoneOffset(text, out var parsed)
-            && parsed is DateTimeOffset timestamp)
+            && parsed is DateTimeOffset { Offset: { Ticks: 0 } } timestamp
+            && timestamp != default)
         {
             value = timestamp;
             error = IpcBatchmodeBootstrapParseError.None;
@@ -173,20 +188,52 @@ public static class IpcBatchmodeBootstrapArgumentsCodec
         return false;
     }
 
-    private static bool TryParsePositiveInt32 (
-        string text,
-        string errorMessage,
-        out int value,
+    private static bool TryParseEndpoint (
+        string transportKindText,
+        string address,
+        out IpcEndpoint endpoint,
         out IpcBatchmodeBootstrapParseError error)
     {
-        if (int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out value) && value > 0)
+        endpoint = default!;
+        if (!ContractLiteralCodec.TryParse<IpcTransportKind>(transportKindText, out var transportKind))
         {
+            error = new IpcBatchmodeBootstrapParseError(
+                IpcBatchmodeBootstrapParseErrorKind.InvalidEndpointTransportKind,
+                "uCLI batchmode bootstrap endpoint transport kind is unsupported.");
+            return false;
+        }
+
+        try
+        {
+            endpoint = new IpcEndpoint(transportKind, address);
+            error = IpcBatchmodeBootstrapParseError.None;
+            return true;
+        }
+        catch (ArgumentException exception)
+        {
+            error = new IpcBatchmodeBootstrapParseError(
+                IpcBatchmodeBootstrapParseErrorKind.InvalidEndpointAddress,
+                exception.Message);
+            return false;
+        }
+    }
+
+    private static bool TryParseProjectFingerprint (
+        string text,
+        out ProjectFingerprint value,
+        out IpcBatchmodeBootstrapParseError error)
+    {
+        if (ProjectFingerprint.TryParse(text, out var fingerprint))
+        {
+            value = fingerprint;
             error = IpcBatchmodeBootstrapParseError.None;
             return true;
         }
 
-        value = 0;
-        error = EmptyRequiredValue(errorMessage);
+        value = default!;
+        error = new IpcBatchmodeBootstrapParseError(
+            IpcBatchmodeBootstrapParseErrorKind.InvalidProjectFingerprint,
+            "uCLI batchmode bootstrap project fingerprint must be exactly 64 lowercase hexadecimal SHA-256 characters.");
         return false;
     }
 

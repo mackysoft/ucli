@@ -9,11 +9,13 @@ internal sealed class RecordingDaemonLaunchService : IDaemonLaunchService
     public DaemonStartResult NextResult { get; set; } =
         DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 9090), IpcUnityEditorObservationTestFactory.Create());
 
+    public Func<ResolvedUnityProjectContext, ExecutionDeadline, DaemonEditorMode, DaemonStartupBlockedProcessPolicy, IDaemonStartProgressObserver?, CancellationToken, ValueTask<DaemonStartResult>>? Handler { get; set; }
+
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<DaemonStartResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
@@ -22,13 +24,18 @@ internal sealed class RecordingDaemonLaunchService : IDaemonLaunchService
         ArgumentNullException.ThrowIfNull(unityProject);
         cancellationToken.ThrowIfCancellationRequested();
 
-        invocations.Add(new Invocation(unityProject, timeout, editorMode, onStartupBlocked, progressObserver, cancellationToken));
+        invocations.Add(new Invocation(unityProject, deadline, editorMode, onStartupBlocked, progressObserver, cancellationToken));
+        if (Handler is not null)
+        {
+            return Handler(unityProject, deadline, editorMode, onStartupBlocked, progressObserver, cancellationToken);
+        }
+
         return ValueTask.FromResult(NextResult);
     }
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
         DaemonEditorMode EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         IDaemonStartProgressObserver? ProgressObserver,

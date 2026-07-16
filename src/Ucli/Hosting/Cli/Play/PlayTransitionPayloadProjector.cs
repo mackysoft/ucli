@@ -1,4 +1,6 @@
+using MackySoft.Ucli.Application.Features.Play.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Hosting.Cli.Play;
 
@@ -6,47 +8,36 @@ namespace MackySoft.Ucli.Hosting.Cli.Play;
 internal static class PlayTransitionPayloadProjector
 {
     /// <summary> Creates the JSON-serializable transition payload. </summary>
-    /// <param name="transition"> The transition command literal. </param>
-    /// <param name="result"> The transition result literal. </param>
-    /// <param name="before"> The before snapshot payload. </param>
-    /// <param name="after"> The after snapshot payload for successful transitions. </param>
-    /// <param name="observed"> The observed snapshot payload for transition errors. </param>
-    /// <param name="applicationState"> The application-state literal for transition errors. </param>
+    /// <param name="transition"> The projected transition. </param>
     /// <returns> The anonymous payload object serialized by the command-result writer. </returns>
-    public static object Create (
-        string transition,
-        string result,
-        object before,
-        object? after,
-        object? observed,
-        string? applicationState)
+    public static object Create (PlayTransitionOutput transition)
     {
-        return result switch
+        ArgumentNullException.ThrowIfNull(transition);
+
+        var transitionLiteral = ContractLiteralCodec.ToValue(transition.Transition);
+        var resultLiteral = ContractLiteralCodec.ToValue(transition.Result);
+
+        return transition.Result switch
         {
-            IpcPlayTransitionResultNames.Entered
-                or IpcPlayTransitionResultNames.AlreadyEntered
-                or IpcPlayTransitionResultNames.Exited
-                or IpcPlayTransitionResultNames.AlreadyExited => new
+            IpcPlayTransitionOutcome.Entered
+                or IpcPlayTransitionOutcome.AlreadyEntered
+                or IpcPlayTransitionOutcome.Exited
+                or IpcPlayTransitionOutcome.AlreadyExited => new
                 {
-                    transition,
-                    result,
-                    before,
-                    after,
+                    transition = transitionLiteral,
+                    result = resultLiteral,
+                    transition.Before,
+                    transition.After,
                 },
-            IpcPlayTransitionResultNames.Timeout or IpcPlayTransitionResultNames.Blocked => new
+            IpcPlayTransitionOutcome.Timeout or IpcPlayTransitionOutcome.Blocked => new
             {
-                transition,
-                result,
-                before,
-                observed,
-                applicationState,
+                transition = transitionLiteral,
+                result = resultLiteral,
+                transition.Before,
+                transition.Observed,
+                applicationState = ContractLiteralCodec.ToValue(transition.ApplicationState!.Value),
             },
-            _ => new
-            {
-                transition,
-                result,
-                before,
-            },
+            _ => throw new ArgumentOutOfRangeException(nameof(PlayTransitionOutput.Result), transition.Result, null),
         };
     }
 }

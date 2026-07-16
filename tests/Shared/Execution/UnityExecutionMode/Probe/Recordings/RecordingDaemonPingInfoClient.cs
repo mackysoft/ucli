@@ -1,4 +1,4 @@
-using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -23,7 +23,9 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
 
     public Action? OnPingAndRead { get; set; }
 
-    public Func<ResolvedUnityProjectContext, TimeSpan, string?, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>>? PingAndReadHandler { get; set; }
+    public Func<ResolvedUnityProjectContext, TimeSpan, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>>? PingAndReadHandler { get; set; }
+
+    public Func<ResolvedUnityProjectContext, DaemonSession, ExecutionDeadline, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>>? PingSessionAndReadHandler { get; set; }
 
     public Task WaitForFirstInvocationAsync (
         string description,
@@ -35,9 +37,57 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
     public ValueTask<IpcUnityEditorObservation> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
-        string? sessionToken = null,
-        bool validateProjectFingerprint = true,
+        bool validateProjectFingerprint,
         CancellationToken cancellationToken = default)
+    {
+        return RecordPingAndRead(
+            unityProject,
+            timeout,
+            deadline: null,
+            session: null,
+            requestId: null,
+            validateProjectFingerprint,
+            cancellationToken);
+    }
+
+    public ValueTask<IpcUnityEditorObservation> PingSessionAndReadAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        Guid requestId,
+        ExecutionDeadline deadline,
+        bool validateProjectFingerprint,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(deadline);
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Daemon ping request identifier must not be empty.", nameof(requestId));
+        }
+
+        if (!deadline.TryGetRemainingTimeout(out var timeout))
+        {
+            throw new TimeoutException("Timed out before recording the exact-session daemon ping.");
+        }
+
+        return RecordPingAndRead(
+            unityProject,
+            timeout,
+            deadline,
+            session,
+            requestId,
+            validateProjectFingerprint,
+            cancellationToken);
+    }
+
+    private ValueTask<IpcUnityEditorObservation> RecordPingAndRead (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        ExecutionDeadline? deadline,
+        DaemonSession? session,
+        Guid? requestId,
+        bool validateProjectFingerprint,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         cancellationToken.ThrowIfCancellationRequested();
@@ -45,18 +95,29 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
         invocations.Add(new Invocation(
             unityProject,
             timeout,
-            sessionToken,
+            deadline,
+            session,
+            requestId,
             validateProjectFingerprint,
             cancellationToken));
         firstInvocationObserved.TrySetResult(null);
         OnPingAndRead?.Invoke();
 
-        if (PingAndReadHandler is not null)
+        if (session is null && PingAndReadHandler is not null)
         {
             return PingAndReadHandler(
                 unityProject,
                 timeout,
-                sessionToken,
+                validateProjectFingerprint,
+                cancellationToken);
+        }
+
+        if (session is not null && PingSessionAndReadHandler is not null)
+        {
+            return PingSessionAndReadHandler(
+                unityProject,
+                session,
+                deadline!,
                 validateProjectFingerprint,
                 cancellationToken);
         }
@@ -78,7 +139,12 @@ internal sealed class RecordingDaemonPingInfoClient : IDaemonPingInfoClient
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         TimeSpan Timeout,
-        string? SessionToken,
+        ExecutionDeadline? Deadline,
+        DaemonSession? Session,
+        Guid? RequestId,
         bool ValidateProjectFingerprint,
-        CancellationToken CancellationToken);
+        CancellationToken CancellationToken)
+    {
+        public string? SessionToken => Session?.SessionToken.GetEncodedValue();
+    }
 }

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -17,12 +18,13 @@ internal static class DaemonLaunchServiceTestSupport
         IUnityDaemonProcessLauncher unityDaemonProcessLauncher,
         IDaemonStartupReadinessProbe startupReadinessProbe,
         IDaemonLaunchCompensationService launchCompensationService,
+        TimeProvider timeProvider,
         IDaemonDiagnosisStore? daemonDiagnosisStore = null,
         IUnityGuiEditorProcessLauncher? unityGuiEditorProcessLauncher = null,
         IDaemonGuiStartupObserver? guiStartupObserver = null,
-        IDaemonLaunchAttemptIdGenerator? launchAttemptIdGenerator = null,
+        IGuidGenerator? launchAttemptIdGenerator = null,
         IDaemonLaunchAttemptStore? launchAttemptStore = null,
-        TimeProvider? timeProvider = null)
+        DaemonCompensationOperationOwner? compensationOperationOwner = null)
     {
         return new DaemonLaunchService(
             daemonLaunchSessionService: launchSessionService,
@@ -32,15 +34,17 @@ internal static class DaemonLaunchServiceTestSupport
             guiStartupObserver: guiStartupObserver ?? new RecordingDaemonGuiStartupObserver(),
             daemonLaunchCompensationService: launchCompensationService,
             daemonDiagnosisStore: daemonDiagnosisStore ?? new RecordingDaemonDiagnosisStore(),
-            launchAttemptIdGenerator: launchAttemptIdGenerator ?? new SequentialDaemonLaunchAttemptIdGenerator(),
+            launchAttemptIdGenerator: launchAttemptIdGenerator ?? new SequentialGuidGenerator(),
             launchAttemptStore: launchAttemptStore ?? new RecordingDaemonLaunchAttemptStore(),
+            compensationOperationOwner: compensationOperationOwner ?? new DaemonCompensationOperationOwner(),
             timeProvider: timeProvider);
     }
 
-    public static string AssertStartupLaunchAttemptId (DaemonStartupObservation? startup)
+    public static Guid AssertStartupLaunchAttemptId (DaemonStartupObservation? startup)
     {
         Assert.NotNull(startup);
-        Assert.NotNull(startup!.LaunchAttemptId);
-        return startup.LaunchAttemptId;
+        Assert.True(startup!.LaunchAttemptId.HasValue);
+        Assert.NotEqual(Guid.Empty, startup.LaunchAttemptId.Value);
+        return startup.LaunchAttemptId.Value;
     }
 }

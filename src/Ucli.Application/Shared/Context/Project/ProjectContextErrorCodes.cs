@@ -25,6 +25,6 @@ internal static class ProjectContextErrorCodes
     /// <returns> <see langword="true" /> when the code belongs to project-context resolution; otherwise <see langword="false" />. </returns>
     public static bool Contains (UcliCode? errorCode)
     {
-        return errorCode.HasValue && All.Contains(errorCode.Value);
+        return errorCode is not null && All.Contains(errorCode);
     }
 }

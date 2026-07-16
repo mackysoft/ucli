@@ -1,5 +1,5 @@
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
-using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Verify;
@@ -64,8 +64,8 @@ public sealed class VerifyProfileResolverTests
         var projectDigest = VerifyProfileDigestCalculator.Calculate(project);
 
         Assert.Equal(firstDigest, secondDigest);
-        Assert.Matches("^[0-9a-f]{64}$", firstDigest);
-        Assert.Matches("^[0-9a-f]{64}$", projectDigest);
+        Assert.Matches("^[0-9a-f]{64}$", firstDigest.ToString());
+        Assert.Matches("^[0-9a-f]{64}$", projectDigest.ToString());
         Assert.NotEqual(firstDigest, projectDigest);
         Assert.Equal(
             firstDefault.Steps.Select(static step => step.Kind),
@@ -78,10 +78,10 @@ public sealed class VerifyProfileResolverTests
     {
         var profile = VerifyProfileResolver.Resolve("built-in:mutation").Profile!;
 
-        Assert.DoesNotContain(profile.Steps, static step => string.Equals(step.Kind, VerifyStepKindValues.Compile, StringComparison.Ordinal));
+        Assert.DoesNotContain(profile.Steps, static step => step.Kind == VerifyStepKind.Compile);
         Assert.DoesNotContain(
             profile.Steps.SelectMany(static step => step.Effects),
-            static effect => VerifyEffectValues.Compile.Contains(effect, StringComparer.Ordinal));
+            static effect => AssuranceEffectSets.Compile.Contains(effect));
     }
 
     [Theory]
@@ -92,8 +92,8 @@ public sealed class VerifyProfileResolverTests
     {
         var profile = VerifyProfileResolver.Resolve(profileName).Profile!;
 
-        var compileStep = Assert.Single(profile.Steps, static step => string.Equals(step.Kind, VerifyStepKindValues.Compile, StringComparison.Ordinal));
-        Assert.Equal(VerifyEffectValues.Compile, compileStep.Effects);
+        var compileStep = Assert.Single(profile.Steps, static step => step.Kind == VerifyStepKind.Compile);
+        Assert.Equal(AssuranceEffectSets.Compile, compileStep.Effects);
         Assert.True(compileStep.Required);
     }
 }

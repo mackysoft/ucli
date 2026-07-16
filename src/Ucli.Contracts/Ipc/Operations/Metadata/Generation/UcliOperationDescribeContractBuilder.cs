@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -37,7 +38,8 @@ public static class UcliOperationDescribeContractBuilder
             description,
             CreateInputs(typeof(TArgs)),
             CreateResultContract(typeof(TResult)),
-            assurance);
+            assurance,
+            codeContract: null);
     }
 
     private static IReadOnlyList<UcliOperationInputContract> CreateInputs (Type argsType)
@@ -255,8 +257,16 @@ public static class UcliOperationDescribeContractBuilder
     private static string GetValueType (Type type)
     {
         var actualType = Nullable.GetUnderlyingType(type) ?? type;
-        if (actualType == StringType || UcliStringValue.IsAssignableFrom(actualType))
+        if (actualType == StringType
+            || actualType == typeof(Guid)
+            || UcliStringValue.IsAssignableFrom(actualType))
         {
+            return "string";
+        }
+
+        if (actualType.IsEnum)
+        {
+            ContractLiteralCodec.Validate(actualType);
             return "string";
         }
 
@@ -280,7 +290,18 @@ public static class UcliOperationDescribeContractBuilder
             return "object";
         }
 
-        return TryGetArrayElementType(actualType, out _) ? "array" : "object";
+        if (TryGetArrayElementType(actualType, out var elementType))
+        {
+            var actualElementType = Nullable.GetUnderlyingType(elementType!) ?? elementType!;
+            if (actualElementType.IsEnum)
+            {
+                ContractLiteralCodec.Validate(actualElementType);
+            }
+
+            return "array";
+        }
+
+        return "object";
     }
 
     private static bool TryGetArrayElementType (

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Testing;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -11,7 +10,7 @@ public sealed class TestRunCommandPreDispatchTests
     public async Task Run_WhenModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new RecordingTestRunService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RunAsync(
             executionMode: "unsupported",
@@ -25,7 +24,7 @@ public sealed class TestRunCommandPreDispatchTests
     public async Task Run_WhenTestPlatformIsWhitespace_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new RecordingTestRunService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RunAsync(
             testPlatform: " ",
@@ -39,7 +38,7 @@ public sealed class TestRunCommandPreDispatchTests
     public async Task Run_WithUnsupportedFormat_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new RecordingTestRunService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.RunAsync(
             format: "yaml",
@@ -55,7 +54,7 @@ public sealed class TestRunCommandPreDispatchTests
     public async Task Run_WhenCancellationIsRequested_WritesTestRunCommandResult ()
     {
         var service = new RecordingTestRunService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
         using var cancellationTokenSource = new CancellationTokenSource();
         await cancellationTokenSource.CancelAsync();
 

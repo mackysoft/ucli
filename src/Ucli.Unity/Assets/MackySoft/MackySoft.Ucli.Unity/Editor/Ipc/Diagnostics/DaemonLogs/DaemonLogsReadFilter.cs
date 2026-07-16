@@ -1,4 +1,5 @@
 using System;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -8,8 +9,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         int? Tail,
         DateTimeOffset? Since,
         DateTimeOffset? Until,
-        string Level,
+        IpcLogLevel? Level,
         string Query,
-        string QueryTarget,
+        IpcLogQueryTarget QueryTarget,
         string Category);
 }

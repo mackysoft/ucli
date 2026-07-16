@@ -13,7 +13,7 @@ internal static class DaemonGuiSessionRegistrationAwaiterAssert
         Assert.Equal(expectedProcessStartedAtUtc, invocation.ExpectedProcessStartedAtUtc);
         if (expectedTimeout.HasValue)
         {
-            Assert.Equal(expectedTimeout.Value, invocation.Timeout);
+            Assert.Equal(expectedTimeout.Value, invocation.RemainingTimeout);
         }
 
         return invocation;
@@ -24,7 +24,7 @@ internal static class DaemonGuiSessionRegistrationAwaiterAssert
         TimeSpan expectedTimeout)
     {
         var invocation = Assert.Single(awaiter.Invocations);
-        Assert.Equal(expectedTimeout, invocation.Timeout);
+        Assert.Equal(expectedTimeout, invocation.RemainingTimeout);
         return invocation;
     }
 }

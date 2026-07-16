@@ -9,7 +9,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 {
     private const string CommandName = "query assets find";
 
-    private const string OperationId = "query.assets.find";
+    private static readonly IpcExecuteStepId OperationId = new("query.assets.find");
 
     private const string OperationName = "ucli.assets.find";
 
@@ -31,12 +31,13 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(" type-id", "type")]
-    [InlineData("Assets/ ", "pathPrefix")]
-    [InlineData(" Player", "nameContains")]
+    [InlineData(" type-id", "type", "leading or trailing whitespace")]
+    [InlineData("Assets/ ", "pathPrefix", null)]
+    [InlineData(" Player", "nameContains", "leading or trailing whitespace")]
     public void Create_WhenFilterContainsOuterWhitespace_ReturnsInvalidArgument (
         string value,
-        string expectedOptionName)
+        string expectedOptionName,
+        string? expectedDetail)
     {
         var result = Create(
             type: expectedOptionName == "type" ? value : "Texture2D",
@@ -47,7 +48,10 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);
         Assert.Contains($"--{expectedOptionName}", result.Error.Message, StringComparison.Ordinal);
-        Assert.Contains("leading or trailing whitespace", result.Error.Message, StringComparison.Ordinal);
+        if (expectedDetail is not null)
+        {
+            Assert.Contains(expectedDetail, result.Error.Message, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -65,10 +69,9 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
         Assert.Equal(CommandName, operation.CommandName);
         Assert.Equal(OperationId, operation.OperationId);
         Assert.Equal(OperationName, operation.OperationName);
-        Assert.Equal("Texture2D", operation.Filter.TypeId);
-        Assert.Equal("Assets/UI", operation.Filter.PathPrefix);
-        Assert.Equal("Button", operation.Filter.NameContains);
-        Assert.False(operation.WindowOptions.All);
+        Assert.Equal("Texture2D", operation.Query.TypeId!.Value);
+        Assert.Equal("Assets/UI", operation.Query.PathPrefix!.Value);
+        Assert.Equal("Button", operation.Query.NameContains);
         Assert.Equal(BoundedWindowConstants.DefaultLimit, operation.WindowOptions.Limit);
         Assert.Null(operation.WindowOptions.Cursor);
         Assert.Equal(0, operation.WindowOptions.Offset);
@@ -84,8 +87,7 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 
         Assert.True(result.IsSuccess);
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(result.Operation);
-        Assert.True(operation.WindowOptions.All);
-        Assert.Equal(0, operation.WindowOptions.Limit);
+        Assert.Null(operation.WindowOptions.Limit);
         Assert.Null(operation.WindowOptions.Cursor);
         Assert.Equal(0, operation.WindowOptions.Offset);
     }
@@ -98,7 +100,6 @@ public sealed class QueryAssetsFindOperationRequestFactoryTests
 
         Assert.True(result.IsSuccess);
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(result.Operation);
-        Assert.False(operation.WindowOptions.All);
         Assert.Equal(42, operation.WindowOptions.Limit);
     }
 

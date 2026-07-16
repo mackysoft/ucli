@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Hosting.Cli.Status;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -22,7 +21,11 @@ public sealed class StatusCommandTests
                 Generations: null,
                 CanAcceptExecutionRequests: false,
                 EditorMode: null,
-                TimeoutMilliseconds: 1234))));
+                TimeoutMilliseconds: 1234,
+                ObservedAtUtc: null,
+                ActionRequired: null,
+                PrimaryDiagnostic: null,
+                PlayMode: null))));
         var command = new StatusCommand(service, CommandResultTestWriter.Create());
         using var cancellationTokenSource = new CancellationTokenSource();
 

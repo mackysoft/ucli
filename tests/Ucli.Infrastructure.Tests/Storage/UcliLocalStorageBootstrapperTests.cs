@@ -1,4 +1,5 @@
 using MackySoft.Tests;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -12,7 +13,9 @@ public sealed class UcliLocalStorageBootstrapperTests
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "bootstrap-local-storage");
         var storageRoot = scope.CreateDirectory("Repo");
-        var indexDirectoryPath = UcliStoragePathResolver.ResolveIndexDirectory(storageRoot, "fingerprint");
+        var indexDirectoryPath = UcliStoragePathResolver.ResolveIndexDirectory(
+            storageRoot,
+            new ProjectFingerprint("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
         var ucliDirectoryPath = Path.Combine(storageRoot, UcliStoragePathNames.UcliDirectoryName);
         var localDirectoryPath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.LocalDirectoryName);
         var gitIgnorePath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.GitIgnoreFileName);
@@ -39,7 +42,9 @@ public sealed class UcliLocalStorageBootstrapperTests
             storageRoot,
             UcliStoragePathNames.UcliDirectoryName,
             UcliStoragePathNames.GitIgnoreFileName);
-        var indexDirectoryPath = UcliStoragePathResolver.ResolveIndexDirectory(storageRoot, "fingerprint");
+        var indexDirectoryPath = UcliStoragePathResolver.ResolveIndexDirectory(
+            storageRoot,
+            new ProjectFingerprint("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"));
         scope.WriteFile(
             Path.Combine("Repo", UcliStoragePathNames.UcliDirectoryName, UcliStoragePathNames.GitIgnoreFileName),
             "legacy/" + Environment.NewLine);

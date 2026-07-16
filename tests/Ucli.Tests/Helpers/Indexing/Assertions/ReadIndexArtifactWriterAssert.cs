@@ -7,7 +7,7 @@ internal static class ReadIndexArtifactWriterAssert
         string expectedSourceInputsHash)
     {
         var invocation = Assert.Single(artifactWriter.OpsCatalogInvocations);
-        Assert.Equal(expectedSourceInputsHash, invocation.SourceInputsHash);
+        Assert.Equal(Sha256DigestTestFactory.Compute(expectedSourceInputsHash), invocation.SourceInputsHash);
         return invocation;
     }
 
@@ -24,22 +24,22 @@ internal static class ReadIndexArtifactWriterAssert
         var snapshot = invocation.ManifestInputSnapshot!;
         if (expectedAssetsContentHash is not null)
         {
-            Assert.Equal(expectedAssetsContentHash, snapshot.AssetsContentHash);
+            Assert.Equal(Sha256DigestTestFactory.Compute(expectedAssetsContentHash), snapshot.AssetsContentHash);
         }
 
         if (expectedAssetSearchHash is not null)
         {
-            Assert.Equal(expectedAssetSearchHash, snapshot.AssetSearchHash);
+            Assert.Equal(Sha256DigestTestFactory.Compute(expectedAssetSearchHash), snapshot.AssetSearchHash);
         }
 
         if (expectedGuidPathHash is not null)
         {
-            Assert.Equal(expectedGuidPathHash, snapshot.GuidPathHash);
+            Assert.Equal(Sha256DigestTestFactory.Compute(expectedGuidPathHash), snapshot.GuidPathHash);
         }
 
         if (expectedCombinedHash is not null)
         {
-            Assert.Equal(expectedCombinedHash, snapshot.CombinedHash);
+            Assert.Equal(Sha256DigestTestFactory.Compute(expectedCombinedHash), snapshot.CombinedHash);
         }
 
         return invocation;
@@ -62,7 +62,7 @@ internal static class ReadIndexArtifactWriterAssert
         string expectedAssetPath)
     {
         var invocation = Assert.Single(artifactWriter.AssetLookupInvocations);
-        Assert.Equal(expectedAssetSearchHash, invocation.InputSnapshot.AssetSearchHash);
+        Assert.Equal(Sha256DigestTestFactory.Compute(expectedAssetSearchHash), invocation.InputSnapshot.AssetSearchHash);
         Assert.Equal(expectedAssetPath, invocation.AssetSearchEntries[0].AssetPath);
         return invocation;
     }
@@ -72,7 +72,7 @@ internal static class ReadIndexArtifactWriterAssert
         string expectedSourceInputsHash)
     {
         var invocation = Assert.Single(artifactWriter.SceneTreeLiteInvocations);
-        Assert.Equal(expectedSourceInputsHash, invocation.SourceInputsHash);
+        Assert.Equal(Sha256DigestTestFactory.Compute(expectedSourceInputsHash), invocation.SourceInputsHash);
         return invocation;
     }
 

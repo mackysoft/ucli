@@ -18,12 +18,9 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
 
     private readonly IUnityEditorPathResolver unityEditorPathResolver;
 
-    private readonly ITestRunPathNormalizer pathNormalizer;
-
-    private readonly ITestRunPathExistenceProbe pathExistenceProbe;
-
     /// <summary> Initializes a new instance of the <see cref="TestRunConfigurationResolver" /> class. </summary>
     /// <param name="profileLoader"> The test-run profile loader dependency. </param>
+    /// <param name="projectPathInputResolver"> The project-path input resolver dependency. </param>
     /// <param name="unityProjectResolver"> The Unity project resolver dependency. </param>
     /// <param name="unityVersionResolver"> The Unity version resolver dependency. </param>
     /// <param name="unityEditorPathResolver"> The Unity editor path resolver dependency. </param>
@@ -32,17 +29,13 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         IProjectPathInputResolver projectPathInputResolver,
         IUnityProjectResolver unityProjectResolver,
         IUnityVersionResolver unityVersionResolver,
-        IUnityEditorPathResolver unityEditorPathResolver,
-        ITestRunPathNormalizer pathNormalizer,
-        ITestRunPathExistenceProbe pathExistenceProbe)
+        IUnityEditorPathResolver unityEditorPathResolver)
     {
         this.profileLoader = profileLoader ?? throw new ArgumentNullException(nameof(profileLoader));
         this.projectPathInputResolver = projectPathInputResolver ?? throw new ArgumentNullException(nameof(projectPathInputResolver));
         this.unityProjectResolver = unityProjectResolver ?? throw new ArgumentNullException(nameof(unityProjectResolver));
         this.unityVersionResolver = unityVersionResolver ?? throw new ArgumentNullException(nameof(unityVersionResolver));
         this.unityEditorPathResolver = unityEditorPathResolver ?? throw new ArgumentNullException(nameof(unityEditorPathResolver));
-        this.pathNormalizer = pathNormalizer ?? throw new ArgumentNullException(nameof(pathNormalizer));
-        this.pathExistenceProbe = pathExistenceProbe ?? throw new ArgumentNullException(nameof(pathExistenceProbe));
     }
 
     /// <summary> Resolves one test-run configuration from command input and optional profile values. </summary>
@@ -85,21 +78,6 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         }
 
         var unityProject = unityProjectResolutionResult.Context!;
-        var testSettingsPathNormalizationError = NormalizeTestSettingsPath(
-            ref mergedConfiguration,
-            unityProject.RepositoryRoot,
-            pathNormalizer);
-        if (testSettingsPathNormalizationError is not null)
-        {
-            return TestRunConfigurationResolutionResult.Failure([testSettingsPathNormalizationError]);
-        }
-
-        var testSettingsPathExistenceError = ValidateTestSettingsPath(mergedConfiguration, pathExistenceProbe);
-        if (testSettingsPathExistenceError is not null)
-        {
-            return TestRunConfigurationResolutionResult.Failure([testSettingsPathExistenceError]);
-        }
-
         cancellationToken.ThrowIfCancellationRequested();
         var unityVersionResolutionResult = unityVersionResolver.Resolve(
             unityProject.UnityProjectRoot,
@@ -127,7 +105,6 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             TestFilter: mergedConfiguration.TestFilter,
             TestCategories: mergedConfiguration.TestCategories,
             AssemblyNames: mergedConfiguration.AssemblyNames,
-            TestSettingsPath: mergedConfiguration.TestSettingsPath,
             TimeoutMilliseconds: mergedConfiguration.TimeoutMilliseconds);
         return TestRunConfigurationResolutionResult.Success(resolvedConfiguration);
     }
@@ -146,35 +123,6 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
             CommandOptionProjectPath: input.ProjectPath,
             FallbackProjectPath: profile?.ProjectPath,
             FallbackSourceLabel: ProfileProjectPathSourceLabel));
-    }
-
-    private static ExecutionError? NormalizeTestSettingsPath (
-        ref MergedTestRunConfiguration configuration,
-        string repositoryRoot,
-        ITestRunPathNormalizer pathNormalizer)
-    {
-        ArgumentNullException.ThrowIfNull(configuration);
-        ArgumentException.ThrowIfNullOrWhiteSpace(repositoryRoot);
-        ArgumentNullException.ThrowIfNull(pathNormalizer);
-
-        if (configuration.TestSettingsPath is null)
-        {
-            return null;
-        }
-
-        var pathNormalizationResult = pathNormalizer.TryNormalizeRepositoryPath(
-            repositoryRoot,
-            configuration.TestSettingsPath);
-        if (pathNormalizationResult.IsSuccess)
-        {
-            configuration = configuration with
-            {
-                TestSettingsPath = pathNormalizationResult.FullPath,
-            };
-            return null;
-        }
-
-        return ExecutionError.InvalidArgument(CreateTestSettingsPathErrorMessage(pathNormalizationResult));
     }
 
     /// <summary> Validates merged configuration values before project and editor resolution. </summary>
@@ -199,37 +147,5 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         }
 
         return errors;
-    }
-
-    private static string CreateTestSettingsPathErrorMessage (TestRunPathNormalizationResult pathNormalizationResult)
-    {
-        if (pathNormalizationResult.IsSuccess)
-        {
-            throw new ArgumentException("Successful path normalization result does not have an error message.", nameof(pathNormalizationResult));
-        }
-
-        var reason = pathNormalizationResult.FailureKind switch
-        {
-            TestRunPathNormalizationFailureKind.EmptyPath => "Path value is empty.",
-            TestRunPathNormalizationFailureKind.InvalidFormat => "Path format is invalid.",
-            TestRunPathNormalizationFailureKind.OutsideRepositoryRoot => "Path must be under the repository root.",
-            _ => "Path is invalid.",
-        };
-        return $"testSettingsPath is invalid: {reason}";
-    }
-
-    private static ExecutionError? ValidateTestSettingsPath (
-        MergedTestRunConfiguration configuration,
-        ITestRunPathExistenceProbe pathExistenceProbe)
-    {
-        ArgumentNullException.ThrowIfNull(configuration);
-        ArgumentNullException.ThrowIfNull(pathExistenceProbe);
-
-        if (!string.IsNullOrWhiteSpace(configuration.TestSettingsPath) && !pathExistenceProbe.FileExists(configuration.TestSettingsPath))
-        {
-            return ExecutionError.InvalidArgument($"testSettingsPath does not exist: {configuration.TestSettingsPath}");
-        }
-
-        return null;
     }
 }

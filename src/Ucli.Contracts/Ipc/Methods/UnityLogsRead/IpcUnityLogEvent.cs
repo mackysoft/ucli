@@ -1,16 +1,55 @@
+using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents one Unity log event returned by <c>unity.logs.read</c>. </summary>
-/// <param name="Timestamp"> The event timestamp in ISO 8601 format. </param>
-/// <param name="Level"> The normalized event level (<c>error|warning|info</c>). </param>
-/// <param name="Source"> The Unity log source (<c>compile|runtime</c>). </param>
-/// <param name="Message"> The normalized user-facing message. </param>
-/// <param name="StackTrace"> The optional stack trace included by request options. </param>
-/// <param name="Cursor"> The opaque cursor assigned to this event. </param>
-public sealed record IpcUnityLogEvent (
-    string Timestamp,
-    string Level,
-    string Source,
-    string Message,
-    string? StackTrace,
-    string Cursor);
+public sealed record IpcUnityLogEvent
+{
+    /// <summary> Initializes one Unity log event. </summary>
+    [JsonConstructor]
+    public IpcUnityLogEvent (
+        DateTimeOffset Timestamp,
+        IpcLogLevel Level,
+        IpcUnityLogSource Source,
+        string Message,
+        string? StackTrace,
+        IpcLogCursor Cursor)
+    {
+        if (!ContractLiteralCodec.IsDefined(Level))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Level), Level, "Log event level must identify one emitted level.");
+        }
+
+        if (!ContractLiteralCodec.IsDefined(Source))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Source), Source, "Unity log event source must identify one emitted source.");
+        }
+
+        this.Timestamp = ContractArgumentGuard.RequireTimestamp(Timestamp, nameof(Timestamp));
+        this.Level = Level;
+        this.Source = Source;
+        this.Message = ContractArgumentGuard.RequireValue(Message, nameof(Message));
+        this.StackTrace = StackTrace;
+        this.Cursor = ContractArgumentGuard.RequireNotNull(Cursor, nameof(Cursor));
+    }
+
+    /// <summary> Gets the event timestamp and its timezone offset. </summary>
+    [JsonConverter(typeof(IpcTimestampJsonConverter))]
+    public DateTimeOffset Timestamp { get; }
+
+    /// <summary> Gets the event level. </summary>
+    public IpcLogLevel Level { get; }
+
+    /// <summary> Gets the Unity log source. </summary>
+    public IpcUnityLogSource Source { get; }
+
+    /// <summary> Gets the normalized user-facing message. </summary>
+    public string Message { get; }
+
+    /// <summary> Gets the optional stack trace included by request options. </summary>
+    public string? StackTrace { get; }
+
+    /// <summary> Gets the opaque cursor assigned to this event. </summary>
+    public IpcLogCursor Cursor { get; }
+}

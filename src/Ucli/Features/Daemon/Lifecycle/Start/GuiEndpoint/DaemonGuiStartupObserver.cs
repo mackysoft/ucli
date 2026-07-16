@@ -21,19 +21,15 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
 
     private readonly IDaemonProcessIdentityAssessor processIdentityAssessor;
 
-    private readonly TimeProvider timeProvider;
-
     /// <summary> Initializes a new instance of the <see cref="DaemonGuiStartupObserver" /> class. </summary>
     public DaemonGuiStartupObserver (
         IDaemonGuiSessionRegistrationAwaiter sessionRegistrationAwaiter,
         IUnityLogReader unityLogReader,
-        IDaemonProcessIdentityAssessor processIdentityAssessor,
-        TimeProvider? timeProvider = null)
+        IDaemonProcessIdentityAssessor processIdentityAssessor)
     {
         this.sessionRegistrationAwaiter = sessionRegistrationAwaiter ?? throw new ArgumentNullException(nameof(sessionRegistrationAwaiter));
         this.unityLogReader = unityLogReader ?? throw new ArgumentNullException(nameof(unityLogReader));
         this.processIdentityAssessor = processIdentityAssessor ?? throw new ArgumentNullException(nameof(processIdentityAssessor));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc />
@@ -42,34 +38,29 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
         int processId,
         DateTimeOffset processStartedAtUtc,
         string unityLogPath,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(processId, 0);
         ArgumentException.ThrowIfNullOrWhiteSpace(unityLogPath);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         while (true)
         {
             cancellationToken.ThrowIfCancellationRequested();
             if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
             {
-                return await CreateTimeoutResultAsync(
-                        unityProject,
-                        processId,
-                        processStartedAtUtc,
-                        unityLogPath,
-                        cancellationToken)
-                    .ConfigureAwait(false);
+                return CreateTimeoutResult(processId);
             }
 
+            var observationAttemptDeadline = deadline.CreateCappedDeadline(
+                GetObservationAttemptTimeout(remainingTimeout));
             var sessionResult = await sessionRegistrationAwaiter.WaitForSessionAsync(
                     unityProject,
                     processId,
-                    GetObservationAttemptTimeout(remainingTimeout),
+                    observationAttemptDeadline,
                     expectedProcessStartedAtUtc: processStartedAtUtc,
                     cancellationToken)
                 .ConfigureAwait(false);
@@ -85,16 +76,22 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
                 return DaemonGuiStartupObservationResult.Failure(sessionResult.Error);
             }
 
-            var logBlocker = await TryClassifyLogAsync(
+            var logClassification = await TryClassifyLogAsync(
                     unityProject,
                     processId,
                     processStartedAtUtc,
                     unityLogPath,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (logBlocker is not null)
+            if (logClassification.DeadlineExpired)
             {
-                return DaemonGuiStartupObservationResult.Blocked(logBlocker);
+                return CreateTimeoutResult(processId);
+            }
+
+            if (logClassification.Blocker is not null)
+            {
+                return DaemonGuiStartupObservationResult.Blocked(logClassification.Blocker);
             }
 
             if (IsExpectedProcessStillAlive(processId, processStartedAtUtc))
@@ -102,14 +99,15 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
                 continue;
             }
 
-            logBlocker = await TryClassifyLogAsync(
+            logClassification = await TryClassifyLogAsync(
                     unityProject,
                     processId,
                     processStartedAtUtc,
                     unityLogPath,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
-            return DaemonGuiStartupObservationResult.Blocked(logBlocker ?? CreateProcessExitedBlocker(
+            return DaemonGuiStartupObservationResult.Blocked(logClassification.Blocker ?? CreateProcessExitedBlocker(
                 processId,
                 processStartedAtUtc,
                 unityLogPath));
@@ -125,45 +123,40 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
             or DaemonProcessIdentityAssessmentStatus.Uncertain;
     }
 
-    private async ValueTask<DaemonGuiStartupObservationResult> CreateTimeoutResultAsync (
-        ResolvedUnityProjectContext unityProject,
-        int processId,
-        DateTimeOffset processStartedAtUtc,
-        string unityLogPath,
-        CancellationToken cancellationToken)
+    private static DaemonGuiStartupObservationResult CreateTimeoutResult (int processId)
     {
-        var logBlocker = await TryClassifyLogAsync(
-                unityProject,
-                processId,
-                processStartedAtUtc,
-                unityLogPath,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (logBlocker is not null)
-        {
-            return DaemonGuiStartupObservationResult.Blocked(logBlocker);
-        }
-
         return DaemonGuiStartupObservationResult.Failure(ExecutionError.Timeout(
             $"Timed out while waiting for GUI daemon session registration. ProcessId={processId}.",
             ExecutionErrorCodes.IpcTimeout));
     }
 
-    private async ValueTask<DaemonGuiStartupBlockerObservation?> TryClassifyLogAsync (
+    private async ValueTask<(DaemonGuiStartupBlockerObservation? Blocker, bool DeadlineExpired)> TryClassifyLogAsync (
         ResolvedUnityProjectContext unityProject,
         int processId,
         DateTimeOffset processStartedAtUtc,
         string unityLogPath,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken)
     {
-        var logReadResult = await unityLogReader.ReadTailAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                cancellationToken: cancellationToken)
+        var logReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                deadline,
+                cancellationToken,
+                "Timed out before Unity startup log read could begin.",
+                "Timed out while reading the Unity startup log.",
+                token => unityLogReader.ReadTailAsync(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    cancellationToken: token))
             .ConfigureAwait(false);
+        if (!logReadOperation.IsSuccess)
+        {
+            return (null, true);
+        }
+
+        var logReadResult = logReadOperation.Value!;
         if (!logReadResult.IsSuccess || string.IsNullOrWhiteSpace(logReadResult.Text))
         {
-            return null;
+            return (null, false);
         }
 
         var latestStartupLogText = DaemonStartupFailureLogClassifier.GetLatestStartupLogText(logReadResult.Text);
@@ -172,14 +165,14 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
                 DaemonStartupFailureClassificationContext.Gui,
                 out var classification))
         {
-            return null;
+            return (null, false);
         }
 
-        return new DaemonGuiStartupBlockerObservation(
+        return (new DaemonGuiStartupBlockerObservation(
             classification,
             processId,
             processStartedAtUtc,
-            string.IsNullOrWhiteSpace(logReadResult.Path) ? unityLogPath : logReadResult.Path);
+            string.IsNullOrWhiteSpace(logReadResult.Path) ? unityLogPath : logReadResult.Path), false);
     }
 
     private static TimeSpan GetObservationAttemptTimeout (TimeSpan remainingTimeout)
@@ -198,13 +191,13 @@ internal sealed class DaemonGuiStartupObserver : IDaemonGuiStartupObserver
         return new DaemonGuiStartupBlockerObservation(
             new DaemonStartupFailureClassification(
                 startupBlockingReason: DaemonStartupBlockingReason.ProcessExit,
-                reason: DaemonDiagnosisReasonValues.EditorExitedBeforeBootstrap,
+                reason: DaemonDiagnosisReason.EditorExitedBeforeBootstrap,
                 retryDisposition: DaemonStartupRetryDisposition.Unknown,
                 message: message,
                 startupPhase: DaemonDiagnosisStartupPhase.ProcessExit,
-                actionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+                actionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
                 primaryDiagnostic: new DaemonPrimaryDiagnostic(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit,
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.ProcessExit,
                     Code: null,
                     File: null,
                     Line: null,

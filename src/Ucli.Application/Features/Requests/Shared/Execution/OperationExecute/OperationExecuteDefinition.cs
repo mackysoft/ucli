@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 
@@ -12,7 +13,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Operatio
 /// <param name="FailureMessage"> The fallback user-facing message emitted when this fixed operation fails without a more specific error message. </param>
 internal sealed record OperationExecuteDefinition (
     UcliCommand Command,
-    string OperationId,
+    IpcExecuteStepId OperationId,
     UcliOperationDescriptor Descriptor,
     JsonElement Args,
     string SuccessMessage,

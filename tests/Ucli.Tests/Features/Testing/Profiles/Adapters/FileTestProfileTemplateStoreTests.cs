@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Profiles;
 using MackySoft.Ucli.Application.Features.Testing.Profiles.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -165,7 +164,7 @@ public sealed class FileTestProfileTemplateStoreTests
             .IsNull("testFilter")
             .HasArrayLength("testCategories", 0)
             .HasArrayLength("assemblyNames", 0)
-            .IsNull("testSettingsPath")
             .HasInt32("timeout", UcliContractConstants.TestProfile.TimeoutMilliseconds);
+        Assert.False(profileJson.RootElement.TryGetProperty("testSettingsPath", out _));
     }
 }

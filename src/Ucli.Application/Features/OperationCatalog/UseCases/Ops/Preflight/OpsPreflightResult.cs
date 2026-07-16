@@ -3,16 +3,36 @@ using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.UseCases.Ops.Preflight;
 
 /// <summary> Represents one preflight outcome for ops execution. </summary>
-/// <param name="Context"> The resolved execution context when preflight succeeds; otherwise <see langword="null" />. </param>
-/// <param name="Message"> The user-facing failure message; otherwise an empty string. </param>
-/// <param name="ErrorCode"> The machine-readable failure code; otherwise <see langword="null" />. </param>
-internal sealed record OpsPreflightResult (
-    OpsPreflightContext? Context,
-    string Message,
-    UcliCode? ErrorCode)
+internal sealed record OpsPreflightResult
 {
+    private OpsPreflightResult (
+        OpsPreflightContext? context,
+        string message,
+        UcliCode? errorCode)
+    {
+        if (context is null)
+        {
+            ArgumentNullException.ThrowIfNull(errorCode);
+            ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        }
+        else if (errorCode is not null)
+        {
+            throw new ArgumentException("Successful preflight must not contain an error code.", nameof(errorCode));
+        }
+
+        Context = context;
+        Message = message;
+        ErrorCode = errorCode;
+    }
+
+    public OpsPreflightContext? Context { get; }
+
+    public string Message { get; }
+
+    public UcliCode? ErrorCode { get; }
+
     /// <summary> Gets a value indicating whether preflight succeeded. </summary>
-    public bool IsSuccess => Context is not null && ErrorCode is null;
+    public bool IsSuccess => Context is not null;
 
     /// <summary> Creates one successful preflight result. </summary>
     /// <param name="context"> The resolved execution context. </param>

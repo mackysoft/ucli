@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
@@ -19,7 +20,10 @@ internal static class DaemonListQueryServiceTestSupport
         IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonPingInfoClient daemonPingClient,
         IDaemonReachabilityClassifier reachabilityClassifier,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IDaemonLifecycleStore? daemonLifecycleStore = null,
+        IDaemonProcessIdentityAssessor? processIdentityAssessor = null,
+        IDaemonSessionDiagnosisResolver? daemonSessionDiagnosisResolver = null)
     {
         return CreateService(
             new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
@@ -34,7 +38,10 @@ internal static class DaemonListQueryServiceTestSupport
             daemonDiagnosisStore,
             daemonPingClient,
             reachabilityClassifier,
-            timeProvider);
+            timeProvider,
+            daemonLifecycleStore,
+            processIdentityAssessor,
+            daemonSessionDiagnosisResolver);
     }
 
     public static DaemonListQueryService CreateService (
@@ -44,59 +51,71 @@ internal static class DaemonListQueryServiceTestSupport
         IDaemonDiagnosisStore daemonDiagnosisStore,
         IDaemonPingInfoClient daemonPingClient,
         IDaemonReachabilityClassifier daemonReachabilityClassifier,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IDaemonLifecycleStore? daemonLifecycleStore = null,
+        IDaemonProcessIdentityAssessor? processIdentityAssessor = null,
+        IDaemonSessionDiagnosisResolver? daemonSessionDiagnosisResolver = null)
     {
         return new DaemonListQueryService(
             gitWorktreeQueryService,
             unityProjectResolver,
             daemonSessionStore,
             daemonDiagnosisStore,
-            daemonPingClient,
+            new DaemonSessionProbe(
+                DaemonSessionAcquisitionCoordinatorTestFactory.Create(daemonSessionStore),
+                daemonPingClient,
+                daemonReachabilityClassifier),
             daemonReachabilityClassifier,
-            new RecordingDaemonLifecycleStore(),
-            new RecordingDaemonProcessIdentityAssessor(),
-            CreateDiagnosisResolver(daemonDiagnosisStore),
+            daemonLifecycleStore ?? new RecordingDaemonLifecycleStore(),
+            processIdentityAssessor ?? new RecordingDaemonProcessIdentityAssessor(),
+            daemonSessionDiagnosisResolver ?? CreateDiagnosisResolver(daemonDiagnosisStore),
             new DaemonDiagnosisOutputMapper(),
             new DefaultWorktreeProjectPathResolver(),
-            timeProvider);
+            timeProvider ?? TimeProvider.System);
     }
 
     public static ResolvedUnityProjectContext CreateUnityProject (
         string worktreeRoot,
         string projectRelativePath,
-        string fingerprint)
+        string fingerprintLabel)
     {
         var normalizedWorktreeRoot = Path.GetFullPath(worktreeRoot);
         var normalizedProjectRoot = projectRelativePath == "."
             ? normalizedWorktreeRoot
             : Path.Combine(normalizedWorktreeRoot, projectRelativePath);
-        return ProjectContextTestFactory.CreateUnityProject(
+        return ProjectContextTestFactory.CreateUnityProjectWithPaths(
             unityProjectRoot: normalizedProjectRoot,
             repositoryRoot: normalizedWorktreeRoot,
-            projectFingerprint: fingerprint,
+            projectFingerprint: ProjectFingerprintTestFactory.Create(fingerprintLabel),
             pathSourceLabel: null,
             unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
     }
 
     public static DaemonDiagnosis CreateDiagnosis (
         DaemonSession session,
-        string reason)
+        DaemonDiagnosisReason reason)
     {
         return new DaemonDiagnosis(
             Reason: reason,
             Message: $"diagnosis:{reason}",
-            ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+            ReportedBy: DaemonDiagnosisReportedBy.Unity,
             IsInferred: false,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 1, 0, TimeSpan.Zero),
             ProcessId: session.ProcessId,
             EditorInstancePath: null,
             SessionIssuedAtUtc: session.IssuedAtUtc,
             ProcessStartedAtUtc: session.ProcessStartedAtUtc,
-            UnityLogPath: "/repo/.ucli/local/fingerprints/fp-current/unity.log",
+            UnityLogPath: Path.Combine(
+                ProjectPathTestValues.RepositoryRoot,
+                ".ucli",
+                "local",
+                "fingerprints",
+                "fp-current",
+                "unity.log"),
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.ProcessExit,
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.ProcessExit,
                 Code: null,
                 File: null,
                 Line: null,
@@ -125,13 +144,13 @@ internal static class DaemonListQueryServiceTestSupport
     }
 
     public static RecordingDaemonPingInfoClient CreatePingClient (
-        Func<ResolvedUnityProjectContext, TimeSpan, string?, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>> handler)
+        Func<ResolvedUnityProjectContext, DaemonSession, ExecutionDeadline, bool, CancellationToken, ValueTask<IpcUnityEditorObservation>> handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
 
         return new RecordingDaemonPingInfoClient
         {
-            PingAndReadHandler = handler,
+            PingSessionAndReadHandler = handler,
         };
     }
 
@@ -160,20 +179,25 @@ internal static class DaemonListQueryServiceTestSupport
                 }
 
                 var diagnosis = new DaemonDiagnosis(
-                    Reason: DaemonDiagnosisReasonValues.ExternalTerminationSuspected,
+                    Reason: DaemonDiagnosisReason.ExternalTerminationSuspected,
                     Message: "Daemon process is no longer alive and no persisted diagnosis matched the current session.",
-                    ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+                    ReportedBy: DaemonDiagnosisReportedBy.Cli,
                     IsInferred: true,
                     UpdatedAtUtc: DateTimeOffset.UtcNow,
                     ProcessId: processId,
                     EditorInstancePath: null,
-                    SessionIssuedAtUtc: session.IssuedAtUtc);
+                    SessionIssuedAtUtc: session.IssuedAtUtc,
+                    ProcessStartedAtUtc: null,
+                    UnityLogPath: null,
+                    StartupPhase: null,
+                    ActionRequired: null,
+                    PrimaryDiagnostic: null);
 
                 await daemonDiagnosisStore.WriteAsync(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint,
                         diagnosis,
-                        CancellationToken.None)
+                        cancellationToken)
                     .ConfigureAwait(false);
                 return diagnosis;
             },

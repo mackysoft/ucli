@@ -1,6 +1,8 @@
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Features.Play.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Play.UseCases.Exit;
 
@@ -16,8 +18,8 @@ internal sealed record PlayExitExecutionOutput (
     IpcUnityGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
     DateTimeOffset? ObservedAtUtc,
-    string? ActionRequired,
+    DaemonDiagnosisActionRequired? ActionRequired,
     DaemonPrimaryDiagnosticOutput? PrimaryDiagnostic,
     IpcPlayModeSnapshot PlayMode,
-    PlayExitTransitionOutput Transition,
+    PlayTransitionOutput Transition,
     int TimeoutMilliseconds);

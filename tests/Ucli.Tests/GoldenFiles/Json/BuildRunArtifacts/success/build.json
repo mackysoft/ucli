@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "runId": "build-run-1",
+  "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a",
   "profile": {
     "path": "/workspace/UnityProject/.ucli/build/player.json",
     "digest": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
@@ -33,7 +33,7 @@
     },
     "outputLayout": {
       "shape": "file",
-      "locationPathName": "/workspace/UnityProject/.ucli/local/fingerprints/project-fingerprint/work/build/build-run-1/output/player/Player"
+      "locationPathName": "/workspace/UnityProject/.ucli/local/build-runs/9l7mj263h97pp7c097a6nqmv98/work/output/player/Player"
     }
   },
   "runnerResult": {

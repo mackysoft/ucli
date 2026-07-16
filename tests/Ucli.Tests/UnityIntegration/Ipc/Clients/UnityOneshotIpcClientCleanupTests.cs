@@ -1,10 +1,10 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
-using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using static MackySoft.Ucli.Tests.Ipc.UnityOneshotIpcClientTestSupport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
@@ -21,15 +21,15 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
@@ -38,13 +38,107 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.OpsRead, IpcMethodNames.Shutdown);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead, UnityIpcMethod.Shutdown);
         AssertCleanupShutdownUsesLaunchSession(launcher, transportClient, unityProject);
+        UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenCleanupShutdownResponseReadIsInterrupted_RetriesWithSameRequestId ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "shutdown-response-read-interrupted");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var shutdownAttempt = 0;
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown when Interlocked.Increment(ref shutdownAttempt) == 1 =>
+                    throw new IpcResponseReadInterruptedException(new IOException("shutdown response was lost")),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            unityLogReader: null,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var shutdownRequests = IpcRequestAssert.WithMethod(transportClient, UnityIpcMethod.Shutdown);
+        Assert.Equal(2, shutdownRequests.Count);
+        var requestId = shutdownRequests[0].RequestId;
+        Assert.NotEqual(Guid.Empty, requestId);
+        Assert.All(shutdownRequests, request => Assert.Equal(requestId, request.RequestId));
+        var requestDeadlineUtc = shutdownRequests[0].RequestDeadlineUtc;
+        Assert.All(shutdownRequests, request => Assert.Equal(requestDeadlineUtc, request.RequestDeadlineUtc));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenCleanupShutdownIsEditorBusy_RetriesSameRequestUntilAcceptedWithoutTerminatingProcess ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "shutdown-editor-busy");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var shutdownAttempt = 0;
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown when Interlocked.Increment(ref shutdownAttempt) == 1 =>
+                    CreateEditorBusyResponse(request.RequestId),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            unityLogReader: null,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        var shutdownRequests = IpcRequestAssert.WithMethod(transportClient, UnityIpcMethod.Shutdown);
+        Assert.Equal(2, shutdownRequests.Count);
+        var requestId = shutdownRequests[0].RequestId;
+        Assert.NotEqual(Guid.Empty, requestId);
+        Assert.All(shutdownRequests, request => Assert.Equal(requestId, request.RequestId));
+        var requestDeadlineUtc = shutdownRequests[0].RequestDeadlineUtc;
+        Assert.All(shutdownRequests, request => Assert.Equal(requestDeadlineUtc, request.RequestDeadlineUtc));
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);
     }
 
@@ -61,18 +155,19 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => throw new TimeoutException("startup ping timed out"),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => throw new TimeoutException("startup ping timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             cleanupTimeout,
             TimeSpan.FromMilliseconds(1),
             timeProvider);
@@ -81,7 +176,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var resultTask = client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            requestTimeout,
+            ExecutionDeadline.Start(requestTimeout, timeProvider),
             CancellationToken.None).AsTask();
         await ManualTimeTaskDriver.WaitForTimerDueWithinOrCompletionAsync(
             timeProvider,
@@ -100,7 +195,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
         Assert.Equal(DaemonStartupStatus.Timeout, startupFailure.Startup!.StartupStatus);
         Assert.Equal(DaemonStartupBlockingReason.EndpointNotRegistered, startupFailure.Startup.StartupBlockingReason);
         Assert.Equal(DaemonStartupProcessAction.Unknown, startupFailure.Startup.ProcessAction);
-        Assert.Equal("startupFailed", startupFailure.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReason.StartupFailed, startupFailure.Diagnosis!.Reason);
         AssertCleanupShutdownsUseLaunchSession(launcher, transportClient, unityProject, launchDeadlineReferenceUtc);
         UnityBatchmodeProcessHandleAssert.WaitedForExitWithoutTermination(processHandle);
     }
@@ -122,12 +217,12 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient((request, cancellationToken) =>
         {
-            if (string.Equals(request.Method, IpcMethodNames.Ping, StringComparison.Ordinal))
+            if (IpcRequestAssert.ParseMethod(request) == UnityIpcMethod.Ping)
             {
                 return ValueTask.FromResult(CreatePingResponse(request.RequestId));
             }
 
-            if (string.Equals(request.Method, IpcMethodNames.OpsRead, StringComparison.Ordinal))
+            if (IpcRequestAssert.ParseMethod(request) == UnityIpcMethod.OpsRead)
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(10));
                 cancellationToken.ThrowIfCancellationRequested();
@@ -136,11 +231,12 @@ public sealed class UnityOneshotIpcClientCleanupTests
 
             throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}");
         });
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(500),
             TimeSpan.FromMilliseconds(1),
             timeProvider: timeProvider);
@@ -148,7 +244,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromMilliseconds(50),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(50), timeProvider),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
@@ -165,30 +261,196 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => CreateSuccessResponse(request.RequestId),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.OpsRead, IpcMethodNames.Shutdown);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead, UnityIpcMethod.Shutdown);
+        UnityBatchmodeProcessHandleAssert.WaitedForExitAndTerminatedOnceWithMode(
+            processHandle,
+            ProcessTerminationMode.GracefulThenKill);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenCompletedResponseCleanupCannotConfirmExit_RetainsProcessHandleUntilExit ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "response-success-exit-unconfirmed");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var releaseOwnedProcess = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handleDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waitCount = 0;
+        var processHandle = new StubUnityBatchmodeProcessHandle(
+            waitForExitBehavior: cancellationToken =>
+            {
+                return Interlocked.Increment(ref waitCount) <= 2
+                    ? Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken)
+                    : releaseOwnedProcess.Task.WaitAsync(cancellationToken);
+            })
+        {
+            TerminateHandler = static (_, _) => Task.FromResult(ProcessTerminationResult.ForceKillFailed),
+            OnDispose = handleDisposed.SetResult,
+        };
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            unityLogReader: null,
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        try
+        {
+            var result = await client.SendAsync(
+                unityProject,
+                CreateDispatchRequest(),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+                CancellationToken.None);
+
+            Assert.True(result.IsSuccess);
+            UnityBatchmodeProcessHandleAssert.TerminatedOnceWithMode(
+                processHandle,
+                ProcessTerminationMode.GracefulThenKill);
+            Assert.Equal(0, processHandle.DisposeCount);
+        }
+        finally
+        {
+            releaseOwnedProcess.TrySetResult();
+        }
+
+        await TestAwaiter.WaitAsync(
+            handleDisposed.Task,
+            "Successful oneshot process handle disposal",
+            TimeSpan.FromSeconds(5));
+        Assert.Equal(1, processHandle.DisposeCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenPostResponseExitWaitThrows_ReturnsSuccessAndTerminatesProcess ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "post-response-exit-wait-throws");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var waitCount = 0;
+        var processHandle = new StubUnityBatchmodeProcessHandle(
+            waitForExitBehavior: cancellationToken =>
+            {
+                waitCount++;
+                return waitCount == 1
+                    ? Task.FromException(new InvalidOperationException("exit wait failed"))
+                    : Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            });
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            unityLogReader: null,
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        UnityBatchmodeProcessHandleAssert.WaitedForExitAndTerminatedOnceWithMode(
+            processHandle,
+            ProcessTerminationMode.GracefulThenKill);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenCallerCancelsAfterNonPingResponse_ReturnsSuccessAndTerminatesProcess ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "post-response-caller-cancels");
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var waitCount = 0;
+        var processHandle = new StubUnityBatchmodeProcessHandle(
+            waitForExitBehavior: cancellationToken =>
+            {
+                waitCount++;
+                if (waitCount == 1)
+                {
+                    cancellationTokenSource.Cancel();
+                    return Task.FromCanceled(cancellationTokenSource.Token);
+                }
+
+                return Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            });
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => CreateSuccessResponse(request.RequestId),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            unityLogReader: null,
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            cancellationTokenSource.Token);
+
+        Assert.True(result.IsSuccess);
         UnityBatchmodeProcessHandleAssert.WaitedForExitAndTerminatedOnceWithMode(
             processHandle,
             ProcessTerminationMode.GracefulThenKill);
@@ -204,34 +466,35 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => HandlePing(request),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => HandlePing(request),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
         var result = await client.SendAsync(
             unityProject,
             CreateReadyPingDispatchRequest(failFast: false),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         Assert.Contains("did not exit", result.Message, StringComparison.Ordinal);
-        AssertTerminalPingAndCleanupShutdownRequests(transportClient);
+        AssertTerminalPingAndFallbackCleanupShutdownRequests(transportClient);
         UnityBatchmodeProcessHandleAssert.WaitedForExitAndTerminatedOnce(processHandle);
 
-        static IpcResponse HandlePing (IpcRequest request)
+        static IpcResponse HandlePing (IpcRequestEnvelope request)
         {
             Assert.True(IpcPayloadCodec.TryDeserialize(request.Payload, out IpcPingRequest payload, out _));
             return payload.ClientVersion switch
@@ -253,33 +516,371 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
-                IpcMethodNames.Shutdown => CreateShutdownResponse(request.RequestId),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
             CreateProjectLockPreflightService(),
+            unityLogReader: null,
             TimeSpan.FromMilliseconds(20),
             TimeSpan.FromMilliseconds(1));
 
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
-        IpcRequestAssert.Methods(transportClient, IpcMethodNames.Ping, IpcMethodNames.OpsRead, IpcMethodNames.Shutdown);
+        IpcRequestAssert.Methods(transportClient, UnityIpcMethod.Ping, UnityIpcMethod.OpsRead, UnityIpcMethod.Shutdown);
         AssertCleanupShutdownUsesLaunchSession(launcher, transportClient, unityProject);
         UnityBatchmodeProcessHandleAssert.TerminatedOnceWithMode(processHandle, ProcessTerminationMode.GracefulThenKill);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenForceKillCannotConfirmExit_DoesNotRunPostExitLockCleanupAndAppendsDiagnostic ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "force-kill-exit-unconfirmed");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
+        var releaseOwnedProcess = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var handleDisposed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var waitCount = 0;
+        var processHandle = new StubUnityBatchmodeProcessHandle(
+            waitForExitBehavior: cancellationToken =>
+            {
+                return Interlocked.Increment(ref waitCount) == 1
+                    ? Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken)
+                    : releaseOwnedProcess.Task.WaitAsync(cancellationToken);
+            })
+        {
+            OnDispose = handleDisposed.SetResult,
+        };
+        processHandle.TerminateHandler = static (_, _) => Task.FromResult(ProcessTerminationResult.ForceKillFailed);
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new IpcResponseReadInterruptedException(
+                    new EndOfStreamException("IPC stream ended before a complete frame was read.")),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var projectLockPreflightService = CreateProjectLockPreflightService(
+            UnityProjectLockFileProbeResult.Locked(lockFilePath));
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            projectLockPreflightService,
+            unityLogReader: null,
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        try
+        {
+            var result = await client.SendAsync(
+                unityProject,
+                CreateDispatchRequest(),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+                CancellationToken.None);
+
+            Assert.False(result.IsSuccess);
+            Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+            Assert.Equal(UnityRequestFailureKind.General, result.FailureInfo!.FailureKind);
+            Assert.StartsWith(
+                "Failed to execute Unity oneshot IPC request. IPC stream ended before a complete frame was read.",
+                result.Message,
+                StringComparison.Ordinal);
+            Assert.Contains("could not be confirmed stopped", result.Message, StringComparison.Ordinal);
+            Assert.Empty(projectLockPreflightService.CleanupInvocations);
+            UnityBatchmodeProcessHandleAssert.TerminatedOnceWithMode(processHandle, ProcessTerminationMode.GracefulThenKill);
+            Assert.Equal(0, processHandle.DisposeCount);
+        }
+        finally
+        {
+            releaseOwnedProcess.TrySetResult();
+        }
+
+        await TestAwaiter.WaitAsync(
+            handleDisposed.Task,
+            "Transferred oneshot process handle disposal",
+            TimeSpan.FromSeconds(5));
+        Assert.Equal(1, processHandle.DisposeCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenResponseReadIsInterruptedAndPostExitCleanupAddsNoDiagnostic_PreservesTransportInterruption ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "response-read-interrupted-clean-exit");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = StubUnityBatchmodeProcessHandle.CreateNonExiting();
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new IpcResponseReadInterruptedException(new IOException("Pipe is broken.")),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            unityLogReader: null,
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal("Failed to execute Unity oneshot IPC request. Pipe is broken.", result.Message);
+        UnityBatchmodeProcessHandleAssert.TerminatedOnce(processHandle);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenResponseReadIsInterruptedAndPostExitCleanupAddsDiagnostic_PreservesTransportInterruption ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "response-read-interrupted-stale-lock");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var lockFilePath = scope.GetPath("UnityProject/Temp/UnityLockfile");
+        var processHandle = StubUnityBatchmodeProcessHandle.CreateNonExiting();
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new IpcResponseReadInterruptedException(new IOException("Pipe is broken.")),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(UnityProjectLockFileProbeResult.Locked(lockFilePath)),
+            unityLogReader: null,
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.StartsWith(
+            "Failed to execute Unity oneshot IPC request. Pipe is broken.",
+            result.Message,
+            StringComparison.Ordinal);
+        Assert.Contains("Stale Unity project lock file was removed", result.Message, StringComparison.Ordinal);
+        Assert.Contains(lockFilePath, result.Message, StringComparison.Ordinal);
+        UnityBatchmodeProcessHandleAssert.TerminatedOnce(processHandle);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenProcessTerminationThrows_PreservesPrimaryFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "termination-throws");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = StubUnityBatchmodeProcessHandle.CreateNonExiting();
+        processHandle.TerminateHandler = static (_, _) => Task.FromException<ProcessTerminationResult>(
+            new InvalidOperationException("termination failed"));
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            unityLogReader: null,
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.StartsWith(
+            "Unity oneshot IPC request timed out after 30000 milliseconds.",
+            result.Message,
+            StringComparison.Ordinal);
+        Assert.Contains("process cleanup did not complete", result.Message, StringComparison.Ordinal);
+        Assert.Contains("termination failed", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenPostExitLockCleanupThrows_PreservesPrimaryFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "post-exit-lock-cleanup-throws");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = StubUnityBatchmodeProcessHandle.CreateNonExiting();
+        processHandle.TerminateHandler = static (_, _) => Task.FromResult(ProcessTerminationResult.ForceKilled);
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var projectLockPreflightService = CreateProjectLockPreflightService();
+        projectLockPreflightService.CleanupAsyncHandler = static (_, _) =>
+            ValueTask.FromException<UnityProjectLockPreflightResult>(new IOException("lock cleanup failed"));
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            projectLockPreflightService,
+            unityLogReader: null,
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.StartsWith(
+            "Unity oneshot IPC request timed out after 30000 milliseconds.",
+            result.Message,
+            StringComparison.Ordinal);
+        Assert.Contains("Post-exit Unity project lock cleanup failed", result.Message, StringComparison.Ordinal);
+        Assert.Contains("lock cleanup failed", result.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenProcessHandleDisposalThrows_PreservesPrimaryFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "process-handle-dispose-throws");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = StubUnityBatchmodeProcessHandle.CreateNonExiting();
+        processHandle.TerminateHandler = static (_, _) => Task.FromResult(ProcessTerminationResult.ForceKilled);
+        processHandle.OnDispose = static () => throw new InvalidOperationException("dispose failed");
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider(),
+            CreateProjectLockPreflightService(),
+            unityLogReader: null,
+            TimeSpan.FromMilliseconds(20),
+            TimeSpan.FromMilliseconds(1));
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.StartsWith(
+            "Unity oneshot IPC request timed out after 30000 milliseconds.",
+            result.Message,
+            StringComparison.Ordinal);
+        Assert.Equal(1, processHandle.DisposeCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SendAsync_WhenLifecycleLockDisposalThrows_PreservesPrimaryFailure ()
+    {
+        using var scope = TestDirectories.CreateTempScope("unity-oneshot-ipc-client", "lifecycle-lock-dispose-throws");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var processHandle = new StubUnityBatchmodeProcessHandle();
+        var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
+        var transportClient = new RecordingUnityIpcTransportClient(request =>
+        {
+            return IpcRequestAssert.ParseMethod(request) switch
+            {
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Shutdown => CreateShutdownResponse(request.RequestId),
+                _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
+            };
+        });
+        var lifecycleLock = new ThrowingAsyncDisposable();
+        var client = CreateClient(
+            launcher,
+            transportClient,
+            new StubProjectLifecycleLockProvider((_, _, _) => lifecycleLock),
+            CreateProjectLockPreflightService());
+
+        var result = await client.SendAsync(
+            unityProject,
+            CreateDispatchRequest(),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.StartsWith(
+            "Unity oneshot IPC request timed out after 30000 milliseconds.",
+            result.Message,
+            StringComparison.Ordinal);
+        Assert.Equal(1, lifecycleLock.DisposeCount);
     }
 
     [Fact]
@@ -293,14 +894,14 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(processHandle));
         var transportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreatePingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => throw new TimeoutException("request timed out"),
+                UnityIpcMethod.Ping => CreatePingResponse(request.RequestId),
+                UnityIpcMethod.OpsRead => throw new TimeoutException("request timed out"),
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
-        var client = new UnityOneshotIpcClient(
+        var client = CreateClient(
             launcher,
             transportClient,
             new StubProjectLifecycleLockProvider(),
@@ -309,7 +910,7 @@ public sealed class UnityOneshotIpcClientCleanupTests
         var result = await client.SendAsync(
             unityProject,
             CreateDispatchRequest(),
-            TimeSpan.FromSeconds(30),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(30), TimeProvider.System),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
@@ -317,5 +918,32 @@ public sealed class UnityOneshotIpcClientCleanupTests
         Assert.Contains("Stale Unity project lock file was removed", result.Message, StringComparison.Ordinal);
         Assert.Contains(lockFilePath, result.Message, StringComparison.Ordinal);
         UnityBatchmodeProcessHandleAssert.TerminatedOnce(processHandle);
+    }
+
+    private static IpcResponse CreateEditorBusyResponse (Guid requestId)
+    {
+        return new IpcResponse(
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcResponseStatus.Error,
+            payload: EmptyPayload(),
+            errors:
+            [
+                new IpcError(
+                    EditorLifecycleErrorCodes.EditorBusy,
+                    "A Unity mutation is active or queued.",
+                    null),
+            ]);
+    }
+
+    private sealed class ThrowingAsyncDisposable : IAsyncDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public ValueTask DisposeAsync ()
+        {
+            DisposeCount++;
+            throw new InvalidOperationException("lifecycle lock disposal failed");
+        }
     }
 }

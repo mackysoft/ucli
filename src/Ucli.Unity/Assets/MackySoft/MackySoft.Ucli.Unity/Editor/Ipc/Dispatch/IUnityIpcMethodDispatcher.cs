@@ -1,4 +1,3 @@
-using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -8,22 +7,22 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Dispatches one authorized IPC request to method-specific handlers. </summary>
     internal interface IUnityIpcMethodDispatcher
     {
-        /// <summary> Dispatches one IPC request envelope by method contract. </summary>
-        /// <param name="request"> The incoming IPC request envelope. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
+        /// <summary> Dispatches one validated IPC request by method contract. </summary>
+        /// <param name="request"> The authorized and validated Unity IPC request. </param>
+        /// <param name="phaseScope"> The connection-owned phase scope for the complete exchange. </param>
         /// <returns> The response envelope for the request. </returns>
         Task<IpcResponse> DispatchAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken = default);
+            ValidatedUnityIpcRequest request,
+            IpcRequestPhaseScope phaseScope);
 
-        /// <summary> Dispatches one IPC request envelope by method contract and allows progress frame output. </summary>
-        /// <param name="request"> The incoming IPC request envelope. </param>
+        /// <summary> Dispatches one validated IPC request by method contract and allows progress frame output. </summary>
+        /// <param name="request"> The authorized and validated Unity IPC request. </param>
         /// <param name="streamWriter"> The progress frame writer for the request. </param>
-        /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
+        /// <param name="phaseScope"> The connection-owned phase scope for the complete exchange. </param>
         /// <returns> The terminal response envelope for the request. </returns>
         Task<IpcResponse> DispatchStreamingAsync (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             IIpcStreamFrameWriter streamWriter,
-            CancellationToken cancellationToken = default);
+            IpcRequestPhaseScope phaseScope);
     }
 }

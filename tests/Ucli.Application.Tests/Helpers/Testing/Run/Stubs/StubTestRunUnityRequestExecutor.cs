@@ -14,16 +14,20 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
     private readonly IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames;
     private readonly UnityRequestResponse? responseOverride;
 
+    private readonly Func<Guid, ArtifactPaths> artifactPathsResolver;
+
     public StubTestRunUnityRequestExecutor (
         StubUnityTestExecutor unityTestExecutor,
         RecordingDaemonTestRunClient? daemonTestRunClient,
         IReadOnlyList<UnityRequestProgressFrame>? streamingProgressFrames,
-        UnityRequestResponse? responseOverride)
+        UnityRequestResponse? responseOverride,
+        Func<Guid, ArtifactPaths> artifactPathsResolver)
     {
         this.unityTestExecutor = unityTestExecutor;
         this.daemonTestRunClient = daemonTestRunClient;
         this.streamingProgressFrames = streamingProgressFrames;
         this.responseOverride = responseOverride;
+        this.artifactPathsResolver = artifactPathsResolver ?? throw new ArgumentNullException(nameof(artifactPathsResolver));
     }
 
     public ValueTask<UnityRequestExecutionResult> ExecuteAsync (
@@ -64,7 +68,7 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
         }
 
         var testRunRequest = ReadTestRunRequest(payload);
-        var artifactPaths = CreateArtifactPaths(testRunRequest);
+        var artifactPaths = artifactPathsResolver(testRunRequest.RunId);
         var configuration = TestRunServiceTestFactory.CreateResolvedConfiguration();
         var executionResult = daemonTestRunClient is null
             ? await unityTestExecutor.ExecuteAsync(configuration, artifactPaths, timeout, cancellationToken)
@@ -81,10 +85,10 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
                     new UnityRequestProgressFrame(
                         TestRunProgressEventNames.RunDiagnostic,
                         IpcPayloadCodec.SerializeToElement(new TestRunDiagnosticEntry(
-                            testRunRequest.RunId ?? "run-id",
-                            "TEST_PROGRESS_STUB",
+                            testRunRequest.RunId,
+                            new UcliCode("TEST_PROGRESS_STUB"),
                             "stub progress",
-                            "info"))),
+                            UcliDiagnosticSeverity.Info))),
                 ];
                 foreach (var progressFrame in progressFrames)
                 {
@@ -94,11 +98,11 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
 
             return UnityRequestExecutionResult.Success(new UnityRequestResponse(
                 IpcPayloadCodec.SerializeToElement(new IpcTestRunResponse(executionResult.ProcessExitCode!.Value)),
-                Array.Empty<OperationExecutionError>(),
-                HasFailureStatus: false));
+                Array.Empty<OperationExecutionError>()));
         }
 
         return UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            ResolveFailureKind(executionResult),
             ResolveErrorCode(executionResult),
             executionResult.ErrorMessage ?? "Unity test execution failed.",
             executionResult.StartupFailure));
@@ -109,18 +113,6 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
         return Assert.IsType<UnityRequestPayload.TestRun>(payload);
     }
 
-    private static ArtifactPaths CreateArtifactPaths (UnityRequestPayload.TestRun request)
-    {
-        var artifactsDir = Path.GetDirectoryName(request.ResultsXmlPath) ?? Path.GetTempPath();
-        return new ArtifactPaths(
-            ArtifactsDir: artifactsDir,
-            MetaJsonPath: Path.Combine(artifactsDir, "meta.json"),
-            ResultsXmlPath: request.ResultsXmlPath,
-            EditorLogPath: request.EditorLogPath,
-            ResultsJsonPath: Path.Combine(artifactsDir, "results.json"),
-            SummaryJsonPath: Path.Combine(artifactsDir, "summary.json"));
-    }
-
     private static void EnsureArtifactFiles (ArtifactPaths artifactPaths)
     {
         Directory.CreateDirectory(artifactPaths.ArtifactsDir);
@@ -128,9 +120,16 @@ internal sealed class StubTestRunUnityRequestExecutor : IUnityRequestExecutor, I
         File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
     }
 
+    private static UnityRequestFailureKind ResolveFailureKind (UnityTestExecutionResult executionResult)
+    {
+        return executionResult.FailureKind == UnityTestExecutionFailureKind.IpcTransportInterrupted
+            ? UnityRequestFailureKind.TransportInterrupted
+            : UnityRequestFailureKind.General;
+    }
+
     private static UcliCode ResolveErrorCode (UnityTestExecutionResult executionResult)
     {
-        if (executionResult.ErrorCode is { IsValid: true } code)
+        if (executionResult.ErrorCode is { } code)
         {
             return code;
         }

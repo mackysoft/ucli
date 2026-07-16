@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
+using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
@@ -11,7 +12,7 @@ internal sealed class QuerySceneTreeCommand
 {
     private const int DefaultDepth = 1;
 
-    private const string OperationId = "scene.tree";
+    private static readonly IpcExecuteStepId OperationId = new("scene.tree");
 
     private readonly IQueryService queryService;
 
@@ -28,13 +29,13 @@ internal sealed class QuerySceneTreeCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes <c>query scene tree</c> and emits the JSON result contract. </summary>
+    /// <summary> Reads a Unity scene hierarchy and emits the JSON result contract. --path is required. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
     /// <param name="readIndexMode">--readIndexMode, readIndex mode (disabled|allowStale|requireFresh).</param>
     /// <param name="failFast">--failFast, Fails immediately when live fallback hits a non-ready Unity editor lifecycle.</param>
-    /// <param name="path">Scene asset path.</param>
+    /// <param name="path">Required scene asset path.</param>
     /// <param name="depth">Tree depth. 0 returns only roots.</param>
     /// <param name="fullDepth">--fullDepth, Expands the full tree.</param>
     /// <param name="limit">Maximum number of preorder hierarchy nodes to return in one window.</param>
@@ -59,38 +60,49 @@ internal sealed class QuerySceneTreeCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+        var requestId = Guid.NewGuid();
 
         var commonOptionsResult = QueryCommonOptionsNormalizer.Normalize(projectPath, mode, timeout, readIndexMode, failFast);
         if (!commonOptionsResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QuerySceneTree, commonOptionsResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QuerySceneTree, commonOptionsResult.Error!);
         }
 
         if (!QueryOptionValueNormalizer.TryNormalizeRequired(path, "path", out var normalizedPath, out var error))
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QuerySceneTree, error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QuerySceneTree, error!);
+        }
+
+        if (!UnityScenePath.TryParse(normalizedPath, out var scenePath))
+        {
+            return QueryCommandExecutionHelper.WriteExecutionError(
+                requestId,
+                commandResultWriter,
+                UcliCommandNames.QuerySceneTree,
+                ExecutionError.InvalidArgument("Option '--path' must identify a .unity scene below 'Assets/' or 'Packages/'."));
         }
 
         var depthResult = QueryDepthOptionNormalizer.Normalize(depth, fullDepth, DefaultDepth);
         if (!depthResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QuerySceneTree, depthResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QuerySceneTree, depthResult.Error!);
         }
 
         var windowResult = QueryWindowOptionsFactory.Create(all, limit, after);
         if (!windowResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QuerySceneTree, windowResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QuerySceneTree, windowResult.Error!);
         }
 
         return await QueryCommandExecutionHelper.ExecuteAsync(
+                requestId,
                 queryService,
                 commonOptionsResult.Options!,
                 new QuerySceneTreeOperationRequest(
                     CommandName: UcliCommandNames.QuerySceneTree,
                     OperationId: OperationId,
                     OperationName: UcliPrimitiveOperationNames.SceneTree,
-                    ScenePath: normalizedPath,
+                    ScenePath: scenePath,
                     Depth: depthResult.Depth,
                     WindowOptions: windowResult.Options!),
                 commandResultWriter,

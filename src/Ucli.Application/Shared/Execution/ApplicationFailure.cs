@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution;
 
@@ -12,30 +13,27 @@ internal sealed record ApplicationFailure
     /// <param name="message"> The user-facing failure message. </param>
     /// <param name="opId"> The operation identifier associated with the failure, or <see langword="null" /> when not applicable. </param>
     /// <param name="startupFailure"> The structured startup failure detail when this failure occurred before a Unity process accepted the request. </param>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="outcome" /> is incompatible with <paramref name="kind" /> or <paramref name="message" /> has no content. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="code" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="kind" /> is undefined. </exception>
     public ApplicationFailure (
         ApplicationFailureKind kind,
         ApplicationOutcome outcome,
         UcliCode code,
         string message,
-        string? opId = null,
-        StartupFailureDetail? startupFailure = null)
+        IpcExecuteStepId? opId,
+        StartupFailureDetail? startupFailure)
     {
         if (!IsDefinedKind(kind))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "Failure kind is not defined.");
         }
 
-        if (!code.IsValid)
-        {
-            throw new ArgumentException("Failure code must not be empty.", nameof(code));
-        }
-
         ValidateOutcome(kind, outcome);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-
         Kind = kind;
         Outcome = outcome;
-        Code = code;
+        Code = code ?? throw new ArgumentNullException(nameof(code));
         Message = message;
         OpId = opId;
         StartupFailure = startupFailure;
@@ -54,7 +52,7 @@ internal sealed record ApplicationFailure
     public string Message { get; }
 
     /// <summary> Gets the operation identifier associated with the failure, or <see langword="null" /> when not applicable. </summary>
-    public string? OpId { get; }
+    public IpcExecuteStepId? OpId { get; }
 
     /// <summary> Gets the structured startup failure detail when this failure occurred before a Unity process accepted the request. </summary>
     public StartupFailureDetail? StartupFailure { get; }
@@ -64,7 +62,7 @@ internal sealed record ApplicationFailure
         ApplicationFailureKind kind,
         string message,
         UcliCode? code = null,
-        string? opId = null,
+        IpcExecuteStepId? opId = null,
         ApplicationOutcome? outcome = null,
         StartupFailureDetail? startupFailure = null)
     {
@@ -82,7 +80,7 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure InvalidInput (
         string message,
         UcliCode? code = null,
-        string? opId = null,
+        IpcExecuteStepId? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
         return Create(ApplicationFailureKind.InvalidInput, message, code, opId, startupFailure: startupFailure);
@@ -92,7 +90,7 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure ConfigurationError (
         string message,
         UcliCode? code = null,
-        string? opId = null)
+        IpcExecuteStepId? opId = null)
     {
         return Create(ApplicationFailureKind.ConfigurationError, message, code, opId);
     }
@@ -101,7 +99,7 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure EnvironmentError (
         string message,
         UcliCode? code = null,
-        string? opId = null)
+        IpcExecuteStepId? opId = null)
     {
         return Create(ApplicationFailureKind.EnvironmentError, message, code, opId);
     }
@@ -110,7 +108,7 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure UnityIpcFailure (
         string message,
         UcliCode? code = null,
-        string? opId = null,
+        IpcExecuteStepId? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
         return Create(ApplicationFailureKind.UnityIpcFailure, message, code, opId, startupFailure: startupFailure);
@@ -120,7 +118,7 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure ExternalProcessFailure (
         string message,
         UcliCode? code = null,
-        string? opId = null,
+        IpcExecuteStepId? opId = null,
         ApplicationOutcome? outcome = null,
         StartupFailureDetail? startupFailure = null)
     {
@@ -131,7 +129,7 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure ContractViolation (
         string message,
         UcliCode? code = null,
-        string? opId = null,
+        IpcExecuteStepId? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
         return Create(ApplicationFailureKind.ContractViolation, message, code, opId, startupFailure: startupFailure);
@@ -141,7 +139,7 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure Timeout (
         string message,
         UcliCode? code = null,
-        string? opId = null,
+        IpcExecuteStepId? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
         return Create(ApplicationFailureKind.Timeout, message, code, opId, startupFailure: startupFailure);
@@ -151,7 +149,7 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure Canceled (
         string message,
         UcliCode? code = null,
-        string? opId = null)
+        IpcExecuteStepId? opId = null)
     {
         return Create(ApplicationFailureKind.Canceled, message, code, opId);
     }
@@ -160,7 +158,7 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure InternalError (
         string message,
         UcliCode? code = null,
-        string? opId = null,
+        IpcExecuteStepId? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
         return Create(ApplicationFailureKind.InternalError, message, code, opId, startupFailure: startupFailure);
@@ -170,20 +168,18 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure FromExecutionError (
         ExecutionError error,
         UcliCode? code = null,
-        string? opId = null,
+        IpcExecuteStepId? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        var resolvedCode = code.HasValue && code.Value.IsValid
-            ? code.Value
-            : ExecutionErrorCodeMapper.ToCode(error);
+        var resolvedCode = code ?? ExecutionErrorCodeMapper.ToCode(error);
 
         return error.Kind switch
         {
             ExecutionErrorKind.InvalidArgument => InvalidInput(error.Message, resolvedCode, opId, startupFailure),
-            ExecutionErrorKind.Timeout when ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId, startupFailure),
+            ExecutionErrorKind.Timeout when InvalidArgumentErrorCodeSet.Contains(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId, startupFailure),
             ExecutionErrorKind.Timeout => Timeout(error.Message, resolvedCode, opId, startupFailure),
-            ExecutionErrorKind.InternalError when ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId, startupFailure),
+            ExecutionErrorKind.InternalError when InvalidArgumentErrorCodeSet.Contains(resolvedCode) => InvalidInput(error.Message, resolvedCode, opId, startupFailure),
             ExecutionErrorKind.InternalError => InternalError(error.Message, resolvedCode, opId, startupFailure),
             _ => throw new ArgumentOutOfRangeException(nameof(error), error.Kind, "Execution error kind is not defined."),
         };
@@ -193,12 +189,10 @@ internal sealed record ApplicationFailure
     public static ApplicationFailure FromCode (
         UcliCode? code,
         string message,
-        string? opId = null,
+        IpcExecuteStepId? opId = null,
         StartupFailureDetail? startupFailure = null)
     {
-        var resolvedCode = code.HasValue && code.Value.IsValid
-            ? code.Value
-            : UcliCoreErrorCodes.InternalError;
+        var resolvedCode = code ?? UcliCoreErrorCodes.InternalError;
 
         if (resolvedCode == ExecutionErrorCodes.IpcTimeout)
         {
@@ -210,7 +204,7 @@ internal sealed record ApplicationFailure
             return Canceled(message, resolvedCode, opId);
         }
 
-        if (ApplicationFailureOutcomeResolver.IsInvalidArgumentCode(resolvedCode))
+        if (InvalidArgumentErrorCodeSet.Contains(resolvedCode))
         {
             return InvalidInput(message, resolvedCode, opId, startupFailure);
         }
@@ -227,9 +221,9 @@ internal sealed record ApplicationFailure
         ApplicationFailureKind kind,
         UcliCode? code)
     {
-        if (code.HasValue && code.Value.IsValid)
+        if (code is not null)
         {
-            return code.Value;
+            return code;
         }
 
         return kind switch

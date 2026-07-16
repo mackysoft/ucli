@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Creates a Unity asset at a project-relative path.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.AssetContentMutation, UcliOperationSideEffect.AssetSave },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Asset },
+                touchedKinds: new[] { UcliTouchedResourceKind.Asset },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the asset creation target and compute preview creation state without persisting project data.",
                 callSemantics: "Create and persist the requested asset at the project-relative path.",
@@ -84,7 +84,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     OpId: operation.Id)));
             }
 
-            executionContext.SetPlannedAsset(assetPath!, operation.EffectiveExecutionKey, temporaryAsset!);
+            executionContext.SetPlannedAsset(assetPath!, operation.ExecutionKey, temporaryAsset!);
             executionContext.MarkRequestAttributedChange(OperationResource.PersistentAsset(assetPath!));
             if (operation.As != null)
             {
@@ -133,14 +133,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.MarkRequestAttributedChange(OperationResource.PersistentAsset(assetPath!));
                 if (operation.As != null)
                 {
-                    if (UnityObjectReferenceResolver.TryCreateResolvedReference(asset, out var resolvedReference))
+                    if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(asset, out var globalObjectId))
                     {
                         executionContext.SetTemporaryAlias(
                             operation.As,
                             asset,
                             OperationResource.PersistentAsset(assetPath!),
-                            resolvedReference!.GlobalObjectId);
-                        executionContext.AliasStore.Set(operation.As, resolvedReference);
+                            RequestLocalObjectIdentity.FromUnityObject(asset));
+                        executionContext.AliasStore.Set(operation.As, globalObjectId);
                     }
                     else
                     {
@@ -182,15 +182,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             assetPath = null;
             failure = null;
 
-            var typeId = args.Type?.Value ?? string.Empty;
+            var typeId = args.Type.Value;
             if (!AssetTypeResolver.TryResolveCreateAssetType(typeId, out assetType, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            var requestedAssetPath = args.Path?.Value ?? string.Empty;
-            if (!AssetOperationUtilities.TryValidateCreateAssetPath(requestedAssetPath, out assetPath, out errorMessage))
+            if (!AssetOperationUtilities.TryValidateCreateAssetPath(args.Path, out assetPath, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -211,7 +210,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            if (string.Equals(plannedAssetState.OwnerExecutionKey, operation.EffectiveExecutionKey, StringComparison.Ordinal))
+            if (plannedAssetState.OwnerExecutionKey.Equals(operation.ExecutionKey))
             {
                 return true;
             }

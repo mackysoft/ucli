@@ -23,13 +23,16 @@ internal static class ReadIndexCatalogTestSeeder
             new IndexAssetSearchLookupJsonContractWriter(),
             new IndexGuidPathLookupJsonContractWriter(),
             new IndexSceneTreeLiteLookupJsonContractWriter(),
-            new IndexInputsManifestJsonContractWriter());
+            new IndexInputsManifestJsonContractWriter(),
+            new FileReadIndexGenerationStore(
+                new FileReadIndexGenerationPointerStore(),
+                TimeProvider.System));
         writer.WriteOpsCatalogAsync(
                 unityProjectPath,
                 fingerprint,
                 DefaultGeneratedAtUtc,
-                operations,
-                DefaultSourceInputsHash,
+                OperationCatalogTestFixtures.CreateSnapshot(DefaultGeneratedAtUtc, operations).Operations,
+                Sha256DigestTestFactory.Compute(DefaultSourceInputsHash),
                 manifestInputSnapshot: null,
                 CancellationToken.None)
             .AsTask()

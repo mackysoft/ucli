@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
@@ -6,8 +7,10 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -22,37 +25,63 @@ internal sealed class SupervisorRequestDispatcher
 
     private readonly SupervisorProjectCoordinator projectCoordinator;
 
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="SupervisorRequestDispatcher" /> class. </summary>
     /// <param name="activityTracker"> The supervisor activity-tracker dependency. </param>
     /// <param name="projectCoordinator"> The supervisor project-coordinator dependency. </param>
+    /// <param name="timeProvider"> The time provider used for frame deadline accounting. </param>
     public SupervisorRequestDispatcher (
         SupervisorActivityTracker activityTracker,
-        SupervisorProjectCoordinator projectCoordinator)
+        SupervisorProjectCoordinator projectCoordinator,
+        TimeProvider timeProvider)
     {
         this.activityTracker = activityTracker ?? throw new ArgumentNullException(nameof(activityTracker));
         this.projectCoordinator = projectCoordinator ?? throw new ArgumentNullException(nameof(projectCoordinator));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Handles one supervisor IPC connection. </summary>
     /// <param name="stream"> The accepted transport stream. </param>
     /// <param name="runtimeContext"> The immutable supervisor runtime context. </param>
+    /// <param name="initialFrameReadTimeout"> The upper bound for receiving the first request frame. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the listener. </param>
+    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="initialFrameReadTimeout" /> is not positive. </exception>
     public async Task HandleConnectionAsync (
         Stream stream,
         SupervisorRuntimeContext runtimeContext,
+        TimeSpan initialFrameReadTimeout,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(stream);
         ArgumentNullException.ThrowIfNull(runtimeContext);
+        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(initialFrameReadTimeout, TimeSpan.Zero);
 
         activityTracker.Touch();
 
-        var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
-                stream,
-                IpcJsonSerializerOptions.Default,
-                cancellationToken: cancellationToken)
-            .ConfigureAwait(false);
+        var frameReadTask = Task.Run(
+            () => IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
+                    stream,
+                    IpcJsonSerializerOptions.Default,
+                    cancellationToken: cancellationToken)
+                .AsTask(),
+            CancellationToken.None);
+        using var frameReadTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        var timeoutTask = Task.Delay(
+            initialFrameReadTimeout,
+            timeProvider,
+            frameReadTimeoutCancellationTokenSource.Token);
+        var completedTask = await Task.WhenAny(frameReadTask, timeoutTask).ConfigureAwait(false);
+        if (!ReferenceEquals(completedTask, frameReadTask))
+        {
+            ObserveFault(frameReadTask);
+            cancellationToken.ThrowIfCancellationRequested();
+            return;
+        }
+
+        frameReadTimeoutCancellationTokenSource.Cancel();
+        var readResult = await frameReadTask.ConfigureAwait(false);
         if (!readResult.IsSuccess)
         {
             var malformedResponse = SupervisorIpcResponseFactory.CreateMalformedFrameResponse(
@@ -62,16 +91,58 @@ internal sealed class SupervisorRequestDispatcher
             return;
         }
 
-        var request = readResult.Value;
-        if (!TryParseResponseMode(request, out var responseMode, out var responseModeError))
+        var requestEnvelope = readResult.Value;
+        var requestDeadline = StartRequestDeadline(requestEnvelope);
+        using var requestScope = activityTracker.BeginRequest();
+        var validationResult = ValidateRequest(requestEnvelope, runtimeContext);
+        if (!validationResult.IsSuccess)
         {
-            await TryWriteResponseAsync(stream, responseModeError!, cancellationToken).ConfigureAwait(false);
+            var validationErrorResponse = validationResult.ErrorResponse!;
+            if (validationResult.ResponseMode == IpcResponseMode.Stream)
+            {
+                var validationStreamCompletionDeadline = requestDeadline is null
+                    ? ExecutionDeadline.Start(SupervisorConstants.EnsureRunningTerminalResponseGrace, timeProvider)
+                    : requestDeadline.CreateCompletionDeadline(SupervisorConstants.EnsureRunningTerminalResponseGrace);
+                var validationCompletionRemaining = TimeSpan.Zero;
+                _ = validationStreamCompletionDeadline.TryGetRemainingTimeout(out validationCompletionRemaining);
+                using var validationWriteCutoffCancellationTokenSource = new CancellationTokenSource(
+                    validationCompletionRemaining,
+                    timeProvider);
+                using var validationErrorWriter = new IpcStreamFrameWriter(
+                    stream,
+                    requestEnvelope,
+                    cancellationToken,
+                    cancellationToken,
+                    validationWriteCutoffCancellationTokenSource.Token,
+                    writeFailureHandler: null);
+                await TryWriteTerminalAsync(
+                        validationErrorWriter,
+                        validationErrorResponse,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+            else
+            {
+                await TryWriteResponseAsync(stream, validationErrorResponse, cancellationToken).ConfigureAwait(false);
+            }
+
             return;
         }
 
-        if (responseMode == IpcResponseMode.Stream)
+        var request = validationResult.Request!;
+        if (request.ResponseMode == IpcResponseMode.Stream)
         {
-            await HandleStreamingRequestAsync(stream, runtimeContext, request, cancellationToken).ConfigureAwait(false);
+            var streamCompletionDeadline = requestDeadline is null
+                ? ExecutionDeadline.Start(SupervisorConstants.EnsureRunningTerminalResponseGrace, timeProvider)
+                : requestDeadline.CreateCompletionDeadline(SupervisorConstants.EnsureRunningTerminalResponseGrace);
+            await HandleStreamingRequestAsync(
+                    stream,
+                    runtimeContext,
+                    request,
+                    requestDeadline,
+                    streamCompletionDeadline,
+                    cancellationToken)
+                .ConfigureAwait(false);
             return;
         }
 
@@ -79,6 +150,7 @@ internal sealed class SupervisorRequestDispatcher
                 stream,
                 runtimeContext,
                 request,
+                requestDeadline,
                 streamWriter: null,
                 requestLifetimeStarted: null,
                 cancellationToken)
@@ -89,80 +161,79 @@ internal sealed class SupervisorRequestDispatcher
     private async ValueTask<IpcResponse> ProcessRequestAsync (
         Stream stream,
         SupervisorRuntimeContext runtimeContext,
-        IpcRequest request,
+        ValidatedSupervisorIpcRequest request,
+        ExecutionDeadline? requestDeadline,
         IpcStreamFrameWriter? streamWriter,
         Action<SupervisorRequestLifetime>? requestLifetimeStarted,
         CancellationToken cancellationToken)
     {
-        using var requestScope = activityTracker.BeginRequest();
-
-        if (string.IsNullOrWhiteSpace(request.SessionToken))
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                IpcSessionErrorCodes.SessionTokenRequired,
-                "Supervisor session token is required.");
-        }
-
-        if (!string.Equals(request.SessionToken, runtimeContext.Manifest.SessionToken, StringComparison.Ordinal))
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                IpcSessionErrorCodes.SessionTokenInvalid,
-                "Supervisor session token is invalid.");
-        }
-
-        if (request.ProtocolVersion != IpcProtocol.CurrentVersion)
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                IpcProtocolErrorCodes.ProtocolVersionMismatch,
-                $"Protocol version mismatch. Requested={request.ProtocolVersion}, Supported={IpcProtocol.CurrentVersion}.");
-        }
-
         if (streamWriter is not null
-            && !string.Equals(request.Method, SupervisorIpcContracts.EnsureRunningMethod, StringComparison.Ordinal))
+            && request.Method != SupervisorIpcMethod.EnsureRunning)
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
                 UcliCoreErrorCodes.InvalidArgument,
-                $"Supervisor IPC responseMode 'stream' is only supported for {SupervisorIpcContracts.EnsureRunningMethod}.");
+                $"Supervisor IPC responseMode 'stream' is only supported for {ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning)}.");
+        }
+
+        if (requestDeadline is null
+            || !requestDeadline.TryGetRemainingTimeout(out _))
+        {
+            return SupervisorIpcResponseFactory.CreateErrorResponse(
+                request,
+                ExecutionErrorCodes.IpcTimeout,
+                "Supervisor request deadline expired before dispatch.");
         }
 
         return request.Method switch
         {
-            SupervisorIpcContracts.PingMethod => HandlePing(request, runtimeContext),
-            SupervisorIpcContracts.EnsureRunningMethod => await HandleEnsureRunningAsync(
+            SupervisorIpcMethod.Ping => HandlePing(request, runtimeContext),
+            SupervisorIpcMethod.EnsureRunning => await HandleEnsureRunningAsync(
                     stream,
                     request,
+                    requestDeadline,
                     runtimeContext,
                     streamWriter,
                     requestLifetimeStarted,
                     cancellationToken)
                 .ConfigureAwait(false),
-            SupervisorIpcContracts.StopProjectMethod => await HandleStopProjectAsync(stream, request, runtimeContext, cancellationToken).ConfigureAwait(false),
-            _ => SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                IpcProtocolErrorCodes.IpcMethodNotSupported,
-                $"Supervisor IPC method is not supported: {request.Method}."),
+            SupervisorIpcMethod.StopProject => await HandleStopProjectAsync(
+                    stream,
+                    request,
+                    requestDeadline,
+                    runtimeContext,
+                    cancellationToken)
+                .ConfigureAwait(false),
+            _ => throw new InvalidOperationException("Validated supervisor IPC method is not dispatchable."),
         };
     }
 
     private async ValueTask HandleStreamingRequestAsync (
         Stream stream,
         SupervisorRuntimeContext runtimeContext,
-        IpcRequest request,
+        ValidatedSupervisorIpcRequest request,
+        ExecutionDeadline? requestDeadline,
+        ExecutionDeadline streamCompletionDeadline,
         CancellationToken cancellationToken)
     {
         SupervisorRequestLifetime? activeRequestLifetime = null;
-        var streamWriter = new IpcStreamFrameWriter(
+        var completionRemaining = TimeSpan.Zero;
+        _ = streamCompletionDeadline.TryGetRemainingTimeout(out completionRemaining);
+        using var writeCutoffCancellationTokenSource = new CancellationTokenSource(
+            completionRemaining,
+            timeProvider);
+        using var streamWriter = new IpcStreamFrameWriter(
             stream,
             request,
+            cancellationToken,
+            cancellationToken,
+            writeCutoffCancellationTokenSource.Token,
             _ => activeRequestLifetime?.CancelForResponseStreamFailure());
         var response = await ProcessRequestAsync(
                 stream,
                 runtimeContext,
                 request,
+                requestDeadline,
                 streamWriter,
                 requestLifetime => activeRequestLifetime = requestLifetime,
                 cancellationToken)
@@ -171,7 +242,7 @@ internal sealed class SupervisorRequestDispatcher
     }
 
     private static IpcResponse HandlePing (
-        IpcRequest request,
+        ValidatedSupervisorIpcRequest request,
         SupervisorRuntimeContext runtimeContext)
     {
         return SupervisorIpcResponseFactory.CreateSuccessResponse(
@@ -183,7 +254,8 @@ internal sealed class SupervisorRequestDispatcher
 
     private async ValueTask<IpcResponse> HandleEnsureRunningAsync (
         Stream stream,
-        IpcRequest request,
+        ValidatedSupervisorIpcRequest request,
+        ExecutionDeadline requestDeadline,
         SupervisorRuntimeContext runtimeContext,
         IpcStreamFrameWriter? streamWriter,
         Action<SupervisorRequestLifetime>? requestLifetimeStarted,
@@ -209,93 +281,78 @@ internal sealed class SupervisorRequestDispatcher
             return CreateExecutionErrorResponse(request, projectContextResult.Error!);
         }
 
-        var timeout = TimeSpan.FromMilliseconds(payload.TimeoutMilliseconds);
-        if (timeout <= TimeSpan.Zero)
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                UcliCoreErrorCodes.InvalidArgument,
-                $"Supervisor ensureRunning timeout must be greater than zero. Actual={payload.TimeoutMilliseconds}.");
-        }
-
-        var editorMode = (DaemonEditorMode?)null;
-        if (payload.EditorMode != null)
-        {
-            if (!ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(payload.EditorMode, out var parsedEditorMode))
-            {
-                return SupervisorIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    $"Supervisor ensureRunning editorMode is invalid. Actual={payload.EditorMode}.");
-            }
-
-            editorMode = parsedEditorMode;
-        }
-
-        if (!ContractLiteralInputParser.TryParseTrimmed<DaemonStartupBlockedProcessPolicy>(payload.OnStartupBlocked, out var onStartupBlocked))
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                UcliCoreErrorCodes.InvalidArgument,
-                $"Supervisor ensureRunning onStartupBlocked is invalid. Actual={payload.OnStartupBlocked}.");
-        }
-
-        await using var requestLifetime = SupervisorRequestLifetime.Start(stream, cancellationToken);
-        requestLifetimeStarted?.Invoke(requestLifetime);
-        var progressObserver = streamWriter is null
-            ? null
-            : CreateProgressObserver(streamWriter, payload, editorMode, onStartupBlocked);
-
-        DaemonStartResult startResult;
-        try
-        {
-            startResult = await projectCoordinator.EnsureRunningAsync(
-                    projectContextResult.Context!,
-                    timeout,
-                    editorMode,
-                    onStartupBlocked,
-                    progressObserver,
-                    requestLifetime.CancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (requestLifetime.IsCallerDisconnectCancellation)
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                ExecutionErrorCodes.IpcTimeout,
-                "Supervisor ensureRunning was canceled because the caller disconnected.");
-        }
-
-        if (!startResult.IsSuccess)
+        if (!requestDeadline.TryGetRemainingTimeout(out var timeout))
         {
             return CreateExecutionErrorResponse(
                 request,
-                startResult.Error!,
-                startResult.DaemonStatus,
-                startResult.Diagnosis,
-                startResult.Startup);
+                ExecutionError.Timeout("Supervisor ensureRunning deadline expired before execution began."));
         }
 
-        if (!ContractLiteralCodec.TryToValue(startResult.Status, out var startStatus))
+        var timeoutMilliseconds = checked((int)Math.Ceiling(timeout.TotalMilliseconds));
+
+        var requestLifetime = SupervisorRequestLifetime.Start(stream, cancellationToken);
+        try
         {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                UcliCoreErrorCodes.InternalError,
-                $"Supervisor ensureRunning returned unsupported start status: {startResult.Status}.");
-        }
+            requestLifetimeStarted?.Invoke(requestLifetime);
+            var progressObserver = streamWriter is null
+                ? null
+                : CreateProgressObserver(
+                    streamWriter,
+                    payload,
+                    timeoutMilliseconds,
+                    payload.EditorMode,
+                    payload.OnStartupBlocked);
 
-        return SupervisorIpcResponseFactory.CreateSuccessResponse(
-            request,
-            new SupervisorIpcContracts.EnsureRunningResponse(
-                StartStatus: startStatus!,
-                DaemonStatus: ContractLiteralCodec.ToValue(DaemonStatusKind.Running),
-                Session: startResult.Session!,
-                LifecycleObservation: startResult.LifecycleObservation));
+            DaemonStartResult startResult;
+            try
+            {
+                startResult = await projectCoordinator.EnsureRunningAsync(
+                        projectContextResult.Context!,
+                        requestDeadline,
+                        payload.EditorMode,
+                        payload.OnStartupBlocked,
+                        progressObserver,
+                        requestLifetime.CancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException exception) when (
+                requestLifetime.IsCallerDisconnectCancellation
+                || (exception.InnerException is not null
+                && IpcConnectionWriteFailureClassifier.IsConnectionLocalWriteFailure(exception.InnerException)))
+            {
+                return SupervisorIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    ExecutionErrorCodes.IpcTimeout,
+                    "Supervisor ensureRunning was canceled because the caller disconnected.");
+            }
+
+            if (!startResult.IsSuccess)
+            {
+                return CreateExecutionErrorResponse(
+                    request,
+                    startResult.Error!,
+                    startResult.DaemonStatus,
+                    startResult.Diagnosis,
+                    startResult.Startup);
+            }
+
+            return SupervisorIpcResponseFactory.CreateSuccessResponse(
+                request,
+                new SupervisorIpcContracts.EnsureRunningResponse(
+                    StartStatus: startResult.Status,
+                    Session: DaemonSessionContractMapper.ToContract(startResult.Session!),
+                    LifecycleObservation: startResult.LifecycleObservation));
+        }
+        finally
+        {
+            requestLifetime.Release();
+        }
     }
 
     private async ValueTask<IpcResponse> HandleStopProjectAsync (
         Stream stream,
-        IpcRequest request,
+        ValidatedSupervisorIpcRequest request,
+        ExecutionDeadline requestDeadline,
         SupervisorRuntimeContext runtimeContext,
         CancellationToken cancellationToken)
     {
@@ -319,52 +376,138 @@ internal sealed class SupervisorRequestDispatcher
             return CreateExecutionErrorResponse(request, projectContextResult.Error!);
         }
 
-        var timeout = TimeSpan.FromMilliseconds(payload.TimeoutMilliseconds);
-        if (timeout <= TimeSpan.Zero)
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
-                request,
-                UcliCoreErrorCodes.InvalidArgument,
-                $"Supervisor stopProject timeout must be greater than zero. Actual={payload.TimeoutMilliseconds}.");
-        }
-
-        await using var requestLifetime = SupervisorRequestLifetime.Start(stream, cancellationToken);
-
-        DaemonStopResult stopResult;
-        try
-        {
-            stopResult = await projectCoordinator.StopProjectAsync(
-                    projectContextResult.Context!,
-                    timeout,
-                    requestLifetime.CancellationToken)
-                .ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (requestLifetime.IsCallerDisconnectCancellation)
+        if (!requestDeadline.TryGetRemainingTimeout(out _))
         {
             return SupervisorIpcResponseFactory.CreateErrorResponse(
                 request,
                 ExecutionErrorCodes.IpcTimeout,
-                "Supervisor stopProject was canceled because the caller disconnected.");
+                $"Supervisor stopProject deadline expired before dispatch. DeadlineUtc={request.RequestDeadlineUtc:O}.");
         }
 
-        if (!stopResult.IsSuccess)
+        var requestLifetime = SupervisorRequestLifetime.Start(stream, cancellationToken);
+        try
         {
-            return CreateExecutionErrorResponse(request, stopResult.Error!);
-        }
+            DaemonStopResult stopResult;
+            try
+            {
+                stopResult = await projectCoordinator.StopProjectAsync(
+                        projectContextResult.Context!,
+                        requestDeadline,
+                        requestLifetime.CancellationToken)
+                    .ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (requestLifetime.IsCallerDisconnectCancellation)
+            {
+                return SupervisorIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    ExecutionErrorCodes.IpcTimeout,
+                    "Supervisor stopProject was canceled because the caller disconnected.");
+            }
 
-        if (!ContractLiteralCodec.TryToValue(stopResult.Status, out var stopStatus))
-        {
-            return SupervisorIpcResponseFactory.CreateErrorResponse(
+            if (!stopResult.IsSuccess)
+            {
+                return CreateExecutionErrorResponse(request, stopResult.Error!);
+            }
+
+            return SupervisorIpcResponseFactory.CreateSuccessResponse(
                 request,
-                UcliCoreErrorCodes.InternalError,
-                $"Supervisor stopProject returned unsupported stop status: {stopResult.Status}.");
+                new SupervisorIpcContracts.StopProjectResponse(
+                    StopStatus: stopResult.Status.Value));
+        }
+        finally
+        {
+            requestLifetime.Release();
+        }
+    }
+
+    private static SupervisorIpcRequestValidationResult ValidateRequest (
+        IpcRequestEnvelope request,
+        SupervisorRuntimeContext runtimeContext)
+    {
+        var hasResponseMode = ContractLiteralCodec.TryParse(
+            request.ResponseMode,
+            out IpcResponseMode responseMode);
+        var errorResponseMode = hasResponseMode
+            ? responseMode
+            : IpcResponseMode.Single;
+
+        if (string.IsNullOrWhiteSpace(request.SessionToken))
+        {
+            return SupervisorIpcRequestValidationResult.Failure(
+                SupervisorIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    IpcSessionErrorCodes.SessionTokenRequired,
+                    "Supervisor session token is required."),
+                errorResponseMode);
         }
 
-        return SupervisorIpcResponseFactory.CreateSuccessResponse(
-            request,
-            new SupervisorIpcContracts.StopProjectResponse(
-                StopStatus: stopStatus!,
-                DaemonStatus: ContractLiteralCodec.ToValue(DaemonStatusKind.NotRunning)));
+        if (!IpcSessionToken.TryParse(request.SessionToken, out var presentedSessionToken)
+            || presentedSessionToken != runtimeContext.Manifest.SessionToken)
+        {
+            return SupervisorIpcRequestValidationResult.Failure(
+                SupervisorIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "Supervisor session token is invalid."),
+                errorResponseMode);
+        }
+
+        if (request.ProtocolVersion != IpcProtocol.CurrentVersion)
+        {
+            return SupervisorIpcRequestValidationResult.Failure(
+                SupervisorIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    IpcProtocolErrorCodes.ProtocolVersionMismatch,
+                    $"Protocol version mismatch. Requested={request.ProtocolVersion}, Supported={IpcProtocol.CurrentVersion}."),
+                errorResponseMode);
+        }
+
+        if (!hasResponseMode)
+        {
+            return SupervisorIpcRequestValidationResult.Failure(
+                SupervisorIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    "Unsupported supervisor IPC response mode."),
+                IpcResponseMode.Single);
+        }
+
+        if (!ContractLiteralCodec.TryParse(request.Method, out SupervisorIpcMethod method))
+        {
+            return SupervisorIpcRequestValidationResult.Failure(
+                SupervisorIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    IpcProtocolErrorCodes.IpcMethodNotSupported,
+                    "Supervisor IPC method is not supported."),
+                responseMode);
+        }
+
+        return SupervisorIpcRequestValidationResult.Success(
+            new ValidatedSupervisorIpcRequest(
+                request.RequestId,
+                method,
+                request.Payload,
+                responseMode,
+                request.RequestDeadlineUtc,
+                request.RequestDeadlineRemainingMilliseconds));
+    }
+
+    private ExecutionDeadline? StartRequestDeadline (IpcRequestEnvelope request)
+    {
+        var startTimestamp = timeProvider.GetTimestamp();
+        var observedAtUtc = timeProvider.GetUtcNow();
+        var absoluteRemaining = request.RequestDeadlineUtc - observedAtUtc;
+        var monotonicRemaining = TimeSpan.FromMilliseconds(request.RequestDeadlineRemainingMilliseconds);
+        var effectiveRemaining = absoluteRemaining < monotonicRemaining
+            ? absoluteRemaining
+            : monotonicRemaining;
+        return effectiveRemaining > TimeSpan.Zero
+            ? ExecutionDeadline.StartFromObservation(
+                effectiveRemaining,
+                observedAtUtc,
+                startTimestamp,
+                timeProvider)
+            : null;
     }
 
     private async Task TryWriteResponseAsync (
@@ -374,12 +517,28 @@ internal sealed class SupervisorRequestDispatcher
     {
         try
         {
-            await IpcFrameCodec.WriteModelAsync(
-                    stream,
-                    response,
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: cancellationToken)
-                .ConfigureAwait(false);
+            using var writeTimeoutCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var timeoutTask = Task.Delay(
+                SupervisorConstants.ResponseFrameWriteTimeout,
+                timeProvider,
+                writeTimeoutCancellationTokenSource.Token);
+            var writeTask = Task.Run(
+                async () => await IpcFrameCodec.WriteModelAsync(
+                        stream,
+                        response,
+                        IpcJsonSerializerOptions.Default,
+                        cancellationToken: cancellationToken)
+                    .ConfigureAwait(false),
+                CancellationToken.None);
+            var completedTask = await Task.WhenAny(writeTask, timeoutTask).ConfigureAwait(false);
+            if (!ReferenceEquals(completedTask, writeTask))
+            {
+                ObserveFault(writeTask);
+                return;
+            }
+
+            writeTimeoutCancellationTokenSource.Cancel();
+            await writeTask.ConfigureAwait(false);
         }
         catch (Exception)
         {
@@ -407,35 +566,17 @@ internal sealed class SupervisorRequestDispatcher
         }
     }
 
-    private static bool TryParseResponseMode (
-        IpcRequest request,
-        out IpcResponseMode responseMode,
-        out IpcResponse? responseModeError)
-    {
-        if (ContractLiteralCodec.TryParse(request.ResponseMode, out responseMode))
-        {
-            responseModeError = null;
-            return true;
-        }
-
-        var responseModeLiteral = request.ResponseMode ?? "<null>";
-        responseModeError = SupervisorIpcResponseFactory.CreateErrorResponse(
-            request,
-            UcliCoreErrorCodes.InvalidArgument,
-            $"Unsupported IPC response mode: {responseModeLiteral}.");
-        return false;
-    }
-
     private static IDaemonStartProgressObserver CreateProgressObserver (
         IpcStreamFrameWriter streamWriter,
         SupervisorIpcContracts.EnsureRunningRequest payload,
+        int timeoutMilliseconds,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
         return new DaemonStartProgressEmitter(
             new SupervisorIpcCommandProgressSink(streamWriter),
             payload.ProjectFingerprint,
-            payload.TimeoutMilliseconds,
+            timeoutMilliseconds,
             editorMode,
             onStartupBlocked);
     }
@@ -443,7 +584,7 @@ internal sealed class SupervisorRequestDispatcher
     private static ProjectContextResult TryCreateProjectContext (
         SupervisorRuntimeContext runtimeContext,
         string unityProjectRoot,
-        string projectFingerprint)
+        ProjectFingerprint projectFingerprint)
     {
         if (string.IsNullOrWhiteSpace(unityProjectRoot))
         {
@@ -451,10 +592,10 @@ internal sealed class SupervisorRequestDispatcher
                 "Unity project root must not be empty."));
         }
 
-        if (string.IsNullOrWhiteSpace(projectFingerprint))
+        if (projectFingerprint == null)
         {
             return ProjectContextResult.Failure(ExecutionError.InvalidArgument(
-                "Project fingerprint must not be empty."));
+                "Project fingerprint must not be null."));
         }
 
         try
@@ -470,17 +611,19 @@ internal sealed class SupervisorRequestDispatcher
             var expectedFingerprint = UnityProjectFingerprintCalculator.Create(
                 runtimeContext.StorageRoot,
                 normalizedUnityProjectRoot);
-            if (!string.Equals(expectedFingerprint, projectFingerprint, StringComparison.Ordinal))
+            if (expectedFingerprint != projectFingerprint)
             {
                 return ProjectContextResult.Failure(ExecutionError.InvalidArgument(
                     "Project fingerprint does not match the specified Unity project root."));
             }
 
-            return ProjectContextResult.Success(new ResolvedUnityProjectContext(
-                UnityProjectRoot: normalizedUnityProjectRoot,
-                RepositoryRoot: runtimeContext.StorageRoot,
-                ProjectFingerprint: projectFingerprint,
-                PathSource: UnityProjectPathSource.CommandOption));
+            return ProjectContextResult.Success(ResolvedUnityProjectContext.Create(
+                unityProjectRoot: normalizedUnityProjectRoot,
+                repositoryRoot: runtimeContext.StorageRoot,
+                projectFingerprint: projectFingerprint,
+                pathSource: UnityProjectPathSource.CommandOption,
+                pathSourceLabel: null,
+                unityVersion: ProjectIdentityDefaults.UnknownUnityVersion));
         }
         catch (Exception exception) when (exception is ArgumentException or NotSupportedException or PathTooLongException)
         {
@@ -490,7 +633,7 @@ internal sealed class SupervisorRequestDispatcher
     }
 
     private static IpcResponse CreateExecutionErrorResponse (
-        IpcRequest request,
+        ValidatedSupervisorIpcRequest request,
         ExecutionError error)
     {
         return SupervisorIpcResponseFactory.CreateErrorResponse(
@@ -500,20 +643,29 @@ internal sealed class SupervisorRequestDispatcher
     }
 
     private static IpcResponse CreateExecutionErrorResponse (
-        IpcRequest request,
+        ValidatedSupervisorIpcRequest request,
         ExecutionError error,
         DaemonStatusKind daemonStatus,
         DaemonDiagnosis? diagnosis,
         DaemonStartupObservation? startup)
     {
-        var daemonStatusValue = ContractLiteralCodec.TryToValue(daemonStatus, out var value)
-            ? value
-            : ContractLiteralCodec.ToValue(DaemonStatusKind.NotRunning);
         return SupervisorIpcResponseFactory.CreateErrorResponse(
             request,
             ExecutionErrorCodeMapper.ToCode(error),
             error.Message,
-            new SupervisorIpcContracts.EnsureRunningFailureResponse(daemonStatusValue, diagnosis, startup));
+            IpcPayloadCodec.SerializeToElement(new SupervisorIpcContracts.EnsureRunningFailureResponse(
+                daemonStatus,
+                diagnosis,
+                startup)));
+    }
+
+    private static void ObserveFault (Task task)
+    {
+        _ = task.ContinueWith(
+            static completedTask => _ = completedTask.Exception,
+            CancellationToken.None,
+            TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnFaulted,
+            TaskScheduler.Default);
     }
 
     private sealed record ProjectContextResult (

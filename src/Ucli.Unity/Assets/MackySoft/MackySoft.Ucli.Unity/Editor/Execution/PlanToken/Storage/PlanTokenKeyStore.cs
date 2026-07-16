@@ -77,7 +77,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
             try
             {
                 var decoded = Convert.FromBase64String(encoded);
-                if (decoded.Length < 32)
+                if (decoded.Length < PlanTokenCompactCodec.MinimumSigningKeyByteLength)
                 {
                     return false;
                 }
@@ -95,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         /// <returns> The generated key bytes. </returns>
         private static byte[] CreateRandomKey ()
         {
-            var key = new byte[32];
+            var key = new byte[PlanTokenCompactCodec.MinimumSigningKeyByteLength];
             RandomNumberGenerator.Fill(key);
             return key;
         }

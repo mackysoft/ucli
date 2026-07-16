@@ -13,14 +13,6 @@ namespace MackySoft.Ucli.Unity.Execution
     /// <summary> Builds one shared operation snapshot from discovered registrations. </summary>
     internal static class UcliOperationCatalogSnapshotBuilder
     {
-        /// <summary> Discovers operations and builds one shared snapshot. </summary>
-        /// <returns> The discovered operation snapshot. </returns>
-        public static UcliOperationCatalogSnapshot Build ()
-        {
-            var registrations = UcliOperationDiscoverer.Discover();
-            return Build(registrations);
-        }
-
         /// <summary> Discovers operations through dependency injection and builds one shared snapshot. </summary>
         /// <param name="serviceProvider"> The service provider used to activate operation instances. </param>
         /// <returns> The discovered operation snapshot. </returns>

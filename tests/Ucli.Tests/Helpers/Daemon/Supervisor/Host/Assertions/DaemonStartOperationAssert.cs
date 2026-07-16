@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -11,7 +10,7 @@ internal static class DaemonStartOperationAssert
         UcliCode expectedErrorCode,
         string? expectedMessageFragment = null)
     {
-        Assert.Equal(IpcProtocol.StatusError, response.Status);
+        Assert.Equal(IpcResponseStatus.Error, response.Status);
         var error = Assert.Single(response.Errors);
         Assert.Equal(expectedErrorCode, error.Code);
         if (expectedMessageFragment is not null)
@@ -26,7 +25,7 @@ internal static class DaemonStartOperationAssert
         RecordingDaemonStartOperation startOperation,
         string expectedRepositoryRoot,
         string expectedUnityProjectRoot,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         TimeSpan maximumTimeout,
         DaemonEditorMode? expectedEditorMode,
         DaemonStartupBlockedProcessPolicy expectedStartupBlockedPolicy)
@@ -37,8 +36,8 @@ internal static class DaemonStartOperationAssert
         FileSystemAssert.ForPath(invocation.UnityProject.UnityProjectRoot)
             .EqualsNormalized(expectedUnityProjectRoot);
         Assert.Equal(expectedProjectFingerprint, invocation.UnityProject.ProjectFingerprint);
-        Assert.True(invocation.Timeout > TimeSpan.Zero);
-        Assert.True(invocation.Timeout <= maximumTimeout);
+        Assert.True(invocation.RemainingTimeout > TimeSpan.Zero);
+        Assert.True(invocation.RemainingTimeout <= maximumTimeout);
         Assert.Equal(expectedEditorMode, invocation.EditorMode);
         Assert.Equal(expectedStartupBlockedPolicy, invocation.OnStartupBlocked);
         return invocation;
@@ -48,7 +47,7 @@ internal static class DaemonStartOperationAssert
         RecordingDaemonStartOperation startOperation,
         string expectedRepositoryRoot,
         string expectedUnityProjectRoot,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         TimeSpan maximumTimeout,
         DaemonEditorMode? expectedEditorMode,
         DaemonStartupBlockedProcessPolicy expectedStartupBlockedPolicy)

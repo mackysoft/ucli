@@ -1,8 +1,9 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
-/// <summary> Writes <c>scene-tree-lite/&lt;sceneKey&gt;.lookup.json</c> contracts with a fixed public JSON shape. </summary>
+/// <summary> Writes <c>scenes/&lt;sceneStorageKey&gt;.json</c> contracts with a fixed public JSON shape. </summary>
 internal sealed class IndexSceneTreeLiteLookupJsonContractWriter : IndexJsonContractWriterBase<IndexSceneTreeLiteLookupJsonContract>
 {
     /// <inheritdoc />
@@ -26,7 +27,7 @@ internal sealed class IndexSceneTreeLiteLookupJsonContractWriter : IndexJsonCont
         WriteNullableString(writer, "name", node.Name);
         WriteNullableString(writer, "globalObjectId", node.GlobalObjectId);
         WriteArray(writer, "children", node.Children, WriteSceneTreeLiteNode);
-        WriteNullableString(writer, "childrenState", node.ChildrenState);
+        writer.WriteString("childrenState", ContractLiteralCodec.ToValue(node.ChildrenState));
         writer.WriteEndObject();
     }
 }

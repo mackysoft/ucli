@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -41,10 +40,14 @@ public sealed class FileBuildRunArtifactStorePathContainmentSafetyTests
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "source-inside-artifact-root");
         var (store, paths) = PrepareArtifacts(scope);
         WriteUnityGeneratedArtifacts(paths);
-        var request = CreateAccountingRequest(paths) with
-        {
-            OutputSources = [BuildOutputSourceEntry.FromAbsolutePath(Path.Combine(paths.ArtifactsDirectory, "source"))],
-        };
+        var defaultRequest = CreateAccountingRequest(paths);
+        var request = new BuildRunArtifactAccountingRequest(
+            defaultRequest.Paths,
+            defaultRequest.BuildTarget,
+            defaultRequest.UnityBuildTarget,
+            defaultRequest.BuildReport,
+            [BuildOutputSourceEntry.FromAbsolutePath(Path.Combine(paths.ArtifactsDirectory, "source"))],
+            defaultRequest.AllowEmptyOutputManifest);
 
         var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
 
@@ -63,10 +66,14 @@ public sealed class FileBuildRunArtifactStorePathContainmentSafetyTests
         var (store, paths) = PrepareArtifacts(scope);
         WriteUnityGeneratedArtifacts(paths);
         var outsideSourcePath = scope.WriteFile("external-output.bin", "external");
-        var request = CreateAccountingRequest(paths) with
-        {
-            OutputSources = [BuildOutputSourceEntry.FromAbsolutePath(outsideSourcePath)],
-        };
+        var defaultRequest = CreateAccountingRequest(paths);
+        var request = new BuildRunArtifactAccountingRequest(
+            defaultRequest.Paths,
+            defaultRequest.BuildTarget,
+            defaultRequest.UnityBuildTarget,
+            defaultRequest.BuildReport,
+            [BuildOutputSourceEntry.FromAbsolutePath(outsideSourcePath)],
+            defaultRequest.AllowEmptyOutputManifest);
 
         var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
 
@@ -117,15 +124,17 @@ public sealed class FileBuildRunArtifactStorePathContainmentSafetyTests
         using var scope = TestDirectories.CreateTempScope("build-artifact-store", "unexpected-layout");
         var (store, paths) = PrepareArtifacts(scope);
         var artifactsDirectory = scope.CreateDirectory("unexpected-artifacts");
-        var request = CreateAccountingRequest(paths with
-        {
-            ArtifactsDirectory = artifactsDirectory,
-            BuildJsonPath = Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildMetadataFileName),
-            BuildReportJsonPath = Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
-            BuildLogPath = Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
-            OutputManifestJsonPath = Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputManifestFileName),
-            ArtifactOutputDirectory = Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputDirectoryName),
-        });
+        var unexpectedPaths = new BuildRunArtifactPaths(
+            paths.RepositoryRoot,
+            paths.RunId,
+            artifactsDirectory,
+            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildMetadataFileName),
+            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildReportFileName),
+            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildLogFileName),
+            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputManifestFileName),
+            paths.RunnerOutputDirectory,
+            Path.Combine(artifactsDirectory, UcliStoragePathNames.BuildOutputDirectoryName));
+        var request = CreateAccountingRequest(unexpectedPaths);
 
         var writeResult = await store.AccountArtifactsAsync(request, CancellationToken.None);
 

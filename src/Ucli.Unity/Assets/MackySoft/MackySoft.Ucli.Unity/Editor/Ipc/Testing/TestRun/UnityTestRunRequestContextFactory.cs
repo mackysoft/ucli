@@ -1,6 +1,10 @@
 using System;
+using System.Collections.Generic;
+using System.IO;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Infrastructure.Storage;
 using UnityEditor;
 using UnityEditor.TestTools.TestRunner.Api;
 using UnityEngine;
@@ -10,6 +14,16 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Validates and normalizes daemon <c>test.run</c> request payload values. </summary>
     internal sealed class UnityTestRunRequestContextFactory : IUnityTestRunRequestContextFactory
     {
+        private readonly IpcProjectIdentity projectIdentity;
+
+        /// <summary> Initializes a factory bound to the current Unity host project identity. </summary>
+        /// <param name="projectIdentity"> The current Unity host project identity used to derive run-scoped artifact paths. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectIdentity" /> is <see langword="null" />. </exception>
+        public UnityTestRunRequestContextFactory (IpcProjectIdentity projectIdentity)
+        {
+            this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
+        }
+
         /// <summary> Creates one normalized request context from IPC payload values. </summary>
         /// <param name="request"> The decoded IPC request payload. </param>
         /// <returns> The normalized request context. </returns>
@@ -28,37 +42,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentException("testPlatform must not be empty.", nameof(request));
             }
 
-            if (request.TestCategories == null)
-            {
-                throw new ArgumentException("testCategories must not be null.", nameof(request));
-            }
-
-            if (request.AssemblyNames == null)
-            {
-                throw new ArgumentException("assemblyNames must not be null.", nameof(request));
-            }
-
-            if (string.IsNullOrWhiteSpace(request.ResultsXmlPath))
-            {
-                throw new ArgumentException("resultsXmlPath must not be empty.", nameof(request));
-            }
-
-            if (string.IsNullOrWhiteSpace(request.EditorLogPath))
-            {
-                throw new ArgumentException("editorLogPath must not be empty.", nameof(request));
-            }
-
-            if (string.IsNullOrWhiteSpace(request.RunId))
-            {
-                throw new ArgumentException("runId must not be empty.", nameof(request));
-            }
-
-            if (request.TimeoutMilliseconds.HasValue && request.TimeoutMilliseconds.Value <= 0)
-            {
-                throw new ArgumentException("timeoutMilliseconds must be greater than zero when specified.", nameof(request));
-            }
-
             var (testMode, targetPlatform) = ParseTestPlatform(request.TestPlatform);
+            var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectIdentity.ProjectPath);
+            var artifactsDirectoryPath = UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(
+                storageRoot,
+                projectIdentity.ProjectFingerprint,
+                request.RunId);
 
             var consoleLogPath = Application.consoleLogPath;
             if (string.IsNullOrWhiteSpace(consoleLogPath))
@@ -67,16 +56,27 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return new UnityTestRunRequestContext(
-                RunId: request.RunId!,
-                TestPlatform: request.TestPlatform,
-                TestMode: testMode,
-                TargetPlatform: targetPlatform,
-                TestFilter: request.TestFilter,
-                TestCategories: request.TestCategories,
-                AssemblyNames: request.AssemblyNames,
-                ResultsXmlPath: request.ResultsXmlPath,
-                EditorLogPath: request.EditorLogPath,
-                ConsoleLogPath: consoleLogPath);
+                runId: request.RunId,
+                testPlatform: request.TestPlatform,
+                testMode: testMode,
+                targetPlatform: targetPlatform,
+                testFilter: request.TestFilter,
+                testCategories: CopyToArray(request.TestCategories),
+                assemblyNames: CopyToArray(request.AssemblyNames),
+                resultsXmlPath: Path.Combine(artifactsDirectoryPath, UcliStoragePathNames.TestResultsXmlFileName),
+                editorLogPath: Path.Combine(artifactsDirectoryPath, UcliStoragePathNames.TestEditorLogFileName),
+                consoleLogPath: consoleLogPath);
+        }
+
+        private static string[] CopyToArray (IReadOnlyList<string> values)
+        {
+            var result = new string[values.Count];
+            for (var index = 0; index < values.Count; index++)
+            {
+                result[index] = values[index];
+            }
+
+            return result;
         }
 
         /// <summary> Parses test-platform string into Unity execution settings. </summary>

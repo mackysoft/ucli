@@ -13,7 +13,4 @@ internal enum DaemonStatusKind
 
     [UcliContractLiteral("stale")]
     Stale = 2,
-
-    [UcliContractLiteralIgnore]
-    Failed = 3,
 }

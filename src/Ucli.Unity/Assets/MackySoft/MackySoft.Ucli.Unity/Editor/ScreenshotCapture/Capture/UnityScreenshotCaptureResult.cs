@@ -37,9 +37,9 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             UcliCode code,
             string message)
         {
-            if (!code.IsValid)
+            if (code == null)
             {
-                throw new ArgumentException("Screenshot capture error code must be valid.", nameof(code));
+                throw new ArgumentNullException(nameof(code));
             }
 
             if (string.IsNullOrWhiteSpace(message))

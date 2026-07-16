@@ -57,6 +57,17 @@ public sealed class TestRunPlatformCodecTests
         Assert.Equal("Android", TestRunPlatformCodec.ToUnityValue(TestRunPlatform.Player("Android")));
     }
 
+    [Theory]
+    [InlineData(" Android ")]
+    [InlineData("Android\n")]
+    [Trait("Size", "Small")]
+    public void Player_WhenBuildTargetLiteralIsNotCanonical_RejectsInvalidValue (string value)
+    {
+        var exception = Assert.Throws<ArgumentException>(() => TestRunPlatform.Player(value));
+
+        Assert.Equal("playerBuildTargetLiteral", exception.ParamName);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void TestRunPlatformCodec_TryParse_ReturnsExpectedResult ()

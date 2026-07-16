@@ -24,7 +24,7 @@ internal static class IpcSessionErrorCodeDescriptors
             possiblePhases: ["ipcAuthentication"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: [UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [
@@ -54,7 +54,7 @@ internal static class IpcSessionErrorCodeDescriptors
             possiblePhases: ["ipcAuthentication"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: [UcliErrorInspectTargets.DaemonStatusCommand, UcliErrorInspectTargets.DaemonListCommand],
             nextActions:
             [

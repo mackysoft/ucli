@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Streaming;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Validation;
@@ -9,25 +8,21 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 /// <summary> Implements polling orchestration for <c>logs unity read</c> command execution. </summary>
 internal sealed class LogsUnityService : ILogsUnityService
 {
-    private readonly IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver;
+    private readonly LogsStreamPollingExecutor streamPollingExecutor;
 
     private readonly IUnityLogsClient unityLogsClient;
 
     private readonly ILogsUnityRequestValidator requestValidator;
 
-    private readonly IDaemonLogsStreamTerminationPolicy streamTerminationPolicy;
-
     /// <summary> Initializes a new instance of the <see cref="LogsUnityService" /> class. </summary>
     public LogsUnityService (
-        IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
+        LogsStreamPollingExecutor streamPollingExecutor,
         IUnityLogsClient unityLogsClient,
-        ILogsUnityRequestValidator requestValidator,
-        IDaemonLogsStreamTerminationPolicy streamTerminationPolicy)
+        ILogsUnityRequestValidator requestValidator)
     {
-        this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
+        this.streamPollingExecutor = streamPollingExecutor ?? throw new ArgumentNullException(nameof(streamPollingExecutor));
         this.unityLogsClient = unityLogsClient ?? throw new ArgumentNullException(nameof(unityLogsClient));
         this.requestValidator = requestValidator ?? throw new ArgumentNullException(nameof(requestValidator));
-        this.streamTerminationPolicy = streamTerminationPolicy ?? throw new ArgumentNullException(nameof(streamTerminationPolicy));
     }
 
     /// <inheritdoc />
@@ -42,11 +37,10 @@ internal sealed class LogsUnityService : ILogsUnityService
 
         if (!requestValidator.TryValidate(request, out var query, out var streamOptions, out var argumentValidationError))
         {
-            return ValueTask.FromResult(LogsReadServiceResult.Failure(argumentValidationError!));
+            return ValueTask.FromResult(LogsReadServiceResult.Failure(argumentValidationError!, 0, null));
         }
 
-        return LogsStreamPollingExecutor.ExecuteAsync(
-            daemonCommandExecutionContextResolver,
+        return streamPollingExecutor.ExecuteAsync(
             UcliCommandIds.LogsUnityRead,
             request.ProjectPath,
             request.TimeoutMilliseconds,
@@ -56,16 +50,22 @@ internal sealed class LogsUnityService : ILogsUnityService
             unityLogsClient.ReadAsync,
             static readResult => readResult.Response,
             static readResult => readResult.Error,
-            static (query, after) => query with
-            {
-                Tail = null,
-                After = after,
-            },
+            static (query, after) => new IpcUnityLogsReadRequest(
+                Tail: null,
+                After: after,
+                Since: query.Since,
+                Until: query.Until,
+                Level: query.Level,
+                Query: query.Query,
+                QueryTarget: query.QueryTarget,
+                Source: query.Source,
+                StackTrace: query.StackTrace,
+                StackTraceMaxFrames: query.StackTraceMaxFrames,
+                StackTraceMaxChars: query.StackTraceMaxChars),
             static response => response.Events,
-            static response => response.NextCursor,
-            static unityLogEvent => unityLogEvent.Cursor,
+            static response => response.NextCursor.Value,
+            static unityLogEvent => unityLogEvent.Cursor.Value,
             onEvent,
-            streamTerminationPolicy,
             static unityLogEvent => unityLogEvent.Timestamp,
             cancellationToken);
     }

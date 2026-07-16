@@ -9,8 +9,8 @@ internal static class VerifyVerdictCalculator
     /// <summary> Calculates the final verify verdict. </summary>
     /// <param name="claims"> The claims emitted by executed verifiers. </param>
     /// <param name="payloadResidualRisks"> The payload-level residual risks emitted by executed verifiers. </param>
-    /// <returns> The final verify verdict literal. </returns>
-    public static string Calculate (
+    /// <returns> The final verify verdict. </returns>
+    public static AssuranceVerdict Calculate (
         IReadOnlyList<VerifyClaimOutput> claims,
         IReadOnlyList<VerifyResidualRiskOutput> payloadResidualRisks)
     {

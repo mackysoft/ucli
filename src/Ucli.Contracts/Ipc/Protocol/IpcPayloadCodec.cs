@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Json;
 
@@ -91,6 +92,15 @@ public static class IpcPayloadCodec
         {
             value = default!;
             error = new IpcPayloadReadError(IpcPayloadReadErrorKind.DeserializeFailed, exception.Message);
+            return false;
+        }
+        catch (TargetInvocationException exception) when (
+            exception.InnerException is JsonException or InvalidOperationException or NotSupportedException or ArgumentException)
+        {
+            value = default!;
+            error = new IpcPayloadReadError(
+                IpcPayloadReadErrorKind.DeserializeFailed,
+                exception.InnerException.Message);
             return false;
         }
     }

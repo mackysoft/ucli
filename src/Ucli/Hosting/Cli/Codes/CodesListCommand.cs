@@ -23,7 +23,7 @@ internal sealed class CodesListCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes <c>codes list</c> and emits the JSON result contract. </summary>
+    /// <summary> Lists machine-readable codes and emits the JSON result contract. </summary>
     /// <param name="kind"> Optional exact kind filter. </param>
     /// <param name="command"> Optional exact or family command filter. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>

@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 #nullable enable
@@ -33,10 +34,10 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="createConflictResponse"> The factory used when the request-id conflicts with different request content. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by request execution. </param>
         /// <returns> The coordinated response envelope. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="executeRequest" /> or <paramref name="createConflictResponse" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestFingerprint" />, <paramref name="executeRequest" />, or <paramref name="createConflictResponse" /> is <see langword="null" />. </exception>
         public async Task<IpcResponse> ExecuteAsync (
-            string requestId,
-            string requestFingerprint,
+            Guid requestId,
+            Sha256Digest requestFingerprint,
             Func<CancellationToken, Task<IpcResponse>> executeRequest,
             Func<IpcResponse> createConflictResponse,
             CancellationToken cancellationToken = default)
@@ -59,7 +60,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                 case ExecuteRequestIdempotencyStoreDecision.DecisionKind.ExecuteOwner:
                     try
                     {
-                        IpcResponse response = await executeRequest(cancellationToken).ConfigureAwait(false);
+                        IpcResponse response = await executeRequest(cancellationToken);
 
                         if (response == null)
                         {
@@ -94,7 +95,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                         throw new InvalidOperationException("Wait decision did not contain a shared response task.");
                     }
 
-                    return await WaitForSharedResponseAsync(decision.SharedResponseTask, cancellationToken).ConfigureAwait(false);
+                    return await WaitForSharedResponseAsync(decision.SharedResponseTask, cancellationToken);
 
                 case ExecuteRequestIdempotencyStoreDecision.DecisionKind.Conflict:
                     return createConflictResponse();
@@ -108,14 +109,18 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
         /// <param name="requestFingerprint"> The deterministic fingerprint of request payload content. </param>
         /// <returns> The idempotency decision for this request. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> or <paramref name="requestFingerprint" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> or <paramref name="requestFingerprint" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestFingerprint" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
         public ExecuteRequestIdempotencyStoreDecision Acquire (
-            string requestId,
-            string requestFingerprint)
+            Guid requestId,
+            Sha256Digest requestFingerprint)
         {
             ValidateRequestId(requestId);
-            ValidateRequestFingerprint(requestFingerprint);
+            if (requestFingerprint == null)
+            {
+                throw new ArgumentNullException(nameof(requestFingerprint));
+            }
+
             return store.Acquire(requestId, requestFingerprint);
         }
 
@@ -123,19 +128,29 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
         /// <param name="requestFingerprint"> The deterministic fingerprint of request payload content. </param>
         /// <param name="response"> The completed response envelope. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" />, <paramref name="requestFingerprint" />, or <paramref name="response" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> or <paramref name="requestFingerprint" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestFingerprint" /> or <paramref name="response" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty or the response identifies another request. </exception>
         public void CompleteSuccess (
-            string requestId,
-            string requestFingerprint,
+            Guid requestId,
+            Sha256Digest requestFingerprint,
             IpcResponse response)
         {
             ValidateRequestId(requestId);
-            ValidateRequestFingerprint(requestFingerprint);
+            if (requestFingerprint == null)
+            {
+                throw new ArgumentNullException(nameof(requestFingerprint));
+            }
 
             if (response == null)
             {
                 throw new ArgumentNullException(nameof(response));
+            }
+
+            if (response.RequestId != requestId)
+            {
+                throw new ArgumentException(
+                    "Response request id must match the idempotency request id.",
+                    nameof(response));
             }
 
             store.CompleteSuccess(requestId, requestFingerprint, response);
@@ -143,9 +158,8 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
         /// <summary> Completes one owner execution with cancellation and notifies shared waiters. </summary>
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty or whitespace. </exception>
-        public void CompleteCanceled (string requestId)
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
+        public void CompleteCanceled (Guid requestId)
         {
             ValidateRequestId(requestId);
             store.CompleteCanceled(requestId);
@@ -154,10 +168,10 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <summary> Completes one owner execution with failure and notifies shared waiters. </summary>
         /// <param name="requestId"> The request identifier used as idempotency key. </param>
         /// <param name="exception"> The execution failure exception. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> or <paramref name="exception" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="exception" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
         public void CompleteFailed (
-            string requestId,
+            Guid requestId,
             Exception exception)
         {
             ValidateRequestId(requestId);
@@ -172,35 +186,12 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
         /// <summary> Validates request-id input constraints. </summary>
         /// <param name="requestId"> The request identifier. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestId" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty or whitespace. </exception>
-        private static void ValidateRequestId (string requestId)
+        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestId" /> is empty. </exception>
+        private static void ValidateRequestId (Guid requestId)
         {
-            if (requestId == null)
+            if (requestId == Guid.Empty)
             {
-                throw new ArgumentNullException(nameof(requestId));
-            }
-
-            if (string.IsNullOrWhiteSpace(requestId))
-            {
-                throw new ArgumentException("Request id must not be empty or whitespace.", nameof(requestId));
-            }
-        }
-
-        /// <summary> Validates request fingerprint input constraints. </summary>
-        /// <param name="requestFingerprint"> The deterministic request fingerprint. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestFingerprint" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when <paramref name="requestFingerprint" /> is empty or whitespace. </exception>
-        private static void ValidateRequestFingerprint (string requestFingerprint)
-        {
-            if (requestFingerprint == null)
-            {
-                throw new ArgumentNullException(nameof(requestFingerprint));
-            }
-
-            if (string.IsNullOrWhiteSpace(requestFingerprint))
-            {
-                throw new ArgumentException("Request fingerprint must not be empty or whitespace.", nameof(requestFingerprint));
+                throw new ArgumentException("Request id must not be empty.", nameof(requestId));
             }
         }
 

@@ -1,7 +1,7 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Validate.Common.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 
 namespace MackySoft.Ucli.Tests;
@@ -17,7 +17,7 @@ public sealed class ValidateCommandResultFactoryTests
             "Static validation passed."));
 
         Assert.Equal(UcliCommandNames.Validate, result.Command);
-        Assert.Equal("ok", result.Status);
+        Assert.Equal(CommandResultStatus.Ok, result.Status);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Empty(result.Errors);
 
@@ -41,15 +41,15 @@ public sealed class ValidateCommandResultFactoryTests
                 new ValidationError(
                     ValidationErrorCodes.OperationArgsInvalid,
                     "Operation args are invalid.",
-                    "step-1"),
+                    new IpcExecuteStepId("step-1")),
             ]));
 
         Assert.Equal(UcliCommandNames.Validate, result.Command);
-        Assert.Equal("error", result.Status);
+        Assert.Equal(CommandResultStatus.Error, result.Status);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
         Assert.Single(result.Errors);
         Assert.Equal(ValidationErrorCodes.OperationArgsInvalid, result.Errors[0].Code);
-        Assert.Equal("step-1", result.Errors[0].OpId);
+        Assert.Equal("step-1", result.Errors[0].OpId?.Value);
     }
 
     [Fact]
@@ -62,7 +62,7 @@ public sealed class ValidateCommandResultFactoryTests
             new ValidateExecutionOutput(ProjectIdentityInfoTestFactory.Create(), CreateReadIndexInfo())));
 
         Assert.Equal(UcliCommandNames.Validate, result.Command);
-        Assert.Equal("error", result.Status);
+        Assert.Equal(CommandResultStatus.Error, result.Status);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         Assert.Single(result.Errors);
         Assert.Equal(ReadIndexErrorCodes.ReadIndexFormatInvalid, result.Errors[0].Code);

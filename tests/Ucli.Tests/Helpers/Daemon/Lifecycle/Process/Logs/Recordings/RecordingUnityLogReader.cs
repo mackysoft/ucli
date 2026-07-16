@@ -16,22 +16,29 @@ internal sealed class RecordingUnityLogReader : IUnityLogReader
 
     public UnityLogReadResult NextResult { get; set; }
 
+    public Func<string, ProjectFingerprint, int, CancellationToken, ValueTask<UnityLogReadResult>>? ReadAsyncHandler { get; set; }
+
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<UnityLogReadResult> ReadTailAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int maxBytes = IUnityLogReader.DefaultMaxBytes,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         invocations.Add(new Invocation(storageRoot, projectFingerprint, maxBytes, cancellationToken));
+        if (ReadAsyncHandler is not null)
+        {
+            return ReadAsyncHandler(storageRoot, projectFingerprint, maxBytes, cancellationToken);
+        }
+
         return ValueTask.FromResult(NextResult);
     }
 
     internal readonly record struct Invocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         int MaxBytes,
         CancellationToken CancellationToken);
 }

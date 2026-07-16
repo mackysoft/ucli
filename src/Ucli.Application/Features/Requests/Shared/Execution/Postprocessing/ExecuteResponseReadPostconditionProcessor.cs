@@ -10,7 +10,7 @@ internal static class ExecuteResponseReadPostconditionProcessor
         ExecuteResponseConversionResult response,
         IMutationReadPostconditionStore store,
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(response);

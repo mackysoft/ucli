@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Build
                 throw new ArgumentNullException(nameof(outputLayout));
             }
 
-            var profile = AssetDatabase.LoadAssetAtPath<BuildProfile>(unityBuildProfile.Path);
+            var profile = AssetDatabase.LoadAssetAtPath<BuildProfile>(unityBuildProfile.Path.Value);
             if (profile == null)
             {
                 throw new UnityBuildProfileInputException($"Unity Build Profile asset could not be resolved: {unityBuildProfile.Path}.");

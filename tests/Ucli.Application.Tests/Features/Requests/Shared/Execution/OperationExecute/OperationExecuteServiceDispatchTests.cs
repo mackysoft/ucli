@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -25,9 +24,9 @@ public sealed class OperationExecuteServiceDispatchTests
                 touched:
                 [
                     new IpcExecuteTouchedResource(
-                        Kind: UcliTouchedResourceKindNames.Asset,
-                        Path: "Assets/Example.txt",
-                        Guid: "11111111111111111111111111111111"),
+                        kind: UcliTouchedResourceKind.Asset,
+                        path: "Assets/Example.txt",
+                        assetGuid: Guid.ParseExact("11111111111111111111111111111111", "N")),
                 ]));
         var service = OperationExecuteServiceTestSupport.CreateService(
             projectContextResolver,
@@ -36,6 +35,7 @@ public sealed class OperationExecuteServiceDispatchTests
             timeProvider: timeProvider);
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: UnityExecutionMode.Daemon,
@@ -43,21 +43,21 @@ public sealed class OperationExecuteServiceDispatchTests
                 failFast: true),
             cancellationToken: CancellationToken.None);
 
-        Assert.True(Guid.TryParseExact(result.RequestId, "D", out _));
+        Assert.Equal(OperationExecuteServiceTestSupport.RequestId, result.RequestId);
         Assert.True(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.Success, result.Outcome);
         Assert.Empty(result.Errors);
         var opResult = Assert.Single(result.OpResults);
-        Assert.Equal("refresh", opResult.OpId);
+        Assert.Equal("refresh", opResult.OpId.Value);
         Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, opResult.Op);
-        Assert.Equal(IpcExecuteOperationPhaseNames.Call, opResult.Phase);
+        Assert.Equal(IpcExecuteOperationPhase.Call, opResult.Phase);
         Assert.True(opResult.Applied);
         Assert.True(opResult.Changed);
         Assert.Equal(JsonValueKind.Object, opResult.Result!.Value.ValueKind);
         var touchedResource = Assert.Single(opResult.Touched);
-        Assert.Equal(UcliTouchedResourceKindNames.Asset, touchedResource.Kind);
+        Assert.Equal(UcliTouchedResourceKind.Asset, touchedResource.Kind);
         Assert.Equal("Assets/Example.txt", touchedResource.Path);
-        Assert.Equal("11111111111111111111111111111111", touchedResource.Guid);
+        Assert.Equal(Guid.ParseExact("11111111111111111111111111111111", "N"), touchedResource.AssetGuid);
 
         OperationExecuteInvocationAssert.AuthorizationCheckedOnce(
             authorizationService,
@@ -69,8 +69,7 @@ public sealed class OperationExecuteServiceDispatchTests
             UcliCommandIds.Refresh,
             UnityExecutionMode.Daemon,
             TimeSpan.FromMilliseconds(120000),
-            expectedRepositoryRoot: "/repo",
-            expectedRequestId: result.RequestId,
+            expectedRepositoryRoot: ProjectPathTestValues.RepositoryRoot,
             expectedFailFast: true,
             expectedOperationId: "refresh",
             expectedOperationName: UcliPrimitiveOperationNames.ProjectRefresh);

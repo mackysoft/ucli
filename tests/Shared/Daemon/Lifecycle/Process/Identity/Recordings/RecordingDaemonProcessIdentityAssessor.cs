@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Shared.Foundation;
+
 namespace MackySoft.Ucli.TestSupport;
 
 internal sealed class RecordingDaemonProcessIdentityAssessor : IDaemonProcessIdentityAssessor
@@ -5,18 +7,12 @@ internal sealed class RecordingDaemonProcessIdentityAssessor : IDaemonProcessIde
     private readonly List<Invocation> invocations = [];
 
     public RecordingDaemonProcessIdentityAssessor ()
-        : this(new DaemonProcessIdentityAssessment(
-            DaemonProcessIdentityAssessmentStatus.NotRunning,
-            ObservedStartTimeUtc: null,
-            Error: null))
+        : this(DaemonProcessIdentityAssessment.NotRunning())
     {
     }
 
     public RecordingDaemonProcessIdentityAssessor (DaemonProcessIdentityAssessmentStatus status)
-        : this(new DaemonProcessIdentityAssessment(
-            status,
-            ObservedStartTimeUtc: null,
-            Error: null))
+        : this(CreateAssessment(status))
     {
     }
 
@@ -30,12 +26,10 @@ internal sealed class RecordingDaemonProcessIdentityAssessor : IDaemonProcessIde
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public static RecordingDaemonProcessIdentityAssessor MatchingLiveProcess (
-        DateTimeOffset? observedStartTimeUtc = null)
+        DateTimeOffset observedStartTimeUtc)
     {
-        return new RecordingDaemonProcessIdentityAssessor(new DaemonProcessIdentityAssessment(
-            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-            observedStartTimeUtc ?? DateTimeOffset.UtcNow,
-            Error: null));
+        return new RecordingDaemonProcessIdentityAssessor(
+            DaemonProcessIdentityAssessment.MatchingLiveProcess(observedStartTimeUtc));
     }
 
     public DaemonProcessIdentityAssessment AssessByProcessId (
@@ -49,4 +43,23 @@ internal sealed class RecordingDaemonProcessIdentityAssessor : IDaemonProcessIde
     internal readonly record struct Invocation (
         int ProcessId,
         DateTimeOffset? ExpectedProcessStartedAtUtc);
+
+    private static DaemonProcessIdentityAssessment CreateAssessment (DaemonProcessIdentityAssessmentStatus status)
+    {
+        return status switch
+        {
+            DaemonProcessIdentityAssessmentStatus.NotRunning => DaemonProcessIdentityAssessment.NotRunning(),
+            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess =>
+                DaemonProcessIdentityAssessment.MatchingLiveProcess(DateTimeOffset.UtcNow),
+            DaemonProcessIdentityAssessmentStatus.DifferentProcess =>
+                DaemonProcessIdentityAssessment.DifferentProcess(
+                    DateTimeOffset.UtcNow,
+                    ExecutionError.InternalError("The test process differs from the expected process.")),
+            DaemonProcessIdentityAssessmentStatus.Uncertain =>
+                DaemonProcessIdentityAssessment.Uncertain(
+                    observedStartTimeUtc: null,
+                    ExecutionError.InternalError("The test process identity is uncertain.")),
+            _ => throw new ArgumentOutOfRangeException(nameof(status), status, "Process identity assessment status must be defined."),
+        };
+    }
 }

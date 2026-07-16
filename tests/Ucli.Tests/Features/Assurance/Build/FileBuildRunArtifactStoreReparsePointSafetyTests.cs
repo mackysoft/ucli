@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -84,7 +83,8 @@ public sealed class FileBuildRunArtifactStoreReparsePointSafetyTests
         var writeResult = await store.AccountArtifactsAsync(
             CreateAccountingRequest(
                 paths,
-                BuildReportSourceEntry.FromRunnerOutputRelativePath("reports/linked/build-report.json"),
+                BuildReportSourceEntry.FromRunnerOutputRelativePath(
+                    new BuildRunnerOutputPath("reports/linked/build-report.json")),
                 outputSourcePath),
             CancellationToken.None);
 

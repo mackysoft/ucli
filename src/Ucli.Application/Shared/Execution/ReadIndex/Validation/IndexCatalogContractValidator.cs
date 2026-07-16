@@ -1,6 +1,9 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
@@ -8,111 +11,24 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 /// <summary> Validates read-index catalog contracts loaded from persistent storage. </summary>
 internal static class IndexCatalogContractValidator
 {
-    private const int SupportedSchemaVersion = 1;
-
-    /// <summary> Validates one <c>ops.catalog.json</c> contract instance. </summary>
-    /// <param name="contract"> The contract instance. </param>
-    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
-    public static bool IsValidOpsCatalog (IndexOpsCatalogJsonContract contract)
-    {
-        if (!IsSupportedSchemaVersion(contract.SchemaVersion)
-            || string.IsNullOrWhiteSpace(contract.SourceInputsHash))
-        {
-            return false;
-        }
-
-        return TryValidateOpsCatalogEntries(contract.Entries, "entries", out _);
-    }
-
-    /// <summary> Validates one <c>ops.describe/&lt;opKey&gt;.json</c> contract instance. </summary>
-    /// <param name="contract"> The contract instance. </param>
-    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
-    public static bool IsValidOpsDescribe (IndexOpsDescribeJsonContract contract)
-    {
-        return IsSupportedSchemaVersion(contract.SchemaVersion)
-            && !string.IsNullOrWhiteSpace(contract.SourceInputsHash)
-            && TryValidateOpsEntry(contract.Operation, 0, allowEditLoweringOnlyEntries: false, out _);
-    }
-
-    /// <summary> Validates one lightweight operation-descriptor collection from <c>ops.catalog.json</c>. </summary>
-    /// <param name="entries"> The lightweight operation-descriptor collection. </param>
-    /// <param name="propertyName"> The property name used in validation errors. </param>
-    /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
-    /// <returns> <see langword="true" /> when the descriptor collection is valid; otherwise <see langword="false" />. </returns>
-    public static bool TryValidateOpsCatalogEntries (
-        IReadOnlyList<IndexOpsCatalogEntryJsonContract>? entries,
-        string propertyName,
-        out string? error)
-    {
-        if (entries == null)
-        {
-            error = $"Required property '{propertyName}' is missing.";
-            return false;
-        }
-
-        var operationNames = new HashSet<string>(StringComparer.Ordinal);
-        var describeKeys = new HashSet<string>(StringComparer.Ordinal);
-        for (var i = 0; i < entries.Count; i++)
-        {
-            var entry = entries[i];
-            if (entry == null
-                || string.IsNullOrWhiteSpace(entry.Name)
-                || !ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationKind>(entry.Kind)
-                || !ContractLiteralInputParser.IsDefinedIgnoreCase<OperationPolicy>(entry.Policy)
-                || string.IsNullOrWhiteSpace(entry.Description)
-                || !IsSha256LowerHex(entry.DescribeKey)
-                || !IsSha256LowerHex(entry.DescribeHash))
-            {
-                error = $"Operation catalog entry at index {i} is invalid.";
-                return false;
-            }
-
-            if (!operationNames.Add(entry.Name!))
-            {
-                error = $"Operation catalog entry '{entry.Name}' is duplicated.";
-                return false;
-            }
-
-            if (!describeKeys.Add(entry.DescribeKey!))
-            {
-                error = $"Operation describe key '{entry.DescribeKey}' is duplicated.";
-                return false;
-            }
-        }
-
-        error = null;
-        return true;
-    }
-
-    /// <summary> Validates one operation-entry collection shared by persisted and live ops catalog payloads. </summary>
-    /// <param name="entries"> The operation-entry collection. </param>
-    /// <param name="propertyName"> The property name used in validation errors. </param>
-    /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
-    /// <returns> <see langword="true" /> when the entry collection is valid; otherwise <see langword="false" />. </returns>
-    public static bool TryValidateOpsEntries (
-        IReadOnlyList<IndexOpEntryJsonContract>? entries,
-        string propertyName,
-        out string? error)
-    {
-        return TryValidateOpsEntries(
-            entries,
-            propertyName,
-            allowEditLoweringOnlyEntries: false,
-            out error);
-    }
-
-    /// <summary> Validates one operation-entry collection shared by persisted and live ops catalog payloads. </summary>
+    /// <summary> Projects one operation-entry collection shared by persisted and live ops catalog payloads. </summary>
     /// <param name="entries"> The operation-entry collection. </param>
     /// <param name="propertyName"> The property name used in validation errors. </param>
     /// <param name="allowEditLoweringOnlyEntries"> Whether edit-lowering-only entries are valid for request validation. </param>
+    /// <param name="requireCanonicalLiterals"> Whether enum literals must use their canonical persisted representation. </param>
+    /// <param name="operations"> The validated typed operations on success; otherwise <see langword="null" />. </param>
     /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
     /// <returns> <see langword="true" /> when the entry collection is valid; otherwise <see langword="false" />. </returns>
-    public static bool TryValidateOpsEntries (
+    internal static bool TryProjectOpsEntries (
         IReadOnlyList<IndexOpEntryJsonContract>? entries,
         string propertyName,
         bool allowEditLoweringOnlyEntries,
+        bool requireCanonicalLiterals,
+        [NotNullWhen(true)]
+        out IReadOnlyList<ValidatedOpsOperation>? operations,
         out string? error)
     {
+        operations = null;
         if (entries == null)
         {
             error = $"Required property '{propertyName}' is missing.";
@@ -120,53 +36,103 @@ internal static class IndexCatalogContractValidator
         }
 
         var operationNames = new HashSet<string>(StringComparer.Ordinal);
+        var projectedOperations = new ValidatedOpsOperation[entries.Count];
         for (var i = 0; i < entries.Count; i++)
         {
             var entry = entries[i];
-            if (!TryValidateOpsEntry(entry, i, allowEditLoweringOnlyEntries, out error))
+            if (!TryProjectOpsEntry(
+                    entry,
+                    i,
+                    allowEditLoweringOnlyEntries,
+                    requireCanonicalLiterals,
+                    out var operation,
+                    out error))
             {
                 return false;
             }
 
-            if (!operationNames.Add(entry!.Name!))
+            if (!operationNames.Add(operation.Name))
             {
                 error = $"Operation entry '{entry.Name}' is duplicated.";
                 return false;
             }
+
+            projectedOperations[i] = operation;
         }
 
+        operations = Array.AsReadOnly(projectedOperations);
         error = null;
         return true;
     }
 
-    private static bool TryValidateOpsEntry (
+    /// <summary> Projects one operation entry shared by persisted detail and live catalog payloads. </summary>
+    /// <param name="entry"> The operation entry. </param>
+    /// <param name="index"> The entry index used in validation errors. </param>
+    /// <param name="allowEditLoweringOnlyEntries"> Whether edit-lowering-only entries are valid for request validation. </param>
+    /// <param name="requireCanonicalLiterals"> Whether enum literals must use their canonical persisted representation. </param>
+    /// <param name="operation"> The validated typed operation on success; otherwise <see langword="null" />. </param>
+    /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when the operation entry is valid; otherwise <see langword="false" />. </returns>
+    internal static bool TryProjectOpsEntry (
         IndexOpEntryJsonContract? entry,
         int index,
         bool allowEditLoweringOnlyEntries,
+        bool requireCanonicalLiterals,
+        [NotNullWhen(true)]
+        out ValidatedOpsOperation? operation,
         out string? error)
     {
+        operation = null;
         error = null;
         if (entry == null
             || string.IsNullOrWhiteSpace(entry.Name)
-            || !ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationKind>(entry.Kind)
-            || !ContractLiteralInputParser.IsDefinedIgnoreCase<OperationPolicy>(entry.Policy)
-            || !ContractLiteralInputParser.IsDefinedIgnoreCase<UcliOperationPlayModeSupport>(entry.PlayModeSupport)
-            || !TryResolveCatalogExposure(entry.Exposure, allowEditLoweringOnlyEntries, out var exposure, out error)
-            || !IsValidArgsSchema(entry.ArgsSchemaJson, exposure)
-            || !IsValidOptionalSchemaObject(entry.ResultSchemaJson)
+            || !TryParseContractLiteral(entry.Kind, requireCanonicalLiterals, out UcliOperationKind kind)
+            || !TryParseContractLiteral(entry.Policy, requireCanonicalLiterals, out OperationPolicy policy)
+            || !TryParseContractLiteral(
+                entry.PlayModeSupport,
+                requireCanonicalLiterals,
+                out UcliOperationPlayModeSupport playModeSupport)
+            || !TryResolveCatalogExposure(
+                entry.Exposure,
+                allowEditLoweringOnlyEntries,
+                requireCanonicalLiterals,
+                out var exposure,
+                out error)
+            || !TryParseArgsSchema(entry.ArgsSchemaJson, exposure, out var argsSchema)
+            || !TryParseOptionalSchema(entry.ResultSchemaJson, out var resultSchema)
             || !TryValidateOpsDescribeContract(entry, exposure, out error))
         {
             error ??= $"Operation entry at index {index} is invalid.";
             return false;
         }
 
+        operation = new ValidatedOpsOperation(
+            entry,
+            kind,
+            policy,
+            exposure,
+            playModeSupport,
+            argsSchema,
+            resultSchema);
         error = null;
         return true;
+    }
+
+    private static bool TryParseContractLiteral<T> (
+        string? value,
+        bool requireCanonical,
+        out T parsedValue)
+        where T : struct, Enum
+    {
+        return requireCanonical
+            ? ContractLiteralCodec.TryParse(value, out parsedValue)
+            : ContractLiteralInputParser.TryParseIgnoreCase(value, out parsedValue);
     }
 
     private static bool TryResolveCatalogExposure (
         string? exposureValue,
         bool allowEditLoweringOnlyEntries,
+        bool requireCanonicalLiteral,
         out UcliOperationExposure exposure,
         out string? error)
     {
@@ -177,7 +143,7 @@ internal static class IndexCatalogContractValidator
             return true;
         }
 
-        if (!ContractLiteralInputParser.TryParseIgnoreCase<UcliOperationExposure>(exposureValue, out exposure))
+        if (!TryParseContractLiteral(exposureValue, requireCanonicalLiteral, out exposure))
         {
             error = $"Unsupported operation exposure '{exposureValue}'.";
             return false;
@@ -199,13 +165,34 @@ internal static class IndexCatalogContractValidator
         return false;
     }
 
-    private static bool IsValidArgsSchema (
+    private static bool TryParseArgsSchema (
         string? argsSchemaJson,
-        UcliOperationExposure exposure)
+        UcliOperationExposure exposure,
+        out JsonElement schema)
     {
         return exposure == UcliOperationExposure.EditLoweringOnly
-            ? IndexJsonSchemaSubsetValidator.IsValidObjectSchema(argsSchemaJson)
-            : IndexJsonSchemaSubsetValidator.IsValidPublicRawOpArgsSchema(argsSchemaJson);
+            ? IndexJsonSchemaSubsetValidator.TryParseObjectSchema(argsSchemaJson, out schema)
+            : IndexJsonSchemaSubsetValidator.TryParsePublicRawOpArgsSchema(argsSchemaJson, out schema);
+    }
+
+    private static bool TryParseOptionalSchema (
+        string? json,
+        out JsonElement? schema)
+    {
+        if (json == null)
+        {
+            schema = null;
+            return true;
+        }
+
+        if (!IndexJsonSchemaSubsetValidator.TryParseObjectSchema(json, out var parsedSchema))
+        {
+            schema = null;
+            return false;
+        }
+
+        schema = parsedSchema;
+        return true;
     }
 
     private static bool TryValidateOpsDescribeContract (
@@ -287,237 +274,84 @@ internal static class IndexCatalogContractValidator
         return true;
     }
 
-    private static bool IsSha256LowerHex (string? value)
-    {
-        if (value == null || value.Length != 64)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < value.Length; i++)
-        {
-            var c = value[i];
-            if (!((c >= '0' && c <= '9') || (c >= 'a' && c <= 'f')))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary> Validates one <c>types.catalog.json</c> contract instance. </summary>
-    /// <param name="contract"> The contract instance. </param>
-    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
-    public static bool IsValidTypesCatalog (IndexTypesCatalogJsonContract contract)
-    {
-        if (!IsSupportedSchemaVersion(contract.SchemaVersion)
-            || string.IsNullOrWhiteSpace(contract.SourceInputsHash)
-            || contract.Entries == null)
-        {
-            return false;
-        }
-
-        var typeIds = new HashSet<string>(StringComparer.Ordinal);
-        for (var i = 0; i < contract.Entries.Count; i++)
-        {
-            var entry = contract.Entries[i];
-            if (entry == null
-                || string.IsNullOrWhiteSpace(entry.TypeId)
-                || string.IsNullOrWhiteSpace(entry.DisplayName)
-                || string.IsNullOrWhiteSpace(entry.AssemblyName)
-                || entry.Flags == null)
-            {
-                return false;
-            }
-
-            if (!typeIds.Add(entry.TypeId))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary> Validates one <c>schemas.catalog.json</c> contract instance. </summary>
-    /// <param name="contract"> The contract instance. </param>
-    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
-    public static bool IsValidSchemasCatalog (IndexSchemasCatalogJsonContract contract)
-    {
-        if (!IsSupportedSchemaVersion(contract.SchemaVersion)
-            || string.IsNullOrWhiteSpace(contract.SourceInputsHash)
-            || contract.Entries == null)
-        {
-            return false;
-        }
-
-        var schemaKeys = new HashSet<string>(StringComparer.Ordinal);
-        for (var i = 0; i < contract.Entries.Count; i++)
-        {
-            var entry = contract.Entries[i];
-            if (entry == null
-                || string.IsNullOrWhiteSpace(entry.SchemaKey)
-                || string.IsNullOrWhiteSpace(entry.TypeId)
-                || string.IsNullOrWhiteSpace(entry.DisplayName)
-                || !ContractLiteralInputParser.TryParseIgnoreCase<IndexSchemaKind>(entry.Kind, out var schemaKind)
-                || entry.Properties == null)
-            {
-                return false;
-            }
-
-            var expectedSchemaKey = $"{ContractLiteralCodec.ToValue(schemaKind)}:{entry.TypeId}";
-            if (!string.Equals(entry.SchemaKey, expectedSchemaKey, StringComparison.Ordinal))
-            {
-                return false;
-            }
-
-            if (!schemaKeys.Add(entry.SchemaKey))
-            {
-                return false;
-            }
-
-            for (var propertyIndex = 0; propertyIndex < entry.Properties.Count; propertyIndex++)
-            {
-                var property = entry.Properties[propertyIndex];
-                if (property == null
-                    || string.IsNullOrWhiteSpace(property.Path)
-                    || string.IsNullOrWhiteSpace(property.DeclaredTypeId)
-                    || !ContractLiteralInputParser.IsDefinedIgnoreCase<IndexPropertyType>(property.PropertyType))
-                {
-                    return false;
-                }
-
-                if (property.IsArray)
-                {
-                    if (string.IsNullOrWhiteSpace(property.ElementTypeId))
-                    {
-                        return false;
-                    }
-                }
-                else if (!string.IsNullOrEmpty(property.ElementTypeId))
-                {
-                    return false;
-                }
-            }
-        }
-
-        return true;
-    }
-
-    /// <summary> Validates one <c>asset-search.lookup.json</c> contract instance. </summary>
-    /// <param name="contract"> The contract instance. </param>
-    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
-    public static bool IsValidAssetSearchLookup (IndexAssetSearchLookupJsonContract contract)
-    {
-        if (!IsSupportedSchemaVersion(contract.SchemaVersion)
-            || string.IsNullOrWhiteSpace(contract.SourceInputsHash))
-        {
-            return false;
-        }
-
-        return TryValidateAssetSearchEntries(contract.Entries, "entries", out _);
-    }
-
-    /// <summary> Validates one asset-search lookup entry collection shared by persisted and live payloads. </summary>
+    /// <summary> Projects one asset-search entry collection shared by persisted and live payloads. </summary>
     /// <param name="entries"> The entry collection. </param>
     /// <param name="propertyName"> The property name used in validation errors. </param>
+    /// <param name="projectedEntries"> The typed entries on success; otherwise <see langword="null" />. </param>
     /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
     /// <returns> <see langword="true" /> when the entry collection is valid; otherwise <see langword="false" />. </returns>
-    public static bool TryValidateAssetSearchEntries (
+    internal static bool TryProjectAssetSearchEntries (
         IReadOnlyList<IndexAssetSearchEntryJsonContract>? entries,
         string propertyName,
+        [NotNullWhen(true)]
+        out IReadOnlyList<AssetSearchLookupEntry>? projectedEntries,
         out string? error)
     {
+        projectedEntries = null;
         if (entries == null)
         {
             error = $"Required property '{propertyName}' is missing.";
             return false;
         }
 
-        var assetPaths = new HashSet<string>(StringComparer.Ordinal);
-        var assetGuids = new HashSet<string>(StringComparer.Ordinal);
+        var assetPaths = new HashSet<UnityAssetPath>();
+        var assetGuids = new HashSet<Guid>();
+        var projected = new AssetSearchLookupEntry[entries.Count];
         for (var i = 0; i < entries.Count; i++)
         {
-            var entry = entries[i];
-            if (entry == null
-                || string.IsNullOrWhiteSpace(entry.AssetPath)
-                || entry.AssetGuid == null
-                || (entry.AssetGuid.Length > 0 && string.IsNullOrWhiteSpace(entry.AssetGuid))
-                || string.IsNullOrWhiteSpace(entry.Name)
-                || string.IsNullOrWhiteSpace(entry.TypeId)
-                || entry.SearchTypeIds == null
-                || entry.SearchTypeIds.Count == 0)
+            if (!TryProjectAssetSearchEntry(entries[i], out var entry))
             {
                 error = $"Asset-search entry at index {i} is invalid.";
                 return false;
             }
 
-            for (var searchTypeIndex = 0; searchTypeIndex < entry.SearchTypeIds.Count; searchTypeIndex++)
-            {
-                if (string.IsNullOrWhiteSpace(entry.SearchTypeIds[searchTypeIndex]))
-                {
-                    error = $"Asset-search entry at index {i} contains an invalid searchTypeIds value.";
-                    return false;
-                }
-            }
-
             if (!assetPaths.Add(entry.AssetPath))
             {
-                error = $"Asset-search entry '{entry.AssetPath}' is duplicated.";
+                error = $"Asset-search entry '{entry.AssetPath.Value}' is duplicated.";
                 return false;
             }
 
-            if (entry.AssetGuid.Length > 0
-                && !assetGuids.Add(entry.AssetGuid))
+            if (entry.AssetGuid is { } assetGuid
+                && !assetGuids.Add(assetGuid))
             {
-                error = $"Asset-search assetGuid '{entry.AssetGuid}' is duplicated.";
+                error = $"Asset-search assetGuid '{assetGuid:N}' is duplicated.";
                 return false;
             }
+
+            projected[i] = entry;
         }
 
+        projectedEntries = Array.AsReadOnly(projected);
         error = null;
         return true;
     }
 
-    /// <summary> Validates one <c>guid-path.lookup.json</c> contract instance. </summary>
-    /// <param name="contract"> The contract instance. </param>
-    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
-    public static bool IsValidGuidPathLookup (IndexGuidPathLookupJsonContract contract)
-    {
-        if (!IsSupportedSchemaVersion(contract.SchemaVersion)
-            || string.IsNullOrWhiteSpace(contract.SourceInputsHash))
-        {
-            return false;
-        }
-
-        return TryValidateGuidPathEntries(contract.Entries, "entries", out _);
-    }
-
-    /// <summary> Validates one GUID-path lookup entry collection shared by persisted and live payloads. </summary>
+    /// <summary> Projects one GUID-path entry collection shared by persisted and live payloads. </summary>
     /// <param name="entries"> The entry collection. </param>
     /// <param name="propertyName"> The property name used in validation errors. </param>
+    /// <param name="projectedEntries"> The typed entries on success; otherwise <see langword="null" />. </param>
     /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
     /// <returns> <see langword="true" /> when the entry collection is valid; otherwise <see langword="false" />. </returns>
-    public static bool TryValidateGuidPathEntries (
+    internal static bool TryProjectGuidPathEntries (
         IReadOnlyList<IndexGuidPathEntryJsonContract>? entries,
         string propertyName,
+        [NotNullWhen(true)]
+        out IReadOnlyList<GuidPathLookupEntry>? projectedEntries,
         out string? error)
     {
+        projectedEntries = null;
         if (entries == null)
         {
             error = $"Required property '{propertyName}' is missing.";
             return false;
         }
 
-        var assetPaths = new HashSet<string>(StringComparer.Ordinal);
-        var assetGuids = new HashSet<string>(StringComparer.Ordinal);
+        var assetPaths = new HashSet<UnityAssetPath>();
+        var assetGuids = new HashSet<Guid>();
+        var projected = new GuidPathLookupEntry[entries.Count];
         for (var i = 0; i < entries.Count; i++)
         {
-            var entry = entries[i];
-            if (entry == null
-                || string.IsNullOrWhiteSpace(entry.AssetGuid)
-                || string.IsNullOrWhiteSpace(entry.AssetPath))
+            if (!TryProjectGuidPathEntry(entries[i], out var entry))
             {
                 error = $"Guid-path entry at index {i} is invalid.";
                 return false;
@@ -525,127 +359,216 @@ internal static class IndexCatalogContractValidator
 
             if (!assetGuids.Add(entry.AssetGuid))
             {
-                error = $"Guid-path assetGuid '{entry.AssetGuid}' is duplicated.";
+                error = $"Guid-path assetGuid '{entry.AssetGuid:N}' is duplicated.";
                 return false;
             }
 
             if (!assetPaths.Add(entry.AssetPath))
             {
-                error = $"Guid-path entry '{entry.AssetPath}' is duplicated.";
+                error = $"Guid-path entry '{entry.AssetPath.Value}' is duplicated.";
                 return false;
             }
+
+            projected[i] = entry;
         }
 
+        projectedEntries = Array.AsReadOnly(projected);
         error = null;
         return true;
     }
 
-    /// <summary> Validates one <c>scene-tree-lite/&lt;sceneKey&gt;.lookup.json</c> contract instance. </summary>
-    /// <param name="contract"> The contract instance. </param>
-    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
-    public static bool IsValidSceneTreeLiteLookup (IndexSceneTreeLiteLookupJsonContract contract)
-    {
-        if (!IsSupportedSchemaVersion(contract.SchemaVersion)
-            || string.IsNullOrWhiteSpace(contract.ScenePath)
-            || string.IsNullOrWhiteSpace(contract.SourceInputsHash))
-        {
-            return false;
-        }
-
-        return TryValidateSceneTreeLiteNodes(contract.Roots, "roots", out _);
-    }
-
-    /// <summary> Validates one scene-tree-lite node collection shared by persisted and live payloads. </summary>
+    /// <summary> Projects one scene-tree-lite node collection shared by persisted and live payloads. </summary>
     /// <param name="nodes"> The node collection. </param>
     /// <param name="propertyName"> The property name used in validation errors. </param>
+    /// <param name="projectedNodes"> The typed nodes on success; otherwise <see langword="null" />. </param>
     /// <param name="error"> The validation error; otherwise <see langword="null" />. </param>
     /// <returns> <see langword="true" /> when the node collection is valid; otherwise <see langword="false" />. </returns>
-    public static bool TryValidateSceneTreeLiteNodes (
+    internal static bool TryProjectSceneTreeLiteNodes (
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? nodes,
         string propertyName,
+        [NotNullWhen(true)]
+        out IReadOnlyList<SceneTreeLiteNode>? projectedNodes,
         out string? error)
     {
+        projectedNodes = null;
         if (nodes == null)
         {
             error = $"Required property '{propertyName}' is missing.";
             return false;
         }
 
+        var projected = new SceneTreeLiteNode[nodes.Count];
         for (var i = 0; i < nodes.Count; i++)
         {
-            if (!TryValidateSceneTreeLiteNode(nodes[i], $"{propertyName}[{i}]", out error))
+            if (!TryProjectSceneTreeLiteNode(
+                    nodes[i],
+                    $"{propertyName}[{i}]",
+                    out var node,
+                    out error))
+            {
+                return false;
+            }
+
+            projected[i] = node;
+        }
+
+        projectedNodes = Array.AsReadOnly(projected);
+        error = null;
+        return true;
+    }
+
+    private static bool TryProjectAssetSearchEntry (
+        IndexAssetSearchEntryJsonContract? contract,
+        [NotNullWhen(true)]
+        out AssetSearchLookupEntry? entry)
+    {
+        entry = null;
+        if (contract == null)
+        {
+            return false;
+        }
+
+        var assetPathText = contract.AssetPath;
+        var assetGuidText = contract.AssetGuid;
+        var name = contract.Name;
+        var typeIdText = contract.TypeId;
+        var searchTypeIds = contract.SearchTypeIds;
+        if (!UnityAssetPath.TryParseCanonical(assetPathText, out var assetPath)
+            || assetGuidText == null
+            || name == null
+            || string.IsNullOrWhiteSpace(name)
+            || !UnityTypeId.TryParse(typeIdText, out var typeId)
+            || searchTypeIds == null
+            || searchTypeIds.Count == 0)
+        {
+            return false;
+        }
+
+        Guid? assetGuid = null;
+        if (assetGuidText.Length > 0)
+        {
+            if (!TryParseCanonicalAssetGuid(assetGuidText, out var parsedAssetGuid))
+            {
+                return false;
+            }
+
+            assetGuid = parsedAssetGuid;
+        }
+
+        var projectedSearchTypeIds = new UnityTypeId[searchTypeIds.Count];
+        for (var i = 0; i < searchTypeIds.Count; i++)
+        {
+            if (!UnityTypeId.TryParse(searchTypeIds[i], out var searchTypeId))
+            {
+                return false;
+            }
+
+            projectedSearchTypeIds[i] = searchTypeId;
+        }
+
+        entry = new AssetSearchLookupEntry(
+            assetPath,
+            assetGuid,
+            name,
+            typeId,
+            projectedSearchTypeIds);
+        return true;
+    }
+
+    private static bool TryProjectGuidPathEntry (
+        IndexGuidPathEntryJsonContract? contract,
+        [NotNullWhen(true)]
+        out GuidPathLookupEntry? entry)
+    {
+        entry = null;
+        if (contract == null
+            || !TryParseCanonicalAssetGuid(contract.AssetGuid, out var assetGuid))
+        {
+            return false;
+        }
+
+        if (!UnityAssetPath.TryParseCanonical(contract.AssetPath, out var assetPath))
+        {
+            return false;
+        }
+
+        entry = new GuidPathLookupEntry(
+            assetGuid,
+            assetPath);
+        return true;
+    }
+
+    private static bool TryParseCanonicalAssetGuid (
+        string? value,
+        out Guid assetGuid)
+    {
+        assetGuid = Guid.Empty;
+        if (value == null || value.Length != 32)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < value.Length; i++)
+        {
+            var character = value[i];
+            if (character is not (>= '0' and <= '9') and not (>= 'a' and <= 'f'))
             {
                 return false;
             }
         }
 
-        error = null;
-        return true;
+        return Guid.TryParseExact(value, "N", out assetGuid)
+            && assetGuid != Guid.Empty;
     }
 
-    /// <summary> Validates one <c>inputs/manifest.json</c> contract instance. </summary>
-    /// <param name="contract"> The contract instance. </param>
-    /// <returns> <see langword="true" /> when contract shape is valid; otherwise <see langword="false" />. </returns>
-    public static bool IsValidInputsManifest (IndexInputsManifestJsonContract contract)
-    {
-        return IsSupportedSchemaVersion(contract.SchemaVersion)
-            && !string.IsNullOrWhiteSpace(contract.ScriptAssembliesHash)
-            && !string.IsNullOrWhiteSpace(contract.PackagesManifestHash)
-            && !string.IsNullOrWhiteSpace(contract.PackagesLockHash)
-            && !string.IsNullOrWhiteSpace(contract.AssemblyDefinitionHash)
-            && !string.IsNullOrWhiteSpace(contract.AssetsContentHash)
-            && !string.IsNullOrWhiteSpace(contract.AssetSearchHash)
-            && !string.IsNullOrWhiteSpace(contract.GuidPathHash)
-            && !string.IsNullOrWhiteSpace(contract.CombinedHash);
-    }
-
-    private static bool IsSupportedSchemaVersion (int schemaVersion)
-    {
-        return schemaVersion == SupportedSchemaVersion;
-    }
-
-    private static bool TryValidateSceneTreeLiteNode (
-        IndexSceneTreeLiteNodeJsonContract? node,
+    private static bool TryProjectSceneTreeLiteNode (
+        IndexSceneTreeLiteNodeJsonContract? contract,
         string propertyName,
+        [NotNullWhen(true)]
+        out SceneTreeLiteNode? node,
         out string? error)
     {
-        if (node == null
-            || node.Name == null
-            || node.GlobalObjectId == null
-            || (node.GlobalObjectId.Length > 0 && string.IsNullOrWhiteSpace(node.GlobalObjectId))
-            || node.Children == null
-            || !IsValidSceneTreeLiteChildrenState(node.ChildrenState))
+        node = null;
+        if (contract == null
+            || contract.Name == null
+            || contract.GlobalObjectId == null
+            || contract.Children == null
+            || !IsSourceSceneTreeLiteChildrenState(contract.ChildrenState))
         {
             error = $"Scene-tree-lite node '{propertyName}' is invalid.";
             return false;
         }
 
-        for (var i = 0; i < node.Children.Count; i++)
+        UnityGlobalObjectId? globalObjectId = null;
+        if (contract.GlobalObjectId.Length > 0
+            && !UnityGlobalObjectId.TryParse(contract.GlobalObjectId, out globalObjectId))
         {
-            if (!TryValidateSceneTreeLiteNode(node.Children[i], $"{propertyName}.children[{i}]", out error))
-            {
-                return false;
-            }
+            error = $"Scene-tree-lite node '{propertyName}' is invalid.";
+            return false;
         }
 
+        if (!TryProjectSceneTreeLiteNodes(
+                contract.Children,
+                $"{propertyName}.children",
+                out var children,
+                out error))
+        {
+            return false;
+        }
+
+        node = new SceneTreeLiteNode(
+            contract.Name,
+            globalObjectId,
+            children,
+            contract.ChildrenState);
         error = null;
         return true;
     }
 
-    private static bool IsValidSceneTreeLiteChildrenState (string? childrenState)
+    private static bool IsSourceSceneTreeLiteChildrenState (IndexSceneTreeLiteNodeChildrenState childrenState)
     {
-        return string.Equals(childrenState, IndexSceneTreeLiteNodeChildrenStateValues.Complete, StringComparison.Ordinal)
-            || string.Equals(childrenState, IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth, StringComparison.Ordinal)
-            || string.Equals(childrenState, IndexSceneTreeLiteNodeChildrenStateValues.Unknown, StringComparison.Ordinal);
-    }
-
-    private static bool IsValidSchemaObject (string? json)
-    {
-        return IndexJsonSchemaSubsetValidator.IsValidObjectSchema(json);
-    }
-
-    private static bool IsValidOptionalSchemaObject (string? json)
-    {
-        return json == null || IsValidSchemaObject(json);
+        return childrenState is IndexSceneTreeLiteNodeChildrenState.Complete
+            or IndexSceneTreeLiteNodeChildrenState.NotExpandedByDepth
+            or IndexSceneTreeLiteNodeChildrenState.Unknown;
     }
 }

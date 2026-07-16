@@ -11,13 +11,13 @@ public sealed class IpcDaemonLogsReadRequestNormalizerTests
         var result = IpcDaemonLogsReadRequestNormalizer.TryNormalize(
             new IpcDaemonLogsReadRequest(
                 Tail: 4,
-                After: "stream-1:4",
+                After: "abcdef0123456789abcdef0123456789:4",
                 Since: "2026-03-05T10:35:22.0000000+09:00",
                 Until: "2026-03-05T10:36:22.0000000+09:00",
                 Level: null,
                 Query: " socket ",
                 QueryTarget: null,
-                Category: " ALL "),
+                Category: " ipc "),
             out var normalizedRequest,
             out var sinceTimestamp,
             out var untilTimestamp,
@@ -25,9 +25,9 @@ public sealed class IpcDaemonLogsReadRequestNormalizerTests
 
         Assert.True(result);
         Assert.NotNull(normalizedRequest);
-        Assert.Equal(IpcDaemonLogsLevelCodec.All, normalizedRequest.Level);
-        Assert.Equal(IpcDaemonLogsQueryTargetCodec.Message, normalizedRequest.QueryTarget);
-        Assert.Equal(IpcDaemonLogsCategoryCodec.All, normalizedRequest.Category);
+        Assert.Null(normalizedRequest.Level);
+        Assert.Equal(IpcLogQueryTarget.Message, normalizedRequest.QueryTarget);
+        Assert.Equal("ipc", normalizedRequest.Category);
         Assert.Equal("socket", normalizedRequest.Query);
         Assert.True(sinceTimestamp.HasValue);
         Assert.True(untilTimestamp.HasValue);
@@ -75,7 +75,7 @@ public sealed class IpcDaemonLogsReadRequestNormalizerTests
                 Until: null,
                 Level: null,
                 Query: null,
-                QueryTarget: IpcDaemonLogsQueryTargetCodec.Stack,
+                QueryTarget: IpcLogQueryTarget.Stack,
                 Category: null),
             out var normalizedRequest,
             out _,
@@ -84,6 +84,6 @@ public sealed class IpcDaemonLogsReadRequestNormalizerTests
 
         Assert.False(result);
         Assert.Null(normalizedRequest);
-        Assert.Equal(IpcDaemonLogsQueryTargetCodec.CreateDaemonLogsStackNotSupportedMessage(), errorMessage);
+        Assert.Equal("queryTarget 'stack' is not supported for daemon logs. Supported: message, both.", errorMessage);
     }
 }

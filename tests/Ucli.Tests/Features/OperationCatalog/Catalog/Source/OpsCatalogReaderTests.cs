@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using static MackySoft.Ucli.TestSupport.OperationCatalogTestFixtures;
@@ -14,7 +15,7 @@ public sealed class OpsCatalogReaderTests
     {
         var executor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(CreateResponse(
-                IpcProtocol.StatusOk,
+                IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
                 new IpcOpsReadResponse(
                     DateTimeOffset.Parse("2026-03-07T00:00:00+00:00"),
@@ -37,11 +38,12 @@ public sealed class OpsCatalogReaderTests
         Assert.NotNull(result.Snapshot);
         Assert.Single(result.Snapshot.Operations);
         Assert.Equal(UcliPrimitiveOperationNames.GoDescribe, result.Snapshot.Operations[0].Name);
-        var execution = UnityRequestExecutorAssert.RawPayloadExecutedOnce<IpcOpsReadRequest>(
+        Assert.Equal(UcliOperationKind.Query, result.Snapshot.Operations[0].Kind);
+        Assert.Equal(OperationPolicy.Safe, result.Snapshot.Operations[0].Policy);
+        var execution = UnityRequestExecutorAssert.PayloadExecutedOnce<UnityRequestPayload.OpsRead>(
             executor,
             UcliCommandIds.Ops,
-            UnityExecutionMode.Daemon,
-            IpcMethodNames.OpsRead);
+            UnityExecutionMode.Daemon);
         Assert.True(execution.Payload.FailFast);
         Assert.False(execution.Payload.RequireReadinessGate);
         Assert.True(execution.Payload.IncludeEditLoweringOnly);
@@ -53,7 +55,7 @@ public sealed class OpsCatalogReaderTests
     {
         var executor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(CreateResponse(
-                IpcProtocol.StatusError,
+                IpcResponseStatus.Error,
                 [
                     new IpcError(
                         UcliCoreErrorCodes.InvalidArgument,
@@ -79,36 +81,11 @@ public sealed class OpsCatalogReaderTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Read_WhenFailureStatusHasNoErrors_ReturnsStatusMessage ()
-    {
-        var executor = new RecordingUnityRequestExecutor(
-            UnityRequestExecutionResult.Success(CreateResponse(
-                "busy",
-                Array.Empty<IpcError>(),
-                new { })));
-        var reader = new OpsCatalogReader(executor);
-
-        var result = await reader.ReadAsync(
-            ResolvedUnityProjectContextTestFactory.Create(),
-            UcliConfig.CreateDefault(),
-            UnityExecutionMode.Auto,
-            TimeSpan.FromMilliseconds(1200),
-            failFast: false,
-            requireReadinessGate: true,
-            cancellationToken: CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-        Assert.Equal("ops.read failed with status 'busy'.", result.Message);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
     public async Task Read_WhenPayloadIsMalformed_ReturnsFailure ()
     {
         var executor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(CreateResponse(
-                IpcProtocol.StatusOk,
+                IpcResponseStatus.Ok,
                 Array.Empty<IpcError>(),
                 new
                 {
@@ -131,13 +108,13 @@ public sealed class OpsCatalogReaderTests
     }
 
     private static UnityRequestResponse CreateResponse (
-        string status,
+        IpcResponseStatus status,
         IReadOnlyList<IpcError> errors,
         object payload)
     {
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             IpcProtocol.CurrentVersion,
-            "req-ops-1",
+            Guid.NewGuid(),
             status,
             IpcPayloadCodec.SerializeToElement(payload),
             errors));

@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -20,7 +21,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate selector structure and resolve the referenced Unity object without applying mutation.",
                 callSemantics: "Resolve the selector against live Unity state and emit a GlobalObjectId without applying mutation.",
@@ -44,14 +45,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!UnityObjectReferenceContractMapper.TryMap(args, out var selector, out var errorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage));
-            }
-
-            if (selector.Kind == ResolveSelectorKind.GlobalObjectId
-                && !ResolveReferenceResolver.IsValidGlobalObjectIdText(selector.GlobalObjectId!))
-            {
-                return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
-                    operation.Id,
-                    $"'{IpcResolveSelectorPropertyNames.GlobalObjectId}' must be a valid GlobalObjectId string."));
             }
 
             if (!TryValidateSupportedSelector(selector, operation.Id, out var unsupportedSelectorResult))
@@ -113,38 +106,38 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(unsupportedSelectorResult!);
             }
 
-            if (!ResolveReferenceResolver.TryResolveStableReference(selector, executionContext, allowTemporaryState, out var resolvedReference, out var resolveErrorMessage))
+            if (!ResolveReferenceResolver.TryResolveStableReference(selector, executionContext, allowTemporaryState, out var globalObjectId, out var resolveErrorMessage))
             {
                 return Task.FromResult(OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, resolveErrorMessage));
             }
 
-            StoreAliasIfNeeded(operation.As, executionContext, resolvedReference!);
+            StoreAliasIfNeeded(operation.As, executionContext, globalObjectId);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: false,
-                result: IpcPayloadCodec.SerializeToElement(new IpcResolveOperationResult(resolvedReference!.GlobalObjectId))));
+                result: IpcPayloadCodec.SerializeToElement(new IpcResolveOperationResult(globalObjectId))));
         }
 
         /// <summary> Stores one resolved reference to alias store when alias is specified. </summary>
         /// <param name="alias"> The operation alias. </param>
         /// <param name="executionContext"> The execution context that owns the alias store. </param>
-        /// <param name="resolvedReference"> The resolved reference value. </param>
+        /// <param name="globalObjectId"> The resolved reference value. </param>
         private static void StoreAliasIfNeeded (
-            string? alias,
+            RequestLocalAliasIdentity? alias,
             OperationExecutionContext executionContext,
-            ResolvedReference resolvedReference)
+            UnityGlobalObjectId globalObjectId)
         {
             if (alias == null)
             {
                 return;
             }
 
-            executionContext.AliasStore.Set(alias, resolvedReference);
+            executionContext.AliasStore.Set(alias, globalObjectId);
         }
 
         private static bool TryValidateSupportedSelector (
             ResolveSelector selector,
-            string operationId,
+            IpcExecuteStepId operationId,
             out OperationPhaseStepResult? failure)
         {
             failure = null;

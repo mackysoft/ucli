@@ -9,19 +9,20 @@ public sealed class ReadyPayloadSchemaArtifactTests
     public void ReadyPayloadSchema_RequiresClaimValidity ()
     {
         var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
         using var document = JsonDocument.Parse(
-            """
+            $$"""
             {
               "verdict": "pass",
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{projectFingerprint.ToString()}}",
                 "unityVersion": "6000.1.4f1"
               },
               "verifiers": [
                 {
                   "id": "ready.lifecycle",
-                  "kind": "ready.lifecycle",
+                  "kind": "ready",
                   "deterministic": false,
                   "required": true,
                   "primaryClaims": [

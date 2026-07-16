@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Testing;
@@ -24,7 +23,6 @@ public sealed class TestRunConfigurationResolverProjectPathTests
             TestFilter = null,
             TestCategories = [],
             AssemblyNames = [],
-            TestSettingsPath = null,
             Timeout = 30,
         };
 
@@ -36,9 +34,7 @@ public sealed class TestRunConfigurationResolverProjectPathTests
             projectPathInputResolver,
             unityProjectResolver,
             new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
-            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
-            new StubTestRunPathNormalizer(),
-            new StubTestRunPathExistenceProbe());
+            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
 
         var input = new TestRunConfigurationRequest(
             ProjectPath: null,
@@ -50,7 +46,6 @@ public sealed class TestRunConfigurationResolverProjectPathTests
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
-            TestSettingsPath: null,
             TimeoutMilliseconds: 30);
 
         var result = await resolver.ResolveAsync(input, CancellationToken.None);
@@ -90,15 +85,12 @@ public sealed class TestRunConfigurationResolverProjectPathTests
                 TestFilter = null,
                 TestCategories = [],
                 AssemblyNames = [],
-                TestSettingsPath = null,
                 Timeout = 30,
             })),
             projectPathInputResolver,
             unityProjectResolver,
             new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
-            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
-            new StubTestRunPathNormalizer(),
-            new StubTestRunPathExistenceProbe());
+            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
 
         var input = new TestRunConfigurationRequest(
             ProjectPath: commandProjectPath,
@@ -110,7 +102,6 @@ public sealed class TestRunConfigurationResolverProjectPathTests
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
-            TestSettingsPath: null,
             TimeoutMilliseconds: 30);
 
         var result = await resolver.ResolveAsync(input, CancellationToken.None);

@@ -49,12 +49,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Adds one skipped public step after request-level fail-fast stopped further compilation. </summary>
         /// <param name="sourceStep"> The skipped source step. </param>
-        public void AddSkippedStep (IpcRequestContractStep sourceStep)
+        public void AddSkippedStep (IpcExecuteStepContract sourceStep)
         {
             compiledSteps.Add(new NormalizedRequestStep(
                 Id: sourceStep.Id!,
                 Kind: sourceStep.Kind!.Value,
-                OperationName: sourceStep.Kind == IpcRequestStepKind.Op ? sourceStep.OperationName! : "edit",
+                OperationName: sourceStep.Kind == IpcExecuteStepKind.Op ? sourceStep.OperationName! : "edit",
                 PrimitiveCount: 0));
         }
 
@@ -63,11 +63,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="error"> The compile failure. </param>
         /// <param name="diagnostics"> Non-fatal diagnostics emitted before the compile failure. </param>
         public void AddCompileFailure (
-            IpcRequestContractStep sourceStep,
+            IpcExecuteStepContract sourceStep,
             ExecuteRequestNormalizationError error,
             IReadOnlyList<OperationDiagnostic> diagnostics)
         {
-            var operationName = sourceStep.Kind == IpcRequestStepKind.Op ? sourceStep.OperationName! : "edit";
+            var operationName = sourceStep.Kind == IpcExecuteStepKind.Op ? sourceStep.OperationName! : "edit";
             compiledSteps.Add(new NormalizedRequestStep(
                 Id: sourceStep.Id!,
                 Kind: sourceStep.Kind!.Value,

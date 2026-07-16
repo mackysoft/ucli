@@ -7,9 +7,10 @@ internal interface ICodeCatalog
     IReadOnlyList<CodeCatalogDescriptor> Descriptors { get; }
 
     /// <summary> Tries to find the descriptor registered for a code value. </summary>
-    /// <param name="code"> The code value to resolve. Invalid or unknown values are treated as not found. </param>
+    /// <param name="code"> The code value to resolve. Unknown values are treated as not found. </param>
     /// <param name="descriptor"> The descriptor registered for <paramref name="code" /> when the method returns <see langword="true" />. </param>
     /// <returns> <see langword="true" /> when the catalog contains <paramref name="code" />; otherwise <see langword="false" />. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="code" /> is <see langword="null" />. </exception>
     bool TryFind (
         UcliCode code,
         out CodeCatalogDescriptor descriptor);

@@ -14,7 +14,7 @@ public sealed class DaemonCleanupServiceTests
         var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 3400);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var operation = new RecordingDaemonCleanupOperation(DaemonCleanupResult.Completed());
+        var operation = new RecordingDaemonCleanupOperation(DaemonCleanupResult.Completed(deletedLaunchAttemptCount: 0));
         var service = new DaemonCleanupService(resolver, operation);
 
         var result = await service.CleanupAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
@@ -22,7 +22,7 @@ public sealed class DaemonCleanupServiceTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<DaemonCleanupExecutionOutput>(result.Output);
         Assert.Equal(DaemonCleanupStatus.Completed, output.CleanupStatus);
-        Assert.Equal(DaemonCleanupSkipReason.None, output.SkipReason);
+        Assert.Null(output.SkipReason);
         Assert.Equal(0, output.DeletedLaunchAttemptCount);
         Assert.Equal(3400, output.TimeoutMilliseconds);
         DaemonCleanupOperationAssert.CleanupRequestedOnce(
@@ -73,7 +73,7 @@ public sealed class DaemonCleanupServiceTests
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Failure(
                 ExecutionError.InvalidArgument("invalid project path")));
-        var operation = new RecordingDaemonCleanupOperation(DaemonCleanupResult.Completed());
+        var operation = new RecordingDaemonCleanupOperation(DaemonCleanupResult.Completed(deletedLaunchAttemptCount: 0));
         var service = new DaemonCleanupService(resolver, operation);
 
         var result = await service.CleanupAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);

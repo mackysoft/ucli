@@ -5,10 +5,6 @@ namespace MackySoft.Ucli.Contracts.Operations;
 /// <summary> Defines supported asset-kind constraint parameters. </summary>
 public enum UcliOperationAssetKind
 {
-    /// <summary> No asset kind parameter is specified. </summary>
-    [UcliContractLiteralIgnore]
-    Unspecified = 0,
-
     /// <summary> Regular Unity asset. </summary>
     [UcliContractLiteral("asset")]
     Asset = 1,

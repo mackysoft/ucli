@@ -87,30 +87,6 @@ internal static class OperationExecutionModelMapper
             OpId: error.OpId);
     }
 
-    /// <summary> Maps one optional read-postcondition contract. </summary>
-    public static OperationExecutionReadPostcondition? MapReadPostcondition (IpcExecuteReadPostcondition? readPostcondition)
-    {
-        if (readPostcondition == null)
-        {
-            return null;
-        }
-
-        var requirements = readPostcondition.Requirements;
-        var mappedRequirements = new OperationExecutionReadPostconditionRequirement[requirements.Count];
-        for (var i = 0; i < requirements.Count; i++)
-        {
-            var requirement = requirements[i];
-            mappedRequirements[i] = new OperationExecutionReadPostconditionRequirement(
-                Surface: requirement.Surface,
-                MinSafeGeneratedAtUtc: requirement.MinSafeGeneratedAtUtc)
-            {
-                ScenePath = requirement.ScenePath,
-            };
-        }
-
-        return new OperationExecutionReadPostcondition(mappedRequirements);
-    }
-
     /// <summary> Maps one optional post-read source contract. </summary>
     public static OperationExecutionPostReadSource? MapPostReadSource (IpcExecutePostReadSource? postReadSource)
     {
@@ -138,21 +114,21 @@ internal static class OperationExecutionModelMapper
 
     /// <summary> Creates one plan-phase operation result without exposing IPC DTOs from service results. </summary>
     public static OperationExecutionOperationResult CreatePlanResult (
-        string opId,
+        IpcExecuteStepId opId,
         string op,
         bool applied,
         bool changed,
         IReadOnlyList<OperationExecutionTouchedResource> touched,
         JsonElement? result = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(opId);
+        ArgumentNullException.ThrowIfNull(opId);
         ArgumentException.ThrowIfNullOrWhiteSpace(op);
         ArgumentNullException.ThrowIfNull(touched);
 
         return new OperationExecutionOperationResult(
             OpId: opId,
             Op: op,
-            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Phase: IpcExecuteOperationPhase.Plan,
             Applied: applied,
             Changed: changed,
             Touched: touched)
@@ -190,7 +166,7 @@ internal static class OperationExecutionModelMapper
             mappedResources[i] = new OperationExecutionTouchedResource(
                 Kind: touchedResource.Kind,
                 Path: touchedResource.Path,
-                Guid: touchedResource.Guid);
+                AssetGuid: touchedResource.AssetGuid);
         }
 
         return mappedResources;

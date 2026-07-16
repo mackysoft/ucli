@@ -7,7 +7,7 @@ internal interface IDaemonLaunchService
 {
     /// <summary> Launches daemon lifecycle for the specified Unity project context. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The daemon startup timeout. </param>
+    /// <param name="deadline"> The deadline shared by the daemon-start workflow. </param>
     /// <param name="editorMode"> The requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
     /// <param name="progressObserver"> The optional observer for supervisor-internal start progress. </param>
@@ -15,7 +15,7 @@ internal interface IDaemonLaunchService
     /// <returns> The daemon start result. </returns>
     ValueTask<DaemonStartResult> LaunchAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,

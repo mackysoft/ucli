@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
@@ -27,6 +28,10 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
     private readonly IDaemonLaunchService daemonLaunchService;
 
+    private readonly DaemonCompensationOperationOwner compensationOperationOwner;
+
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonStartOperation" /> class. </summary>
     /// <param name="lifecycleLockProvider"> The project lifecycle lock provider dependency. </param>
     /// <param name="daemonSessionStore"> The daemon session store dependency. </param>
@@ -34,6 +39,8 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     /// <param name="daemonExistingSessionGateService"> The daemon existing-session gate service dependency. </param>
     /// <param name="daemonGuiEditorAttachService"> The daemon GUI Editor attach service dependency. </param>
     /// <param name="daemonLaunchService"> The daemon launch service dependency. </param>
+    /// <param name="compensationOperationOwner"> The owner for lifecycle mutations that outlive a caller deadline. </param>
+    /// <param name="timeProvider"> The time provider used for startup deadline accounting. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonStartOperation (
         IProjectLifecycleLockProvider lifecycleLockProvider,
@@ -42,7 +49,9 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         IDaemonSessionCleanupService daemonSessionCleanupService,
         IDaemonExistingSessionGateService daemonExistingSessionGateService,
         IDaemonGuiEditorAttachService daemonGuiEditorAttachService,
-        IDaemonLaunchService daemonLaunchService)
+        IDaemonLaunchService daemonLaunchService,
+        DaemonCompensationOperationOwner compensationOperationOwner,
+        TimeProvider timeProvider)
     {
         this.lifecycleLockProvider = lifecycleLockProvider ?? throw new ArgumentNullException(nameof(lifecycleLockProvider));
         this.daemonDiagnosisStore = daemonDiagnosisStore ?? throw new ArgumentNullException(nameof(daemonDiagnosisStore));
@@ -51,21 +60,22 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         this.daemonExistingSessionGateService = daemonExistingSessionGateService ?? throw new ArgumentNullException(nameof(daemonExistingSessionGateService));
         this.daemonGuiEditorAttachService = daemonGuiEditorAttachService ?? throw new ArgumentNullException(nameof(daemonGuiEditorAttachService));
         this.daemonLaunchService = daemonLaunchService ?? throw new ArgumentNullException(nameof(daemonLaunchService));
+        this.compensationOperationOwner = compensationOperationOwner ?? throw new ArgumentNullException(nameof(compensationOperationOwner));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Starts daemon lifecycle for the specified Unity project context. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The daemon startup timeout. </param>
+    /// <param name="deadline"> The deadline shared by all normal daemon-start phases. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
     /// <param name="progressObserver"> The optional observer for supervisor-internal start progress. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The daemon start result. </returns>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public async ValueTask<DaemonStartResult> StartAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
@@ -73,9 +83,8 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var deadline = ExecutionDeadline.Start(timeout);
         if (!deadline.TryGetRemainingTimeout(out var lockAcquireTimeout))
         {
             return DaemonStartResult.Failure(CreateTimeoutError("Timed out before daemon start workflow began."));
@@ -105,64 +114,104 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 $"Failed to acquire project lifecycle lock. {exception.Message}"));
         }
 
-        await using var acquiredLock = lockHandle;
-        ExecutionError? diagnosisCleanupError = null;
-        var deleteDiagnosisResult = await daemonDiagnosisStore.DeleteAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!deleteDiagnosisResult.IsSuccess)
+        var acquiredLock = lockHandle;
+        try
         {
-            // NOTE: Persisted diagnosis is auxiliary metadata from the previous lifecycle.
-            // Start must continue so recovery and relaunch are not blocked by sidecar cleanup failures.
-            diagnosisCleanupError = deleteDiagnosisResult.Error
-                ?? ExecutionError.InternalError("Daemon diagnosis cleanup failed without a structured error.");
-        }
+            var admissionError = await compensationOperationOwner.WaitForQuiescenceAsync(
+                unityProject,
+                deadline,
+                cancellationToken,
+                "Timed out waiting for prior daemon compensation to quiesce.")
+            .ConfigureAwait(false);
+            if (admissionError is not null)
+            {
+                return DaemonStartResult.Failure(admissionError);
+            }
 
-        var readResult = await daemonSessionStore.ReadAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                cancellationToken)
-            .ConfigureAwait(false);
-        if (!readResult.IsSuccess)
-        {
-            return await HandleInvalidSessionReadAsync(
+            ExecutionError? diagnosisCleanupError = null;
+            var diagnosisCleanupDeadline = ExecutionDeadline.Start(
+                DaemonTimeouts.SupplementalPersistenceTimeout,
+                timeProvider);
+            var deleteDiagnosisExecution = await compensationOperationOwner.ExecuteAsync(
                     unityProject,
-                    readResult,
-                    deadline,
-                    diagnosisCleanupError,
-                    editorMode,
-                    onStartupBlocked,
-                    progressObserver,
-                    cancellationToken)
+                    DaemonOperationLane.SupplementalPersistence,
+                    diagnosisCleanupDeadline,
+                    cancellationToken,
+                    "Timed out before daemon diagnosis cleanup could begin.",
+                    "Timed out while cleaning daemon diagnosis before start.",
+                    (_, ownedCancellationToken) => daemonDiagnosisStore.DeleteAsync(
+                        unityProject.RepositoryRoot,
+                        unityProject.ProjectFingerprint,
+                        ownedCancellationToken))
                 .ConfigureAwait(false);
-        }
+            if (!deleteDiagnosisExecution.IsSuccess)
+            {
+                diagnosisCleanupError = deleteDiagnosisExecution.Error;
+            }
+            else if (!deleteDiagnosisExecution.Value!.IsSuccess)
+            {
+                // NOTE: Persisted diagnosis is auxiliary metadata from the previous lifecycle.
+                // Start must continue so recovery and relaunch are not blocked by sidecar cleanup failures.
+                diagnosisCleanupError = deleteDiagnosisExecution.Value.Error
+                    ?? ExecutionError.InternalError("Daemon diagnosis cleanup failed without a structured error.");
+            }
 
-        if (readResult.Exists)
-        {
-            if (!deadline.TryGetRemainingTimeout(out var existingSessionGateTimeout))
+            var sessionReadOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                    deadline,
+                    cancellationToken,
+                    "Timed out before daemon session read could begin.",
+                    "Timed out while reading daemon session before start.",
+                    token => daemonSessionStore.ReadAsync(
+                        unityProject.RepositoryRoot,
+                        unityProject.ProjectFingerprint,
+                        token))
+                .ConfigureAwait(false);
+            if (!sessionReadOperation.IsSuccess)
             {
                 return CreateFailure(
-                    CreateTimeoutError("Timed out while probing existing daemon session."),
+                    CreateTimeoutError(sessionReadOperation.Error!.Message),
                     diagnosisCleanupError);
             }
 
-            var existingSessionGateResult = await daemonExistingSessionGateService.TryHandleExistingSessionAsync(
-                    unityProject,
-                    readResult.Session!,
-                    existingSessionGateTimeout,
-                    editorMode,
-                    progressObserver,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            if (existingSessionGateResult is not null)
+            var readResult = sessionReadOperation.Value!;
+            if (!readResult.IsSuccess)
             {
-                return CreateResult(existingSessionGateResult, diagnosisCleanupError);
+                return await HandleInvalidSessionReadAsync(
+                        unityProject,
+                        readResult,
+                        deadline,
+                        diagnosisCleanupError,
+                        editorMode,
+                        onStartupBlocked,
+                        progressObserver,
+                        cancellationToken)
+                    .ConfigureAwait(false);
             }
-        }
 
-        return await TryAttachExistingGuiEditorOrLaunchAsync(
+            if (readResult.Exists)
+            {
+                if (!deadline.TryGetRemainingTimeout(out _))
+                {
+                    return CreateFailure(
+                        CreateTimeoutError("Timed out while probing existing daemon session."),
+                        diagnosisCleanupError);
+                }
+
+                var existingSessionGateResult = await daemonExistingSessionGateService.TryHandleExistingSessionAsync(
+                        unityProject,
+                        readResult.Session!,
+                        deadline,
+                        editorMode,
+                        progressObserver,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (existingSessionGateResult is not null)
+                {
+                    return CreateResult(existingSessionGateResult, diagnosisCleanupError);
+                }
+            }
+
+            return await TryAttachExistingGuiEditorOrLaunchAsync(
                 unityProject,
                 deadline,
                 diagnosisCleanupError,
@@ -171,6 +220,14 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
                 progressObserver,
                 cancellationToken)
             .ConfigureAwait(false);
+        }
+        finally
+        {
+            if (!compensationOperationOwner.TryTransferLifecycleLease(unityProject, acquiredLock))
+            {
+                await acquiredLock.DisposeAsync().ConfigureAwait(false);
+            }
+        }
     }
 
     private async ValueTask<DaemonStartResult> HandleInvalidSessionReadAsync (
@@ -188,7 +245,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return CreateFailure(readResult.Error!, diagnosisCleanupError);
         }
 
-        if (!deadline.TryGetRemainingTimeout(out var invalidSessionCleanupTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return CreateFailure(
                 CreateTimeoutError("Timed out while preparing invalid daemon-session cleanup."),
@@ -198,7 +255,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         var cleanupResult = await daemonSessionCleanupService.CleanupInvalidSessionArtifactsAsync(
                 unityProject,
                 readResult,
-                invalidSessionCleanupTimeout,
+                deadline,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!cleanupResult.IsSuccess)
@@ -226,7 +283,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
         IDaemonStartProgressObserver? progressObserver,
         CancellationToken cancellationToken)
     {
-        if (!deadline.TryGetRemainingTimeout(out var attachTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return CreateFailure(
                 CreateTimeoutError("Timed out before existing GUI Editor attach could start."),
@@ -235,7 +292,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
         var attachResult = await daemonGuiEditorAttachService.TryAttachExistingGuiEditorAsync(
                 unityProject,
-                attachTimeout,
+                deadline,
                 editorMode,
                 onStartupBlocked,
                 progressObserver,
@@ -246,7 +303,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
             return CreateResult(attachResult, diagnosisCleanupError);
         }
 
-        if (!deadline.TryGetRemainingTimeout(out var launchTimeout))
+        if (!deadline.TryGetRemainingTimeout(out _))
         {
             return CreateFailure(
                 CreateTimeoutError("Timed out before daemon launch could start."),
@@ -260,7 +317,7 @@ internal sealed class DaemonStartOperation : IDaemonStartOperation
 
         var launchResult = await daemonLaunchService.LaunchAsync(
                 unityProject,
-                launchTimeout,
+                deadline,
                 launchEditorMode,
                 onStartupBlocked,
                 progressObserver,

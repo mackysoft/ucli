@@ -16,17 +16,19 @@ public sealed class UcliOperationCodeContractBuilderTests
             "null or a JSON-serializable value.",
             new[]
             {
-                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
-                new UcliCodeSourceFormContract(CsEvalSourceKindValues.Snippet, "Run method body snippet."),
+                new UcliCodeSourceFormContract(UcliCodeSourceFormKind.CompilationUnit, "Complete C# compilation unit."),
+                new UcliCodeSourceFormContract(UcliCodeSourceFormKind.Snippet, "Run method body snippet."),
             },
             new[] { typeof(SampleCodeContext) });
 
-        Assert.Equal("csharp", codeContract.Language);
+        Assert.Equal(UcliCodeLanguage.CSharp, codeContract.Language);
         Assert.NotNull(codeContract.EntryPoint);
         Assert.Equal("public static object? Run(SampleCodeContext context)", codeContract.EntryPoint!.Signature);
         Assert.Equal("Compiled source must contain exactly one matching Run method.", codeContract.EntryPoint.MatchRule);
         Assert.Equal(typeof(SampleCodeContext).FullName, Assert.Single(codeContract.EntryPoint.ParameterTypes!));
-        Assert.Equal(new[] { CsEvalSourceKindValues.CompilationUnit, CsEvalSourceKindValues.Snippet }, codeContract.SourceForms!.Select(static form => form.Kind));
+        Assert.Equal(
+            new[] { UcliCodeSourceFormKind.CompilationUnit, UcliCodeSourceFormKind.Snippet },
+            codeContract.SourceForms!.Select(static form => form.Kind!.Value));
         Assert.All(codeContract.SourceForms!, static form => Assert.False(string.IsNullOrWhiteSpace(form.Description)));
 
         var apiType = Assert.Single(codeContract.ApiTypes!);
@@ -35,12 +37,12 @@ public sealed class UcliOperationCodeContractBuilderTests
         Assert.Equal("Sample code context.", apiType.Description);
 
         var property = Assert.Single(apiType.Members!, member => member.Name == nameof(SampleCodeContext.Value));
-        Assert.Equal(UcliCodeApiMemberKindValues.Property, property.Kind);
+        Assert.Equal(UcliCodeApiMemberKind.Property, property.Kind);
         Assert.Equal("System.String", property.Type);
         Assert.Equal("Sample value.", property.Description);
 
         var method = Assert.Single(apiType.Members!, member => member.Name == nameof(SampleCodeContext.Log));
-        Assert.Equal(UcliCodeApiMemberKindValues.Method, method.Kind);
+        Assert.Equal(UcliCodeApiMemberKind.Method, method.Kind);
         Assert.Equal("void", method.ReturnType);
         Assert.Equal("Records a log message.", method.Description);
         Assert.Equal("Log message.", Assert.Single(method.Parameters!).Description);

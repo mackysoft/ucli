@@ -19,10 +19,10 @@ public sealed record AssetSchemaArgs
 
     [UcliDescription("Unity asset type identifier to inspect.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityTypeId? Type { get; init; }
+    public UnityTypeId? Type { get; }
 
     [UcliDescription("Existing asset target to inspect.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.Asset)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public AssetReferenceArgs? Target { get; init; }
+    public AssetReferenceArgs? Target { get; }
 }

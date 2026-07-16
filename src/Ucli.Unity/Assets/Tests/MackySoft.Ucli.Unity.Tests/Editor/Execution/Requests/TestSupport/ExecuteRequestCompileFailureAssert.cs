@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public ExecuteRequestCompileFailureAssert HasInvalidArgument (string expectedOpId)
         {
             Assert.That(error.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(error.OpId, Is.EqualTo(expectedOpId));
+            Assert.That(error.OpId?.Value, Is.EqualTo(expectedOpId));
             return this;
         }
 

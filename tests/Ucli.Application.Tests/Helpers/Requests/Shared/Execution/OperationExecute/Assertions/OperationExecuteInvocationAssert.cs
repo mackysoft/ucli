@@ -22,7 +22,6 @@ internal static class OperationExecuteInvocationAssert
         UnityExecutionMode expectedMode,
         TimeSpan expectedTimeout,
         string expectedRepositoryRoot,
-        string expectedRequestId,
         bool expectedFailFast,
         string expectedOperationId,
         string expectedOperationName)
@@ -35,9 +34,8 @@ internal static class OperationExecuteInvocationAssert
         Assert.Equal(expectedMode, execution.Invocation.Mode);
         Assert.Equal(expectedTimeout, execution.Invocation.Timeout);
         Assert.Equal(expectedRepositoryRoot, execution.Invocation.UnityProject.RepositoryRoot);
-        Assert.Equal(expectedRequestId, execution.Request.RequestId);
         Assert.Equal(expectedFailFast, execution.Request.FailFast);
-        Assert.Equal(expectedOperationId, execution.Request.OperationId);
+        Assert.Equal(expectedOperationId, execution.Request.OperationId.Value);
         Assert.Equal(expectedOperationName, execution.Request.OperationName);
         return execution;
     }
@@ -45,7 +43,6 @@ internal static class OperationExecuteInvocationAssert
     public static UnityRequestExecutorInvocationAssert.ExecuteOperationPair PlanThenCallDispatched (
         RecordingUnityRequestExecutor requestExecutor,
         UcliCommand expectedOwnerCommand,
-        string expectedRequestId,
         string expectedPlanToken,
         bool expectedFailFast)
     {
@@ -57,8 +54,6 @@ internal static class OperationExecuteInvocationAssert
         Assert.Equal(expectedPlanToken, executePair.CallRequest.PlanToken);
         Assert.Equal(expectedFailFast, executePair.PlanRequest.FailFast);
         Assert.Equal(expectedFailFast, executePair.CallRequest.FailFast);
-        Assert.Equal(expectedRequestId, executePair.PlanRequest.RequestId);
-        Assert.Equal(expectedRequestId, executePair.CallRequest.RequestId);
         return executePair;
     }
 

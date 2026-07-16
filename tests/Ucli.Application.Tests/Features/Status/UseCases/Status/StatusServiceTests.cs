@@ -1,11 +1,9 @@
-using System.Net.Sockets;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Observation;
 using MackySoft.Ucli.Application.Features.Status.UseCases.Status.Preflight;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -18,26 +16,24 @@ public sealed class StatusServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Execute_WhenDaemonIsRunning_ReturnsPingInfoAndResolvedUnityVersion ()
+    public async Task Execute_WhenDaemonIsRunning_ReturnsObservedPingInfoAndResolvedUnityVersion ()
     {
         var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Running(DaemonSessionTestFactory.Create(
+        var session = DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
-            projectFingerprint: "project-fingerprint",
-            endpointAddress: "ucli-daemon-status")));
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse(
+            projectFingerprint: StatusProjectContext.UnityProject.ProjectFingerprint,
+            endpointAddress: "ucli-daemon-status");
+        var pingResponse = CreatePingResponse(
             lifecycleState: IpcEditorLifecycleState.Busy,
             generations: new IpcUnityGenerationSnapshot(
                 CompileGeneration: 12,
                 DomainReloadGeneration: 7,
                 AssetRefreshGeneration: 3,
-                PlayModeGeneration: 2)));
-        var service = CreateService(
-            contextResolver,
-            unityVersionResolver,
-            daemonStatusOperation,
-            daemonPingInfoClient);
+                PlayModeGeneration: 2));
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(
+            DaemonStatusResult.Running(session, pingResponse, diagnosis: null));
+        var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
@@ -64,17 +60,10 @@ public sealed class StatusServiceTests
         var expectedTimeoutMilliseconds = UcliConfig.CreateDefault().IpcTimeoutMillisecondsByCommand[UcliCommandIds.Status.Name];
         Assert.NotNull(expectedTimeoutMilliseconds);
         Assert.Equal(expectedTimeoutMilliseconds, output.TimeoutMilliseconds);
-        var expectedTimeout = TimeSpan.FromMilliseconds(expectedTimeoutMilliseconds.Value);
         DaemonStatusOperationAssert.StatusRequested(
             daemonStatusOperation,
             StatusProjectContext,
-            expectedTimeout,
-            CancellationToken.None);
-        DaemonPingInfoClientAssert.PingReadForSession(
-            daemonPingInfoClient,
-            StatusProjectContext,
-            expectedTimeout,
-            "session-token",
+            TimeSpan.FromMilliseconds(expectedTimeoutMilliseconds.Value),
             CancellationToken.None);
     }
 
@@ -84,20 +73,16 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse());
-        var service = CreateService(
-            contextResolver,
-            unityVersionResolver,
-            daemonStatusOperation,
-            daemonPingInfoClient);
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning(
+            diagnosis: null,
+            lastLaunchAttempt: null));
+        var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
         StatusServiceAssert.NotRunningOutputReturnedWithoutPingTelemetry(
             result,
-            expectedUnityVersion: "6000.1.4f1",
-            daemonPingInfoClient);
+            expectedUnityVersion: "6000.1.4f1");
     }
 
     [Fact]
@@ -108,21 +93,15 @@ public sealed class StatusServiceTests
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Stale(DaemonSessionTestFactory.Create(
             sessionToken: "stale-session-token",
-            projectFingerprint: "project-fingerprint",
-            endpointAddress: "ucli-daemon-status")));
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse());
-        var service = CreateService(
-            contextResolver,
-            unityVersionResolver,
-            daemonStatusOperation,
-            daemonPingInfoClient);
+            projectFingerprint: StatusProjectContext.UnityProject.ProjectFingerprint,
+            endpointAddress: "ucli-daemon-status"), diagnosis: null));
+        var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
         StatusServiceAssert.StaleOutputReturnedWithoutPingTelemetry(
             result,
-            expectedUnityVersion: "6000.1.4f1",
-            daemonPingInfoClient);
+            expectedUnityVersion: "6000.1.4f1");
     }
 
     [Fact]
@@ -131,13 +110,10 @@ public sealed class StatusServiceTests
     {
         var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse());
-        var service = CreateService(
-            contextResolver,
-            unityVersionResolver,
-            daemonStatusOperation,
-            daemonPingInfoClient);
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning(
+            diagnosis: null,
+            lastLaunchAttempt: null));
+        var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, 0), CancellationToken.None);
 
@@ -151,13 +127,10 @@ public sealed class StatusServiceTests
         var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Failure(
             ExecutionError.InvalidArgument("Unity project path is invalid.")));
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning());
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse());
-        var service = CreateService(
-            contextResolver,
-            unityVersionResolver,
-            daemonStatusOperation,
-            daemonPingInfoClient);
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.NotRunning(
+            diagnosis: null,
+            lastLaunchAttempt: null));
+        var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
@@ -176,115 +149,23 @@ public sealed class StatusServiceTests
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
         var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Failure(
             ExecutionError.InternalError("Failed to read daemon session.")));
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(CreatePingResponse());
-        var service = CreateService(
-            contextResolver,
-            unityVersionResolver,
-            daemonStatusOperation,
-            daemonPingInfoClient);
+        var service = CreateService(contextResolver, unityVersionResolver, daemonStatusOperation);
 
         var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
 
-        StatusServiceAssert.DaemonStatusFailureStoppedBeforePingTelemetry(
+        StatusServiceAssert.DaemonStatusFailureReturned(
             result,
-            expectedMessage: "Failed to read daemon session.",
-            daemonPingInfoClient);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenPingInfoTimesOut_ReturnsUnavailableStaleStatus ()
-    {
-        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
-        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Running(DaemonSessionTestFactory.Create(
-            sessionToken: "session-token",
-            projectFingerprint: "project-fingerprint",
-            endpointAddress: "ucli-daemon-status")));
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new TimeoutException("ping timeout"));
-        var service = CreateService(
-            contextResolver,
-            unityVersionResolver,
-            daemonStatusOperation,
-            daemonPingInfoClient);
-
-        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
-
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<StatusExecutionOutput>(result.Output);
-        Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
-        Assert.Equal(IpcEditorLifecycleState.Unavailable, output.LifecycleState);
-        Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Null(result.Error);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenPingInfoBecomesUnreachable_ReturnsStaleStatus ()
-    {
-        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
-        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Running(DaemonSessionTestFactory.Create(
-            sessionToken: "session-token",
-            projectFingerprint: "project-fingerprint",
-            endpointAddress: "ucli-daemon-status")));
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused));
-        var service = CreateService(
-            contextResolver,
-            unityVersionResolver,
-            daemonStatusOperation,
-            daemonPingInfoClient);
-
-        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
-
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<StatusExecutionOutput>(result.Output);
-        Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
-        Assert.Null(output.ServerVersion);
-        Assert.Null(output.CompileState);
-        Assert.Null(output.EditorMode);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task Execute_WhenPingInfoFails_ReturnsInternalError ()
-    {
-        var contextResolver = new StaticProjectContextResolver(ProjectContextResolutionResult.Success(StatusProjectContext));
-        var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Running(DaemonSessionTestFactory.Create(
-            sessionToken: "session-token",
-            projectFingerprint: "project-fingerprint",
-            endpointAddress: "ucli-daemon-status")));
-        var daemonPingInfoClient = new RecordingDaemonPingInfoClient(new InvalidOperationException("failed"));
-        var service = CreateService(
-            contextResolver,
-            unityVersionResolver,
-            daemonStatusOperation,
-            daemonPingInfoClient);
-
-        var result = await service.ExecuteAsync(new StatusCommandInput(null, null), CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Contains("Failed to read daemon ping information", error.Message, StringComparison.Ordinal);
+            expectedMessage: "Failed to read daemon session.");
     }
 
     private static StatusService CreateService (
         IProjectContextResolver contextResolver,
         IUnityVersionResolver unityVersionResolver,
-        IDaemonStatusOperation daemonStatusOperation,
-        IDaemonPingInfoClient daemonPingInfoClient)
+        IDaemonStatusOperation daemonStatusOperation)
     {
         return new StatusService(
             new StatusExecutionContextResolver(contextResolver, unityVersionResolver),
-            new StatusDaemonObservationService(
-                daemonStatusOperation,
-                daemonPingInfoClient,
-                new StubDaemonReachabilityClassifier(static exception => exception is SocketException),
-                new RecordingDaemonLifecycleStore(),
-                new RecordingDaemonProcessIdentityAssessor()));
+            new StatusDaemonObservationService(daemonStatusOperation));
     }
 
     private static IpcUnityEditorObservation CreatePingResponse (
@@ -294,7 +175,7 @@ public sealed class StatusServiceTests
         return new IpcUnityEditorObservation(
             serverVersion: "0.5.0",
             unityVersion: "2022.3.5f1",
-            projectFingerprint: "project-fingerprint",
+            projectFingerprint: StatusProjectContext.UnityProject.ProjectFingerprint,
             state: new UnityEditorStateSnapshot(
                 editorMode: DaemonEditorMode.Batchmode,
                 lifecycleState: lifecycleState,
@@ -305,6 +186,8 @@ public sealed class StatusServiceTests
                     Transition: IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
-            observedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero));
+            observedAtUtc: new DateTimeOffset(2026, 7, 13, 0, 0, 0, TimeSpan.Zero),
+            actionRequired: null,
+            primaryDiagnostic: null);
     }
 }

@@ -1,4 +1,4 @@
-using MackySoft.Tests;
+using System.Text.Json.Nodes;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -9,15 +9,20 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 public sealed class DaemonLifecycleStoreTests
 {
+    private static readonly Guid EditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+    private static readonly Guid SidecarGenerationId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task Read_WhenStateIsCompileFailed_DerivesLifecycleSemantics ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "derived-lifecycle-semantics");
         var store = new DaemonLifecycleStore();
-        await WriteContractAsync(scope.FullPath, "fingerprint-valid", CreateContract());
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-valid");
+        await WriteContractAsync(scope.FullPath, projectFingerprint, CreateContract());
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-valid", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.Equal(IpcEditorLifecycleState.CompileFailed, readResult.Observation!.State.LifecycleState);
@@ -31,12 +36,14 @@ public sealed class DaemonLifecycleStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "invalid-action-required");
         var store = new DaemonLifecycleStore();
-        await WriteContractAsync(
+        var json = JsonNode.Parse(DaemonLifecycleJsonContractSerializer.Serialize(CreateContract()))!.AsObject();
+        json["actionRequired"] = "unknownAction";
+        await WriteRawJsonAsync(
             scope.FullPath,
-            "fingerprint-invalid",
-            CreateContract(actionRequired: "unknownAction"));
+            ProjectFingerprintTestFactory.Create("fingerprint-invalid"),
+            json.ToJsonString());
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
@@ -50,18 +57,21 @@ public sealed class DaemonLifecycleStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "invalid-primary-diagnostic-kind");
         var store = new DaemonLifecycleStore();
-        await WriteContractAsync(
-            scope.FullPath,
-            "fingerprint-invalid",
-            CreateContract(primaryDiagnostic: new IpcPrimaryDiagnostic(
-                Kind: "unknownDiagnosticKind",
+        var contract = CreateContract(primaryDiagnostic: new IpcPrimaryDiagnostic(
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS1739",
                 File: "Assets/Foo.cs",
                 Line: 74,
                 Column: 17,
-                Message: "Missing parameter")));
+                Message: "Missing parameter"));
+        var json = JsonNode.Parse(DaemonLifecycleJsonContractSerializer.Serialize(contract))!.AsObject();
+        json["primaryDiagnostic"]!.AsObject()["kind"] = "unknownDiagnosticKind";
+        await WriteRawJsonAsync(
+            scope.FullPath,
+            ProjectFingerprintTestFactory.Create("fingerprint-invalid"),
+            json.ToJsonString());
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-invalid", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-invalid"), CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
@@ -77,42 +87,53 @@ public sealed class DaemonLifecycleStoreTests
         var store = new DaemonLifecycleStore();
         await WriteContractAsync(
             scope.FullPath,
-            "fingerprint-diagnostic",
+            ProjectFingerprintTestFactory.Create("fingerprint-diagnostic"),
             CreateContract(primaryDiagnostic: new IpcPrimaryDiagnostic(
-                Kind: $" {DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler} ",
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: " CS1739 ",
                 File: " Assets/Foo.cs ",
                 Line: 74,
                 Column: 17,
                 Message: " Missing parameter ")));
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-diagnostic", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-diagnostic"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         var diagnostic = Assert.IsType<IpcPrimaryDiagnostic>(readResult.Observation!.PrimaryDiagnostic);
-        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler, diagnostic.Kind);
+        Assert.Equal(DaemonDiagnosisPrimaryDiagnosticKind.Compiler, diagnostic.Kind);
         Assert.Equal("CS1739", diagnostic.Code);
         Assert.Equal("Assets/Foo.cs", diagnostic.File);
         Assert.Equal(74, diagnostic.Line);
         Assert.Equal(17, diagnostic.Column);
         Assert.Equal("Missing parameter", diagnostic.Message);
+        Assert.Equal(EditorInstanceId, readResult.Observation.EditorInstanceId);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData(null)]
+    [InlineData("editor-instance")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    [InlineData(" 11111111-1111-1111-1111-111111111111 ")]
+    [InlineData("11111111-1111-1111-1111-11111111111")]
     [Trait("Size", "Medium")]
-    public async Task Read_WhenLifecycleJsonContainsEditorInstanceId_NormalizesField ()
+    public async Task Read_WhenLifecycleJsonContainsInvalidEditorInstanceId_ReturnsInvalidArgument (
+        string? editorInstanceId)
     {
         using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "editor-instance-id");
         var store = new DaemonLifecycleStore();
-        await WriteContractAsync(
+        var json = JsonNode.Parse(DaemonLifecycleJsonContractSerializer.Serialize(CreateContract()))!.AsObject();
+        json["editorInstanceId"] = editorInstanceId;
+        await WriteRawJsonAsync(
             scope.FullPath,
-            "fingerprint-editor-instance",
-            CreateContract(editorInstanceId: " editor-instance-1 "));
+            ProjectFingerprintTestFactory.Create("fingerprint-editor-instance"),
+            json.ToJsonString());
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-editor-instance", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-editor-instance"), CancellationToken.None);
 
-        Assert.True(readResult.IsSuccess);
-        Assert.Equal("editor-instance-1", readResult.Observation!.EditorInstanceId);
+        Assert.False(readResult.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(readResult.Error);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+        Assert.Contains("editorInstanceId", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -133,10 +154,10 @@ public sealed class DaemonLifecycleStoreTests
                 IsPlayingOrWillChangePlaymode: true));
         await WriteContractAsync(
             scope.FullPath,
-            "fingerprint-play-mode",
+            ProjectFingerprintTestFactory.Create("fingerprint-play-mode"),
             CreateContract(state: state, serverVersion: " 0.5.0 "));
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-play-mode", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-play-mode"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.Equal("0.5.0", readResult.Observation!.ServerVersion);
@@ -148,12 +169,45 @@ public sealed class DaemonLifecycleStoreTests
         Assert.Equal(3, readResult.Observation.State.Generations.PlayModeGeneration);
     }
 
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Read_WhenLifecycleJsonContainsRecoveryLease_PreservesTypedLease ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-lifecycle-store", "recovery-lease");
+        var store = new DaemonLifecycleStore();
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-recovery-lease");
+        var observedAtUtc = new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero);
+        var recoveryLease = new DaemonLifecycleRecoveryLease(
+            Guid.Parse("33333333-3333-3333-3333-333333333333"),
+            observedAtUtc + TimeSpan.FromMinutes(5));
+        var recoveringState = new UnityEditorStateSnapshot(
+            editorMode: DaemonEditorMode.Gui,
+            lifecycleState: IpcEditorLifecycleState.Recovering,
+            compileState: IpcCompileState.Ready,
+            generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
+            playMode: new IpcPlayModeSnapshot(
+                IpcPlayModeState.Stopped,
+                IpcPlayModeTransition.None,
+                IsPlaying: false,
+                IsPlayingOrWillChangePlaymode: false));
+        await WriteContractAsync(
+            scope.FullPath,
+            projectFingerprint,
+            CreateContract(state: recoveringState, recoveryLease: recoveryLease));
+
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+
+        Assert.True(readResult.IsSuccess);
+        Assert.Equal(recoveryLease, readResult.Observation!.RecoveryLease);
+    }
+
     private static DaemonLifecycleJsonContract CreateContract (
         UnityEditorStateSnapshot? state = null,
-        string? actionRequired = DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+        DaemonDiagnosisActionRequired? actionRequired = DaemonDiagnosisActionRequired.FixCompileErrors,
         IpcPrimaryDiagnostic? primaryDiagnostic = null,
         string? serverVersion = null,
-        string? editorInstanceId = null)
+        Guid? editorInstanceId = null,
+        DaemonLifecycleRecoveryLease? recoveryLease = null)
     {
         return new DaemonLifecycleJsonContract(
             processId: 1234,
@@ -171,20 +225,33 @@ public sealed class DaemonLifecycleStoreTests
             observedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 2, TimeSpan.Zero),
             actionRequired: actionRequired,
             primaryDiagnostic: primaryDiagnostic,
+            sidecarGenerationId: SidecarGenerationId,
             serverVersion: serverVersion,
-            editorInstanceId: editorInstanceId);
+            editorInstanceId: editorInstanceId ?? EditorInstanceId,
+            recoveryLease: recoveryLease);
     }
 
     private static async Task WriteContractAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DaemonLifecycleJsonContract contract)
+    {
+        await WriteRawJsonAsync(
+            storageRoot,
+            projectFingerprint,
+            DaemonLifecycleJsonContractSerializer.Serialize(contract));
+    }
+
+    private static async Task WriteRawJsonAsync (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint,
+        string json)
     {
         var lifecyclePath = UcliStoragePathResolver.ResolveDaemonLifecyclePath(storageRoot, projectFingerprint);
         Directory.CreateDirectory(Path.GetDirectoryName(lifecyclePath)!);
         await File.WriteAllTextAsync(
             lifecyclePath,
-            DaemonLifecycleJsonContractSerializer.Serialize(contract) + Environment.NewLine,
+            json + Environment.NewLine,
             CancellationToken.None);
     }
 }

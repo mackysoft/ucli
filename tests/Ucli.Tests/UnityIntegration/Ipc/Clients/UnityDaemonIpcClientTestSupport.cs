@@ -1,10 +1,9 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
-using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
+using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
@@ -17,41 +16,56 @@ internal static class UnityDaemonIpcClientTestSupport
 
     public static UnityIpcDispatchRequest CreateDispatchRequest ()
     {
-        return new UnityIpcDispatchRequest(IpcMethodNames.OpsRead, CreateDispatchPayload());
+        return new UnityIpcDispatchRequest(
+            UnityIpcMethod.OpsRead,
+            CreateDispatchPayload(),
+            UnityBatchmodeLaunchOptions.Default);
     }
 
-    public static IpcResponse CreateResponse (string requestId)
+    public static IpcResponse CreateResponse (Guid requestId)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: EmptyPayload(),
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcResponseStatus.Ok,
+            payload: EmptyPayload(),
+            errors: Array.Empty<IpcError>());
     }
 
-    public static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
+    public static IpcResponse CreateSessionTokenInvalidResponse ()
     {
-        return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
-            sessionToken,
-            new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
+        return new IpcResponse(
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: IpcResponseStatus.Error,
+            payload: CreateDispatchPayload(),
+            errors:
+            [
+                new IpcError(
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "The daemon session token rotated during endpoint recovery.",
+                    null),
+            ]);
     }
 
-    public static UnityDaemonRecoveryWaiter CreateRecoveryWaiter (
+    public static DaemonSessionReadResult CreateSessionReadResult (string sessionToken)
+    {
+        return DaemonSessionReadResultTestFactory.FoundForToken(sessionToken);
+    }
+
+    public static DaemonSessionRecoveryWaiter CreateRecoveryWaiter (
         DaemonSession session,
-        ManualTimeProvider timeProvider)
+        TimeProvider timeProvider)
     {
-        return new UnityDaemonRecoveryWaiter(
-            new RecordingDaemonSessionStore
-            {
-                ReadResult = DaemonSessionReadResult.Success(session),
-            },
+        ArgumentNullException.ThrowIfNull(timeProvider);
+
+        return new DaemonSessionRecoveryWaiter(
             new RecordingDaemonLifecycleStore
             {
-                ReadResult = DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session)),
+                ReadResult = DaemonLifecycleObservationReadResult.Success(
+                    CreateRecoveringObservation(session, timeProvider.GetUtcNow())),
             },
-            new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess),
-            timeProvider);
+            new RecordingDaemonProcessIdentityAssessor(DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess));
     }
 
     public static void AssertUnityResponse (
@@ -59,7 +73,7 @@ internal static class UnityDaemonIpcClientTestSupport
         UnityRequestResponse? actual)
     {
         Assert.NotNull(actual);
-        Assert.False(actual!.HasFailureStatus);
+        Assert.Empty(actual!.Errors);
         Assert.Equal(expected.Payload.GetRawText(), actual.Payload.GetRawText());
         Assert.Equal(expected.Errors.Count, actual.Errors.Count);
         for (var i = 0; i < expected.Errors.Count; i++)
@@ -75,7 +89,9 @@ internal static class UnityDaemonIpcClientTestSupport
         return JsonDocument.Parse("{}").RootElement.Clone();
     }
 
-    private static DaemonLifecycleObservation CreateRecoveringObservation (DaemonSession session)
+    private static DaemonLifecycleObservation CreateRecoveringObservation (
+        DaemonSession session,
+        DateTimeOffset observedAtUtc)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
@@ -90,10 +106,12 @@ internal static class UnityDaemonIpcClientTestSupport
                     IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
-            observedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero),
+            observedAtUtc: observedAtUtc,
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
-            editorInstanceId: session.EditorInstanceId);
+            editorInstanceId: session.EditorInstanceId
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+            recoveryLease: null);
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Threading;
+using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -93,11 +94,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void UnityEditorObservationConstructor_WhenObservedAtUtcIsDefault_ThrowsArgumentOutOfRangeException ()
+        public void UnityEditorObservationConstructor_WhenObservedAtUtcIsNotCanonicalUtc_ThrowsArgumentException ()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(() =>
+            var invalidTimestamps = new[]
             {
-                _ = new UnityEditorObservation(
+                default(DateTimeOffset),
+                new DateTimeOffset(2026, 7, 15, 9, 0, 0, TimeSpan.FromHours(9)),
+            };
+            foreach (var invalidTimestamp in invalidTimestamps)
+            {
+                var exception = Assert.Throws<ArgumentException>(() => new UnityEditorObservation(
                     new UnityEditorStateSnapshot(
                         editorMode: DaemonEditorMode.Batchmode,
                         lifecycleState: IpcEditorLifecycleState.Ready,
@@ -108,8 +114,10 @@ namespace MackySoft.Ucli.Unity.Tests
                             Transition: IpcPlayModeTransition.None,
                             IsPlaying: false,
                             IsPlayingOrWillChangePlaymode: false)),
-                    default);
-            });
+                    invalidTimestamp));
+
+                Assert.That(exception.ParamName, Is.EqualTo("observedAtUtc"));
+            }
         }
 
         [TestCase(IpcEditorLifecycleState.Starting, true)]
@@ -257,6 +265,113 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(afterUpdate.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
             Assert.That(afterUpdate.BlockingReason, Is.Null);
             Assert.That(afterUpdate.CanAcceptExecutionRequests, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CaptureObservation_WhenMutationLaneIsBusy_ReturnsUnderlyingEditorObservation ()
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 4,
+                domainReloadGeneration: 9,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+            var gate = new UnityEditorReadinessGate(
+                DaemonEditorMode.Gui,
+                new UnityEditorLifecycleMonitor(
+                    telemetryState,
+                    static () => false,
+                    static () => false,
+                    static () => false,
+                    static () => false),
+                static () => false,
+                new StubMutationExecutionState(isBusy: true),
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                subscribeToEditorEvents: false);
+
+            var observation = gate.CaptureObservation();
+
+            Assert.That(observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(observation.BlockingReason, Is.Null);
+            Assert.That(observation.CanAcceptExecutionRequests, Is.True);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CaptureAvailabilityObservation_WhenMutationLaneIsBusy_ReturnsBusyObservation ()
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 4,
+                domainReloadGeneration: 9,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+            var gate = new UnityEditorReadinessGate(
+                DaemonEditorMode.Gui,
+                new UnityEditorLifecycleMonitor(
+                    telemetryState,
+                    static () => false,
+                    static () => false,
+                    static () => false,
+                    static () => false),
+                static () => false,
+                new StubMutationExecutionState(isBusy: true),
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                subscribeToEditorEvents: false);
+
+            var observation = gate.CaptureAvailabilityObservation();
+
+            Assert.That(observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Busy));
+            Assert.That(observation.BlockingReason, Is.EqualTo(IpcEditorBlockingReason.Busy));
+            Assert.That(observation.CanAcceptExecutionRequests, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void EnsureExecutionReady_WhenAdmittedMutationLaneIsBusy_UsesUnderlyingEditorState ()
+        {
+            var telemetryState = new UnityEditorLifecycleTelemetryState(
+                compileGeneration: 4,
+                domainReloadGeneration: 9,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false);
+            var gate = new UnityEditorReadinessGate(
+                DaemonEditorMode.Gui,
+                new UnityEditorLifecycleMonitor(
+                    telemetryState,
+                    static () => false,
+                    static () => false,
+                    static () => false,
+                    static () => false),
+                static () => false,
+                new StubMutationExecutionState(isBusy: true),
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                static _ => { },
+                subscribeToEditorEvents: false);
+
+            var readinessTask = gate.EnsureExecutionReadyAsync(failFast: false);
+
+            Assert.That(readinessTask.IsCompleted, Is.True);
+            var result = readinessTask.GetAwaiter().GetResult();
+            Assert.That(result.IsReady, Is.True);
+            Assert.That(result.Observation.State.LifecycleState, Is.EqualTo(IpcEditorLifecycleState.Ready));
+            Assert.That(result.Observation.CanAcceptExecutionRequests, Is.True);
         }
 
         [Test]
@@ -732,7 +847,83 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator EnsureExecutionReady_WhenCanceled_PropagatesCancellation () => UniTask.ToCoroutine(async () =>
+        public IEnumerator EnsureExecutionReady_WhenCanceledFromBackground_PropagatesCancellationAndDetachesOnMainThread () => UniTask.ToCoroutine(async () =>
+        {
+            var mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            var gate = CreateGate(
+                compileGeneration: 9,
+                domainReloadGeneration: 16,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false,
+                isPlaymodeActive: false,
+                isCompiling: false,
+                isUpdating: true,
+                out _,
+                out _,
+                out var waitSignalBus);
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            var resultTask = gate.EnsureExecutionReadyAsync(failFast: false, cancellationTokenSource.Token);
+            Assert.That(resultTask.IsCompleted, Is.False);
+
+            await TestAwaiter.WaitAsync(
+                Task.Run(cancellationTokenSource.Cancel),
+                "Background readiness gate cancellation",
+                AsyncWaitTimeout);
+            _ = await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+            {
+                await TestAwaiter.WaitAsync(
+                    resultTask,
+                    "Readiness gate cancellation",
+                    AsyncWaitTimeout);
+            }, "Readiness gate cancellation result", AsyncWaitTimeout);
+
+            Assert.That(waitSignalBus.UnsubscribeCallCount, Is.EqualTo(3));
+            Assert.That(waitSignalBus.BeforeAssemblyReloadUnsubscribeThreadId, Is.EqualTo(mainThreadId));
+            Assert.That(waitSignalBus.EditorUpdateUnsubscribeThreadId, Is.EqualTo(mainThreadId));
+            Assert.That(waitSignalBus.QuittingUnsubscribeThreadId, Is.EqualTo(mainThreadId));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator EnsureExecutionReady_WhenCanceledDuringEventSubscription_CompletesCancellationAndDetachesOnMainThread () => UniTask.ToCoroutine(async () =>
+        {
+            var mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            var gate = CreateGate(
+                compileGeneration: 9,
+                domainReloadGeneration: 16,
+                isDomainReloading: false,
+                isShuttingDown: false,
+                isStartupPending: false,
+                isPlaymodeActive: false,
+                isCompiling: false,
+                isUpdating: true,
+                out _,
+                out _,
+                out var waitSignalBus);
+            using var cancellationTokenSource = new CancellationTokenSource();
+            waitSignalBus.BeforeAssemblyReloadSubscribed = cancellationTokenSource.Cancel;
+
+            var resultTask = gate.EnsureExecutionReadyAsync(failFast: false, cancellationTokenSource.Token);
+
+            Assert.That(resultTask.IsCompleted, Is.True);
+            _ = await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(
+                async () =>
+                {
+                    _ = await resultTask;
+                },
+                "Readiness gate cancellation during event subscription",
+                AsyncWaitTimeout);
+            Assert.That(waitSignalBus.UnsubscribeCallCount, Is.EqualTo(3));
+            Assert.That(waitSignalBus.BeforeAssemblyReloadUnsubscribeThreadId, Is.EqualTo(mainThreadId));
+            Assert.That(waitSignalBus.EditorUpdateUnsubscribeThreadId, Is.EqualTo(mainThreadId));
+            Assert.That(waitSignalBus.QuittingUnsubscribeThreadId, Is.EqualTo(mainThreadId));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator EnsureExecutionReady_WhenReadinessCompletesBeforeCancellation_ReturnsReadyResult () => UniTask.ToCoroutine(async () =>
         {
             var gate = CreateGate(
                 compileGeneration: 9,
@@ -744,20 +935,23 @@ namespace MackySoft.Ucli.Unity.Tests
                 isCompiling: false,
                 isUpdating: true,
                 out _,
-                out _);
+                out var activityProbe,
+                out var waitSignalBus);
             using var cancellationTokenSource = new CancellationTokenSource();
 
             var resultTask = gate.EnsureExecutionReadyAsync(failFast: false, cancellationTokenSource.Token);
             Assert.That(resultTask.IsCompleted, Is.False);
 
+            activityProbe.IsUpdating = false;
+            waitSignalBus.RaiseEditorUpdate();
             cancellationTokenSource.Cancel();
-            _ = await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
-            {
-                await TestAwaiter.WaitAsync(
-                    resultTask,
-                    "Readiness gate cancellation",
-                    AsyncWaitTimeout);
-            }, "Readiness gate cancellation result", AsyncWaitTimeout);
+            var result = await TestAwaiter.WaitAsync(
+                resultTask,
+                "Readiness gate result completed before cancellation",
+                AsyncWaitTimeout);
+
+            Assert.That(result.IsReady, Is.True);
+            Assert.That(waitSignalBus.UnsubscribeCallCount, Is.EqualTo(3));
         });
 
         [UnityTest]
@@ -781,6 +975,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(resultTask.IsCompleted, Is.False);
 
             waitSignalBus.RaiseBeforeAssemblyReload();
+            Assert.That(resultTask.IsCompleted, Is.True);
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
                 "Readiness gate assembly reload boundary",
@@ -814,6 +1009,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(resultTask.IsCompleted, Is.False);
 
             waitSignalBus.RaiseQuitting();
+            Assert.That(resultTask.IsCompleted, Is.True);
             var result = await TestAwaiter.WaitAsync(
                 resultTask,
                 "Readiness gate shutdown boundary",
@@ -857,6 +1053,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     () => isPlaymodeLifecycleActive,
                     () => isPlaymodeLifecycleActive),
                 () => isPlayModeMutationActive,
+                new StubMutationExecutionState(isBusy: false),
                 static _ => { },
                 static _ => { },
                 static _ => { },
@@ -951,6 +1148,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     () => probe.IsPlaymodeActive,
                     () => probe.IsPlaymodeActive),
                 () => probe.IsPlaymodeActive,
+                new StubMutationExecutionState(isBusy: false),
                 signalBus.SubscribeBeforeAssemblyReload,
                 signalBus.UnsubscribeBeforeAssemblyReload,
                 signalBus.SubscribeEditorUpdate,
@@ -976,6 +1174,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     isPlaymodeActiveProvider,
                     isPlaymodeActiveProvider),
                 isPlaymodeActiveProvider,
+                new StubMutationExecutionState(isBusy: false),
                 static _ => { },
                 static _ => { },
                 static _ => { },
@@ -1023,21 +1222,59 @@ namespace MackySoft.Ucli.Unity.Tests
             public bool IsPlaymodeActive { get; set; }
         }
 
+        private sealed class StubMutationExecutionState : IUnityMutationExecutionState
+        {
+            public StubMutationExecutionState (bool isBusy)
+            {
+                IsBusy = isBusy;
+            }
+
+            public bool IsBusy { get; }
+
+            public bool HasUnfinishedWork => IsBusy;
+        }
+
         private sealed class WaitSignalBus
         {
+            private int unsubscribeCallCount;
+
+            private int beforeAssemblyReloadUnsubscribeThreadId;
+
+            private int editorUpdateUnsubscribeThreadId;
+
+            private int quittingUnsubscribeThreadId;
+
             private event AssemblyReloadEvents.AssemblyReloadCallback BeforeAssemblyReload;
 
             private event EditorApplication.CallbackFunction EditorUpdate;
 
             private event Action Quitting;
 
+            public int UnsubscribeCallCount => Volatile.Read(ref unsubscribeCallCount);
+
+            public int BeforeAssemblyReloadUnsubscribeThreadId =>
+                Volatile.Read(ref beforeAssemblyReloadUnsubscribeThreadId);
+
+            public int EditorUpdateUnsubscribeThreadId =>
+                Volatile.Read(ref editorUpdateUnsubscribeThreadId);
+
+            public int QuittingUnsubscribeThreadId =>
+                Volatile.Read(ref quittingUnsubscribeThreadId);
+
+#nullable enable
+            public Action? BeforeAssemblyReloadSubscribed { get; set; }
+#nullable restore
+
             public void SubscribeBeforeAssemblyReload (AssemblyReloadEvents.AssemblyReloadCallback handler)
             {
                 BeforeAssemblyReload += handler;
+                BeforeAssemblyReloadSubscribed?.Invoke();
             }
 
             public void UnsubscribeBeforeAssemblyReload (AssemblyReloadEvents.AssemblyReloadCallback handler)
             {
+                Volatile.Write(ref beforeAssemblyReloadUnsubscribeThreadId, Thread.CurrentThread.ManagedThreadId);
+                Interlocked.Increment(ref unsubscribeCallCount);
                 BeforeAssemblyReload -= handler;
             }
 
@@ -1048,6 +1285,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public void UnsubscribeEditorUpdate (EditorApplication.CallbackFunction handler)
             {
+                Volatile.Write(ref editorUpdateUnsubscribeThreadId, Thread.CurrentThread.ManagedThreadId);
+                Interlocked.Increment(ref unsubscribeCallCount);
                 EditorUpdate -= handler;
             }
 
@@ -1058,6 +1297,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public void UnsubscribeQuitting (Action handler)
             {
+                Volatile.Write(ref quittingUnsubscribeThreadId, Thread.CurrentThread.ManagedThreadId);
+                Interlocked.Increment(ref unsubscribeCallCount);
                 Quitting -= handler;
             }
 

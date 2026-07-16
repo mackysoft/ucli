@@ -2,30 +2,33 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://schemas.mackysoft.dev/ucli/v1/cli-output/defs/touched.schema.json",
   "type": "object",
+  "additionalProperties": false,
   "properties": {
     "kind": {
-      "type": [
-        "string",
-        "null"
+      "type": "string",
+      "enum": [
+        "scene",
+        "prefab",
+        "asset",
+        "projectSettings"
       ]
     },
     "path": {
-      "type": [
-        "string",
-        "null"
-      ]
+      "type": "string",
+      "pattern": "^(?!\\s)(?!/)(?!.*\\\\)(?!.*:)(?!.*[\\u0000-\\u001F])(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)(?!.*\\s$).\u002B$"
     },
-    "uri": {
+    "assetGuid": {
       "type": [
         "string",
         "null"
-      ]
-    },
-    "state": {
-      "type": [
-        "string",
-        "null"
-      ]
+      ],
+      "format": "uuid",
+      "pattern": "^(?!00000000-0000-0000-0000-000000000000$)[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
     }
-  }
+  },
+  "required": [
+    "kind",
+    "path",
+    "assetGuid"
+  ]
 }

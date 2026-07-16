@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Results;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 
@@ -6,15 +7,20 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Operatio
 internal sealed record OperationExecuteResult
 {
     private OperationExecuteResult (
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations,
-        OperationExecutionReadPostcondition? readPostcondition,
+        IpcExecuteReadPostcondition? readPostcondition,
         OperationExecutionPostReadSource? postReadSource,
         ProjectIdentityInfo? project)
     {
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         RequestId = requestId;
         OpResults = opResults;
         Errors = errors;
@@ -26,7 +32,7 @@ internal sealed record OperationExecuteResult
     }
 
     /// <summary> Gets the request identifier associated with this execution. </summary>
-    public string RequestId { get; }
+    public Guid RequestId { get; }
 
     /// <summary> Gets the per-step execution results. </summary>
     public IReadOnlyList<OperationExecutionOperationResult> OpResults { get; }
@@ -46,7 +52,7 @@ internal sealed record OperationExecuteResult
     public IReadOnlyList<OperationExecutionContractViolation> ContractViolations { get; }
 
     /// <summary> Gets the read postcondition emitted by mutation execution, when available. </summary>
-    public OperationExecutionReadPostcondition? ReadPostcondition { get; }
+    public IpcExecuteReadPostcondition? ReadPostcondition { get; }
 
     /// <summary> Gets source facts used by post-read verification, when available. </summary>
     public OperationExecutionPostReadSource? PostReadSource { get; }
@@ -59,15 +65,14 @@ internal sealed record OperationExecuteResult
 
     /// <summary> Creates one successful operation execution result. </summary>
     internal static OperationExecuteResult Success (
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         string message,
-        OperationExecutionReadPostcondition? readPostcondition,
+        IpcExecuteReadPostcondition? readPostcondition,
         ProjectIdentityInfo project,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
         OperationExecutionPostReadSource? postReadSource = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         ArgumentNullException.ThrowIfNull(project);
@@ -85,16 +90,15 @@ internal sealed record OperationExecuteResult
 
     /// <summary> Creates one failed operation execution result. </summary>
     internal static OperationExecuteResult Failure (
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null,
-        OperationExecutionReadPostcondition? readPostcondition = null,
+        IpcExecuteReadPostcondition? readPostcondition = null,
         ProjectIdentityInfo? project = null,
         OperationExecutionPostReadSource? postReadSource = null)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         var failureErrors = RequestServiceResultInvariants.RequireFailureErrors(errors);

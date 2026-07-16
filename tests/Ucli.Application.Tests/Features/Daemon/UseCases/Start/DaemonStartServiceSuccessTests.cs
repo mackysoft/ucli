@@ -23,9 +23,9 @@ public sealed class DaemonStartServiceSuccessTests
     [Trait("Size", "Small")]
     public async Task Start_WhenSupervisorReturnsStarted_ReturnsRunningOutputWithMappedSession ()
     {
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 1200,
-            repositoryRoot: "/tmp/repo-root");
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create();
@@ -62,9 +62,9 @@ public sealed class DaemonStartServiceSuccessTests
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 1200,
-            repositoryRoot: "/tmp/repo-root");
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
@@ -96,9 +96,9 @@ public sealed class DaemonStartServiceSuccessTests
         string caseName,
         int expectedStartStatus)
     {
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 1200,
-            repositoryRoot: "/tmp/repo-root");
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create();

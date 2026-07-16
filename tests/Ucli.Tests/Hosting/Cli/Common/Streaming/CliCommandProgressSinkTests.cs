@@ -1,11 +1,45 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 
 namespace MackySoft.Ucli.Tests.Hosting.Cli.Common.Streaming;
 
 public sealed class CliCommandProgressSinkTests
 {
+    private static readonly Guid StreamId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void WriterConstructor_WhenStreamIdIsEmpty_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new CliStreamEntryWriter(
+            "sample.command",
+            Guid.Empty,
+            TextWriter.Null,
+            TimeProvider.System));
+
+        Assert.Equal("streamId", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Factory_Create_BindsInjectedClockAndStreamIdentifierToStandardError ()
+    {
+        var timestamp = DateTimeOffset.Parse("2026-07-15T10:30:00+00:00");
+        var factory = new CliStreamEntryWriterFactory(
+            new ManualTimeProvider(timestamp),
+            new FixedGuidGenerator(StreamId));
+
+        var (_, _, standardError) = await StandardOutputCapture.ExecuteWithErrorAsync(() =>
+        {
+            factory.Create("sample.command").WriteJsonEntry("sample.started", new { value = true });
+            return Task.FromResult(0);
+        });
+
+        using var entry = JsonDocument.Parse(standardError);
+        Assert.Equal(StreamId, entry.RootElement.GetProperty("streamId").GetGuid());
+        Assert.Equal("2026-07-15T10:30:00.0000000+00:00", entry.RootElement.GetProperty("timestamp").GetString());
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task OnEntryAsync_WithJsonFormat_WritesEntryEnvelopeWithIncrementingSequence ()
@@ -14,7 +48,7 @@ public sealed class CliCommandProgressSinkTests
         var timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-03-05T10:30:00+00:00"));
         var sink = new CliCommandProgressSink(
             CliStreamEntryFormat.Json,
-            new CliStreamEntryWriter("sample.command", standardError, timeProvider),
+            new CliStreamEntryWriter("sample.command", StreamId, standardError, timeProvider),
             new ThrowingTextProjector());
 
         await sink.OnEntryAsync("sample.started", new { name = "first" }, CancellationToken.None);
@@ -26,11 +60,46 @@ public sealed class CliCommandProgressSinkTests
         using var secondEntry = JsonDocument.Parse(lines[1]);
         AssertEntryEnvelope(firstEntry.RootElement, sequence: 1, eventName: "sample.started");
         AssertEntryEnvelope(secondEntry.RootElement, sequence: 2, eventName: "sample.finished");
+        var firstStreamId = firstEntry.RootElement.GetProperty("streamId").GetGuid();
+        Assert.NotEqual(Guid.Empty, firstStreamId);
         Assert.Equal(
-            firstEntry.RootElement.GetProperty("streamId").GetString(),
-            secondEntry.RootElement.GetProperty("streamId").GetString());
+            firstStreamId,
+            secondEntry.RootElement.GetProperty("streamId").GetGuid());
         Assert.Equal("first", firstEntry.RootElement.GetProperty("payload").GetProperty("name").GetString());
         Assert.Equal("second", secondEntry.RootElement.GetProperty("payload").GetProperty("name").GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task OnEntryAsync_WithDifferentWriters_UsesDifferentStreamIdentifiers ()
+    {
+        var firstOutput = new StringWriter();
+        var secondOutput = new StringWriter();
+        var firstSink = new CliCommandProgressSink(
+            CliStreamEntryFormat.Json,
+            new CliStreamEntryWriter(
+                "sample.command",
+                Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                firstOutput,
+                TimeProvider.System),
+            new ThrowingTextProjector());
+        var secondSink = new CliCommandProgressSink(
+            CliStreamEntryFormat.Json,
+            new CliStreamEntryWriter(
+                "sample.command",
+                Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                secondOutput,
+                TimeProvider.System),
+            new ThrowingTextProjector());
+
+        await firstSink.OnEntryAsync("sample.started", new { value = true }, CancellationToken.None);
+        await secondSink.OnEntryAsync("sample.started", new { value = true }, CancellationToken.None);
+
+        using var firstEntry = JsonDocument.Parse(firstOutput.ToString());
+        using var secondEntry = JsonDocument.Parse(secondOutput.ToString());
+        Assert.NotEqual(
+            firstEntry.RootElement.GetProperty("streamId").GetGuid(),
+            secondEntry.RootElement.GetProperty("streamId").GetGuid());
     }
 
     [Fact]
@@ -40,7 +109,7 @@ public sealed class CliCommandProgressSinkTests
         var standardError = new StringWriter();
         var sink = new CliCommandProgressSink(
             CliStreamEntryFormat.Text,
-            new CliStreamEntryWriter("sample.command", standardError),
+            new CliStreamEntryWriter("sample.command", StreamId, standardError, TimeProvider.System),
             new EchoTextProjector());
 
         await sink.OnEntryAsync("sample.diagnostic", "line 1\nline 2\t\u001B", CancellationToken.None);
@@ -55,7 +124,7 @@ public sealed class CliCommandProgressSinkTests
         var standardError = new StringWriter();
         var sink = new CliCommandProgressSink(
             CliStreamEntryFormat.Text,
-            new CliStreamEntryWriter("sample.command", standardError),
+            new CliStreamEntryWriter("sample.command", StreamId, standardError, TimeProvider.System),
             new SuppressingTextProjector());
 
         await sink.OnEntryAsync("sample.started", new { value = true }, CancellationToken.None);
@@ -70,7 +139,7 @@ public sealed class CliCommandProgressSinkTests
     {
         Assert.Equal(1, root.GetProperty("protocolVersion").GetInt32());
         Assert.Equal("sample.command", root.GetProperty("command").GetString());
-        Assert.StartsWith("sample.command-", root.GetProperty("streamId").GetString(), StringComparison.Ordinal);
+        Assert.NotEqual(Guid.Empty, root.GetProperty("streamId").GetGuid());
         Assert.Equal(sequence, root.GetProperty("sequence").GetInt32());
         Assert.Equal("2026-03-05T10:30:00.0000000+00:00", root.GetProperty("timestamp").GetString());
         Assert.Equal(eventName, root.GetProperty("event").GetString());
@@ -112,6 +181,21 @@ public sealed class CliCommandProgressSinkTests
             where TPayload : notnull
         {
             throw new InvalidOperationException("Text projector must not be used for JSON entries.");
+        }
+    }
+
+    private sealed class FixedGuidGenerator : IGuidGenerator
+    {
+        private readonly Guid value;
+
+        public FixedGuidGenerator (Guid value)
+        {
+            this.value = value;
+        }
+
+        public Guid Generate ()
+        {
+            return value;
         }
     }
 }

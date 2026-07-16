@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -11,9 +10,11 @@ internal sealed class RecordingUnityDaemonProcessLauncher : IUnityDaemonProcessL
 
     public TimeSpan LaunchDelay { get; set; }
 
+    public Func<ResolvedUnityProjectContext, DaemonSession, string, CancellationToken, ValueTask<UnityDaemonLaunchResult>>? Handler { get; set; }
+
     public ManualTimeProvider? TimeProvider { get; set; }
 
-    public UnityDaemonLaunchResult NextResult { get; set; } = UnityDaemonLaunchResult.Success(1000, DateTimeOffset.UtcNow);
+    public UnityDaemonLaunchResult? NextResult { get; set; }
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
@@ -26,6 +27,11 @@ internal sealed class RecordingUnityDaemonProcessLauncher : IUnityDaemonProcessL
         invocations.Add(new Invocation(unityProject, session, daemonLogPath, cancellationToken));
         cancellationToken.ThrowIfCancellationRequested();
         OnLaunch?.Invoke();
+        if (Handler is not null)
+        {
+            return await Handler(unityProject, session, daemonLogPath, cancellationToken).ConfigureAwait(false);
+        }
+
         if (LaunchDelay > TimeSpan.Zero)
         {
             if (TimeProvider != null)
@@ -38,7 +44,8 @@ internal sealed class RecordingUnityDaemonProcessLauncher : IUnityDaemonProcessL
             }
         }
 
-        return NextResult;
+        return NextResult
+            ?? throw new InvalidOperationException("A daemon process launch result must be configured before launch.");
     }
 
     internal readonly record struct Invocation (

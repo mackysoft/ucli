@@ -1,3 +1,6 @@
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Tests;
 
 internal sealed class RecordingReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
@@ -15,7 +18,7 @@ internal sealed class RecordingReadIndexFreshnessEvaluator : IReadIndexFreshness
     public ValueTask<IndexFreshnessEvaluationResult> ObserveAsync (
         ResolvedUnityProjectContext unityProject,
         IndexFreshnessTarget target,
-        string? persistedSourceInputsHash,
+        Sha256Digest persistedSourceInputsHash,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -29,10 +32,11 @@ internal sealed class RecordingReadIndexFreshnessEvaluator : IReadIndexFreshness
 
     public ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLiteAsync (
         ResolvedUnityProjectContext unityProject,
-        string scenePath,
-        string? persistedSourceInputsHash,
+        SceneAssetPath scenePath,
+        Sha256Digest persistedSourceInputsHash,
         CancellationToken cancellationToken = default)
     {
+        ArgumentNullException.ThrowIfNull(scenePath);
         cancellationToken.ThrowIfCancellationRequested();
         sceneTreeLiteObserveInvocations.Add(new SceneTreeLiteObserveInvocation(
             unityProject,
@@ -45,12 +49,12 @@ internal sealed class RecordingReadIndexFreshnessEvaluator : IReadIndexFreshness
     internal readonly record struct ObserveInvocation (
         ResolvedUnityProjectContext UnityProject,
         IndexFreshnessTarget Target,
-        string? PersistedSourceInputsHash,
+        Sha256Digest PersistedSourceInputsHash,
         CancellationToken CancellationToken);
 
     internal readonly record struct SceneTreeLiteObserveInvocation (
         ResolvedUnityProjectContext UnityProject,
-        string ScenePath,
-        string? PersistedSourceInputsHash,
+        SceneAssetPath ScenePath,
+        Sha256Digest PersistedSourceInputsHash,
         CancellationToken CancellationToken);
 }

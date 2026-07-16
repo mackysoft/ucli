@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorClientProgressValidationTests
 {
-    public static TheoryData<string, Func<IpcRequest, IpcStreamFrame>> InvalidProgressFrames => new()
+    public static TheoryData<string, Func<IpcRequestEnvelope, IpcStreamFrame>> InvalidProgressFrames => new()
     {
         {
             "unsupported progress event",
@@ -23,16 +23,10 @@ public sealed class SupervisorClientProgressValidationTests
             request => SupervisorClientTestSupport.CreateProgressFrame(
                 request,
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
-                DaemonStartProgressEntryTestFactory.CreateStartupObservation(
-                    payloadKind: DaemonStartProgressPayloadKind.LifecycleSnapshot,
-                    timeoutMilliseconds: 5000,
-                    editorMode: DaemonEditorMode.Gui,
-                    launchAttemptId: null,
-                    ownerKind: DaemonSessionOwnerKind.User,
-                    canShutdownProcess: false,
-                    processId: 42,
-                    startupStatus: DaemonStartupStatus.WaitingForEndpoint,
-                    startupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration))
+                new
+                {
+                    payloadKind = "lifecycleSnapshot",
+                })
         },
         {
             "known event has no stream payload contract",
@@ -50,7 +44,7 @@ public sealed class SupervisorClientProgressValidationTests
                 request,
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
-                    projectFingerprint: "other-fingerprint",
+                    projectFingerprint: ProjectFingerprintTestFactory.Create("other-fingerprint"),
                     timeoutMilliseconds: 5000,
                     editorMode: DaemonEditorMode.Gui,
                     launchAttemptId: null,
@@ -62,11 +56,21 @@ public sealed class SupervisorClientProgressValidationTests
         },
         {
             "lifecycle tuple is inconsistent",
-            request => SupervisorClientTestSupport.CreateLifecycleSnapshotProgressFrame(
+            request => SupervisorClientTestSupport.CreateProgressFrame(
                 request,
-                lifecycleState: IpcEditorLifecycleState.Compiling,
-                blockingReason: IpcEditorBlockingReason.Busy,
-                canAcceptExecutionRequests: false)
+                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved),
+                new
+                {
+                    payloadKind = "lifecycleSnapshot",
+                    projectFingerprint = SupervisorClientTestSupport.CreateUnityProject().ProjectFingerprint,
+                    timeoutMilliseconds = request.RequestDeadlineRemainingMilliseconds,
+                    editorMode = "gui",
+                    onStartupBlocked = "auto",
+                    lifecycleState = "compiling",
+                    blockingReason = "busy",
+                    generations = new IpcUnityGenerationSnapshot(0, 0, 0, 0),
+                    canAcceptExecutionRequests = false,
+                })
         },
     };
 
@@ -75,7 +79,7 @@ public sealed class SupervisorClientProgressValidationTests
     [Trait("Size", "Small")]
     public async Task EnsureRunning_WithInvalidProgressFrame_DropsProgressAndPreservesTerminal (
         string caseName,
-        Func<IpcRequest, IpcStreamFrame> createProgressFrame)
+        Func<IpcRequestEnvelope, IpcStreamFrame> createProgressFrame)
     {
         Assert.NotEmpty(caseName);
 
@@ -88,12 +92,13 @@ public sealed class SupervisorClientProgressValidationTests
                 cancellationToken);
         });
         var progressSink = new CollectingCommandProgressSink();
-        var client = new SupervisorClient(transportClient);
+        var client = new SupervisorClient(transportClient, TimeProvider.System);
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
+            Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             progressSink,
@@ -115,12 +120,13 @@ public sealed class SupervisorClientProgressValidationTests
                 SupervisorClientTestSupport.CreateWaitingForEndpointProgressFrame(request),
                 cancellationToken);
         });
-        var client = new SupervisorClient(transportClient);
+        var client = new SupervisorClient(transportClient, TimeProvider.System);
 
         var result = await client.EnsureRunningAsync(
             SupervisorClientTestSupport.CreateManifest(),
+            Guid.NewGuid(),
             SupervisorClientTestSupport.CreateUnityProject(),
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             new ThrowingCommandProgressSink(new IOException("Simulated progress sink failure.")),

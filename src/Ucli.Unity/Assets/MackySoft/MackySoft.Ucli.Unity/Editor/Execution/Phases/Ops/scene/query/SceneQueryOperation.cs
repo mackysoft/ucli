@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
@@ -23,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Finds objects or components in a scene by hierarchy path prefix and component type.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene query and observe the selected scene context without applying mutation.",
                 callSemantics: "Read selection candidates from the scene hierarchy without applying mutation.",
@@ -93,7 +94,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var payload = new SceneQueryResult(
-                scene: scenePath,
+                scene: new SceneAssetPath(scenePath),
                 matches: CreatePayloadMatches(matches));
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
@@ -109,10 +110,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out OperationPhaseStepResult? failure)
         {
             failure = null;
-            scenePath = args.Scene?.Value ?? string.Empty;
-            queryArguments = new SceneQuerySelectionEngine.QueryArguments(
-                args.PathPrefix?.Value,
-                args.ComponentType?.Value);
+            scenePath = args.Scene.Value;
+            queryArguments = default;
 
             if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var errorMessage))
             {
@@ -120,13 +119,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (queryArguments.ComponentType != null
-                && !ComponentTypeResolver.TryResolveComponentType(queryArguments.ComponentType, out _, out errorMessage))
+            Type? componentRuntimeType = null;
+            if (args.ComponentType != null
+                && !ComponentTypeResolver.TryResolveComponentType(args.ComponentType.Value, out componentRuntimeType, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
+            queryArguments = new SceneQuerySelectionEngine.QueryArguments(
+                args.PathPrefix?.Value,
+                args.ComponentType,
+                componentRuntimeType);
             return true;
         }
 
@@ -136,10 +140,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var payloadMatches = new SceneQueryMatch[matches.Count];
             for (var i = 0; i < matches.Count; i++)
             {
+                var match = matches[i];
                 payloadMatches[i] = new SceneQueryMatch(
-                    kind: matches[i].TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component ? "component" : "gameObject",
-                    hierarchyPath: matches[i].HierarchyPath,
-                    componentType: matches[i].ComponentType);
+                    kind: match.TargetKind == SceneQuerySelectionEngine.QueryTargetKind.Component
+                        ? UcliOperationReferenceTargetKind.Component
+                        : UcliOperationReferenceTargetKind.GameObject,
+                    hierarchyPath: new UnityHierarchyPath(match.HierarchyPath),
+                    componentType: match.ComponentType);
             }
 
             return payloadMatches;

@@ -9,34 +9,24 @@ public sealed record SceneQueryArgs
     [JsonConstructor]
     public SceneQueryArgs (
         SceneAssetPath scene,
-        UnityHierarchyPathPrefix? pathPrefix,
+        UnityHierarchyPath? pathPrefix,
         UnityComponentTypeId? componentType)
     {
-        Scene = scene;
+        Scene = ContractArgumentGuard.RequireNotNull(scene, nameof(scene));
         PathPrefix = pathPrefix;
         ComponentType = componentType;
     }
 
-    public SceneQueryArgs (
-        string scene,
-        string? pathPrefix,
-        string? componentType)
-        : this(
-            new SceneAssetPath(scene),
-            pathPrefix == null ? null : new UnityHierarchyPathPrefix(pathPrefix),
-            componentType == null ? null : new UnityComponentTypeId(componentType))
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("Scene asset path to query.")]
-    public SceneAssetPath Scene { get; init; }
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
+    public SceneAssetPath Scene { get; }
 
     [UcliDescription("Optional hierarchy path prefix filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityHierarchyPathPrefix? PathPrefix { get; init; }
+    public UnityHierarchyPath? PathPrefix { get; }
 
     [UcliDescription("Optional component type identifier filter.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityComponentTypeId? ComponentType { get; init; }
+    public UnityComponentTypeId? ComponentType { get; }
 }

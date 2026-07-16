@@ -322,7 +322,7 @@ wait_for_gui_session() {
     matched_path=""
     matched_process_id=""
     match_count=0
-    for session_path in "${test_repository}"/.ucli/local/fingerprints/*/session.json; do
+    for session_path in "${test_repository}"/.ucli/local/projects/*/session.json; do
       [[ -f "${session_path}" ]] || continue
       jq -e '.editorMode == "gui" and (.processId | type == "number")' \
         "${session_path}" >/dev/null 2>&1 || continue

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -15,9 +16,19 @@ internal sealed class UnexpectedDaemonPingInfoClient : IDaemonPingInfoClient
     public ValueTask<IpcUnityEditorObservation> PingAndReadAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
-        string? sessionToken = null,
-        bool validateProjectFingerprint = true,
+        bool validateProjectFingerprint,
         CancellationToken cancellationToken = default)
+    {
+        throw new InvalidOperationException(reason);
+    }
+
+    public ValueTask<IpcUnityEditorObservation> PingSessionAndReadAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        Guid requestId,
+        ExecutionDeadline deadline,
+        bool validateProjectFingerprint,
+        CancellationToken cancellationToken)
     {
         throw new InvalidOperationException(reason);
     }

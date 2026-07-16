@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 namespace MackySoft.Ucli.Contracts.Tests.CodeCatalog;
 
 public sealed class UcliCodeTests
@@ -38,28 +40,58 @@ public sealed class UcliCodeTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void ValidCode_ExposesRawValueForStringConversionAndComparison ()
+    public void ValidCode_ExposesRawValueExplicitly ()
     {
         var code = new UcliCode("UNITY_READY_EXECUTION");
 
         Assert.Equal("UNITY_READY_EXECUTION", code.Value);
         Assert.Equal("UNITY_READY_EXECUTION", code.ToString());
-        Assert.True(code.EqualsValue("UNITY_READY_EXECUTION"));
-        string rawValue = code;
-        Assert.Equal("UNITY_READY_EXECUTION", rawValue);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UnknownValidCode_ExposesRawValueForForwardCompatibleComparison ()
+    public void UnknownValidCode_UsesValueEquality ()
     {
         UcliCode code = new("FUTURE_DAEMON_FAILURE");
 
         Assert.Equal("FUTURE_DAEMON_FAILURE", code.Value);
         Assert.Equal("FUTURE_DAEMON_FAILURE", code.ToString());
-        string rawValue = code;
-        Assert.Equal("FUTURE_DAEMON_FAILURE", rawValue);
         Assert.Equal(new UcliCode("FUTURE_DAEMON_FAILURE"), code);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void JsonSerialization_WithValidCode_RoundTripsStringValue ()
+    {
+        var code = new UcliCode("SOME.FUTURE_CODE");
+
+        var json = JsonSerializer.Serialize(code);
+        var deserialized = JsonSerializer.Deserialize<UcliCode>(json);
+
+        Assert.Equal("\"SOME.FUTURE_CODE\"", json);
+        Assert.Equal(code, deserialized);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void JsonSerialization_WithNullNullableCode_WritesNull ()
+    {
+        UcliCode? code = null;
+
+        var json = JsonSerializer.Serialize(code);
+        var deserialized = JsonSerializer.Deserialize<UcliCode?>(json);
+
+        Assert.Equal("null", json);
+        Assert.Null(deserialized);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("42")]
+    [InlineData("\"lowercase_code\"")]
+    public void JsonDeserialization_WithInvalidCode_ThrowsJsonException (string json)
+    {
+        Assert.Throws<JsonException>(() => JsonSerializer.Deserialize<UcliCode>(json));
     }
 
     [Fact]
@@ -69,8 +101,14 @@ public sealed class UcliCodeTests
         var result = UcliCode.TryCreate("UNITY_READY_MUTATION", out var code);
 
         Assert.True(result);
+        Assert.NotNull(code);
         Assert.Equal("UNITY_READY_MUTATION", code.Value);
-        Assert.True(code.IsValid);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ConstructionModel_UsesPrivateValidatedValueConstructor ()
+    {
     }
 
     [Fact]
@@ -83,9 +121,9 @@ public sealed class UcliCodeTests
 
             var result = UcliCode.TryCreate(value, out var code);
             Assert.False(result);
-            Assert.False(code.IsValid);
+            Assert.Null(code);
 
-            Assert.ThrowsAny<ArgumentException>(() => new UcliCode(value!));
+            Assert.Throws<ArgumentException>(() => new UcliCode(value!));
         }
     }
 }

@@ -31,33 +31,34 @@ public sealed class VerifyFromInputReaderValidInputTests
                   "requirements": [
                     {
                       "surface": "sceneTreeLite",
-                      "minSafeGeneratedAtUtc": "2026-05-17T00:00:00+00:00"
+                      "minSafeGeneratedAtUtc": "2026-05-17T00:00:00+00:00",
+                      "scenePath": "Assets/Scenes/Main.unity"
                     }
                   ]
                 }
                 """,
                 command),
-            "project-fingerprint");
+            DefaultProjectFingerprint);
 
         Assert.True(result.IsSuccess);
         var input = result.Input!;
         Assert.Equal(command, input.Command);
-        Assert.Equal("project-fingerprint", input.ProjectFingerprint);
+        Assert.Equal(DefaultProjectFingerprint, input.ProjectFingerprint);
         Assert.Equal(1, input.ReadPostconditionRequirementCount);
         var opResult = Assert.Single(input.OpResults);
-        Assert.Equal("op-1", opResult.OpId);
+        Assert.Equal("op-1", opResult.OpId.Value);
         Assert.Equal("edit", opResult.Op);
         Assert.True(opResult.Applied);
         Assert.True(opResult.Changed);
         Assert.Equal(1, opResult.TouchedCount);
-        Assert.Equal("edit", opResult.PostReadSource.SourceKind);
-        Assert.Equal("context", opResult.PostReadSource.Commit);
+        Assert.Equal(IpcExecutePostReadSourceKind.Edit, opResult.PostReadSource.SourceKind);
+        Assert.Equal(IpcExecutePostReadCommit.Context, opResult.PostReadSource.Commit);
         Assert.True(opResult.PostReadSource.PersistenceExpected);
-        Assert.Equal("deterministic", opResult.PostReadSource.ExpectedPostState);
+        Assert.Equal(IpcExecuteExpectedPostState.Deterministic, opResult.PostReadSource.ExpectedPostState);
         var diagnostic = Assert.Single(opResult.Diagnostics);
-        Assert.Equal("READ_SURFACE_PARTIAL", diagnostic.Code);
-        Assert.Equal("warning", diagnostic.Severity);
-        Assert.Equal("partial", diagnostic.CoverageImpact);
+        Assert.Equal("READ_SURFACE_PARTIAL", diagnostic.Code.Value);
+        Assert.Equal(UcliDiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal(IpcExecuteDiagnosticCoverageImpact.Partial, diagnostic.CoverageImpact);
         Assert.Equal("Read surface coverage is partial.", diagnostic.Message);
         Assert.True(input.NeedsPostRead);
     }
@@ -86,17 +87,17 @@ public sealed class VerifyFromInputReaderValidInputTests
                   ]
                 }
                 """),
-            "project-fingerprint");
+            DefaultProjectFingerprint);
 
         Assert.True(result.IsSuccess);
         var input = result.Input!;
         Assert.Equal("refresh", input.Command);
         var opResult = Assert.Single(input.OpResults);
         Assert.Equal(UcliPrimitiveOperationNames.ProjectRefresh, opResult.Op);
-        Assert.Equal("refresh", opResult.PostReadSource.SourceKind);
+        Assert.Equal(IpcExecutePostReadSourceKind.Refresh, opResult.PostReadSource.SourceKind);
         Assert.Null(opResult.PostReadSource.Commit);
         Assert.True(opResult.PostReadSource.PersistenceExpected);
-        Assert.Equal("unavailable", opResult.PostReadSource.ExpectedPostState);
+        Assert.Equal(IpcExecuteExpectedPostState.Unavailable, opResult.PostReadSource.ExpectedPostState);
         Assert.True(input.NeedsPostRead);
     }
 
@@ -104,8 +105,9 @@ public sealed class VerifyFromInputReaderValidInputTests
     [Trait("Size", "Small")]
     public void Read_WithNoOpInput_ReturnsNormalizedInput ()
     {
+        var projectFingerprintText = DefaultProjectFingerprint.ToString();
         var result = VerifyFromInputReader.Read(
-            """
+            $$"""
             {
               "protocolVersion": 1,
               "status": "ok",
@@ -113,7 +115,7 @@ public sealed class VerifyFromInputReaderValidInputTests
               "command": "call",
               "payload": {
                 "project": {
-                  "projectFingerprint": "project-fingerprint"
+                  "projectFingerprint": "{{projectFingerprintText}}"
                 },
                 "opResults": [],
                 "postReadSource": {
@@ -124,7 +126,7 @@ public sealed class VerifyFromInputReaderValidInputTests
               "errors": []
             }
             """,
-            "project-fingerprint");
+            DefaultProjectFingerprint);
 
         Assert.True(result.IsSuccess);
         Assert.Empty(result.Input!.OpResults);

@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Launch;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Application.Shared.Identifiers;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Start.Launch;
@@ -13,16 +14,26 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
 
     private readonly IDaemonSessionTokenGenerator sessionTokenGenerator;
 
+    private readonly IGuidGenerator sessionGenerationIdGenerator;
+
+    private readonly TimeProvider timeProvider;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonLaunchSessionService" /> class. </summary>
     /// <param name="daemonSessionStore"> The daemon session-store dependency. </param>
     /// <param name="sessionTokenGenerator"> The daemon session-token generator dependency. </param>
+    /// <param name="sessionGenerationIdGenerator"> The source of non-empty identities for persisted daemon session generations. </param>
+    /// <param name="timeProvider"> The time source for persisted session issue timestamps. </param>
     /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
     public DaemonLaunchSessionService (
         IDaemonSessionStore daemonSessionStore,
-        IDaemonSessionTokenGenerator sessionTokenGenerator)
+        IDaemonSessionTokenGenerator sessionTokenGenerator,
+        IGuidGenerator sessionGenerationIdGenerator,
+        TimeProvider timeProvider)
     {
         this.daemonSessionStore = daemonSessionStore ?? throw new ArgumentNullException(nameof(daemonSessionStore));
         this.sessionTokenGenerator = sessionTokenGenerator ?? throw new ArgumentNullException(nameof(sessionTokenGenerator));
+        this.sessionGenerationIdGenerator = sessionGenerationIdGenerator ?? throw new ArgumentNullException(nameof(sessionGenerationIdGenerator));
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Creates and persists an initial daemon session before process launch. </summary>
@@ -46,18 +57,18 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
 
         var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(unityProject.RepositoryRoot, unityProject.ProjectFingerprint);
         var session = new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: sessionTokenGenerator.Create(),
-            ProjectFingerprint: unityProject.ProjectFingerprint,
-            IssuedAtUtc: DateTimeOffset.UtcNow,
-            EditorMode: launchEditorMode,
-            OwnerKind: DaemonSessionOwnerKind.Cli,
-            CanShutdownProcess: true,
-            EndpointTransportKind: endpoint.TransportKind,
-            EndpointAddress: endpoint.Address,
-            ProcessId: null,
-            ProcessStartedAtUtc: null,
-            OwnerProcessId: Environment.ProcessId);
+            sessionGenerationIdGenerator.Generate(),
+            sessionTokenGenerator.Create(),
+            unityProject.ProjectFingerprint,
+            timeProvider.GetUtcNow(),
+            launchEditorMode,
+            DaemonSessionOwnerKind.Cli,
+            canShutdownProcess: true,
+            endpoint,
+            processId: null,
+            processStartedAtUtc: null,
+            Environment.ProcessId,
+            editorInstanceId: null);
 
         var writeResult = await daemonSessionStore.WriteAsync(
                 unityProject.RepositoryRoot,
@@ -102,11 +113,19 @@ internal sealed class DaemonLaunchSessionService : IDaemonLaunchSessionService
                 $"Daemon launch processStartedAtUtc is required when processId is specified. processId={launchedProcessId}."));
         }
 
-        var updatedSession = session with
-        {
-            ProcessId = launchedProcessId,
-            ProcessStartedAtUtc = processStartedAtUtc,
-        };
+        var updatedSession = new DaemonSession(
+            session.SessionGenerationId,
+            session.SessionToken,
+            session.ProjectFingerprint,
+            session.IssuedAtUtc,
+            session.EditorMode,
+            session.OwnerKind,
+            session.CanShutdownProcess,
+            session.Endpoint,
+            launchedProcessId,
+            processStartedAtUtc.Value,
+            session.OwnerProcessId,
+            session.EditorInstanceId);
         var writeResult = await daemonSessionStore.WriteAsync(
                 unityProject.RepositoryRoot,
                 updatedSession,

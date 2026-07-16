@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Git;
 using MackySoft.Ucli.Tests.Helpers.Git;
@@ -27,7 +26,7 @@ public sealed class GitWorktreeQueryServiceTests
                 new GitWorktreeInfo("/repo/wt-a", "aaaaaaaa", null),
             ]),
         };
-        var service = new GitWorktreeQueryService(commandClient, parser);
+        var service = new GitWorktreeQueryService(commandClient, parser, TimeProvider.System);
 
         var result = await service.GetWorktreeInfoAsync(
             currentProjectPath,
@@ -65,7 +64,8 @@ public sealed class GitWorktreeQueryServiceTests
                 [
                     new GitWorktreeInfo("/repo/wt-current", "cccccccc", "refs/heads/main"),
                 ]),
-            });
+            },
+            TimeProvider.System);
 
         var result = await service.GetWorktreeInfoAsync(
             currentProjectPath,
@@ -92,7 +92,8 @@ public sealed class GitWorktreeQueryServiceTests
             new RecordingGitWorktreeListPorcelainParser
             {
                 Result = GitWorktreeListParseResult.Failure(ExecutionError.InternalError("missing HEAD")),
-            });
+            },
+            TimeProvider.System);
 
         var result = await service.GetWorktreeInfoAsync(
             currentProjectPath,
@@ -147,7 +148,10 @@ public sealed class GitWorktreeQueryServiceTests
         using var scope = TestDirectories.CreateTempScope("git-worktree-query", "outside-git-worktree");
         var projectPath = scope.CreateDirectory(Path.Combine("workspace", "UnityProject"));
         var commandClient = new RecordingGitCommandClient();
-        var service = new GitWorktreeQueryService(commandClient, new RecordingGitWorktreeListPorcelainParser());
+        var service = new GitWorktreeQueryService(
+            commandClient,
+            new RecordingGitWorktreeListPorcelainParser(),
+            TimeProvider.System);
 
         var result = await service.GetWorktreeInfoAsync(
             projectPath,

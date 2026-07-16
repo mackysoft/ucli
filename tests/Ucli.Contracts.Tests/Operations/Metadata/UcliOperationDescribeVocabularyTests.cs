@@ -60,28 +60,28 @@ public sealed class UcliOperationDescribeVocabularyTests
     [
         new("observesUnityState", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
         new("editorStateChange", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
-        new("opensSceneInEditor", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Scene]),
-        new("opensPrefabStage", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Prefab]),
-        new("assetDatabaseRefresh", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Asset]),
-        new("assetImport", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Asset]),
+        new("opensSceneInEditor", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKind.Scene]),
+        new("opensPrefabStage", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKind.Prefab]),
+        new("assetDatabaseRefresh", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKind.Asset]),
+        new("assetImport", ExpectedMayDirty: false, ExpectedMayPersist: false, [UcliTouchedResourceKind.Asset]),
         new("scriptCompilation", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
         new("domainReload", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
-        new("sceneContentMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Scene]),
-        new("prefabContentMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Prefab]),
-        new("assetContentMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.Asset]),
-        new("projectSettingsMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKindNames.ProjectSettings]),
-        new("sceneSave", ExpectedMayDirty: false, ExpectedMayPersist: true, [UcliTouchedResourceKindNames.Scene]),
-        new("prefabSave", ExpectedMayDirty: false, ExpectedMayPersist: true, [UcliTouchedResourceKindNames.Prefab]),
-        new("assetSave", ExpectedMayDirty: false, ExpectedMayPersist: true, [UcliTouchedResourceKindNames.Asset]),
+        new("sceneContentMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKind.Scene]),
+        new("prefabContentMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKind.Prefab]),
+        new("assetContentMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKind.Asset]),
+        new("projectSettingsMutation", ExpectedMayDirty: true, ExpectedMayPersist: false, [UcliTouchedResourceKind.ProjectSettings]),
+        new("sceneSave", ExpectedMayDirty: false, ExpectedMayPersist: true, [UcliTouchedResourceKind.Scene]),
+        new("prefabSave", ExpectedMayDirty: false, ExpectedMayPersist: true, [UcliTouchedResourceKind.Prefab]),
+        new("assetSave", ExpectedMayDirty: false, ExpectedMayPersist: true, [UcliTouchedResourceKind.Asset]),
         new(
             "projectSave",
             ExpectedMayDirty: false,
             ExpectedMayPersist: true,
             [
-                UcliTouchedResourceKindNames.Scene,
-                UcliTouchedResourceKindNames.Prefab,
-                UcliTouchedResourceKindNames.Asset,
-                UcliTouchedResourceKindNames.ProjectSettings,
+                UcliTouchedResourceKind.Scene,
+                UcliTouchedResourceKind.Prefab,
+                UcliTouchedResourceKind.Asset,
+                UcliTouchedResourceKind.ProjectSettings,
             ]),
         new("externalProcess", ExpectedMayDirty: false, ExpectedMayPersist: false, []),
         new("filesystemWrite", ExpectedMayDirty: false, ExpectedMayPersist: true, []),
@@ -113,19 +113,19 @@ public sealed class UcliOperationDescribeVocabularyTests
     [Trait("Size", "Small")]
     public void ConstraintParameterEnums_HaveStableValues ()
     {
-        Assert.Equal(0, (int)UcliOperationAssetKind.Unspecified);
         Assert.Equal(1, (int)UcliOperationAssetKind.Asset);
         Assert.Equal(2, (int)UcliOperationAssetKind.Prefab);
         Assert.Equal(3, (int)UcliOperationAssetKind.ProjectSettings);
         Assert.Equal(4, (int)UcliOperationAssetKind.Scene);
-        Assert.Equal(0, (int)UcliOperationReferenceTargetKind.Unspecified);
         Assert.Equal(1, (int)UcliOperationReferenceTargetKind.Asset);
         Assert.Equal(2, (int)UcliOperationReferenceTargetKind.Component);
         Assert.Equal(3, (int)UcliOperationReferenceTargetKind.GameObject);
-        Assert.Equal(0, (int)UcliOperationTypeKind.Unspecified);
         Assert.Equal(1, (int)UcliOperationTypeKind.Component);
-        Assert.Equal(0, (int)UcliOperationSerializedPropertyAccess.Unspecified);
         Assert.Equal(1, (int)UcliOperationSerializedPropertyAccess.Write);
+        Assert.False(ContractLiteralCodec.IsDefined(default(UcliOperationAssetKind)));
+        Assert.False(ContractLiteralCodec.IsDefined(default(UcliOperationReferenceTargetKind)));
+        Assert.False(ContractLiteralCodec.IsDefined(default(UcliOperationTypeKind)));
+        Assert.False(ContractLiteralCodec.IsDefined(default(UcliOperationSerializedPropertyAccess)));
     }
 
     [Fact]
@@ -231,10 +231,14 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         foreach (var testCase in SideEffectMinimumPolicyCases)
         {
-            var isSupported = UcliOperationSideEffectDescriptors.TryGetMinimumPolicy(testCase.SideEffect, out var policy);
+            var isSupported = ContractLiteralCodec.TryParse(
+                testCase.SideEffect,
+                out UcliOperationSideEffect sideEffect);
 
             Assert.True(isSupported);
-            Assert.Equal(testCase.ExpectedPolicy, policy);
+            Assert.Equal(
+                testCase.ExpectedPolicy,
+                UcliOperationSideEffectDescriptors.GetDescriptor(sideEffect).MinimumPolicy);
         }
     }
 
@@ -244,7 +248,11 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         foreach (var testCase in SideEffectMinimumPolicyCases)
         {
-            var isDangerousSource = UcliOperationSideEffectDescriptors.IsDangerousDerivationSource(testCase.SideEffect);
+            Assert.True(ContractLiteralCodec.TryParse(
+                testCase.SideEffect,
+                out UcliOperationSideEffect sideEffect));
+            var isDangerousSource = UcliOperationSideEffectDescriptors.GetDescriptor(sideEffect).MinimumPolicy
+                == OperationPolicy.Dangerous;
 
             Assert.Equal(testCase.ExpectedPolicy == OperationPolicy.Dangerous, isDangerousSource);
         }
@@ -267,14 +275,17 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         foreach (var testCase in SideEffectQueryAllowanceCases)
         {
-            var isAllowed = UcliOperationSideEffectDescriptors.IsAllowedForQueryOperation(testCase.SideEffect);
+            Assert.True(ContractLiteralCodec.TryParse(
+                testCase.SideEffect,
+                out UcliOperationSideEffect sideEffect));
+            var descriptor = UcliOperationSideEffectDescriptors.GetDescriptor(sideEffect);
+            var isAllowed = descriptor.AllowedForQueryOperation;
 
             Assert.Equal(testCase.ExpectedAllowed, isAllowed);
 
             if (testCase.ExpectedAllowed)
             {
-                Assert.True(UcliOperationSideEffectDescriptors.TryGetDescriptor(testCase.SideEffect, out var descriptor));
-                Assert.Equal(OperationPolicy.Safe, descriptor!.MinimumPolicy);
+                Assert.Equal(OperationPolicy.Safe, descriptor.MinimumPolicy);
                 Assert.False(descriptor.DerivesMayDirty);
                 Assert.False(descriptor.DerivesMayPersist);
                 Assert.Empty(descriptor.RequiredTouchedKinds);
@@ -299,41 +310,16 @@ public sealed class UcliOperationDescribeVocabularyTests
     {
         foreach (var testCase in SideEffectAssuranceProjectionCases)
         {
-            var isSupported = UcliOperationSideEffectDescriptors.TryGetDescriptor(testCase.SideEffect, out var descriptor);
+            var isSupported = ContractLiteralCodec.TryParse(
+                testCase.SideEffect,
+                out UcliOperationSideEffect sideEffect);
 
             Assert.True(isSupported);
-            Assert.Equal(testCase.ExpectedMayDirty, descriptor!.DerivesMayDirty);
+            var descriptor = UcliOperationSideEffectDescriptors.GetDescriptor(sideEffect);
+            Assert.Equal(testCase.ExpectedMayDirty, descriptor.DerivesMayDirty);
             Assert.Equal(testCase.ExpectedMayPersist, descriptor.DerivesMayPersist);
             Assert.Equal(testCase.ExpectedRequiredTouchedKinds, descriptor.RequiredTouchedKinds);
         }
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void SideEffectDescriptors_DeriveAssuranceProjection ()
-    {
-        foreach (var testCase in SideEffectAssuranceProjectionCases)
-        {
-            var isSupported = UcliOperationSideEffectDescriptors.TryDeriveAssuranceProjection(
-                [testCase.SideEffect],
-                out var mayDirty,
-                out var mayPersist);
-
-            Assert.True(isSupported);
-            Assert.Equal(testCase.ExpectedMayDirty, mayDirty);
-            Assert.Equal(testCase.ExpectedMayPersist, mayPersist);
-        }
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void SideEffectDescriptors_TryDeriveAssuranceProjection_WhenSideEffectIsUnsupported_ReturnsFalse ()
-    {
-        var isSupported = UcliOperationSideEffectDescriptors.TryDeriveAssuranceProjection(["not-supported"], out var mayDirty, out var mayPersist);
-
-        Assert.False(isSupported);
-        Assert.False(mayDirty);
-        Assert.False(mayPersist);
     }
 
     private sealed record SideEffectMinimumPolicyCase (
@@ -348,5 +334,5 @@ public sealed class UcliOperationDescribeVocabularyTests
         string SideEffect,
         bool ExpectedMayDirty,
         bool ExpectedMayPersist,
-        string[] ExpectedRequiredTouchedKinds);
+        UcliTouchedResourceKind[] ExpectedRequiredTouchedKinds);
 }

@@ -15,8 +15,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <returns> The effective stack trace, or <see langword="null" /> when suppressed or empty. </returns>
         public static string? Format (
             string? stackTrace,
-            string eventLevel,
-            string stackTraceMode,
+            IpcLogLevel eventLevel,
+            IpcUnityLogStackTraceMode stackTraceMode,
             int? maxFrames,
             int? maxChars)
         {
@@ -25,13 +25,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return null;
             }
 
-            if (string.Equals(stackTraceMode, MackySoft.Ucli.Contracts.Ipc.IpcUnityLogsStackTraceModeCodec.None, System.StringComparison.Ordinal))
+            if (stackTraceMode == IpcUnityLogStackTraceMode.None)
             {
                 return null;
             }
 
-            if (string.Equals(stackTraceMode, IpcUnityLogsStackTraceModeCodec.Error, System.StringComparison.Ordinal)
-                && !string.Equals(eventLevel, IpcDaemonLogsLevelCodec.Error, System.StringComparison.Ordinal))
+            if (stackTraceMode == IpcUnityLogStackTraceMode.Error
+                && eventLevel != IpcLogLevel.Error)
             {
                 return null;
             }

@@ -1,10 +1,7 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Assurance;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Compile.CompileServiceTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Compile;
@@ -26,14 +23,14 @@ public sealed class CompileServiceSuccessTests
 
         Assert.True(result.IsSuccess);
         var output = result.Output!;
-        Assert.Equal(CompileVerdictValues.Pass, output.Verdict);
-        Assert.Equal("run-1", output.Compile.RunId);
-        Assert.Equal("oneshot", output.ResolvedMode);
-        Assert.Equal("transientProbe", output.SessionKind);
+        Assert.Equal(AssuranceVerdict.Pass, output.Verdict);
+        Assert.Equal(RunId, output.Compile.RunId);
+        Assert.Equal(AssuranceResolvedExecutionMode.Oneshot, output.ResolvedMode);
+        Assert.Equal(AssuranceSessionKind.TransientProbe, output.SessionKind);
         Assert.Equal(3, output.Claims.Count);
         UnityRequestExecutorInvocationAssert.CompileOnce(
             unityRequestExecutor,
-            expectedRunId: "run-1");
+            expectedRunId: RunId);
         EventSequenceAssert.EmittedEventsInOrder(
             progressSink.Entries,
             CompileProgressEventNames.Started,

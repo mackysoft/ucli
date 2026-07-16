@@ -61,9 +61,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var children = currentDepth >= maxDepth
                 ? Array.Empty<GameObjectDescriptionResult>()
                 : BuildChildren(transform, currentDepth, maxDepth, executionContext, includeTemporaryState);
-            var globalObjectId = ResolveReferenceResolver.TryCreateGameObjectResolvedReference(gameObject, executionContext, out var resolvedReference)
-                ? resolvedReference!.GlobalObjectId
-                : string.Empty;
+            _ = ResolveReferenceResolver.TryCreateGameObjectGlobalObjectId(gameObject, executionContext, out var globalObjectId);
             return new GameObjectDescriptionResult(
                 name: gameObject.name,
                 globalObjectId: globalObjectId,
@@ -105,9 +103,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var components = gameObject.GetComponents<Component>();
             List<GameObjectComponentDescriptionResult>? ensuredComponentDescriptions = null;
             if (includeTemporaryState
-                && executionContext != null)
+                && executionContext != null
+                && OperationResourceUtilities.TryResolveOwnerResource(
+                    gameObject,
+                    executionContext,
+                    out var resource,
+                    out _))
             {
-                var targetTrackingKey = UnityObjectReferenceResolver.CreateTrackingKey(gameObject);
+                var targetTrackingKey = executionContext.CreateGameObjectTrackingKey(gameObject, resource);
                 var ensuredComponents = new List<ComponentSandboxRegistry.EnsuredComponentState>();
                 executionContext.CollectEnsuredComponentStates(targetTrackingKey, ensuredComponents);
                 if (ensuredComponents.Count > 0)
@@ -121,7 +124,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                             continue;
                         }
 
-                        ensuredComponentDescriptions.Add(new GameObjectComponentDescriptionResult(ensuredComponent.GetType().FullName));
+                        ensuredComponentDescriptions.Add(new GameObjectComponentDescriptionResult(
+                            new UnityComponentTypeId(ensuredComponent.GetType().FullName!)));
                     }
                 }
             }
@@ -131,7 +135,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var componentIndex = 0; componentIndex < components.Length; componentIndex++)
             {
                 var component = components[componentIndex];
-                componentDescriptions[componentIndex] = new GameObjectComponentDescriptionResult(component != null ? component.GetType().FullName : null);
+                componentDescriptions[componentIndex] = new GameObjectComponentDescriptionResult(
+                    component != null
+                        ? new UnityComponentTypeId(component.GetType().FullName!)
+                        : null);
             }
 
             if (ensuredComponentDescriptions == null)

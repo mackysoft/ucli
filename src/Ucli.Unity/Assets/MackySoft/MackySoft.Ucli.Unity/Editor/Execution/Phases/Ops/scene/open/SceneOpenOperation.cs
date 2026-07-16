@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Opens a Unity scene asset in the editor.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.EditorStateChange, UcliOperationSideEffect.OpensSceneInEditor },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene path and observe whether the scene can be opened without creating preview state or changing the live editor context.",
                 callSemantics: "Open the requested scene in the Unity Editor without saving project data.",
@@ -94,7 +94,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: false,
                 touched: new[]
                 {
-                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Scene, validationState.ScenePath)),
                 }));
         }
 
@@ -122,7 +122,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     changed: false,
                     touched: new[]
                     {
-                        OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
+                        OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Scene, validationState.ScenePath)),
                     }));
             }
 
@@ -146,7 +146,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: false,
                 touched: new[]
                 {
-                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Scene, validationState.ScenePath)),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Scene, validationState.ScenePath)),
                 }));
         }
 
@@ -164,7 +164,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            var scenePath = args.Path?.Value ?? string.Empty;
+            var scenePath = args.Path.Value;
             if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);

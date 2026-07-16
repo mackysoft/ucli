@@ -75,7 +75,7 @@ internal static class RequestReadIndexAccessInvocationAssert
         bool expectedFailFast)
     {
         var invocation = Assert.Single(accessService.Invocations);
-        Assert.Equal(expectedTypeId, invocation.Query.TypeId);
+        Assert.Equal(expectedTypeId, invocation.Query.TypeId!.Value);
         Assert.Equal(expectedFailFast, invocation.FailFast);
         return invocation;
     }
@@ -89,7 +89,7 @@ internal static class RequestReadIndexAccessInvocationAssert
     {
         var invocation = Assert.Single(accessService.Invocations);
         Assert.Equal(expectedCommand, invocation.Command);
-        Assert.Equal(expectedScenePath, invocation.ScenePath);
+        Assert.Equal(expectedScenePath, invocation.ScenePath.Value);
         Assert.Equal(expectedReadIndexMode, invocation.ReadIndexMode);
         Assert.Equal(expectedFailFast, invocation.FailFast);
         return invocation;
@@ -112,7 +112,6 @@ internal static class RequestReadIndexAccessInvocationAssert
         UnityExecutionMode expectedMode,
         TimeSpan expectedTimeout,
         bool expectedFailFast,
-        string expectedRequestId,
         string expectedOperationId,
         string expectedOperationName)
     {
@@ -124,8 +123,7 @@ internal static class RequestReadIndexAccessInvocationAssert
         Assert.Equal(expectedMode, execution.Invocation.Mode);
         Assert.Equal(expectedTimeout, execution.Invocation.Timeout);
         Assert.Equal(expectedFailFast, execution.Request.FailFast);
-        Assert.Equal(expectedRequestId, execution.Request.RequestId);
-        Assert.Equal(expectedOperationId, execution.Request.OperationId);
+        Assert.Equal(expectedOperationId, execution.Request.OperationId.Value);
         Assert.Equal(expectedOperationName, execution.Request.OperationName);
         return execution;
     }

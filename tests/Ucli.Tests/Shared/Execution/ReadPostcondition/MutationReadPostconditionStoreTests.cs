@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -15,7 +14,7 @@ public sealed class MutationReadPostconditionStoreTests
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "missing");
         var store = new MutationReadPostconditionStore();
 
-        var result = await store.ReadOrNullAsync(scope.FullPath, "fingerprint-1", CancellationToken.None);
+        var result = await store.ReadOrNullAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
@@ -28,58 +27,59 @@ public sealed class MutationReadPostconditionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "merge-roundtrip");
         var store = new MutationReadPostconditionStore();
-        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(scope.FullPath, "fingerprint-1");
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"));
 
         var firstWrite = await store.WriteMergedAsync(
             scope.FullPath,
-            "fingerprint-1",
-            OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
+            ProjectFingerprintTestFactory.Create("fingerprint-1"),
+            new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00")),
+                    Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
+                    ScenePath: null),
                 new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"))
-                {
-                    ScenePath = @"Assets\Scenes\Main.unity",
-                },
-            ]))!,
+                    Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
+                    ScenePath: new UnityScenePath(@"Assets\Scenes\Main.unity")),
+            ]),
             CancellationToken.None);
         var secondWrite = await store.WriteMergedAsync(
             scope.FullPath,
-            "fingerprint-1",
-            OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
+            ProjectFingerprintTestFactory.Create("fingerprint-1"),
+            new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00")),
+                    Surface: IpcExecuteReadPostconditionSurface.AssetSearch,
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"),
+                    ScenePath: null),
                 new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurfaceNames.GuidPath,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00")),
-            ]))!,
+                    Surface: IpcExecuteReadPostconditionSurface.GuidPath,
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"),
+                    ScenePath: null),
+            ]),
             CancellationToken.None);
 
         Assert.True(firstWrite.IsSuccess);
         Assert.True(secondWrite.IsSuccess);
 
-        var readResult = await store.ReadOrNullAsync(scope.FullPath, "fingerprint-1", CancellationToken.None);
+        var readResult = await store.ReadOrNullAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
-        var readPostcondition = Assert.IsType<OperationExecutionReadPostcondition>(readResult.ReadPostcondition);
+        var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
         Assert.Equal(3, readPostcondition.Requirements.Count);
         Assert.Contains(
             readPostcondition.Requirements,
-            static requirement => string.Equals(requirement.Surface, IpcExecuteReadPostconditionSurfaceNames.AssetSearch, StringComparison.Ordinal)
+            static requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.AssetSearch
                 && requirement.MinSafeGeneratedAtUtc == DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"));
         Assert.Contains(
             readPostcondition.Requirements,
-            static requirement => string.Equals(requirement.Surface, IpcExecuteReadPostconditionSurfaceNames.GuidPath, StringComparison.Ordinal)
+            static requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.GuidPath
                 && requirement.MinSafeGeneratedAtUtc == DateTimeOffset.Parse("2026-04-24T00:00:00+00:00"));
         Assert.Contains(
             readPostcondition.Requirements,
-            static requirement => string.Equals(requirement.Surface, IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, StringComparison.Ordinal)
-                && string.Equals(requirement.ScenePath, "Assets/Scenes/Main.unity", StringComparison.Ordinal));
+            static requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.SceneTreeLite
+                && requirement.ScenePath == new UnityScenePath("Assets/Scenes/Main.unity"));
 
         using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath));
         JsonAssert.For(jsonDocument.RootElement)
@@ -89,31 +89,92 @@ public sealed class MutationReadPostconditionStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task WriteMerged_WhenStoresWriteConcurrently_PreservesEveryDistinctRequirement ()
+    {
+        const int writerCount = 16;
+        using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "concurrent-merge");
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-1");
+        using var startBarrier = new Barrier(writerCount);
+        var writeTasks = Enumerable
+            .Range(0, writerCount)
+            .Select(index => Task.Factory.StartNew(
+                () =>
+                {
+                    if (!startBarrier.SignalAndWait(TimeSpan.FromSeconds(10)))
+                    {
+                        throw new TimeoutException("Concurrent mutation read-postcondition writers did not reach the start barrier.");
+                    }
+
+                    var store = new MutationReadPostconditionStore();
+                    return store.WriteMergedAsync(
+                            scope.FullPath,
+                            projectFingerprint,
+                            new IpcExecuteReadPostcondition(
+                            [
+                                new IpcExecuteReadPostconditionRequirement(
+                                    Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
+                                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00").AddMinutes(index),
+                                    ScenePath: new UnityScenePath($"Assets/Scenes/Concurrent-{index:D2}.unity")),
+                            ]),
+                            CancellationToken.None)
+                        .AsTask()
+                        .GetAwaiter()
+                        .GetResult();
+                },
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default))
+            .ToArray();
+
+        var writeResults = await Task.WhenAll(writeTasks);
+        Assert.All(writeResults, static result => Assert.True(result.IsSuccess, result.Error?.Message));
+
+        var readResult = await new MutationReadPostconditionStore().ReadOrNullAsync(
+            scope.FullPath,
+            projectFingerprint,
+            CancellationToken.None);
+
+        Assert.True(readResult.IsSuccess, readResult.Error?.Message);
+        var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
+        Assert.Equal(writerCount, readPostcondition.Requirements.Count);
+        for (var index = 0; index < writerCount; index++)
+        {
+            var expectedScenePath = new UnityScenePath($"Assets/Scenes/Concurrent-{index:D2}.unity");
+            Assert.Contains(
+                readPostcondition.Requirements,
+                requirement => requirement.Surface == IpcExecuteReadPostconditionSurface.SceneTreeLite
+                    && requirement.ScenePath == expectedScenePath);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task WriteMerged_WhenSceneTreeLiteHasNoScenePath_PersistsWildcardRequirement ()
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "scene-tree-lite-wildcard");
         var store = new MutationReadPostconditionStore();
-        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(scope.FullPath, "fingerprint-1");
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"));
 
         var writeResult = await store.WriteMergedAsync(
             scope.FullPath,
-            "fingerprint-1",
-            OperationExecutionModelMapper.MapReadPostcondition(new IpcExecuteReadPostcondition(
+            ProjectFingerprintTestFactory.Create("fingerprint-1"),
+            new IpcExecuteReadPostcondition(
             [
                 new IpcExecuteReadPostconditionRequirement(
-                    Surface: IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
-                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00")),
-            ]))!,
+                    Surface: IpcExecuteReadPostconditionSurface.SceneTreeLite,
+                    MinSafeGeneratedAtUtc: DateTimeOffset.Parse("2026-04-23T00:00:00+00:00"),
+                    ScenePath: null),
+            ]),
             CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
 
-        var readResult = await store.ReadOrNullAsync(scope.FullPath, "fingerprint-1", CancellationToken.None);
+        var readResult = await store.ReadOrNullAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
-        var readPostcondition = Assert.IsType<OperationExecutionReadPostcondition>(readResult.ReadPostcondition);
+        var readPostcondition = Assert.IsType<IpcExecuteReadPostcondition>(readResult.ReadPostcondition);
         var requirement = Assert.Single(readPostcondition.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, requirement.Surface);
+        Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
         Assert.Null(requirement.ScenePath);
 
         using var jsonDocument = JsonDocument.Parse(File.ReadAllText(documentPath));
@@ -126,11 +187,11 @@ public sealed class MutationReadPostconditionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("mutation-read-postcondition-store", "malformed-json");
         var store = new MutationReadPostconditionStore();
-        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(scope.FullPath, "fingerprint-1");
+        var documentPath = UcliStoragePathResolver.ResolveMutationReadPostconditionPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"));
         var relativePath = Path.GetRelativePath(scope.FullPath, documentPath);
         scope.WriteFile(relativePath, "{");
 
-        var result = await store.ReadOrNullAsync(scope.FullPath, "fingerprint-1", CancellationToken.None);
+        var result = await store.ReadOrNullAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-1"), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         var error = Assert.IsType<ExecutionError>(result.Error);

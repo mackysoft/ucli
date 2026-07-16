@@ -81,6 +81,7 @@ internal sealed record ValidateServiceResult
         ValidateExecutionOutput? output = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        ArgumentNullException.ThrowIfNull(errorCode);
         var error = RequestFailureNormalizer.FromTransportFailure(errorCode, message);
         var errors = RequestServiceResultInvariants.RequireFailureErrors([error]);
 

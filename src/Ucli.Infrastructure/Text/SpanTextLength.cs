@@ -3,6 +3,9 @@ namespace MackySoft.Ucli.Infrastructure.Text;
 /// <summary> Calculates fixed-size span text lengths before formatting. </summary>
 internal static class SpanTextLength
 {
+    /// <summary> Gets the character count of a GUID formatted with the <c>D</c> format specifier. </summary>
+    public const int GuidDLength = 36;
+
     /// <summary> Returns the invariant-culture decimal text length for one integer value. </summary>
     public static int GetInvariantInt64Length (long value)
     {

@@ -139,7 +139,6 @@ internal sealed class TestRunPreflightService : ITestRunPreflightService
             TestFilter: input.TestFilter,
             TestCategory: input.TestCategory,
             AssemblyName: input.AssemblyName,
-            TestSettingsPath: input.TestSettingsPath,
             TimeoutMilliseconds: input.TimeoutMilliseconds);
     }
 

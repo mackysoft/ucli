@@ -8,10 +8,15 @@ namespace MackySoft.Ucli.Tests.Daemon;
 
 internal static class DaemonLaunchAttemptStoreTestSupport
 {
-    internal const string ProjectFingerprint = "fingerprint";
+    internal static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+
+    internal static Guid CreateLaunchAttemptId (int sequence)
+    {
+        return new Guid(sequence, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    }
 
     internal static DaemonLaunchAttempt CreateAttempt (
-        string launchAttemptId,
+        Guid launchAttemptId,
         string storageRoot,
         DaemonStartupStatus startupStatus,
         int minuteOffset = 0)
@@ -19,9 +24,9 @@ internal static class DaemonLaunchAttemptStoreTestSupport
         var updatedAtUtc = new DateTimeOffset(2026, 03, 12, 0, minuteOffset, 0, TimeSpan.Zero);
         var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(storageRoot, ProjectFingerprint);
         var diagnosis = new DaemonDiagnosis(
-            Reason: DaemonDiagnosisReasonValues.StartupFailed,
+            Reason: DaemonDiagnosisReason.StartupFailed,
             Message: "startup failed",
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            ReportedBy: DaemonDiagnosisReportedBy.Cli,
             IsInferred: true,
             UpdatedAtUtc: updatedAtUtc,
             ProcessId: 1234,
@@ -30,9 +35,9 @@ internal static class DaemonLaunchAttemptStoreTestSupport
             ProcessStartedAtUtc: updatedAtUtc,
             UnityLogPath: unityLogPath,
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
             PrimaryDiagnostic: new DaemonPrimaryDiagnostic(
-                Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                 Code: "CS0103",
                 File: "Assets/Foo.cs",
                 Line: 12,

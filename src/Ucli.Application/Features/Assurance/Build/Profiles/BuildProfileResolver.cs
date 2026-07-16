@@ -1,6 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -9,8 +10,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 /// <summary> Resolves build profile JSON into build execution input. </summary>
 internal static class BuildProfileResolver
 {
-    private const int CurrentSchemaVersion = 1;
-
     private static readonly HashSet<string> AllowedRootProperties = new(StringComparer.Ordinal)
     {
         "schemaVersion",
@@ -117,23 +116,17 @@ internal static class BuildProfileResolver
         var resolvedInputs = inputs!;
         var resolvedRunner = runner!;
         var resolvedPolicy = policy!;
-        if (resolvedInputs.Kind == BuildProfileInputsKind.UnityBuildProfile
-            && resolvedRunner.Kind != BuildProfileRunnerKind.BuildPipeline)
+        if (resolvedInputs is ResolvedBuildInputs.UnityBuildProfile
+            && resolvedRunner is not ResolvedBuildRunner.BuildPipeline)
         {
             return InvalidProfile("Build profile inputs.kind unityBuildProfile requires runner.kind buildPipeline.");
         }
 
-        var digest = BuildProfileDigestCalculator.Calculate(
+        return BuildProfileResolutionResult.Success(new ResolvedBuildProfile(
             schemaVersion,
             resolvedInputs,
             resolvedRunner,
-            resolvedPolicy);
-        return BuildProfileResolutionResult.Success(new ResolvedBuildProfile(
-            SchemaVersion: schemaVersion,
-            Inputs: resolvedInputs,
-            Runner: resolvedRunner,
-            Policy: resolvedPolicy,
-            Digest: digest));
+            resolvedPolicy));
     }
 
     private static bool TryReadSchemaVersion (
@@ -154,9 +147,9 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        if (schemaVersion != CurrentSchemaVersion)
+        if (schemaVersion != ResolvedBuildProfile.SupportedSchemaVersion)
         {
-            error = InvalidProfile($"Build profile schemaVersion must be {CurrentSchemaVersion}. Actual: {schemaVersion}.");
+            error = InvalidProfile($"Build profile schemaVersion must be {ResolvedBuildProfile.SupportedSchemaVersion}. Actual: {schemaVersion}.");
             return false;
         }
 
@@ -199,7 +192,7 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        inputs = ResolvedBuildInputs.Explicit(buildTarget!, scenes!, options!);
+        inputs = new ResolvedBuildInputs.Explicit(buildTarget, scenes!, options!);
         error = null;
         return true;
     }
@@ -216,30 +209,29 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        if (!UnityAssetPathContract.TryNormalizeBuildProfileAssetPath(path, out var normalizedPath)
-            || !string.Equals(path, normalizedPath, StringComparison.Ordinal))
+        if (!UnityBuildProfileAssetPath.TryParse(path, out var buildProfileAssetPath))
         {
             error = InvalidProfile("Build profile inputs.path must be a normalized project-relative asset path under Assets and must not reference a .meta file.");
             return false;
         }
 
-        inputs = ResolvedBuildInputs.UnityBuildProfile(path);
+        inputs = new ResolvedBuildInputs.UnityBuildProfile(buildProfileAssetPath);
         error = null;
         return true;
     }
 
     private static bool TryReadBuildTarget (
         JsonElement inputsElement,
-        out ResolvedBuildTarget? buildTarget,
+        out BuildTargetStableName buildTarget,
         out BuildProfileResolutionResult? error)
     {
-        buildTarget = null;
+        buildTarget = default;
         if (!TryReadRequiredString(inputsElement, "buildTarget", "Build profile inputs", out var stableName, out error))
         {
             return false;
         }
 
-        if (!BuildTargetStableNameCodec.TryResolve(stableName, out var resolvedTarget))
+        if (!ContractLiteralCodec.TryParse(stableName, out buildTarget))
         {
             error = BuildProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Build profile inputs.buildTarget is unsupported: {stableName}.",
@@ -247,7 +239,6 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        buildTarget = resolvedTarget;
         error = null;
         return true;
     }
@@ -273,7 +264,7 @@ internal static class BuildProfileResolver
                 return false;
             }
 
-            scenes = new ResolvedBuildScenes(BuildProfileSceneSource.EditorBuildSettings, Array.Empty<string>());
+            scenes = new ResolvedBuildScenes.EditorBuildSettings();
             error = null;
             return true;
         }
@@ -309,29 +300,26 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        var seenPaths = new HashSet<string>(StringComparer.Ordinal);
+        var parsedPaths = new SceneAssetPath[paths.Length];
+        var seenPaths = new HashSet<SceneAssetPath>();
         for (var i = 0; i < paths.Length; i++)
         {
-            if (!IsRequiredStringValue(paths[i]))
-            {
-                error = InvalidProfile($"Build profile inputs.scenes.paths[{i}] must be a non-empty string without outer whitespace, NUL, or newline characters.");
-                return false;
-            }
-
-            if (!UnityAssetPathContract.IsNormalizedSceneAssetPath(paths[i]))
+            if (!SceneAssetPath.TryParse(paths[i], out var path))
             {
                 error = InvalidProfile($"Build profile inputs.scenes.paths[{i}] must be a project-relative scene asset path under Assets ending with '{UnityAssetPathContract.SceneAssetExtension}'.");
                 return false;
             }
 
-            if (!seenPaths.Add(paths[i]))
+            if (!seenPaths.Add(path))
             {
-                error = InvalidProfile($"Build profile inputs.scenes.paths contains duplicate value '{paths[i]}'.");
+                error = InvalidProfile($"Build profile inputs.scenes.paths contains duplicate value '{path.Value}'.");
                 return false;
             }
+
+            parsedPaths[i] = path;
         }
 
-        scenes = new ResolvedBuildScenes(BuildProfileSceneSource.Explicit, paths);
+        scenes = new ResolvedBuildScenes.Explicit(parsedPaths);
         error = null;
         return true;
     }
@@ -378,12 +366,12 @@ internal static class BuildProfileResolver
         runner = null;
         if (!TryReadRequiredObject(root, "runner", "Build profile", out var runnerElement, out error)
             || !TryValidateObjectProperties(runnerElement, AllowedRunnerProperties, "Build profile runner", out error)
-            || !TryReadRequiredEnum(runnerElement, "kind", "Build profile runner", out BuildProfileRunnerKind kind, out error))
+            || !TryReadRequiredEnum(runnerElement, "kind", "Build profile runner", out BuildRunnerKind kind, out error))
         {
             return false;
         }
 
-        if (kind == BuildProfileRunnerKind.BuildPipeline)
+        if (kind == BuildRunnerKind.BuildPipeline)
         {
             if (runnerElement.TryGetProperty("method", out _)
                 || runnerElement.TryGetProperty("invocation", out _))
@@ -392,25 +380,34 @@ internal static class BuildProfileResolver
                 return false;
             }
 
-            runner = new ResolvedBuildRunner(kind, Method: null, ResolvedBuildRunnerInvocation.Empty);
+            runner = new ResolvedBuildRunner.BuildPipeline();
             error = null;
             return true;
         }
 
-        if (kind != BuildProfileRunnerKind.ExecuteMethod)
+        if (kind != BuildRunnerKind.ExecuteMethod)
         {
             error = InvalidProfile($"Build profile runner.kind is unsupported: {ContractLiteralCodec.ToValue(kind)}.");
             return false;
         }
 
-        if (!TryReadRequiredString(runnerElement, "method", "Build profile runner", out var method, out error)
-            || !TryValidateRunnerMethod(method, out error)
-            || !TryReadRunnerInvocation(runnerElement, out var invocation, out error))
+        if (!TryReadRequiredString(runnerElement, "method", "Build profile runner", out var method, out error))
         {
             return false;
         }
 
-        runner = new ResolvedBuildRunner(kind, method, invocation!);
+        if (!ResolvedBuildRunner.ExecuteMethod.TryValidateMethod(method, out var methodErrorMessage))
+        {
+            error = InvalidProfile(methodErrorMessage!);
+            return false;
+        }
+
+        if (!TryReadRunnerInvocation(runnerElement, out var invocation, out error))
+        {
+            return false;
+        }
+
+        runner = new ResolvedBuildRunner.ExecuteMethod(method, invocation!);
         error = null;
         return true;
     }
@@ -468,7 +465,7 @@ internal static class BuildProfileResolver
         var values = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (var property in argumentsElement.EnumerateObject())
         {
-            if (!IsRunnerMapKey(property.Name))
+            if (!ResolvedBuildRunnerInvocation.IsValidMapKey(property.Name))
             {
                 error = InvalidProfile($"Build profile runner.invocation.arguments key '{property.Name}' must be a non-empty string without '=', NUL, or newline characters.");
                 return false;
@@ -500,9 +497,7 @@ internal static class BuildProfileResolver
         environment = null;
         if (!invocationElement.TryGetProperty("environment", out var environmentElement))
         {
-            environment = new ResolvedBuildRunnerEnvironment(
-                Array.Empty<string>(),
-                Array.Empty<string>());
+            environment = ResolvedBuildRunnerEnvironment.Empty;
             error = null;
             return true;
         }
@@ -573,7 +568,7 @@ internal static class BuildProfileResolver
             }
 
             var value = item.GetString() ?? string.Empty;
-            if (!IsRunnerMapKey(value))
+            if (!ResolvedBuildRunnerInvocation.IsValidMapKey(value))
             {
                 error = InvalidProfile($"Build profile runner.invocation.environment.{propertyName}[{index}] must be a non-empty string without '=', NUL, or newline characters.");
                 return false;
@@ -607,27 +602,6 @@ internal static class BuildProfileResolver
                 error = InvalidProfile($"Build profile runner.invocation.environment contains duplicate value '{secrets[i]}'.");
                 return false;
             }
-        }
-
-        error = null;
-        return true;
-    }
-
-    private static bool TryValidateRunnerMethod (
-        string method,
-        out BuildProfileResolutionResult? error)
-    {
-        if (method.IndexOf(',') >= 0)
-        {
-            error = InvalidProfile("Build profile runner.method must not contain an assembly-qualified type name.");
-            return false;
-        }
-
-        var separatorIndex = method.LastIndexOf('.');
-        if (separatorIndex <= 0 || separatorIndex == method.Length - 1)
-        {
-            error = InvalidProfile("Build profile runner.method must be Namespace.Type.Method or Type.Method.");
-            return false;
         }
 
         error = null;
@@ -867,15 +841,6 @@ internal static class BuildProfileResolver
     {
         return !string.IsNullOrWhiteSpace(value)
             && !StringValueValidator.HasOuterWhitespace(value)
-            && value.IndexOf('\0') < 0
-            && value.IndexOf('\n') < 0
-            && value.IndexOf('\r') < 0;
-    }
-
-    private static bool IsRunnerMapKey (string? value)
-    {
-        return !string.IsNullOrWhiteSpace(value)
-            && value.IndexOf('=') < 0
             && value.IndexOf('\0') < 0
             && value.IndexOf('\n') < 0
             && value.IndexOf('\r') < 0;

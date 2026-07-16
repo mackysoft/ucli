@@ -9,14 +9,10 @@ public sealed record PrefabPathArgs
     [JsonConstructor]
     public PrefabPathArgs (PrefabAssetPath path)
     {
-        Path = path;
-    }
-
-    public PrefabPathArgs (string path)
-        : this(new PrefabAssetPath(path))
-    {
+        Path = ContractArgumentGuard.RequireNotNull(path, nameof(path));
     }
 
     [UcliRequired]
-    public PrefabAssetPath Path { get; init; }
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
+    public PrefabAssetPath Path { get; }
 }

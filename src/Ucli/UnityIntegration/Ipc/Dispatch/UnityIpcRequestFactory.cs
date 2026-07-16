@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
@@ -7,102 +8,56 @@ namespace MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 /// <summary> Creates IPC request envelopes for Unity request execution clients. </summary>
 internal static class UnityIpcRequestFactory
 {
-    /// <summary> Creates one stable request identifier for one IPC method dispatch. </summary>
-    /// <param name="method"> The IPC method name. </param>
-    /// <returns> The created request identifier. </returns>
-    public static string CreateRequestId (string method)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(method);
-        return $"{method}-{Guid.NewGuid():N}";
-    }
-
-    /// <summary> Creates one request envelope with a generated request identifier. </summary>
-    /// <param name="sessionToken"> The session token written into the request envelope. </param>
-    /// <param name="method"> The IPC method name. </param>
-    /// <param name="payload"> The payload element. </param>
-    /// <param name="responseMode"> The response framing mode requested by the caller. </param>
-    /// <returns> The created request envelope. </returns>
-    public static IpcRequest Create (
-        string sessionToken,
-        string method,
+    /// <summary> Creates an unauthenticated single-response ping used only to prove that the canonical endpoint is serving IPC. </summary>
+    /// <param name="payload"> The ping payload element. </param>
+    /// <param name="requestId"> The non-empty request identifier. </param>
+    /// <param name="requestDeadlineUtc"> The UTC deadline shared by every delivery attempt for the logical request. </param>
+    /// <param name="requestDeadlineRemainingMilliseconds"> The positive monotonic-clock time remaining until the shared deadline when this delivery attempt starts, rounded up to milliseconds. </param>
+    /// <returns> The unauthenticated ping request envelope. </returns>
+    public static IpcRequestEnvelope CreateUnauthenticatedPingProbe (
         JsonElement payload,
-        IpcResponseMode responseMode = IpcResponseMode.Single)
+        Guid requestId,
+        DateTimeOffset requestDeadlineUtc,
+        int requestDeadlineRemainingMilliseconds)
     {
-        return Create(
-            sessionToken,
-            method,
-            payload,
-            CreateRequestId(method),
-            responseMode);
-    }
-
-    /// <summary> Creates one request envelope from a dispatch request with a generated request identifier. </summary>
-    /// <param name="sessionToken"> The session token written into the request envelope. </param>
-    /// <param name="dispatchRequest"> The dispatch request that owns method, payload, and response mode. </param>
-    /// <param name="dispatchTimeout"> The final dispatch timeout budget when the method needs server-side cancellation. </param>
-    /// <returns> The created request envelope. </returns>
-    public static IpcRequest Create (
-        string sessionToken,
-        UnityIpcDispatchRequest dispatchRequest,
-        TimeSpan? dispatchTimeout = null)
-    {
-        ArgumentNullException.ThrowIfNull(dispatchRequest);
-        return Create(
-            sessionToken,
-            dispatchRequest,
-            CreateRequestId(dispatchRequest.Method),
-            dispatchTimeout);
+        return new IpcRequestEnvelope(
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            sessionToken: string.Empty,
+            method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+            payload: payload,
+            responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            requestDeadlineUtc: requestDeadlineUtc,
+            requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);
     }
 
     /// <summary> Creates one request envelope with the supplied request identifier. </summary>
     /// <param name="sessionToken"> The session token written into the request envelope. </param>
-    /// <param name="method"> The IPC method name. </param>
+    /// <param name="method"> The defined Unity IPC method. </param>
     /// <param name="payload"> The payload element. </param>
     /// <param name="requestId"> The stable request identifier. </param>
     /// <param name="responseMode"> The response framing mode requested by the caller. </param>
+    /// <param name="requestDeadlineUtc"> The UTC deadline shared by every delivery attempt for the logical request. </param>
+    /// <param name="requestDeadlineRemainingMilliseconds"> The positive monotonic-clock time remaining until the shared deadline when this delivery attempt starts, rounded up to milliseconds. </param>
     /// <returns> The created request envelope. </returns>
-    public static IpcRequest Create (
-        string sessionToken,
-        string method,
+    public static IpcRequestEnvelope Create (
+        IpcSessionToken sessionToken,
+        UnityIpcMethod method,
         JsonElement payload,
-        string requestId,
-        IpcResponseMode responseMode = IpcResponseMode.Single)
+        Guid requestId,
+        IpcResponseMode responseMode,
+        DateTimeOffset requestDeadlineUtc,
+        int requestDeadlineRemainingMilliseconds)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
-        ArgumentException.ThrowIfNullOrWhiteSpace(method);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
-        if (!ContractLiteralCodec.IsDefined(responseMode))
-        {
-            throw new ArgumentException($"Unsupported IPC response mode: {responseMode}.", nameof(responseMode));
-        }
-
-        return new IpcRequest(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            SessionToken: sessionToken,
-            Method: method,
-            Payload: payload,
-            responseMode: responseMode);
-    }
-
-    /// <summary> Creates one request envelope from a dispatch request with the supplied request identifier. </summary>
-    /// <param name="sessionToken"> The session token written into the request envelope. </param>
-    /// <param name="dispatchRequest"> The dispatch request that owns method, payload, and response mode. </param>
-    /// <param name="requestId"> The stable request identifier. </param>
-    /// <param name="dispatchTimeout"> The final dispatch timeout budget when the method needs server-side cancellation. </param>
-    /// <returns> The created request envelope. </returns>
-    public static IpcRequest Create (
-        string sessionToken,
-        UnityIpcDispatchRequest dispatchRequest,
-        string requestId,
-        TimeSpan? dispatchTimeout = null)
-    {
-        ArgumentNullException.ThrowIfNull(dispatchRequest);
-        return Create(
-            sessionToken,
-            dispatchRequest.Method,
-            dispatchRequest.CreatePayload(dispatchTimeout),
-            requestId,
-            responseMode: dispatchRequest.ResponseMode);
+        ArgumentNullException.ThrowIfNull(sessionToken);
+        return new IpcRequestEnvelope(
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            sessionToken: sessionToken.GetEncodedValue(),
+            method: ContractLiteralCodec.ToValue(method),
+            payload: payload,
+            responseMode: ContractLiteralCodec.ToValue(responseMode),
+            requestDeadlineUtc: requestDeadlineUtc,
+            requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);
     }
 }

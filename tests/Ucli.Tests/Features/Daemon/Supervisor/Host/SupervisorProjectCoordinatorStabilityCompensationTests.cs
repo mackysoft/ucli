@@ -1,4 +1,5 @@
-using MackySoft.Tests;
+using System.Reflection;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -48,7 +49,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
 
         var ensureRunningTask = coordinator.EnsureRunningAsync(
                 unityProject,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: cancellationTokenSource.Token)
@@ -125,7 +126,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         {
             var result = await coordinator.EnsureRunningAsync(
                 unityProject,
-                TimeSpan.FromMilliseconds(70),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(70), timeProvider),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None);
@@ -178,7 +179,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         {
             var result = await coordinator.EnsureRunningAsync(
                 unityProject,
-                TimeSpan.FromMilliseconds(500),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None);
@@ -195,6 +196,90 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         }
 
         Assert.False(coordinator.HasActiveProjectWork);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task EnsureRunning_WhenCompensationLogWriterIsOccupied_StartsStopBeforeLogCompletes ()
+    {
+        using var daemonProcess = SupervisorOwnedDaemonProcess.Start();
+        using var scope = CreateUnityProjectScope(nameof(EnsureRunning_WhenCompensationLogWriterIsOccupied_StartsStopBeforeLogCompletes));
+        var unityProject = CreateUnityProject(scope);
+        var startOperation = new RecordingDaemonStartOperation
+        {
+            StartResult = CreateStartedResult(daemonProcess),
+        };
+        var pingClient = new RecordingDaemonPingClient(static (_, _, _, _) =>
+            ValueTask.FromException(new InvalidOperationException("ping failed")));
+        var stopStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopRelease = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var stopOperation = new RecordingDaemonStopOperation
+        {
+            StopHandler = async (_, _, _) =>
+            {
+                stopStarted.TrySetResult();
+                await stopRelease.Task.ConfigureAwait(false);
+                return DaemonStopResult.Stopped();
+            },
+        };
+        var diagnosisStore = new RecordingDaemonDiagnosisStore();
+        var sessionStore = new RecordingDaemonSessionStore();
+        var runtimeLogger = new SupervisorRuntimeLogger();
+        var timeProvider = new ManualTimeProvider();
+        var runtimeLogWriteGate = GetRuntimeLogWriteGate(runtimeLogger);
+        await runtimeLogWriteGate.WaitAsync();
+        var diagnosisWriter = new SupervisorDiagnosisWriter(diagnosisStore);
+        var coordinator = new SupervisorProjectCoordinator(
+            startOperation,
+            stopOperation,
+            pingClient,
+            new DaemonReachabilityClassifier(),
+            new SupervisorStabilityVerifier(
+                pingClient,
+                diagnosisWriter,
+                new DaemonCompensationOperationOwner(),
+                timeProvider),
+            new SupervisorExitHandler(
+                sessionStore,
+                new RecordingDaemonArtifactCleaner(),
+                diagnosisWriter,
+                runtimeLogger,
+                timeProvider),
+            runtimeLogger,
+            timeProvider);
+
+        var stopStartedBeforeLogRelease = false;
+        try
+        {
+            var result = await coordinator.EnsureRunningAsync(
+                unityProject,
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
+                editorMode: null,
+                onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                cancellationToken: CancellationToken.None);
+            Assert.False(result.IsSuccess);
+
+            await stopStarted.Task.WaitAsync(SignalWaitTimeout);
+            stopStartedBeforeLogRelease = true;
+        }
+        finally
+        {
+            runtimeLogWriteGate.Release();
+            try
+            {
+                await TestAwaiter.WaitAsync(
+                    stopStarted.Task,
+                    "Daemon compensation stop after runtime-log release",
+                    SignalWaitTimeout);
+            }
+            finally
+            {
+                stopRelease.TrySetResult();
+                await daemonProcess.TerminateAndAwaitCoordinatorAsync(coordinator);
+            }
+        }
+
+        Assert.True(stopStartedBeforeLogRelease);
     }
 
     [Fact]
@@ -238,7 +323,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         {
             var ensureRunningResult = await coordinator.EnsureRunningAsync(
                 unityProject,
-                TimeSpan.FromMilliseconds(70),
+                ExecutionDeadline.Start(TimeSpan.FromMilliseconds(70), timeProvider),
                 editorMode: null,
                 onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
                 cancellationToken: CancellationToken.None);
@@ -248,7 +333,7 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
 
             var stopTask = coordinator.StopProjectAsync(
                     unityProject,
-                    TimeSpan.FromMilliseconds(50),
+                    ExecutionDeadline.Start(TimeSpan.FromMilliseconds(50), TimeProvider.System),
                     CancellationToken.None)
                 .AsTask();
             var stopResult = await TestAwaiter.WaitAsync(stopTask, "Supervisor stop project result", SignalWaitTimeout);
@@ -274,5 +359,14 @@ public sealed class SupervisorProjectCoordinatorStabilityCompensationTests
         return DaemonStartResult.Started(
             session,
             IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint));
+    }
+
+    private static SemaphoreSlim GetRuntimeLogWriteGate (SupervisorRuntimeLogger runtimeLogger)
+    {
+        var writeGateField = typeof(SupervisorRuntimeLogger).GetField(
+            "writeGate",
+            BindingFlags.Instance | BindingFlags.NonPublic);
+        Assert.NotNull(writeGateField);
+        return Assert.IsType<SemaphoreSlim>(writeGateField.GetValue(runtimeLogger));
     }
 }

@@ -1,5 +1,3 @@
-using MackySoft.Tests;
-
 namespace MackySoft.Ucli.Tests;
 
 public sealed class CliDocumentationCommandVocabularyTests
@@ -20,6 +18,15 @@ public sealed class CliDocumentationCommandVocabularyTests
             .ToArray();
 
         Assert.Empty(violations);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Readme_DoesNotAdvertiseUnsupportedBuildTargetOption ()
+    {
+        var readme = File.ReadAllText(TestRepositoryPaths.GetFullPath("README.md"));
+
+        Assert.DoesNotContain(UcliContractConstants.CliOption.BuildTarget, readme, StringComparison.Ordinal);
     }
 
     private static IEnumerable<string> EnumerateDocumentedArtifactPaths ()

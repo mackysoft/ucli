@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Opens a prefab asset in the Unity editor.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.EditorStateChange, UcliOperationSideEffect.OpensPrefabStage },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the prefab path and observe whether the prefab stage can be opened without creating preview state or changing the live editor context.",
                 callSemantics: "Open the requested prefab stage in the Unity Editor without saving project data.",
@@ -83,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     executionContext.SetTemporaryAlias(
                         operation.As,
                         prefabContentsRoot!,
-                        new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
+                        new OperationResource(UcliTouchedResourceKind.Prefab, validationState.PrefabPath));
                 }
 
                 executionContext.TrackPlannedLivePrefabOpen(validationState.PrefabPath);
@@ -94,7 +94,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: false,
                 touched: new[]
                 {
-                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath)),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Prefab, validationState.PrefabPath)),
                 }));
         }
 
@@ -128,10 +128,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 executionContext.SetTemporaryAlias(
                     operation.As,
                     prefabContentsRoot,
-                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath));
-                if (UnityObjectReferenceResolver.TryCreateResolvedReference(prefabContentsRoot, out var resolvedReference))
+                    new OperationResource(UcliTouchedResourceKind.Prefab, validationState.PrefabPath));
+                if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(prefabContentsRoot, out var globalObjectId))
                 {
-                    executionContext.AliasStore.Set(operation.As, resolvedReference!);
+                    executionContext.AliasStore.Set(operation.As, globalObjectId);
                 }
             }
 
@@ -140,7 +140,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changed: false,
                 touched: new[]
                 {
-                    OperationResourceUtilities.CreateTouch(new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath)),
+                    OperationResourceUtilities.CreateTouch(new OperationResource(UcliTouchedResourceKind.Prefab, validationState.PrefabPath)),
                 }));
         }
 
@@ -153,14 +153,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            var requestedPrefabPath = args.Path?.Value ?? string.Empty;
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(requestedPrefabPath, out var normalizedPrefabPath, out var errorMessage))
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(args.Path, out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
             }
 
-            validationState = new ValidationState(normalizedPrefabPath);
+            validationState = new ValidationState(args.Path.Value);
             return true;
         }
 

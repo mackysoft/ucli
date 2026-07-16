@@ -1,9 +1,11 @@
-using System.Net.Sockets;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Shutdown;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
+using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Process.Shutdown;
@@ -13,74 +15,150 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
 {
     private readonly IIpcTransportClient transportClient;
 
+    private readonly DaemonSessionAcquisitionCoordinator sessionAcquisitionCoordinator;
+
     /// <summary> Initializes a new instance of the <see cref="DaemonShutdownClient" /> class. </summary>
     /// <param name="transportClient"> The shared IPC transport client dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="transportClient" /> is <see langword="null" />. </exception>
-    public DaemonShutdownClient (IIpcTransportClient transportClient)
+    /// <param name="sessionAcquisitionCoordinator"> The coordinator that creates one acquisition scope per logical request. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when a dependency is <see langword="null" />. </exception>
+    public DaemonShutdownClient (
+        IIpcTransportClient transportClient,
+        DaemonSessionAcquisitionCoordinator sessionAcquisitionCoordinator)
     {
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
+        this.sessionAcquisitionCoordinator = sessionAcquisitionCoordinator ?? throw new ArgumentNullException(nameof(sessionAcquisitionCoordinator));
     }
 
-    /// <summary> Sends one shutdown request using persisted daemon session token. </summary>
+    /// <summary> Sends one logical shutdown request across explicitly rejected session generations within the shared deadline. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="session"> The persisted daemon session metadata. </param>
-    /// <param name="timeout"> The IPC timeout used for shutdown request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
+    /// <param name="session"> The observed daemon session metadata used for the initial delivery. </param>
+    /// <param name="deadline"> The deadline shared by the daemon-stop workflow. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> The shutdown attempt result. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> or <paramref name="session" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
+    /// <returns> The result of the accepted delivery or the terminal failure observed within the shared deadline. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" />, <paramref name="session" />, or <paramref name="deadline" /> is <see langword="null" />. </exception>
     public async ValueTask<DaemonShutdownAttemptResult> SendShutdownAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(session);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
+
+        var payload = IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest("ucli-daemon-stop"));
+        var requestId = Guid.NewGuid();
+        var currentSession = session;
+        ExecutionError? sessionTokenRejectionError = null;
+        DaemonSessionAcquisitionResult? sessionAcquisition = null;
+        var acquisitionScope = sessionAcquisitionCoordinator.CreateScope(deadline);
 
         try
         {
-            if (!DaemonSessionConnectionFactory.TryCreate(session, out var connection, out var connectionError))
+            while (true)
             {
-                return DaemonShutdownAttemptResult.Failure(connectionError!);
-            }
-
-            var payload = IpcPayloadCodec.SerializeToElement(new IpcShutdownRequest("ucli-daemon-stop"));
-            var request = new IpcRequest(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: $"daemon-stop-{Guid.NewGuid():N}",
-                SessionToken: connection.SessionToken,
-                Method: IpcMethodNames.Shutdown,
-                Payload: payload,
-                responseMode: IpcResponseMode.Single);
-            var response = await transportClient.SendAsync(
-                    connection.Endpoint,
-                    request,
-                    timeout,
-                    cancellationToken)
-                .ConfigureAwait(false);
-
-            if (IpcResponseFailureReader.TryRead(response, out var firstError, out var status))
-            {
-                if (firstError is not null)
+                if (sessionAcquisition is not null)
                 {
-                    if (DaemonProbeExceptionClassifier.IsSessionAuthenticationRejected(firstError.Code))
+                    switch (sessionAcquisition.Kind)
                     {
-                        return DaemonShutdownAttemptResult.Failure(ExecutionError.InternalError(
-                            $"Daemon shutdown request was rejected by session authentication. ErrorCode='{firstError.Code}'."));
+                        case DaemonSessionAcquisitionKind.Success:
+                            currentSession = sessionAcquisition.Session!;
+                            sessionAcquisition = null;
+                            break;
+                        case DaemonSessionAcquisitionKind.RequestDeadlineExpired:
+                            return DaemonShutdownAttemptResult.Failure(ExecutionError.Timeout(
+                                "Timed out while resolving a replacement daemon session for shutdown."));
+                        case DaemonSessionAcquisitionKind.PublicationWindowExpired:
+                            return DaemonShutdownAttemptResult.Failure(sessionTokenRejectionError!);
+                        case DaemonSessionAcquisitionKind.EndpointAvailabilityWindowExpired:
+                        case DaemonSessionAcquisitionKind.SessionNotAvailable:
+                            return DaemonShutdownAttemptResult.NotRunning();
+                        case DaemonSessionAcquisitionKind.SessionReadFailure:
+                            return DaemonShutdownAttemptResult.Failure(ExecutionError.InternalError(
+                                $"Daemon session could not be read for shutdown. {sessionAcquisition.ReadFailure!.Error!.Message}"));
+                        default:
+                            throw new InvalidOperationException(
+                                $"Unsupported daemon session acquisition outcome: {sessionAcquisition.Kind}.");
                     }
-
-                    return DaemonShutdownAttemptResult.Failure(ExecutionError.InternalError(
-                        $"Daemon shutdown request failed with error code '{firstError.Code}'."));
                 }
 
-                return DaemonShutdownAttemptResult.Failure(ExecutionError.InternalError(
-                    $"Daemon shutdown request failed with status '{status}'."));
-            }
+                if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
+                {
+                    return DaemonShutdownAttemptResult.Failure(ExecutionError.Timeout(
+                        "Timed out before sending daemon shutdown request."));
+                }
 
-            return DaemonShutdownAttemptResult.Success();
+                if (!deadline.TryGetRemainingMilliseconds(out var requestDeadlineRemainingMilliseconds))
+                {
+                    return DaemonShutdownAttemptResult.Failure(ExecutionError.Timeout(
+                        "Timed out before sending daemon shutdown request."));
+                }
+
+                var request = UnityIpcRequestFactory.Create(
+                    currentSession.SessionToken,
+                    UnityIpcMethod.Shutdown,
+                    payload,
+                    requestId,
+                    IpcResponseMode.Single,
+                    deadline.UtcDeadline,
+                    requestDeadlineRemainingMilliseconds);
+                ExecutionDeadlineOperationResult<IpcResponse> sendOperation;
+                try
+                {
+                    sendOperation = await ExecutionDeadlineOperation.ExecuteAsync(
+                            deadline,
+                            cancellationToken,
+                            "Timed out before sending daemon shutdown request.",
+                            "Timed out while sending daemon shutdown request.",
+                            token => transportClient.SendAsync(
+                                currentSession.Endpoint,
+                                request,
+                                remainingTimeout,
+                                token))
+                        .ConfigureAwait(false);
+                }
+                catch (Exception exception) when (
+                    DaemonIpcConnectionFailureClassifier.IsRetryableBeforeRequestWrite(exception))
+                {
+                    sessionAcquisition = await acquisitionScope.ResolveAfterPreWriteFailureAsync(
+                            unityProject,
+                            currentSession,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    continue;
+                }
+
+                if (!sendOperation.IsSuccess)
+                {
+                    return DaemonShutdownAttemptResult.Failure(sendOperation.Error!);
+                }
+
+                var response = sendOperation.Value!;
+
+                if (IpcResponseFailureReader.TryRead(response, out var firstError))
+                {
+                    var responseError = DaemonProbeExceptionClassifier.IsSessionAuthenticationRejected(firstError.Code)
+                        ? ExecutionError.InternalError(
+                            $"Daemon shutdown request was rejected by session authentication. ErrorCode='{firstError.Code}'.")
+                        : ExecutionError.InternalError(
+                            $"Daemon shutdown request failed with error code '{firstError.Code}'.");
+                    if (firstError.Code == IpcSessionErrorCodes.SessionTokenInvalid)
+                    {
+                        sessionTokenRejectionError = responseError;
+                        sessionAcquisition = await acquisitionScope.ResolveReplacementAsync(
+                                unityProject,
+                                currentSession,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                        continue;
+                    }
+
+                    return DaemonShutdownAttemptResult.Failure(responseError);
+                }
+
+                return DaemonShutdownAttemptResult.Success();
+            }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -91,7 +169,7 @@ internal sealed class DaemonShutdownClient : IDaemonShutdownClient
             return DaemonShutdownAttemptResult.Failure(ExecutionError.Timeout(
                 $"Timed out while sending daemon shutdown request. {exception.Message}"));
         }
-        catch (SocketException exception) when (DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(exception))
+        catch (IpcConnectException exception) when (DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(exception))
         {
             return DaemonShutdownAttemptResult.NotRunning();
         }

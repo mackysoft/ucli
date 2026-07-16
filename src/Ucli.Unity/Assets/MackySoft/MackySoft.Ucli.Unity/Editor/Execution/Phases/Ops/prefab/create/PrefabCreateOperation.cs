@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     UcliOperationSideEffect.PrefabContentMutation,
                     UcliOperationSideEffect.PrefabSave,
                 },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the source GameObject and prefab path, then compute preview creation state without persisting project data.",
                 callSemantics: "Create and persist the prefab asset from the live GameObject, and dirty related scene state when Unity creates prefab linkage.",
@@ -108,13 +108,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             executionContext.MarkRequestAttributedChange(validationState.SourceResource);
-            executionContext.TrackPlannedPrefabCreation(validationState.Target, validationState.PrefabPath);
+            executionContext.TrackPlannedPrefabCreation(
+                validationState.Target,
+                validationState.SourceResource,
+                validationState.PrefabPath);
             return Task.FromResult(OperationPhaseStepResult.Success(
                 applied: false,
                 changed: true,
                 touched: OperationResourceUtilities.CreateTouches(
                     validationState.SourceResource,
-                    new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath))));
+                    new OperationResource(UcliTouchedResourceKind.Prefab, validationState.PrefabPath))));
         }
 
         protected override Task<OperationPhaseStepResult> CallAsync (
@@ -151,7 +154,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     changed: true,
                     touched: OperationResourceUtilities.CreateTouches(
                         validationState.SourceResource,
-                        new OperationResource(OperationTouchKind.Prefab, validationState.PrefabPath)))
+                        new OperationResource(UcliTouchedResourceKind.Prefab, validationState.PrefabPath)))
                 .WithPersistence()
                 .WithReadInvalidations(OperationReadInvalidationUtilities.CreateAssetSearchAndGuidPath()));
         }
@@ -166,7 +169,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validationState = default;
             failure = null;
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out var errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(
+                    args.Target,
+                    "args.target",
+                    operation.AliasReferences,
+                    out var targetReference,
+                    out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -175,7 +183,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!GoOperationUtilities.TryResolveEditableGameObject(
                 targetReference,
                 executionContext,
-                allowTemporaryState,
+                OperationObjectReferenceUtilities.GetReferenceResolutionPolicy(operation, allowTemporaryState),
                 out var targetResolution,
                 out errorMessage))
             {
@@ -183,7 +191,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (targetResolution.Resource.Kind != OperationTouchKind.Scene)
+            if (targetResolution.Resource.Kind != UcliTouchedResourceKind.Scene)
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
@@ -191,8 +199,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var requestedPrefabPath = args.Path?.Value ?? string.Empty;
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(requestedPrefabPath, out var normalizedPrefabPath, out errorMessage))
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetCanBeCreated(args.Path, out errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -210,12 +217,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = new ValidationState(
                 target,
                 targetResolution.Resource,
-                normalizedPrefabPath);
+                args.Path.Value);
             return true;
         }
 
         private static void StoreAliasIfNeeded (
-            string? alias,
+            RequestLocalAliasIdentity? alias,
             OperationExecutionContext executionContext,
             GameObject target,
             OperationResource resource)
@@ -226,9 +233,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             executionContext.SetTemporaryAlias(alias, target, resource);
-            if (UnityObjectReferenceResolver.TryCreateResolvedReference(target, out var resolvedReference))
+            if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(target, out var globalObjectId))
             {
-                executionContext.AliasStore.Set(alias, resolvedReference!);
+                executionContext.AliasStore.Set(alias, globalObjectId);
             }
         }
 

@@ -5,17 +5,24 @@ using System;
 namespace MackySoft.Ucli.Unity.Execution.Phases
 {
     /// <summary> Represents one plan-token validation result. </summary>
-    /// <param name="Failure"> The validation failure details when validation failed; otherwise <see langword="null" />. </param>
-    internal sealed record PlanTokenValidationResult (OperationFailure? Failure)
+    internal sealed class PlanTokenValidationResult
     {
+        private PlanTokenValidationResult (OperationFailure? failure)
+        {
+            Failure = failure;
+        }
+
         /// <summary> Gets a value indicating whether validation succeeded. </summary>
-        public bool IsSuccess => Failure is null;
+        public bool IsSuccess => Failure == null;
+
+        /// <summary> Gets the validation failure when validation failed; otherwise <see langword="null" />. </summary>
+        public OperationFailure? Failure { get; }
 
         /// <summary> Creates a successful validation result. </summary>
         /// <returns> The successful result. </returns>
         public static PlanTokenValidationResult Success ()
         {
-            return new PlanTokenValidationResult((OperationFailure?)null);
+            return new PlanTokenValidationResult(null);
         }
 
         /// <summary> Creates a failed validation result. </summary>

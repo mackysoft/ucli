@@ -14,7 +14,7 @@ internal interface IUnityLogReader
     /// <returns> The Unity log read result. </returns>
     ValueTask<UnityLogReadResult> ReadTailAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int maxBytes = DefaultMaxBytes,
         CancellationToken cancellationToken = default);
 }

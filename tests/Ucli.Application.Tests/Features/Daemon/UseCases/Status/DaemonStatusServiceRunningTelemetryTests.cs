@@ -1,8 +1,6 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Status;
-using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Daemon.DaemonStatusServiceTestSupport;
 
@@ -12,41 +10,35 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task GetStatus_WhenDaemonIsRunning_MapsPingTelemetryToOutput ()
+    public async Task GetStatus_WhenDaemonIsRunning_MapsObservedPingTelemetryToOutput ()
     {
-        var timeProvider = new ManualTimeProvider();
         var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 2450);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var session = DaemonSessionTestFactory.Create() with
-        {
-            EditorMode = DaemonEditorMode.Gui,
-            EditorInstanceId = "editor-instance-1",
-        };
+        var session = DaemonSessionTestFactory.Create(
+            editorMode: DaemonEditorMode.Gui,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var persistedDiagnosis = DaemonDiagnosisTestFactory.Create();
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Running(session, persistedDiagnosis));
-        var pingInfoClient = new RecordingDaemonPingInfoClient(new IpcUnityEditorObservation(
-                serverVersion: "9.9.9",
-                unityVersion: "6000.1.4f1",
-                projectFingerprint: "project-fingerprint",
-                state: new UnityEditorStateSnapshot(
-                    editorMode: DaemonEditorMode.Batchmode,
-                    lifecycleState: IpcEditorLifecycleState.DomainReloading,
-                    compileState: IpcCompileState.Compiling,
-                    generations: new IpcUnityGenerationSnapshot(7, 11, 0, 0),
-                    playMode: new IpcPlayModeSnapshot(
-                        IpcPlayModeState.Stopped,
-                        IpcPlayModeTransition.None,
-                        IsPlaying: false,
-                        IsPlayingOrWillChangePlaymode: false)),
-                observedAtUtc: DateTimeOffset.UnixEpoch));
-        var service = CreateService(
-            resolver,
-            daemonStatusOperation,
-            pingInfoClient,
-            new StubDaemonReachabilityClassifier(static _ => false),
-            new RecordingDaemonSessionDiagnosisResolver(),
-            timeProvider);
+        var pingResponse = new IpcUnityEditorObservation(
+            serverVersion: "9.9.9",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: context.Context.UnityProject.ProjectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Batchmode,
+                lifecycleState: IpcEditorLifecycleState.DomainReloading,
+                compileState: IpcCompileState.Compiling,
+                generations: new IpcUnityGenerationSnapshot(7, 11, 0, 0),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Stopped,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: false,
+                    IsPlayingOrWillChangePlaymode: false)),
+            observedAtUtc: DateTimeOffset.UnixEpoch,
+            actionRequired: null,
+            primaryDiagnostic: null);
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(
+            DaemonStatusResult.Running(session, pingResponse, persistedDiagnosis));
+        var service = CreateService(resolver, daemonStatusOperation);
 
         var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
@@ -63,11 +55,6 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         Assert.False(output.CanAcceptExecutionRequests);
         DaemonServiceOutputAssert.SessionMatches(session, output.Session);
         Assert.Null(output.Diagnosis);
-        DaemonStatusServiceInvocationAssert.DaemonPingTelemetryRead(
-            pingInfoClient,
-            context,
-            expectedTimeout: context.Timeout,
-            expectedSessionToken: session.SessionToken);
     }
 
     [Fact]
@@ -77,34 +64,31 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 2455);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
-        var session = DaemonSessionTestFactory.Create() with
-        {
-            EditorMode = DaemonEditorMode.Gui,
-            OwnerKind = DaemonSessionOwnerKind.User,
-            CanShutdownProcess = false,
-        };
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(DaemonStatusResult.Running(session));
-        var pingInfoClient = new RecordingDaemonPingInfoClient(new IpcUnityEditorObservation(
-                serverVersion: "9.9.10",
-                unityVersion: "6000.1.4f1",
-                projectFingerprint: "project-fingerprint",
-                state: new UnityEditorStateSnapshot(
-                    editorMode: DaemonEditorMode.Gui,
-                    lifecycleState: IpcEditorLifecycleState.PlayMode,
-                    compileState: IpcCompileState.Ready,
-                    generations: new IpcUnityGenerationSnapshot(8, 12, 0, 1),
-                    playMode: new IpcPlayModeSnapshot(
-                        IpcPlayModeState.Playing,
-                        IpcPlayModeTransition.None,
-                        IsPlaying: true,
-                        IsPlayingOrWillChangePlaymode: true)),
-                observedAtUtc: DateTimeOffset.UnixEpoch));
-        var service = CreateService(
-            resolver,
-            daemonStatusOperation,
-            pingInfoClient,
-            new StubDaemonReachabilityClassifier(static _ => false),
-            new RecordingDaemonSessionDiagnosisResolver());
+        var session = DaemonSessionTestFactory.Create(
+            editorMode: DaemonEditorMode.Gui,
+            ownerKind: DaemonSessionOwnerKind.User,
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
+        var pingResponse = new IpcUnityEditorObservation(
+            serverVersion: "9.9.10",
+            unityVersion: "6000.1.4f1",
+            projectFingerprint: context.Context.UnityProject.ProjectFingerprint,
+            state: new UnityEditorStateSnapshot(
+                editorMode: DaemonEditorMode.Gui,
+                lifecycleState: IpcEditorLifecycleState.PlayMode,
+                compileState: IpcCompileState.Ready,
+                generations: new IpcUnityGenerationSnapshot(8, 12, 0, 1),
+                playMode: new IpcPlayModeSnapshot(
+                    IpcPlayModeState.Playing,
+                    IpcPlayModeTransition.None,
+                    IsPlaying: true,
+                    IsPlayingOrWillChangePlaymode: true)),
+            observedAtUtc: DateTimeOffset.UnixEpoch,
+            actionRequired: null,
+            primaryDiagnostic: null);
+        var daemonStatusOperation = new RecordingDaemonStatusOperation(
+            DaemonStatusResult.Running(session, pingResponse, diagnosis: null));
+        var service = CreateService(resolver, daemonStatusOperation);
 
         var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
 
@@ -121,66 +105,4 @@ public sealed class DaemonStatusServiceRunningTelemetryTests
         Assert.False(output.Session.CanShutdownProcess);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task GetStatus_WhenRunningPingInfoReadTimesOut_ReturnsUnavailableStaleStatus ()
-    {
-        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 2480);
-        var resolver = new RecordingDaemonCommandExecutionContextResolver(
-            DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(
-            DaemonStatusResult.Running(DaemonSessionTestFactory.Create()));
-        var pingInfoClient = new RecordingDaemonPingInfoClient(new TimeoutException("ping timeout"));
-        var service = CreateService(
-            resolver,
-            daemonStatusOperation,
-            pingInfoClient,
-            new StubDaemonReachabilityClassifier(static _ => false),
-            new RecordingDaemonSessionDiagnosisResolver());
-
-        var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
-
-        Assert.True(result.IsSuccess);
-        var output = Assert.IsType<DaemonStatusExecutionOutput>(result.Output);
-        Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
-        Assert.Equal(IpcEditorLifecycleState.Unavailable, output.LifecycleState);
-        Assert.False(output.CanAcceptExecutionRequests);
-        Assert.Null(result.Error);
-        DaemonStatusServiceInvocationAssert.DaemonPingTelemetryRead(
-            pingInfoClient,
-            context,
-            expectedTimeout: null,
-            expectedSessionToken: DaemonSessionTestFactory.Create().SessionToken);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task GetStatus_WhenRunningPingInfoReadFailsUnexpectedly_ReturnsInternalError ()
-    {
-        var context = DaemonCommandExecutionContextTestFactory.Create(timeoutMilliseconds: 2490);
-        var resolver = new RecordingDaemonCommandExecutionContextResolver(
-            DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonStatusOperation = new RecordingDaemonStatusOperation(
-            DaemonStatusResult.Running(DaemonSessionTestFactory.Create()));
-        var pingInfoClient = new RecordingDaemonPingInfoClient(new InvalidOperationException("broken pipe"));
-        var service = CreateService(
-            resolver,
-            daemonStatusOperation,
-            pingInfoClient,
-            new StubDaemonReachabilityClassifier(static _ => false),
-            new RecordingDaemonSessionDiagnosisResolver());
-
-        var result = await service.GetStatusAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal("Failed to read daemon ping information. broken pipe", error.Message);
-        DaemonStatusServiceInvocationAssert.DaemonPingTelemetryRead(
-            pingInfoClient,
-            context,
-            expectedTimeout: null,
-            expectedSessionToken: DaemonSessionTestFactory.Create().SessionToken);
-    }
 }

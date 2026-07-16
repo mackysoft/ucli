@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.SceneInspection;
@@ -10,31 +11,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Resolves parsed selectors either to stable references or to live Unity objects. </summary>
     internal static class ResolveReferenceResolver
     {
-        /// <summary> Determines whether GlobalObjectId text is syntactically valid. </summary>
-        /// <param name="globalObjectIdText"> The GlobalObjectId text value. </param>
-        /// <returns> <see langword="true" /> when text is syntactically valid; otherwise <see langword="false" />. </returns>
-        public static bool IsValidGlobalObjectIdText (string globalObjectIdText)
-        {
-            return GlobalObjectId.TryParse(globalObjectIdText, out _);
-        }
-
         /// <summary> Tries to create one stable reference for a GameObject, including request-local preview fallback for mirrored scene and prefab plan state. </summary>
         /// <param name="gameObject"> The GameObject whose stable identity is required. </param>
         /// <param name="executionContext"> The current request execution context when request-local preview fallback should be considered. </param>
-        /// <param name="resolvedReference"> The resolved stable reference when successful. </param>
+        /// <param name="stableObjectId"> The resolved stable reference when successful. </param>
         /// <returns> <see langword="true" /> when a stable reference can be created; otherwise <see langword="false" />. </returns>
-        public static bool TryCreateGameObjectResolvedReference (
+        public static bool TryCreateGameObjectGlobalObjectId (
             GameObject gameObject,
             OperationExecutionContext? executionContext,
-            out ResolvedReference? resolvedReference)
+            [NotNullWhen(true)] out UnityGlobalObjectId? stableObjectId)
         {
             if (gameObject == null)
             {
                 throw new ArgumentNullException(nameof(gameObject));
             }
 
-            resolvedReference = null;
-            if (TryCreateResolvedReference(gameObject, out resolvedReference, out _))
+            stableObjectId = null;
+            if (TryCreateGlobalObjectId(gameObject, out stableObjectId, out _))
             {
                 return true;
             }
@@ -44,28 +37,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (TryCreateResolvedReferenceFromPreviewSceneObject(gameObject, executionContext, out resolvedReference))
+            if (TryCreateGlobalObjectIdFromPreviewSceneObject(gameObject, executionContext, out stableObjectId))
             {
                 return true;
             }
 
-            return TryCreateResolvedReferenceFromPreviewPrefabObject(gameObject, executionContext, out resolvedReference);
+            return TryCreateGlobalObjectIdFromPreviewPrefabObject(gameObject, executionContext, out stableObjectId);
         }
 
         /// <summary> Tries to resolve one selector to a GlobalObjectId-normalized reference. </summary>
         /// <param name="selector"> The parsed selector. </param>
         /// <param name="executionContext"> The current request execution context. Must not be <see langword="null" />. </param>
         /// <param name="allowTemporaryState"> <see langword="true" /> to observe request-local scene/prefab planning state before falling back to stable non-temporary sources. </param>
-        /// <param name="resolvedReference"> The resolved reference when successful. </param>
+        /// <param name="stableObjectId"> The resolved reference when successful. </param>
         /// <param name="errorMessage"> The resolution error message when failed. </param>
         /// <returns> <see langword="true" /> when resolution succeeds; otherwise <see langword="false" />. </returns>
         public static bool TryResolveStableReference (
             ResolveSelector selector,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
-            out ResolvedReference? resolvedReference,
+            [NotNullWhen(true)] out UnityGlobalObjectId? stableObjectId,
             out string errorMessage)
         {
+            if (selector == null)
+            {
+                throw new ArgumentNullException(nameof(selector));
+            }
+
             if (executionContext == null)
             {
                 throw new ArgumentNullException(nameof(executionContext));
@@ -78,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         selector.GlobalObjectId!,
                         executionContext,
                         allowTemporaryState,
-                        out resolvedReference,
+                        out stableObjectId,
                         out errorMessage);
 
                 case ResolveSelectorKind.SceneHierarchyPath:
@@ -88,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         componentType: null,
                         executionContext,
                         allowTemporaryState,
-                        out resolvedReference,
+                        out stableObjectId,
                         out errorMessage);
 
                 case ResolveSelectorKind.SceneComponent:
@@ -98,7 +96,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         selector.ComponentType!,
                         executionContext,
                         allowTemporaryState,
-                        out resolvedReference,
+                        out stableObjectId,
                         out errorMessage);
 
                 case ResolveSelectorKind.PrefabHierarchyPath:
@@ -108,7 +106,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         componentType: null,
                         executionContext,
                         allowTemporaryState,
-                        out resolvedReference,
+                        out stableObjectId,
                         out errorMessage);
 
                 case ResolveSelectorKind.PrefabComponent:
@@ -118,7 +116,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         selector.ComponentType!,
                         executionContext,
                         allowTemporaryState,
-                        out resolvedReference,
+                        out stableObjectId,
                         out errorMessage);
 
                 default:
@@ -126,7 +124,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         selector,
                         executionContext,
                         allowTemporaryState,
-                        out resolvedReference,
+                        out stableObjectId,
                         out errorMessage);
             }
         }
@@ -142,9 +140,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             ResolveSelector selector,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
-            out UnityEngine.Object? unityObject,
+            [NotNullWhen(true)] out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
+            if (selector == null)
+            {
+                throw new ArgumentNullException(nameof(selector));
+            }
+
             return TryResolveCore(
                 selector,
                 executionContext,
@@ -157,10 +160,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             ResolveSelector selector,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
-            out ResolvedReference? resolvedReference,
+            out UnityGlobalObjectId? stableObjectId,
             out string errorMessage)
         {
-            resolvedReference = null;
+            stableObjectId = null;
             if (!TryResolveCore(
                     selector,
                     executionContext,
@@ -171,21 +174,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            return TryCreateResolvedReference(unityObject!, out resolvedReference, out errorMessage);
+            return TryCreateGlobalObjectId(unityObject!, out stableObjectId, out errorMessage);
         }
 
         private static bool TryResolveSceneStableReference (
-            string scenePath,
-            string hierarchyPath,
-            string? componentType,
+            SceneAssetPath scenePath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
-            out ResolvedReference? resolvedReference,
+            out UnityGlobalObjectId? stableObjectId,
             out string errorMessage)
         {
-            resolvedReference = null;
+            stableObjectId = null;
             if (allowTemporaryState
-                && executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene))
+                && executionContext.TryGetTemporaryScene(scenePath.Value, out var temporaryScene))
             {
                 if (!TryResolveSceneTargetFromScene(
                         temporaryScene,
@@ -199,11 +202,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                if (TryCreateResolvedReferenceFromTemporarySceneTarget(
-                        scenePath,
+                if (TryCreateGlobalObjectIdFromTemporarySceneTarget(
+                        scenePath.Value,
                         temporaryTarget!,
                         executionContext,
-                        out resolvedReference))
+                        out stableObjectId))
                 {
                     errorMessage = string.Empty;
                     return true;
@@ -213,7 +216,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out _, out errorMessage))
+            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath.Value, out _, out errorMessage))
             {
                 return false;
             }
@@ -222,22 +225,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 ResolveSelector.FromSceneHierarchy(scenePath, hierarchyPath, componentType),
                 executionContext,
                 allowTemporaryState: false,
-                out resolvedReference,
+                out stableObjectId,
                 out errorMessage);
         }
 
         private static bool TryResolvePrefabStableReference (
-            string prefabPath,
-            string hierarchyPath,
-            string? componentType,
+            PrefabAssetPath prefabPath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
-            out ResolvedReference? resolvedReference,
+            out UnityGlobalObjectId? stableObjectId,
             out string errorMessage)
         {
-            resolvedReference = null;
+            stableObjectId = null;
             if (allowTemporaryState
-                && executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot)
+                && executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath.Value, out var temporaryPrefabRoot)
                 && temporaryPrefabRoot != null)
             {
                 if (!TryResolvePrefabTargetFromRoot(
@@ -252,11 +255,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                if (TryCreateResolvedReferenceFromTemporaryPrefabTarget(
-                        prefabPath,
+                if (TryCreateGlobalObjectIdFromTemporaryPrefabTarget(
+                        prefabPath.Value,
                         temporaryTarget!,
                         executionContext,
-                        out resolvedReference))
+                        out stableObjectId))
                 {
                     errorMessage = string.Empty;
                     return true;
@@ -266,7 +269,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var prefabStage, out _))
+            if (PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath.Value, out var prefabStage, out _))
             {
                 var prefabContentsRoot = prefabStage!.prefabContentsRoot;
                 if (prefabContentsRoot == null)
@@ -287,13 +290,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                if (TryCreateResolvedReference(openedStageTarget!, out resolvedReference, out _))
+                if (TryCreateGlobalObjectId(openedStageTarget!, out stableObjectId, out _))
                 {
                     errorMessage = string.Empty;
                     return true;
                 }
 
-                if (TryCreateResolvedReferenceFromPrefabMirrorSource(prefabPath, openedStageTarget!, out resolvedReference, out _))
+                if (TryCreateGlobalObjectIdFromPrefabMirrorSource(prefabPath.Value, openedStageTarget!, out stableObjectId, out _))
                 {
                     errorMessage = string.Empty;
                     return true;
@@ -308,7 +311,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            return TryCreateResolvedReference(unityObject!, out resolvedReference, out errorMessage);
+            return TryCreateGlobalObjectId(unityObject!, out stableObjectId, out errorMessage);
         }
 
         /// <summary>
@@ -343,11 +346,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         out errorMessage);
 
                 case ResolveSelectorKind.AssetGuid:
-                    return TryResolveAssetObjectFromGuid(selector.AssetGuid!, out unityObject, out errorMessage);
+                    return TryResolveAssetObjectFromGuid(selector.AssetGuid!.Value, out unityObject, out errorMessage);
 
                 case ResolveSelectorKind.AssetPath:
                     return TryResolveAssetObjectFromPath(
-                        selector.AssetPath!,
+                        selector.AssetPath!.Value,
                         executionContext,
                         allowTemporaryState,
                         out unityObject,
@@ -355,7 +358,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
                 case ResolveSelectorKind.ProjectAssetPath:
                     return TryResolveAssetObjectFromPath(
-                        selector.ProjectAssetPath!,
+                        selector.ProjectAssetPath!.Value,
                         executionContext,
                         allowTemporaryState,
                         out unityObject,
@@ -409,8 +412,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolveSceneGameObject (
-            string scenePath,
-            string hierarchyPath,
+            SceneAssetPath scenePath,
+            UnityHierarchyPath hierarchyPath,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out GameObject? gameObject,
@@ -418,17 +421,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             gameObject = null;
             if (allowTemporaryState
-                && executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene))
+                && executionContext.TryGetTemporaryScene(scenePath.Value, out var temporaryScene))
             {
-                return SceneHierarchyPathResolver.TryResolveSceneObject(temporaryScene, hierarchyPath, out gameObject, out errorMessage);
+                return SceneHierarchyPathResolver.TryResolveSceneObject(temporaryScene, hierarchyPath.Value, out gameObject, out errorMessage);
             }
 
-            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath, out var loadedScene, out errorMessage))
+            if (!SceneAssetSourceUtilities.TryGetLoadedScene(scenePath.Value, out var loadedScene, out errorMessage))
             {
                 return false;
             }
 
-            return SceneHierarchyPathResolver.TryResolveSceneObject(loadedScene, hierarchyPath, out gameObject, out errorMessage);
+            return SceneHierarchyPathResolver.TryResolveSceneObject(loadedScene, hierarchyPath.Value, out gameObject, out errorMessage);
         }
 
         /// <summary>
@@ -443,9 +446,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The resolution error message when failed. </param>
         /// <returns> <see langword="true" /> when selector resolution succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryResolveSceneTarget (
-            string scenePath,
-            string hierarchyPath,
-            string? componentType,
+            SceneAssetPath scenePath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
@@ -485,9 +488,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The resolution error message when failed. </param>
         /// <returns> <see langword="true" /> when selector resolution succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryResolvePrefabTarget (
-            string prefabPath,
-            string hierarchyPath,
-            string? componentType,
+            PrefabAssetPath prefabPath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
@@ -511,21 +514,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolvePrefabTargetFromRoot (
             GameObject prefabRootOrTarget,
-            string hierarchyPath,
-            string? componentType,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
             unityObject = null;
-            GameObject? gameObject;
-            if (string.IsNullOrEmpty(hierarchyPath))
-            {
-                gameObject = prefabRootOrTarget;
-                errorMessage = string.Empty;
-            }
-            else if (!PrefabHierarchyPathResolver.TryResolve(prefabRootOrTarget, hierarchyPath, out gameObject, out errorMessage))
+            if (!PrefabHierarchyPathResolver.TryResolve(
+                    prefabRootOrTarget,
+                    hierarchyPath.Value,
+                    out var gameObject,
+                    out errorMessage))
             {
                 return false;
             }
@@ -537,9 +538,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
+            if (!ComponentTypeResolver.TryResolveComponentType(componentType.Value, out var componentRuntimeType, out errorMessage))
+            {
+                return false;
+            }
+
             if (!ComponentOperationUtilities.TryResolveComponentSelector(
                     gameObject!,
-                    componentType,
+                    componentRuntimeType,
                     executionContext,
                     allowTemporaryState,
                     out var resolution,
@@ -569,15 +575,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveSceneTargetFromScene (
             UnityEngine.SceneManagement.Scene scene,
-            string hierarchyPath,
-            string? componentType,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
             unityObject = null;
-            if (!SceneHierarchyPathResolver.TryResolveSceneObject(scene, hierarchyPath, out var gameObject, out errorMessage))
+            if (!SceneHierarchyPathResolver.TryResolveSceneObject(scene, hierarchyPath.Value, out var gameObject, out errorMessage))
             {
                 return false;
             }
@@ -593,9 +599,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolvePrefabAssetTarget (
-            string prefabPath,
-            string hierarchyPath,
-            string? componentType,
+            PrefabAssetPath prefabPath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
@@ -616,14 +622,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolveOpenedPrefabStageTarget (
-            string prefabPath,
-            string hierarchyPath,
-            string? componentType,
+            PrefabAssetPath prefabPath,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
             unityObject = null;
-            if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var prefabStage, out _))
+            if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath.Value, out var prefabStage, out _))
             {
                 errorMessage = string.Empty;
                 return false;
@@ -647,8 +653,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolvePrefabGameObject (
-            string prefabPath,
-            string hierarchyPath,
+            PrefabAssetPath prefabPath,
+            UnityHierarchyPath hierarchyPath,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out GameObject? gameObject,
@@ -656,13 +662,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             gameObject = null;
             if (allowTemporaryState
-                && executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot)
+                && executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath.Value, out var temporaryPrefabRoot)
                 && temporaryPrefabRoot != null)
             {
-                return PrefabHierarchyPathResolver.TryResolve(temporaryPrefabRoot, hierarchyPath, out gameObject, out errorMessage);
+                return PrefabHierarchyPathResolver.TryResolve(temporaryPrefabRoot, hierarchyPath.Value, out gameObject, out errorMessage);
             }
 
-            if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath, out var prefabStage, out _))
+            if (!PrefabOperationUtilities.TryGetOpenedPrefabStage(prefabPath.Value, out var prefabStage, out _))
             {
                 errorMessage = $"Prefab is not opened: {prefabPath}. Use 'ucli.prefab.open' first.";
                 return false;
@@ -675,15 +681,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            return PrefabHierarchyPathResolver.TryResolve(prefabContentsRoot, hierarchyPath, out gameObject, out errorMessage);
+            return PrefabHierarchyPathResolver.TryResolve(prefabContentsRoot, hierarchyPath.Value, out gameObject, out errorMessage);
         }
 
         private static bool TryResolvePrefabAssetRoot (
-            string prefabPath,
+            PrefabAssetPath prefabPath,
             out GameObject? prefabAssetRoot,
             out string errorMessage)
         {
-            prefabAssetRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+            prefabAssetRoot = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath.Value);
             if (prefabAssetRoot == null)
             {
                 errorMessage = $"Prefab path could not be resolved to a prefab asset: {prefabPath}.";
@@ -695,22 +701,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         /// <summary> Validates one GlobalObjectId selector against current request-local state and preserves its stable identity. </summary>
-        /// <param name="globalObjectIdText"> The GlobalObjectId selector literal. </param>
+        /// <param name="globalObjectId"> The parsed GlobalObjectId selector. </param>
         /// <param name="executionContext"> The current request execution context. </param>
         /// <param name="allowTemporaryState"> <see langword="true" /> to honor request-local shadows, mirrors, and deletions before current live state. </param>
-        /// <param name="resolvedReference"> The normalized resolved reference when the identifier is valid in current request-local state. </param>
+        /// <param name="stableObjectId"> The normalized resolved reference when the identifier is valid in current request-local state. </param>
         /// <param name="errorMessage"> The resolution error message when the identifier cannot be resolved in current request-local state. </param>
         /// <returns> <see langword="true" /> when the GlobalObjectId remains valid for the current request state; otherwise <see langword="false" />. </returns>
         private static bool TryResolveGlobalObjectIdStableReference (
-            string globalObjectIdText,
+            UnityGlobalObjectId globalObjectId,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
-            out ResolvedReference? resolvedReference,
+            out UnityGlobalObjectId? stableObjectId,
             out string errorMessage)
         {
-            resolvedReference = null;
+            stableObjectId = null;
             if (!TryResolveUnityObjectFromGlobalObjectId(
-                    globalObjectIdText,
+                    globalObjectId,
                     executionContext,
                     allowTemporaryState,
                     out _,
@@ -719,58 +725,64 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            resolvedReference = new ResolvedReference(globalObjectIdText);
+            stableObjectId = globalObjectId;
             errorMessage = string.Empty;
             return true;
         }
 
         /// <summary>
-        /// Resolves one GlobalObjectId literal to the live Unity object that currently exposes that identity.
+        /// Resolves one parsed GlobalObjectId to the live Unity object that currently exposes that identity.
         /// </summary>
-        /// <param name="globalObjectIdText"> The GlobalObjectId text literal. </param>
+        /// <param name="globalObjectId"> The parsed GlobalObjectId. </param>
         /// <param name="executionContext"> The current request execution context. </param>
         /// <param name="allowTemporaryState"> <see langword="true" /> to let request-local shadows, mirrors, and deletions override current live editor state. </param>
         /// <param name="unityObject"> The resolved Unity object when successful. </param>
         /// <param name="errorMessage"> The resolution error message when failed. </param>
         /// <returns> <see langword="true" /> when the GlobalObjectId resolves in the current editor state; otherwise <see langword="false" />. </returns>
         private static bool TryResolveUnityObjectFromGlobalObjectId (
-            string globalObjectIdText,
+            UnityGlobalObjectId globalObjectId,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
-            if (!GlobalObjectId.TryParse(globalObjectIdText, out var globalObjectId))
+            if (globalObjectId == null)
+            {
+                throw new ArgumentNullException(nameof(globalObjectId));
+            }
+
+            if (!GlobalObjectId.TryParse(globalObjectId.Value, out var nativeGlobalObjectId))
             {
                 unityObject = null;
-                errorMessage = $"'{IpcResolveSelectorPropertyNames.GlobalObjectId}' must be a valid GlobalObjectId string.";
+                errorMessage = $"GlobalObjectId is not supported by the current Unity Editor: {globalObjectId.Value}.";
                 return false;
             }
 
             if (allowTemporaryState)
             {
-                if (executionContext.IsDeletedGlobalObjectId(globalObjectIdText))
+                if (executionContext.IsDeletedStableObject(globalObjectId))
                 {
                     unityObject = null;
-                    errorMessage = $"GlobalObjectId is not resolvable in current request-local state: {globalObjectIdText}.";
+                    errorMessage = $"GlobalObjectId is not resolvable in current request-local state: {globalObjectId.Value}.";
                     return false;
                 }
 
-                if (executionContext.TryGetComponentShadowState(globalObjectIdText, out var componentShadowState))
+                var sourceIdentity = RequestLocalObjectIdentity.FromGlobalObjectId(globalObjectId);
+                if (executionContext.TryGetComponentShadowState(sourceIdentity, out var componentShadowState))
                 {
                     unityObject = componentShadowState.Component;
                     errorMessage = string.Empty;
                     return true;
                 }
 
-                if (executionContext.TryGetAssetShadow(globalObjectIdText, out unityObject, out _)
+                if (executionContext.TryGetAssetShadow(globalObjectId, out unityObject, out _)
                     && unityObject != null)
                 {
                     errorMessage = string.Empty;
                     return true;
                 }
 
-                if (executionContext.TryResolveTemporaryPreviewObjectFromStableReference(globalObjectIdText, out unityObject)
+                if (executionContext.TryResolveTemporaryPreviewObjectFromGlobalObjectId(globalObjectId, out unityObject)
                     && unityObject != null)
                 {
                     errorMessage = string.Empty;
@@ -778,10 +790,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
-            unityObject = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(globalObjectId);
+            unityObject = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(nativeGlobalObjectId);
             if (unityObject == null)
             {
-                errorMessage = $"GlobalObjectId is not resolvable in current project state: {globalObjectIdText}.";
+                errorMessage = $"GlobalObjectId is not resolvable in current project state: {globalObjectId.Value}.";
                 return false;
             }
 
@@ -796,7 +808,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 && temporaryPrefabRoot != null)
             {
                 unityObject = null;
-                errorMessage = $"GlobalObjectId is not resolvable in current request-local state: {globalObjectIdText}.";
+                errorMessage = $"GlobalObjectId is not resolvable in current request-local state: {globalObjectId.Value}.";
                 return false;
             }
 
@@ -862,8 +874,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (!executionContext.TryResolveTemporaryScenePreviewObject(scene.path, liveObject, out previewObject))
             {
-                if (!TryCreateResolvedReference(liveObject, out var resolvedReference, out _)
-                    || !executionContext.TryResolveTemporaryPreviewObjectFromStableReference(resolvedReference!.GlobalObjectId, out previewObject))
+                if (!UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(liveObject, out var globalObjectId)
+                    || !executionContext.TryResolveTemporaryPreviewObjectFromGlobalObjectId(globalObjectId, out previewObject))
                 {
                     previewObject = null;
                     return false;
@@ -908,8 +920,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (!TryCreateResolvedReference(liveOrPersistentObject, out var resolvedReference, out _)
-                || !executionContext.TryResolveTemporaryPreviewObjectFromStableReference(resolvedReference!.GlobalObjectId, out previewObject))
+            if (!UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(liveOrPersistentObject, out var globalObjectId)
+                || !executionContext.TryResolveTemporaryPreviewObjectFromGlobalObjectId(globalObjectId, out previewObject))
             {
                 previewObject = null;
                 return false;
@@ -959,28 +971,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             prefabPath = string.Empty;
             var assetPath = AssetDatabase.GetAssetPath(unityObject);
-            if (string.IsNullOrWhiteSpace(assetPath))
+            if (!PrefabAssetPath.TryParse(assetPath, out var typedPrefabPath)
+                || !PrefabOperationUtilities.TryEnsurePrefabAssetExists(typedPrefabPath, out _))
             {
                 return false;
             }
 
-            assetPath = PathStringNormalizer.ToSlashSeparated(assetPath);
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(assetPath, out var normalizedPrefabPath, out _))
-            {
-                return false;
-            }
-
-            prefabPath = normalizedPrefabPath;
+            prefabPath = typedPrefabPath.Value;
             return true;
         }
 
         private static bool TryResolveAssetObjectFromGuid (
-            string assetGuid,
+            Guid assetGuid,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
             unityObject = null;
-            var assetPath = AssetDatabase.GUIDToAssetPath(assetGuid);
+            var assetPath = AssetDatabase.GUIDToAssetPath(assetGuid.ToString("N"));
             if (string.IsNullOrWhiteSpace(assetPath))
             {
                 errorMessage = $"Asset GUID could not be resolved: {assetGuid}.";
@@ -1026,8 +1033,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private static bool TryResolveTargetObjectOrComponent (
             GameObject gameObject,
-            string hierarchyPath,
-            string? componentType,
+            UnityHierarchyPath hierarchyPath,
+            UnityComponentTypeId? componentType,
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
@@ -1041,9 +1048,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
+            if (!ComponentTypeResolver.TryResolveComponentType(componentType.Value, out var componentRuntimeType, out errorMessage))
+            {
+                return false;
+            }
+
             if (!ComponentOperationUtilities.TryResolveComponentSelector(
                     gameObject,
-                    componentType,
+                    componentRuntimeType,
                     executionContext,
                     allowTemporaryState,
                     out var resolution,
@@ -1073,15 +1085,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Converts one Unity object into a GlobalObjectId-normalized reference when the object exposes stable editor identity. </summary>
         /// <param name="unityObject"> The Unity object to normalize. </param>
-        /// <param name="resolvedReference"> The normalized resolved reference when successful. </param>
+        /// <param name="stableObjectId"> The normalized resolved reference when successful. </param>
         /// <param name="errorMessage"> The validation error message when the object has no stable editor identity. </param>
         /// <returns> <see langword="true" /> when a stable resolved reference can be created; otherwise <see langword="false" />. </returns>
-        private static bool TryCreateResolvedReference (
+        private static bool TryCreateGlobalObjectId (
             UnityEngine.Object unityObject,
-            out ResolvedReference? resolvedReference,
+            out UnityGlobalObjectId? stableObjectId,
             out string errorMessage)
         {
-            if (!UnityObjectReferenceResolver.TryCreateResolvedReference(unityObject, out resolvedReference))
+            if (!UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(unityObject, out stableObjectId))
             {
                 errorMessage = "Resolved target does not expose a stable GlobalObjectId in the current editor state.";
                 return false;
@@ -1091,93 +1103,93 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        private static bool TryCreateResolvedReferenceFromPreviewSceneObject (
+        private static bool TryCreateGlobalObjectIdFromPreviewSceneObject (
             GameObject gameObject,
             OperationExecutionContext executionContext,
-            out ResolvedReference? resolvedReference)
+            out UnityGlobalObjectId? stableObjectId)
         {
-            resolvedReference = null;
+            stableObjectId = null;
             if (!executionContext.TryResolveTemporaryScenePath(gameObject.scene, out var scenePath))
             {
                 return false;
             }
 
-            return TryCreateResolvedReferenceFromTemporarySceneTarget(scenePath, gameObject, executionContext, out resolvedReference);
+            return TryCreateGlobalObjectIdFromTemporarySceneTarget(scenePath, gameObject, executionContext, out stableObjectId);
         }
 
-        private static bool TryCreateResolvedReferenceFromPreviewPrefabObject (
+        private static bool TryCreateGlobalObjectIdFromPreviewPrefabObject (
             GameObject gameObject,
             OperationExecutionContext executionContext,
-            out ResolvedReference? resolvedReference)
+            out UnityGlobalObjectId? stableObjectId)
         {
-            resolvedReference = null;
+            stableObjectId = null;
             if (!executionContext.TryResolveTemporaryPrefabPath(gameObject, out var prefabPath))
             {
                 return false;
             }
 
-            return TryCreateResolvedReferenceFromTemporaryPrefabTarget(prefabPath, gameObject, executionContext, out resolvedReference);
+            return TryCreateGlobalObjectIdFromTemporaryPrefabTarget(prefabPath, gameObject, executionContext, out stableObjectId);
         }
 
-        private static bool TryCreateResolvedReferenceFromTemporarySceneTarget (
+        private static bool TryCreateGlobalObjectIdFromTemporarySceneTarget (
             string scenePath,
             UnityEngine.Object unityObject,
             OperationExecutionContext executionContext,
-            out ResolvedReference? resolvedReference)
+            out UnityGlobalObjectId? stableObjectId)
         {
-            resolvedReference = null;
-            if (executionContext.TryResolveTemporarySceneStableReference(scenePath, unityObject, out var stableReference))
+            stableObjectId = null;
+            if (executionContext.TryResolveTemporarySceneGlobalObjectId(scenePath, unityObject, out var globalObjectId))
             {
-                resolvedReference = new ResolvedReference(stableReference);
+                stableObjectId = globalObjectId;
                 return true;
             }
 
-            if (TryCreateResolvedReference(unityObject, out resolvedReference, out _))
+            if (TryCreateGlobalObjectId(unityObject, out stableObjectId, out _))
             {
                 return true;
             }
 
             return executionContext.TryResolveTemporarySceneSourceObject(scenePath, unityObject, out var mirroredSourceObject)
                 && mirroredSourceObject != null
-                && TryCreateResolvedReference(mirroredSourceObject, out resolvedReference, out _);
+                && TryCreateGlobalObjectId(mirroredSourceObject, out stableObjectId, out _);
         }
 
-        private static bool TryCreateResolvedReferenceFromTemporaryPrefabTarget (
+        private static bool TryCreateGlobalObjectIdFromTemporaryPrefabTarget (
             string prefabPath,
             UnityEngine.Object unityObject,
             OperationExecutionContext executionContext,
-            out ResolvedReference? resolvedReference)
+            out UnityGlobalObjectId? stableObjectId)
         {
-            resolvedReference = null;
-            if (executionContext.TryResolveTemporaryPrefabStableReference(prefabPath, unityObject, out var stableReference))
+            stableObjectId = null;
+            if (executionContext.TryResolveTemporaryPrefabGlobalObjectId(prefabPath, unityObject, out var globalObjectId))
             {
-                resolvedReference = new ResolvedReference(stableReference);
+                stableObjectId = globalObjectId;
                 return true;
             }
 
-            if (TryCreateResolvedReference(unityObject, out resolvedReference, out _))
+            if (TryCreateGlobalObjectId(unityObject, out stableObjectId, out _))
             {
                 return true;
             }
 
             return executionContext.TryResolveTemporaryPrefabSourceObject(prefabPath, unityObject, out var mirroredSourceObject)
                 && mirroredSourceObject != null
-                && TryCreateResolvedReferenceFromPrefabMirrorSource(prefabPath, mirroredSourceObject, out resolvedReference, out _);
+                && TryCreateGlobalObjectIdFromPrefabMirrorSource(prefabPath, mirroredSourceObject, out stableObjectId, out _);
         }
 
         /// <summary> Creates one stable resolved reference from one prefab mirror object or its persisted prefab correspondence. </summary>
         /// <param name="prefabPath"> The prefab asset path used to search persisted prefab correspondence. </param>
         /// <param name="unityObject"> The prefab mirror object, opened-stage object, or persisted prefab object. </param>
-        /// <param name="resolvedReference"> The stable resolved reference when the object or one of its persisted correspondences exposes a GlobalObjectId. </param>
+        /// <param name="stableObjectId"> The stable resolved reference when the object or one of its persisted correspondences exposes a GlobalObjectId. </param>
         /// <param name="errorMessage"> The validation error message when no stable prefab correspondence can be normalized. </param>
         /// <returns> <see langword="true" /> when a stable resolved reference can be created; otherwise <see langword="false" />. </returns>
-        private static bool TryCreateResolvedReferenceFromPrefabMirrorSource (
+        private static bool TryCreateGlobalObjectIdFromPrefabMirrorSource (
             string prefabPath,
             UnityEngine.Object unityObject,
-            out ResolvedReference? resolvedReference,
+            out UnityGlobalObjectId? stableObjectId,
             out string errorMessage)
         {
-            if (TryCreateResolvedReference(unityObject, out resolvedReference, out _))
+            if (TryCreateGlobalObjectId(unityObject, out stableObjectId, out _))
             {
                 errorMessage = string.Empty;
                 return true;
@@ -1185,7 +1197,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var prefabSourceAtPath = PrefabUtility.GetCorrespondingObjectFromSourceAtPath(unityObject, prefabPath);
             if (prefabSourceAtPath != null
-                && TryCreateResolvedReference(prefabSourceAtPath, out resolvedReference, out _))
+                && TryCreateGlobalObjectId(prefabSourceAtPath, out stableObjectId, out _))
             {
                 errorMessage = string.Empty;
                 return true;
@@ -1193,7 +1205,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var prefabSourceObject = PrefabUtility.GetCorrespondingObjectFromSource(unityObject);
             if (prefabSourceObject != null
-                && TryCreateResolvedReference(prefabSourceObject, out resolvedReference, out _))
+                && TryCreateGlobalObjectId(prefabSourceObject, out stableObjectId, out _))
             {
                 errorMessage = string.Empty;
                 return true;
@@ -1201,7 +1213,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var originalSource = PrefabUtility.GetCorrespondingObjectFromOriginalSource(unityObject);
             if (originalSource != null
-                && TryCreateResolvedReference(originalSource, out resolvedReference, out _))
+                && TryCreateGlobalObjectId(originalSource, out stableObjectId, out _))
             {
                 errorMessage = string.Empty;
                 return true;

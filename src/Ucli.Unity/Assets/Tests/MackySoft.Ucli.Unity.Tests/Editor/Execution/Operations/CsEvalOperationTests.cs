@@ -1,18 +1,22 @@
 using System;
 using System.Collections;
+using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Execution.CsEval;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using UnityEngine.TestTools;
-using MackySoft.Ucli.Contracts.Operations;
 
 #nullable enable
 
@@ -21,6 +25,21 @@ namespace MackySoft.Ucli.Unity.Tests
     public sealed class CsEvalOperationTests
     {
         private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
+        [Test]
+        [Category("Size.Small")]
+        public void Log_WhenUtf8MessageExceedsLimit_TruncatesWithoutSplittingSurrogatePair ()
+        {
+            var context = new UcliCsEvalContext();
+            var message = new string('x', CsEvalSafetyLimits.MaxLogMessageBytes - 3) + "\U0001F600";
+
+            context.Log(message);
+
+            var log = context.Logs[0];
+            Assert.That(Encoding.UTF8.GetByteCount(log.Message), Is.EqualTo(CsEvalSafetyLimits.MaxLogMessageBytes));
+            Assert.That(log.Message, Does.EndWith("..."));
+            Assert.That(log.Message, Does.Not.Contain("\uD83D"));
+        }
 
         [Test]
         [Category("Size.Small")]
@@ -36,9 +55,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(operation.Metadata.DescribeContract.CodeContract, Is.Not.Null);
             Assert.That(operation.Metadata.DescribeContract.CodeContract!.EntryPoint!.Signature, Is.EqualTo("public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)"));
             Assert.That(operation.Metadata.DescribeContract.CodeContract.EntryPoint.MatchRule, Is.EqualTo("Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>."));
-            Assert.That(operation.Metadata.DescribeContract.CodeContract.SourceForms![0].Kind, Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
+            Assert.That(operation.Metadata.DescribeContract.CodeContract.SourceForms![0].Kind, Is.EqualTo(UcliCodeSourceFormKind.CompilationUnit));
             Assert.That(operation.Metadata.DescribeContract.CodeContract.SourceForms[0].Description, Does.Contain("compilation unit"));
-            Assert.That(operation.Metadata.DescribeContract.CodeContract.SourceForms[1].Kind, Is.EqualTo(CsEvalSourceKindValues.Snippet));
+            Assert.That(operation.Metadata.DescribeContract.CodeContract.SourceForms[1].Kind, Is.EqualTo(UcliCodeSourceFormKind.Snippet));
             Assert.That(operation.Metadata.DescribeContract.CodeContract.SourceForms[1].Description, Does.Contain("snippet"));
             Assert.That(operation.Metadata.DescribeContract.CodeContract.EntryPoint.ReturnValue, Does.Contain("getter"));
             Assert.That(operation.Metadata.DescribeContract.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
@@ -83,9 +102,9 @@ namespace EvalScripts
             Assert.That(result.Applied, Is.False);
             Assert.That(result.Changed, Is.False);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.CompilationUnit)));
             Assert.That(payload.GetProperty("resolvedEntryPoint").GetString(), Is.EqualTo("EvalScripts.Entry.Run"));
-            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(CsEvalCompileStatusValues.Succeeded));
+            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Succeeded)));
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
             Assert.That(payload.TryGetProperty("logs", out _), Is.False);
         });
@@ -115,7 +134,7 @@ namespace EvalScripts
             var result = await operation.PlanAsync(request, context, CancellationToken.None);
 
             Assert.That(result.IsSuccess, Is.True);
-            Assert.That(result.Result!.Value.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
+            Assert.That(result.Result!.Value.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.CompilationUnit)));
             var diagnostics = result.Result!.Value.GetProperty("compile").GetProperty("diagnostics");
             for (var i = 0; i < diagnostics.GetArrayLength(); i++)
             {
@@ -178,31 +197,31 @@ return 1;",
         [Category("Size.Small")]
         public void ExecutionDigest_WhenSourceKindOrWrapperDiffers_ChangesDigest ()
         {
-            var sourceDigest = new string('a', 64);
+            var sourceDigest = Sha256Digest.Parse(new string('a', 64));
             const string referencesIdentity = "refs";
 
             var compilationUnitDigest = CsEvalExecutionDigestCalculator.Compute(
                 sourceDigest,
-                CsEvalSourceKindValues.CompilationUnit,
+                UcliCodeSourceFormKind.CompilationUnit,
                 CsEvalSourcePreparer.NoWrapperVersion,
                 referencesIdentity);
             var snippetDigest = CsEvalExecutionDigestCalculator.Compute(
                 sourceDigest,
-                CsEvalSourceKindValues.Snippet,
+                UcliCodeSourceFormKind.Snippet,
                 CsEvalSourcePreparer.SnippetWrapperVersion,
                 referencesIdentity);
             var asyncSnippetDigest = CsEvalExecutionDigestCalculator.Compute(
                 sourceDigest,
-                CsEvalSourceKindValues.Snippet,
+                UcliCodeSourceFormKind.Snippet,
                 CsEvalSourcePreparer.AsyncSnippetWrapperVersion,
                 referencesIdentity);
 
             Assert.That(compilationUnitDigest, Is.Not.EqualTo(snippetDigest));
             Assert.That(asyncSnippetDigest, Is.Not.EqualTo(snippetDigest));
             Assert.That(asyncSnippetDigest, Is.Not.EqualTo(compilationUnitDigest));
-            Assert.That(compilationUnitDigest, Has.Length.EqualTo(64));
-            Assert.That(snippetDigest, Has.Length.EqualTo(64));
-            Assert.That(asyncSnippetDigest, Has.Length.EqualTo(64));
+            Assert.That(compilationUnitDigest.ToString(), Has.Length.EqualTo(64));
+            Assert.That(snippetDigest.ToString(), Has.Length.EqualTo(64));
+            Assert.That(asyncSnippetDigest.ToString(), Has.Length.EqualTo(64));
         }
 
         [UnityTest]
@@ -222,12 +241,12 @@ return new { count = 2 };
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.Snippet));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
             Assert.That(payload.GetProperty("resolvedEntryPoint").GetString(), Is.EqualTo("MackySoft.Ucli.Unity.Execution.CsEval.Generated.UcliCsEvalSnippetEntry.Run"));
             Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("snippet"));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Json));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Json)));
             Assert.That(payload.GetProperty("returnValue").GetProperty("value").GetProperty("count").GetInt32(), Is.EqualTo(2));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
         });
 
         [UnityTest]
@@ -246,8 +265,8 @@ context.DeclareNoTouchedResources();
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.Snippet));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Null));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Null)));
         });
 
         [UnityTest]
@@ -308,11 +327,11 @@ return new { value = await Task.FromResult(5) };
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.Snippet));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
             Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("before await"));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Json));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Json)));
             Assert.That(payload.GetProperty("returnValue").GetProperty("value").GetProperty("value").GetInt32(), Is.EqualTo(5));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
         });
 
         [UnityTest]
@@ -332,8 +351,8 @@ await Task.FromResult(9)
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.Snippet));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Json));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Json)));
             Assert.That(payload.GetProperty("returnValue").GetProperty("value").GetInt32(), Is.EqualTo(9));
         });
 
@@ -355,9 +374,9 @@ context.DeclareNoTouchedResources();
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.Snippet));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Null));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Null)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
         });
 
         [UnityTest]
@@ -374,7 +393,7 @@ return missingSymbol;");
 
             AssertInvalidArgument(result);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.Snippet));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
             var diagnostic = payload.GetProperty("compile").GetProperty("diagnostics")[0];
             Assert.That(diagnostic.GetProperty("line").GetInt32(), Is.EqualTo(2));
         });
@@ -405,9 +424,9 @@ namespace EvalScripts
 
             AssertInvalidArgument(result);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.CompilationUnit)));
             Assert.That(payload.TryGetProperty("resolvedEntryPoint", out _), Is.False);
-            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(CsEvalCompileStatusValues.Failed));
+            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Failed)));
             Assert.That(payload.GetProperty("compile").GetProperty("diagnostics").GetArrayLength(), Is.GreaterThan(0));
         });
 
@@ -441,7 +460,7 @@ namespace EvalScripts
             Assert.That(result.Applied, Is.True);
             Assert.That(result.Changed, Is.True);
             Assert.That(result.Touched.Count, Is.EqualTo(1));
-            Assert.That(result.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Asset));
+            Assert.That(result.Touched[0].Kind, Is.EqualTo(UcliTouchedResourceKind.Asset));
             Assert.That(result.Touched[0].Path, Is.EqualTo("Assets/Eval.asset"));
             AssertReadInvalidations(
                 result,
@@ -449,13 +468,13 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.CompilationUnit)));
             Assert.That(payload.GetProperty("resolvedEntryPoint").GetString(), Is.EqualTo("EvalScripts.Entry.Run"));
             Assert.That(payload.GetProperty("durationMilliseconds").GetInt64(), Is.GreaterThanOrEqualTo(0));
             Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("hello"));
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Json));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Json)));
             Assert.That(payload.GetProperty("returnValue").GetProperty("value").GetProperty("count").GetInt32(), Is.EqualTo(3));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -493,8 +512,8 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Null));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Null)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
         });
 
         [UnityTest]
@@ -531,8 +550,8 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Null));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Unknown));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Null)));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Unknown)));
         });
 
         [UnityTest]
@@ -565,9 +584,9 @@ namespace EvalScripts
             Assert.That(result.Applied, Is.True);
             Assert.That(result.Changed, Is.True);
             Assert.That(result.Touched.Count, Is.EqualTo(2));
-            Assert.That(result.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(result.Touched[0].Kind, Is.EqualTo(UcliTouchedResourceKind.Prefab));
             Assert.That(result.Touched[0].Path, Is.EqualTo("Assets/Widget.prefab"));
-            Assert.That(result.Touched[1].Kind, Is.EqualTo(OperationTouchKind.ProjectSettings));
+            Assert.That(result.Touched[1].Kind, Is.EqualTo(UcliTouchedResourceKind.ProjectSettings));
             Assert.That(result.Touched[1].Path, Is.EqualTo("ProjectSettings/ProjectSettings.asset"));
             AssertReadInvalidations(
                 result,
@@ -575,7 +594,7 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
             Assert.That(payload.GetProperty("touchedResources").GetProperty("declared").GetArrayLength(), Is.EqualTo(2));
         });
 
@@ -614,9 +633,9 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(CsEvalCompileStatusValues.Succeeded));
+            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Succeeded)));
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -653,7 +672,7 @@ return " + cases[i] + @";
                     new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
                 var payload = result.Result!.Value;
                 Assert.That(payload.TryGetProperty("returnValue", out _), Is.False, cases[i]);
-                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared), cases[i]);
+                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)), cases[i]);
             }
         });
 
@@ -701,7 +720,7 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -739,7 +758,7 @@ namespace EvalScripts
             Assert.That(result.Applied, Is.False);
             Assert.That(result.Changed, Is.False);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(CsEvalCompileStatusValues.Failed));
+            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Failed)));
             var diagnostics = payload.GetProperty("compile").GetProperty("diagnostics");
             var diagnosticMessages = new string[diagnostics.GetArrayLength()];
             var hasShadowTaskDiagnostic = false;
@@ -798,7 +817,7 @@ namespace EvalScripts
                     Assert.That(value.GetString(), Is.EqualTo(testCase.ExpectedStringValue), testCase.Name);
                 }
 
-                Assert.That(result.Result!.Value.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None), testCase.Name);
+                Assert.That(result.Result!.Value.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)), testCase.Name);
             }
         });
 
@@ -856,9 +875,9 @@ namespace EvalScripts
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Json));
+            Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Json)));
             Assert.That(payload.GetProperty("returnValue").GetProperty("value").GetProperty("value").GetString(), Is.EqualTo("ok"));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
         });
 
         [UnityTest]
@@ -889,8 +908,8 @@ namespace EvalScripts
                 Assert.That(result.Applied, Is.True, testCase.Name);
                 Assert.That(result.Changed, Is.False, testCase.Name);
                 var payload = result.Result!.Value;
-                Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(CsEvalReturnValueKindValues.Null), testCase.Name);
-                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None), testCase.Name);
+                Assert.That(payload.GetProperty("returnValue").GetProperty("kind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalReturnValueKind.Null)), testCase.Name);
+                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)), testCase.Name);
             }
         });
 
@@ -917,10 +936,11 @@ namespace EvalScripts
                     "public static System.Threading.Tasks.ValueTask<int> Run(UcliCsEvalContext context)",
                     "return new System.Threading.Tasks.ValueTask<int>(MackySoft.Ucli.Unity.Tests.CsEvalOperationTests.AsyncEvalCancellationProbe.CreatePendingGenericTask());"),
             };
-            var operation = CreateCsEvalOperation();
             for (var i = 0; i < cases.Length; i++)
             {
                 var testCase = cases[i];
+                var mutationLane = new RecordingMutationLaneControl();
+                var operation = CreateCsEvalOperation(mutationLane);
                 AsyncEvalCancellationProbe.Reset();
                 using var cancellationTokenSource = new CancellationTokenSource();
                 using var context = new OperationExecutionContext();
@@ -936,7 +956,6 @@ namespace EvalScripts
                     Assert.That(callTask.IsCompleted, Is.False, testCase.Name);
 
                     cancellationTokenSource.Cancel();
-
                     try
                     {
                         await TestAwaiter.WaitAsync(callTask, $"eval cancellation ({testCase.Name})", SignalWaitTimeout);
@@ -945,6 +964,13 @@ namespace EvalScripts
                     catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
                     {
                     }
+
+                    Assert.That(callTask.IsCompleted, Is.True, testCase.Name);
+                    Assert.That(mutationLane.IsQuarantined, Is.True, testCase.Name);
+                    Assert.That(
+                        mutationLane.QuarantineReason,
+                        Does.Contain("C# eval"),
+                        $"{testCase.Name}: a non-terminal user task must make mutation safety indeterminate.");
                 }
                 finally
                 {
@@ -952,6 +978,105 @@ namespace EvalScripts
                 }
             }
         });
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task ReturnValueResolver_WhenCancellationPrecedesPendingTaskObservation_QuarantinesMutationLane ()
+        {
+            var pendingTaskSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var pendingGenericTaskSource = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var cases = new[]
+            {
+                new TaskLikeCancellationCase("task", typeof(Task), pendingTaskSource.Task),
+                new TaskLikeCancellationCase("task-int", typeof(Task<int>), pendingGenericTaskSource.Task),
+                new TaskLikeCancellationCase("value-task", typeof(ValueTask), new ValueTask(pendingTaskSource.Task)),
+                new TaskLikeCancellationCase("value-task-int", typeof(ValueTask<int>), new ValueTask<int>(pendingGenericTaskSource.Task)),
+            };
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.Cancel();
+            try
+            {
+                for (var i = 0; i < cases.Length; i++)
+                {
+                    var testCase = cases[i];
+                    string? quarantineReason = null;
+                    try
+                    {
+                        await CsEvalEntryPointReturnValueResolver.ResolveAsync(
+                            testCase.DeclaredReturnType,
+                            testCase.ReturnValue,
+                            cancellationTokenSource.Token,
+                            (reason, _) => quarantineReason = reason);
+                        Assert.Fail(testCase.Name);
+                    }
+                    catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+                    {
+                    }
+
+                    Assert.That(quarantineReason, Does.Contain("C# eval"), testCase.Name);
+                }
+            }
+            finally
+            {
+                pendingTaskSource.TrySetResult(true);
+                pendingGenericTaskSource.TrySetResult(0);
+            }
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task ReturnValueResolver_WhenCanceledTaskCompletesWithinGrace_DoesNotQuarantineMutationLane ()
+        {
+            var taskSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.Cancel();
+            string? quarantineReason = null;
+            var resolutionTask = CsEvalEntryPointReturnValueResolver.ResolveAsync(
+                typeof(Task),
+                taskSource.Task,
+                cancellationTokenSource.Token,
+                (reason, _) => quarantineReason = reason);
+
+            Assert.That(resolutionTask.IsCompleted, Is.False);
+            taskSource.TrySetResult(true);
+
+            try
+            {
+                await resolutionTask;
+                Assert.Fail("Canceled resolver unexpectedly completed.");
+            }
+            catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+            {
+            }
+
+            Assert.That(quarantineReason, Is.Null);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task ReturnValueResolver_WhenCancellationPrecedesFaultedTaskObservation_DoesNotQuarantineCompletedTask ()
+        {
+            var faultedTask = Task.FromException(new InvalidOperationException("eval task fault"));
+            using var cancellationTokenSource = new CancellationTokenSource();
+            cancellationTokenSource.Cancel();
+            string? quarantineReason = null;
+
+            try
+            {
+                await CsEvalEntryPointReturnValueResolver.ResolveAsync(
+                    typeof(Task),
+                    faultedTask,
+                    cancellationTokenSource.Token,
+                    (reason, _) => quarantineReason = reason);
+                Assert.Fail("Pre-canceled resolver unexpectedly completed.");
+            }
+            catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+            {
+            }
+
+            Assert.That(quarantineReason, Is.Null);
+            Assert.That(faultedTask.IsFaulted, Is.True);
+        }
 
         [UnityTest]
         [Category("Size.Small")]
@@ -993,11 +1118,11 @@ namespace EvalScripts
                 Assert.That(result.Applied, Is.True, cases[i]);
                 Assert.That(result.Changed, Is.True, cases[i]);
                 Assert.That(result.Touched.Count, Is.EqualTo(1), cases[i]);
-                Assert.That(result.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Asset), cases[i]);
+                Assert.That(result.Touched[0].Kind, Is.EqualTo(UcliTouchedResourceKind.Asset), cases[i]);
                 var payload = result.Result!.Value;
                 Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("before fault"), cases[i]);
                 Assert.That(payload.TryGetProperty("returnValue", out _), Is.False, cases[i]);
-                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared), cases[i]);
+                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)), cases[i]);
             }
         });
 
@@ -1045,7 +1170,7 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -1062,7 +1187,7 @@ namespace EvalScripts
             AssertInvalidArgument(result);
             Assert.That(result.Applied, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(CsEvalSourceKindValues.Snippet));
+            Assert.That(payload.GetProperty("sourceKind").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(UcliCodeSourceFormKind.Snippet)));
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
         });
 
@@ -1100,7 +1225,7 @@ context.DeclareNoTouchedResources();
             Assert.That(result.IsSuccess, Is.True);
             var logs = result.Result!.Value.GetProperty("logs");
             Assert.That(logs.GetArrayLength(), Is.EqualTo(CsEvalSafetyLimits.MaxLogEntries));
-            Assert.That(logs[logs.GetArrayLength() - 1].GetProperty("level").GetString(), Is.EqualTo(CsEvalLogLevelValues.Warning));
+            Assert.That(logs[logs.GetArrayLength() - 1].GetProperty("level").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalLogLevel.Warning)));
             Assert.That(logs[logs.GetArrayLength() - 1].GetProperty("message").GetString(), Does.Contain("truncated"));
         });
 
@@ -1122,7 +1247,7 @@ return null;
 
             Assert.That(result.IsSuccess, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Unknown));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Unknown)));
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.True);
         });
 
@@ -1157,7 +1282,7 @@ namespace EvalScripts
             Assert.That(result.Applied, Is.True);
             Assert.That(result.Changed, Is.True);
             Assert.That(result.Touched.Count, Is.EqualTo(1));
-            Assert.That(result.Touched[0].Kind, Is.EqualTo(OperationTouchKind.Scene));
+            Assert.That(result.Touched[0].Kind, Is.EqualTo(UcliTouchedResourceKind.Scene));
             AssertReadInvalidations(
                 result,
                 new OperationReadInvalidation(OperationReadInvalidationSurface.AssetSearch, ScenePath: null),
@@ -1165,7 +1290,7 @@ namespace EvalScripts
                 new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
             var payload = result.Result!.Value;
             Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("before throw"));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -1321,7 +1446,7 @@ namespace EvalScripts
                 Assert.That(result.Changed, Is.False, testCase.Name);
                 var payload = result.Result!.Value;
                 Assert.That(payload.TryGetProperty("resolvedEntryPoint", out _), Is.False, testCase.Name);
-                Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(CsEvalCompileStatusValues.Failed), testCase.Name);
+                Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Failed)), testCase.Name);
                 if (string.Equals(testCase.Name, "private", System.StringComparison.Ordinal))
                 {
                     Assert.That(
@@ -1433,7 +1558,7 @@ namespace EvalScripts
                     new OperationReadInvalidation(OperationReadInvalidationSurface.GuidPath, ScenePath: null),
                     new OperationReadInvalidation(OperationReadInvalidationSurface.SceneTreeLite, ScenePath: null));
                 var payload = result.Result!.Value;
-                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Unknown), cases[i]);
+                Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Unknown)), cases[i]);
             }
         });
 
@@ -1467,9 +1592,9 @@ namespace EvalScripts
             Assert.That(result.Applied, Is.True);
             Assert.That(result.Changed, Is.True);
             var payload = result.Result!.Value;
-            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(CsEvalCompileStatusValues.Succeeded));
+            Assert.That(payload.GetProperty("compile").GetProperty("status").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalCompileStatus.Succeeded)));
             Assert.That(payload.TryGetProperty("returnValue", out _), Is.False);
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.Declared));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.Declared)));
         });
 
         [UnityTest]
@@ -1504,10 +1629,10 @@ namespace EvalScripts
             Assert.That(result.Changed, Is.False);
             var payload = result.Result!.Value;
             Assert.That(payload.GetProperty("logs")[0].GetProperty("message").GetString(), Is.EqualTo("before conflict"));
-            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(CsEvalTouchedResourceStateValues.None));
+            Assert.That(payload.GetProperty("touchedResources").GetProperty("state").GetString(), Is.EqualTo(ContractLiteralCodec.ToValue(CsEvalTouchedResourceState.None)));
         });
 
-        private static CsEvalOperation CreateCsEvalOperation ()
+        private static CsEvalOperation CreateCsEvalOperation (IUnityMutationLaneControl? mutationLaneControl = null)
         {
             return new CsEvalOperation(
                 new CsEvalCompilationService(
@@ -1515,7 +1640,43 @@ namespace EvalScripts
                     new CsEvalEntryPointSymbolValidator(),
                     new CsEvalSourcePreparer()),
                 new CsEvalEntryPointReflectionResolver(),
-                new CsEvalReturnValueSerializer());
+                new CsEvalReturnValueSerializer(),
+                mutationLaneControl ?? new RecordingMutationLaneControl());
+        }
+
+        private sealed class RecordingMutationLaneControl : IUnityMutationLaneControl
+        {
+            public bool IsBusy => IsQuarantined;
+
+            public bool HasUnfinishedWork => IsQuarantined && QuarantineCompletion != null && !QuarantineCompletion.IsCompleted;
+
+            public bool IsQuarantined { get; private set; }
+
+            public string? QuarantineReason { get; private set; }
+
+            public Task? QuarantineCompletion { get; private set; }
+
+            public IUnityMutationActivity BeginMutation ()
+            {
+                throw new InvalidOperationException("C# eval operation tests call the operation below the request mutation boundary.");
+            }
+
+            public void Quarantine (string reason, Task mutationCompletion)
+            {
+                IsQuarantined = true;
+                QuarantineReason = reason;
+                QuarantineCompletion = mutationCompletion;
+            }
+
+            public bool TrySealAdmissionForRetirement (out IDisposable admissionSeal)
+            {
+                throw new InvalidOperationException("C# eval tests must not seal mutation admission.");
+            }
+
+            public Task WaitForRetirementAsync ()
+            {
+                return QuarantineCompletion ?? Task.CompletedTask;
+            }
         }
 
         public static class AsyncEvalCancellationProbe
@@ -1573,14 +1734,17 @@ namespace EvalScripts
             string source)
         {
             return new NormalizedOperation(
-                Id: "cs-eval",
+                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("cs-eval")),
                 Op: UcliPrimitiveOperationNames.CsEval,
                 Args: JsonSerializer.SerializeToElement(new
                 {
                     source,
                 }),
                 As: null,
-                Expect: null);
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
         }
 
         private static string CreateAsyncEntryPointSource (
@@ -1688,6 +1852,25 @@ namespace EvalScripts
             public string Signature { get; }
 
             public string Body { get; }
+        }
+
+        private sealed class TaskLikeCancellationCase
+        {
+            public TaskLikeCancellationCase (
+                string name,
+                Type declaredReturnType,
+                object returnValue)
+            {
+                Name = name;
+                DeclaredReturnType = declaredReturnType;
+                ReturnValue = returnValue;
+            }
+
+            public string Name { get; }
+
+            public Type DeclaredReturnType { get; }
+
+            public object ReturnValue { get; }
         }
     }
 }

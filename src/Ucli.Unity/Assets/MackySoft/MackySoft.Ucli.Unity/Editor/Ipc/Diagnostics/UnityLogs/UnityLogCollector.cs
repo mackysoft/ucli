@@ -53,7 +53,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             unityLogStream.Write(
-                IpcUnityLogsSourceCodec.Runtime,
+                IpcUnityLogSource.Runtime,
                 NormalizeLevel(logType),
                 unityLogRedactionScopeProvider.Redact(normalizedCondition),
                 unityLogRedactionScopeProvider.RedactOrNull(StringValueNormalizer.TrimToNull(stackTrace)));
@@ -71,32 +71,32 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             compileMessageDedupeCache.Register(normalizedMessage);
             unityLogStream.Write(
-                IpcUnityLogsSourceCodec.Compile,
+                IpcUnityLogSource.Compile,
                 NormalizeCompileLevel(message.type),
                 unityLogRedactionScopeProvider.Redact(normalizedMessage),
                 null);
         }
 
-        private static string NormalizeLevel (LogType logType)
+        private static IpcLogLevel NormalizeLevel (LogType logType)
         {
             switch (logType)
             {
                 case LogType.Warning:
-                    return IpcDaemonLogsLevelCodec.Warning;
+                    return IpcLogLevel.Warning;
                 case LogType.Error:
                 case LogType.Assert:
                 case LogType.Exception:
-                    return IpcDaemonLogsLevelCodec.Error;
+                    return IpcLogLevel.Error;
                 default:
-                    return IpcDaemonLogsLevelCodec.Info;
+                    return IpcLogLevel.Info;
             }
         }
 
-        private static string NormalizeCompileLevel (CompilerMessageType messageType)
+        private static IpcLogLevel NormalizeCompileLevel (CompilerMessageType messageType)
         {
             return messageType == CompilerMessageType.Warning
-                ? IpcDaemonLogsLevelCodec.Warning
-                : IpcDaemonLogsLevelCodec.Error;
+                ? IpcLogLevel.Warning
+                : IpcLogLevel.Error;
         }
 
         private static string FormatCompileMessage (CompilerMessage message)
@@ -107,7 +107,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return string.Empty;
             }
 
-            var level = NormalizeCompileLevel(message.type);
+            var level = ContractLiteralCodec.ToValue(NormalizeCompileLevel(message.type));
             if (!StringValueNormalizer.TryTrimToNonEmpty(message.file, out var file))
             {
                 return CreateCompileMessage(level, normalizedMessage);

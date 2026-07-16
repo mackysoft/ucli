@@ -1,24 +1,42 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
 /// <summary> Represents one read-index mode resolution result. </summary>
-/// <param name="Mode"> The resolved mode on success; otherwise <see langword="null" />. </param>
-/// <param name="Error"> The structured error on failure; otherwise <see langword="null" />. </param>
-internal readonly record struct ReadIndexModeResolutionResult (
-    ReadIndexMode? Mode,
-    ExecutionError? Error)
+internal sealed class ReadIndexModeResolutionResult
 {
+    private ReadIndexModeResolutionResult (ReadIndexMode mode)
+    {
+        Mode = mode;
+    }
+
+    private ReadIndexModeResolutionResult (ExecutionError error)
+    {
+        Error = error;
+    }
+
     /// <summary> Gets a value indicating whether mode resolution succeeded. </summary>
-    public bool IsSuccess => Mode is not null && Error is null;
+    public bool IsSuccess => Mode is not null;
+
+    /// <summary> Gets the resolved mode on success; otherwise <see langword="null" />. </summary>
+    public ReadIndexMode? Mode { get; }
+
+    /// <summary> Gets the structured error on failure; otherwise <see langword="null" />. </summary>
+    public ExecutionError? Error { get; }
 
     /// <summary> Creates a successful mode-resolution result. </summary>
     /// <param name="mode"> The resolved mode. </param>
     /// <returns> The successful result. </returns>
     public static ReadIndexModeResolutionResult Success (ReadIndexMode mode)
     {
-        return new ReadIndexModeResolutionResult(mode, null);
+        if (!ContractLiteralCodec.IsDefined(mode))
+        {
+            throw new ArgumentOutOfRangeException(nameof(mode), mode, "Read-index mode must be a defined contract value.");
+        }
+
+        return new ReadIndexModeResolutionResult(mode);
     }
 
     /// <summary> Creates a failed mode-resolution result. </summary>
@@ -28,6 +46,6 @@ internal readonly record struct ReadIndexModeResolutionResult (
     public static ReadIndexModeResolutionResult Failure (ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return new ReadIndexModeResolutionResult(null, error);
+        return new ReadIndexModeResolutionResult(error);
     }
 }

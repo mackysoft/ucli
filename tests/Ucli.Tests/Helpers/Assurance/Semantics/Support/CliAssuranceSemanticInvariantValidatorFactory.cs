@@ -21,6 +21,7 @@ internal static class CliAssuranceSemanticInvariantValidatorFactory
                 new ApplicationCodeCatalogContributor(),
                 new ReadyCodeCatalogContributor(),
             ]),
+            [new BuildAssuranceSemanticInvariantRule()],
             [new ReadyAssuranceSemanticInvariantRule()]);
     }
 
@@ -34,6 +35,7 @@ internal static class CliAssuranceSemanticInvariantValidatorFactory
                 new ReadyCodeCatalogContributor(),
                 new CompileCodeCatalogContributor(),
             ]),
+            [new BuildAssuranceSemanticInvariantRule()],
             [
                 new ReadyAssuranceSemanticInvariantRule(),
                 new CompileAssuranceSemanticInvariantRule(),
@@ -44,6 +46,7 @@ internal static class CliAssuranceSemanticInvariantValidatorFactory
     {
         return new AssuranceSemanticInvariantValidator(
             new CodeCatalog([new BuildCodeCatalogContributor()]),
+            [new BuildAssuranceSemanticInvariantRule()],
             [new BuildAssuranceSemanticInvariantRule()]);
     }
 
@@ -58,6 +61,7 @@ internal static class CliAssuranceSemanticInvariantValidatorFactory
                 new CompileCodeCatalogContributor(),
                 new VerifyCodeCatalogContributor(),
             ]),
+            [new BuildAssuranceSemanticInvariantRule()],
             [
                 new ReadyAssuranceSemanticInvariantRule(),
                 new CompileAssuranceSemanticInvariantRule(),
@@ -69,6 +73,7 @@ internal static class CliAssuranceSemanticInvariantValidatorFactory
     {
         return new AssuranceSemanticInvariantValidator(
             CreateAllAssuranceCommandCodeCatalog(),
+            [new BuildAssuranceSemanticInvariantRule()],
             [
                 new ReadyAssuranceSemanticInvariantRule(),
                 new CompileAssuranceSemanticInvariantRule(),

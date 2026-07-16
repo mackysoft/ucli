@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 
@@ -67,7 +68,8 @@ internal static class UnityIpcFailureClassifier
             return Timeout($"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds.");
         }
 
-        if (DaemonProbeExceptionClassifier.IsNotRunning(exception))
+        if (exception is IpcConnectException
+            || DaemonProbeExceptionClassifier.IsNotRunning(exception))
         {
             return FromCodeAndMessage(
                 UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
@@ -93,7 +95,22 @@ internal static class UnityIpcFailureClassifier
             return OneshotTimeout(timeout);
         }
 
-        return InternalError($"Failed to execute Unity oneshot IPC request. {exception.Message}");
+        return exception is IpcResponseReadInterruptedException responseReadInterruption
+            ? FromResponseReadInterruption(responseReadInterruption)
+            : InternalError($"Failed to execute Unity oneshot IPC request. {exception.Message}");
+    }
+
+    /// <summary> Converts an interrupted oneshot response read into a transport-interruption failure. </summary>
+    /// <param name="exception"> The interrupted response-read exception. </param>
+    /// <returns> The classified transport-interruption failure. </returns>
+    public static UnityRequestFailure FromResponseReadInterruption (IpcResponseReadInterruptedException exception)
+    {
+        ArgumentNullException.ThrowIfNull(exception);
+
+        return new UnityRequestFailure(
+            UnityRequestFailureKind.TransportInterrupted,
+            UcliCoreErrorCodes.InternalError,
+            $"Failed to execute Unity oneshot IPC request. {exception.Message}");
     }
 
     /// <summary> Creates a daemon-not-running failure from one probing exception. </summary>
@@ -128,6 +145,7 @@ internal static class UnityIpcFailureClassifier
         StartupFailureDetail? startupFailure = null)
     {
         return new UnityRequestFailure(
+            UnityRequestFailureKind.General,
             code,
             message,
             startupFailure);

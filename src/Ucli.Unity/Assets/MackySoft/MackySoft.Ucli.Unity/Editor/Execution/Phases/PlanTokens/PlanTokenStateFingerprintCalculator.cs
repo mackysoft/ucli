@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Paths;
@@ -22,8 +23,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="snapshot"> The runtime environment snapshot. </param>
         /// <param name="operationTraces"> The operation traces used for touched digest. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by phase execution. </param>
-        /// <returns> The lowercase hexadecimal fingerprint string. </returns>
-        public static string Compute (
+        /// <returns> The state fingerprint. </returns>
+        public static Sha256Digest Compute (
             PlanTokenEnvironmentSnapshot snapshot,
             IReadOnlyList<OperationPhaseTrace> operationTraces,
             CancellationToken cancellationToken = default)
@@ -53,14 +54,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 writer.WriteString("compileState", compileState);
                 writer.WriteString("configDigest", configDigest);
                 writer.WriteString("domainReloadGeneration", domainReloadGeneration);
-                writer.WriteString("projectFingerprint", StringValueNormalizer.TrimOrFallback(snapshot.ProjectFingerprint, NaLiteral));
+                writer.WriteString("projectFingerprint", snapshot.ProjectFingerprint.ToString());
                 writer.WriteString("touchedDigest", touchedDigest);
                 writer.WriteString("unityVersion", unityVersion);
                 writer.WriteEndObject();
                 writer.Flush();
             }
 
-            return Sha256LowerHex.Compute(stream.ToArray());
+            return Sha256Digest.Compute(stream.GetBuffer().AsSpan(0, checked((int)stream.Length)));
         }
 
         /// <summary> Computes configuration digest from shared <c>.ucli/config.json</c> fields. </summary>
@@ -122,7 +123,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             touchedEntries.Sort(static (x, y) =>
             {
-                var kind = StringComparer.Ordinal.Compare(x.Kind, y.Kind);
+                var kind = x.Kind.CompareTo(y.Kind);
                 if (kind != 0)
                 {
                     return kind;
@@ -134,7 +135,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return path;
                 }
 
-                return StringComparer.Ordinal.Compare(x.Guid, y.Guid);
+                return Nullable.Compare(x.AssetGuid, y.AssetGuid);
             });
 
             using var stream = new MemoryStream();
@@ -146,8 +147,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     var entry = touchedEntries[i];
                     writer.WriteStartObject();
                     writer.WriteBoolean("exists", entry.Exists);
-                    writer.WriteString("guid", entry.Guid);
-                    writer.WriteString("kind", entry.Kind);
+                    writer.WriteString("guid", entry.AssetGuid?.ToString("N") ?? NaLiteral);
+                    writer.WriteString("kind", ContractLiteralCodec.ToValue(entry.Kind));
                     writer.WriteNumber("lastWriteUtcTicks", entry.LastWriteUtcTicks);
                     writer.WriteString("path", entry.Path);
                     writer.WriteNumber("size", entry.Size);
@@ -169,9 +170,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string projectRoot,
             OperationTouch touched)
         {
-            var touchedPath = string.IsNullOrWhiteSpace(touched.Path) ? NaLiteral : touched.Path;
-            var guid = StringValueNormalizer.TrimOrFallback(touched.Guid, NaLiteral);
-            var normalizedPath = PathStringNormalizer.ToPlatformSeparated(touchedPath);
+            var normalizedPath = PathStringNormalizer.ToPlatformSeparated(touched.Path);
             var absolutePath = Path.Combine(projectRoot, normalizedPath);
 
             var exists = File.Exists(absolutePath) || Directory.Exists(absolutePath);
@@ -196,9 +195,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return new PlanTokenTouchedDigestEntry(
-                Kind: touched.Kind.ToString().ToLowerInvariant(),
-                Path: touchedPath,
-                Guid: guid,
+                Kind: touched.Kind,
+                Path: touched.Path,
+                AssetGuid: touched.AssetGuid,
                 Exists: exists,
                 Size: size,
                 LastWriteUtcTicks: lastWriteUtcTicks);

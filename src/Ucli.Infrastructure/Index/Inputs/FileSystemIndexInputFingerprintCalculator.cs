@@ -46,28 +46,13 @@ internal sealed class FileSystemIndexInputFingerprintCalculator : IIndexInputFin
             return null;
         }
 
-        return await TryComputeInternalAsync(sourcePaths, cancellationToken).ConfigureAwait(false);
-    }
-
-    private static async ValueTask<IndexInputHashSnapshot?> TryComputeInternalAsync (
-        IndexInputSourcePaths sourcePaths,
-        CancellationToken cancellationToken)
-    {
         var coreSnapshot = await TryComputeCoreInternalAsync(sourcePaths, cancellationToken).ConfigureAwait(false);
         if (coreSnapshot == null)
         {
             return null;
         }
 
-        return await TryComputeWithCoreSnapshotAsync(sourcePaths, coreSnapshot, cancellationToken).ConfigureAwait(false);
-    }
-
-    private static async ValueTask<IndexInputHashSnapshot?> TryComputeWithCoreSnapshotAsync (
-        IndexInputSourcePaths sourcePaths,
-        IndexCoreInputHashSnapshot coreSnapshot,
-        CancellationToken cancellationToken)
-    {
-        var assetsContentHash = await IndexInputFileHasher.TryHashAssetsContentAsync(sourcePaths, cancellationToken).ConfigureAwait(false);
+        var assetsContentHash = await IndexInputFileHasher.TryHashDirectoryContentAsync(sourcePaths.AssetsPath, cancellationToken).ConfigureAwait(false);
         if (assetsContentHash == null)
         {
             return null;

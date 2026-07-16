@@ -2,6 +2,7 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -27,6 +28,7 @@ public sealed class PlanServicePreflightTests
             unityRequestExecutor: unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(readIndexMode: ReadIndexMode.AllowStale),
             CancellationToken.None);
 
@@ -58,13 +60,14 @@ public sealed class PlanServicePreflightTests
             unityRequestExecutor: new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(readIndexMode: ReadIndexMode.RequireFresh),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.NotNull(result.Output);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
+        Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.True(result.Output.ReadIndex.Used);
         Assert.True(result.Output.ReadIndex.Hit);
         Assert.Equal(IndexFreshness.Stale, result.Output.ReadIndex.Freshness);
@@ -85,6 +88,7 @@ public sealed class PlanServicePreflightTests
             unityRequestExecutor: new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(readIndexMode: ReadIndexMode.RequireFresh),
             CancellationToken.None);
 
@@ -104,7 +108,7 @@ public sealed class PlanServicePreflightTests
             new ValidationError(
                 ValidationErrorCodes.OperationArgsInvalid,
                 "Operation args are invalid.",
-                "step-1"),
+                new IpcExecuteStepId("step-1")),
         ];
         var service = CreateService(
             staticPreflightService: new RecordingRequestStaticValidationPreflightService
@@ -121,6 +125,7 @@ public sealed class PlanServicePreflightTests
             unityRequestExecutor: new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(),
             CancellationToken.None);
 

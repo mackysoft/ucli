@@ -94,6 +94,34 @@ public sealed class ReadyAssuranceSemanticInvariantValidatorOwnershipTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Validate_WithInvalidClaimId_ReturnsCodeContractViolation ()
+    {
+        var payload = CreateReadyPayload(claims: [CreateClaim(id: "unity_ready_execution")]);
+
+        var result = ValidateReadyPayload(payload);
+
+        Assert.Contains(
+            result.Violations,
+            violation => violation.Path == "$.claims[0].id"
+                && violation.Message == UcliCode.InvalidValueMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Validate_WithInvalidPrimaryClaimId_ReturnsCodeContractViolation ()
+    {
+        var payload = CreateReadyPayload(verifiers: [CreateVerifier(primaryClaims: ["unity_ready_execution"])]);
+
+        var result = ValidateReadyPayload(payload);
+
+        Assert.Contains(
+            result.Violations,
+            violation => violation.Path == "$.verifiers[0].primaryClaims[0]"
+                && violation.Message == UcliCode.InvalidValueMessage);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Validate_WithDuplicateVerifierId_ReturnsDuplicateVerifierPath ()
     {
         var payload = CreateReadyPayload(verifiers: [CreateVerifier(), CreateVerifier()]);

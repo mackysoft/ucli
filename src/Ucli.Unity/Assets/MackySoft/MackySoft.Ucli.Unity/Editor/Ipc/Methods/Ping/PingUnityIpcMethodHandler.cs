@@ -1,16 +1,17 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>ping</c> IPC method requests. </summary>
-    internal sealed class PingUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class PingUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
         private readonly IServerVersionProvider serverVersionProvider;
-        private readonly IUnityEditorReadinessGate readinessGate;
+        private readonly IUnityEditorAvailabilityObservationSource availabilityObservationSource;
         private readonly IpcProjectIdentity projectIdentity;
         private readonly IDaemonLogger daemonLogger;
 
@@ -19,25 +20,26 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="projectIdentity"> The project identity served by this IPC host. </param>
         public PingUnityIpcMethodHandler (
             IServerVersionProvider serverVersionProvider,
-            IUnityEditorReadinessGate readinessGate,
+            IUnityEditorAvailabilityObservationSource availabilityObservationSource,
             IpcProjectIdentity projectIdentity,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
-            this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
+            this.availabilityObservationSource = availabilityObservationSource
+                ?? throw new ArgumentNullException(nameof(availabilityObservationSource));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.Ping;
+        public UnityIpcMethod Method => UnityIpcMethod.Ping;
 
         /// <inheritdoc />
         public ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -57,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var payload = UnityLifecycleResponseFactory.Create(
                 projectIdentity,
                 serverVersionProvider.GetVersion(),
-                readinessGate.CaptureObservation());
+                availabilityObservationSource.CaptureAvailabilityObservation());
             return new ValueTask<IpcResponse>(UnityIpcResponseFactory.CreateSuccessResponse(request, payload));
         }
     }

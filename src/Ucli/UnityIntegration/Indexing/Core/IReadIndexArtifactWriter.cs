@@ -1,5 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -9,17 +11,17 @@ internal interface IReadIndexArtifactWriter
     /// <summary> Writes one ops catalog and an optional input manifest. </summary>
     ValueTask WriteOpsCatalogAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
-        IReadOnlyList<IndexOpEntryJsonContract> operations,
-        string sourceInputsHash,
+        IReadOnlyList<ValidatedOpsOperation> operations,
+        Sha256Digest sourceInputsHash,
         ReadIndexInputHashSnapshot? manifestInputSnapshot,
         CancellationToken cancellationToken = default);
 
     /// <summary> Writes asset lookup artifacts and the input manifest. </summary>
     ValueTask WriteAssetLookupsAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
         IReadOnlyList<IndexGuidPathEntryJsonContract> guidPathEntries,
@@ -29,10 +31,10 @@ internal interface IReadIndexArtifactWriter
     /// <summary> Writes one scene-tree-lite lookup artifact. </summary>
     ValueTask WriteSceneTreeLiteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
-        string scenePath,
+        SceneAssetPath scenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
-        string sourceInputsHash,
+        Sha256Digest sourceInputsHash,
         CancellationToken cancellationToken = default);
 }

@@ -25,6 +25,20 @@ public sealed class ValidateRequestJsonParserRequestShapeTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public void Parse_WhenRequestContainsRequestId_ReturnsInvalidArgument ()
+    {
+        var requestJson = ValidateRequestJsonParserTestSupport.CreateRequestWithSteps(
+            ValidateRequestJsonParserTestSupport.ValidOperationStepsJson,
+            """
+            ,
+              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"
+            """);
+
+        ValidateRequestJsonParserTestSupport.AssertInvalidArgument(requestJson, "unknown", "requestId");
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void Parse_WhenStepsPropertyIsNotArray_ReturnsInvalidArgument ()
     {
         var requestJson = ValidateRequestJsonParserTestSupport.CreateRequestWithSteps("{}");
@@ -39,7 +53,6 @@ public sealed class ValidateRequestJsonParserRequestShapeTests
         const string requestJson = """
             {
               "protocolVersion": "1",
-              "requestId": "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
               "steps": []
             }
             """;

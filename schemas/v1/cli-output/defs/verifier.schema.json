@@ -7,7 +7,15 @@
       "type": "string"
     },
     "kind": {
-      "type": "string"
+      "type": "string",
+      "enum": [
+        "ready",
+        "compile",
+        "build",
+        "postRead",
+        "test",
+        "logs"
+      ]
     },
     "deterministic": {
       "type": "boolean"

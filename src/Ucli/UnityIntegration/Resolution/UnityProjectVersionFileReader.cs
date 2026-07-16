@@ -73,11 +73,24 @@ internal static class UnityProjectVersionFileReader
         return false;
     }
 
-    internal readonly record struct ReadResult (
-        ReadStatus Status,
-        string? UnityVersion,
-        string? ErrorMessage)
+    internal sealed class ReadResult
     {
+        private ReadResult (
+            ReadStatus status,
+            string? unityVersion,
+            string? errorMessage)
+        {
+            Status = status;
+            UnityVersion = unityVersion;
+            ErrorMessage = errorMessage;
+        }
+
+        public ReadStatus Status { get; }
+
+        public string? UnityVersion { get; }
+
+        public string? ErrorMessage { get; }
+
         public static ReadResult Success (string unityVersion)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(unityVersion);
@@ -92,11 +105,13 @@ internal static class UnityProjectVersionFileReader
 
         public static ReadResult PathInvalid (string errorMessage)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
             return new ReadResult(ReadStatus.PathInvalid, null, errorMessage);
         }
 
         public static ReadResult ReadFailure (string errorMessage)
         {
+            ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
             return new ReadResult(ReadStatus.ReadFailure, null, errorMessage);
         }
     }

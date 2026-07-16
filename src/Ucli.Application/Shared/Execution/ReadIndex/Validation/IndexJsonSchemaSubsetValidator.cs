@@ -6,20 +6,32 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 /// <summary> Validates the uCLI-supported JSON Schema subset persisted in read-index catalogs. </summary>
 internal static class IndexJsonSchemaSubsetValidator
 {
-    public static bool IsValidObjectSchema (string? json)
-    {
-        return IsValidObjectSchema(json, rejectRequestLocalAliasProperties: false);
-    }
-
-    public static bool IsValidPublicRawOpArgsSchema (string? json)
-    {
-        return IsValidObjectSchema(json, rejectRequestLocalAliasProperties: true);
-    }
-
-    private static bool IsValidObjectSchema (
+    public static bool TryParseObjectSchema (
         string? json,
-        bool rejectRequestLocalAliasProperties)
+        out JsonElement schema)
     {
+        return TryParseObjectSchema(
+            json,
+            rejectRequestLocalAliasProperties: false,
+            out schema);
+    }
+
+    public static bool TryParsePublicRawOpArgsSchema (
+        string? json,
+        out JsonElement schema)
+    {
+        return TryParseObjectSchema(
+            json,
+            rejectRequestLocalAliasProperties: true,
+            out schema);
+    }
+
+    private static bool TryParseObjectSchema (
+        string? json,
+        bool rejectRequestLocalAliasProperties,
+        out JsonElement schema)
+    {
+        schema = default;
         if (string.IsNullOrWhiteSpace(json))
         {
             return false;
@@ -28,8 +40,14 @@ internal static class IndexJsonSchemaSubsetValidator
         try
         {
             using var document = JsonDocument.Parse(json);
-            return document.RootElement.ValueKind == JsonValueKind.Object
-                && IsValidSchemaNode(document.RootElement, document.RootElement, rejectRequestLocalAliasProperties);
+            if (document.RootElement.ValueKind != JsonValueKind.Object
+                || !IsValidSchemaNode(document.RootElement, document.RootElement, rejectRequestLocalAliasProperties))
+            {
+                return false;
+            }
+
+            schema = document.RootElement.Clone();
+            return true;
         }
         catch (JsonException)
         {

@@ -17,7 +17,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["inputValidation", "profileResolution"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.profile"],
             nextActions:
             [
@@ -36,7 +36,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["profileResolution", "buildInputResolution", "preconditionProbe"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.inputs.unityBuildProfile.path"],
             nextActions:
             [
@@ -55,7 +55,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["profileResolution"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.target"],
             nextActions:
             [
@@ -74,7 +74,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["preconditionProbe", "buildInputResolution"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.input"],
             nextActions:
             [
@@ -93,7 +93,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["buildInputResolution", "preconditionProbe"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.inputs.scenes"],
             nextActions:
             [
@@ -112,7 +112,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["buildInputResolution", "preconditionProbe"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.inputs.scenes"],
             nextActions:
             [
@@ -131,7 +131,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["preconditionProbe", "targetModuleCheck"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.input.unityBuildTarget", "payload.build.input.unityBuildTargetGroup"],
             nextActions:
             [
@@ -150,7 +150,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["runtimePolicy", "preconditionProbe"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.project"],
             nextActions:
             [
@@ -169,8 +169,8 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["preconditionProbe", "dirtyStateCheck"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
-            inspect: ["errors[].code", "errors[].message", "payload.dirtyState.checked", "payload.dirtyState.dirty", "payload.dirtyState.coverage", "payload.dirtyState.items[].path"],
+            safeToRetry: UcliErrorRetryClass.No,
+            inspect: ["errors[].code", "errors[].message", "payload.dirtyState.dirty", "payload.dirtyState.coverage", "payload.dirtyState.items[].path"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -188,8 +188,8 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["preconditionProbe", "dirtyStateCheck"],
             impliesNotApplied: true,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.Unknown,
-            inspect: ["errors[].code", "errors[].message", "payload.dirtyState.checked", "payload.dirtyState.coverage"],
+            safeToRetry: UcliErrorRetryClass.Unknown,
+            inspect: ["errors[].code", "errors[].message", "payload.dirtyState.coverage"],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
@@ -207,7 +207,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["buildPipeline", "buildReportRead"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.Unknown,
+            safeToRetry: UcliErrorRetryClass.Unknown,
             inspect: ["errors[].code", "errors[].message", "payload.build.summary", "payload.reports.buildReport"],
             nextActions:
             [
@@ -226,7 +226,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["artifactPreparation", "artifactWrite"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.Unknown,
+            safeToRetry: UcliErrorRetryClass.Unknown,
             inspect: ["errors[].code", "errors[].message", "payload.reports"],
             nextActions:
             [
@@ -245,7 +245,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["outputManifest"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.Unknown,
+            safeToRetry: UcliErrorRetryClass.Unknown,
             inspect: ["errors[].code", "errors[].message", "payload.build.output"],
             nextActions:
             [
@@ -264,7 +264,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["outputSourceResolution", "outputManifest"],
             impliesNotApplied: false,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.output"],
             nextActions:
             [
@@ -283,7 +283,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["outputManifest", "artifactAccounting"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.Yes,
+            safeToRetry: UcliErrorRetryClass.Yes,
             inspect: ["errors[].code", "errors[].message", "payload.build.output.manifestDigest"],
             nextActions:
             [
@@ -302,7 +302,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["outputManifest", "artifactAccounting"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.Yes,
+            safeToRetry: UcliErrorRetryClass.Yes,
             inspect: ["errors[].code", "errors[].message", "payload.reports.buildOutputManifest.digest"],
             nextActions:
             [
@@ -321,7 +321,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["projectMutationAudit"],
             impliesNotApplied: false,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.project"],
             nextActions:
             [
@@ -340,7 +340,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["runnerResolution"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.runner.method"],
             nextActions:
             [
@@ -359,7 +359,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["runnerResolution"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.runner.method"],
             nextActions:
             [
@@ -378,7 +378,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["runnerResolution"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.runner.method"],
             nextActions:
             [
@@ -397,7 +397,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["runnerResolution"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.runner.method"],
             nextActions:
             [
@@ -416,7 +416,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["profileResolution", "runnerInvocation"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["errors[].code", "errors[].message", "payload.build.runner.invocation.environment"],
             nextActions:
             [
@@ -435,7 +435,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["runnerInvocation"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.Unknown,
+            safeToRetry: UcliErrorRetryClass.Unknown,
             inspect: ["errors[].code", "errors[].message", "payload.build.runner"],
             nextActions:
             [
@@ -454,7 +454,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["runnerInvocation"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["errors[].code", "errors[].message", "payload.build.runner.method"],
             nextActions:
             [
@@ -473,7 +473,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["runnerResult"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.Unknown,
+            safeToRetry: UcliErrorRetryClass.Unknown,
             inspect: ["errors[].code", "errors[].message", "payload.build.runnerResult"],
             nextActions:
             [
@@ -492,7 +492,7 @@ internal static class BuildErrorCodeDescriptors
             possiblePhases: ["runnerResult"],
             impliesNotApplied: false,
             mayBeIndeterminate: true,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].code", "errors[].message", "payload.build.runnerResult"],
             nextActions:
             [

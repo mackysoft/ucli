@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 
@@ -78,7 +79,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
 
         return await ReadListFromSourceAsync(
                 context,
-                $"Existing ops index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(persistedFreshness)}'.",
+                        $"Existing ops index freshness is '{ContractLiteralCodec.ToValue(persistedFreshness)}'.",
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -138,7 +139,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
             return await ReadDescribeFromSourceAsync(
                     context,
                     operationName,
-                    $"Existing ops index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(persistedFreshness)}'.",
+                    $"Existing ops index freshness is '{ContractLiteralCodec.ToValue(persistedFreshness)}'.",
                     cancellationToken)
                 .ConfigureAwait(false);
         }
@@ -199,7 +200,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         {
             return OpsListReadResult.Failure(
                 refreshResult.Message,
-                refreshResult.ErrorCode!.Value,
+                refreshResult.ErrorCode!,
                 refreshResult.StartupFailure);
         }
 
@@ -235,7 +236,7 @@ internal sealed class OpsCatalogAccessService : IOpsCatalogAccessService
         {
             return OpsDescribeReadResult.Failure(
                 refreshResult.Message,
-                refreshResult.ErrorCode!.Value,
+                refreshResult.ErrorCode!,
                 refreshResult.StartupFailure);
         }
 

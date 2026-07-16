@@ -4,6 +4,7 @@ using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.CallServiceTestSupport;
 using static MackySoft.Ucli.Application.Tests.Helpers.ApplicationCommandInputTestHelper;
 
@@ -24,13 +25,14 @@ public sealed class CallServicePreflightFailureTests
                 new ValidationError(
                     ValidationErrorCodes.OperationArgsInvalid,
                     "Operation args are invalid.",
-                    "step-1"),
+                    new IpcExecuteStepId("step-1")),
             ]);
         var service = CreateService(
             preflightResult,
             new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -45,7 +47,7 @@ public sealed class CallServicePreflightFailureTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.NotNull(result.Output);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
+        Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.Empty(result.Output.OpResults);
         Assert.Null(result.Output.Plan);
     }
@@ -65,6 +67,7 @@ public sealed class CallServicePreflightFailureTests
             new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -79,7 +82,7 @@ public sealed class CallServicePreflightFailureTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.ToolError, result.Outcome);
         Assert.NotNull(result.Output);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
+        Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.Empty(result.Output.OpResults);
         Assert.Null(result.Output.Plan);
     }
@@ -100,6 +103,7 @@ public sealed class CallServicePreflightFailureTests
             new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("daemon"),
@@ -117,7 +121,7 @@ public sealed class CallServicePreflightFailureTests
         Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, error.Code);
         Assert.Equal("Daemon is not running for mode=daemon.", error.Message);
         Assert.NotNull(result.Output);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
+        Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.Empty(result.Output.OpResults);
         Assert.Null(result.Output.Plan);
     }

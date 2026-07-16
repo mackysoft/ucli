@@ -7,13 +7,13 @@ public enum BuildProfileSceneSource
 {
     /// <summary> Uses enabled Unity Editor Build Settings scenes. </summary>
     [UcliContractLiteral("editorBuildSettings")]
-    EditorBuildSettings = 0,
+    EditorBuildSettings = 1,
 
     /// <summary> Uses explicit profile scene paths. </summary>
     [UcliContractLiteral("explicit")]
-    Explicit = 1,
+    Explicit = 2,
 
     /// <summary> Uses scenes resolved from a Unity Build Profile asset. </summary>
     [UcliContractLiteral("unityBuildProfile")]
-    UnityBuildProfile = 2,
+    UnityBuildProfile = 3,
 }

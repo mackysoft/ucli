@@ -9,66 +9,88 @@ using MackySoft.Ucli.Contracts.Ipc;
 
 internal static class DaemonExistingSessionGateServiceTestSupport
 {
+    private static readonly DateTimeOffset DefaultUtcNow = DateTimeOffset.UnixEpoch;
+
     public static DaemonExistingSessionGateService CreateService (
         IDaemonPingInfoClient? daemonPingInfoClient = null,
         IDaemonReachabilityClassifier? reachabilityClassifier = null,
         IDaemonSessionCleanupService? cleanupService = null,
         IDaemonLifecycleStore? lifecycleStore = null,
         IDaemonProcessIdentityAssessor? processIdentityAssessor = null,
-        TimeProvider? timeProvider = null)
+        IDaemonSessionStore? daemonSessionStore = null)
     {
+        var effectiveSessionStore = daemonSessionStore ?? new RecordingDaemonSessionStore();
+        var effectiveReachabilityClassifier = reachabilityClassifier
+            ?? new StubDaemonReachabilityClassifier(static _ => false);
         return new DaemonExistingSessionGateService(
-            daemonPingInfoClient: daemonPingInfoClient ?? new RecordingDaemonPingInfoClient(CreateReadyPingResponse()),
-            reachabilityClassifier: reachabilityClassifier ?? new StubDaemonReachabilityClassifier(static _ => false),
+            daemonSessionProbe: new DaemonSessionProbe(
+                DaemonSessionAcquisitionCoordinatorTestFactory.Create(effectiveSessionStore),
+                daemonPingInfoClient ?? new RecordingDaemonPingInfoClient(CreateReadyPingResponse()),
+                effectiveReachabilityClassifier),
+            reachabilityClassifier: effectiveReachabilityClassifier,
             daemonSessionCleanupService: cleanupService ?? new RecordingDaemonSessionCleanupService(),
             daemonLifecycleStore: lifecycleStore ?? new RecordingDaemonLifecycleStore(),
-            processIdentityAssessor: processIdentityAssessor ?? new RecordingDaemonProcessIdentityAssessor(),
-            timeProvider: timeProvider);
+            processIdentityAssessor: processIdentityAssessor ?? new RecordingDaemonProcessIdentityAssessor());
     }
 
-    public static DaemonLifecycleObservation CreateRecoveringObservation (DaemonSession session)
+    public static DaemonLifecycleObservation CreateLifecycleObservation (
+        DaemonSession session,
+        IpcEditorLifecycleState lifecycleState,
+        DateTimeOffset? observedAtUtc = null,
+        Guid? editorInstanceId = null)
     {
         return new DaemonLifecycleObservation(
             processId: session.ProcessId!.Value,
             processStartedAtUtc: session.ProcessStartedAtUtc!.Value,
             state: new UnityEditorStateSnapshot(
                 editorMode: session.EditorMode,
-                lifecycleState: IpcEditorLifecycleState.Recovering,
-                compileState: IpcCompileState.Ready,
+                lifecycleState: lifecycleState,
+                compileState: lifecycleState switch
+                {
+                    IpcEditorLifecycleState.Compiling => IpcCompileState.Compiling,
+                    IpcEditorLifecycleState.CompileFailed => IpcCompileState.Failed,
+                    _ => IpcCompileState.Ready,
+                },
                 generations: new IpcUnityGenerationSnapshot(1, 2, 0, 0),
                 playMode: new IpcPlayModeSnapshot(
                     IpcPlayModeState.Stopped,
                     IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
-            observedAtUtc: DateTimeOffset.UtcNow,
+            observedAtUtc: observedAtUtc ?? DefaultUtcNow,
             actionRequired: null,
             primaryDiagnostic: null,
             serverVersion: null,
-            editorInstanceId: session.EditorInstanceId);
+            editorInstanceId: editorInstanceId
+                ?? session.EditorInstanceId
+                ?? throw new ArgumentException("Session must have an Editor instance identifier.", nameof(session)),
+            recoveryLease: null);
     }
 
     public static DaemonSession CreateRecoveringGuiSession (
         int processId,
-        string projectFingerprint,
-        string editorInstanceId)
+        ProjectFingerprint projectFingerprint,
+        Guid editorInstanceId)
     {
         return DaemonSessionTestFactory.Create(
             processId: processId,
             projectFingerprint: projectFingerprint,
             editorMode: DaemonEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
-            canShutdownProcess: false) with
-        {
-            EditorInstanceId = editorInstanceId,
-        };
+            canShutdownProcess: false,
+            editorInstanceId: editorInstanceId);
     }
 
-    public static RecordingDaemonLifecycleStore CreateRecoveringLifecycleStore (DaemonSession session)
+    public static RecordingDaemonLifecycleStore CreateRecoveringLifecycleStore (
+        DaemonSession session,
+        DateTimeOffset? observedAtUtc = null)
     {
         return new RecordingDaemonLifecycleStore
         {
-            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateRecoveringObservation(session)),
+            ReadResult = DaemonLifecycleObservationReadResult.Success(CreateLifecycleObservation(
+                session,
+                IpcEditorLifecycleState.Recovering,
+                observedAtUtc: observedAtUtc)),
         };
     }
 
@@ -76,10 +98,8 @@ internal static class DaemonExistingSessionGateServiceTestSupport
     {
         return new RecordingDaemonProcessIdentityAssessor
         {
-            Assessment = new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-                session.ProcessStartedAtUtc,
-                Error: null),
+            Assessment = DaemonProcessIdentityAssessment.MatchingLiveProcess(
+                session.ProcessStartedAtUtc!.Value),
         };
     }
 
@@ -87,7 +107,7 @@ internal static class DaemonExistingSessionGateServiceTestSupport
     {
         return IpcUnityEditorObservationTestFactory.Create(
             lifecycleState,
-            projectFingerprint: "fingerprint");
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
     }
 
     public static IpcUnityEditorObservation CreateReadyPingResponse ()

@@ -28,7 +28,7 @@ internal static class SupervisorProgressAssert
 
     public static void WaitingForEndpointProgressForwarded (
         CollectingCommandProgressSink progressSink,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         string? expectedMessage = null)
     {
         var progress = Assert.Single(progressSink.Entries);

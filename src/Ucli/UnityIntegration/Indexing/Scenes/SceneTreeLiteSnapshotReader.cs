@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -25,14 +26,14 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
         UcliCommand command,
         UnityExecutionMode mode,
         TimeSpan timeout,
-        string scenePath,
+        UnityScenePath scenePath,
         bool failFast = false,
         bool loadedSceneOnly = false,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(config);
-        ArgumentException.ThrowIfNullOrWhiteSpace(scenePath);
+        ArgumentNullException.ThrowIfNull(scenePath);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -42,16 +43,14 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
                 timeout,
                 config,
                 project,
-                new UnityRequestPayload.Raw(
-                    IpcMethodNames.IndexSceneTreeLiteRead,
-                    IpcPayloadCodec.SerializeToElement(new IpcIndexSceneTreeLiteReadRequest(scenePath, failFast, loadedSceneOnly))),
+                new UnityRequestPayload.IndexSceneTreeLiteRead(scenePath, failFast, loadedSceneOnly),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
             return SceneTreeLiteSnapshotFetchResult.Failure(
                 executionResult.Message,
-                executionResult.ErrorCode!.Value);
+                executionResult.ErrorCode!);
         }
 
         return CreateResultFromResponse(executionResult.Response!, "index.scene-tree-lite.read", scenePath);
@@ -60,30 +59,16 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
     private static SceneTreeLiteSnapshotFetchResult CreateResultFromResponse (
         UnityRequestResponse response,
         string responseSourceName,
-        string requestedScenePath)
+        UnityScenePath requestedScenePath)
     {
         ArgumentNullException.ThrowIfNull(response);
         ArgumentException.ThrowIfNullOrWhiteSpace(responseSourceName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestedScenePath);
+        ArgumentNullException.ThrowIfNull(requestedScenePath);
 
-        if (response.HasFailureStatus || response.Errors.Count != 0)
+        if (response.Errors.Count != 0)
         {
-            var firstError = response.Errors.FirstOrDefault();
-            if (firstError != null)
-            {
-                return SceneTreeLiteSnapshotFetchResult.Failure(firstError.Message, firstError.Code);
-            }
-
-            if (!string.IsNullOrWhiteSpace(response.FailureStatus))
-            {
-                return SceneTreeLiteSnapshotFetchResult.Failure(
-                    $"{responseSourceName} failed with status '{response.FailureStatus}'.",
-                    UcliCoreErrorCodes.InternalError);
-            }
-
-            return SceneTreeLiteSnapshotFetchResult.Failure(
-                $"{responseSourceName} failed with an error status.",
-                UcliCoreErrorCodes.InternalError);
+            var firstError = response.Errors[0];
+            return SceneTreeLiteSnapshotFetchResult.Failure(firstError.Message, firstError.Code);
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcIndexSceneTreeLiteReadResponse payload, out var payloadError))
@@ -93,27 +78,29 @@ internal sealed class SceneTreeLiteSnapshotReader : ISceneTreeLiteSnapshotReader
                 UcliCoreErrorCodes.InternalError);
         }
 
-        if (!string.Equals(payload.ScenePath, requestedScenePath, StringComparison.Ordinal))
+        if (payload.ScenePath != requestedScenePath)
         {
             return SceneTreeLiteSnapshotFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. scenePath does not match the requested scene path.",
                 UcliCoreErrorCodes.InternalError);
         }
 
-        if (!IndexCatalogContractValidator.TryValidateSceneTreeLiteNodes(payload.Roots, "roots", out var rootsError))
+        if (!IndexCatalogContractValidator.TryProjectSceneTreeLiteNodes(
+                payload.Roots,
+                "roots",
+                out var roots,
+                out var rootsError))
         {
             return SceneTreeLiteSnapshotFetchResult.Failure(
                 $"{responseSourceName} payload is invalid. {rootsError}",
                 UcliCoreErrorCodes.InternalError);
         }
 
-        if (payload.SourceState == null || payload.SourceState.Kind == SceneTreeSourceStateKind.Unspecified)
-        {
-            return SceneTreeLiteSnapshotFetchResult.Failure(
-                $"{responseSourceName} payload is invalid. sourceState is required.",
-                UcliCoreErrorCodes.InternalError);
-        }
-
-        return SceneTreeLiteSnapshotFetchResult.Success(payload);
+        return SceneTreeLiteSnapshotFetchResult.Success(
+            new SceneTreeLiteSourceSnapshot(
+                payload.GeneratedAtUtc,
+                payload.ScenePath,
+                roots,
+                payload.SourceState));
     }
 }

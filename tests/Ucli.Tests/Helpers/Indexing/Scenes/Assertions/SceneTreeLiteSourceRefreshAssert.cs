@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Helpers.Indexing.Scenes;
 
@@ -9,12 +8,12 @@ internal static class SceneTreeLiteSourceRefreshAssert
     public static void FirstSnapshotReturnedAfterRetryFailureWithoutPersistence (
         SceneTreeLiteRefreshResult result,
         RecordingReadIndexArtifactWriter artifactWriter,
-        IpcIndexSceneTreeLiteReadResponse expectedResponse,
+        SceneTreeLiteSourceSnapshot expectedSnapshot,
         string expectedFallbackReason,
         string expectedRetryFailureMessage)
     {
         Assert.True(result.IsSuccess);
-        Assert.Same(expectedResponse, result.Response);
+        Assert.Same(expectedSnapshot, result.Snapshot);
         Assert.Empty(artifactWriter.SceneTreeLiteInvocations);
         Assert.NotNull(result.FallbackReason);
         Assert.Contains(expectedFallbackReason, result.FallbackReason!, StringComparison.Ordinal);
@@ -27,11 +26,11 @@ internal static class SceneTreeLiteSourceRefreshAssert
         RecordingSceneTreeLiteSnapshotReader reader,
         RecordingReadIndexSceneSourceHashProvider sourceHashProvider,
         RecordingReadIndexArtifactWriter artifactWriter,
-        IpcIndexSceneTreeLiteReadResponse expectedResponse,
+        SceneTreeLiteSourceSnapshot expectedSnapshot,
         string expectedFallbackReason)
     {
         Assert.True(result.IsSuccess);
-        Assert.Same(expectedResponse, result.Response);
+        Assert.Same(expectedSnapshot, result.Snapshot);
         Assert.Equal(expectedFallbackReason, result.FallbackReason);
         SceneTreeLiteSnapshotReaderAssert.ReadRequested(reader, UnityExecutionMode.Auto, expectedFailFast: false);
         Assert.Empty(sourceHashProvider.Invocations);
@@ -42,10 +41,10 @@ internal static class SceneTreeLiteSourceRefreshAssert
         SceneTreeLiteRefreshResult result,
         RecordingSceneTreeLiteSnapshotReader reader,
         RecordingReadIndexArtifactWriter artifactWriter,
-        IpcIndexSceneTreeLiteReadResponse expectedResponse)
+        SceneTreeLiteSourceSnapshot expectedSnapshot)
     {
         Assert.True(result.IsSuccess);
-        Assert.Same(expectedResponse, result.Response);
+        Assert.Same(expectedSnapshot, result.Snapshot);
         SceneTreeLiteSnapshotReaderAssert.ReadRequested(reader, UnityExecutionMode.Auto, expectedFailFast: false);
         Assert.Empty(artifactWriter.SceneTreeLiteInvocations);
         Assert.NotNull(result.FallbackReason);

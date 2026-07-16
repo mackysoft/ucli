@@ -41,7 +41,7 @@ internal sealed class SupervisorProjectCoordinator
 
     private readonly TimeProvider timeProvider;
 
-    private readonly ConcurrentDictionary<string, SupervisorProjectSlot> projectSlots = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<ProjectFingerprint, SupervisorProjectSlot> projectSlots = new();
 
     private int managedProjectCount;
 
@@ -62,7 +62,7 @@ internal sealed class SupervisorProjectCoordinator
         SupervisorStabilityVerifier stabilityVerifier,
         SupervisorExitHandler exitHandler,
         SupervisorRuntimeLogger runtimeLogger,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.daemonStartOperation = daemonStartOperation ?? throw new ArgumentNullException(nameof(daemonStartOperation));
         this.daemonStopOperation = daemonStopOperation ?? throw new ArgumentNullException(nameof(daemonStopOperation));
@@ -71,7 +71,7 @@ internal sealed class SupervisorProjectCoordinator
         this.stabilityVerifier = stabilityVerifier ?? throw new ArgumentNullException(nameof(stabilityVerifier));
         this.exitHandler = exitHandler ?? throw new ArgumentNullException(nameof(exitHandler));
         this.runtimeLogger = runtimeLogger ?? throw new ArgumentNullException(nameof(runtimeLogger));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Gets a value indicating whether one or more managed Unity daemon processes are currently tracked. </summary>
@@ -82,7 +82,7 @@ internal sealed class SupervisorProjectCoordinator
 
     /// <summary> Ensures one Unity daemon is running for the specified project. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The command timeout. </param>
+    /// <param name="deadline"> The command deadline shared by all normal lifecycle phases. </param>
     /// <param name="editorMode"> The optional requested daemon Editor mode. </param>
     /// <param name="onStartupBlocked"> The startup-blocked process policy requested by the caller. </param>
     /// <param name="progressObserver"> The optional observer for supervisor-internal start progress. </param>
@@ -90,7 +90,7 @@ internal sealed class SupervisorProjectCoordinator
     /// <returns> The daemon-start result. </returns>
     public async ValueTask<DaemonStartResult> EnsureRunningAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
@@ -98,10 +98,9 @@ internal sealed class SupervisorProjectCoordinator
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
         var slot = GetOrCreateSlot(unityProject.ProjectFingerprint);
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!await TryEnterProjectGateAsync(slot, deadline, cancellationToken).ConfigureAwait(false))
         {
             return DaemonStartResult.Failure(ExecutionError.Timeout(ProjectGateTimeoutMessage));
@@ -119,7 +118,7 @@ internal sealed class SupervisorProjectCoordinator
                 return DaemonStartResult.Failure(pendingOperationWaitError);
             }
 
-            if (!deadline.TryGetRemainingTimeout(out var daemonStartTimeout))
+            if (!deadline.TryGetRemainingTimeout(out _))
             {
                 return DaemonStartResult.Failure(ExecutionError.Timeout(
                     "Timed out before supervisor start work could begin."));
@@ -127,7 +126,7 @@ internal sealed class SupervisorProjectCoordinator
 
             var startResult = await daemonStartOperation.StartAsync(
                     unityProject,
-                    daemonStartTimeout,
+                    deadline,
                     editorMode,
                     onStartupBlocked,
                     progressObserver,
@@ -157,7 +156,7 @@ internal sealed class SupervisorProjectCoordinator
                 return DaemonStartResult.Started(startResult.Session!, startResult.LifecycleObservation);
             }
 
-            if (!deadline.TryGetRemainingTimeout(out var stabilityTimeout))
+            if (!deadline.TryGetRemainingTimeout(out _))
             {
                 ScheduleBackgroundCompensationStop(slot, unityProject);
                 return DaemonStartResult.Failure(ExecutionError.Timeout(
@@ -170,7 +169,7 @@ internal sealed class SupervisorProjectCoordinator
                 stabilityResult = await stabilityVerifier.EnsureStableAsync(
                         unityProject,
                         startResult.Session!,
-                        stabilityTimeout,
+                        deadline,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -196,20 +195,19 @@ internal sealed class SupervisorProjectCoordinator
 
     /// <summary> Stops one Unity daemon for the specified project. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="timeout"> The command timeout. </param>
+    /// <param name="deadline"> The command deadline shared by all normal lifecycle phases. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The daemon-stop result. </returns>
     public async ValueTask<DaemonStopResult> StopProjectAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
+        ArgumentNullException.ThrowIfNull(deadline);
 
         var slot = GetOrCreateSlot(unityProject.ProjectFingerprint);
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
         if (!await TryEnterProjectGateAsync(slot, deadline, cancellationToken).ConfigureAwait(false))
         {
             return DaemonStopResult.Failure(ExecutionError.Timeout(ProjectGateTimeoutMessage));
@@ -227,7 +225,7 @@ internal sealed class SupervisorProjectCoordinator
                 return DaemonStopResult.Failure(pendingOperationWaitError);
             }
 
-            if (!deadline.TryGetRemainingTimeout(out var stopTimeout))
+            if (!deadline.TryGetRemainingTimeout(out _))
             {
                 return DaemonStopResult.Failure(ExecutionError.Timeout(
                     "Timed out before supervisor stop work could begin."));
@@ -240,7 +238,7 @@ internal sealed class SupervisorProjectCoordinator
             {
                 stopResult = await daemonStopOperation.StopAsync(
                         unityProject,
-                        stopTimeout,
+                        deadline,
                         cancellationToken)
                     .ConfigureAwait(false);
             }
@@ -302,7 +300,7 @@ internal sealed class SupervisorProjectCoordinator
         }
     }
 
-    private SupervisorProjectSlot GetOrCreateSlot (string projectFingerprint)
+    private SupervisorProjectSlot GetOrCreateSlot (ProjectFingerprint projectFingerprint)
     {
         return projectSlots.GetOrAdd(projectFingerprint, static _ => new SupervisorProjectSlot());
     }
@@ -316,7 +314,7 @@ internal sealed class SupervisorProjectCoordinator
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(session);
 
-        if (!DaemonSessionTerminationPolicy.CanShutdownProcess(session))
+        if (!session.CanShutdownProcess)
         {
             return false;
         }
@@ -422,7 +420,23 @@ internal sealed class SupervisorProjectCoordinator
             return false;
         }
 
-        return await slot.Gate.WaitAsync(gateTimeout, cancellationToken).ConfigureAwait(false);
+        using var gateCancellationScope = TimeProviderCancellationScope.CreateLinked(
+            cancellationToken,
+            gateTimeout,
+            deadline.Clock);
+        try
+        {
+            await slot.Gate.WaitAsync(gateCancellationScope.Token).ConfigureAwait(false);
+            return true;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
+        }
     }
 
     private static async ValueTask<ExecutionError?> AwaitPendingOperationAsync (
@@ -443,12 +457,20 @@ internal sealed class SupervisorProjectCoordinator
             return ExecutionError.Timeout(PendingOperationTimeoutMessage);
         }
 
+        using var pendingOperationCancellationScope = TimeProviderCancellationScope.CreateLinked(
+            cancellationToken,
+            pendingOperationTimeout,
+            deadline.Clock);
         try
         {
-            await pendingOperation.WaitAsync(pendingOperationTimeout, cancellationToken).ConfigureAwait(false);
+            await pendingOperation.WaitAsync(pendingOperationCancellationScope.Token).ConfigureAwait(false);
             return null;
         }
-        catch (TimeoutException)
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
         {
             return ExecutionError.Timeout(PendingOperationTimeoutMessage);
         }
@@ -467,60 +489,102 @@ internal sealed class SupervisorProjectCoordinator
         }
 
         Interlocked.Increment(ref pendingOperationCount);
-        slot.PendingOperation = RunBackgroundCompensationStopAsync(slot, unityProject, slot.ManagedProcess);
+        var startSignal = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        slot.PendingOperation = RunBackgroundCompensationStopAsync(
+            startSignal.Task,
+            slot,
+            unityProject,
+            slot.ManagedProcess);
+        startSignal.TrySetResult();
     }
 
     private async Task RunBackgroundCompensationStopAsync (
+        Task startSignal,
         SupervisorProjectSlot slot,
         ResolvedUnityProjectContext unityProject,
         SupervisorManagedDaemonProcess managedProcess)
     {
+        ArgumentNullException.ThrowIfNull(startSignal);
         ArgumentNullException.ThrowIfNull(slot);
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(managedProcess);
 
+        await startSignal.ConfigureAwait(false);
         managedProcess.BeginStopRequest();
+        var queuedLogTask = WriteRuntimeLogBestEffortAsync(
+            unityProject.RepositoryRoot,
+            "warning",
+            string.Format(
+                StabilityCompensationLogMessage,
+                unityProject.ProjectFingerprint));
         try
         {
-            await runtimeLogger.WriteAsync(
-                    unityProject.RepositoryRoot,
-                    "warning",
-                    string.Format(
-                        StabilityCompensationLogMessage,
-                        unityProject.ProjectFingerprint),
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-
+            var compensationDeadline = ExecutionDeadline.Start(
+                DaemonTimeouts.StopCompensationTimeout,
+                timeProvider);
             var stopResult = await daemonStopOperation.StopAsync(
                     unityProject,
-                    DaemonTimeouts.StopCompensationTimeout,
+                    compensationDeadline,
                     CancellationToken.None)
                 .ConfigureAwait(false);
             managedProcess.CompleteStopRequest(stopResult.IsSuccess);
+            await queuedLogTask.ConfigureAwait(false);
             if (!stopResult.IsSuccess)
             {
-                await runtimeLogger.WriteAsync(
+                await WriteRuntimeLogBestEffortAsync(
                         unityProject.RepositoryRoot,
                         "error",
-                        $"Background compensation stop failed. fingerprint={unityProject.ProjectFingerprint} error={stopResult.Error!.Message}",
-                        CancellationToken.None)
+                        $"Background compensation stop failed. fingerprint={unityProject.ProjectFingerprint} error={stopResult.Error!.Message}")
                     .ConfigureAwait(false);
             }
         }
         catch (Exception exception)
         {
             managedProcess.CompleteStopRequest(false);
-            await runtimeLogger.WriteAsync(
+            await queuedLogTask.ConfigureAwait(false);
+            await WriteRuntimeLogBestEffortAsync(
                     unityProject.RepositoryRoot,
                     "error",
-                    $"Background compensation stop crashed. fingerprint={unityProject.ProjectFingerprint} {exception}",
-                    CancellationToken.None)
+                    $"Background compensation stop crashed. fingerprint={unityProject.ProjectFingerprint} {exception}")
                 .ConfigureAwait(false);
         }
         finally
         {
             slot.PendingOperation = null;
             Interlocked.Decrement(ref pendingOperationCount);
+        }
+    }
+
+    private async Task WriteRuntimeLogBestEffortAsync (
+        string storageRoot,
+        string level,
+        string message)
+    {
+        try
+        {
+            var deadline = ExecutionDeadline.Start(
+                SupervisorConstants.RuntimeLogWriteTimeout,
+                timeProvider);
+            _ = await ExecutionDeadlineOperation.ExecuteAsync(
+                    deadline,
+                    CancellationToken.None,
+                    "Timed out before the supervisor runtime-log write could begin.",
+                    "Timed out while writing the supervisor runtime log.",
+                    async operationCancellationToken =>
+                    {
+                        await runtimeLogger.WriteAsync(
+                                storageRoot,
+                                level,
+                                message,
+                                operationCancellationToken)
+                            .ConfigureAwait(false);
+                        return true;
+                    })
+                .ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // Runtime logging is supplemental and must not delay or fail required compensation.
         }
     }
 

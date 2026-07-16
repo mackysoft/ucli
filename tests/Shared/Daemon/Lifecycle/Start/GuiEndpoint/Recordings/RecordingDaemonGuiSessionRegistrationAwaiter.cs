@@ -1,6 +1,4 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -41,13 +39,20 @@ internal sealed class RecordingDaemonGuiSessionRegistrationAwaiter : IDaemonGuiS
     public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
-        TimeSpan timeout,
-        DateTimeOffset? expectedProcessStartedAtUtc = null,
+        ExecutionDeadline deadline,
+        DateTimeOffset expectedProcessStartedAtUtc,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        _ = deadline.TryGetRemainingTimeout(out var remainingTimeout);
 
-        invocations.Add(new Invocation(unityProject, expectedProcessId, timeout, expectedProcessStartedAtUtc, cancellationToken));
+        invocations.Add(new Invocation(
+            unityProject,
+            expectedProcessId,
+            deadline,
+            remainingTimeout,
+            expectedProcessStartedAtUtc,
+            cancellationToken));
         OnWaitForSession?.Invoke();
         onWait?.Invoke(invocations.Count);
         return ValueTask.FromResult(Results.Count > 0 ? Results.Dequeue() : Result);
@@ -55,25 +60,14 @@ internal sealed class RecordingDaemonGuiSessionRegistrationAwaiter : IDaemonGuiS
 
     private static DaemonSession CreateDefaultSession ()
     {
-        return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "secret-token",
-            ProjectFingerprint: "fingerprint",
-            IssuedAtUtc: new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: DaemonEditorMode.Batchmode,
-            OwnerKind: DaemonSessionOwnerKind.Cli,
-            CanShutdownProcess: true,
-            EndpointTransportKind: IpcTransportKind.NamedPipe,
-            EndpointAddress: "ucli-daemon-endpoint",
-            ProcessId: 1234,
-            ProcessStartedAtUtc: DateTimeOffset.UtcNow,
-            OwnerProcessId: 9876);
+        return DaemonSessionTestFactory.Create();
     }
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         int ExpectedProcessId,
-        TimeSpan Timeout,
-        DateTimeOffset? ExpectedProcessStartedAtUtc,
+        ExecutionDeadline Deadline,
+        TimeSpan RemainingTimeout,
+        DateTimeOffset ExpectedProcessStartedAtUtc,
         CancellationToken CancellationToken);
 }

@@ -1,11 +1,15 @@
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Lifecycle;
 
 public sealed class UnityEditorStateSnapshotContractTests
 {
+    private static readonly ProjectFingerprint ProjectFingerprint =
+        new("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(0)]
@@ -87,36 +91,101 @@ public sealed class UnityEditorStateSnapshotContractTests
     [Trait("Size", "Small")]
     [InlineData(0)]
     [InlineData(1)]
-    [InlineData(2)]
-    public void UnityEditorObservationConstructor_WhenIdentityValueIsWhitespace_ThrowsArgumentException (
-        int identityIndex)
+    public void UnityEditorObservationConstructor_WhenVersionIsWhitespace_ThrowsArgumentException (
+        int versionIndex)
     {
-        var identityValues = new[] { "server", "unity", "project" };
-        identityValues[identityIndex] = " ";
+        var versions = new[] { "server", "unity" };
+        versions[versionIndex] = " ";
 
         Assert.Throws<ArgumentException>(() =>
         {
             _ = new IpcUnityEditorObservation(
-                identityValues[0],
-                identityValues[1],
-                identityValues[2],
+                versions[0],
+                versions[1],
+                ProjectFingerprint,
                 CreateState(),
-                DateTimeOffset.UnixEpoch);
+                DateTimeOffset.UnixEpoch,
+                actionRequired: null,
+                primaryDiagnostic: null);
         });
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void UnityEditorObservationConstructor_WhenObservedAtUtcIsDefault_ThrowsArgumentOutOfRangeException ()
+    public void UnityEditorObservationConstructor_WhenObservedAtUtcIsNotCanonicalUtc_ThrowsArgumentException ()
     {
-        Assert.Throws<ArgumentOutOfRangeException>(() =>
+        foreach (var invalidTimestamp in new[]
+                 {
+                     default,
+                     new DateTimeOffset(2026, 7, 15, 9, 0, 0, TimeSpan.FromHours(9)),
+                 })
         {
-            _ = new IpcUnityEditorObservation(
+            var exception = Assert.Throws<ArgumentException>(() => new IpcUnityEditorObservation(
                 "server",
                 "unity",
-                "project",
+                ProjectFingerprint,
                 CreateState(),
-                default);
+                invalidTimestamp,
+                actionRequired: null,
+                primaryDiagnostic: null));
+
+            Assert.Equal("observedAtUtc", exception.ParamName);
+        }
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("actionRequired")]
+    [InlineData("primaryDiagnosticKind")]
+    public void LifecycleDiagnosticConstructor_WhenFiniteValueIsUndefined_ThrowsArgumentOutOfRangeException (string fieldName)
+    {
+        Func<object> construction = fieldName switch
+        {
+            "actionRequired" => () => new IpcUnityEditorObservation(
+                "server",
+                "unity",
+                ProjectFingerprint,
+                CreateState(),
+                DateTimeOffset.UnixEpoch,
+                actionRequired: (DaemonDiagnosisActionRequired)0,
+                primaryDiagnostic: null),
+            "primaryDiagnosticKind" => () => new IpcPrimaryDiagnostic(
+                Kind: (DaemonDiagnosisPrimaryDiagnosticKind)0,
+                Code: null,
+                File: null,
+                Line: null,
+                Column: null,
+                Message: null),
+            _ => throw new ArgumentOutOfRangeException(nameof(fieldName), fieldName, "Unknown field name."),
+        };
+
+        Assert.Throws<ArgumentOutOfRangeException>(construction);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData("kind")]
+    [InlineData("code")]
+    [InlineData("file")]
+    [InlineData("line")]
+    [InlineData("column")]
+    [InlineData("message")]
+    public void PrimaryDiagnosticJson_WhenRequiredFieldIsMissing_ThrowsJsonException (string propertyName)
+    {
+        var json = JsonSerializer.SerializeToNode(
+            new IpcPrimaryDiagnostic(
+                DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
+                null,
+                null,
+                null,
+                null,
+                null),
+            IpcJsonSerializerOptions.Default)!.AsObject();
+        Assert.True(json.Remove(propertyName));
+
+        Assert.Throws<JsonException>(() =>
+        {
+            _ = json.Deserialize<IpcPrimaryDiagnostic>(IpcJsonSerializerOptions.Default);
         });
     }
 
@@ -127,9 +196,11 @@ public sealed class UnityEditorStateSnapshotContractTests
         var expected = new IpcUnityEditorObservation(
             "server",
             "unity",
-            "project",
+            ProjectFingerprint,
             CreateState(),
-            DateTimeOffset.UnixEpoch);
+            DateTimeOffset.UnixEpoch,
+            actionRequired: null,
+            primaryDiagnostic: null);
         var json = JsonSerializer.Serialize(expected, IpcJsonSerializerOptions.Default);
 
         var actual = JsonSerializer.Deserialize<IpcUnityEditorObservation>(
@@ -150,9 +221,11 @@ public sealed class UnityEditorStateSnapshotContractTests
             "observation" => () => new IpcUnityEditorObservation(
                 "server",
                 "unity",
-                "project",
+                ProjectFingerprint,
                 null!,
-                DateTimeOffset.UnixEpoch),
+                DateTimeOffset.UnixEpoch,
+                actionRequired: null,
+                primaryDiagnostic: null),
             "screenshot" => () => new IpcScreenshotCapture(
                 IpcScreenshotTarget.Game,
                 IpcScreenshotSizeMode.CurrentSurface,
@@ -207,9 +280,11 @@ public sealed class UnityEditorStateSnapshotContractTests
             "observation" => new IpcUnityEditorObservation(
                 "server",
                 "unity",
-                "project",
+                ProjectFingerprint,
                 state,
-                DateTimeOffset.UnixEpoch),
+                DateTimeOffset.UnixEpoch,
+                actionRequired: null,
+                primaryDiagnostic: null),
             "screenshot" => new IpcScreenshotCapture(
                 IpcScreenshotTarget.Game,
                 IpcScreenshotSizeMode.CurrentSurface,
@@ -251,7 +326,7 @@ public sealed class UnityEditorStateSnapshotContractTests
     private static void AssertInvalidContractException (Exception? exception)
     {
         Assert.True(
-            exception is JsonException or ArgumentNullException,
+            exception is JsonException or ArgumentException,
             $"Expected the state contract to reject invalid JSON, but got: {exception}");
     }
 }

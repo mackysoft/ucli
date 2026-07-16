@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -9,7 +10,7 @@ internal static class UcliOperationCodeApiMemberValidator
         UcliCodeApiMemberContract? member,
         int memberIndex,
         string ownerName,
-        HashSet<string> memberNames,
+        HashSet<(string Name, UcliCodeApiMemberKind Kind)> memberNames,
         out string errorMessage)
     {
         if (!TryValidateCommon(member, memberIndex, ownerName, memberNames, out errorMessage))
@@ -17,7 +18,7 @@ internal static class UcliOperationCodeApiMemberValidator
             return false;
         }
 
-        return member!.Kind == UcliCodeApiMemberKindValues.Property
+        return member!.Kind == UcliCodeApiMemberKind.Property
             ? TryValidateProperty(member, memberIndex, ownerName, out errorMessage)
             : TryValidateMethod(member, memberIndex, ownerName, out errorMessage);
     }
@@ -26,14 +27,15 @@ internal static class UcliOperationCodeApiMemberValidator
         UcliCodeApiMemberContract? member,
         int memberIndex,
         string ownerName,
-        HashSet<string> memberNames,
+        HashSet<(string Name, UcliCodeApiMemberKind Kind)> memberNames,
         out string errorMessage)
     {
         if (member == null
-            || string.IsNullOrWhiteSpace(member.Kind)
+            || !member.Kind.HasValue
+            || !ContractLiteralCodec.IsDefined(member.Kind.Value)
             || string.IsNullOrWhiteSpace(member.Name)
             || string.IsNullOrWhiteSpace(member.Description)
-            || !memberNames.Add(member.Name + ":" + member.Kind))
+            || !memberNames.Add((member.Name, member.Kind.Value)))
         {
             errorMessage = $"{ownerName} has an invalid codeContract api member at index {memberIndex}.";
             return false;
@@ -68,7 +70,7 @@ internal static class UcliOperationCodeApiMemberValidator
         string ownerName,
         out string errorMessage)
     {
-        if (member.Kind != UcliCodeApiMemberKindValues.Method
+        if (member.Kind != UcliCodeApiMemberKind.Method
             || member.Type != null
             || string.IsNullOrWhiteSpace(member.ReturnType)
             || member.Parameters == null)

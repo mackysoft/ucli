@@ -22,33 +22,21 @@ public sealed record SceneGameObjectReferenceArgs
         HierarchyPath = hierarchyPath;
     }
 
-    public SceneGameObjectReferenceArgs (
-        string? alias,
-        string? globalObjectId,
-        string? scene,
-        string? hierarchyPath)
-        : this(
-            alias == null ? null : new UcliPlanAlias(alias),
-            globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
-            scene == null ? null : new SceneAssetPath(scene),
-            hierarchyPath == null ? null : new UnityHierarchyPath(hierarchyPath))
-    {
-    }
-
     [UcliDescription("Request-local alias produced by an earlier plan step.")]
     [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UcliPlanAlias? Alias { get; init; }
+    public UcliPlanAlias? Alias { get; }
 
     [UcliDescription("Resolved Unity GlobalObjectId.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityGlobalObjectId? GlobalObjectId { get; init; }
+    public UnityGlobalObjectId? GlobalObjectId { get; }
 
     [UcliDescription("Scene asset path for a hierarchy selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public SceneAssetPath? Scene { get; init; }
+    public SceneAssetPath? Scene { get; }
 
     [UcliDescription("Unity hierarchy path inside the selected scene.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityHierarchyPath? HierarchyPath { get; init; }
+    public UnityHierarchyPath? HierarchyPath { get; }
 }

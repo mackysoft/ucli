@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
 
@@ -164,13 +163,13 @@ public sealed class IpcCommandTimeoutResolverTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Resolve_WithInvalidCommand_ThrowsArgumentException ()
+    public void Resolve_WithNullCommand_ThrowsArgumentNullException ()
     {
         var config = CreateConfig(ipcDefaultTimeoutMilliseconds: 3000);
 
-        Assert.Throws<ArgumentException>(() =>
+        Assert.Throws<ArgumentNullException>(() =>
         {
-            _ = IpcCommandTimeoutResolver.ResolveNormalized(null, default, config);
+            _ = IpcCommandTimeoutResolver.ResolveNormalized(null, null!, config);
         });
     }
 

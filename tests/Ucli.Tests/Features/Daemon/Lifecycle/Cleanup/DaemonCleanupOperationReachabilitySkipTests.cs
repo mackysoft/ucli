@@ -10,24 +10,26 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Cleanup_WhenSessionDoesNotExistAndProbeFindsLiveDaemon_ReturnsSkippedUncertainReachabilityWithoutCleanup ()
+    public async Task Cleanup_WhenSessionDoesNotExistAndEndpointResponds_ReturnsSkippedRunningWithoutCleanup ()
     {
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
+        var daemonPingClient = DaemonCleanupOperationTestSupport.CreateSuccessfulPingClient();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(null),
+                ReadResult = DaemonSessionReadResult.Missing(),
             },
-            daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
-                new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid)),
+            daemonPingClient: daemonPingClient,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-none-live"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-none-live")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.SkippedWithoutArtifactCleanup(
             result,
             artifactCleaner,
-            DaemonCleanupSkipReason.UncertainReachability);
+            DaemonCleanupSkipReason.Running);
+        Assert.Null(Assert.Single(daemonPingClient.SessionTokens));
     }
 
     [Fact]
@@ -37,14 +39,15 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2001);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateSuccessfulPingClient(),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-running"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-running")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.SkippedWithoutArtifactCleanup(
             result,
@@ -59,15 +62,16 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2006);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new DaemonPingResponseException("token invalid", IpcSessionErrorCodes.SessionTokenInvalid)),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-token-invalid"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-token-invalid")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.SkippedWithoutArtifactCleanup(
             result,
@@ -82,15 +86,16 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2007);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new DaemonPingResponseException("token required", IpcSessionErrorCodes.SessionTokenRequired)),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-token-required"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-token-required")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.SkippedWithoutArtifactCleanup(
             result,
@@ -105,15 +110,18 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2007);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
-                new SocketException((int)SocketError.AccessDenied)),
+                new IpcConnectException(
+                    "IPC connection failed before the request was sent.",
+                    new SocketException((int)SocketError.AccessDenied))),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-access-denied"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-access-denied")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.SkippedWithoutArtifactCleanup(
             result,
@@ -128,15 +136,18 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2010);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
-                new SocketException((int)SocketError.AddressNotAvailable)),
+                new IpcConnectException(
+                    "IPC connection failed before the request was sent.",
+                    new SocketException((int)SocketError.AddressNotAvailable))),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-address-not-available"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-address-not-available")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.SkippedWithoutArtifactCleanup(
             result,
@@ -151,15 +162,16 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2008);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new IpcConnectTimeoutException("connect timeout")),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-connect-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-connect-timeout")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.SkippedWithoutArtifactCleanup(
             result,
@@ -174,15 +186,16 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
         var session = DaemonSessionTestFactory.Create(processId: 2012);
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(session),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(session),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new IpcConnectTimeoutException("connect timeout")),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-connect-timeout-dead-process"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-connect-timeout-dead-process")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.SkippedWithoutArtifactCleanup(
             result,
@@ -196,15 +209,18 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
     {
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(null),
+                ReadResult = DaemonSessionReadResult.Missing(),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
-                new SocketException((int)SocketError.AddressNotAvailable)),
+                new IpcConnectException(
+                    "IPC connection failed before the request was sent.",
+                    new SocketException((int)SocketError.AddressNotAvailable))),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-none-address-not-available"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-none-address-not-available")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.SkippedWithoutArtifactCleanup(
             result,
@@ -218,15 +234,16 @@ public sealed class DaemonCleanupOperationReachabilitySkipTests
     {
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = DaemonCleanupOperationTestSupport.CreateOperation(
+            new ManualTimeProvider(),
             daemonSessionStore: new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(processId: 2005)),
+                ReadResult = DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(processId: 2005)),
             },
             daemonPingClient: DaemonCleanupOperationTestSupport.CreateFailingPingClient(
                 new TimeoutException("probe timeout")),
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-cleanup-timeout"), TimeSpan.FromMilliseconds(500), CancellationToken.None);
+        var result = await operation.CleanupAsync(ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-cleanup-timeout")), TimeSpan.FromMilliseconds(500), CancellationToken.None);
 
         DaemonCleanupOperationAssert.SkippedWithoutArtifactCleanup(
             result,

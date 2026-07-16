@@ -5,146 +5,139 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc;
 
 public sealed class UcliOperationPolicyDeriverTests
 {
-    private static readonly string[] DangerousSideEffects =
+    private static readonly UcliOperationSideEffect[] DangerousSideEffects =
     [
-        "externalProcess",
-        "filesystemWrite",
-        "arbitrarySourceExecution",
-        "destructiveScope",
+        UcliOperationSideEffect.ExternalProcess,
+        UcliOperationSideEffect.FilesystemWrite,
+        UcliOperationSideEffect.ArbitrarySourceExecution,
+        UcliOperationSideEffect.DestructiveScope,
     ];
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDerive_WhenNoRiskFacts_ReturnsSafe ()
+    public void Derive_WhenNoRiskFacts_ReturnsSafe ()
     {
-        var assurance = CreateAssurance(Array.Empty<string>());
+        var assurance = CreateAssurance(
+            Array.Empty<UcliOperationSideEffect>(),
+            Array.Empty<UcliTouchedResourceKind>(),
+            UcliOperationPlanMode.ValidationOnly);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
+        var policy = UcliOperationPolicyDeriver.Derive(assurance, codeContract: null);
 
-        Assert.True(result);
         Assert.Equal(OperationPolicy.Safe, policy);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDerive_WhenMultipleSideEffects_ReturnsStrictestPolicy ()
+    public void Derive_WhenMultipleSideEffects_ReturnsStrictestPolicy ()
     {
         var assurance = CreateAssurance(
-        [
-            "observesUnityState",
-            "sceneSave",
-        ],
-        touchedKinds: [UcliTouchedResourceKindNames.Scene]);
+            [
+                UcliOperationSideEffect.ObservesUnityState,
+                UcliOperationSideEffect.SceneSave,
+            ],
+            [UcliTouchedResourceKind.Scene],
+            UcliOperationPlanMode.ValidationOnly);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
+        var policy = UcliOperationPolicyDeriver.Derive(assurance, codeContract: null);
 
-        Assert.True(result);
         Assert.Equal(OperationPolicy.Advanced, policy);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDerive_WhenRuntimeStateMutationIsDeclared_ReturnsAdvanced ()
+    public void Derive_WhenRuntimeStateMutationIsDeclared_ReturnsAdvanced ()
     {
-        var assurance = CreateAssurance(["runtimeStateMutation"]);
+        var assurance = CreateAssurance(
+            [UcliOperationSideEffect.RuntimeStateMutation],
+            Array.Empty<UcliTouchedResourceKind>(),
+            UcliOperationPlanMode.ValidationOnly);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
+        var policy = UcliOperationPolicyDeriver.Derive(assurance, codeContract: null);
 
-        Assert.True(result);
         Assert.Equal(OperationPolicy.Advanced, policy);
         Assert.True(assurance.MayDirty);
         Assert.False(assurance.MayPersist);
-        Assert.NotNull(assurance.TouchedKinds);
         Assert.Empty(assurance.TouchedKinds);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDerive_WhenPlanMayCreatePreviewState_ReturnsAdvanced ()
+    public void Derive_WhenPlanMayCreatePreviewState_ReturnsAdvanced ()
     {
         var assurance = CreateAssurance(
-            Array.Empty<string>(),
-            planMode: "mayCreatePreviewState");
+            Array.Empty<UcliOperationSideEffect>(),
+            Array.Empty<UcliTouchedResourceKind>(),
+            UcliOperationPlanMode.MayCreatePreviewState);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
+        var policy = UcliOperationPolicyDeriver.Derive(assurance, codeContract: null);
 
-        Assert.True(result);
         Assert.Equal(OperationPolicy.Advanced, policy);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDerive_WhenCodeContractExists_ReturnsDangerous ()
+    public void Derive_WhenCodeContractExists_ReturnsDangerous ()
     {
-        var assurance = CreateAssurance(Array.Empty<string>());
+        var assurance = CreateAssurance(
+            Array.Empty<UcliOperationSideEffect>(),
+            Array.Empty<UcliTouchedResourceKind>(),
+            UcliOperationPlanMode.ValidationOnly);
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, CreateValidCodeContract(), out var policy);
+        var policy = UcliOperationPolicyDeriver.Derive(assurance, CreateValidCodeContract());
 
-        Assert.True(result);
         Assert.Equal(OperationPolicy.Dangerous, policy);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDerive_WhenDangerousSideEffectIsDeclared_ReturnsDangerous ()
+    public void Derive_WhenDangerousSideEffectIsDeclared_ReturnsDangerous ()
     {
         foreach (var sideEffect in DangerousSideEffects)
         {
-            var assurance = CreateAssurance([sideEffect]);
+            IReadOnlyList<UcliTouchedResourceKind> touchedKinds = sideEffect == UcliOperationSideEffect.FilesystemWrite
+                ? [UcliTouchedResourceKind.Asset]
+                : Array.Empty<UcliTouchedResourceKind>();
+            var assurance = CreateAssurance(
+                [sideEffect],
+                touchedKinds,
+                UcliOperationPlanMode.ValidationOnly);
 
-            var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
+            var policy = UcliOperationPolicyDeriver.Derive(assurance, codeContract: null);
 
-            Assert.True(result);
             Assert.Equal(OperationPolicy.Dangerous, policy);
-            Assert.True(UcliOperationSideEffectDescriptors.IsDangerousDerivationSource(sideEffect));
+            Assert.Equal(
+                OperationPolicy.Dangerous,
+                UcliOperationSideEffectDescriptors.GetDescriptor(sideEffect).MinimumPolicy);
         }
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryDerive_WhenSideEffectIsUnsupported_ReturnsFalse ()
+    public void Derive_WhenAssuranceIsNull_ThrowsArgumentNullException ()
     {
-        var assurance = CreateAssurance(["not-supported"]);
+        var exception = Assert.Throws<ArgumentNullException>(
+            () => UcliOperationPolicyDeriver.Derive(null!, codeContract: null));
 
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out _);
-
-        Assert.False(result);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryDerive_WhenStoredProjectionIsCorrupted_UsesDescriptorProjection ()
-    {
-        var assurance = CreateAssurance(["observesUnityState"]);
-        assurance.MayPersist = true;
-
-        var result = UcliOperationPolicyDeriver.TryDerive(assurance, out var policy);
-
-        Assert.True(result);
-        Assert.Equal(OperationPolicy.Safe, policy);
+        Assert.Equal("assurance", exception.ParamName);
     }
 
     private static UcliOperationAssuranceContract CreateAssurance (
-        IReadOnlyList<string> sideEffects,
-        IReadOnlyList<string>? touchedKinds = null,
-        string? planMode = "validationOnly")
+        IReadOnlyList<UcliOperationSideEffect> sideEffects,
+        IReadOnlyList<UcliTouchedResourceKind> touchedKinds,
+        UcliOperationPlanMode planMode)
     {
-        return new UcliOperationAssuranceContract(
+        return UcliOperationDescribeContractValidatorTestData.CreateAssurance(
             sideEffects,
-            touchedKinds ?? Array.Empty<string>(),
+            touchedKinds,
             planMode,
-            planSemantics: "Validate arguments without applying mutation.",
-            callSemantics: "Execute the operation contract.",
-            touchedContract: "Returns no touched resources.",
-            readPostconditionContract: "Does not stale read surfaces by itself.",
-            failureSemantics: "Failure means the operation was not completed.",
-            dangerousNotes: Array.Empty<string>());
+            Array.Empty<string>());
     }
 
     private static UcliOperationCodeContract CreateValidCodeContract ()
     {
         return new UcliOperationCodeContract(
-            "csharp",
+            UcliCodeLanguage.CSharp,
             new UcliCodeEntryPointContract(
                 "public static object? Run(SampleContext context)",
                 "Compiled source must contain exactly one matching Run method.",
@@ -153,7 +146,7 @@ public sealed class UcliOperationPolicyDeriverTests
                 "JSON-serializable value."),
             new[]
             {
-                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+                new UcliCodeSourceFormContract(UcliCodeSourceFormKind.CompilationUnit, "Complete C# compilation unit."),
             },
             new[]
             {

@@ -12,7 +12,6 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Common.Contracts;
 /// <param name="TestFilter"> Optional Unity test filter pattern. </param>
 /// <param name="TestCategory"> Optional test categories parsed from the CLI option. </param>
 /// <param name="AssemblyName"> Optional assembly names parsed from the CLI option. </param>
-/// <param name="TestSettingsPath"> Optional path to <c>TestSettings.json</c>. </param>
 /// <param name="TimeoutMilliseconds"> Optional timeout in milliseconds. </param>
 /// <param name="FailFast"> Whether readiness-gated Unity execution should fail immediately instead of waiting for lifecycle readiness. </param>
 /// <param name="AllowEmptyTestRun"> Whether a run that reports zero test cases should be accepted. </param>
@@ -26,7 +25,6 @@ internal sealed record TestRunCommandInput (
     string? TestFilter,
     string[]? TestCategory,
     string[]? AssemblyName,
-    string? TestSettingsPath,
     int? TimeoutMilliseconds,
     bool FailFast = false,
     bool AllowEmptyTestRun = false);

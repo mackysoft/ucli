@@ -15,9 +15,9 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
                 DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse()));
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-running"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running")),
             session,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -30,6 +30,31 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
 
     [Fact]
     [Trait("Size", "Small")]
+    public async Task TryHandleExistingSession_WhenProbeBudgetExceedsAttemptCap_CapsInitialPing ()
+    {
+        var session = DaemonSessionTestFactory.Create(
+            processId: 4006,
+            editorMode: DaemonEditorMode.Gui);
+        var pingClient = new RecordingDaemonPingInfoClient(
+            DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse());
+        var service = DaemonExistingSessionGateServiceTestSupport.CreateService(
+            daemonPingInfoClient: pingClient);
+
+        var result = await service.TryHandleExistingSessionAsync(
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-capped")),
+            session,
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), new ManualTimeProvider()),
+            editorMode: null,
+            cancellationToken: CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(DaemonStartStatus.AlreadyRunning, result!.Status);
+        var invocation = Assert.Single(pingClient.Invocations);
+        Assert.Equal(DaemonTimeouts.ProbeAttemptTimeoutCap, invocation.Timeout);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task TryHandleExistingSession_WhenPingReportsCompiling_ReturnsAlreadyRunningWithLifecycleSnapshot ()
     {
         var session = DaemonSessionTestFactory.Create(processId: 4010);
@@ -38,9 +63,9 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
                 DaemonExistingSessionGateServiceTestSupport.CreatePingResponse(IpcEditorLifecycleState.Compiling)));
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-running-compiling"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-compiling")),
             session,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             cancellationToken: CancellationToken.None);
 
@@ -61,9 +86,9 @@ public sealed class DaemonExistingSessionGateServiceRunningTests
                 DaemonExistingSessionGateServiceTestSupport.CreateReadyPingResponse()));
 
         var result = await service.TryHandleExistingSessionAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-existing-running-mismatch"),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-existing-running-mismatch")),
             session,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: DaemonEditorMode.Gui,
             cancellationToken: CancellationToken.None);
 

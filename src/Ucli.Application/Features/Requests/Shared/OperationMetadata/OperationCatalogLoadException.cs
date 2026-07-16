@@ -14,9 +14,7 @@ internal sealed class OperationCatalogLoadException : InvalidOperationException
         : base(error?.Message)
     {
         Error = error ?? throw new ArgumentNullException(nameof(error));
-        ErrorCode = !errorCode.HasValue || !errorCode.Value.IsValid
-            ? ExecutionErrorCodeMapper.ToCode(Error)
-            : errorCode.Value;
+        ErrorCode = errorCode ?? ExecutionErrorCodeMapper.ToCode(Error);
     }
 
     /// <summary> Gets the structured execution error associated with this failure. </summary>

@@ -64,7 +64,7 @@ public sealed class CommandResultTests
         AssertCommonContract(
             result,
             expectedCommand: UcliCommandNames.Init,
-            expectedStatus: "ok",
+            expectedStatus: CommandResultStatus.Ok,
             expectedExitCode: (int)CliExitCode.Success,
             expectedMessage: message);
         Assert.Equal(JsonValueKind.Object, JsonSerializer.SerializeToElement(result.Payload).ValueKind);
@@ -82,7 +82,7 @@ public sealed class CommandResultTests
             AssertCommonContract(
                 result,
                 expectedCommand: UcliCommandNames.Root,
-                expectedStatus: "ok",
+                expectedStatus: CommandResultStatus.Ok,
                 expectedExitCode: (int)CliExitCode.Success,
                 expectedMessage: "An unknown error occurred.");
             Assert.Equal(JsonValueKind.Object, JsonSerializer.SerializeToElement(result.Payload).ValueKind);
@@ -101,7 +101,7 @@ public sealed class CommandResultTests
             AssertCommonContract(
                 result,
                 expectedCommand: testCase.ExpectedCommand,
-                expectedStatus: "error",
+                expectedStatus: CommandResultStatus.Error,
                 expectedExitCode: testCase.ExpectedExitCode,
                 expectedMessage: testCase.ExpectedMessage);
             AssertSingleError(
@@ -123,7 +123,7 @@ public sealed class CommandResultTests
             AssertCommonContract(
                 result,
                 expectedCommand: UcliCommandNames.Root,
-                expectedStatus: "error",
+                expectedStatus: CommandResultStatus.Error,
                 expectedExitCode: (int)CliExitCode.ToolError,
                 expectedMessage: expectedMessage);
             AssertSingleError(
@@ -136,7 +136,7 @@ public sealed class CommandResultTests
     private static void AssertCommonContract (
         CommandResult result,
         string expectedCommand,
-        string expectedStatus,
+        CommandResultStatus expectedStatus,
         int expectedExitCode,
         string expectedMessage)
     {

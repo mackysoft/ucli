@@ -25,12 +25,12 @@ internal sealed class ValidateService : IValidateService
         IRequestPreparationService requestPreparationService,
         IRequestStaticValidator requestStaticValidator,
         IRequestStaticValidationPreflightService requestStaticValidationPreflightService,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.requestPreparationService = requestPreparationService ?? throw new ArgumentNullException(nameof(requestPreparationService));
         this.requestStaticValidator = requestStaticValidator ?? throw new ArgumentNullException(nameof(requestStaticValidator));
         this.requestStaticValidationPreflightService = requestStaticValidationPreflightService ?? throw new ArgumentNullException(nameof(requestStaticValidationPreflightService));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -183,7 +183,7 @@ internal sealed class ValidateService : IValidateService
         {
             return ValidateServiceResult.Failure(
                 requestStaticValidationPreflightResult.Error.Message,
-                requestStaticValidationPreflightResult.ErrorCode!.Value,
+                requestStaticValidationPreflightResult.ErrorCode!,
                 output);
         }
 

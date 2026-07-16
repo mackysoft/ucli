@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Hosting.Cli.Requests;
 /// <summary> Provides the <c>query assets find</c> CLI command entry point. </summary>
 internal sealed class QueryAssetsFindCommand
 {
-    private const string OperationId = "assets.find";
+    private static readonly IpcExecuteStepId OperationId = new("assets.find");
 
     private readonly IQueryService queryService;
 
@@ -26,7 +26,7 @@ internal sealed class QueryAssetsFindCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes <c>query assets find</c> and emits the JSON result contract. </summary>
+    /// <summary> Finds Unity assets and emits the JSON result contract. Requires at least one of --type, --pathPrefix, or --nameContains. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
@@ -57,11 +57,12 @@ internal sealed class QueryAssetsFindCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+        var requestId = Guid.NewGuid();
 
         var commonOptionsResult = QueryCommonOptionsNormalizer.Normalize(projectPath, mode, timeout, readIndexMode, failFast);
         if (!commonOptionsResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetsFind, commonOptionsResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QueryAssetsFind, commonOptionsResult.Error!);
         }
 
         var operationRequestResult = QueryAssetsFindOperationRequestFactory.Create(
@@ -76,10 +77,11 @@ internal sealed class QueryAssetsFindCommand
             after);
         if (!operationRequestResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryAssetsFind, operationRequestResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QueryAssetsFind, operationRequestResult.Error!);
         }
 
         return await QueryCommandExecutionHelper.ExecuteAsync(
+                requestId,
                 queryService,
                 commonOptionsResult.Options!,
                 operationRequestResult.Operation!,

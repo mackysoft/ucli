@@ -162,7 +162,7 @@ public sealed class PlayExitPayloadSchemaArtifactTests
             {
               "project": {
                 "projectPath": "/repo/UnityProject",
-                "projectFingerprint": "project-fingerprint",
+                "projectFingerprint": "{{SampleProjectFingerprint.ToString()}}",
                 "unityVersion": "6000.1.4f1"
               },
               "daemonStatus": "running",

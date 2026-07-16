@@ -1,28 +1,57 @@
-using MackySoft.Ucli.Contracts.Ipc;
-
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 
 /// <summary> Represents one refreshed asset lookup snapshot read. </summary>
-internal sealed record AssetLookupRefreshResult (
-    IpcIndexAssetsReadResponse? Response,
-    string Message,
-    UcliCode? ErrorCode,
-    string? FallbackReason)
+internal sealed record AssetLookupRefreshResult
 {
+    private AssetLookupRefreshResult (
+        AssetLookupSnapshot? snapshot,
+        string message,
+        UcliCode? errorCode,
+        string? fallbackReason)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        if (snapshot is null)
+        {
+            ArgumentNullException.ThrowIfNull(errorCode);
+        }
+        else if (errorCode is not null)
+        {
+            throw new ArgumentException("Successful refresh must not contain an error code.", nameof(errorCode));
+        }
+
+        if (snapshot is null && fallbackReason is not null)
+        {
+            throw new ArgumentException("Failed refresh must not contain a fallback reason.", nameof(fallbackReason));
+        }
+
+        Snapshot = snapshot;
+        Message = message;
+        ErrorCode = errorCode;
+        FallbackReason = fallbackReason;
+    }
+
+    public AssetLookupSnapshot? Snapshot { get; }
+
+    public string Message { get; }
+
+    public UcliCode? ErrorCode { get; }
+
+    public string? FallbackReason { get; }
+
     /// <summary> Gets a value indicating whether refresh succeeded. </summary>
-    public bool IsSuccess => Response is not null && ErrorCode is null;
+    public bool IsSuccess => Snapshot is not null;
 
     /// <summary> Creates a successful refresh result. </summary>
     public static AssetLookupRefreshResult Success (
-        IpcIndexAssetsReadResponse response,
+        AssetLookupSnapshot snapshot,
         string? fallbackReason)
     {
-        ArgumentNullException.ThrowIfNull(response);
+        ArgumentNullException.ThrowIfNull(snapshot);
         return new AssetLookupRefreshResult(
-            Response: response,
-            Message: "Asset lookup refresh completed.",
-            ErrorCode: null,
-            FallbackReason: fallbackReason);
+            snapshot,
+            "Asset lookup refresh completed.",
+            null,
+            fallbackReason);
     }
 
     /// <summary> Creates a failed refresh result. </summary>
@@ -31,9 +60,9 @@ internal sealed record AssetLookupRefreshResult (
         UcliCode errorCode)
     {
         return new AssetLookupRefreshResult(
-            Response: null,
-            Message: message,
-            ErrorCode: errorCode,
-            FallbackReason: null);
+            null,
+            message,
+            errorCode,
+            null);
     }
 }

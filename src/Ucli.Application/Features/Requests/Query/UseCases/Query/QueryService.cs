@@ -37,14 +37,18 @@ internal sealed class QueryService : IQueryService
 
     /// <inheritdoc />
     public async ValueTask<QueryServiceResult> ExecuteAsync (
+        Guid requestId,
         QueryCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(input.Operation);
-
-        var requestId = Guid.NewGuid().ToString("D");
         var projectContextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
         {
@@ -131,7 +135,7 @@ internal sealed class QueryService : IQueryService
     }
 
     private async ValueTask<QueryServiceResult> ExecuteAssetsFindAsync (
-        string requestId,
+        Guid requestId,
         QueryAssetsFindOperationRequest operation,
         ProjectContext projectContext,
         ProjectIdentityInfo project,
@@ -141,17 +145,13 @@ internal sealed class QueryService : IQueryService
         bool failFast,
         CancellationToken cancellationToken)
     {
-        var query = new AssetSearchLookupQuery(
-            TypeId: operation.Filter.TypeId,
-            PathPrefix: operation.Filter.PathPrefix,
-            NameContains: operation.Filter.NameContains);
         var readResult = await assetSearchLookupAccessService.SearchAsync(
                 projectContext.UnityProject,
                 projectContext.Config,
                 executionMode,
                 timeout,
                 readIndexMode,
-                query,
+                operation.Query,
                 failFast,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -160,7 +160,7 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
+                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
                 ReadIndexInfoFactory.Unity(readResult.Message),
                 project);
         }
@@ -180,7 +180,7 @@ internal sealed class QueryService : IQueryService
     }
 
     private async ValueTask<QueryServiceResult> ExecuteSceneTreeAsync (
-        string requestId,
+        Guid requestId,
         QueryCommandInput input,
         QuerySceneTreeOperationRequest operation,
         ProjectContext projectContext,
@@ -207,13 +207,15 @@ internal sealed class QueryService : IQueryService
             return QueryServiceResultFactory.FromIpcError(
                 operation.CommandName,
                 requestId,
-                new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
+                new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
                 ReadIndexInfoFactory.Unity(readResult.Message),
                 project);
         }
 
         var output = readResult.Output!;
-        var windowedRoots = SceneTreeWindowProjector.Apply(output.Roots, operation.WindowOptions);
+        var windowedRoots = SceneTreeWindowProjector.Apply(
+            ReadIndexJsonContractMapper.ToJsonContracts(output.Roots),
+            operation.WindowOptions);
         return QueryServiceResultFactory.Success(
             operation.CommandName,
             requestId,
@@ -227,7 +229,7 @@ internal sealed class QueryService : IQueryService
     }
 
     private async ValueTask<QueryServiceResult> ExecuteInUnityAsync (
-        string requestId,
+        Guid requestId,
         QueryCommandInput input,
         QueryUnityOperationRequest operation,
         ProjectContext projectContext,
@@ -246,7 +248,6 @@ internal sealed class QueryService : IQueryService
                 projectContext.UnityProject,
                 new UnityRequestPayload.ExecuteOperation(
                     UcliCommandIds.Query,
-                    requestId,
                     operation.OperationId,
                     operation.OperationName,
                     operation.Args,
@@ -268,7 +269,9 @@ internal sealed class QueryService : IQueryService
                 project);
         }
 
-        var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
+        var convertedResponse = ExecuteResponseConverter.Convert(
+            executionResult.Response!,
+            projectContext.UnityProject);
         var responseProject = convertedResponse.Project ?? project;
         if (convertedResponse.IsSuccess)
         {
@@ -281,7 +284,7 @@ internal sealed class QueryService : IQueryService
                 convertedResponse.ContractViolations);
         }
 
-        var failures = RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI query failed.");
+        var failures = RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors);
         return QueryServiceResultFactory.Failure(
             operation.CommandName,
             requestId,
@@ -306,29 +309,29 @@ internal sealed class QueryService : IQueryService
             result: result);
     }
 
-    private static AssetsFindResult CreateAssetsFindResult (BoundedWindowResult<IndexAssetSearchEntryJsonContract> windowedEntries)
+    private static AssetsFindResult CreateAssetsFindResult (BoundedWindowResult<AssetSearchLookupEntry> windowedEntries)
     {
         var matches = new AssetsFindMatch[windowedEntries.Items.Count];
         for (var i = 0; i < windowedEntries.Items.Count; i++)
         {
             var entry = windowedEntries.Items[i];
             matches[i] = new AssetsFindMatch(
-                assetPath: entry.AssetPath!,
-                assetGuid: entry.AssetGuid!,
-                name: entry.Name!,
-                typeId: entry.TypeId!);
+                assetPath: entry.AssetPath,
+                assetGuid: entry.AssetGuid,
+                name: entry.Name,
+                typeId: entry.TypeId);
         }
 
         return new AssetsFindResult(matches, windowedEntries.Window);
     }
 
     private static SceneTreeResult CreateSceneTreeResult (
-        string scenePath,
+        UnityScenePath scenePath,
         BoundedWindowResult<IndexSceneTreeLiteNodeJsonContract> windowedRoots,
         SceneTreeSourceState sourceState)
     {
         return new SceneTreeResult(
-            path: new SceneAssetPath(scenePath),
+            path: scenePath,
             roots: windowedRoots.Items,
             sourceState: sourceState,
             window: windowedRoots.Window);

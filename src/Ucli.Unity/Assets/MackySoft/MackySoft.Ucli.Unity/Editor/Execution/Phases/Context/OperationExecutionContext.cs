@@ -1,6 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Requests;
 using MackySoft.Ucli.Unity.SceneInspection;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -27,8 +31,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly RequestAttributedChangeRegistry requestAttributedChangeRegistry = new RequestAttributedChangeRegistry();
 
-        private readonly Dictionary<string, Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>>> prefabOverridePropertyChanges =
-            new Dictionary<string, Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>>>(StringComparer.Ordinal);
+        private readonly Dictionary<IpcExecuteStepId, Dictionary<RequestLocalObjectIdentity, Dictionary<string, PrefabOverridePropertyChange>>> prefabOverridePropertyChanges =
+            new Dictionary<IpcExecuteStepId, Dictionary<RequestLocalObjectIdentity, Dictionary<string, PrefabOverridePropertyChange>>>();
 
         private readonly DeletedGlobalObjectIdRegistry deletedGlobalObjectIdRegistry = new DeletedGlobalObjectIdRegistry();
 
@@ -52,14 +56,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="alias"> The alias name. </param>
         /// <param name="unityObject"> The temporary live object. </param>
         /// <param name="resource"> The logical owner resource associated with the temporary object. </param>
-        /// <param name="sourceGlobalObjectId"> The optional source GlobalObjectId used to synchronize shadows. </param>
+        /// <param name="sourceTrackingKey"> The optional source identity used to synchronize request-local state. </param>
         internal void SetTemporaryAlias (
-            string alias,
+            RequestLocalAliasIdentity alias,
             UnityEngine.Object unityObject,
             OperationResource resource,
-            string? sourceGlobalObjectId = null)
+            RequestLocalObjectIdentity? sourceTrackingKey = null)
         {
-            temporaryAliasRegistry.Set(alias, unityObject, resource, sourceGlobalObjectId);
+            RequestLocalObjectIdentity? ownerTrackingKey = null;
+            if (unityObject is Component component)
+            {
+                ownerTrackingKey = CreateComponentOwnerTrackingKey(component, resource);
+            }
+
+            temporaryAliasRegistry.Set(alias, unityObject, resource, sourceTrackingKey, ownerTrackingKey);
         }
 
         /// <summary> Tries to get one temporary alias state. </summary>
@@ -67,49 +77,49 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="state"> The tracked alias state when found. </param>
         /// <returns> <see langword="true" /> when temporary alias exists; otherwise <see langword="false" />. </returns>
         internal bool TryGetTemporaryAliasState (
-            string alias,
+            RequestLocalAliasIdentity alias,
             out TemporaryAliasRegistry.TemporaryAliasState state)
         {
             return temporaryAliasRegistry.TryGetState(alias, out state);
         }
 
         /// <summary> Stores or replaces one plan-time ensured component keyed by target GameObject and component type. </summary>
-        /// <param name="targetGlobalObjectId"> The source GameObject GlobalObjectId. </param>
+        /// <param name="targetTrackingKey"> The semantic identity of the GameObject that owns the ensured component. </param>
         /// <param name="componentType"> The ensured component runtime type. </param>
         /// <param name="component"> The temporary ensured component. </param>
         /// <param name="targetGameObject"> The request-local GameObject that owns the ensured component semantically. </param>
         /// <param name="resource"> The owning resource. </param>
         internal void SetEnsuredComponent (
-            string targetGlobalObjectId,
+            RequestLocalObjectIdentity targetTrackingKey,
             Type componentType,
             Component component,
             GameObject targetGameObject,
             OperationResource resource)
         {
-            componentSandboxRegistry.SetEnsuredComponent(targetGlobalObjectId, componentType, component, targetGameObject, resource);
+            componentSandboxRegistry.SetEnsuredComponent(targetTrackingKey, componentType, component, targetGameObject, resource);
         }
 
         /// <summary> Tries to get one plan-time ensured component state keyed by target GameObject and component type. </summary>
-        /// <param name="targetGlobalObjectId"> The source GameObject GlobalObjectId. </param>
+        /// <param name="targetTrackingKey"> The semantic identity of the GameObject that owns the ensured component. </param>
         /// <param name="componentType"> The ensured component runtime type. </param>
         /// <param name="state"> The ensured component state when found. </param>
         /// <returns> <see langword="true" /> when ensured component exists; otherwise <see langword="false" />. </returns>
         internal bool TryGetEnsuredComponentState (
-            string targetGlobalObjectId,
+            RequestLocalObjectIdentity targetTrackingKey,
             Type componentType,
             out ComponentSandboxRegistry.EnsuredComponentState state)
         {
-            return componentSandboxRegistry.TryGetEnsuredComponentState(targetGlobalObjectId, componentType, out state);
+            return componentSandboxRegistry.TryGetEnsuredComponentState(targetTrackingKey, componentType, out state);
         }
 
         /// <summary> Collects all plan-time ensured components tracked for one target object. </summary>
-        /// <param name="targetGlobalObjectId"> The target tracking key. </param>
+        /// <param name="targetTrackingKey"> The semantic identity of the target GameObject. </param>
         /// <param name="destination"> The destination collection that receives the ensured components. </param>
         internal void CollectEnsuredComponentStates (
-            string targetGlobalObjectId,
+            RequestLocalObjectIdentity targetTrackingKey,
             ICollection<ComponentSandboxRegistry.EnsuredComponentState> destination)
         {
-            componentSandboxRegistry.CollectEnsuredComponentStates(targetGlobalObjectId, destination);
+            componentSandboxRegistry.CollectEnsuredComponentStates(targetTrackingKey, destination);
         }
 
         /// <summary> Tries to resolve one tracked temporary component back to its logical owner resource. </summary>
@@ -129,7 +139,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when the component belongs to tracked plan-time state; otherwise <see langword="false" />. </returns>
         internal bool TryResolveTrackedComponentTargetKey (
             Component component,
-            out string targetKey)
+            [NotNullWhen(true)] out RequestLocalObjectIdentity? targetKey)
         {
             return componentSandboxRegistry.TryResolveTrackedComponentTargetKey(component, out targetKey);
         }
@@ -140,7 +150,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when the component belongs to tracked plan-time state; otherwise <see langword="false" />. </returns>
         internal bool TryResolveTrackedComponentOwnerKey (
             Component component,
-            out string ownerKey)
+            [NotNullWhen(true)] out RequestLocalObjectIdentity? ownerKey)
         {
             return componentSandboxRegistry.TryResolveTrackedComponentOwnerKey(component, out ownerKey);
         }
@@ -151,28 +161,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when the component belongs to tracked plan-time state and its owner still exists; otherwise <see langword="false" />. </returns>
         internal bool TryResolveTrackedComponentOwnerGameObject (
             Component component,
-            out GameObject? ownerGameObject)
+            [NotNullWhen(true)] out GameObject? ownerGameObject)
         {
             return componentSandboxRegistry.TryResolveTrackedComponentOwnerGameObject(component, out ownerGameObject);
         }
 
-        /// <summary> Stores or replaces one temporary component shadow keyed by source GlobalObjectId. </summary>
-        /// <param name="globalObjectId"> The source component GlobalObjectId. </param>
+        /// <summary> Stores or replaces one temporary component shadow keyed by its stable or synthetic source identity. </summary>
+        /// <param name="sourceTrackingKey"> The semantic identity of the source component. </param>
         /// <param name="component"> The temporary shadow component. </param>
         /// <param name="sourceComponent"> The source component whose serialized state is represented by <paramref name="component" />. </param>
         /// <param name="ownerGameObject"> The request-local GameObject that semantically owns <paramref name="component" />. </param>
         /// <param name="ownerGameObjectTrackingKey"> The tracking key of <paramref name="ownerGameObject" />. </param>
         /// <param name="resource"> The owning resource. </param>
         internal void SetComponentShadow (
-            string globalObjectId,
+            RequestLocalObjectIdentity sourceTrackingKey,
             Component component,
             Component sourceComponent,
             GameObject ownerGameObject,
-            string ownerGameObjectTrackingKey,
+            RequestLocalObjectIdentity ownerGameObjectTrackingKey,
             OperationResource resource)
         {
             componentSandboxRegistry.SetComponentShadow(
-                globalObjectId,
+                sourceTrackingKey,
                 component,
                 sourceComponent,
                 ownerGameObject,
@@ -198,14 +208,37 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         /// <summary> Tries to get one temporary component shadow state. </summary>
-        /// <param name="globalObjectId"> The source component GlobalObjectId. </param>
+        /// <param name="sourceTrackingKey"> The semantic identity of the source component. </param>
         /// <param name="state"> The component shadow state when found. </param>
         /// <returns> <see langword="true" /> when shadow exists; otherwise <see langword="false" />. </returns>
         internal bool TryGetComponentShadowState (
-            string globalObjectId,
+            RequestLocalObjectIdentity sourceTrackingKey,
             out ComponentSandboxRegistry.ComponentShadowState state)
         {
-            return componentSandboxRegistry.TryGetComponentShadowState(globalObjectId, out state);
+            return componentSandboxRegistry.TryGetComponentShadowState(sourceTrackingKey, out state);
+        }
+
+        /// <summary> Invalidates request-local component state semantically owned by one deleted GameObject. </summary>
+        /// <param name="ownerTrackingKey"> The request-local identity of the deleted owner GameObject. </param>
+        internal void InvalidateComponentStateOwnedBy (RequestLocalObjectIdentity ownerTrackingKey)
+        {
+            ValidateTrackingKey(ownerTrackingKey, nameof(ownerTrackingKey));
+
+            var removedComponentTrackingKeys = new HashSet<RequestLocalObjectIdentity>();
+            componentSandboxRegistry.RemoveByOwnerTrackingKey(ownerTrackingKey, removedComponentTrackingKeys);
+            temporaryAliasRegistry.RemoveComponentAliases(ownerTrackingKey, removedComponentTrackingKeys);
+            if (removedComponentTrackingKeys.Count == 0)
+            {
+                return;
+            }
+
+            foreach (var changesByTarget in prefabOverridePropertyChanges.Values)
+            {
+                foreach (var componentTrackingKey in removedComponentTrackingKeys)
+                {
+                    changesByTarget.Remove(componentTrackingKey);
+                }
+            }
         }
 
         /// <summary> Tracks one temporary prefab-contents root for unload at the end of request execution. </summary>
@@ -224,7 +257,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when tracked root exists; otherwise <see langword="false" />. </returns>
         internal bool TryGetTemporaryPrefabContentsRoot (
             string prefabPath,
-            out GameObject? prefabContentsRoot)
+            [NotNullWhen(true)] out GameObject? prefabContentsRoot)
         {
             return temporaryObjectScope.TryGetTemporaryPrefabContentsRoot(prefabPath, out prefabContentsRoot);
         }
@@ -266,17 +299,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return temporarySceneRegistry.TryResolvePreviewObjectFromSourceObject(scenePath, sourceObject, out previewObject);
         }
 
-        /// <summary> Tries to resolve one request-local preview scene object to its stable GlobalObjectId text. </summary>
+        /// <summary> Tries to resolve one request-local preview scene object to its stable source identity. </summary>
         /// <param name="scenePath"> The logical scene asset path. </param>
         /// <param name="previewObject"> The preview object. </param>
-        /// <param name="stableReference"> The stable GlobalObjectId text when found. </param>
+        /// <param name="globalObjectId"> The stable source identity when found. </param>
         /// <returns> <see langword="true" /> when the preview object has one explicit stable-reference mapping; otherwise <see langword="false" />. </returns>
-        internal bool TryResolveTemporarySceneStableReference (
+        internal bool TryResolveTemporarySceneGlobalObjectId (
             string scenePath,
             UnityEngine.Object previewObject,
-            out string stableReference)
+            [NotNullWhen(true)] out UnityGlobalObjectId? globalObjectId)
         {
-            return temporarySceneRegistry.TryResolveStableReferenceFromPreviewObject(scenePath, previewObject, out stableReference);
+            return temporarySceneRegistry.TryResolveGlobalObjectIdFromPreviewObject(scenePath, previewObject, out globalObjectId);
         }
 
         /// <summary> Tries to resolve one request-local preview prefab object back to its mirrored live source object. </summary>
@@ -305,28 +338,28 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return temporaryObjectScope.TryResolvePreviewObjectFromMirroredSourceObject(prefabPath, sourceObject, out previewObject);
         }
 
-        /// <summary> Tries to resolve one request-local preview prefab object to its stable GlobalObjectId text. </summary>
+        /// <summary> Tries to resolve one request-local preview prefab object to its stable source identity. </summary>
         /// <param name="prefabPath"> The logical prefab asset path. </param>
         /// <param name="previewObject"> The preview object. </param>
-        /// <param name="stableReference"> The stable GlobalObjectId text when found. </param>
+        /// <param name="globalObjectId"> The stable source identity when found. </param>
         /// <returns> <see langword="true" /> when the preview object has one explicit stable-reference mapping; otherwise <see langword="false" />. </returns>
-        internal bool TryResolveTemporaryPrefabStableReference (
+        internal bool TryResolveTemporaryPrefabGlobalObjectId (
             string prefabPath,
             UnityEngine.Object previewObject,
-            out string stableReference)
+            [NotNullWhen(true)] out UnityGlobalObjectId? globalObjectId)
         {
-            return temporaryObjectScope.TryResolveStableReferenceFromPreviewObject(prefabPath, previewObject, out stableReference);
+            return temporaryObjectScope.TryResolveGlobalObjectIdFromPreviewObject(prefabPath, previewObject, out globalObjectId);
         }
 
-        /// <summary> Tries to resolve one request-local preview object to the stable tracking key of its source object. </summary>
+        /// <summary> Tries to resolve one request-local preview object to the stable or synthetic identity of its source object. </summary>
         /// <param name="unityObject"> The object to normalize. </param>
         /// <param name="resource"> The logical owner resource for the object. </param>
-        /// <param name="trackingKey"> The stable tracking key when the object belongs to request-local preview state. </param>
+        /// <param name="trackingKey"> The source identity when the object belongs to request-local preview state. </param>
         /// <returns> <see langword="true" /> when the object was normalized from preview state; otherwise <see langword="false" />. </returns>
         internal bool TryResolvePreviewSourceTrackingKey (
             UnityEngine.Object unityObject,
             OperationResource resource,
-            out string trackingKey)
+            [NotNullWhen(true)] out RequestLocalObjectIdentity? trackingKey)
         {
             if (unityObject == null)
             {
@@ -335,60 +368,72 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             switch (resource.Kind)
             {
-                case OperationTouchKind.Scene:
-                    if (TryResolveTemporarySceneStableReference(resource.Path, unityObject, out trackingKey))
+                case UcliTouchedResourceKind.Scene:
+                    if (TryResolveTemporarySceneGlobalObjectId(resource.Path, unityObject, out var sceneGlobalObjectId))
                     {
+                        trackingKey = RequestLocalObjectIdentity.FromGlobalObjectId(sceneGlobalObjectId);
                         return true;
                     }
 
                     if (TryResolveTemporarySceneSourceObject(resource.Path, unityObject, out var sceneSourceObject)
                         && sceneSourceObject != null)
                     {
-                        trackingKey = UnityObjectReferenceResolver.CreateTrackingKey(sceneSourceObject);
+                        trackingKey = RequestLocalObjectIdentity.FromUnityObject(sceneSourceObject);
                         return true;
                     }
 
                     break;
 
-                case OperationTouchKind.Prefab:
-                    if (TryResolveTemporaryPrefabStableReference(resource.Path, unityObject, out trackingKey))
+                case UcliTouchedResourceKind.Prefab:
+                    if (TryResolveTemporaryPrefabGlobalObjectId(resource.Path, unityObject, out var prefabGlobalObjectId))
                     {
+                        trackingKey = RequestLocalObjectIdentity.FromGlobalObjectId(prefabGlobalObjectId);
                         return true;
                     }
 
                     if (TryResolveTemporaryPrefabSourceObject(resource.Path, unityObject, out var prefabSourceObject)
                         && prefabSourceObject != null)
                     {
-                        trackingKey = UnityObjectReferenceResolver.CreateTrackingKey(prefabSourceObject);
+                        trackingKey = RequestLocalObjectIdentity.FromUnityObject(prefabSourceObject);
                         return true;
                     }
 
                     break;
             }
 
-            trackingKey = string.Empty;
+            trackingKey = null;
             return false;
         }
 
-        /// <summary> Creates the canonical target key used to correlate request-attributed Prefab override property changes. </summary>
-        /// <param name="targetReference"> The reference used by the current primitive operation. </param>
+        /// <summary> Creates the request-local semantic identity for one resolved GameObject. </summary>
+        /// <param name="gameObject"> The resolved GameObject. </param>
+        /// <param name="resource"> The logical owner resource for the GameObject. </param>
+        /// <returns> A validated stable or synthetic tracking key. </returns>
+        internal RequestLocalObjectIdentity CreateGameObjectTrackingKey (
+            GameObject gameObject,
+            OperationResource resource)
+        {
+            if (gameObject == null)
+            {
+                throw new ArgumentNullException(nameof(gameObject));
+            }
+
+            return TryResolvePreviewSourceTrackingKey(gameObject, resource, out var previewSourceTrackingKey)
+                ? previewSourceTrackingKey
+                : RequestLocalObjectIdentity.FromUnityObject(gameObject);
+        }
+
+        /// <summary> Creates the semantic request-local identity for one resolved component. </summary>
         /// <param name="component"> The resolved component target. </param>
         /// <param name="resource"> The logical owner resource for the component. </param>
-        /// <returns> A non-empty request-local target key for the component. </returns>
-        internal string CreatePrefabOverrideTargetKey (
-            UnityObjectReference targetReference,
+        /// <returns> A validated stable or synthetic identity for the component. </returns>
+        internal RequestLocalObjectIdentity CreateComponentTrackingKey (
             Component component,
             OperationResource resource)
         {
             if (component == null)
             {
                 throw new ArgumentNullException(nameof(component));
-            }
-
-            if (targetReference.Kind == UnityObjectReferenceKind.Selector
-                && targetReference.Selector.Kind == ResolveSelectorKind.GlobalObjectId)
-            {
-                return targetReference.Selector.GlobalObjectId!;
             }
 
             if (TryResolveTrackedComponentTargetKey(component, out var trackedTargetKey))
@@ -401,14 +446,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return previewSourceTrackingKey;
             }
 
-            return UnityObjectReferenceResolver.CreateTrackingKey(component);
+            return RequestLocalObjectIdentity.FromUnityObject(component);
         }
 
-        /// <summary> Creates the canonical owner GameObject key for a component target. </summary>
+        /// <summary> Creates the semantic owner GameObject identity for a component target. </summary>
         /// <param name="component"> The resolved component target. </param>
         /// <param name="resource"> The logical owner resource for the component. </param>
-        /// <returns> A non-empty request-local owner GameObject tracking key. </returns>
-        internal string CreateComponentOwnerTrackingKey (
+        /// <returns> A validated stable or synthetic identity for the owner GameObject. </returns>
+        internal RequestLocalObjectIdentity CreateComponentOwnerTrackingKey (
             Component component,
             OperationResource resource)
         {
@@ -427,23 +472,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return previewSourceOwnerKey;
             }
 
-            return UnityObjectReferenceResolver.CreateTrackingKey(component.gameObject);
+            return CreateGameObjectTrackingKey(component.gameObject, resource);
         }
 
-        /// <summary> Tries to resolve one stable GlobalObjectId text to any request-local preview object. </summary>
-        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
+        /// <summary> Tries to resolve one stable source identity to any request-local preview object. </summary>
+        /// <param name="globalObjectId"> The stable source identity. </param>
         /// <param name="previewObject"> The preview object when found. </param>
         /// <returns> <see langword="true" /> when the stable reference maps into tracked request-local preview state; otherwise <see langword="false" />. </returns>
-        internal bool TryResolveTemporaryPreviewObjectFromStableReference (
-            string stableReference,
+        internal bool TryResolveTemporaryPreviewObjectFromGlobalObjectId (
+            UnityGlobalObjectId globalObjectId,
             out UnityEngine.Object? previewObject)
         {
-            if (temporarySceneRegistry.TryResolvePreviewObjectFromStableReference(stableReference, out previewObject))
+            if (temporarySceneRegistry.TryResolvePreviewObjectFromGlobalObjectId(globalObjectId, out previewObject))
             {
                 return true;
             }
 
-            return temporaryObjectScope.TryResolvePreviewObjectFromStableReference(stableReference, out previewObject);
+            return temporaryObjectScope.TryResolvePreviewObjectFromGlobalObjectId(globalObjectId, out previewObject);
         }
 
         /// <summary> Resolves one scene path to the active execution session for the current request. </summary>
@@ -596,17 +641,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             requestAttributedChangeRegistry.MarkChanged(resource);
         }
 
-        /// <summary> Marks one stable GlobalObjectId as deleted from request-local plan state. </summary>
-        /// <param name="globalObjectId"> The deleted stable GlobalObjectId. </param>
-        internal void MarkDeletedGlobalObjectId (string globalObjectId)
+        /// <summary> Marks one stable object identity as deleted from request-local state. </summary>
+        /// <param name="globalObjectId"> The deleted object's stable identity. </param>
+        internal void MarkDeletedStableObject (UnityGlobalObjectId globalObjectId)
         {
             deletedGlobalObjectIdRegistry.MarkDeleted(globalObjectId);
         }
 
-        /// <summary> Determines whether one stable GlobalObjectId was deleted from request-local plan state. </summary>
-        /// <param name="globalObjectId"> The stable GlobalObjectId. </param>
+        /// <summary> Determines whether one stable object identity was deleted from request-local state. </summary>
+        /// <param name="globalObjectId"> The stable identity to test. </param>
         /// <returns> <see langword="true" /> when the object was deleted in request-local plan state; otherwise <see langword="false" />. </returns>
-        internal bool IsDeletedGlobalObjectId (string globalObjectId)
+        internal bool IsDeletedStableObject (UnityGlobalObjectId globalObjectId)
         {
             return deletedGlobalObjectIdRegistry.Contains(globalObjectId);
         }
@@ -631,21 +676,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="targetKey"> The Prefab override target key created from the current target reference and request-local component state. </param>
         /// <param name="propertyPath"> The exact <c>SerializedProperty.propertyPath</c> changed by a preceding set. </param>
         /// <param name="wasPrefabOverrideBeforeRequest"> Whether the property was already a Prefab override before this request changed it. </param>
-        /// <param name="valueHashBeforeSet"> The normalized property value hash observed before the set that is being recorded. </param>
-        /// <param name="valueHashAfterSet"> The normalized property value hash observed after the set that is being recorded. </param>
+        /// <param name="valueSignatureBeforeSet"> The normalized property value signature observed before the set that is being recorded. </param>
+        /// <param name="valueSignatureAfterSet"> The normalized property value signature observed after the set that is being recorded. </param>
         /// <param name="requiresExplicitPrefabAssetMutation"> Whether apply/revert must use the explicit target Prefab asset because Unity Prefab instance linkage is unavailable for this request-attributed change. </param>
         internal void RecordPrefabOverridePropertyChange (
-            string editStepId,
-            string targetKey,
+            IpcExecuteStepId editStepId,
+            RequestLocalObjectIdentity targetKey,
             string propertyPath,
             bool wasPrefabOverrideBeforeRequest,
-            string valueHashBeforeSet,
-            string valueHashAfterSet,
+            string valueSignatureBeforeSet,
+            string valueSignatureAfterSet,
             bool requiresExplicitPrefabAssetMutation)
         {
+            ValidateTrackingKey(targetKey, nameof(targetKey));
+
             if (!prefabOverridePropertyChanges.TryGetValue(editStepId, out var changesByTarget))
             {
-                changesByTarget = new Dictionary<string, Dictionary<string, PrefabOverridePropertyChange>>(StringComparer.Ordinal);
+                changesByTarget = new Dictionary<RequestLocalObjectIdentity, Dictionary<string, PrefabOverridePropertyChange>>();
                 prefabOverridePropertyChanges.Add(editStepId, changesByTarget);
             }
 
@@ -655,19 +702,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 changesByTarget.Add(targetKey, changesByPath);
             }
 
-            var initialValueHash = valueHashBeforeSet;
+            var initialValueSignature = valueSignatureBeforeSet;
             if (changesByPath.TryGetValue(propertyPath, out var existingChange))
             {
                 wasPrefabOverrideBeforeRequest = existingChange.WasPrefabOverrideBeforeRequest;
-                initialValueHash = existingChange.ValueHashBeforeRequest;
+                initialValueSignature = existingChange.ValueSignatureBeforeRequest;
                 requiresExplicitPrefabAssetMutation |= existingChange.RequiresExplicitPrefabAssetMutation;
             }
 
             changesByPath[propertyPath] = new PrefabOverridePropertyChange(
                 propertyPath,
                 wasPrefabOverrideBeforeRequest,
-                initialValueHash,
-                isEffective: !string.Equals(valueHashAfterSet, initialValueHash, StringComparison.Ordinal),
+                initialValueSignature,
+                isEffective: !string.Equals(valueSignatureAfterSet, initialValueSignature, StringComparison.Ordinal),
                 requiresExplicitPrefabAssetMutation);
         }
 
@@ -678,13 +725,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="change"> The recorded change when the method returns <see langword="true" />; otherwise the default value. </param>
         /// <returns> <see langword="true" /> when a change was recorded for the same edit step, target, and property path; otherwise <see langword="false" />. </returns>
         internal bool TryGetPrefabOverridePropertyChange (
-            string editStepId,
-            string targetKey,
+            IpcExecuteStepId editStepId,
+            RequestLocalObjectIdentity targetKey,
             string propertyPath,
             out PrefabOverridePropertyChange change)
         {
             change = default;
-            if (!prefabOverridePropertyChanges.TryGetValue(editStepId, out var changesByTarget)
+            if (targetKey == null
+                || !prefabOverridePropertyChanges.TryGetValue(editStepId, out var changesByTarget)
                 || !changesByTarget.TryGetValue(targetKey, out var changesByPath))
             {
                 return false;
@@ -701,14 +749,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="errorMessage"> The validation error when the method returns <see langword="false" />; otherwise an empty string. </param>
         /// <returns> <see langword="true" /> when at least one effective change is selected and all requested paths are eligible; otherwise <see langword="false" />. </returns>
         internal bool TryCollectPrefabOverridePropertyChanges (
-            string editStepId,
-            string targetKey,
+            IpcExecuteStepId editStepId,
+            RequestLocalObjectIdentity targetKey,
             IReadOnlyList<string>? requestedPropertyPaths,
             out IReadOnlyList<PrefabOverridePropertyChange> changes,
             out string errorMessage)
         {
             changes = Array.Empty<PrefabOverridePropertyChange>();
-            if (!prefabOverridePropertyChanges.TryGetValue(editStepId, out var changesByTarget)
+            if (targetKey == null
+                || !prefabOverridePropertyChanges.TryGetValue(editStepId, out var changesByTarget)
                 || !changesByTarget.TryGetValue(targetKey, out var changesByPath))
             {
                 errorMessage = "Prefab override action requires a preceding effective set on the same edit step and current target.";
@@ -827,11 +876,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Tracks that one prior step planned to create a Prefab asset from the specified scene root. </summary>
         /// <param name="sourceRoot"> The scene root that will become a Prefab instance when call execution reaches the create operation. </param>
+        /// <param name="sourceResource"> The already-resolved logical owner of <paramref name="sourceRoot" />. </param>
         /// <param name="prefabPath"> The Prefab asset path reserved by the create operation. </param>
-        /// <exception cref="ArgumentException"> <paramref name="prefabPath" /> is null, empty, or whitespace. </exception>
+        /// <exception cref="ArgumentException"> The source resource path or <paramref name="prefabPath" /> is null, empty, or whitespace. </exception>
         /// <exception cref="ArgumentNullException"> <paramref name="sourceRoot" /> is <see langword="null" />. </exception>
         internal void TrackPlannedPrefabCreation (
             GameObject sourceRoot,
+            OperationResource sourceResource,
             string prefabPath)
         {
             if (sourceRoot == null)
@@ -839,13 +890,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(sourceRoot));
             }
 
+            if (string.IsNullOrWhiteSpace(sourceResource.Path))
+            {
+                throw new ArgumentException("Source resource path must not be null, empty, or whitespace.", nameof(sourceResource));
+            }
+
             if (string.IsNullOrWhiteSpace(prefabPath))
             {
                 throw new ArgumentException("Prefab path must not be null, empty, or whitespace.", nameof(prefabPath));
             }
 
-            var sourceGameObjectKeys = new HashSet<string>(StringComparer.Ordinal);
-            CollectHierarchyTrackingKeys(sourceRoot, sourceGameObjectKeys);
+            var sourceGameObjectKeys = new HashSet<RequestLocalObjectIdentity>();
+            CollectHierarchyTrackingKeys(sourceRoot, sourceResource, sourceGameObjectKeys);
             plannedPrefabCreations.Add(new PlannedPrefabCreation(sourceRoot, prefabPath, sourceGameObjectKeys));
         }
 
@@ -909,6 +965,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(gameObject));
             }
 
+            if (!OperationResourceUtilities.TryResolveOwnerResource(gameObject, this, out var resource, out _))
+            {
+                return false;
+            }
+
+            var gameObjectKey = CreateGameObjectTrackingKey(gameObject, resource);
             for (var i = 0; i < plannedPrefabCreations.Count; i++)
             {
                 var creation = plannedPrefabCreations[i];
@@ -922,7 +984,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                var gameObjectKey = UnityObjectReferenceResolver.CreateTrackingKey(gameObject);
                 if (creation.SourceGameObjectKeys.Contains(gameObjectKey)
                     && (gameObject == creation.SourceRoot || gameObject.transform.IsChildOf(creation.SourceRoot.transform)))
                 {
@@ -933,29 +994,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return false;
         }
 
-        /// <summary> Stores or replaces one temporary asset shadow keyed by source GlobalObjectId. </summary>
-        /// <param name="globalObjectId"> The source asset GlobalObjectId. </param>
+        /// <summary> Stores or replaces one temporary asset shadow keyed by its stable source identity. </summary>
+        /// <param name="sourceGlobalObjectId"> The stable identity of the source asset. </param>
         /// <param name="unityObject"> The temporary asset shadow. </param>
         /// <param name="assetPath"> The asset path. </param>
         internal void SetAssetShadow (
-            string globalObjectId,
+            UnityGlobalObjectId sourceGlobalObjectId,
             UnityEngine.Object unityObject,
             string assetPath)
         {
-            assetSandboxRegistry.SetAssetShadow(globalObjectId, unityObject, assetPath, temporaryAliasRegistry);
+            assetSandboxRegistry.SetAssetShadow(sourceGlobalObjectId, unityObject, assetPath, temporaryAliasRegistry);
         }
 
         /// <summary> Tries to get one temporary asset shadow. </summary>
-        /// <param name="globalObjectId"> The source asset GlobalObjectId. </param>
+        /// <param name="sourceGlobalObjectId"> The stable identity of the source asset. </param>
         /// <param name="unityObject"> The temporary asset shadow when found. </param>
         /// <param name="assetPath"> The asset path when found. </param>
         /// <returns> <see langword="true" /> when shadow exists; otherwise <see langword="false" />. </returns>
         internal bool TryGetAssetShadow (
-            string globalObjectId,
-            out UnityEngine.Object? unityObject,
+            UnityGlobalObjectId sourceGlobalObjectId,
+            [NotNullWhen(true)] out UnityEngine.Object? unityObject,
             out string assetPath)
         {
-            return assetSandboxRegistry.TryGetAssetShadow(globalObjectId, out unityObject, out assetPath);
+            return assetSandboxRegistry.TryGetAssetShadow(sourceGlobalObjectId, out unityObject, out assetPath);
         }
 
         /// <summary> Collects current live temporary asset-shadow states. Destroyed shadow objects are omitted. </summary>
@@ -972,7 +1033,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="unityObject"> The current temporary asset instance. </param>
         internal void SetPlannedAsset (
             string assetPath,
-            string ownerExecutionKey,
+            OperationExecutionKey ownerExecutionKey,
             UnityEngine.Object unityObject)
         {
             plannedAssetRegistry.SetPlannedAsset(assetPath, ownerExecutionKey, unityObject, temporaryAliasRegistry);
@@ -1150,19 +1211,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             /// <summary> Initializes a new instance of the <see cref="PrefabOverridePropertyChange" /> struct. </summary>
             /// <param name="propertyPath"> The exact <c>SerializedProperty.propertyPath</c> changed by a preceding set. </param>
             /// <param name="wasPrefabOverrideBeforeRequest"> Whether the property was already a Prefab override before this request changed it. </param>
-            /// <param name="valueHashBeforeRequest"> The normalized property value hash captured before the first request-attributed set for this path. </param>
-            /// <param name="isEffective"> Whether the latest request-attributed value differs from <paramref name="valueHashBeforeRequest" />. </param>
+            /// <param name="valueSignatureBeforeRequest"> The normalized property value signature captured before the first request-attributed set for this path. </param>
+            /// <param name="isEffective"> Whether the latest request-attributed value differs from <paramref name="valueSignatureBeforeRequest" />. </param>
             /// <param name="requiresExplicitPrefabAssetMutation"> Whether apply/revert must mutate the explicit Prefab asset because Unity Prefab instance linkage is unavailable for this request-attributed change. </param>
             public PrefabOverridePropertyChange (
                 string propertyPath,
                 bool wasPrefabOverrideBeforeRequest,
-                string valueHashBeforeRequest,
+                string valueSignatureBeforeRequest,
                 bool isEffective,
                 bool requiresExplicitPrefabAssetMutation)
             {
                 PropertyPath = propertyPath;
                 WasPrefabOverrideBeforeRequest = wasPrefabOverrideBeforeRequest;
-                ValueHashBeforeRequest = valueHashBeforeRequest;
+                ValueSignatureBeforeRequest = valueSignatureBeforeRequest;
                 IsEffective = isEffective;
                 RequiresExplicitPrefabAssetMutation = requiresExplicitPrefabAssetMutation;
             }
@@ -1173,8 +1234,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             /// <summary> Gets a value indicating whether the property was already a Prefab override before this request changed it. </summary>
             public bool WasPrefabOverrideBeforeRequest { get; }
 
-            /// <summary> Gets the normalized property value hash captured before the first request-attributed set for this path. </summary>
-            public string ValueHashBeforeRequest { get; }
+            /// <summary> Gets the normalized property value signature captured before the first request-attributed set for this path. </summary>
+            public string ValueSignatureBeforeRequest { get; }
 
             /// <summary> Gets a value indicating whether the latest request-attributed value differs from the pre-request value. </summary>
             public bool IsEffective { get; }
@@ -1188,7 +1249,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public PlannedPrefabCreation (
                 GameObject sourceRoot,
                 string prefabPath,
-                HashSet<string> sourceGameObjectKeys)
+                HashSet<RequestLocalObjectIdentity> sourceGameObjectKeys)
             {
                 SourceRoot = sourceRoot;
                 PrefabPath = prefabPath;
@@ -1199,12 +1260,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public string PrefabPath { get; }
 
-            public HashSet<string> SourceGameObjectKeys { get; }
+            public HashSet<RequestLocalObjectIdentity> SourceGameObjectKeys { get; }
         }
 
-        private static void CollectHierarchyTrackingKeys (
+        private void CollectHierarchyTrackingKeys (
             GameObject root,
-            ICollection<string> destination)
+            OperationResource resource,
+            ICollection<RequestLocalObjectIdentity> destination)
         {
             if (root == null)
             {
@@ -1216,11 +1278,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(destination));
             }
 
-            destination.Add(UnityObjectReferenceResolver.CreateTrackingKey(root));
+            destination.Add(CreateGameObjectTrackingKey(root, resource));
             var transform = root.transform;
             for (var i = 0; i < transform.childCount; i++)
             {
-                CollectHierarchyTrackingKeys(transform.GetChild(i).gameObject, destination);
+                CollectHierarchyTrackingKeys(transform.GetChild(i).gameObject, resource, destination);
+            }
+        }
+
+        private static void ValidateTrackingKey (
+            RequestLocalObjectIdentity trackingKey,
+            string parameterName)
+        {
+            if (trackingKey == null)
+            {
+                throw new ArgumentNullException(parameterName);
             }
         }
     }

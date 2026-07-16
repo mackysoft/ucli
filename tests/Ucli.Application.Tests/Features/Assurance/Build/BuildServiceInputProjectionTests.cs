@@ -1,8 +1,6 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context;
-using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
 
@@ -24,13 +22,13 @@ public sealed class BuildServiceInputProjectionTests
             IpcTimeoutMillisecondsByCommand = timeoutOverrides,
         };
         var requestExecutor = CreateBuildResponseExecutor(
-            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            IpcBuildReportResult.Succeeded,
+            IpcBuildLogCompletionReason.Completed,
             errorCount: 0);
         var service = CreateService(
             projectContextResolver: new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.Create(
                 config: config,
-                projectFingerprint: ProjectFingerprint))),
+                projectFingerprint: DefaultProjectFingerprint))),
             requestExecutor: requestExecutor,
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath),
             timeProvider: new ManualTimeProvider());
@@ -50,8 +48,8 @@ public sealed class BuildServiceInputProjectionTests
         using var tempDirectory = CreateArtifactDirectoryScope();
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 buildOptions: "ForceOptimizeScriptCompilation, Il2CPP, Development"),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
@@ -99,11 +97,11 @@ public sealed class BuildServiceInputProjectionTests
             """;
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
         var requestExecutor = CreateBuildResponseExecutor(
-            ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-            ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+            IpcBuildReportResult.Succeeded,
+            IpcBuildLogCompletionReason.Completed,
             errorCount: 0,
-            sceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.EditorBuildSettings),
-            scenes: ["Assets/Scenes/FromSettings.unity"]);
+            sceneSource: BuildProfileSceneSource.EditorBuildSettings,
+            scenes: [new SceneAssetPath("Assets/Scenes/FromSettings.unity")]);
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
             requestExecutor: requestExecutor,
@@ -112,8 +110,8 @@ public sealed class BuildServiceInputProjectionTests
         var result = await service.ExecuteAsync(CreateInput());
 
         Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
-        Assert.Equal("editorBuildSettings", result.Output!.Build.Inputs.Scenes.Source);
-        Assert.Equal(["Assets/Scenes/FromSettings.unity"], result.Output.Build.Inputs.Scenes.Paths);
+        Assert.Equal(BuildProfileSceneSource.EditorBuildSettings, result.Output!.Build.Inputs.Scenes.Source);
+        Assert.Equal([new SceneAssetPath("Assets/Scenes/FromSettings.unity")], result.Output.Build.Inputs.Scenes.Paths);
         var metadataScenePaths = artifactStore.WrittenMetadata!.Inputs
             .GetProperty("scenes")
             .GetProperty("paths")

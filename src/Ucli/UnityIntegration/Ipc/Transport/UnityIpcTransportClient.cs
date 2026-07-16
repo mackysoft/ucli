@@ -27,10 +27,11 @@ internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
     /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />, empty, or whitespace. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     /// <exception cref="TimeoutException"> Thrown when one IPC request exceeds <paramref name="timeout" />. </exception>
+    /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but the response frame read was interrupted. </exception>
     public async ValueTask<IpcResponse> SendAsync (
         string storageRoot,
-        string projectFingerprint,
-        IpcRequest request,
+        ProjectFingerprint projectFingerprint,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -45,8 +46,8 @@ internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
     /// <inheritdoc />
     public async ValueTask<IpcResponse> SendStreamingAsync (
         string storageRoot,
-        string projectFingerprint,
-        IpcRequest request,
+        ProjectFingerprint projectFingerprint,
+        IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)

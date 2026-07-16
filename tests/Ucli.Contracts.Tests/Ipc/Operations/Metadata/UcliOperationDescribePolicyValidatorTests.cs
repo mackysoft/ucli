@@ -8,29 +8,33 @@ public sealed class UcliOperationDescribePolicyValidatorTests
     private static readonly QueryAssuranceMutationRiskCase[] QueryAssuranceMutationRiskCases =
     [
         new(
-            nameof(UcliOperationAssuranceContract.MayDirty),
-            assurance => assurance.MayDirty = true),
+            "derived mayDirty",
+            [UcliOperationSideEffect.RuntimeStateMutation],
+            Array.Empty<UcliTouchedResourceKind>()),
         new(
-            nameof(UcliOperationAssuranceContract.MayPersist),
-            assurance => assurance.MayPersist = true),
+            "derived mayPersist",
+            [UcliOperationSideEffect.SceneSave],
+            [UcliTouchedResourceKind.Scene]),
         new(
-            nameof(UcliOperationAssuranceContract.TouchedKinds),
-            assurance => assurance.TouchedKinds = [UcliTouchedResourceKindNames.Scene]),
+            "touched kinds",
+            Array.Empty<UcliOperationSideEffect>(),
+            [UcliTouchedResourceKind.Scene]),
         new(
-            nameof(UcliOperationAssuranceContract.SideEffects),
-            assurance => assurance.SideEffects = ["sceneContentMutation"]),
+            "non-query side effect",
+            [UcliOperationSideEffect.EditorStateChange],
+            Array.Empty<UcliTouchedResourceKind>()),
     ];
 
     private static readonly RiskyPolicyWithoutDangerousNotesCase[] RiskyPolicyWithoutDangerousNotesCases =
     [
-        new("advanced", ["editorStateChange"]),
-        new("dangerous", ["externalProcess"]),
+        new("advanced", UcliOperationSideEffect.EditorStateChange),
+        new("dangerous", UcliOperationSideEffect.ExternalProcess),
     ];
 
-    private static readonly string[] DerivedRiskySideEffectsWithoutDangerousNotes =
+    private static readonly UcliOperationSideEffect[] DerivedRiskySideEffectsWithoutDangerousNotes =
     [
-        "editorStateChange",
-        "externalProcess",
+        UcliOperationSideEffect.EditorStateChange,
+        UcliOperationSideEffect.ExternalProcess,
     ];
 
     [Fact]
@@ -38,8 +42,11 @@ public sealed class UcliOperationDescribePolicyValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenAssurancePlanModeCreatesPreviewState_ReturnsFalse ()
     {
         var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.PlanMode = "mayCreatePreviewState";
-        describe.Assurance.DangerousNotes = ["Preview-state planning is not public raw safe."];
+        describe.Assurance = UcliOperationDescribeContractValidatorTestData.CreateAssurance(
+            Array.Empty<UcliOperationSideEffect>(),
+            Array.Empty<UcliTouchedResourceKind>(),
+            UcliOperationPlanMode.MayCreatePreviewState,
+            ["Preview-state planning is not public raw safe."]);
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
@@ -57,8 +64,11 @@ public sealed class UcliOperationDescribePolicyValidatorTests
     public void TryValidateRegisteredOperationDescribeContractAndDerivePolicy_WhenPreviewStateIsAllowedForEditLoweringOnlyExposure_ReturnsAdvancedPolicy ()
     {
         var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.PlanMode = "mayCreatePreviewState";
-        describe.Assurance.DangerousNotes = ["Preview-state planning is allowed for edit-lowering-only operations."];
+        describe.Assurance = UcliOperationDescribeContractValidatorTestData.CreateAssurance(
+            Array.Empty<UcliOperationSideEffect>(),
+            Array.Empty<UcliTouchedResourceKind>(),
+            UcliOperationPlanMode.MayCreatePreviewState,
+            ["Preview-state planning is allowed for edit-lowering-only operations."]);
 
         var isValid = UcliOperationDescribeContractValidator.TryValidateRegisteredOperationDescribeContractAndDerivePolicy(
             describe,
@@ -78,8 +88,11 @@ public sealed class UcliOperationDescribePolicyValidatorTests
     public void TryValidateRegisteredOperationDescribeContractAndDerivePolicy_WhenPreviewStateUsesUnsupportedExposure_ReturnsFalse ()
     {
         var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.PlanMode = "mayCreatePreviewState";
-        describe.Assurance.DangerousNotes = ["Preview-state planning requires an edit-lowering-only operation."];
+        describe.Assurance = UcliOperationDescribeContractValidatorTestData.CreateAssurance(
+            Array.Empty<UcliOperationSideEffect>(),
+            Array.Empty<UcliTouchedResourceKind>(),
+            UcliOperationPlanMode.MayCreatePreviewState,
+            ["Preview-state planning requires an edit-lowering-only operation."]);
 
         var isValid = UcliOperationDescribeContractValidator.TryValidateRegisteredOperationDescribeContractAndDerivePolicy(
             describe,
@@ -99,7 +112,11 @@ public sealed class UcliOperationDescribePolicyValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenQueryObservesUnityState_ReturnsTrue ()
     {
         var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = ["observesUnityState"];
+        describe.Assurance = UcliOperationDescribeContractValidatorTestData.CreateAssurance(
+            [UcliOperationSideEffect.ObservesUnityState],
+            Array.Empty<UcliTouchedResourceKind>(),
+            UcliOperationPlanMode.ObservesLiveUnity,
+            Array.Empty<string>());
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
@@ -119,7 +136,11 @@ public sealed class UcliOperationDescribePolicyValidatorTests
         foreach (var testCase in QueryAssuranceMutationRiskCases)
         {
             var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-            testCase.Apply(describe.Assurance!);
+            describe.Assurance = UcliOperationDescribeContractValidatorTestData.CreateAssurance(
+                testCase.SideEffects,
+                testCase.TouchedKinds,
+                UcliOperationPlanMode.ObservesLiveUnity,
+                ["The operation has non-query effects."]);
 
             var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
                 describe,
@@ -128,7 +149,7 @@ public sealed class UcliOperationDescribePolicyValidatorTests
                 ownerName: "Test contract",
                 out var errorMessage);
 
-            Assert.False(isValid, $"{testCase.FieldName} must be rejected for query operations.");
+            Assert.False(isValid, $"{testCase.Name} must be rejected for query operations.");
             Assert.Equal("Test contract has query assurance metadata with mutation or side-effect risk.", errorMessage);
         }
     }
@@ -140,7 +161,11 @@ public sealed class UcliOperationDescribePolicyValidatorTests
         foreach (var testCase in RiskyPolicyWithoutDangerousNotesCases)
         {
             var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-            describe.Assurance!.SideEffects = testCase.SideEffects;
+            describe.Assurance = UcliOperationDescribeContractValidatorTestData.CreateAssurance(
+                [testCase.SideEffect],
+                Array.Empty<UcliTouchedResourceKind>(),
+                UcliOperationPlanMode.ObservesLiveUnity,
+                Array.Empty<string>());
 
             var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
                 describe,
@@ -161,7 +186,11 @@ public sealed class UcliOperationDescribePolicyValidatorTests
         foreach (var sideEffect in DerivedRiskySideEffectsWithoutDangerousNotes)
         {
             var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-            describe.Assurance!.SideEffects = [sideEffect];
+            describe.Assurance = UcliOperationDescribeContractValidatorTestData.CreateAssurance(
+                [sideEffect],
+                Array.Empty<UcliTouchedResourceKind>(),
+                UcliOperationPlanMode.ObservesLiveUnity,
+                Array.Empty<string>());
 
             var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(describe, "Test contract", out var errorMessage);
 
@@ -175,8 +204,11 @@ public sealed class UcliOperationDescribePolicyValidatorTests
     public void TryValidatePublicRawOpDescribeContract_WhenDeclaredPolicyDoesNotMatchDerivedPolicy_ReturnsFalse ()
     {
         var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = ["editorStateChange"];
-        describe.Assurance.DangerousNotes = ["Editor state changes require advanced policy."];
+        describe.Assurance = UcliOperationDescribeContractValidatorTestData.CreateAssurance(
+            [UcliOperationSideEffect.EditorStateChange],
+            Array.Empty<UcliTouchedResourceKind>(),
+            UcliOperationPlanMode.ObservesLiveUnity,
+            ["Editor state changes require advanced policy."]);
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContract(
             describe,
@@ -194,8 +226,11 @@ public sealed class UcliOperationDescribePolicyValidatorTests
     public void TryValidatePublicRawOpDescribeContractAndDerivePolicy_WhenAssuranceIsValid_ReturnsDerivedPolicy ()
     {
         var describe = UcliOperationDescribeContractValidatorTestData.CreateValidDescribeContract();
-        describe.Assurance!.SideEffects = ["editorStateChange"];
-        describe.Assurance.DangerousNotes = ["Editor state changes require advanced policy."];
+        describe.Assurance = UcliOperationDescribeContractValidatorTestData.CreateAssurance(
+            [UcliOperationSideEffect.EditorStateChange],
+            Array.Empty<UcliTouchedResourceKind>(),
+            UcliOperationPlanMode.ObservesLiveUnity,
+            ["Editor state changes require advanced policy."]);
 
         var isValid = UcliOperationDescribeContractValidator.TryValidatePublicRawOpDescribeContractAndDerivePolicy(
             describe,
@@ -210,10 +245,11 @@ public sealed class UcliOperationDescribePolicyValidatorTests
     }
 
     private sealed record QueryAssuranceMutationRiskCase (
-        string FieldName,
-        Action<UcliOperationAssuranceContract> Apply);
+        string Name,
+        UcliOperationSideEffect[] SideEffects,
+        UcliTouchedResourceKind[] TouchedKinds);
 
     private sealed record RiskyPolicyWithoutDangerousNotesCase (
         string Policy,
-        string[] SideEffects);
+        UcliOperationSideEffect SideEffect);
 }

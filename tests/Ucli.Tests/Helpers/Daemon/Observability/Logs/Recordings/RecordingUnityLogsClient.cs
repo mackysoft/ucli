@@ -27,7 +27,9 @@ internal sealed class RecordingUnityLogsClient : IUnityLogsClient
         if (responses.Count == 0)
         {
             return ValueTask.FromResult(UnityLogsClientReadResult.Success(
-                new IpcUnityLogsReadResponse(Array.Empty<IpcUnityLogEvent>(), query.After ?? "stream-1:1")));
+                new IpcUnityLogsReadResponse(
+                    Array.Empty<IpcUnityLogEvent>(),
+                    new IpcLogCursor(query.After ?? "abcdef0123456789abcdef0123456789:1"))));
         }
 
         return ValueTask.FromResult(responses.Dequeue());

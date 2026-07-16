@@ -32,12 +32,12 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
     public async ValueTask<UnityUcliPluginLocateResult?> TryLocateFromCacheAsync (
         string unityProjectRoot,
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
 
         var cacheReadResult = await pluginMarkerCacheStore.ReadOrNullAsync(
                 storageRoot,
@@ -95,12 +95,12 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
     public void WriteBestEffort (
         string unityProjectRoot,
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         string markerPath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentException.ThrowIfNullOrWhiteSpace(markerPath);
 
         if (!pluginMarkerValidator.TryCreateProjectRelativeMarkerPath(
@@ -133,10 +133,10 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     public void DeleteBestEffort (
         string storageRoot,
-        string projectFingerprint)
+        ProjectFingerprint projectFingerprint)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
 
         // NOTE:
         // stale marker cache should never block fallback scanning.
@@ -149,12 +149,12 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
 
     private async Task PersistCacheWriteBestEffortAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         UnityUcliPluginMarkerCache cache,
         long cacheMutationVersion)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentNullException.ThrowIfNull(cache);
 
         await cacheMutationGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
@@ -180,11 +180,11 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
 
     private async Task PersistCacheDeleteBestEffortAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         long cacheMutationVersion)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
 
         await cacheMutationGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);
         try

@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Execution.Phases;
 
 #nullable enable
@@ -63,10 +66,10 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
             OperationPhaseTrace trace,
             OperationPhaseTrace.ContractFacts contracts)
         {
-            var allowedTouchedKinds = new HashSet<string>(contracts.TouchedKinds, StringComparer.Ordinal);
+            var allowedTouchedKinds = new HashSet<UcliTouchedResourceKind>(contracts.TouchedKinds);
             for (var touchIndex = 0; touchIndex < trace.Touched.Count; touchIndex++)
             {
-                var touchedKind = IpcExecuteTouchedResourceKindMapper.ToName(trace.Touched[touchIndex].Kind);
+                var touchedKind = trace.Touched[touchIndex].Kind;
                 if (allowedTouchedKinds.Contains(touchedKind))
                 {
                     continue;
@@ -75,8 +78,8 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 AddContractViolation(
                     violations,
                     trace,
-                    expectedFact: "assurance.touchedKinds=[" + string.Join(",", contracts.TouchedKinds) + "]",
-                    observedResult: "opResults[].touched[].kind=" + touchedKind);
+                    expectedFact: "assurance.touchedKinds=[" + string.Join(",", contracts.TouchedKinds.Select(static kind => ContractLiteralCodec.ToValue(kind))) + "]",
+                    observedResult: "opResults[].touched[].kind=" + ContractLiteralCodec.ToValue(touchedKind));
             }
         }
 
@@ -132,19 +135,19 @@ namespace MackySoft.Ucli.Unity.Execution.Dispatch
                 ApplicationState: ResolveApplicationState(trace)));
         }
 
-        private static string ResolveApplicationState (OperationPhaseTrace trace)
+        private static IpcApplicationState ResolveApplicationState (OperationPhaseTrace trace)
         {
             if (trace.Persisted || trace.Applied)
             {
-                return IpcExecuteApplicationStateNames.Applied;
+                return IpcApplicationState.Applied;
             }
 
             if (trace.Changed)
             {
-                return IpcExecuteApplicationStateNames.Indeterminate;
+                return IpcApplicationState.Indeterminate;
             }
 
-            return IpcExecuteApplicationStateNames.NotApplied;
+            return IpcApplicationState.NotApplied;
         }
     }
 }

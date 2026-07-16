@@ -8,18 +8,20 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcPlayContractSerializationTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private static readonly ProjectFingerprint ProjectFingerprint = new(ProjectFingerprintText);
+
     [Fact]
     [Trait("Size", "Small")]
     public void IpcPlayRequestContracts_SerializeWithCamelCaseFields ()
     {
         var statusRequest = IpcPayloadCodec.SerializeToElement(new IpcPlayStatusRequest());
-        var enterRequest = IpcPayloadCodec.SerializeToElement(new IpcPlayEnterRequest { TimeoutMilliseconds = 1500 });
+        var enterRequest = IpcPayloadCodec.SerializeToElement(new IpcPlayEnterRequest());
         var exitRequest = IpcPayloadCodec.SerializeToElement(new IpcPlayExitRequest());
 
         Assert.Equal(JsonValueKind.Object, statusRequest.ValueKind);
         Assert.Empty(statusRequest.EnumerateObject());
-        JsonAssert.For(enterRequest)
-            .HasInt32("timeoutMilliseconds", 1500);
+        Assert.Empty(enterRequest.EnumerateObject());
         Assert.False(exitRequest.TryGetProperty("timeoutMilliseconds", out _));
     }
 
@@ -32,13 +34,12 @@ public sealed class IpcPlayContractSerializationTests
         var statusResponse = new IpcPlayStatusResponse(before);
         var transitionResponse = new IpcPlayTransitionResponse(
             new IpcPlayTransitionResult(
-                Transition: IpcPlayTransitionCommandNames.Enter,
-                Result: IpcPlayTransitionResultNames.Entered,
-                Before: before)
-            {
-                After = after,
-                ApplicationState = IpcPlayApplicationStateNames.Applied,
-            });
+                Transition: IpcPlayTransitionCommand.Enter,
+                Result: IpcPlayTransitionOutcome.Entered,
+                Before: before,
+                After: after,
+                Observed: null,
+                ApplicationState: null));
 
         var status = IpcPayloadCodec.SerializeToElement(statusResponse);
         var transition = IpcPayloadCodec.SerializeToElement(transitionResponse);
@@ -47,7 +48,7 @@ public sealed class IpcPlayContractSerializationTests
             .HasProperty("snapshot", snapshot => snapshot
                 .HasString("serverVersion", "0.5.0")
                 .HasString("unityVersion", "6000.1.4f1")
-                .HasString("projectFingerprint", "project-fingerprint")
+                .HasString("projectFingerprint", ProjectFingerprintText)
                 .HasString("observedAtUtc", "2026-05-21T00:00:00+00:00")
                 .HasProperty("state", state => state
                     .HasString("editorMode", "gui")
@@ -66,9 +67,8 @@ public sealed class IpcPlayContractSerializationTests
 
         JsonAssert.For(transition)
             .HasProperty("transition", transition => transition
-                .HasString("transition", IpcPlayTransitionCommandNames.Enter)
-                .HasString("result", IpcPlayTransitionResultNames.Entered)
-                .HasString("applicationState", IpcPlayApplicationStateNames.Applied)
+                .HasString("transition", ContractLiteralCodec.ToValue(IpcPlayTransitionCommand.Enter))
+                .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Entered))
                 .HasProperty("before", beforeSnapshot => beforeSnapshot
                     .HasProperty("state", state => state
                         .HasProperty("playMode", playMode => playMode
@@ -78,13 +78,162 @@ public sealed class IpcPlayContractSerializationTests
                         .HasProperty("playMode", playMode => playMode
                             .HasString("state", "playing")))));
 
+        Assert.False(transition.GetProperty("transition").TryGetProperty("applicationState", out _));
+
         var roundTrip = JsonSerializer.Deserialize<IpcPlayTransitionResponse>(
             transition.GetRawText(),
             IpcJsonSerializerOptions.Default);
 
         Assert.NotNull(roundTrip);
-        Assert.Equal(IpcPlayTransitionCommandNames.Enter, roundTrip.Transition.Transition);
-        Assert.Equal(IpcPlayApplicationStateNames.Applied, roundTrip.Transition.ApplicationState);
+        Assert.Equal(IpcPlayTransitionCommand.Enter, roundTrip.Transition.Transition);
+        Assert.Equal(IpcPlayTransitionOutcome.Entered, roundTrip.Transition.Result);
+        Assert.Null(roundTrip.Transition.ApplicationState);
+    }
+
+    [Theory]
+    [InlineData((IpcPlayTransitionCommand)0, IpcPlayTransitionOutcome.Entered)]
+    [InlineData((IpcPlayTransitionCommand)100, IpcPlayTransitionOutcome.Entered)]
+    [InlineData(IpcPlayTransitionCommand.Enter, (IpcPlayTransitionOutcome)0)]
+    [InlineData(IpcPlayTransitionCommand.Enter, (IpcPlayTransitionOutcome)100)]
+    [Trait("Size", "Small")]
+    public void IpcPlayTransitionResult_RejectsUnmappedEnums (
+        IpcPlayTransitionCommand transition,
+        IpcPlayTransitionOutcome result)
+    {
+        var observation = CreateObservation(IpcPlayModeState.Playing, IpcPlayModeTransition.None);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new IpcPlayTransitionResult(
+            Transition: transition,
+            Result: result,
+            Before: observation,
+            After: observation,
+            Observed: null,
+            ApplicationState: null));
+    }
+
+    [Theory]
+    [InlineData(IpcPlayTransitionCommand.Enter, IpcPlayTransitionOutcome.Exited)]
+    [InlineData(IpcPlayTransitionCommand.Exit, IpcPlayTransitionOutcome.Entered)]
+    [Trait("Size", "Small")]
+    public void IpcPlayTransitionResult_RejectsOutcomeForAnotherCommand (
+        IpcPlayTransitionCommand transition,
+        IpcPlayTransitionOutcome result)
+    {
+        var observation = CreateObservation(IpcPlayModeState.Playing, IpcPlayModeTransition.None);
+
+        Assert.Throws<ArgumentException>(() => new IpcPlayTransitionResult(
+            Transition: transition,
+            Result: result,
+            Before: observation,
+            After: observation,
+            Observed: null,
+            ApplicationState: null));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPlayTransitionResult_RejectsSuccessWithoutAfterSnapshot ()
+    {
+        var before = CreateObservation(IpcPlayModeState.Stopped, IpcPlayModeTransition.None);
+
+        Assert.Throws<ArgumentNullException>(() => new IpcPlayTransitionResult(
+            Transition: IpcPlayTransitionCommand.Enter,
+            Result: IpcPlayTransitionOutcome.Entered,
+            Before: before,
+            After: null,
+            Observed: null,
+            ApplicationState: null));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPlayTransitionResult_RejectsFailureFieldsOnSuccess ()
+    {
+        var observation = CreateObservation(IpcPlayModeState.Playing, IpcPlayModeTransition.None);
+
+        Assert.Throws<ArgumentException>(() => new IpcPlayTransitionResult(
+            Transition: IpcPlayTransitionCommand.Enter,
+            Result: IpcPlayTransitionOutcome.Entered,
+            Before: observation,
+            After: observation,
+            Observed: observation,
+            ApplicationState: IpcApplicationState.Applied));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPlayTransitionResult_RejectsIncompleteFailureEvidence ()
+    {
+        var observation = CreateObservation(IpcPlayModeState.Stopped, IpcPlayModeTransition.None);
+
+        Assert.Throws<ArgumentNullException>(() => new IpcPlayTransitionResult(
+            Transition: IpcPlayTransitionCommand.Enter,
+            Result: IpcPlayTransitionOutcome.Blocked,
+            Before: observation,
+            After: null,
+            Observed: null,
+            ApplicationState: IpcApplicationState.NotApplied));
+        Assert.Throws<ArgumentException>(() => new IpcPlayTransitionResult(
+            Transition: IpcPlayTransitionCommand.Enter,
+            Result: IpcPlayTransitionOutcome.Blocked,
+            Before: observation,
+            After: null,
+            Observed: observation,
+            ApplicationState: null));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new IpcPlayTransitionResult(
+            Transition: IpcPlayTransitionCommand.Enter,
+            Result: IpcPlayTransitionOutcome.Blocked,
+            Before: observation,
+            After: null,
+            Observed: observation,
+            ApplicationState: (IpcApplicationState)0));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPlayTransitionResult_RejectsAfterSnapshotOnFailure ()
+    {
+        var observation = CreateObservation(IpcPlayModeState.Stopped, IpcPlayModeTransition.None);
+
+        Assert.Throws<ArgumentException>(() => new IpcPlayTransitionResult(
+            Transition: IpcPlayTransitionCommand.Enter,
+            Result: IpcPlayTransitionOutcome.Blocked,
+            Before: observation,
+            After: observation,
+            Observed: observation,
+            ApplicationState: IpcApplicationState.NotApplied));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPlayTransitionResult_RequiresIndeterminateApplicationStateForTimeout ()
+    {
+        var observation = CreateObservation(IpcPlayModeState.Stopped, IpcPlayModeTransition.None);
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => new IpcPlayTransitionResult(
+            Transition: IpcPlayTransitionCommand.Enter,
+            Result: IpcPlayTransitionOutcome.Timeout,
+            Before: observation,
+            After: null,
+            Observed: observation,
+            ApplicationState: IpcApplicationState.Applied));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void IpcPlayTransitionResult_AllowsBlockedTransitionKnownToBeApplied ()
+    {
+        var observation = CreateObservation(IpcPlayModeState.Playing, IpcPlayModeTransition.None);
+
+        var transition = new IpcPlayTransitionResult(
+            Transition: IpcPlayTransitionCommand.Exit,
+            Result: IpcPlayTransitionOutcome.Blocked,
+            Before: observation,
+            After: null,
+            Observed: observation,
+            ApplicationState: IpcApplicationState.Applied);
+
+        Assert.Equal(IpcApplicationState.Applied, transition.ApplicationState);
     }
 
     private static IpcUnityEditorObservation CreateObservation (
@@ -94,7 +243,7 @@ public sealed class IpcPlayContractSerializationTests
         return new IpcUnityEditorObservation(
             serverVersion: "0.5.0",
             unityVersion: "6000.1.4f1",
-            projectFingerprint: "project-fingerprint",
+            projectFingerprint: ProjectFingerprint,
             state: new UnityEditorStateSnapshot(
                 editorMode: DaemonEditorMode.Gui,
                 lifecycleState: IpcEditorLifecycleState.Ready,

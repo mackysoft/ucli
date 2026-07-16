@@ -13,17 +13,20 @@ using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Execution;
 
 /// <summary> Executes verify assurance profiles and composes their verifier outputs. </summary>
 internal sealed class VerifyService : IVerifyService
 {
-    private const string TestVerifierId = "test";
-    private const string LogsVerifierId = "logs";
     private const string TestReportRef = "test.summary";
     private const string LogsReportRef = "logs.unity";
+
+    private static readonly AssuranceVerifierId TestVerifierId = new("test");
+
+    private static readonly AssuranceVerifierId LogsVerifierId = new("logs");
 
     private static readonly IReadOnlyList<VerifyResidualRiskOutput> EmptyResidualRisks =
         Array.Empty<VerifyResidualRiskOutput>();
@@ -53,7 +56,7 @@ internal sealed class VerifyService : IVerifyService
         ILogsUnityService logsUnityService,
         IVerifyProfileFileReader profileFileReader,
         IVerifyFromInputFileReader fromInputFileReader,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.readyService = readyService ?? throw new ArgumentNullException(nameof(readyService));
@@ -62,7 +65,7 @@ internal sealed class VerifyService : IVerifyService
         this.logsUnityService = logsUnityService ?? throw new ArgumentNullException(nameof(logsUnityService));
         this.profileFileReader = profileFileReader ?? throw new ArgumentNullException(nameof(profileFileReader));
         this.fromInputFileReader = fromInputFileReader ?? throw new ArgumentNullException(nameof(fromInputFileReader));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -140,15 +143,6 @@ internal sealed class VerifyService : IVerifyService
         foreach (var step in profile.Steps)
         {
             cancellationToken.ThrowIfCancellationRequested();
-
-            if (!VerifyStepKindValues.IsSupported(step.Kind))
-            {
-                var failure = ApplicationFailure.InvalidInput(
-                    $"Unsupported verify step kind '{step.Kind}'.",
-                    UcliCoreErrorCodes.InvalidArgument);
-                await EmitDiagnosticAsync(progressSink, failure, stepKind: null, cancellationToken).ConfigureAwait(false);
-                return VerifyExecutionResult.Failure(failure, project);
-            }
 
             if (TryGetConditionalSkipReason(step, fromInput, builder, out var skipReason))
             {
@@ -281,14 +275,12 @@ internal sealed class VerifyService : IVerifyService
     {
         return step.Kind switch
         {
-            VerifyStepKindValues.Ready => await ExecuteReadyStepAsync(input, timeout, step, builder, cancellationToken).ConfigureAwait(false),
-            VerifyStepKindValues.Compile => await ExecuteCompileStepAsync(input, timeout, step, builder, cancellationToken).ConfigureAwait(false),
-            VerifyStepKindValues.PostRead => ExecutePostReadStep(step, fromInput, builder),
-            VerifyStepKindValues.Test => await ExecuteTestStepAsync(input, timeout, step, builder, cancellationToken).ConfigureAwait(false),
-            VerifyStepKindValues.Logs => await ExecuteLogsStepAsync(input, step, builder, cancellationToken).ConfigureAwait(false),
-            _ => VerifyStepExecutionResult.Failure(ApplicationFailure.InvalidInput(
-                $"Unsupported verify step kind '{step.Kind}'.",
-                UcliCoreErrorCodes.InvalidArgument)),
+            VerifyStepKind.Ready => await ExecuteReadyStepAsync(input, timeout, step, builder, cancellationToken).ConfigureAwait(false),
+            VerifyStepKind.Compile => await ExecuteCompileStepAsync(input, timeout, step, builder, cancellationToken).ConfigureAwait(false),
+            VerifyStepKind.PostRead => ExecutePostReadStep(step, fromInput, builder),
+            VerifyStepKind.Test => await ExecuteTestStepAsync(input, timeout, step, builder, cancellationToken).ConfigureAwait(false),
+            VerifyStepKind.Logs => await ExecuteLogsStepAsync(input, step, builder, cancellationToken).ConfigureAwait(false),
+            _ => throw new InvalidOperationException("The verify profile contains an undefined step kind."),
         };
     }
 
@@ -302,7 +294,7 @@ internal sealed class VerifyService : IVerifyService
         var result = await readyService.ExecuteAsync(
                 new ReadyCommandInput(
                     ProjectPath: input.ProjectPath,
-                    Target: step.ReadyTarget,
+                    Target: step.ReadyTarget!.Value,
                     Mode: input.Mode,
                     TimeoutMilliseconds: ToTimeoutMilliseconds(timeout),
                     ReadIndexMode: null,
@@ -321,7 +313,7 @@ internal sealed class VerifyService : IVerifyService
             var verifier = output.Verifiers[i];
             builder.AddVerifier(new VerifyVerifierOutput(
                 Id: verifier.Id,
-                Kind: VerifyStepKindValues.Ready,
+                Kind: verifier.Kind,
                 Deterministic: verifier.Deterministic,
                 Required: step.Required,
                 PrimaryClaims: verifier.PrimaryClaims,
@@ -354,12 +346,7 @@ internal sealed class VerifyService : IVerifyService
 
         foreach (var report in output.Reports)
         {
-            builder.AddReport(report.Key, new VerifyReportOutput
-            {
-                Path = report.Value.Path,
-                Uri = report.Value.Uri,
-                Digest = report.Value.Digest,
-            });
+            builder.AddReport(report.Key, report.Value);
         }
 
         return VerifyStepExecutionResult.Success();
@@ -390,7 +377,7 @@ internal sealed class VerifyService : IVerifyService
         {
             builder.AddVerifier(new VerifyVerifierOutput(
                 Id: verifier.Id,
-                Kind: VerifyStepKindValues.Compile,
+                Kind: verifier.Kind,
                 Deterministic: verifier.Deterministic,
                 Required: step.Required,
                 PrimaryClaims: verifier.PrimaryClaims,
@@ -407,11 +394,7 @@ internal sealed class VerifyService : IVerifyService
 
         foreach (var report in output.Reports)
         {
-            builder.AddReport(report.Key, new VerifyReportOutput
-            {
-                Path = report.Value.Path,
-                Digest = report.Value.Digest,
-            });
+            builder.AddReport(report.Key, report.Value);
         }
 
         return VerifyStepExecutionResult.Success();
@@ -456,7 +439,7 @@ internal sealed class VerifyService : IVerifyService
 
         builder.AddVerifier(new VerifyVerifierOutput(
             PostReadClaimBuilder.VerifierId,
-            VerifyStepKindValues.PostRead,
+            AssuranceVerifierKind.PostRead,
             Deterministic: true,
             Required: claimSet.Claims.Any(static claim => claim.Required),
             PrimaryClaims: claimSet.Claims.Select(static claim => claim.Id).ToArray(),
@@ -483,9 +466,8 @@ internal sealed class VerifyService : IVerifyService
                     UnityEditorPath: null,
                     TestPlatform: step.TestPlatform,
                     TestFilter: step.TestFilter,
-                    TestCategory: step.TestCategory,
-                    AssemblyName: step.AssemblyName,
-                    TestSettingsPath: null,
+                    TestCategory: step.TestCategory?.ToArray(),
+                    AssemblyName: step.AssemblyName?.ToArray(),
                     TimeoutMilliseconds: ToTimeoutMilliseconds(timeout),
                     FailFast: false),
                 cancellationToken: cancellationToken)
@@ -496,34 +478,34 @@ internal sealed class VerifyService : IVerifyService
         }
 
         var status = result.Result == TestRunResultKind.Pass
-            ? VerifyClaimStatusValues.Passed
-            : VerifyClaimStatusValues.Failed;
-        var reportRef = string.IsNullOrWhiteSpace(result.SummaryJsonPath) ? null : TestReportRef;
+            ? AssuranceClaimStatus.Passed
+            : AssuranceClaimStatus.Failed;
+        var summaryReport = string.IsNullOrWhiteSpace(result.SummaryJsonPath)
+            ? null
+            : AssuranceReportReference.FromPath(result.SummaryJsonPath, digest: null);
+        var reportRef = summaryReport is null ? null : TestReportRef;
         builder.AddVerifier(new VerifyVerifierOutput(
             TestVerifierId,
-            VerifyStepKindValues.Test,
+            AssuranceVerifierKind.Test,
             Deterministic: false,
             Required: step.Required,
-            PrimaryClaims: [VerifyClaimCodes.UnityTestsPassed.Value],
+            PrimaryClaims: [VerifyClaimCodes.UnityTestsPassed],
             Effects: step.Effects)
         {
             ReportRef = reportRef,
         });
-        if (reportRef != null)
+        if (summaryReport != null)
         {
-            builder.AddReport(reportRef, new VerifyReportOutput
-            {
-                Path = result.SummaryJsonPath,
-            });
+            builder.AddReport(TestReportRef, summaryReport);
         }
 
         builder.AddClaim(new VerifyClaimOutput(
-            Id: VerifyClaimCodes.UnityTestsPassed.Value,
+            Id: VerifyClaimCodes.UnityTestsPassed,
             Status: status,
-            Coverage: VerifyCoverageValues.Full,
+            Coverage: AssuranceCoverage.Full,
             Required: step.Required,
             VerifierRef: TestVerifierId,
-            Statement: status == VerifyClaimStatusValues.Passed
+            Statement: status == AssuranceClaimStatus.Passed
                 ? "Unity Test Runner execution passed."
                 : "Unity Test Runner execution did not pass.",
             Subject: new Dictionary<string, object?>(StringComparer.Ordinal)
@@ -584,13 +566,10 @@ internal sealed class VerifyService : IVerifyService
         var reportUri = result.IsSuccess
             ? $"ucli://logs/unity?tail=200&count={eventCount}"
             : $"ucli://logs/unity?tail=200&status=failed";
-        builder.AddReport(LogsReportRef, new VerifyReportOutput
-        {
-            Uri = reportUri,
-        });
+        builder.AddReport(LogsReportRef, AssuranceReportReference.FromUri(reportUri, digest: null));
         builder.AddVerifier(new VerifyVerifierOutput(
             LogsVerifierId,
-            VerifyStepKindValues.Logs,
+            AssuranceVerifierKind.Logs,
             Deterministic: false,
             Required: false,
             PrimaryClaims: [],
@@ -607,7 +586,7 @@ internal sealed class VerifyService : IVerifyService
         VerifyPacketBuilder builder,
         out string skipReason)
     {
-        if (string.Equals(step.Kind, VerifyStepKindValues.PostRead, StringComparison.Ordinal)
+        if (step.Kind == VerifyStepKind.PostRead
             && !step.Required
             && (fromInput is null || !fromInput.NeedsPostRead))
         {
@@ -615,7 +594,7 @@ internal sealed class VerifyService : IVerifyService
             return true;
         }
 
-        if (string.Equals(step.Kind, VerifyStepKindValues.Logs, StringComparison.Ordinal)
+        if (step.Kind == VerifyStepKind.Logs
             && !builder.HasNonPassingClaim)
         {
             skipReason = VerifyStepSkipReasons.LogsNotNeeded;
@@ -628,8 +607,8 @@ internal sealed class VerifyService : IVerifyService
 
     private static VerifyProgressEntry CreateProgressEntry (
         VerifyProfileDefinition profile,
-        string effectiveProfileDigest,
-        string? verdict)
+        Sha256Digest effectiveProfileDigest,
+        AssuranceVerdict? verdict)
     {
         return new VerifyProgressEntry(
             profile.Source,
@@ -654,7 +633,7 @@ internal sealed class VerifyService : IVerifyService
     private static ValueTask EmitDiagnosticAsync (
         ICommandProgressSink? progressSink,
         ApplicationFailure failure,
-        string? stepKind,
+        VerifyStepKind? stepKind,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(failure);
@@ -664,8 +643,8 @@ internal sealed class VerifyService : IVerifyService
             new VerifyDiagnosticEntry(
                 failure.Code.Value,
                 failure.Message,
-                "error",
-                VerifyStepKindValues.IsSupported(stepKind ?? string.Empty) ? stepKind : null),
+                UcliDiagnosticSeverity.Error,
+                stepKind),
             cancellationToken);
     }
 
@@ -697,7 +676,7 @@ internal sealed class VerifyService : IVerifyService
             VerifierRef: claim.VerifierRef,
             Statement: claim.Statement,
             Subject: claim.Subject,
-            Evidence: claim.Evidence.Select(static evidence => new VerifyEvidenceOutput(evidence.Kind)
+            Evidence: claim.Evidence.Select(static evidence => new VerifyEvidenceOutput(ContractLiteralCodec.ToValue(evidence.Kind))
             {
                 EvidenceRef = evidence.EvidenceRef,
                 Data = evidence.Data,

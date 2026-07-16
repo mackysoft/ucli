@@ -486,7 +486,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var saveResult = await saveOperation.CallAsync(saveRequest, context, CancellationToken.None);
 
             AssertInvalidArgument(saveResult, "op-save");
-            Assert.That(context.HasRequestAttributedChange(new OperationResource(OperationTouchKind.Scene, scenePath)), Is.True);
+            Assert.That(context.HasRequestAttributedChange(new OperationResource(UcliTouchedResourceKind.Scene, scenePath)), Is.True);
         });
 
         [UnityTest]
@@ -564,7 +564,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 var result = await operation.ValidateAsync(requestOperation, scope.CreateExecutionContext(), CancellationToken.None);
 
                 AssertInvalidArgument(result, "op-tree");
-                Assert.That(result.Failure!.Message, Does.Contain("args.limit"));
+                Assert.That(result.Failure!.Message, Does.Contain("limit"));
             }
         });
 
@@ -596,7 +596,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Result!.Value.GetProperty("path").GetString(), Is.EqualTo(scenePath));
             Assert.That(result.Result.Value.GetProperty("roots").GetArrayLength(), Is.EqualTo(1));
             Assert.That(result.Result.Value.GetProperty("roots")[0].GetProperty("children").GetArrayLength(), Is.EqualTo(1));
-            Assert.That(result.Result.Value.GetProperty("roots")[0].GetProperty("childrenState").GetString(), Is.EqualTo(IndexSceneTreeLiteNodeChildrenStateValues.Complete));
+            Assert.That(result.Result.Value.GetProperty("roots")[0].GetProperty("childrenState").GetString(), Is.EqualTo("complete"));
             Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("kind").GetString(), Is.EqualTo("loadedScene"));
             Assert.That(result.Result.Value.GetProperty("sourceState").GetProperty("isDirty").GetBoolean(), Is.False);
             Assert.That(result.Result.Value.GetProperty("window").GetProperty("limit").GetInt32(), Is.EqualTo(BoundedWindowConstants.DefaultLimit));
@@ -634,7 +634,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var payload = result.Result!.Value;
             var rootElement = payload.GetProperty("roots")[0];
             Assert.That(rootElement.GetProperty("children").GetArrayLength(), Is.EqualTo(1));
-            Assert.That(rootElement.GetProperty("childrenState").GetString(), Is.EqualTo(IndexSceneTreeLiteNodeChildrenStateValues.TruncatedByWindow));
+            Assert.That(rootElement.GetProperty("childrenState").GetString(), Is.EqualTo("truncatedByWindow"));
             Assert.That(payload.GetProperty("window").GetProperty("nextCursor").GetString(), Is.EqualTo(BoundedWindowCursorCodec.Encode(2)));
             Assert.That(payload.GetProperty("window").GetProperty("totalCount").GetInt32(), Is.EqualTo(3));
         });
@@ -665,7 +665,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: false, changed: false, expectedTouchKind: null);
             var rootElement = result.Result!.Value.GetProperty("roots")[0];
             Assert.That(rootElement.GetProperty("children").GetArrayLength(), Is.EqualTo(0));
-            Assert.That(rootElement.GetProperty("childrenState").GetString(), Is.EqualTo(IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth));
+            Assert.That(rootElement.GetProperty("childrenState").GetString(), Is.EqualTo("notExpandedByDepth"));
         });
 
         [UnityTest]
@@ -772,7 +772,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var previewRoots = temporaryScene.GetRootGameObjects();
             Assert.That(previewRoots, Has.Length.EqualTo(1));
             Assert.That(previewRoots[0].name, Is.EqualTo("RenamedRoot"));
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewRoots[0], out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewRoots[0], out _), Is.False);
             var requestOperation = CreateOperation(
                 opId: "op-tree",
                 opName: UcliPrimitiveOperationNames.SceneTree,
@@ -828,6 +828,73 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(matches[1].GetProperty("hierarchyPath").GetString(), Is.EqualTo("ZRoot/ZChild"));
             Assert.That(matches[2].GetProperty("hierarchyPath").GetString(), Is.EqualTo("ZRoot/AChild"));
             Assert.That(matches[3].GetProperty("hierarchyPath").GetString(), Is.EqualTo("ARoot"));
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator QueryRuntime_WhenResolvedComponentTypeMatchesMultipleNodes_UsesResolvedTypeForAllNodes ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            _ = root.AddComponent<CompOperationTestComponent>();
+            var child = new GameObject("Child");
+            child.transform.SetParent(root.transform, worldPositionStays: false);
+            _ = child.AddComponent<CompOperationTestComponent>();
+            var sibling = new GameObject("Sibling");
+            _ = sibling.AddComponent<CompOperationTestComponent>();
+            EditorSceneManager.SaveScene(scene, scenePath);
+            using var context = scope.CreateExecutionContext();
+            var componentTypeId = new UnityComponentTypeId(
+                MackySoft.Ucli.Unity.Index.IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent)));
+            var queryArguments = new SceneQuerySelectionEngine.QueryArguments(
+                pathPrefix: null,
+                componentTypeId,
+                componentRuntimeType: typeof(CompOperationTestComponent));
+
+            var succeeded = SceneQuerySelectionEngine.TryQueryRuntime(
+                scenePath,
+                queryArguments,
+                context,
+                allowTemporaryState: false,
+                out var matches,
+                out var diagnostics,
+                out var errorMessage);
+
+            Assert.That(succeeded, Is.True, errorMessage);
+            Assert.That(diagnostics, Is.Empty);
+            Assert.That(matches, Has.Count.EqualTo(3));
+            Assert.That(matches.All(match => ReferenceEquals(match.ComponentType, componentTypeId)), Is.True);
+            yield return null;
+        }
+
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator Query_Validate_WhenComponentTypeCannotResolve_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
+        {
+            var queryOperation = new SceneQueryOperation();
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(SceneOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var queryRequest = CreateOperation(
+                opId: "op-query",
+                opName: UcliPrimitiveOperationNames.SceneQuery,
+                args: new
+                {
+                    scene = scenePath,
+                    componentType = "Missing.Component, Missing.Assembly",
+                });
+
+            var result = await queryOperation.ValidateAsync(
+                queryRequest,
+                scope.CreateExecutionContext(),
+                CancellationToken.None);
+
+            AssertInvalidArgument(result, "op-query");
+            Assert.That(result.Failure!.Message, Does.Contain("TypeId could not be resolved"));
         });
 
         [UnityTest]
@@ -1084,8 +1151,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
             AssertInvalidArgument(queryResult, "op-query");
             var diagnostic = AssertSingleHierarchyPathDiagnostic(queryResult.Diagnostics);
-            Assert.That(diagnostic.Severity, Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
-            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));
+            Assert.That(diagnostic.Severity, Is.EqualTo(UcliDiagnosticSeverity.Warning));
+            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(IpcExecuteDiagnosticCoverageImpact.Partial));
         });
 
         [UnityTest]
@@ -1117,8 +1184,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(matches.GetArrayLength(), Is.EqualTo(1));
             Assert.That(matches[0].GetProperty("hierarchyPath").GetString(), Is.EqualTo("GoodRoot"));
             var diagnostic = AssertSingleHierarchyPathDiagnostic(queryResult.Diagnostics);
-            Assert.That(diagnostic.Severity, Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
-            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));
+            Assert.That(diagnostic.Severity, Is.EqualTo(UcliDiagnosticSeverity.Warning));
+            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(IpcExecuteDiagnosticCoverageImpact.Partial));
         });
 
         private static NormalizedOperation CreateOperation (
@@ -1128,12 +1195,16 @@ namespace MackySoft.Ucli.Unity.Tests
             NormalizedOperation.SourceStepKind sourceKind = NormalizedOperation.SourceStepKind.Op)
         {
             return new NormalizedOperation(
-                Id: opId,
+                ExecutionKey: sourceKind == NormalizedOperation.SourceStepKind.Edit
+                    ? OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId(opId), primitiveIndex: 0)
+                    : OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: opName,
                 Args: JsonSerializer.SerializeToElement(args),
                 As: null,
                 Expect: null,
-                SourceKind: sourceKind);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
         }
 
         private static void AssertInvalidArgument (
@@ -1143,14 +1214,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.Not.Null);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(result.Failure.OpId, Is.EqualTo(expectedOperationId));
+            Assert.That(result.Failure.OpId?.Value, Is.EqualTo(expectedOperationId));
         }
 
         private static void AssertSuccess (
             OperationPhaseStepResult result,
             bool applied,
             bool changed,
-            OperationTouchKind? expectedTouchKind = OperationTouchKind.Scene)
+            UcliTouchedResourceKind? expectedTouchKind = UcliTouchedResourceKind.Scene)
         {
             Assert.That(result.IsSuccess, Is.True);
             Assert.That(result.Applied, Is.EqualTo(applied));

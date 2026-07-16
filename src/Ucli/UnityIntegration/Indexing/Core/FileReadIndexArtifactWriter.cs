@@ -1,8 +1,12 @@
 using System.Text;
+using System.Text.Json;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Json;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -12,6 +16,10 @@ namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
 internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 {
     private const int SchemaVersion = 1;
+
+    private const int MaxUnreferencedOpsDescribeArtifactCount = 512;
+
+    private static readonly TimeSpan WriteLockAcquireTimeout = TimeSpan.FromSeconds(1);
 
     private readonly IJsonContractWriter<IndexOpsCatalogJsonContract> opsCatalogWriter;
 
@@ -25,6 +33,8 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
 
     private readonly IJsonContractWriter<IndexInputsManifestJsonContract> inputsManifestWriter;
 
+    private readonly FileReadIndexGenerationStore generationStore;
+
     /// <summary> Initializes a new instance of the <see cref="FileReadIndexArtifactWriter" /> class. </summary>
     public FileReadIndexArtifactWriter (
         IJsonContractWriter<IndexOpsCatalogJsonContract> opsCatalogWriter,
@@ -32,7 +42,8 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         IJsonContractWriter<IndexAssetSearchLookupJsonContract> assetSearchLookupWriter,
         IJsonContractWriter<IndexGuidPathLookupJsonContract> guidPathLookupWriter,
         IJsonContractWriter<IndexSceneTreeLiteLookupJsonContract> sceneTreeLiteLookupWriter,
-        IJsonContractWriter<IndexInputsManifestJsonContract> inputsManifestWriter)
+        IJsonContractWriter<IndexInputsManifestJsonContract> inputsManifestWriter,
+        FileReadIndexGenerationStore generationStore)
     {
         this.opsCatalogWriter = opsCatalogWriter ?? throw new ArgumentNullException(nameof(opsCatalogWriter));
         this.opsDescribeWriter = opsDescribeWriter ?? throw new ArgumentNullException(nameof(opsDescribeWriter));
@@ -40,114 +51,130 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         this.guidPathLookupWriter = guidPathLookupWriter ?? throw new ArgumentNullException(nameof(guidPathLookupWriter));
         this.sceneTreeLiteLookupWriter = sceneTreeLiteLookupWriter ?? throw new ArgumentNullException(nameof(sceneTreeLiteLookupWriter));
         this.inputsManifestWriter = inputsManifestWriter ?? throw new ArgumentNullException(nameof(inputsManifestWriter));
+        this.generationStore = generationStore ?? throw new ArgumentNullException(nameof(generationStore));
     }
 
     /// <inheritdoc />
     public async ValueTask WriteOpsCatalogAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
-        IReadOnlyList<IndexOpEntryJsonContract> operations,
-        string sourceInputsHash,
+        IReadOnlyList<ValidatedOpsOperation> operations,
+        Sha256Digest sourceInputsHash,
         ReadIndexInputHashSnapshot? manifestInputSnapshot,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentNullException.ThrowIfNull(operations);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceInputsHash);
+        ArgumentNullException.ThrowIfNull(sourceInputsHash);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var opsCatalogPath = UcliStoragePathResolver.ResolveOpsCatalogPath(storageRoot, projectFingerprint);
-        var opsDescribeDirectoryPath = UcliStoragePathResolver.ResolveOpsDescribeDirectory(storageRoot, projectFingerprint);
-        EnsureParentDirectory(opsCatalogPath);
-        FileSystemAccessBoundary.EnsureSecureDirectory(opsDescribeDirectoryPath);
-
-        var orderedOperations = IndexJsonOrderingPolicy.OrderOpsEntries(operations);
-        var catalogEntries = new List<IndexOpsCatalogEntryJsonContract>(orderedOperations.Count);
-        var originalDescribeArtifacts = new Dictionary<string, string?>(StringComparer.Ordinal);
-        var catalogWritten = false;
-        try
+        using var generation = await generationStore.BeginWriteAsync(
+                storageRoot,
+                projectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (manifestInputSnapshot != null)
         {
-            for (var i = 0; i < orderedOperations.Count; i++)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                var operation = orderedOperations[i];
-                if (string.IsNullOrWhiteSpace(operation.Name))
-                {
-                    throw new InvalidOperationException("Operation name must not be empty when writing ops read-index artifacts.");
-                }
-
-                var describeKey = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(operation.Name));
-                var describeContract = new IndexOpsDescribeJsonContract(
-                    SchemaVersion: SchemaVersion,
-                    GeneratedAtUtc: generatedAtUtc,
-                    SourceInputsHash: sourceInputsHash,
-                    Operation: operation);
-                var describeJson = opsDescribeWriter.Write(describeContract);
-                var describeHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(describeJson));
-                var describePath = UcliStoragePathResolver.ResolveOpsDescribePath(
-                    storageRoot,
-                    projectFingerprint,
-                    describeKey);
-
-                await CaptureOriginalDescribeArtifactAsync(describePath, originalDescribeArtifacts, cancellationToken).ConfigureAwait(false);
-                await FileUtilities.WriteAllTextAtomicallyAsync(
-                        describePath,
-                        describeJson,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-
-                catalogEntries.Add(
-                    new IndexOpsCatalogEntryJsonContract(
-                        Name: operation.Name,
-                        Kind: operation.Kind,
-                        Policy: operation.Policy,
-                        Description: operation.Description,
-                        DescribeKey: describeKey,
-                        DescribeHash: describeHash));
-            }
-
-            var opsCatalog = new IndexOpsCatalogJsonContract(
-                SchemaVersion: SchemaVersion,
-                GeneratedAtUtc: generatedAtUtc,
-                SourceInputsHash: sourceInputsHash,
-                Entries: catalogEntries);
-
-            await FileUtilities.WriteAllTextAtomicallyAsync(
-                    opsCatalogPath,
-                    opsCatalogWriter.Write(opsCatalog),
+            manifestInputSnapshot = await PreserveCurrentAssetHashesAsync(
+                    generation.StagingDirectoryPath,
+                    manifestInputSnapshot,
                     cancellationToken)
                 .ConfigureAwait(false);
-            catalogWritten = true;
         }
-        catch
-        {
-            if (!catalogWritten)
-            {
-                await RestoreDescribeArtifactsAsync(originalDescribeArtifacts).ConfigureAwait(false);
-            }
 
-            throw;
+        var opsCatalogPath = Path.Combine(
+            generation.StagingDirectoryPath,
+            UcliStoragePathNames.OpsCatalogFileName);
+        var opsDescribeDirectoryPath = UcliStoragePathResolver.ResolveOpsDescribeDirectory(storageRoot, projectFingerprint);
+        FileSystemAccessBoundary.EnsureSecureDirectory(opsDescribeDirectoryPath);
+
+        var operationContracts = new IndexOpEntryJsonContract[operations.Count];
+        for (var i = 0; i < operations.Count; i++)
+        {
+            operationContracts[i] = operations[i].ToJsonContract();
         }
+
+        var orderedOperations = IndexJsonOrderingPolicy.OrderOpsEntries(operationContracts);
+        var catalogEntries = new List<IndexOpsCatalogEntryJsonContract>(orderedOperations.Count);
+        var referencedDescribePaths = new HashSet<string>(PathStringNormalizer.CurrentPlatformPathComparer);
+        for (var i = 0; i < orderedOperations.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var operation = orderedOperations[i];
+            var describeContract = new IndexOpsDescribeJsonContract(
+                SchemaVersion: SchemaVersion,
+                GeneratedAtUtc: generatedAtUtc,
+                SourceInputsHash: sourceInputsHash.ToString(),
+                Operation: operation);
+            var describeJson = opsDescribeWriter.Write(describeContract);
+            var describeHash = Sha256Digest.Compute(Encoding.UTF8.GetBytes(describeJson));
+            var describePath = UcliStoragePathResolver.ResolveOpsDescribePath(
+                storageRoot,
+                projectFingerprint,
+                describeHash);
+
+            await FileUtilities.WriteAllTextAtomicallyAsync(
+                    describePath,
+                    describeJson,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            referencedDescribePaths.Add(describePath);
+
+            catalogEntries.Add(
+                new IndexOpsCatalogEntryJsonContract(
+                    Name: operation.Name,
+                    Kind: operation.Kind,
+                    Policy: operation.Policy,
+                    Description: operation.Description,
+                    DescribeKey: describeHash.ToString(),
+                    DescribeHash: describeHash.ToString()));
+        }
+
+        var opsCatalog = new IndexOpsCatalogJsonContract(
+            SchemaVersion: SchemaVersion,
+            GeneratedAtUtc: generatedAtUtc,
+            SourceInputsHash: sourceInputsHash.ToString(),
+            Entries: catalogEntries);
+
+        await FileUtilities.WriteAllTextAtomicallyAsync(
+                opsCatalogPath,
+                opsCatalogWriter.Write(opsCatalog),
+                cancellationToken)
+            .ConfigureAwait(false);
 
         if (manifestInputSnapshot != null)
         {
             await WriteInputsManifestAsync(
-                    storageRoot,
-                    projectFingerprint,
+                    generation.StagingDirectoryPath,
                     generatedAtUtc,
                     manifestInputSnapshot,
                     cancellationToken)
                 .ConfigureAwait(false);
+        }
+
+        await ValidateGenerationAsync(
+                generation.StagingDirectoryPath,
+                storageRoot,
+                projectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await generation.CommitAsync(cancellationToken).ConfigureAwait(false);
+        if (TryAddRetainedGenerationDescribePaths(
+                storageRoot,
+                projectFingerprint,
+                referencedDescribePaths))
+        {
+            PruneOpsDescribeArtifacts(opsDescribeDirectoryPath, referencedDescribePaths);
         }
     }
 
     /// <inheritdoc />
     public async ValueTask WriteAssetLookupsAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
         IReadOnlyList<IndexGuidPathEntryJsonContract> guidPathEntries,
@@ -155,26 +182,38 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
         ArgumentNullException.ThrowIfNull(assetSearchEntries);
         ArgumentNullException.ThrowIfNull(guidPathEntries);
         ArgumentNullException.ThrowIfNull(inputSnapshot);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var assetSearchLookupPath = UcliStoragePathResolver.ResolveAssetSearchLookupPath(storageRoot, projectFingerprint);
-        var guidPathLookupPath = UcliStoragePathResolver.ResolveGuidPathLookupPath(storageRoot, projectFingerprint);
-        EnsureParentDirectory(assetSearchLookupPath);
-        EnsureParentDirectory(guidPathLookupPath);
+        using var generation = await generationStore.BeginWriteAsync(
+                storageRoot,
+                projectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        inputSnapshot = await PreserveCurrentCoreHashesAsync(
+                generation.StagingDirectoryPath,
+                inputSnapshot,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var assetSearchLookupPath = Path.Combine(
+            generation.StagingDirectoryPath,
+            UcliStoragePathNames.AssetSearchLookupFileName);
+        var guidPathLookupPath = Path.Combine(
+            generation.StagingDirectoryPath,
+            UcliStoragePathNames.GuidPathLookupFileName);
 
         var assetSearchLookup = new IndexAssetSearchLookupJsonContract(
             SchemaVersion: SchemaVersion,
             GeneratedAtUtc: generatedAtUtc,
-            SourceInputsHash: inputSnapshot.AssetSearchHash,
+            SourceInputsHash: inputSnapshot.AssetSearchHash.ToString(),
             Entries: assetSearchEntries);
         var guidPathLookup = new IndexGuidPathLookupJsonContract(
             SchemaVersion: SchemaVersion,
             GeneratedAtUtc: generatedAtUtc,
-            SourceInputsHash: inputSnapshot.GuidPathHash,
+            SourceInputsHash: inputSnapshot.GuidPathHash.ToString(),
             Entries: guidPathEntries);
 
         await FileUtilities.WriteAllTextAtomicallyAsync(
@@ -187,35 +226,52 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
                 guidPathLookupWriter.Write(guidPathLookup),
                 cancellationToken)
             .ConfigureAwait(false);
-        await WriteInputsManifestAsync(storageRoot, projectFingerprint, generatedAtUtc, inputSnapshot, cancellationToken).ConfigureAwait(false);
+        await WriteInputsManifestAsync(
+                generation.StagingDirectoryPath,
+                generatedAtUtc,
+                inputSnapshot,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await ValidateGenerationAsync(
+                generation.StagingDirectoryPath,
+                storageRoot,
+                projectFingerprint,
+                cancellationToken)
+            .ConfigureAwait(false);
+        await generation.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async ValueTask WriteSceneTreeLiteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
-        string scenePath,
+        SceneAssetPath scenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
-        string sourceInputsHash,
+        Sha256Digest sourceInputsHash,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
-        ArgumentException.ThrowIfNullOrWhiteSpace(scenePath);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(scenePath);
         ArgumentNullException.ThrowIfNull(roots);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceInputsHash);
+        ArgumentNullException.ThrowIfNull(sourceInputsHash);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var normalizedScenePath = PathStringNormalizer.ToSlashSeparated(scenePath);
-        var lookupPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(storageRoot, projectFingerprint, normalizedScenePath);
+        using var writeLock = await FileExclusiveLock.AcquireAsync(
+                UcliStoragePathResolver.ResolveReadIndexWriteLockPath(storageRoot, projectFingerprint),
+                WriteLockAcquireTimeout,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        var lookupPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(storageRoot, projectFingerprint, scenePath.Value);
         EnsureParentDirectory(lookupPath);
 
         var lookup = new IndexSceneTreeLiteLookupJsonContract(
             SchemaVersion: SchemaVersion,
             GeneratedAtUtc: generatedAtUtc,
-            ScenePath: normalizedScenePath,
-            SourceInputsHash: sourceInputsHash,
+            ScenePath: scenePath.Value,
+            SourceInputsHash: sourceInputsHash.ToString(),
             Roots: roots);
 
         await FileUtilities.WriteAllTextAtomicallyAsync(
@@ -225,67 +281,346 @@ internal sealed class FileReadIndexArtifactWriter : IReadIndexArtifactWriter
             .ConfigureAwait(false);
     }
 
-    private static async ValueTask CaptureOriginalDescribeArtifactAsync (
-        string describePath,
-        Dictionary<string, string?> originalDescribeArtifacts,
-        CancellationToken cancellationToken)
+    private static void PruneOpsDescribeArtifacts (
+        string describeDirectoryPath,
+        HashSet<string> referencedPaths)
     {
-        if (originalDescribeArtifacts.ContainsKey(describePath))
+        try
         {
-            return;
-        }
+            var unreferencedArtifacts = Directory
+                .EnumerateFiles(describeDirectoryPath, "*.json", SearchOption.TopDirectoryOnly)
+                .Where(path => !referencedPaths.Contains(path))
+                .Where(IsOwnedOpsDescribeArtifact)
+                .Select(path => new FileInfo(path))
+                .OrderByDescending(static file => file.LastWriteTimeUtc)
+                .Skip(MaxUnreferencedOpsDescribeArtifactCount)
+                .ToArray();
 
-        var originalJson = await FileUtilities.ReadAllTextOrNullAsync(describePath, cancellationToken).ConfigureAwait(false);
-        originalDescribeArtifacts.Add(describePath, originalJson);
+            foreach (var artifact in unreferencedArtifacts)
+            {
+                try
+                {
+                    if (IsOwnedOpsDescribeArtifact(artifact.FullName))
+                    {
+                        File.Delete(artifact.FullName);
+                    }
+                }
+                catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+                {
+                    // NOTE: Pruning is best-effort housekeeping after the new catalog has committed.
+                    // A sharing violation must not turn a valid read-index refresh into a failure.
+                }
+            }
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            // NOTE: Keep the current catalog usable when directory enumeration races with cleanup.
+        }
     }
 
-    private static async ValueTask RestoreDescribeArtifactsAsync (Dictionary<string, string?> originalDescribeArtifacts)
+    private static bool IsOwnedOpsDescribeArtifact (string path)
     {
-        // NOTE: ops.catalog.json is the commit point for split ops artifacts. Before that point,
-        // existing detail files must remain compatible with the old catalog after cancellation or failure.
-        foreach (var artifact in originalDescribeArtifacts)
+        try
         {
-            if (artifact.Value == null)
+            if (!string.Equals(
+                    Path.GetExtension(path),
+                    UcliStoragePathNames.OpsDescribeFileExtension,
+                    StringComparison.Ordinal))
             {
-                FileUtilities.DeleteIfExists(artifact.Key);
-                continue;
+                return false;
             }
 
-            await FileUtilities.WriteAllTextAtomicallyAsync(
-                    artifact.Key,
-                    artifact.Value,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
+            var fileName = Path.GetFileNameWithoutExtension(path);
+            if (!StoragePathSegmentCodec.IsEncodedSha256Digest(fileName))
+            {
+                return false;
+            }
+
+            FileUtilities.EnsureRegularFile(path, "Read-index operation description");
+            return true;
         }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private static bool TryAddRetainedGenerationDescribePaths (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint,
+        HashSet<string> referencedPaths)
+    {
+        try
+        {
+            var generationRoot = UcliStoragePathResolver.ResolveReadIndexGenerationsDirectory(
+                storageRoot,
+                projectFingerprint);
+            foreach (var generationDirectoryPath in Directory.EnumerateDirectories(
+                         generationRoot,
+                         "*",
+                         SearchOption.TopDirectoryOnly))
+            {
+                var catalogJson = FileUtilities.ReadAllTextOrNull(
+                    Path.Combine(generationDirectoryPath, UcliStoragePathNames.OpsCatalogFileName));
+                if (catalogJson == null)
+                {
+                    continue;
+                }
+
+                if (!OpsCatalogDescriptorSnapshot.TryCreate(
+                        IndexOpsCatalogJsonContractSerializer.Deserialize(catalogJson),
+                        out var catalog))
+                {
+                    return false;
+                }
+
+                for (var index = 0; index < catalog.Entries.Count; index++)
+                {
+                    referencedPaths.Add(UcliStoragePathResolver.ResolveOpsDescribePath(
+                        storageRoot,
+                        projectFingerprint,
+                        catalog.Entries[index].DescribeKey));
+                }
+            }
+
+            return true;
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or ArgumentException or JsonException)
+        {
+            // NOTE: Keep all content-addressed details when retained-generation references cannot be proven.
+            return false;
+        }
+    }
+
+    private static async ValueTask<ReadIndexInputHashSnapshot> PreserveCurrentAssetHashesAsync (
+        string generationDirectoryPath,
+        ReadIndexInputHashSnapshot suppliedSnapshot,
+        CancellationToken cancellationToken)
+    {
+        var currentSnapshot = await TryReadCurrentInputsManifestAsync(
+                generationDirectoryPath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (currentSnapshot == null)
+        {
+            return suppliedSnapshot;
+        }
+
+        // The operation-catalog refresh computes core hashes before waiting for this lock. Preserve asset hashes
+        // committed by a lookup writer that completed while this operation was waiting.
+        return suppliedSnapshot.WithAssetHashes(
+            currentSnapshot.AssetsContentHash,
+            currentSnapshot.AssetSearchHash,
+            currentSnapshot.GuidPathHash);
+    }
+
+    private static async ValueTask<ReadIndexInputHashSnapshot> PreserveCurrentCoreHashesAsync (
+        string generationDirectoryPath,
+        ReadIndexInputHashSnapshot suppliedSnapshot,
+        CancellationToken cancellationToken)
+    {
+        var currentSnapshot = await TryReadCurrentInputsManifestAsync(
+                generationDirectoryPath,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (currentSnapshot == null)
+        {
+            return suppliedSnapshot;
+        }
+
+        // The asset lookup refresh computes a full snapshot before waiting for this lock. Preserve core hashes
+        // committed by an operation-catalog writer that completed while this operation was waiting.
+        return suppliedSnapshot.WithCoreHashes(currentSnapshot);
+    }
+
+    private static async ValueTask<ReadIndexInputHashSnapshot?> TryReadCurrentInputsManifestAsync (
+        string generationDirectoryPath,
+        CancellationToken cancellationToken)
+    {
+        var inputsManifestPath = Path.Combine(
+            generationDirectoryPath,
+            UcliStoragePathNames.IndexInputsManifestFileName);
+        string? json;
+        try
+        {
+            json = await FileUtilities.ReadAllTextOrNullAsync(inputsManifestPath, cancellationToken).ConfigureAwait(false);
+        }
+        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
+        {
+            return null;
+        }
+
+        if (json == null)
+        {
+            return null;
+        }
+
+        IndexInputsManifestJsonContract? currentManifest;
+        try
+        {
+            currentManifest = IndexInputsManifestJsonContractSerializer.Deserialize(json);
+        }
+        catch (Exception exception) when (exception is ArgumentException or JsonException)
+        {
+            return null;
+        }
+
+        if (!ReadIndexInputsManifestSnapshot.TryCreate(currentManifest, out var manifestSnapshot))
+        {
+            return null;
+        }
+
+        return manifestSnapshot.Hashes;
     }
 
     private async ValueTask WriteInputsManifestAsync (
-        string storageRoot,
-        string projectFingerprint,
+        string generationDirectoryPath,
         DateTimeOffset generatedAtUtc,
         ReadIndexInputHashSnapshot inputSnapshot,
         CancellationToken cancellationToken)
     {
-        var inputsManifestPath = UcliStoragePathResolver.ResolveIndexInputsManifestPath(storageRoot, projectFingerprint);
-        EnsureParentDirectory(inputsManifestPath);
+        var inputsManifestPath = Path.Combine(
+            generationDirectoryPath,
+            UcliStoragePathNames.IndexInputsManifestFileName);
 
         var inputsManifest = new IndexInputsManifestJsonContract(
             SchemaVersion: SchemaVersion,
             GeneratedAtUtc: generatedAtUtc,
-            ScriptAssembliesHash: inputSnapshot.ScriptAssembliesHash,
-            PackagesManifestHash: inputSnapshot.PackagesManifestHash,
-            PackagesLockHash: inputSnapshot.PackagesLockHash,
-            AssemblyDefinitionHash: inputSnapshot.AssemblyDefinitionHash,
-            AssetsContentHash: inputSnapshot.AssetsContentHash,
-            AssetSearchHash: inputSnapshot.AssetSearchHash,
-            GuidPathHash: inputSnapshot.GuidPathHash,
-            CombinedHash: inputSnapshot.CombinedHash);
+            ScriptAssembliesHash: inputSnapshot.ScriptAssembliesHash.ToString(),
+            PackagesManifestHash: inputSnapshot.PackagesManifestHash.ToString(),
+            PackagesLockHash: inputSnapshot.PackagesLockHash.ToString(),
+            AssemblyDefinitionHash: inputSnapshot.AssemblyDefinitionHash.ToString(),
+            AssetsContentHash: inputSnapshot.AssetsContentHash.ToString(),
+            AssetSearchHash: inputSnapshot.AssetSearchHash.ToString(),
+            GuidPathHash: inputSnapshot.GuidPathHash.ToString(),
+            CombinedHash: inputSnapshot.CombinedHash.ToString());
 
         await FileUtilities.WriteAllTextAtomicallyAsync(
                 inputsManifestPath,
                 inputsManifestWriter.Write(inputsManifest),
                 cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    private static async ValueTask ValidateGenerationAsync (
+        string generationDirectoryPath,
+        string storageRoot,
+        ProjectFingerprint projectFingerprint,
+        CancellationToken cancellationToken)
+    {
+        var manifestJson = await FileUtilities.ReadAllTextOrNullAsync(
+                Path.Combine(generationDirectoryPath, UcliStoragePathNames.IndexInputsManifestFileName),
+                cancellationToken)
+            .ConfigureAwait(false);
+        ReadIndexInputsManifestSnapshot? manifest = null;
+        if (manifestJson != null
+            && !ReadIndexInputsManifestSnapshot.TryCreate(
+                IndexInputsManifestJsonContractSerializer.Deserialize(manifestJson),
+                out manifest))
+        {
+            throw new InvalidDataException("The staged read-index manifest is malformed.");
+        }
+
+        var catalogJson = await FileUtilities.ReadAllTextOrNullAsync(
+                Path.Combine(generationDirectoryPath, UcliStoragePathNames.OpsCatalogFileName),
+                cancellationToken)
+            .ConfigureAwait(false);
+        OpsCatalogDescriptorSnapshot? catalog = null;
+        if (catalogJson != null)
+        {
+            if (!OpsCatalogDescriptorSnapshot.TryCreate(
+                    IndexOpsCatalogJsonContractSerializer.Deserialize(catalogJson),
+                    out catalog))
+            {
+                throw new InvalidDataException("The staged read-index operation catalog is malformed.");
+            }
+
+            for (var index = 0; index < catalog.Entries.Count; index++)
+            {
+                await ValidateDescribeAsync(
+                        storageRoot,
+                        projectFingerprint,
+                        catalog,
+                        catalog.Entries[index],
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+        }
+
+        var assetSearchJson = await FileUtilities.ReadAllTextOrNullAsync(
+                Path.Combine(generationDirectoryPath, UcliStoragePathNames.AssetSearchLookupFileName),
+                cancellationToken)
+            .ConfigureAwait(false);
+        var guidPathJson = await FileUtilities.ReadAllTextOrNullAsync(
+                Path.Combine(generationDirectoryPath, UcliStoragePathNames.GuidPathLookupFileName),
+                cancellationToken)
+            .ConfigureAwait(false);
+        if ((assetSearchJson == null) != (guidPathJson == null))
+        {
+            throw new InvalidDataException("The staged read-index asset lookup set is incomplete.");
+        }
+
+        AssetSearchLookupSnapshot? assetSearch = null;
+        GuidPathLookupSnapshot? guidPath = null;
+        if (assetSearchJson != null
+            && (!AssetSearchLookupSnapshot.TryCreate(
+                    IndexAssetSearchLookupJsonContractSerializer.Deserialize(assetSearchJson),
+                    out assetSearch)
+                || !GuidPathLookupSnapshot.TryCreate(
+                    IndexGuidPathLookupJsonContractSerializer.Deserialize(guidPathJson!),
+                    out guidPath)))
+        {
+            throw new InvalidDataException("The staged read-index asset lookup set is malformed.");
+        }
+
+        if (assetSearch != null
+            && guidPath != null
+            && (assetSearch.GeneratedAtUtc != guidPath.GeneratedAtUtc
+                || !AssetLookupSnapshot.TryCreate(
+                    assetSearch.GeneratedAtUtc,
+                    assetSearch.Entries,
+                    guidPath.Entries,
+                    out _,
+                    out _)))
+        {
+            throw new InvalidDataException("The staged read-index asset lookup set is inconsistent.");
+        }
+
+        if (manifest != null
+            && ((catalog != null && catalog.SourceInputsHash != manifest.Hashes.CombinedHash)
+                || (assetSearch != null && assetSearch.SourceInputsHash != manifest.Hashes.AssetSearchHash)
+                || (guidPath != null && guidPath.SourceInputsHash != manifest.Hashes.GuidPathHash)))
+        {
+            throw new InvalidDataException("The staged read-index artifacts do not match the inputs manifest.");
+        }
+    }
+
+    private static async ValueTask ValidateDescribeAsync (
+        string storageRoot,
+        ProjectFingerprint projectFingerprint,
+        OpsCatalogDescriptorSnapshot catalog,
+        ValidatedOpsCatalogEntry entry,
+        CancellationToken cancellationToken)
+    {
+        var describePath = UcliStoragePathResolver.ResolveOpsDescribePath(
+            storageRoot,
+            projectFingerprint,
+            entry.DescribeKey);
+        var describeJson = await FileUtilities.ReadAllTextOrNullAsync(describePath, cancellationToken).ConfigureAwait(false);
+        if (describeJson == null
+            || Sha256Digest.Compute(Encoding.UTF8.GetBytes(describeJson)) != entry.DescribeHash
+            || !OpsDescribeSnapshot.TryCreate(
+                IndexOpsDescribeJsonContractSerializer.Deserialize(describeJson),
+                out var describe)
+            || describe.GeneratedAtUtc != catalog.GeneratedAtUtc
+            || describe.SourceInputsHash != catalog.SourceInputsHash
+            || !string.Equals(describe.Operation.Name, entry.Name, StringComparison.Ordinal)
+            || describe.Operation.Kind != entry.Kind
+            || describe.Operation.Policy != entry.Policy
+            || !string.Equals(describe.Operation.Description, entry.Description, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException($"The staged operation description is malformed: {entry.Name}");
+        }
     }
 
     private static void EnsureParentDirectory (string filePath)

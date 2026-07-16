@@ -28,14 +28,14 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
 
     private static readonly IReadOnlyList<object> BuildPipelineVerifierEffects =
     [
-        ContractLiteralCodec.ToValue(BuildEffect.UnityLifecycleRead),
-        ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline),
-        ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead),
-        ContractLiteralCodec.ToValue(BuildEffect.UnityLogWindowRead),
-        ContractLiteralCodec.ToValue(BuildEffect.UcliArtifactWrite),
-        ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite),
-        ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot),
-        ContractLiteralCodec.ToValue(BuildEffect.ProjectMutationAudit),
+        ContractLiteralCodec.ToValue(AssuranceEffect.UnityLifecycleRead),
+        ContractLiteralCodec.ToValue(AssuranceEffect.UnityBuildPipeline),
+        ContractLiteralCodec.ToValue(AssuranceEffect.UnityBuildReportRead),
+        ContractLiteralCodec.ToValue(AssuranceEffect.UnityLogWindowRead),
+        ContractLiteralCodec.ToValue(AssuranceEffect.UcliArtifactWrite),
+        ContractLiteralCodec.ToValue(AssuranceEffect.OutputManifestWrite),
+        ContractLiteralCodec.ToValue(AssuranceEffect.GenerationSnapshot),
+        ContractLiteralCodec.ToValue(AssuranceEffect.ProjectMutationAudit),
     ];
 
     public static AssuranceSemanticInvariantValidationResult ValidateBuildPayload (string payload)
@@ -156,7 +156,7 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
             ? BuildPipelineClaimCodes
                 .Select(code =>
                 {
-                    var status = ResolveBuildClaimStatus(
+                    var status = ResolveAssuranceClaimStatus(
                         code,
                         buildCompletedClaimStatus,
                         buildSucceededClaimStatus,
@@ -169,7 +169,7 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
                         required = true,
                         verifierRef = "build",
                         evidence = CreateBuildEvidence(
-                            code.Value,
+                            code,
                             buildResult,
                             buildSucceededEvidenceRef,
                             buildGenerationEvidenceDataOnly,
@@ -293,7 +293,8 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
     private static AssuranceSemanticInvariantValidator CreateBuildValidator ()
     {
         return new AssuranceSemanticInvariantValidator(
-            new StaticCodeCatalog(BuildClaimCodes.All.Select(static code => CreateDescriptor(code.Value, CodeCatalogKindValues.Claim))),
+            new StaticCodeCatalog(BuildClaimCodes.All.Select(static code => CreateDescriptor(code.Value, CodeCatalogKind.Claim))),
+            [new BuildAssuranceSemanticInvariantRule()],
             [new BuildAssuranceSemanticInvariantRule()]);
     }
 
@@ -328,7 +329,7 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
         };
     }
 
-    private static string ResolveBuildClaimStatus (
+    private static string ResolveAssuranceClaimStatus (
         UcliCode code,
         string buildCompletedClaimStatus,
         string buildSucceededClaimStatus,
@@ -361,13 +362,13 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
     }
 
     private static object[] CreateBuildEvidence (
-        string claimId,
+        UcliCode claimId,
         string buildResult,
         string? buildSucceededEvidenceRef,
         bool buildGenerationEvidenceDataOnly,
         object? buildGenerationEvidenceData)
     {
-        if (BuildClaimCodes.UnityBuildValidForGeneration.EqualsValue(claimId) && buildGenerationEvidenceDataOnly)
+        if (BuildClaimCodes.UnityBuildValidForGeneration == claimId && buildGenerationEvidenceDataOnly)
         {
             return
             [
@@ -380,12 +381,12 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
         }
 
         var evidenceRef = ResolveBuildEvidenceRef(claimId);
-        if (BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId) && buildSucceededEvidenceRef != null)
+        if (BuildClaimCodes.UnityBuildSucceeded == claimId && buildSucceededEvidenceRef != null)
         {
             evidenceRef = buildSucceededEvidenceRef;
         }
 
-        if (BuildClaimCodes.UnityBuildResultAccounted.EqualsValue(claimId))
+        if (BuildClaimCodes.UnityBuildResultAccounted == claimId)
         {
             return
             [
@@ -412,21 +413,21 @@ internal static class BuildAssuranceSemanticInvariantValidatorTestSupport
         ];
     }
 
-    private static string ResolveBuildEvidenceRef (string claimId)
+    private static string ResolveBuildEvidenceRef (UcliCode claimId)
     {
-        if (BuildClaimCodes.UnityBuildCompleted.EqualsValue(claimId)
-            || BuildClaimCodes.UnityBuildSucceeded.EqualsValue(claimId)
-            || BuildClaimCodes.UnityBuildReportAccounted.EqualsValue(claimId))
+        if (BuildClaimCodes.UnityBuildCompleted == claimId
+            || BuildClaimCodes.UnityBuildSucceeded == claimId
+            || BuildClaimCodes.UnityBuildReportAccounted == claimId)
         {
             return "buildReport";
         }
 
-        if (BuildClaimCodes.UnityBuildOutputDigested.EqualsValue(claimId))
+        if (BuildClaimCodes.UnityBuildOutputDigested == claimId)
         {
             return "buildOutputManifest";
         }
 
-        if (BuildClaimCodes.UnityBuildLogsAccounted.EqualsValue(claimId))
+        if (BuildClaimCodes.UnityBuildLogsAccounted == claimId)
         {
             return "buildLog";
         }

@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
@@ -9,7 +10,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 /// <param name="Op"> The operation name for <c>kind:"op"</c> steps. </param>
 /// <param name="Element"> The cloned public step JSON object. </param>
 internal sealed record ValidateRequestStep (
-    IpcRequestStepKind? Kind,
-    string? StepId,
+    IpcExecuteStepKind? Kind,
+    IpcExecuteStepId? StepId,
     string? Op,
     JsonElement Element);

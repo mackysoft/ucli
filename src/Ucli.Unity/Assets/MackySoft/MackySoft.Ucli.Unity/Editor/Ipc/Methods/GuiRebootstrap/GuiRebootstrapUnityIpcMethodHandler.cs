@@ -3,14 +3,13 @@ using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>gui.rebootstrap</c> IPC method requests. </summary>
-    internal sealed class GuiRebootstrapUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class GuiRebootstrapUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
-        private readonly string projectFingerprint;
+        private readonly ProjectFingerprint projectFingerprint;
 
         private readonly IDaemonLogger daemonLogger;
 
@@ -22,28 +21,23 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="daemonLogger"> The daemon logger dependency. </param>
         public GuiRebootstrapUnityIpcMethodHandler (
             IUnityGuiBootstrapStarter bootstrapStarter,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             IDaemonLogger daemonLogger)
         {
             this.bootstrapStarter = bootstrapStarter ?? throw new ArgumentNullException(nameof(bootstrapStarter));
-            if (string.IsNullOrWhiteSpace(projectFingerprint))
-            {
-                throw new ArgumentException("Project fingerprint must not be empty.", nameof(projectFingerprint));
-            }
-
-            this.projectFingerprint = projectFingerprint;
+            this.projectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.GuiRebootstrap;
+        public UnityIpcMethod Method => UnityIpcMethod.GuiRebootstrap;
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -61,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     null);
             }
 
-            if (!string.Equals(payload.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal))
+            if (payload.ProjectFingerprint != projectFingerprint)
             {
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
@@ -77,7 +71,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     : UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession;
                 var startResult = await bootstrapStarter.StartAsync(
                     bootstrapArguments: null,
-                    sessionReplacementScope: sessionReplacementScope);
+                    sessionReplacementScope: sessionReplacementScope,
+                    cancellationToken: cancellation.Token);
                 if (!startResult.IsSuccess)
                 {
                     daemonLogger.Warning(
@@ -100,13 +95,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                     ProcessId: currentProcess.Id);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
             }
+            catch (OperationCanceledException) when (cancellation.Token.IsCancellationRequested)
+            {
+                throw;
+            }
             catch (Exception exception)
             {
                 daemonLogger.Exception(
                     DaemonLogCategories.Lifecycle,
                     "GUI daemon rebootstrap request failed.",
                     exception);
-                Debug.LogException(exception);
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
                     UcliCoreErrorCodes.InternalError,
@@ -120,18 +118,21 @@ namespace MackySoft.Ucli.Unity.Ipc
     {
         Task<UnityGuiBootstrapStartResult> StartAsync (
             IpcGuiBootstrapArguments bootstrapArguments,
-            UnityGuiSessionReplacementScope sessionReplacementScope);
+            UnityGuiSessionReplacementScope sessionReplacementScope,
+            CancellationToken cancellationToken);
     }
 
     internal sealed class UnityGuiBootstrapStarter : IUnityGuiBootstrapStarter
     {
         public Task<UnityGuiBootstrapStartResult> StartAsync (
             IpcGuiBootstrapArguments bootstrapArguments,
-            UnityGuiSessionReplacementScope sessionReplacementScope)
+            UnityGuiSessionReplacementScope sessionReplacementScope,
+            CancellationToken cancellationToken)
         {
             return UnityGuiBootstrap.StartAsync(
                 bootstrapArguments: bootstrapArguments,
-                sessionReplacementScope: sessionReplacementScope);
+                sessionReplacementScope: sessionReplacementScope,
+                cancellationToken: cancellationToken);
         }
     }
 }

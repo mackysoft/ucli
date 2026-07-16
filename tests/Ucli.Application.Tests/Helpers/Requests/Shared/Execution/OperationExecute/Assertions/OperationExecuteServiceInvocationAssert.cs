@@ -51,7 +51,7 @@ internal static class OperationExecuteServiceInvocationAssert
         string expectedFailureMessage)
     {
         Assert.Equal(expectedCommand, definition.Command);
-        Assert.Equal(expectedOperationId, definition.OperationId);
+        Assert.Equal(expectedOperationId, definition.OperationId.Value);
         Assert.Equal(expectedOperationName, definition.Descriptor.Name);
         Assert.Equal(expectedKind, definition.Descriptor.Kind);
         Assert.Equal(expectedPolicy, definition.Descriptor.Policy);

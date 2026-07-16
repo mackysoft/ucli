@@ -1,9 +1,12 @@
+using System.Text.Json;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
+using static MackySoft.Ucli.Contracts.Tests.Ipc.Common.IpcBuildContractSerializationTestSupport;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
@@ -11,33 +14,55 @@ public sealed class IpcBuildPreconditionContractSerializationTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void IpcBuildDirtyState_WhenRemovedCheckedPropertyIsPresent_RejectsPayload ()
+    {
+        using var document = JsonDocument.Parse(
+            """
+            {
+              "checked": true,
+              "dirty": false,
+              "coverage": "full",
+              "items": []
+            }
+            """);
+
+        var success = IpcPayloadCodec.TryDeserialize<IpcBuildDirtyState>(
+            document.RootElement,
+            out _,
+            out var error);
+
+        Assert.False(success);
+        Assert.Equal(IpcPayloadReadErrorKind.DeserializeFailed, error.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void IpcBuildPreconditionContracts_SerializeWithCamelCaseFields ()
     {
         var dirtyState = IpcPayloadCodec.SerializeToElement(
             new IpcBuildDirtyState(
-                Checked: true,
                 Dirty: true,
-                Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
+                Coverage: IpcBuildDirtyStateCoverage.Full,
                 Items:
                 [
                     new IpcBuildDirtyStateItem(
-                        ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene),
-                        "Assets/Scenes/Main.unity"),
+                        IpcBuildDirtyStateItemKind.Scene,
+                        new ProjectMutationAuditPath("Assets/Scenes/Main.unity")),
                 ]));
         var inputProbe = IpcPayloadCodec.SerializeToElement(
             new IpcBuildInputProbe(
-                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
-                BuildTarget: "standaloneLinux64",
+                InputKind: BuildProfileInputsKind.Explicit,
+                BuildTarget: BuildTargetStableName.StandaloneLinux64,
                 UnityBuildTarget: "StandaloneLinux64",
                 UnityBuildTargetGroup: "Standalone",
-                SceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.Explicit),
-                Scenes: ["Assets/Scenes/Main.unity"],
+                SceneSource: BuildProfileSceneSource.Explicit,
+                Scenes: [new SceneAssetPath("Assets/Scenes/Main.unity")],
                 BuildOptions: "Development"));
         var lifecycle = IpcPayloadCodec.SerializeToElement(
             new IpcUnityEditorObservation(
                 serverVersion: "1.2.3",
                 unityVersion: "6000.0.0f1",
-                projectFingerprint: "project-fingerprint",
+                projectFingerprint: TestProjectFingerprint,
                 state: new UnityEditorStateSnapshot(
                     editorMode: DaemonEditorMode.Batchmode,
                     lifecycleState: IpcEditorLifecycleState.CompileFailed,
@@ -53,9 +78,9 @@ public sealed class IpcBuildPreconditionContractSerializationTests
                         IsPlaying: false,
                         IsPlayingOrWillChangePlaymode: false)),
                 observedAtUtc: DateTimeOffset.Parse("2026-06-12T00:00:00+00:00"),
-                actionRequired: DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+                actionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
                 primaryDiagnostic: new IpcPrimaryDiagnostic(
-                    Kind: "compiler",
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                     Code: "CS1002",
                     File: "Assets/Broken.cs",
                     Line: 4,
@@ -63,13 +88,13 @@ public sealed class IpcBuildPreconditionContractSerializationTests
                     Message: "; expected")));
 
         JsonAssert.For(dirtyState)
-            .HasBoolean("checked", true)
             .HasBoolean("dirty", true)
             .HasString("coverage", ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full))
             .HasArrayLength("items", 1)
             .HasProperty("items", 0, item => item
                 .HasString("kind", ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene))
                 .HasString("path", "Assets/Scenes/Main.unity"));
+        Assert.False(dirtyState.TryGetProperty("checked", out _));
         JsonAssert.For(inputProbe)
             .HasString("inputKind", ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit))
             .HasString("buildTarget", "standaloneLinux64")
@@ -83,9 +108,9 @@ public sealed class IpcBuildPreconditionContractSerializationTests
         JsonAssert.For(lifecycle)
             .HasString("serverVersion", "1.2.3")
             .HasString("unityVersion", "6000.0.0f1")
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("projectFingerprint", TestProjectFingerprint.ToString())
             .HasString("observedAtUtc", "2026-06-12T00:00:00+00:00")
-            .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.FixCompileErrors)
+            .HasString("actionRequired", ContractLiteralCodec.ToValue(DaemonDiagnosisActionRequired.FixCompileErrors))
             .HasProperty("primaryDiagnostic", diagnostic => diagnostic
                 .HasString("kind", "compiler")
                 .HasString("code", "CS1002")

@@ -46,7 +46,6 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
             TestFilter: configuration.TestFilter,
             TestCategories: configuration.TestCategories,
             AssemblyNames: configuration.AssemblyNames,
-            TestSettingsPath: configuration.TestSettingsPath,
             ArtifactsDir: session.Paths.ArtifactsDir);
 
         var json = JsonSerializer.Serialize(payload, SerializerOptions);
@@ -66,11 +65,10 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
     /// <param name="TestFilter"> The optional test-filter value. </param>
     /// <param name="TestCategories"> The normalized test-category values. </param>
     /// <param name="AssemblyNames"> The normalized assembly-name values. </param>
-    /// <param name="TestSettingsPath"> The optional test-settings path value. </param>
     /// <param name="ArtifactsDir"> The run artifacts directory path. </param>
     private sealed record MetaJsonPayload (
         int SchemaVersion,
-        string RunId,
+        Guid RunId,
         string StartedAt,
         string FinishedAt,
         string ProjectPath,
@@ -81,6 +79,5 @@ internal sealed class TestRunMetaStore : ITestRunMetaStore
         string? TestFilter,
         string[] TestCategories,
         string[] AssemblyNames,
-        string? TestSettingsPath,
         string ArtifactsDir);
 }

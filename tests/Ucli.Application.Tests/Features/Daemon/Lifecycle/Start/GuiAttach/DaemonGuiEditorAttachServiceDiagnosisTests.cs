@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Progress;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
@@ -26,12 +28,19 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
         };
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
         var rebootstrapClient = new RecordingDaemonGuiRebootstrapClient();
-        var service = new DaemonGuiEditorAttachService(markerReader, processProbe, awaiter, rebootstrapClient, diagnosisStore);
+        var service = new DaemonGuiEditorAttachService(
+            markerReader,
+            processProbe,
+            awaiter,
+            rebootstrapClient,
+            diagnosisStore,
+            new DaemonCompensationOperationOwner(),
+            new ManualTimeProvider());
         var progressObserver = new CollectingDaemonStartProgressObserver();
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             DaemonGuiEditorAttachServiceTestSupport.UnityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Terminate,
             progressObserver,
@@ -48,8 +57,8 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
             DaemonGuiEditorAttachServiceTestSupport.ProbeProcessStartedAtUtc);
         var diagnosis = DaemonDiagnosisStoreAssert.WrittenOnceWithReason(
             diagnosisStore,
-            DaemonDiagnosisReasonValues.GuiEndpointNotRegistered);
-        Assert.Equal(DaemonDiagnosisReportedByValues.Cli, diagnosis.ReportedBy);
+            DaemonDiagnosisReason.GuiEndpointNotRegistered);
+        Assert.Equal(DaemonDiagnosisReportedBy.Cli, diagnosis.ReportedBy);
         Assert.True(diagnosis.IsInferred);
         Assert.Equal(marker.ProcessId, diagnosis.ProcessId);
         Assert.Equal(marker.MarkerPath, diagnosis.EditorInstancePath);
@@ -98,12 +107,14 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
             processProbe,
             awaiter,
             rebootstrapClient,
-            diagnosisStore);
+            diagnosisStore,
+            new DaemonCompensationOperationOwner(),
+            new ManualTimeProvider());
         var progressObserver = new CollectingDaemonStartProgressObserver();
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             DaemonGuiEditorAttachServiceTestSupport.UnityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Terminate,
             progressObserver,
@@ -124,7 +135,7 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
             DaemonGuiEditorAttachServiceTestSupport.ProbeProcessStartedAtUtc);
         DaemonDiagnosisStoreAssert.WrittenOnceWithReason(
             diagnosisStore,
-            DaemonDiagnosisReasonValues.GuiRebootstrapUnavailable);
+            DaemonDiagnosisReason.GuiRebootstrapUnavailable);
         Assert.Equal(DaemonStartupProcessAction.Kept, result.Startup!.ProcessAction);
         progressObserver.AssertEvents(
             DaemonStartProgressEvent.WaitingForEndpoint,
@@ -134,5 +145,138 @@ public sealed class DaemonGuiEditorAttachServiceDiagnosisTests
         Assert.Equal(DaemonStartupBlockingReason.EndpointNotRegistered, blockerObservation.StartupBlockingReason);
         Assert.Equal(DaemonStartupRetryDisposition.Unknown, blockerObservation.RetryDisposition);
         Assert.Equal(DaemonErrorCodes.DaemonEndpointNotRegistered.Value, blockerObservation.ErrorCode);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryAttachExistingGuiEditor_WhenRebootstrapDiagnosisWriteDoesNotComplete_ReturnsAtSupplementalDeadline ()
+    {
+        var marker = DaemonGuiEditorAttachServiceTestSupport.CreateMarker();
+        var diagnosisWriteStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDiagnosisWrite = new TaskCompletionSource<DaemonDiagnosisStoreOperationResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var diagnosisStore = new RecordingDaemonDiagnosisStore
+        {
+            WriteAsyncHandler = (_, _, _, _) =>
+            {
+                diagnosisWriteStarted.TrySetResult();
+                return new ValueTask<DaemonDiagnosisStoreOperationResult>(releaseDiagnosisWrite.Task);
+            },
+        };
+        var timeProvider = new ManualTimeProvider();
+        var service = new DaemonGuiEditorAttachService(
+            new RecordingUnityEditorInstanceMarkerReader
+            {
+                ReadResult = UnityEditorInstanceMarkerReadResult.Success(marker),
+            },
+            new RecordingUnityGuiEditorProcessProbe
+            {
+                Result = UnityGuiEditorProcessProbeResult.Matching(
+                    DaemonGuiEditorAttachServiceTestSupport.ProbeProcessStartedAtUtc),
+            },
+            new RecordingDaemonGuiSessionRegistrationAwaiter
+            {
+                Result = DaemonGuiSessionRegistrationWaitResult.Failure(
+                    ExecutionError.Timeout("session missing")),
+            },
+            new RecordingDaemonGuiRebootstrapClient
+            {
+                Result = DaemonGuiRebootstrapRequestResult.Unavailable(ExecutionError.InternalError(
+                    "manifest missing",
+                    DaemonErrorCodes.DaemonEndpointNotRegistered)),
+            },
+            diagnosisStore,
+            new DaemonCompensationOperationOwner(),
+            timeProvider);
+
+        var resultTask = service.TryAttachExistingGuiEditorAsync(
+                DaemonGuiEditorAttachServiceTestSupport.UnityProject,
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+                editorMode: null,
+                DaemonStartupBlockedProcessPolicy.Keep,
+                progressObserver: null,
+                cancellationToken: CancellationToken.None)
+            .AsTask();
+        await diagnosisWriteStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var timerWaitTask = timeProvider
+            .WaitForTimerDueWithinAsync(DaemonTimeouts.SupplementalPersistenceTimeout);
+
+        try
+        {
+            await timerWaitTask.WaitAsync(TimeSpan.FromSeconds(1));
+            timeProvider.Advance(DaemonTimeouts.SupplementalPersistenceTimeout);
+            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+            Assert.NotNull(result);
+            Assert.False(result!.IsSuccess);
+            Assert.Equal(DaemonErrorCodes.DaemonEndpointNotRegistered, result.Error!.Code);
+            Assert.Contains("diagnosis persistence failed", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            releaseDiagnosisWrite.TrySetResult(DaemonDiagnosisStoreOperationResult.Success());
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task TryAttachExistingGuiEditor_WhenEndpointDiagnosisWriteDoesNotComplete_ReturnsAtSupplementalDeadline ()
+    {
+        var marker = DaemonGuiEditorAttachServiceTestSupport.CreateMarker();
+        var diagnosisWriteStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDiagnosisWrite = new TaskCompletionSource<DaemonDiagnosisStoreOperationResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var diagnosisStore = new RecordingDaemonDiagnosisStore
+        {
+            WriteAsyncHandler = (_, _, _, _) =>
+            {
+                diagnosisWriteStarted.TrySetResult();
+                return new ValueTask<DaemonDiagnosisStoreOperationResult>(releaseDiagnosisWrite.Task);
+            },
+        };
+        var timeProvider = new ManualTimeProvider();
+        var service = new DaemonGuiEditorAttachService(
+            new RecordingUnityEditorInstanceMarkerReader
+            {
+                ReadResult = UnityEditorInstanceMarkerReadResult.Success(marker),
+            },
+            new RecordingUnityGuiEditorProcessProbe
+            {
+                Result = UnityGuiEditorProcessProbeResult.Matching(
+                    DaemonGuiEditorAttachServiceTestSupport.ProbeProcessStartedAtUtc),
+            },
+            new RecordingDaemonGuiSessionRegistrationAwaiter
+            {
+                Result = DaemonGuiSessionRegistrationWaitResult.Failure(
+                    ExecutionError.Timeout("endpoint wait timed out", ExecutionErrorCodes.IpcTimeout)),
+            },
+            new RecordingDaemonGuiRebootstrapClient(),
+            diagnosisStore,
+            new DaemonCompensationOperationOwner(),
+            timeProvider);
+
+        var resultTask = service.TryAttachExistingGuiEditorAsync(
+                DaemonGuiEditorAttachServiceTestSupport.UnityProject,
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+                editorMode: null,
+                DaemonStartupBlockedProcessPolicy.Keep,
+                progressObserver: null,
+                cancellationToken: CancellationToken.None)
+            .AsTask();
+        await diagnosisWriteStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await timeProvider
+            .WaitForTimerDueWithinAsync(DaemonTimeouts.SupplementalPersistenceTimeout)
+            .WaitAsync(TimeSpan.FromSeconds(1));
+
+        timeProvider.Advance(DaemonTimeouts.SupplementalPersistenceTimeout);
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(5));
+
+        Assert.NotNull(result);
+        Assert.False(result!.IsSuccess);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.Error!.Code);
+        Assert.Contains("diagnosis persistence failed", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+        releaseDiagnosisWrite.TrySetResult(DaemonDiagnosisStoreOperationResult.Success());
     }
 }

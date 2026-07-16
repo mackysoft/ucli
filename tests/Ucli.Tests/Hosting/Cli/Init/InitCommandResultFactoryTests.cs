@@ -1,8 +1,6 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Init.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Init;
 
 namespace MackySoft.Ucli.Tests;
@@ -21,7 +19,7 @@ public sealed class InitCommandResultFactoryTests
         var result = InitCommandResultFactory.Create(executionResult);
 
         Assert.Equal(UcliCommandNames.Init, result.Command);
-        Assert.Equal(IpcProtocol.StatusOk, result.Status);
+        Assert.Equal(CommandResultStatus.Ok, result.Status);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         Assert.Empty(result.Errors);
 
@@ -41,7 +39,7 @@ public sealed class InitCommandResultFactoryTests
         var result = InitCommandResultFactory.Create(executionResult);
 
         Assert.Equal(UcliCommandNames.Init, result.Command);
-        Assert.Equal(IpcProtocol.StatusError, result.Status);
+        Assert.Equal(CommandResultStatus.Error, result.Status);
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
         Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.Errors[0].Code);

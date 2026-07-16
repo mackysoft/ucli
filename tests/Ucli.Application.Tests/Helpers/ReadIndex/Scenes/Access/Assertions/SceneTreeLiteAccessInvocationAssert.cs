@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -68,11 +69,11 @@ internal static class SceneTreeLiteAccessInvocationAssert
         RecordingReadIndexFreshnessEvaluator freshnessEvaluator,
         ResolvedUnityProjectContext expectedUnityProject,
         string expectedScenePath,
-        string? expectedPersistedSourceInputsHash)
+        Sha256Digest expectedPersistedSourceInputsHash)
     {
         var invocation = Assert.Single(freshnessEvaluator.SceneTreeLiteObserveInvocations);
         Assert.Same(expectedUnityProject, invocation.UnityProject);
-        Assert.Equal(expectedScenePath, invocation.ScenePath);
+        Assert.Equal(new SceneAssetPath(expectedScenePath), invocation.ScenePath);
         Assert.Equal(expectedPersistedSourceInputsHash, invocation.PersistedSourceInputsHash);
     }
 
@@ -87,7 +88,7 @@ internal static class SceneTreeLiteAccessInvocationAssert
         Assert.Same(expectedProject, invocation.Project);
         Assert.Equal(expectedCommand, invocation.Command);
         Assert.Equal(expectedMode, invocation.Mode);
-        Assert.Equal(expectedScenePath, invocation.ScenePath);
+        Assert.Equal(expectedScenePath, invocation.ScenePath.Value);
         return invocation;
     }
 
@@ -113,7 +114,7 @@ internal static class SceneTreeLiteAccessInvocationAssert
         Assert.Same(expectedProject, invocation.Project);
         Assert.Equal(expectedCommand, invocation.Command);
         Assert.Equal(expectedMode, invocation.Mode);
-        Assert.Equal(expectedScenePath, invocation.ScenePath);
+        Assert.Equal(expectedScenePath, invocation.ScenePath.Value);
         if (expectedFailFast.HasValue)
         {
             Assert.Equal(expectedFailFast.Value, invocation.FailFast);

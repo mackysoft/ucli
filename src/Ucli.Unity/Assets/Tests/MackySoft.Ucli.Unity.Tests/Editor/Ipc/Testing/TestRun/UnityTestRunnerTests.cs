@@ -1,14 +1,21 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Testing;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
+using MackySoft.Ucli.Unity.Project;
+using MackySoft.Ucli.Unity.Runtime;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using UnityEditor;
 using UnityEditor.TestTools.TestRunner.Api;
+using UnityEngine;
 
 using UnityTestMode = UnityEditor.TestTools.TestRunner.Api.TestMode;
 using UnityTestStatus = UnityEditor.TestTools.TestRunner.Api.TestStatus;
@@ -17,21 +24,23 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityTestRunnerTests
     {
+        private static readonly Guid RunId = Guid.Parse("00000000-0000-0000-0000-000000000609");
+
         [Test]
         [Category("Size.Small")]
         public void CreateExecutionSettings_WhenEditModeRequest_DoesNotEnableSynchronousRun ()
         {
             var requestContext = new UnityTestRunRequestContext(
-                RunId: "run-id",
-                TestPlatform: "editmode",
-                TestMode: UnityTestMode.EditMode,
-                TargetPlatform: null,
-                TestFilter: "^MackySoft\\.Ucli\\.Unity\\.Tests\\.ExecuteRequestIdempotencyCoordinatorTests$",
-                TestCategories: new[] { "Size.Small" },
-                AssemblyNames: new[] { "MackySoft.Ucli.Unity.Tests.Editor" },
-                ResultsXmlPath: "results.xml",
-                EditorLogPath: "editor.log",
-                ConsoleLogPath: "console.log");
+                runId: RunId,
+                testPlatform: "editmode",
+                testMode: UnityTestMode.EditMode,
+                targetPlatform: null,
+                testFilter: "^MackySoft\\.Ucli\\.Unity\\.Tests\\.ExecuteRequestIdempotencyCoordinatorTests$",
+                testCategories: new[] { "Size.Small" },
+                assemblyNames: new[] { "MackySoft.Ucli.Unity.Tests.Editor" },
+                resultsXmlPath: "results.xml",
+                editorLogPath: "editor.log",
+                consoleLogPath: "console.log");
 
             var executionSettings = UnityTestRunner.CreateExecutionSettings(requestContext);
 
@@ -41,6 +50,180 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(executionSettings.filters[0].groupNames, Is.EqualTo(new[] { requestContext.TestFilter }));
             Assert.That(executionSettings.filters[0].categoryNames, Is.EqualTo(requestContext.TestCategories));
             Assert.That(executionSettings.filters[0].assemblyNames, Is.EqualTo(requestContext.AssemblyNames));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task RegisterCancellation_WhenCanceledFromWorker_DispatchesCancelToMainThreadContext ()
+        {
+            var mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            var synchronizationContext = new QueuedSynchronizationContext();
+            int? cancellationThreadId = null;
+            using var cancellationTokenSource = new CancellationTokenSource();
+            using var registration = UnityTestRunner.RegisterCancellation(
+                "test-run-id",
+                cancellationTokenSource.Token,
+                synchronizationContext,
+                NoOpDaemonLogger.Instance,
+                _ => cancellationThreadId = Thread.CurrentThread.ManagedThreadId);
+
+            await Task.Run(cancellationTokenSource.Cancel);
+
+            Assert.That(cancellationThreadId, Is.Null);
+            synchronizationContext.RunPostedCallbacks();
+            Assert.That(cancellationThreadId, Is.EqualTo(mainThreadId));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void RegisterCancellation_WhenMainThreadContextIsMissing_RejectsRegistration ()
+        {
+            using var cancellationTokenSource = new CancellationTokenSource();
+
+            Assert.Throws<ArgumentNullException>(() => UnityTestRunner.RegisterCancellation(
+                "test-run-id",
+                cancellationTokenSource.Token,
+                mainThreadSynchronizationContext: null,
+                daemonLogger: NoOpDaemonLogger.Instance,
+                cancelTestRun: _ => { }));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task RegisterCancellation_WhenPostedCancelFails_LogsThroughDaemonLoggerOnMainThread ()
+        {
+            var mainThreadId = Thread.CurrentThread.ManagedThreadId;
+            var synchronizationContext = new QueuedSynchronizationContext();
+            var daemonLogger = new RecordingDaemonLogger();
+            using var cancellationTokenSource = new CancellationTokenSource();
+            using var registration = UnityTestRunner.RegisterCancellation(
+                "test-run-id",
+                cancellationTokenSource.Token,
+                synchronizationContext,
+                daemonLogger,
+                _ => throw new InvalidOperationException("cancel failed"));
+
+            await Task.Run(cancellationTokenSource.Cancel);
+            Assert.That(daemonLogger.WarningCallCount, Is.EqualTo(0));
+
+            synchronizationContext.RunPostedCallbacks();
+
+            Assert.That(daemonLogger.WarningCallCount, Is.EqualTo(1));
+            Assert.That(daemonLogger.WarningThreadId, Is.EqualTo(mainThreadId));
+            Assert.That(daemonLogger.WarningCategory, Is.EqualTo(DaemonLogCategories.Ipc));
+            Assert.That(daemonLogger.WarningRaw, Does.Contain("cancel failed"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Constructor_WhenDaemonLoggerIsMissing_RejectsDependency ()
+        {
+            Assert.Throws<ArgumentNullException>(() => new UnityTestRunner(
+                new RecordingMutationLaneControl(),
+                daemonLogger: null));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task RunAsync_WhenWorkerHasSynchronizationContext_RejectsBeforeUnityApiUse ()
+        {
+            _ = UnityMainThreadGuard.CaptureSynchronizationContext("Unity test runner test setup");
+            var runner = new UnityTestRunner(
+                new RecordingMutationLaneControl(),
+                NoOpDaemonLogger.Instance);
+            var requestContext = CreateRequestContext();
+
+            InvalidOperationException exception = null;
+            try
+            {
+                await Task.Run(async () =>
+                {
+                    SynchronizationContext.SetSynchronizationContext(new SynchronizationContext());
+                    await runner.RunAsync(
+                        requestContext,
+                        progressSink: null,
+                        cancellationToken: CancellationToken.None);
+                });
+            }
+            catch (InvalidOperationException caughtException)
+            {
+                exception = caughtException;
+            }
+
+            Assert.That(exception, Is.Not.Null);
+            Assert.That(exception.Message, Does.Contain("Unity Editor main thread"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task AwaitCancellationQuiescence_WhenRunFinishedIsMissing_QuarantinesMutationLane ()
+        {
+            var callbacks = new UnityTestRunner.TestRunCallbacks(CreateRequestContext(), progressSink: null);
+            var mutationLane = new RecordingMutationLaneControl();
+
+            var didQuiesce = await UnityTestRunner.AwaitCancellationQuiescenceAsync(
+                callbacks,
+                mutationLane);
+
+            Assert.That(didQuiesce, Is.False);
+            Assert.That(mutationLane.IsQuarantined, Is.True);
+            Assert.That(mutationLane.QuarantineReason, Does.Contain("RunFinished"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task AwaitCancellationQuiescence_WhenRunFinishesWithinGrace_DoesNotQuarantineMutationLane ()
+        {
+            var callbacks = new UnityTestRunner.TestRunCallbacks(CreateRequestContext(), progressSink: null);
+            var mutationLane = new RecordingMutationLaneControl();
+            var quiescenceTask = UnityTestRunner.AwaitCancellationQuiescenceAsync(
+                callbacks,
+                mutationLane);
+
+            Assert.That(quiescenceTask.IsCompleted, Is.False);
+            callbacks.RunFinished(result: null);
+            Assert.That(await quiescenceTask, Is.True);
+
+            Assert.That(mutationLane.IsQuarantined, Is.False);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public async Task ScheduleCleanupAfterRunCompletion_WhenRunFinishes_CompletesMutationAfterMainThreadCleanup ()
+        {
+            var synchronizationContext = new QueuedSynchronizationContext();
+            var callbacks = new UnityTestRunner.TestRunCallbacks(CreateRequestContext(), progressSink: null);
+            var testRunnerApi = ScriptableObject.CreateInstance<TestRunnerApi>();
+            var runCompletion = new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var mutationLane = new ImmediateUnityMutationLaneControl();
+            var mutationActivity = mutationLane.BeginMutation();
+            try
+            {
+                testRunnerApi.RegisterCallbacks(callbacks);
+                UnityTestRunner.ScheduleCleanupAfterRunCompletion(
+                    runCompletion.Task,
+                    synchronizationContext,
+                    testRunnerApi,
+                    callbacks,
+                    mutationActivity);
+
+                runCompletion.TrySetResult(null);
+
+                Assert.That(mutationLane.CompleteCount, Is.EqualTo(0));
+                await TestAwaiter.WaitAsync(
+                    synchronizationContext.PostObserved,
+                    "deferred Unity test runner cleanup dispatch",
+                    TimeSpan.FromSeconds(5));
+                synchronizationContext.RunPostedCallbacks();
+                Assert.That(mutationLane.CompleteCount, Is.EqualTo(1));
+            }
+            finally
+            {
+                if (testRunnerApi != null)
+                {
+                    UnityEngine.Object.DestroyImmediate(testRunnerApi);
+                }
+            }
         }
 
         [Test]
@@ -80,7 +263,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var finished = (TestCaseFinishedEntry)progressSink.Entries[1].Payload;
             Assert.That(finished.RunId, Is.EqualTo(requestContext.RunId));
             Assert.That(finished.TestId, Is.EqualTo("test-id"));
-            Assert.That(finished.Result, Is.EqualTo("pass"));
+            Assert.That(finished.Result, Is.EqualTo(TestCaseResult.Pass));
             Assert.That(finished.DurationMilliseconds, Is.EqualTo(42));
             Assert.That(finished.Message, Is.Null);
             Assert.That(finished.StackTrace, Is.Null);
@@ -141,7 +324,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var started = (TestCaseStartedEntry)progressSink.Entries[0].Payload;
             var finished = (TestCaseFinishedEntry)progressSink.Entries[1].Payload;
             Assert.That(started.TestName, Does.EndWith("...<truncated>"));
-            Assert.That(started.Categories, Has.Length.EqualTo(64));
+            Assert.That(started.Categories, Has.Count.EqualTo(64));
             Assert.That(started.Categories, Does.Not.Contain(string.Empty));
             Assert.That(started.Categories, Does.Not.Contain(" "));
             Assert.That(finished.Message, Does.EndWith("...<truncated>"));
@@ -153,16 +336,16 @@ namespace MackySoft.Ucli.Unity.Tests
         public void CreateExecutionSettings_WhenPlayerTargetRequest_SetsTargetPlatform ()
         {
             var requestContext = new UnityTestRunRequestContext(
-                RunId: "run-id",
-                TestPlatform: "Android",
-                TestMode: UnityTestMode.PlayMode,
-                TargetPlatform: BuildTarget.Android,
-                TestFilter: null,
-                TestCategories: new[] { "Size.Small" },
-                AssemblyNames: new[] { "MackySoft.Ucli.Unity.Tests.Editor" },
-                ResultsXmlPath: "results.xml",
-                EditorLogPath: "editor.log",
-                ConsoleLogPath: "console.log");
+                runId: RunId,
+                testPlatform: "Android",
+                testMode: UnityTestMode.PlayMode,
+                targetPlatform: BuildTarget.Android,
+                testFilter: null,
+                testCategories: new[] { "Size.Small" },
+                assemblyNames: new[] { "MackySoft.Ucli.Unity.Tests.Editor" },
+                resultsXmlPath: "results.xml",
+                editorLogPath: "editor.log",
+                consoleLogPath: "console.log");
 
             var executionSettings = UnityTestRunner.CreateExecutionSettings(requestContext);
 
@@ -177,37 +360,134 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void CreateRequestContext_WhenPlayerBuildTargetLiteral_IsMappedToPlayModeAndTargetPlatform ()
         {
-            var factory = new UnityTestRunRequestContextFactory();
+            var projectIdentity = new IpcProjectIdentity(
+                UnityProjectPathResolver.ResolveProjectRootPath(),
+                ProjectFingerprintTestFactory.Create("test-run-request-context"),
+                "6000.1.4f1");
+            var factory = new UnityTestRunRequestContextFactory(projectIdentity);
             var request = new IpcTestRunRequest(
                 TestPlatform: TestRunPlatformCodec.ToValue(TestRunPlatform.Player("Android")),
                 TestFilter: null,
                 TestCategories: new[] { "Size.Small" },
                 AssemblyNames: new[] { "MackySoft.Ucli.Unity.Tests.Editor" },
-                TestSettingsPath: null,
-                ResultsXmlPath: "results.xml",
-                EditorLogPath: "editor.log",
                 FailFast: false,
-                RunId: "run-id");
+                RunId: RunId);
 
             var context = factory.Create(request);
+            var expectedArtifactsDirectory = UcliStoragePathResolver.ResolveTestRunArtifactsDirectory(
+                UcliStoragePathResolver.ResolveStorageRoot(projectIdentity.ProjectPath),
+                projectIdentity.ProjectFingerprint,
+                RunId);
 
             Assert.That(context.TestMode, Is.EqualTo(UnityTestMode.PlayMode));
             Assert.That(context.TargetPlatform, Is.EqualTo(BuildTarget.Android));
+            Assert.That(
+                context.ResultsXmlPath,
+                Is.EqualTo(Path.Combine(expectedArtifactsDirectory, UcliStoragePathNames.TestResultsXmlFileName)));
+            Assert.That(
+                context.EditorLogPath,
+                Is.EqualTo(Path.Combine(expectedArtifactsDirectory, UcliStoragePathNames.TestEditorLogFileName)));
         }
 
         private static UnityTestRunRequestContext CreateRequestContext ()
         {
             return new UnityTestRunRequestContext(
-                RunId: "run-id",
-                TestPlatform: "editmode",
-                TestMode: UnityTestMode.EditMode,
-                TargetPlatform: null,
-                TestFilter: null,
-                TestCategories: Array.Empty<string>(),
-                AssemblyNames: new[] { "MackySoft.Ucli.Unity.Tests.Editor" },
-                ResultsXmlPath: "results.xml",
-                EditorLogPath: "editor.log",
-                ConsoleLogPath: "console.log");
+                runId: RunId,
+                testPlatform: "editmode",
+                testMode: UnityTestMode.EditMode,
+                targetPlatform: null,
+                testFilter: null,
+                testCategories: Array.Empty<string>(),
+                assemblyNames: new[] { "MackySoft.Ucli.Unity.Tests.Editor" },
+                resultsXmlPath: "results.xml",
+                editorLogPath: "editor.log",
+                consoleLogPath: "console.log");
+        }
+
+        private sealed class RecordingMutationLaneControl : IUnityMutationLaneControl
+        {
+            public bool IsBusy => IsQuarantined;
+
+            public bool HasUnfinishedWork => IsQuarantined && QuarantineCompletion != null && !QuarantineCompletion.IsCompleted;
+
+            public bool IsQuarantined { get; private set; }
+
+            public string QuarantineReason { get; private set; }
+
+            public Task QuarantineCompletion { get; private set; }
+
+            public IUnityMutationActivity BeginMutation ()
+            {
+                return new CompletedMutationActivity();
+            }
+
+            public void Quarantine (string reason, Task mutationCompletion)
+            {
+                IsQuarantined = true;
+                QuarantineReason = reason;
+                QuarantineCompletion = mutationCompletion;
+            }
+
+            public bool TrySealAdmissionForRetirement (out IDisposable admissionSeal)
+            {
+                admissionSeal = null;
+                return false;
+            }
+
+            public Task WaitForRetirementAsync ()
+            {
+                return QuarantineCompletion ?? Task.CompletedTask;
+            }
+
+            private sealed class CompletedMutationActivity : IUnityMutationActivity
+            {
+                public void Complete ()
+                {
+                }
+            }
+        }
+
+        private sealed class RecordingDaemonLogger : IDaemonLogger
+        {
+            public int WarningCallCount { get; private set; }
+
+            public int? WarningThreadId { get; private set; }
+
+            public string WarningCategory { get; private set; }
+
+            public string WarningRaw { get; private set; }
+
+            public void Info (
+                string category,
+                string message,
+                string raw = null)
+            {
+            }
+
+            public void Warning (
+                string category,
+                string message,
+                string raw = null)
+            {
+                WarningCallCount++;
+                WarningThreadId = Thread.CurrentThread.ManagedThreadId;
+                WarningCategory = category;
+                WarningRaw = raw;
+            }
+
+            public void Error (
+                string category,
+                string message,
+                string raw = null)
+            {
+            }
+
+            public void Exception (
+                string category,
+                string message,
+                Exception exception)
+            {
+            }
         }
 
         private sealed class CollectingProgressSink : IUnityTestRunProgressSink
@@ -221,10 +501,33 @@ namespace MackySoft.Ucli.Unity.Tests
                 Entries.Add((eventName, payload));
             }
 
-            public Task FlushAsync (CancellationToken cancellationToken = default)
+        }
+
+        private sealed class QueuedSynchronizationContext : SynchronizationContext
+        {
+            private readonly Queue<(SendOrPostCallback Callback, object State)> callbacks =
+                new Queue<(SendOrPostCallback Callback, object State)>();
+
+            private readonly TaskCompletionSource<object> postObserved =
+                new TaskCompletionSource<object>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+            public Task PostObserved => postObserved.Task;
+
+            public override void Post (
+                SendOrPostCallback d,
+                object state)
             {
-                cancellationToken.ThrowIfCancellationRequested();
-                return Task.CompletedTask;
+                callbacks.Enqueue((d, state));
+                postObserved.TrySetResult(null);
+            }
+
+            public void RunPostedCallbacks ()
+            {
+                while (callbacks.Count > 0)
+                {
+                    var callback = callbacks.Dequeue();
+                    callback.Callback(callback.State);
+                }
             }
         }
 

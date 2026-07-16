@@ -9,38 +9,30 @@ public sealed record IpcIndexSceneTreeLiteReadResponse
     [JsonConstructor]
     public IpcIndexSceneTreeLiteReadResponse (
         DateTimeOffset GeneratedAtUtc,
-        string ScenePath,
+        UnityScenePath ScenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? Roots,
         SceneTreeSourceState SourceState)
     {
-        this.GeneratedAtUtc = GeneratedAtUtc;
-        this.ScenePath = ScenePath;
-        this.Roots = Roots;
-        this.SourceState = SourceState;
-    }
+        if (GeneratedAtUtc == default || GeneratedAtUtc.Offset != TimeSpan.Zero)
+        {
+            throw new ArgumentException("Snapshot generation timestamp must be a non-default UTC value.", nameof(GeneratedAtUtc));
+        }
 
-    /// <summary> Initializes a response that represents persisted-preview source state. </summary>
-    public IpcIndexSceneTreeLiteReadResponse (
-        DateTimeOffset GeneratedAtUtc,
-        string ScenePath,
-        IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? Roots)
-        : this(
-            GeneratedAtUtc,
-            ScenePath,
-            Roots,
-            new SceneTreeSourceState(SceneTreeSourceStateKind.PersistedPreview, isDirty: false))
-    {
+        this.GeneratedAtUtc = GeneratedAtUtc;
+        this.ScenePath = ScenePath ?? throw new ArgumentNullException(nameof(ScenePath));
+        this.Roots = ContractArgumentGuard.RequireItems(Roots, nameof(Roots));
+        this.SourceState = SourceState ?? throw new ArgumentNullException(nameof(SourceState));
     }
 
     /// <summary> Gets the server-side snapshot generation timestamp. </summary>
-    public DateTimeOffset GeneratedAtUtc { get; init; }
+    public DateTimeOffset GeneratedAtUtc { get; }
 
     /// <summary> Gets the project-relative scene path represented by this snapshot. </summary>
-    public string ScenePath { get; init; }
+    public UnityScenePath ScenePath { get; }
 
     /// <summary> Gets the root scene-tree-lite nodes. </summary>
-    public IReadOnlyList<IndexSceneTreeLiteNodeJsonContract>? Roots { get; init; }
+    public IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots { get; }
 
     /// <summary> Gets the source state used to build this snapshot. </summary>
-    public SceneTreeSourceState SourceState { get; init; }
+    public SceneTreeSourceState SourceState { get; }
 }

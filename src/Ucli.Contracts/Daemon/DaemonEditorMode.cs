@@ -7,9 +7,9 @@ public enum DaemonEditorMode
 {
     /// <summary> Unity Editor running in batchmode. </summary>
     [UcliContractLiteral("batchmode")]
-    Batchmode = 0,
+    Batchmode = 1,
 
     /// <summary> Unity Editor running with the graphical user interface. </summary>
     [UcliContractLiteral("gui")]
-    Gui = 1,
+    Gui = 2,
 }

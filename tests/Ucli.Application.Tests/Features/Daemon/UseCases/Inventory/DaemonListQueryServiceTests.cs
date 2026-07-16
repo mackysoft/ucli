@@ -31,16 +31,16 @@ public sealed class DaemonListQueryServiceTests
             currentProject,
             worktreeA,
             worktreeB);
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null))
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing())
         {
             ReadAsyncHandler = (_, projectFingerprint, _) => ValueTask.FromResult(projectFingerprint switch
             {
-                "fp-current" => DaemonSessionReadResult.Success(null),
-                "fp-a" => DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(
+                _ when projectFingerprint == currentProject.ProjectFingerprint => DaemonSessionReadResult.Missing(),
+                _ when projectFingerprint == worktreeA.ProjectFingerprint => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
                     projectFingerprint: projectFingerprint,
                     endpointAddress: "endpoint-a",
                     processId: 1001)),
-                "fp-b" => DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(
+                _ when projectFingerprint == worktreeB.ProjectFingerprint => DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
                     projectFingerprint: projectFingerprint,
                     endpointAddress: "endpoint-b",
                     processId: 1002)),
@@ -70,7 +70,7 @@ public sealed class DaemonListQueryServiceTests
                 BranchRef: null,
                 Head: "aaaaaaaa",
                 ProjectPath: worktreeA.UnityProjectRoot,
-                ProjectFingerprint: "fp-a",
+                ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-a"),
                 ProcessId: 1001,
                 EditorMode: DaemonEditorMode.Batchmode,
                 OwnerKind: DaemonSessionOwnerKind.Cli,
@@ -81,7 +81,7 @@ public sealed class DaemonListQueryServiceTests
                 BranchRef: "refs/heads/feature/worktree-b",
                 Head: "bbbbbbbb",
                 ProjectPath: worktreeB.UnityProjectRoot,
-                ProjectFingerprint: "fp-b",
+                ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-b"),
                 ProcessId: 1002,
                 EditorMode: DaemonEditorMode.Batchmode,
                 OwnerKind: DaemonSessionOwnerKind.Cli,
@@ -97,7 +97,7 @@ public sealed class DaemonListQueryServiceTests
     {
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var session = DaemonSessionTestFactory.Create(
-            projectFingerprint: "fp-current",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fp-current"),
             endpointAddress: "endpoint-gui",
             processId: 3101,
             editorMode: DaemonEditorMode.Gui,
@@ -117,10 +117,12 @@ public sealed class DaemonListQueryServiceTests
                     IpcPlayModeTransition.None,
                     IsPlaying: true,
                     IsPlayingOrWillChangePlaymode: true)),
-            observedAtUtc: DateTimeOffset.UnixEpoch);
+            observedAtUtc: DateTimeOffset.UnixEpoch,
+            actionRequired: null,
+            primaryDiagnostic: null);
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Success(session),
+            DaemonSessionReadResultTestFactory.Found(session),
             new RecordingDaemonDiagnosisStore(),
             new RecordingDaemonPingInfoClient(pingResponse),
             new StubDaemonReachabilityClassifier(static _ => false));
@@ -148,7 +150,7 @@ public sealed class DaemonListQueryServiceTests
         var service = CreateService(
             new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Failure(ExecutionError.InternalError("git failed"))),
             RecordingUnityProjectResolver.FromContexts(currentProject),
-            new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             new RecordingDaemonDiagnosisStore(),
             CreateDefaultPingClient(),
             new StubDaemonReachabilityClassifier(static _ => false));
@@ -167,9 +169,7 @@ public sealed class DaemonListQueryServiceTests
         var currentProject = CreateUnityProject("/repo/wt-current", "UnityProject", "fp-current");
         var service = CreateSingleWorktreeService(
             currentProject,
-            DaemonSessionReadResult.Failure(
-                ExecutionError.InvalidArgument("Daemon session JSON is invalid."),
-                DaemonSessionReadFailureKind.InvalidSession),
+            DaemonSessionReadResultTestFactory.Invalid(),
             new RecordingDaemonDiagnosisStore(),
             CreateDefaultPingClient(),
             new StubDaemonReachabilityClassifier(static _ => false));

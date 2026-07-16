@@ -1,45 +1,49 @@
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Tests;
 
 internal static class BuildRunInvocationAssert
 {
     public static UnityRequestPayload.BuildRun ExplicitBuildPipelineRequest (
         RecordingUnityRequestExecutor requestExecutor,
-        string expectedRunId,
+        Guid expectedRunId,
         string expectedRunnerOutputDirectory,
         string expectedBuildReportPath,
         string expectedBuildLogPath,
         string expectedLocationPathName)
     {
         var request = BuildRunRequest(requestExecutor);
-        Assert.Equal(expectedRunId, request.RunId);
-        Assert.Equal("explicit", request.InputKind);
-        Assert.Equal("standaloneLinux64", request.BuildTarget);
-        Assert.Equal("StandaloneLinux64", request.UnityBuildTarget);
-        Assert.Equal("explicit", request.SceneSource);
-        Assert.Equal(["Assets/Scenes/Main.unity"], request.ScenePaths);
-        Assert.True(request.Development);
-        Assert.Equal(expectedRunnerOutputDirectory, request.OutputPath);
-        Assert.NotNull(request.OutputLayout);
-        Assert.Equal("file", request.OutputLayout!.Shape);
-        Assert.Equal(expectedLocationPathName, request.OutputLayout.LocationPathName);
-        Assert.Equal(expectedBuildReportPath, request.BuildReportPath);
-        Assert.Equal(expectedBuildLogPath, request.BuildLogPath);
-        Assert.Equal(["batchmode", "gui"], request.AllowedEditorModes);
-        Assert.Equal("forbid", request.ProjectMutationMode);
-        Assert.Equal("buildPipeline", request.RunnerKind);
-        Assert.Null(request.ProfilePath);
-        Assert.Null(request.RunnerMethod);
+        var contract = request.Request;
+        Assert.Equal(expectedRunId, contract.RunId);
+        Assert.Equal(BuildProfileInputsKind.Explicit, contract.InputKind);
+        Assert.Equal(BuildTargetStableName.StandaloneLinux64, contract.BuildTarget);
+        Assert.Equal(BuildProfileSceneSource.Explicit, contract.SceneSource);
+        Assert.Equal([new SceneAssetPath("Assets/Scenes/Main.unity")], contract.ScenePaths);
+        Assert.True(contract.Development);
+        Assert.Equal(expectedRunnerOutputDirectory, contract.OutputPath);
+        Assert.NotNull(contract.OutputLayout);
+        Assert.Equal(IpcBuildOutputLayoutShape.File, contract.OutputLayout!.Shape);
+        Assert.Equal(expectedLocationPathName, contract.OutputLayout.LocationPathName);
+        Assert.Equal(expectedBuildReportPath, contract.BuildReportPath);
+        Assert.Equal(expectedBuildLogPath, contract.BuildLogPath);
+        Assert.Equal([DaemonEditorMode.Batchmode, DaemonEditorMode.Gui], contract.AllowedEditorModes);
+        Assert.Equal(BuildProfileProjectMutationMode.Forbid, contract.ProjectMutationMode);
+        Assert.Equal(BuildRunnerKind.BuildPipeline, contract.RunnerKind);
+        Assert.Null(contract.ProfilePath);
+        Assert.Null(contract.RunnerMethod);
         return request;
     }
 
     public static UnityRequestPayload.BuildRun ExecuteMethodRunnerRequest (
         RecordingUnityRequestExecutor requestExecutor,
-        string expectedRunId,
+        Guid expectedRunId,
         string expectedProfilePath,
-        string expectedProfileDigest,
+        Sha256Digest expectedProfileDigest,
         string expectedOutputDirectory,
         string expectedProjectPath,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         string expectedBuildTarget,
         string expectedEnvironmentVariable,
         string expectedEnvironmentValue,
@@ -47,22 +51,23 @@ internal static class BuildRunInvocationAssert
         string expectedSecretValue)
     {
         var request = BuildRunRequest(requestExecutor);
-        Assert.Equal("executeMethod", request.RunnerKind);
-        Assert.Null(request.OutputLayout);
-        Assert.Equal(expectedProfilePath, request.ProfilePath);
-        Assert.Equal(expectedProfileDigest, request.ProfileDigest);
-        Assert.Equal("Build.Entry.Run", request.RunnerMethod);
-        Assert.Equal(expectedRunId, request.RunnerArguments["run"]);
-        Assert.Equal(expectedOutputDirectory, request.RunnerArguments["output"]);
-        Assert.Equal(expectedProfilePath, request.RunnerArguments["profile"]);
-        Assert.Equal(expectedProfileDigest, request.RunnerArguments["digest"]);
-        Assert.Equal(expectedProjectPath, request.RunnerArguments["project"]);
-        Assert.Equal(expectedProjectFingerprint, request.RunnerArguments["fingerprint"]);
-        Assert.Equal(expectedBuildTarget, request.RunnerArguments["target"]);
-        Assert.Equal([expectedEnvironmentVariable], request.RunnerEnvironmentVariables);
-        Assert.Equal([expectedEnvironmentSecret], request.RunnerEnvironmentSecrets);
-        Assert.Equal(expectedEnvironmentValue, request.RunnerEnvironmentVariableValues[expectedEnvironmentVariable]);
-        Assert.Equal(expectedSecretValue, request.RunnerEnvironmentSecretValues[expectedEnvironmentSecret]);
+        var contract = request.Request;
+        Assert.Equal(BuildRunnerKind.ExecuteMethod, contract.RunnerKind);
+        Assert.Null(contract.OutputLayout);
+        Assert.Equal(expectedProfilePath, contract.ProfilePath);
+        Assert.Equal(expectedProfileDigest, contract.ProfileDigest);
+        Assert.Equal("Build.Entry.Run", contract.RunnerMethod);
+        Assert.Equal(expectedRunId.ToString("D"), contract.RunnerArguments["run"]);
+        Assert.Equal(expectedOutputDirectory, contract.RunnerArguments["output"]);
+        Assert.Equal(expectedProfilePath, contract.RunnerArguments["profile"]);
+        Assert.Equal(expectedProfileDigest.ToString(), contract.RunnerArguments["digest"]);
+        Assert.Equal(expectedProjectPath, contract.RunnerArguments["project"]);
+        Assert.Equal(expectedProjectFingerprint.ToString(), contract.RunnerArguments["fingerprint"]);
+        Assert.Equal(expectedBuildTarget, contract.RunnerArguments["target"]);
+        Assert.Equal([expectedEnvironmentVariable], contract.RunnerEnvironmentVariables);
+        Assert.Equal([expectedEnvironmentSecret], contract.RunnerEnvironmentSecrets);
+        Assert.Equal(expectedEnvironmentValue, contract.RunnerEnvironmentVariableValues[expectedEnvironmentVariable]);
+        Assert.Equal(expectedSecretValue, contract.RunnerEnvironmentSecretValues[expectedEnvironmentSecret]);
         return request;
     }
 
@@ -71,25 +76,25 @@ internal static class BuildRunInvocationAssert
         string expectedUnityBuildProfilePath)
     {
         var request = BuildRunRequest(requestExecutor);
-        Assert.Equal("unityBuildProfile", request.InputKind);
-        Assert.Null(request.BuildTarget);
-        Assert.Null(request.UnityBuildTarget);
-        Assert.Null(request.SceneSource);
-        Assert.Empty(request.ScenePaths);
-        Assert.False(request.Development);
-        Assert.Null(request.OutputLayout);
-        Assert.NotNull(request.UnityBuildProfile);
-        Assert.Equal(expectedUnityBuildProfilePath, request.UnityBuildProfile!.Path);
-        Assert.Null(request.UnityBuildProfile.Digest);
-        Assert.Null(request.UnityBuildProfile.ApplyAudit);
+        var contract = request.Request;
+        Assert.Equal(BuildProfileInputsKind.UnityBuildProfile, contract.InputKind);
+        Assert.Null(contract.BuildTarget);
+        Assert.Null(contract.SceneSource);
+        Assert.Empty(contract.ScenePaths);
+        Assert.False(contract.Development);
+        Assert.Null(contract.OutputLayout);
+        Assert.NotNull(contract.UnityBuildProfile);
+        Assert.Equal(expectedUnityBuildProfilePath, contract.UnityBuildProfile!.Path.Value);
+        Assert.Null(contract.UnityBuildProfile.Digest);
+        Assert.Null(contract.UnityBuildProfile.ApplyAudit);
         return request;
     }
 
     public static UnityRequestPayload.BuildRun EditorBuildSettingsDelegatedToUnity (RecordingUnityRequestExecutor requestExecutor)
     {
         var request = BuildRunRequest(requestExecutor);
-        Assert.Equal("editorBuildSettings", request.SceneSource);
-        Assert.Empty(request.ScenePaths);
+        Assert.Equal(BuildProfileSceneSource.EditorBuildSettings, request.Request.SceneSource);
+        Assert.Empty(request.Request.ScenePaths);
         return request;
     }
 

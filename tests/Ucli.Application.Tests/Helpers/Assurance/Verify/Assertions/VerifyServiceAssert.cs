@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Assurance.Semantics;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
@@ -12,10 +13,10 @@ internal static class VerifyServiceAssert
     {
         var output = AssertSuccessfulOutput(result);
         Assert.Empty(compileService.Invocations);
-        Assert.DoesNotContain(output.Verifiers, static verifier => string.Equals(verifier.Kind, VerifyStepKindValues.Compile, StringComparison.Ordinal));
+        Assert.DoesNotContain(output.Verifiers, static verifier => verifier.Kind == AssuranceVerifierKind.Compile);
         Assert.DoesNotContain(
             output.Verifiers.SelectMany(static verifier => verifier.Effects),
-            static effect => VerifyEffectValues.Compile.Contains(effect, StringComparer.Ordinal));
+            static effect => AssuranceEffectSets.Compile.Contains(effect));
     }
 
     public static void ProjectFingerprintMismatchStoppedBeforeReady (
@@ -32,11 +33,11 @@ internal static class VerifyServiceAssert
         RecordingVerifyLogsUnityService logsService)
     {
         var output = AssertSuccessfulOutput(result);
-        Assert.Equal(VerifyVerdictValues.Pass, output.Verdict);
+        Assert.Equal(AssuranceVerdict.Pass, output.Verdict);
         var claim = AssertReadSurfaceClaim(output);
         Assert.False(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Passed, claim.Status);
-        Assert.Equal(VerifyCoverageValues.Partial, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
+        Assert.Equal(AssuranceCoverage.Partial, claim.Coverage);
         Assert.Empty(logsService.Invocations);
     }
 
@@ -63,7 +64,7 @@ internal static class VerifyServiceAssert
         RecordingVerifyLogsUnityService logsService)
     {
         var output = AssertSuccessfulOutput(result);
-        Assert.Equal(VerifyVerdictValues.Incomplete, output.Verdict);
+        Assert.Equal(AssuranceVerdict.Incomplete, output.Verdict);
         Assert.Single(logsService.Invocations);
         var report = output.Reports["logs.unity"];
         Assert.Equal("ucli://logs/unity?tail=200&count=2", report.Uri);
@@ -85,6 +86,6 @@ internal static class VerifyServiceAssert
 
     private static VerifyClaimOutput AssertReadSurfaceClaim (VerifyExecutionOutput output)
     {
-        return Assert.Single(output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.ReadSurfaceSafe.Value, StringComparison.Ordinal));
+        return Assert.Single(output.Claims, static claim => claim.Id == VerifyClaimCodes.ReadSurfaceSafe);
     }
 }

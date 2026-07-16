@@ -4,15 +4,13 @@ namespace MackySoft.Ucli.Application.Tests;
 
 internal static class DaemonLifecycleObservationAssert
 {
-    public static void LifecycleObservationReadTwiceFor (
+    public static void LifecycleObservationReadOnceFor (
         RecordingDaemonLifecycleStore lifecycleStore,
         ProjectContext expectedProjectContext,
         CancellationToken expectedCancellationToken)
     {
-        Assert.Collection(
-            lifecycleStore.ReadInvocations,
-            invocation => AssertLifecycleObservationRead(invocation, expectedProjectContext, expectedCancellationToken),
-            invocation => AssertLifecycleObservationRead(invocation, expectedProjectContext, expectedCancellationToken));
+        var invocation = Assert.Single(lifecycleStore.ReadInvocations);
+        AssertLifecycleObservationRead(invocation, expectedProjectContext, expectedCancellationToken);
     }
 
     private static void AssertLifecycleObservationRead (

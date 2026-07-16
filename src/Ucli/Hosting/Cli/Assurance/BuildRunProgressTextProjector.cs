@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Infrastructure.Text;
 
@@ -39,21 +39,31 @@ internal sealed class BuildRunProgressTextProjector : ICliCommandProgressTextPro
         const string RunnerStatusLabel = " runnerStatus=";
         const string VerdictLabel = " verdict=";
 
+        var phase = ContractLiteralCodec.ToValue(entry.Phase);
+        var runnerKind = entry.RunnerKind.HasValue
+            ? ContractLiteralCodec.ToValue(entry.RunnerKind.Value)
+            : null;
+        var runnerStatus = entry.RunnerStatus.HasValue
+            ? ContractLiteralCodec.ToValue(entry.RunnerStatus.Value)
+            : null;
+        var verdict = entry.Verdict.HasValue
+            ? ContractLiteralCodec.ToValue(entry.Verdict.Value)
+            : null;
         var length = checked(
             Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + PhaseLabel.Length
-            + entry.Phase.Length
+            + phase.Length
             + RunnerKindLabel.Length
-            + GetNullableLength(entry.RunnerKind)
+            + GetNullableLength(runnerKind)
             + RunnerStatusLabel.Length
-            + GetNullableLength(entry.RunnerStatus)
+            + GetNullableLength(runnerStatus)
             + VerdictLabel.Length
-            + GetNullableLength(entry.Verdict));
+            + GetNullableLength(verdict));
 
         return string.Create(
             length,
-            entry,
+            (entry.RunId, Phase: phase, RunnerKind: runnerKind, RunnerStatus: runnerStatus, Verdict: verdict),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
@@ -77,19 +87,21 @@ internal sealed class BuildRunProgressTextProjector : ICliCommandProgressTextPro
         const string SourceLabel = " source=";
         const string MessageLabel = " message=";
 
+        var level = ContractLiteralCodec.ToValue(entry.Level);
+        var source = ContractLiteralCodec.ToValue(entry.Source);
         var length = checked(
             Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + LevelLabel.Length
-            + entry.Level.Length
+            + level.Length
             + SourceLabel.Length
-            + entry.Source.Length
+            + source.Length
             + MessageLabel.Length
             + entry.Message.Length);
 
         return string.Create(
             length,
-            entry,
+            (entry.RunId, Level: level, Source: source, entry.Message),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
@@ -112,21 +124,24 @@ internal sealed class BuildRunProgressTextProjector : ICliCommandProgressTextPro
         const string CodeLabel = " code=";
         const string MessageLabel = " message=";
 
+        var phase = ContractLiteralCodec.ToValue(entry.Phase);
+        var severity = ContractLiteralCodec.ToValue(entry.Severity);
+        var code = entry.Code.Value;
         var length = checked(
             Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + PhaseLabel.Length
-            + entry.Phase.Length
+            + phase.Length
             + SeverityLabel.Length
-            + entry.Severity.Length
+            + severity.Length
             + CodeLabel.Length
-            + entry.Code.Length
+            + code.Length
             + MessageLabel.Length
             + entry.Message.Length);
 
         return string.Create(
             length,
-            entry,
+            (entry.RunId, Phase: phase, Severity: severity, Code: code, entry.Message),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);

@@ -7,6 +7,7 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Runtime;
 
 #nullable enable
 
@@ -23,21 +24,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private readonly IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer;
 
+        private readonly IUnityMutationLaneControl mutationLaneControl;
+
         /// <summary> Initializes a new instance of the <see cref="OperationPhaseExecutor" /> class. </summary>
         /// <param name="planPassExecutor"> The validate/plan pass executor dependency. </param>
         /// <param name="callPassExecutor"> The call pass executor dependency. </param>
         /// <param name="planTokenCoordinator"> The plan-token coordination dependency. </param>
+        /// <param name="dangerousOperationCallAuthorizer"> The dangerous-operation call authorization dependency. </param>
+        /// <param name="mutationLaneControl"> The explicit Unity mutation lifetime dependency. </param>
         /// <exception cref="ArgumentNullException"> Thrown when any dependency is <see langword="null" />. </exception>
         public OperationPhaseExecutor (
             IOperationPlanPassExecutor planPassExecutor,
             IOperationCallPassExecutor callPassExecutor,
             IPlanTokenCoordinator planTokenCoordinator,
-            IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer)
+            IDangerousOperationCallAuthorizer dangerousOperationCallAuthorizer,
+            IUnityMutationLaneControl mutationLaneControl)
         {
             this.planPassExecutor = planPassExecutor ?? throw new ArgumentNullException(nameof(planPassExecutor));
             this.callPassExecutor = callPassExecutor ?? throw new ArgumentNullException(nameof(callPassExecutor));
             this.planTokenCoordinator = planTokenCoordinator ?? throw new ArgumentNullException(nameof(planTokenCoordinator));
             this.dangerousOperationCallAuthorizer = dangerousOperationCallAuthorizer ?? throw new ArgumentNullException(nameof(dangerousOperationCallAuthorizer));
+            this.mutationLaneControl = mutationLaneControl ?? throw new ArgumentNullException(nameof(mutationLaneControl));
         }
 
         /// <summary> Executes one normalized request through the specified command phase-flow. </summary>
@@ -65,8 +72,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 if (!requestValidationResult.IsSuccess)
                 {
                     return PhaseExecutionTrace.Failure(
-                        protocolVersion: request.ProtocolVersion,
-                        requestId: request.RequestId,
                         steps: CreateUncompiledSteps(request.SourceSteps),
                         operationTraces: Array.Empty<OperationPhaseTrace>(),
                         errors: new[]
@@ -78,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             using var executionContext = new OperationExecutionContext();
             var operationPreflight = CreateOperationPreflight(command, request.AllowDangerous);
-            var planPassResult = await planPassExecutor.ExecuteAsync(request, executionContext, operationPreflight, cancellationToken).ConfigureAwait(false);
+            var planPassResult = await planPassExecutor.ExecuteAsync(request, executionContext, operationPreflight, cancellationToken);
             if (!planPassResult.IsSuccess)
             {
                 if (command == PhaseExecutionCommand.Call
@@ -96,8 +101,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 return PhaseExecutionTrace.Failure(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
                     steps: planPassResult.CompiledSteps,
                     operationTraces: planPassResult.OperationTraces,
                     errors: planPassResult.Errors);
@@ -106,8 +109,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (command == PhaseExecutionCommand.PlanWithoutToken)
             {
                 return PhaseExecutionTrace.Success(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
                     steps: planPassResult.CompiledSteps,
                     operationTraces: planPassResult.OperationTraces);
             }
@@ -122,8 +123,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 if (!issueResult.IsSuccess)
                 {
                     return PhaseExecutionTrace.Failure(
-                        protocolVersion: request.ProtocolVersion,
-                        requestId: request.RequestId,
                         steps: planPassResult.CompiledSteps,
                         operationTraces: planPassResult.OperationTraces,
                         errors: new[]
@@ -133,8 +132,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
 
                 return PhaseExecutionTrace.Success(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
                     steps: planPassResult.CompiledSteps,
                     operationTraces: planPassResult.OperationTraces,
                     planToken: issueResult.PlanToken);
@@ -148,8 +145,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!validationResult.IsSuccess)
             {
                 return PhaseExecutionTrace.Failure(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
                     steps: planPassResult.CompiledSteps,
                     operationTraces: planPassResult.OperationTraces,
                     errors: new[]
@@ -161,8 +156,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!dangerousOperationCallAuthorizer.TryAuthorize(planPassResult.PreparedOperations, request.AllowDangerous, out var dangerousCallFailure))
             {
                 return PhaseExecutionTrace.Failure(
-                    protocolVersion: request.ProtocolVersion,
-                    requestId: request.RequestId,
                     steps: planPassResult.CompiledSteps,
                     operationTraces: planPassResult.OperationTraces,
                     errors: new[]
@@ -171,10 +164,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     });
             }
 
-            var callPassResult = await callPassExecutor.ExecuteAsync(planPassResult.PreparedOperations, executionContext, cancellationToken).ConfigureAwait(false);
+            var mutationActivity = mutationLaneControl.BeginMutation();
+            CallPassResult callPassResult;
+            try
+            {
+                callPassResult = await callPassExecutor.ExecuteAsync(
+                    planPassResult.PreparedOperations,
+                    executionContext,
+                    cancellationToken);
+            }
+            finally
+            {
+                mutationActivity.Complete();
+            }
+
             return callPassResult.IsSuccess
-                ? PhaseExecutionTrace.Success(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces)
-                : PhaseExecutionTrace.Failure(request.ProtocolVersion, request.RequestId, planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);
+                ? PhaseExecutionTrace.Success(planPassResult.CompiledSteps, callPassResult.OperationTraces)
+                : PhaseExecutionTrace.Failure(planPassResult.CompiledSteps, callPassResult.OperationTraces, callPassResult.Errors);
         }
 
         private static Func<NormalizedOperation, IUcliOperation, OperationFailure?> CreateOperationPreflight (
@@ -227,19 +233,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        private static IReadOnlyList<NormalizedRequestStep> CreateUncompiledSteps (IReadOnlyList<IpcRequestContractStep> sourceSteps)
+        private static IReadOnlyList<NormalizedRequestStep> CreateUncompiledSteps (IReadOnlyList<IpcExecuteStepContract> sourceSteps)
         {
             var steps = new NormalizedRequestStep[sourceSteps.Count];
             for (var i = 0; i < sourceSteps.Count; i++)
             {
                 var sourceStep = sourceSteps[i];
-                var kind = sourceStep.Kind ?? IpcRequestStepKind.Op;
+                var kind = sourceStep.Kind!.Value;
                 steps[i] = new NormalizedRequestStep(
-                    Id: sourceStep.Id ?? string.Empty,
+                    Id: sourceStep.Id!,
                     Kind: kind,
-                    OperationName: kind == IpcRequestStepKind.Edit
+                    OperationName: kind == IpcExecuteStepKind.Edit
                         ? "edit"
-                        : sourceStep.OperationName ?? string.Empty,
+                        : sourceStep.OperationName!,
                     PrimitiveCount: 0);
             }
 
@@ -274,8 +280,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             return PhaseExecutionTrace.Failure(
-                protocolVersion: request.ProtocolVersion,
-                requestId: request.RequestId,
                 steps: planPassResult.CompiledSteps,
                 operationTraces: remappedTraces,
                 errors: remappedErrors);

@@ -7,6 +7,7 @@ internal static class IpcBatchmodeBootstrapArgumentReader
         IpcDaemonBootstrapArgumentNames.RepositoryRoot,
         IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint,
         IpcDaemonBootstrapArgumentNames.SessionPath,
+        IpcDaemonBootstrapArgumentNames.SessionGenerationId,
         IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc,
         IpcEndpointBootstrapArgumentNames.TransportKind,
         IpcEndpointBootstrapArgumentNames.Address,
@@ -14,12 +15,7 @@ internal static class IpcBatchmodeBootstrapArgumentReader
 
     private static readonly string[] OneshotRequiredNames =
     {
-        IpcOneshotBootstrapArgumentNames.ParentProcessId,
-        IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint,
-        IpcOneshotBootstrapArgumentNames.SessionToken,
-        IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc,
-        IpcEndpointBootstrapArgumentNames.TransportKind,
-        IpcEndpointBootstrapArgumentNames.Address,
+        IpcOneshotBootstrapArgumentNames.BootstrapId,
     };
 
     public static bool TryReadDaemon (
@@ -110,9 +106,10 @@ internal static class IpcBatchmodeBootstrapArgumentReader
             RepositoryRoot = values[0];
             ProjectFingerprint = values[1];
             SessionPath = values[2];
-            SessionIssuedAtUtcText = values[3];
-            EndpointTransportKind = values[4];
-            EndpointAddress = values[5];
+            SessionGenerationIdText = values[3];
+            SessionIssuedAtUtcText = values[4];
+            EndpointTransportKind = values[5];
+            EndpointAddress = values[6];
         }
 
         public string RepositoryRoot { get; }
@@ -120,6 +117,8 @@ internal static class IpcBatchmodeBootstrapArgumentReader
         public string ProjectFingerprint { get; }
 
         public string SessionPath { get; }
+
+        public string SessionGenerationIdText { get; }
 
         public string SessionIssuedAtUtcText { get; }
 
@@ -132,24 +131,9 @@ internal static class IpcBatchmodeBootstrapArgumentReader
     {
         public OneshotValues (IReadOnlyList<string> values)
         {
-            ParentProcessIdText = values[0];
-            ProjectFingerprint = values[1];
-            SessionToken = values[2];
-            ExitDeadlineUtcText = values[3];
-            EndpointTransportKind = values[4];
-            EndpointAddress = values[5];
+            BootstrapIdText = values[0];
         }
 
-        public string ParentProcessIdText { get; }
-
-        public string ProjectFingerprint { get; }
-
-        public string SessionToken { get; }
-
-        public string ExitDeadlineUtcText { get; }
-
-        public string EndpointTransportKind { get; }
-
-        public string EndpointAddress { get; }
+        public string BootstrapIdText { get; }
     }
 }

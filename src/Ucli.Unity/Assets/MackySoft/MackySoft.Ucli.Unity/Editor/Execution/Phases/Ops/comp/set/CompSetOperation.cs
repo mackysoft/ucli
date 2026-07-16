@@ -24,7 +24,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Assigns serialized property values on a component target.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Validate the component target and serialized property values, then compute preview changes without persisting project data.",
                 callSemantics: "Apply serialized property values to the live component and leave saving to explicit save operations.",
@@ -79,7 +79,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 bindingState.Sets,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
-                operation.AllowRequestLocalAliases,
+                operation,
                 out var changed,
                 out var changedPropertyPaths,
                 out var applyErrorMessage))
@@ -91,20 +91,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 executionContext.ReplaceTrackedTemporaryComponent(bindingState.Binding.Component, sandbox!, bindingState.Binding.Resource);
 
-                if (bindingState.Binding.SourceGlobalObjectId != null)
-                {
-                    executionContext.SetComponentShadow(
-                        bindingState.Binding.SourceGlobalObjectId,
-                        sandbox!,
-                        bindingState.Binding.SourceComponent,
-                        bindingState.Binding.OwnerGameObject,
-                        bindingState.Binding.OwnerGameObjectTrackingKey,
-                        bindingState.Binding.Resource);
-                }
+                executionContext.SetComponentShadow(
+                    bindingState.Binding.SourceTrackingKey,
+                    sandbox!,
+                    bindingState.Binding.SourceComponent,
+                    bindingState.Binding.OwnerGameObject,
+                    bindingState.Binding.OwnerGameObjectTrackingKey,
+                    bindingState.Binding.Resource);
 
                 if (bindingState.Binding.Alias != null)
                 {
-                    executionContext.SetTemporaryAlias(bindingState.Binding.Alias, sandbox!, bindingState.Binding.Resource, bindingState.Binding.SourceGlobalObjectId);
+                    executionContext.SetTemporaryAlias(bindingState.Binding.Alias, sandbox!, bindingState.Binding.Resource, bindingState.Binding.SourceTrackingKey);
                 }
 
                 executionContext.MarkRequestAttributedChange(bindingState.Binding.Resource);
@@ -156,7 +153,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 bindingState.Sets,
                 executionContext,
                 OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
-                operation.AllowRequestLocalAliases,
+                operation,
                 out var changed,
                 out var changedPropertyPaths,
                 out var applyErrorMessage))
@@ -170,7 +167,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     bindingState.Sets,
                     executionContext,
                     OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases,
-                    operation.AllowRequestLocalAliases,
+                    operation,
                     out _,
                     out var commitErrorMessage))
             {
@@ -210,7 +207,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             validatedTargetState = default;
             failure = null;
-            if (!SerializedObjectSetArgumentsCodec.TryParse(args, out var arguments, out var errorMessage))
+            if (!SerializedObjectSetArgumentsCodec.TryParse(
+                    args,
+                    operation.AliasReferences,
+                    out var arguments,
+                    out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -219,7 +220,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!ComponentOperationUtilities.TryResolveComponent(
                 arguments.TargetReference,
                 executionContext,
-                allowTemporaryState: true,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
                 out var componentResolution,
                 out errorMessage))
             {
@@ -261,14 +262,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                bindingState = new ResolvedBindingState(
-                    CreateTargetBinding(
-                        targetReference,
+                var aliasSourceTrackingKey = temporaryAliasState.SourceTrackingKey
+                    ?? executionContext.CreateComponentTrackingKey(temporaryComponent, temporaryAliasState.Resource);
+                var aliasBinding = executionContext.TryGetComponentShadowState(aliasSourceTrackingKey, out var aliasComponentShadowState)
+                    ? CreateShadowTargetBinding(
+                        aliasComponentShadowState,
+                        aliasSourceTrackingKey,
+                        alias,
+                        executionContext)
+                    : CreateTargetBinding(
                         temporaryComponent,
                         temporaryAliasState.Resource,
-                        temporaryAliasState.SourceGlobalObjectId,
+                        aliasSourceTrackingKey,
                         alias,
-                        executionContext),
+                        executionContext);
+                bindingState = new ResolvedBindingState(
+                    aliasBinding,
                     validatedTargetState.ParsedArguments.Sets);
                 return true;
             }
@@ -276,7 +285,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!ComponentOperationUtilities.TryResolveComponent(
                 targetReference,
                 executionContext,
-                allowTemporaryState: true,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
                 out var componentResolution,
                 out var errorMessage))
             {
@@ -284,38 +293,54 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var sourceGlobalObjectId = GetSourceReferenceKey(
-                targetReference,
+            var sourceTrackingKey = executionContext.CreateComponentTrackingKey(
                 componentResolution.Component!,
-                componentResolution.Resource,
-                executionContext);
+                componentResolution.Resource);
             TargetBinding binding;
-            if (!string.IsNullOrWhiteSpace(sourceGlobalObjectId)
-                && executionContext.TryGetComponentShadowState(sourceGlobalObjectId, out var componentShadowState))
+            if (executionContext.TryGetComponentShadowState(sourceTrackingKey, out var componentShadowState))
             {
-                binding = new TargetBinding(
-                    componentShadowState.Component!,
-                    componentShadowState.Resource,
-                    sourceGlobalObjectId,
-                    componentShadowState.SourceComponent!,
-                    executionContext.CreatePrefabOverrideTargetKey(targetReference, componentShadowState.Component!, componentShadowState.Resource),
-                    ResolveComponentOwnerGameObject(componentShadowState.Component!, executionContext),
-                    executionContext.CreateComponentOwnerTrackingKey(componentShadowState.Component!, componentShadowState.Resource),
-                    alias);
+                binding = CreateShadowTargetBinding(
+                    componentShadowState,
+                    sourceTrackingKey,
+                    alias,
+                    executionContext);
             }
             else
             {
                 binding = CreateTargetBinding(
-                    targetReference,
                     componentResolution.Component!,
                     componentResolution.Resource,
-                    sourceGlobalObjectId,
+                    sourceTrackingKey,
                     alias,
                     executionContext);
             }
 
             bindingState = new ResolvedBindingState(binding, validatedTargetState.ParsedArguments.Sets);
             return true;
+        }
+
+        private static TargetBinding CreateShadowTargetBinding (
+            ComponentSandboxRegistry.ComponentShadowState componentShadowState,
+            RequestLocalObjectIdentity sourceTrackingKey,
+            RequestLocalAliasIdentity? alias,
+            OperationExecutionContext executionContext)
+        {
+            var component = componentShadowState.Component;
+            var sourceComponent = componentShadowState.SourceComponent;
+            if (component == null || sourceComponent == null)
+            {
+                throw new InvalidOperationException("A resolved component shadow must retain its live shadow and source components.");
+            }
+
+            return new TargetBinding(
+                component,
+                componentShadowState.Resource,
+                sourceTrackingKey,
+                sourceComponent,
+                executionContext.CreateComponentTrackingKey(component, componentShadowState.Resource),
+                ResolveComponentOwnerGameObject(component, executionContext),
+                executionContext.CreateComponentOwnerTrackingKey(component, componentShadowState.Resource),
+                alias);
         }
 
         private static bool TryResolveCallBinding (
@@ -327,7 +352,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             bindingState = default;
             failure = null;
-            if (!SerializedObjectSetArgumentsCodec.TryParse(args, out var arguments, out var errorMessage))
+            if (!SerializedObjectSetArgumentsCodec.TryParse(
+                    args,
+                    operation.AliasReferences,
+                    out var arguments,
+                    out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -336,7 +365,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!ComponentOperationUtilities.TryResolveComponent(
                 arguments.TargetReference,
                 executionContext,
-                allowTemporaryState: false,
+                OperationObjectReferenceUtilities.GetReferenceResolutionPolicy(operation, allowTemporaryState: false),
                 out var componentResolution,
                 out errorMessage))
             {
@@ -346,14 +375,11 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             bindingState = new ResolvedBindingState(
                 CreateTargetBinding(
-                    arguments.TargetReference,
                     componentResolution.Component!,
                     componentResolution.Resource,
-                    GetSourceReferenceKey(
-                        arguments.TargetReference,
+                    executionContext.CreateComponentTrackingKey(
                         componentResolution.Component!,
-                        componentResolution.Resource,
-                        executionContext),
+                        componentResolution.Resource),
                     alias: null,
                     executionContext),
                 arguments.Sets);
@@ -361,19 +387,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static TargetBinding CreateTargetBinding (
-            UnityObjectReference targetReference,
             Component component,
             OperationResource resource,
-            string? sourceGlobalObjectId,
-            string? alias,
+            RequestLocalObjectIdentity sourceTrackingKey,
+            RequestLocalAliasIdentity? alias,
             OperationExecutionContext executionContext)
         {
             return new TargetBinding(
                 component,
                 resource,
-                sourceGlobalObjectId,
+                sourceTrackingKey,
                 component,
-                executionContext.CreatePrefabOverrideTargetKey(targetReference, component, resource),
+                executionContext.CreateComponentTrackingKey(component, resource),
                 ResolveComponentOwnerGameObject(component, executionContext),
                 executionContext.CreateComponentOwnerTrackingKey(component, resource),
                 alias);
@@ -392,35 +417,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return component.gameObject;
         }
 
-        private static string GetSourceReferenceKey (
-            UnityObjectReference targetReference,
-            Component component,
-            OperationResource resource,
-            OperationExecutionContext executionContext)
-        {
-            if (targetReference.Kind == UnityObjectReferenceKind.Selector
-                && targetReference.Selector.Kind == ResolveSelectorKind.GlobalObjectId)
-            {
-                return targetReference.Selector.GlobalObjectId!;
-            }
-
-            if (executionContext.TryResolvePreviewSourceTrackingKey(component, resource, out var previewSourceTrackingKey))
-            {
-                return previewSourceTrackingKey;
-            }
-
-            return UnityObjectReferenceResolver.CreateTrackingKey(component);
-        }
-
         private static void RecordPrefabOverridePropertyChanges (
-            string editStepId,
+            IpcExecuteStepId editStepId,
             TargetBinding binding,
             IReadOnlyList<string> changedPropertyPaths,
             IReadOnlyDictionary<string, PrefabOverridePropertyStateSnapshot>? prefabOverrideStatesBeforeApply,
             Component finalComponent,
             OperationExecutionContext executionContext)
         {
-            if (binding.Resource.Kind != OperationTouchKind.Scene
+            if (binding.Resource.Kind != UcliTouchedResourceKind.Scene
                 || changedPropertyPaths.Count == 0
                 || finalComponent == null)
             {
@@ -453,15 +458,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     binding.PrefabOverrideTargetKey,
                     changedPropertyPaths[i],
                     stateBeforeApply.WasPrefabOverrideBeforeRequest,
-                    stateBeforeApply.ValueHash,
-                    SerializedPropertyValueHasher.Create(property, executionContext, binding.Resource),
+                    stateBeforeApply.ValueSignature,
+                    SerializedPropertyValueSignatureFactory.Create(property, executionContext, binding.Resource),
                     stateBeforeApply.RequiresExplicitPrefabAssetMutation);
             }
         }
 
         private static bool TryResolvePropertyStateBeforeRequest (
-            string editStepId,
-            string targetKey,
+            IpcExecuteStepId editStepId,
+            RequestLocalObjectIdentity targetKey,
             string propertyPath,
             IReadOnlyDictionary<string, PrefabOverridePropertyStateSnapshot>? statesBeforeApply,
             OperationExecutionContext executionContext,
@@ -481,7 +486,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             stateBeforeRequest = new PrefabOverridePropertyStateSnapshot(
                 existingChange.WasPrefabOverrideBeforeRequest,
-                existingChange.ValueHashBeforeRequest,
+                existingChange.ValueSignatureBeforeRequest,
                 existingChange.RequiresExplicitPrefabAssetMutation);
             return true;
         }
@@ -492,7 +497,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             bool allowExplicitPrefabAssetMutation)
         {
-            if (binding.Resource.Kind != OperationTouchKind.Scene
+            if (binding.Resource.Kind != UcliTouchedResourceKind.Scene
                 || !TryResolvePrefabOverrideStateComponent(
                     binding,
                     executionContext,
@@ -509,7 +514,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             serializedObject.UpdateIfRequiredOrScript();
             for (var i = 0; i < assignments.Count; i++)
             {
-                var propertyPath = assignments[i].Path;
+                var propertyPath = assignments[i].Path.Value;
                 if (statesByPath.ContainsKey(propertyPath))
                 {
                     continue;
@@ -525,7 +530,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     propertyPath,
                     new PrefabOverridePropertyStateSnapshot(
                         isPrefabInstance && property.prefabOverride,
-                        SerializedPropertyValueHasher.Create(property, executionContext, binding.Resource),
+                        SerializedPropertyValueSignatureFactory.Create(property, executionContext, binding.Resource),
                         requiresExplicitPrefabAssetMutation));
             }
 
@@ -593,16 +598,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public TargetBinding (
                 Component component,
                 OperationResource resource,
-                string? sourceGlobalObjectId,
+                RequestLocalObjectIdentity sourceTrackingKey,
                 Component sourceComponent,
-                string prefabOverrideTargetKey,
+                RequestLocalObjectIdentity prefabOverrideTargetKey,
                 GameObject ownerGameObject,
-                string ownerGameObjectTrackingKey,
-                string? alias)
+                RequestLocalObjectIdentity ownerGameObjectTrackingKey,
+                RequestLocalAliasIdentity? alias)
             {
                 Component = component;
                 Resource = resource;
-                SourceGlobalObjectId = sourceGlobalObjectId;
+                SourceTrackingKey = sourceTrackingKey;
                 SourceComponent = sourceComponent;
                 PrefabOverrideTargetKey = prefabOverrideTargetKey;
                 OwnerGameObject = ownerGameObject;
@@ -614,34 +619,34 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             public OperationResource Resource { get; }
 
-            public string? SourceGlobalObjectId { get; }
+            public RequestLocalObjectIdentity SourceTrackingKey { get; }
 
             public Component SourceComponent { get; }
 
-            public string PrefabOverrideTargetKey { get; }
+            public RequestLocalObjectIdentity PrefabOverrideTargetKey { get; }
 
             public GameObject OwnerGameObject { get; }
 
-            public string OwnerGameObjectTrackingKey { get; }
+            public RequestLocalObjectIdentity OwnerGameObjectTrackingKey { get; }
 
-            public string? Alias { get; }
+            public RequestLocalAliasIdentity? Alias { get; }
         }
 
         private readonly struct PrefabOverridePropertyStateSnapshot
         {
             public PrefabOverridePropertyStateSnapshot (
                 bool wasPrefabOverrideBeforeRequest,
-                string valueHash,
+                string valueSignature,
                 bool requiresExplicitPrefabAssetMutation)
             {
                 WasPrefabOverrideBeforeRequest = wasPrefabOverrideBeforeRequest;
-                ValueHash = valueHash;
+                ValueSignature = valueSignature;
                 RequiresExplicitPrefabAssetMutation = requiresExplicitPrefabAssetMutation;
             }
 
             public bool WasPrefabOverrideBeforeRequest { get; }
 
-            public string ValueHash { get; }
+            public string ValueSignature { get; }
 
             public bool RequiresExplicitPrefabAssetMutation { get; }
         }

@@ -1,8 +1,8 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 
@@ -10,27 +10,34 @@ namespace MackySoft.Ucli.Tests;
 
 internal static class BuildRunCliOutputFixtureFactory
 {
-    private const string SuccessManifestDigest = "59a71d71a244ad7a978be0bbfe8f87328c036091bb4b5aefef9e89b855d82b9b";
-    private const string FailedManifestDigest = "04d7d7e1eb32bc4521986964ba5e86b772fe46a3b50a73e4dd3783d4c4577d21";
+    private static readonly AssuranceVerifierId BuildVerifierId = new("build");
 
-    private static readonly string BuildDigest = new('a', 64);
-    private static readonly string BuildReportDigest = new('b', 64);
-    private static readonly string BuildOutputManifestArtifactDigest = new('c', 64);
-    private static readonly string BuildLogDigest = new('d', 64);
-    private static readonly string ProfileDigest = new('e', 64);
+    private static readonly Sha256Digest SuccessManifestDigest = Sha256Digest.Parse("5676e19e1fc5c210fba288de8bed4841cbd2efbc2bc352653fd6306505e83264");
+    private static readonly Sha256Digest FailedManifestDigest = Sha256Digest.Parse("04d7d7e1eb32bc4521986964ba5e86b772fe46a3b50a73e4dd3783d4c4577d21");
+
+    private static readonly Sha256Digest BuildDigest = Sha256Digest.Parse(new string('a', 64));
+    private static readonly Sha256Digest BuildReportDigest = Sha256Digest.Parse(new string('b', 64));
+    private static readonly Sha256Digest BuildOutputManifestArtifactDigest = Sha256Digest.Parse(new string('c', 64));
+    private static readonly Sha256Digest BuildLogDigest = Sha256Digest.Parse(new string('d', 64));
+    private static readonly Sha256Digest ProfileDigest = Sha256Digest.Parse(new string('e', 64));
     private static readonly DateTimeOffset BuildStartedAtUtc = new(2026, 6, 1, 0, 0, 0, TimeSpan.Zero);
     private static readonly DateTimeOffset BuildCompletedAtUtc = new(2026, 6, 1, 0, 0, 2, 500, TimeSpan.Zero);
+    private static readonly string BuildProfilePath = Path.Combine(
+        ProjectPathTestValues.WorkspaceUnityProject,
+        ".ucli",
+        "build",
+        "player.json");
 
-    private static readonly string[] BuildPipelineEffectValues =
+    private static readonly AssuranceEffect[] BuildPipelineEffectValues =
     [
-        ContractLiteralCodec.ToValue(BuildEffect.UnityLifecycleRead),
-        ContractLiteralCodec.ToValue(BuildEffect.UnityBuildPipeline),
-        ContractLiteralCodec.ToValue(BuildEffect.UnityBuildReportRead),
-        ContractLiteralCodec.ToValue(BuildEffect.UnityLogWindowRead),
-        ContractLiteralCodec.ToValue(BuildEffect.UcliArtifactWrite),
-        ContractLiteralCodec.ToValue(BuildEffect.OutputManifestWrite),
-        ContractLiteralCodec.ToValue(BuildEffect.GenerationSnapshot),
-        ContractLiteralCodec.ToValue(BuildEffect.ProjectMutationAudit),
+        AssuranceEffect.UnityLifecycleRead,
+        AssuranceEffect.UnityBuildPipeline,
+        AssuranceEffect.UnityBuildReportRead,
+        AssuranceEffect.UnityLogWindowRead,
+        AssuranceEffect.UcliArtifactWrite,
+        AssuranceEffect.OutputManifestWrite,
+        AssuranceEffect.GenerationSnapshot,
+        AssuranceEffect.ProjectMutationAudit,
     ];
 
     public static CommandResult CreateCommandResult (string caseName)
@@ -40,24 +47,24 @@ internal static class BuildRunCliOutputFixtureFactory
             "success" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(CreateOutput(succeeded: true))),
             "build-report-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Success(CreateOutput(succeeded: false))),
             "invalid-profile" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
-                ExecutionError.InvalidArgument("Build profile is invalid: /workspace/UnityProject/.ucli/build/player.json.", BuildErrorCodes.BuildProfileInvalid),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"))),
+                ExecutionError.InvalidArgument($"Build profile is invalid: {BuildProfilePath}.", BuildErrorCodes.BuildProfileInvalid),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
             "unsupported-buildTarget" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ExecutionError.InvalidArgument("Build profile inputs.buildTarget is unsupported: unknownTarget.", BuildErrorCodes.BuildTargetUnsupported),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"))),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
             "dirty-scene" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ApplicationFailure.FromCode(BuildErrorCodes.BuildDirtyStatePresent, "Dirty scene state is present."),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject),
                 CreateDirtyState())),
             "buildTarget-module-missing" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ApplicationFailure.FromCode(BuildErrorCodes.BuildTargetModuleMissing, "buildTarget module is missing: standaloneLinux64."),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"))),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
             "artifact-write-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ExecutionError.InternalError("Build artifacts could not be written.", BuildErrorCodes.BuildArtifactWriteFailed),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"))),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
             "output-manifest-failed" => BuildRunCommandResultFactory.Create(BuildExecutionResult.Failure(
                 ExecutionError.InternalError("Build output manifest could not be generated.", BuildErrorCodes.BuildOutputManifestFailed),
-                ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"))),
+                ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject))),
             _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown build.run Golden case."),
         };
     }
@@ -65,8 +72,8 @@ internal static class BuildRunCliOutputFixtureFactory
     private static BuildExecutionOutput CreateOutput (bool succeeded)
     {
         var reportResult = succeeded
-            ? ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)
-            : ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed);
+            ? IpcBuildReportResult.Succeeded
+            : IpcBuildReportResult.Failed;
         var manifestDigest = succeeded ? SuccessManifestDigest : FailedManifestDigest;
         var errorCount = succeeded ? 0 : 1;
         var warningCount = succeeded ? 1 : 0;
@@ -74,79 +81,78 @@ internal static class BuildRunCliOutputFixtureFactory
         var fileCount = succeeded ? 2 : 0;
         var totalBytes = succeeded ? 33 : 0;
         var build = new BuildOutput(
-            RunId: "build-run-1",
-            Profile: new BuildProfileOutput("/workspace/UnityProject/.ucli/build/player.json", ProfileDigest),
-            Inputs: new BuildInputsOutput(
-                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
-                Target: new BuildTargetOutput("standaloneLinux64", "StandaloneLinux64"),
-                Scenes: new BuildScenesOutput("explicit", ["Assets/Scenes/Main.unity"]),
+            runId: RunIdTestValues.Build,
+            profile: new BuildProfileOutput(BuildProfilePath, ProfileDigest),
+            inputs: new BuildInputsOutput(
+                InputKind: BuildProfileInputsKind.Explicit,
+                Target: new BuildTargetOutput(BuildTargetStableName.StandaloneLinux64, "StandaloneLinux64"),
+                Scenes: new BuildScenesOutput(BuildProfileSceneSource.Explicit, [new SceneAssetPath("Assets/Scenes/Main.unity")]),
                 Options: new BuildOptionsOutput(Development: true),
                 UnityBuildProfile: null),
-            Runner: new BuildRunnerOutput(
-                Kind: "buildPipeline",
+            runner: new BuildRunnerOutput(
+                Kind: BuildRunnerKind.BuildPipeline,
                 Method: null,
                 Invocation: new BuildRunnerInvocationOutput(
                     Arguments: new Dictionary<string, string>(StringComparer.Ordinal),
                     Environment: new BuildRunnerInvocationEnvironmentOutput(
                         Variables: [],
                         Secrets: []))),
-            RunnerResult: new BuildRunnerResultOutput(
-                Source: ContractLiteralCodec.ToValue(IpcBuildRunnerResultSource.BuildPipelineBuildReport),
+            runnerResult: new BuildRunnerResultOutput(
+                Source: IpcBuildRunnerResultSource.BuildPipelineBuildReport,
                 Status: reportResult),
-            Output: new BuildArtifactOutput(
-                ManifestRef: BuildReportRefs.BuildOutputManifest,
+            output: new BuildArtifactOutput(
+                ManifestRef: BuildArtifactKind.BuildOutputManifest,
                 ManifestDigest: manifestDigest,
                 EntryCount: entryCount,
                 FileCount: fileCount,
                 TotalBytes: totalBytes),
-            Generations: CreateGenerations(),
-            Summary: new BuildSummaryOutput(
+            generations: CreateGenerations(),
+            summary: new BuildSummaryOutput(
                 Result: reportResult,
                 DurationMilliseconds: succeeded ? 2500 : 2400,
                 ErrorCount: errorCount,
                 WarningCount: warningCount,
-                ReportRef: BuildReportRefs.BuildReport),
-            Logs: new BuildLogsOutput(
-                ReportRef: BuildReportRefs.BuildLog,
+                ReportRef: BuildArtifactKind.BuildReport),
+            logs: new BuildLogsOutput(
+                ReportRef: BuildArtifactKind.BuildLog,
                 EntryCount: succeeded ? 3 : 2,
                 ErrorCount: errorCount,
                 WarningCount: warningCount,
                 CompletionReason: succeeded
-                    ? ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed)
-                    : ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Failed),
+                    ? IpcBuildLogCompletionReason.Completed
+                    : IpcBuildLogCompletionReason.Failed,
                 Window: new BuildLogWindowOutput(BuildStartedAtUtc, BuildCompletedAtUtc)));
         var claims = BuildRunCliOutputClaimFixtureFactory.CreateClaims(build, succeeded);
 
         return new BuildExecutionOutput(
             Verdict: succeeded
-                ? ContractLiteralCodec.ToValue(BuildVerdict.Pass)
-                : ContractLiteralCodec.ToValue(BuildVerdict.Fail),
-            Project: ProjectIdentityInfoTestFactory.Create(projectPath: "/workspace/UnityProject"),
+                ? AssuranceVerdict.Pass
+                : AssuranceVerdict.Fail,
+            Project: ProjectIdentityInfoTestFactory.CreateWithProjectPath(projectPath: ProjectPathTestValues.WorkspaceUnityProject),
             Build: build,
             Verifiers:
             [
                 new BuildVerifierOutput(
-                    Id: BuildReportRefs.Build,
-                    Kind: BuildReportRefs.Build,
+                    Id: BuildVerifierId,
                     Deterministic: false,
                     Required: true,
                     PrimaryClaims: claims.Where(static claim => claim.Required).Select(static claim => claim.Id).ToArray(),
                     Effects: BuildPipelineEffectValues,
-                    ReportRef: BuildReportRefs.Build),
+                    ReportRef: BuildArtifactKind.Build),
             ],
             Claims: claims,
             Reports: CreateReports(),
             ResidualRisks: []);
     }
 
-    private static IReadOnlyDictionary<string, BuildReportOutput> CreateReports ()
+    private static IReadOnlyDictionary<BuildArtifactKind, AssuranceReportReference> CreateReports ()
     {
-        return new Dictionary<string, BuildReportOutput>(StringComparer.Ordinal)
+        return new Dictionary<BuildArtifactKind, AssuranceReportReference>
         {
-            [BuildReportRefs.Build] = new("build.json", BuildDigest),
-            [BuildReportRefs.BuildReport] = new("build-report.json", BuildReportDigest),
-            [BuildReportRefs.BuildOutputManifest] = new("output-manifest.json", BuildOutputManifestArtifactDigest),
-            [BuildReportRefs.BuildLog] = new("build.log", BuildLogDigest),
+            [BuildArtifactKind.Build] = AssuranceReportReference.FromPath("build.json", BuildDigest),
+            [BuildArtifactKind.BuildReport] = AssuranceReportReference.FromPath("build-report.json", BuildReportDigest),
+            [BuildArtifactKind.BuildOutputManifest] = AssuranceReportReference.FromPath("output-manifest.json", BuildOutputManifestArtifactDigest),
+            [BuildArtifactKind.BuildLog] = AssuranceReportReference.FromPath("build.log", BuildLogDigest),
         };
     }
 
@@ -161,14 +167,13 @@ internal static class BuildRunCliOutputFixtureFactory
     private static IpcBuildDirtyState CreateDirtyState ()
     {
         return new IpcBuildDirtyState(
-            Checked: true,
             Dirty: true,
-            Coverage: ContractLiteralCodec.ToValue(IpcBuildDirtyStateCoverage.Full),
+            Coverage: IpcBuildDirtyStateCoverage.Full,
             Items:
             [
                 new IpcBuildDirtyStateItem(
-                    ContractLiteralCodec.ToValue(IpcBuildDirtyStateItemKind.Scene),
-                    "Assets/Scenes/Main.unity"),
+                    IpcBuildDirtyStateItemKind.Scene,
+                    new ProjectMutationAuditPath("Assets/Scenes/Main.unity")),
             ]);
     }
 }

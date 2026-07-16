@@ -25,6 +25,7 @@ using MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 using MackySoft.Ucli.Features.Daemon.Supervisor.Host;
+using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Ipc.Process;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -50,11 +51,8 @@ internal static class DaemonServiceCollectionExtensions
 
     private static IServiceCollection AddUcliDaemonLifecycleServices (this IServiceCollection services)
     {
-        services.AddSingleton<IDaemonSessionSerializer, DaemonSessionJsonSerializer>();
-        services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
         services.AddSingleton<IDaemonSessionStore, DaemonSessionStore>();
         services.AddSingleton<IDaemonDiagnosisStore, DaemonDiagnosisStore>();
-        services.AddSingleton<IDaemonLaunchAttemptIdGenerator, DaemonLaunchAttemptIdGenerator>();
         services.AddSingleton<IDaemonLaunchAttemptStore, DaemonLaunchAttemptStore>();
         services.AddSingleton<IDaemonLifecycleStore, DaemonLifecycleStore>();
         services.AddSingleton<IDaemonSessionDiagnosisResolver, DaemonSessionDiagnosisResolver>();
@@ -75,7 +73,7 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<IDaemonPingInfoClient>(provider => provider.GetRequiredService<IpcDaemonPingClient>());
         services.AddSingleton<IDaemonStartupReadinessProbe, DaemonStartupReadinessProbe>();
         services.AddSingleton<IDaemonGuiStartupObserver, DaemonGuiStartupObserver>();
-        services.AddSingleton<GuiSupervisorManifestStore>();
+        services.AddSingleton<IGuiSupervisorManifestStore, GuiSupervisorManifestStore>();
         services.AddSingleton<IDaemonGuiRebootstrapClient, DaemonGuiRebootstrapClient>();
         services.AddSingleton<IDaemonShutdownClient, DaemonShutdownClient>();
         services.AddSingleton<IDaemonArtifactCleaner, DaemonArtifactCleaner>();
@@ -100,7 +98,11 @@ internal static class DaemonServiceCollectionExtensions
     {
         services.AddSingleton<SupervisorActivityTracker>();
         services.AddSingleton<SupervisorRuntimeLogger>();
-        services.AddSingleton<SupervisorManifestStore>();
+        services.AddSingleton(serviceProvider => new SupervisorManifestStore(
+            serviceProvider.GetRequiredService<TimeProvider>(),
+            static (path, cancellationToken) => FileUtilities.ReadAllBytesOrNullAsync(path, cancellationToken),
+            static (path, contents, cancellationToken) => FileUtilities.WriteAllBytesAtomicallyAsync(path, contents, cancellationToken),
+            static path => FileUtilities.DeleteIfExists(path)));
         services.AddSingleton<SupervisorEndpointResolver>();
         services.AddSingleton<SupervisorBootstrapLockProvider>();
         services.AddSingleton<SupervisorDiagnosisWriter>();
@@ -110,12 +112,12 @@ internal static class DaemonServiceCollectionExtensions
         services.AddSingleton<SupervisorRequestDispatcher>();
         services.AddSingleton<SupervisorTransportServer>();
         services.AddSingleton<SupervisorLaunchCommandResolver>();
-        services.AddSingleton<SupervisorExternalProcessRunner>();
-        services.AddSingleton<LaunchdSupervisorProcessLauncher>();
+        services.AddSingleton<LaunchdSupervisorProcessManager>();
         services.AddSingleton<SystemdRunSupervisorProcessLauncher>();
+        services.AddSingleton<IDetachedProcessStarter, DetachedProcessStarter>();
         services.AddSingleton<WindowsDetachedSupervisorProcessLauncher>();
-        services.AddSingleton<SupervisorProcessLauncher>();
-        services.AddSingleton<ISupervisorProcessLauncher>(provider => provider.GetRequiredService<SupervisorProcessLauncher>());
+        services.AddSingleton<SupervisorProcessManager>();
+        services.AddSingleton<ISupervisorProcessManager>(provider => provider.GetRequiredService<SupervisorProcessManager>());
         services.AddSingleton<SupervisorBootstrapper>();
         services.AddSingleton<SupervisorClient>();
         services.AddSingleton<IDaemonProjectLifecycleGateway, SupervisorProjectGateway>();

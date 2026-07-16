@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 namespace MackySoft.Ucli.Tests;

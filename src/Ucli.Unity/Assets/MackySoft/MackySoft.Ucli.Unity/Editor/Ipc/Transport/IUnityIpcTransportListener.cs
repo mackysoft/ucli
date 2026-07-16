@@ -24,7 +24,15 @@ namespace MackySoft.Ucli.Unity.Ipc
             Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
             CancellationToken cancellationToken);
 
-        /// <summary> Releases active transport handles to unblock accept loops. </summary>
+        /// <summary> Marks the active listener generation released and initiates non-blocking transport cleanup. </summary>
         void Release ();
+    }
+
+    /// <summary> Reserves one transport Run generation before its background task can be scheduled. </summary>
+    internal interface IUnityIpcTransportRunReservation
+    {
+        /// <summary> Reserves the Run generation identified by its unique listener cancellation token. </summary>
+        /// <param name="cancellationToken"> The cancellation token that will be passed to the corresponding listener Run. </param>
+        void ReserveRun (CancellationToken cancellationToken);
     }
 }

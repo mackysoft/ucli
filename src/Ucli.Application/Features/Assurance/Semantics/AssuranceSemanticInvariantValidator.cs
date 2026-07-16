@@ -1,5 +1,7 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Semantics;
 
@@ -8,18 +10,23 @@ internal sealed class AssuranceSemanticInvariantValidator
 {
     private readonly ICodeCatalog codeCatalog;
 
-    private readonly IReadOnlyList<IAssuranceSemanticInvariantRule> rules;
+    private readonly IReadOnlyList<IAssurancePayloadInvariantRule> payloadRules;
+
+    private readonly IReadOnlyList<IAssuranceClaimInvariantRule> claimRules;
 
     /// <summary> Initializes a new instance of the <see cref="AssuranceSemanticInvariantValidator" /> class. </summary>
     /// <param name="codeCatalog"> The code catalog used to resolve claim and risk codes. </param>
-    /// <param name="rules"> Command-specific semantic invariant rules. </param>
+    /// <param name="payloadRules"> Command-specific payload invariant rules. </param>
+    /// <param name="claimRules"> Command-specific claim invariant rules. </param>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="codeCatalog" /> is <see langword="null" />. </exception>
     public AssuranceSemanticInvariantValidator (
         ICodeCatalog codeCatalog,
-        IEnumerable<IAssuranceSemanticInvariantRule>? rules = null)
+        IEnumerable<IAssurancePayloadInvariantRule> payloadRules,
+        IEnumerable<IAssuranceClaimInvariantRule> claimRules)
     {
         this.codeCatalog = codeCatalog ?? throw new ArgumentNullException(nameof(codeCatalog));
-        this.rules = rules?.ToArray() ?? Array.Empty<IAssuranceSemanticInvariantRule>();
+        this.payloadRules = CopyRequiredRules(payloadRules, nameof(payloadRules));
+        this.claimRules = CopyRequiredRules(claimRules, nameof(claimRules));
     }
 
     /// <summary> Validates one assurance payload object. </summary>
@@ -74,6 +81,8 @@ internal sealed class AssuranceSemanticInvariantValidator
                 AddViolation(violations, reportPath, "Report entry must contain exactly one locator: path or uri.");
             }
 
+            ValidateOptionalDigest(reportProperty.Value, reportPath, violations);
+
             reports[reportProperty.Name] = new ReportInfo(path, uri);
         }
 
@@ -103,13 +112,17 @@ internal sealed class AssuranceSemanticInvariantValidator
                 continue;
             }
 
-            var id = TryReadRequiredString(verifierElement, "id", verifierPath, violations, out var readId)
-                ? readId
-                : string.Empty;
+            var id = ReadAssuranceVerifierId(verifierElement, "id", verifierPath, violations);
+            _ = TryReadRequiredContractLiteral(
+                verifierElement,
+                "kind",
+                verifierPath,
+                violations,
+                out AssuranceVerifierKind _);
             var required = TryReadBoolean(verifierElement, "required", defaultValue: false);
-            var primaryClaims = ReadStringArray(verifierElement, "primaryClaims", verifierPath, violations);
+            var primaryClaims = ReadCodeArray(verifierElement, "primaryClaims", verifierPath, violations);
 
-            if (required && primaryClaims.Count == 0)
+            if (required && !primaryClaims.Any(static claim => claim is not null))
             {
                 AddViolation(violations, BuildPropertyPath(verifierPath, "primaryClaims"), "Required verifier must declare at least one primary claim.");
             }
@@ -150,23 +163,43 @@ internal sealed class AssuranceSemanticInvariantValidator
                 continue;
             }
 
-            var id = TryReadRequiredString(claimElement, "id", claimPath, violations, out var readId)
-                ? readId
-                : string.Empty;
-            ValidateCatalogCode(id, CodeCatalogKindValues.Claim, BuildPropertyPath(claimPath, "id"), violations);
+            UcliCode? id = null;
+            if (TryReadRequiredString(claimElement, "id", claimPath, violations, out var readId))
+            {
+                var idPath = BuildPropertyPath(claimPath, "id");
+                if (!UcliCode.TryCreate(readId, out id))
+                {
+                    AddViolation(violations, idPath, UcliCode.InvalidValueMessage);
+                }
+                else
+                {
+                    ValidateCatalogCode(id, CodeCatalogKind.Claim, idPath, violations);
+                }
+            }
 
-            var verifierRef = TryReadRequiredString(claimElement, "verifierRef", claimPath, violations, out var readVerifierRef)
-                ? readVerifierRef
-                : string.Empty;
-            var status = TryReadRequiredString(claimElement, "status", claimPath, violations, out var readStatus)
-                ? readStatus
-                : string.Empty;
-            var coverage = TryReadRequiredString(claimElement, "coverage", claimPath, violations, out var readCoverage)
-                ? readCoverage
-                : string.Empty;
+            var verifierRef = ReadAssuranceVerifierId(claimElement, "verifierRef", claimPath, violations);
+            AssuranceClaimStatus? status = TryReadRequiredContractLiteral(
+                claimElement,
+                "status",
+                claimPath,
+                violations,
+                out AssuranceClaimStatus readStatus)
+                    ? readStatus
+                    : null;
+            AssuranceCoverage? coverage = TryReadRequiredContractLiteral(
+                claimElement,
+                "coverage",
+                claimPath,
+                violations,
+                out AssuranceCoverage readCoverage)
+                    ? readCoverage
+                    : null;
             var required = TryReadBoolean(claimElement, "required", defaultValue: false);
 
-            ValidateCommandSpecificRules(payload, claimElement, claimPath, id, violations);
+            if (id is not null)
+            {
+                ValidateCommandSpecificClaims(payload, claimElement, claimPath, id, violations);
+            }
             ResolveEvidenceReferences(claimElement, claimPath, reports, violations);
             var residualRisks = ReadResidualRisks(claimElement, BuildPropertyPath(claimPath, "residualRisks"), violations);
 
@@ -208,7 +241,15 @@ internal sealed class AssuranceSemanticInvariantValidator
 
             if (TryReadRequiredString(riskElement, "code", riskPath, violations, out var code))
             {
-                ValidateCatalogCode(code, CodeCatalogKindValues.Risk, BuildPropertyPath(riskPath, "code"), violations);
+                var codePath = BuildPropertyPath(riskPath, "code");
+                if (!UcliCode.TryCreate(code, out var codeValue))
+                {
+                    AddViolation(violations, codePath, UcliCode.InvalidValueMessage);
+                }
+                else
+                {
+                    ValidateCatalogCode(codeValue, CodeCatalogKind.Risk, codePath, violations);
+                }
             }
 
             risks.Add(new ResidualRiskInfo(TryReadBoolean(riskElement, "blocking", defaultValue: false)));
@@ -228,6 +269,11 @@ internal sealed class AssuranceSemanticInvariantValidator
         for (var i = 0; i < claims.Count; i++)
         {
             var claim = claims[i];
+            if (claim.VerifierRef is null)
+            {
+                continue;
+            }
+
             if (!verifierById.TryGetValue(claim.VerifierRef, out var verifier))
             {
                 AddViolation(violations, BuildPropertyPath(claim.Path, "verifierRef"), $"Claim verifierRef '{claim.VerifierRef}' does not resolve to payload.verifiers.");
@@ -255,13 +301,20 @@ internal sealed class AssuranceSemanticInvariantValidator
             {
                 var claimId = verifier.PrimaryClaims[j];
                 var claimPath = $"{BuildPropertyPath(verifier.Path, "primaryClaims")}[{j}]";
+                if (claimId is null)
+                {
+                    continue;
+                }
+
                 if (!claimsById.TryGetValue(claimId, out var claim))
                 {
                     AddViolation(violations, claimPath, $"Verifier primary claim '{claimId}' does not resolve to payload.claims.");
                     continue;
                 }
 
-                if (!string.Equals(claim.VerifierRef, verifier.Id, StringComparison.Ordinal))
+                if (claim.VerifierRef is not null
+                    && verifier.Id is not null
+                    && claim.VerifierRef != verifier.Id)
                 {
                     AddViolation(violations, claimPath, $"Verifier primary claim '{claimId}' is owned by verifierRef '{claim.VerifierRef}'.");
                 }
@@ -274,15 +327,15 @@ internal sealed class AssuranceSemanticInvariantValidator
         }
     }
 
-    private static Dictionary<string, VerifierInfo> BuildVerifierIndex (
+    private static Dictionary<AssuranceVerifierId, VerifierInfo> BuildVerifierIndex (
         IReadOnlyList<VerifierInfo> verifiers,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        var verifierById = new Dictionary<string, VerifierInfo>(StringComparer.Ordinal);
+        var verifierById = new Dictionary<AssuranceVerifierId, VerifierInfo>();
         for (var i = 0; i < verifiers.Count; i++)
         {
             var verifier = verifiers[i];
-            if (string.IsNullOrWhiteSpace(verifier.Id))
+            if (verifier.Id is null)
             {
                 continue;
             }
@@ -296,15 +349,38 @@ internal sealed class AssuranceSemanticInvariantValidator
         return verifierById;
     }
 
-    private static Dictionary<string, ClaimInfo> BuildClaimIndex (
+    private static AssuranceVerifierId? ReadAssuranceVerifierId (
+        JsonElement owner,
+        string propertyName,
+        string ownerPath,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!TryReadRequiredString(owner, propertyName, ownerPath, violations, out var value))
+        {
+            return null;
+        }
+
+        if (AssuranceVerifierId.TryCreate(value, out var verifierId))
+        {
+            return verifierId;
+        }
+
+        AddViolation(
+            violations,
+            BuildPropertyPath(ownerPath, propertyName),
+            "Verifier identifier is invalid.");
+        return null;
+    }
+
+    private static Dictionary<UcliCode, ClaimInfo> BuildClaimIndex (
         IReadOnlyList<ClaimInfo> claims,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        var claimById = new Dictionary<string, ClaimInfo>(StringComparer.Ordinal);
+        var claimById = new Dictionary<UcliCode, ClaimInfo>();
         for (var i = 0; i < claims.Count; i++)
         {
             var claim = claims[i];
-            if (string.IsNullOrWhiteSpace(claim.Id))
+            if (claim.Id is null)
             {
                 continue;
             }
@@ -324,44 +400,37 @@ internal sealed class AssuranceSemanticInvariantValidator
         IReadOnlyList<ResidualRiskInfo> payloadResidualRisks,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        if (!TryReadRequiredString(payload, "verdict", "$", violations, out var actualVerdict))
+        if (!TryReadRequiredContractLiteral(payload, "verdict", "$", violations, out AssuranceVerdict actualVerdict)
+            || claims.Any(static claim => !claim.Status.HasValue || !claim.Coverage.HasValue))
         {
             return;
         }
 
         var expectedVerdict = RecalculateVerdict(claims, payloadResidualRisks);
-        if (!string.Equals(actualVerdict, expectedVerdict, StringComparison.Ordinal))
+        if (actualVerdict != expectedVerdict)
         {
-            AddViolation(violations, "$.verdict", $"Verdict must be '{expectedVerdict}' when recalculated from claims and residual risks.");
+            AddViolation(
+                violations,
+                "$.verdict",
+                $"Verdict must be '{ContractLiteralCodec.ToValue(expectedVerdict)}' when recalculated from claims and residual risks.");
         }
     }
 
     private void ValidateCatalogCode (
-        string code,
-        string expectedKind,
+        UcliCode code,
+        CodeCatalogKind expectedKind,
         string path,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        if (string.IsNullOrWhiteSpace(code))
-        {
-            return;
-        }
-
-        if (!UcliCode.TryCreate(code, out var codeValue))
-        {
-            AddViolation(violations, path, UcliCode.InvalidValueMessage);
-            return;
-        }
-
-        if (!codeCatalog.TryFind(codeValue, out var descriptor))
+        if (!codeCatalog.TryFind(code, out var descriptor))
         {
             AddViolation(violations, path, $"Code '{code}' is not registered in the code catalog.");
             return;
         }
 
-        if (!string.Equals(descriptor.Kind, expectedKind, StringComparison.Ordinal))
+        if (descriptor.Kind != expectedKind)
         {
-            AddViolation(violations, path, $"Code '{code}' must be registered as kind '{expectedKind}'.");
+            AddViolation(violations, path, $"Code '{code}' must be registered as kind '{ContractLiteralCodec.ToValue(expectedKind)}'.");
         }
     }
 
@@ -407,26 +476,45 @@ internal sealed class AssuranceSemanticInvariantValidator
         JsonElement payload,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        for (var i = 0; i < rules.Count; i++)
+        for (var i = 0; i < payloadRules.Count; i++)
         {
-            rules[i].ValidatePayload(payload, violations);
+            payloadRules[i].ValidatePayload(payload, violations);
         }
     }
 
-    private void ValidateCommandSpecificRules (
+    private void ValidateCommandSpecificClaims (
         JsonElement payload,
         JsonElement claimElement,
         string claimPath,
-        string claimId,
+        UcliCode claimId,
         List<AssuranceSemanticInvariantViolation> violations)
     {
-        for (var i = 0; i < rules.Count; i++)
+        for (var i = 0; i < claimRules.Count; i++)
         {
-            rules[i].ValidateClaim(payload, claimElement, claimPath, claimId, violations);
+            claimRules[i].ValidateClaim(payload, claimElement, claimPath, claimId, violations);
         }
     }
 
-    private static string RecalculateVerdict (
+    private static IReadOnlyList<TRule> CopyRequiredRules<TRule> (
+        IEnumerable<TRule> rules,
+        string parameterName)
+        where TRule : class
+    {
+        if (rules == null)
+        {
+            throw new ArgumentNullException(parameterName);
+        }
+
+        var copy = rules.ToArray();
+        if (copy.Length == 0 || copy.Any(static rule => rule == null))
+        {
+            throw new ArgumentException("At least one non-null semantic invariant rule is required.", parameterName);
+        }
+
+        return copy;
+    }
+
+    private static AssuranceVerdict RecalculateVerdict (
         IReadOnlyList<ClaimInfo> claims,
         IReadOnlyList<ResidualRiskInfo> payloadResidualRisks)
     {
@@ -435,8 +523,8 @@ internal sealed class AssuranceSemanticInvariantValidator
         {
             var claim = claims[i];
             claimStates[i] = new AssuranceVerdictClaimState(
-                claim.Status,
-                claim.Coverage,
+                claim.Status!.Value,
+                claim.Coverage!.Value,
                 claim.Required,
                 claim.ResidualRisks.Any(static risk => risk.Blocking));
         }
@@ -448,6 +536,32 @@ internal sealed class AssuranceSemanticInvariantValidator
         }
 
         return AssuranceVerdictCalculator.Calculate(claimStates, residualRiskStates);
+    }
+
+    private static bool TryReadRequiredContractLiteral<TEnum> (
+        JsonElement owner,
+        string propertyName,
+        string ownerPath,
+        List<AssuranceSemanticInvariantViolation> violations,
+        out TEnum value)
+        where TEnum : struct, Enum
+    {
+        value = default;
+        if (!TryReadRequiredString(owner, propertyName, ownerPath, violations, out var literal))
+        {
+            return false;
+        }
+
+        if (ContractLiteralCodec.TryParse(literal, out value))
+        {
+            return true;
+        }
+
+        AddViolation(
+            violations,
+            BuildPropertyPath(ownerPath, propertyName),
+            $"Value must be a supported {typeof(TEnum).Name} contract literal.");
+        return false;
     }
 
     private static bool TryReadRequiredString (
@@ -497,6 +611,29 @@ internal sealed class AssuranceSemanticInvariantValidator
         return !string.IsNullOrWhiteSpace(value);
     }
 
+    private static void ValidateOptionalDigest (
+        JsonElement owner,
+        string ownerPath,
+        List<AssuranceSemanticInvariantViolation> violations)
+    {
+        if (!owner.TryGetProperty("digest", out var digestElement)
+            || digestElement.ValueKind == JsonValueKind.Null)
+        {
+            return;
+        }
+
+        var digest = digestElement.ValueKind == JsonValueKind.String
+            ? digestElement.GetString()
+            : null;
+        if (!Sha256Digest.TryParse(digest, out _))
+        {
+            AddViolation(
+                violations,
+                BuildPropertyPath(ownerPath, "digest"),
+                "Report digest must be a canonical lowercase SHA-256 digest.");
+        }
+    }
+
     private static bool TryReadBoolean (
         JsonElement owner,
         string propertyName,
@@ -508,7 +645,7 @@ internal sealed class AssuranceSemanticInvariantValidator
             : defaultValue;
     }
 
-    private static IReadOnlyList<string> ReadStringArray (
+    private static IReadOnlyList<UcliCode?> ReadCodeArray (
         JsonElement owner,
         string propertyName,
         string ownerPath,
@@ -516,26 +653,33 @@ internal sealed class AssuranceSemanticInvariantValidator
     {
         if (!owner.TryGetProperty(propertyName, out var arrayElement))
         {
-            return Array.Empty<string>();
+            return Array.Empty<UcliCode?>();
         }
 
         if (arrayElement.ValueKind != JsonValueKind.Array)
         {
             AddViolation(violations, BuildPropertyPath(ownerPath, propertyName), "Property must be an array.");
-            return Array.Empty<string>();
+            return Array.Empty<UcliCode?>();
         }
 
-        var values = new List<string>();
+        var values = new List<UcliCode?>();
         var index = 0;
         foreach (var item in arrayElement.EnumerateArray())
         {
             if (item.ValueKind != JsonValueKind.String)
             {
                 AddViolation(violations, $"{BuildPropertyPath(ownerPath, propertyName)}[{index}]", "Array item must be a string.");
+                values.Add(null);
             }
             else
             {
-                values.Add(item.GetString() ?? string.Empty);
+                var rawValue = item.GetString();
+                if (!UcliCode.TryCreate(rawValue, out var value))
+                {
+                    AddViolation(violations, $"{BuildPropertyPath(ownerPath, propertyName)}[{index}]", UcliCode.InvalidValueMessage);
+                }
+
+                values.Add(value);
             }
 
             index++;
@@ -572,17 +716,17 @@ internal sealed class AssuranceSemanticInvariantValidator
     private sealed record VerifierInfo (
         int Index,
         string Path,
-        string Id,
+        AssuranceVerifierId? Id,
         bool Required,
-        IReadOnlyList<string> PrimaryClaims);
+        IReadOnlyList<UcliCode?> PrimaryClaims);
 
     private sealed record ClaimInfo (
         int Index,
         string Path,
-        string Id,
-        string VerifierRef,
-        string Status,
-        string Coverage,
+        UcliCode? Id,
+        AssuranceVerifierId? VerifierRef,
+        AssuranceClaimStatus? Status,
+        AssuranceCoverage? Coverage,
         bool Required,
         IReadOnlyList<ResidualRiskInfo> ResidualRisks);
 

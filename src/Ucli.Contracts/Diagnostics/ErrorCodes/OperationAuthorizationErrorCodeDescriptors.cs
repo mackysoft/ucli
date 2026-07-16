@@ -20,7 +20,7 @@ internal static class OperationAuthorizationErrorCodeDescriptors
             possiblePhases: ["operationAuthorization", "staticValidation", "unityExecution"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["errors[].opId", "payload.requestId", "payload.opResults", "operationPolicy"],
             nextActions:
             [

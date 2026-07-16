@@ -12,7 +12,7 @@ public sealed class CommandResultJsonContractWriterTests
         var result = new CommandResult(
             ProtocolVersion: 1,
             Command: UcliCommandNames.Status,
-            Status: "error",
+            Status: CommandResultStatus.Error,
             ExitCode: (int)CliExitCode.InvalidArgument,
             Message: "Failed.",
             Payload: new { sampleValue = true },

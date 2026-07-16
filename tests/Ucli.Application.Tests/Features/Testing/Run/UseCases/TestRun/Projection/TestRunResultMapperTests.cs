@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Testing.Run.Execution;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
 using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projection;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using static MackySoft.Ucli.Application.Tests.TestRunServiceTestFactory;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -144,7 +145,7 @@ public sealed class TestRunResultMapperTests
     private static ArtifactsSession CreateSession ()
     {
         return new ArtifactsSession(
-            "run-id",
+            RunId,
             TestArtifactPaths.Create("/tmp/ucli-tests/run-id"),
             DateTimeOffset.Parse("2026-04-21T00:00:00Z"));
     }

@@ -24,13 +24,13 @@ internal interface IDaemonStartProgressObserver
     /// <summary> Emits the session-registration observation entry. </summary>
     ValueTask EmitSessionRegisteredAsync (
         DaemonSession session,
-        string? launchAttemptId,
+        Guid? launchAttemptId,
         CancellationToken cancellationToken);
 
     /// <summary> Emits the endpoint-registration observation entry. </summary>
     ValueTask EmitEndpointRegisteredAsync (
         DaemonSession session,
-        string? launchAttemptId,
+        Guid? launchAttemptId,
         CancellationToken cancellationToken);
 
     /// <summary> Emits the endpoint-registered lifecycle observation entry. </summary>

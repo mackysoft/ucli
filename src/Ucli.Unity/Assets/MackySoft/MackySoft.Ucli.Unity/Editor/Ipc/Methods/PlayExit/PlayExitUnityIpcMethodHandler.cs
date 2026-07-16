@@ -20,19 +20,19 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="daemonLogger"> The daemon logger dependency. </param>
         public PlayExitUnityIpcMethodHandler (
             PlayExitTransitionRunner transitionRunner,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.transitionRunner = transitionRunner ?? throw new ArgumentNullException(nameof(transitionRunner));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.PlayExit;
+        public UnityIpcMethod Method => UnityIpcMethod.PlayExit;
 
         /// <inheritdoc />
         public bool TryCreateRecoverableRequestPayloadHash (
-            IpcRequest request,
-            out string requestPayloadHash,
+            ValidatedUnityIpcRequest request,
+            out Sha256Digest requestPayloadHash,
             out IpcResponse errorResponse)
         {
             if (!TryReadPlayExitRequest(
@@ -46,33 +46,33 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var stablePayload = IpcPayloadCodec.SerializeToElement(exitRequest);
-            requestPayloadHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
+            requestPayloadHash = Sha256Digest.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
             return true;
         }
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            return await HandleCoreAsync(request, null, cancellationToken);
+            return await HandleCoreAsync(request, null, cancellation);
         }
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleRecoverableAsync (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             RecoverableIpcOperationContext context,
-            CancellationToken cancellationToken)
+            IpcRequestCancellation cancellation)
         {
-            return await HandleCoreAsync(request, context, cancellationToken);
+            return await HandleCoreAsync(request, context, cancellation);
         }
 
         private async ValueTask<IpcResponse> HandleCoreAsync (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             RecoverableIpcOperationContext recoverableContext,
-            CancellationToken cancellationToken)
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -88,9 +88,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var result = await transitionRunner.ExitAsync(
-                exitRequest.TimeoutMilliseconds!.Value,
                 recoverableContext,
-                cancellationToken);
+                cancellation);
             if (result.IsSuccess)
             {
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, result.Response);
@@ -105,7 +104,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private bool TryReadPlayExitRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             bool logDecodeFailure,
             out IpcPlayExitRequest exitRequest,
             out IpcResponse errorResponse)
@@ -125,38 +124,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!TryValidateTimeoutMilliseconds(exitRequest!.TimeoutMilliseconds, out var timeoutErrorMessage))
-            {
-                errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    timeoutErrorMessage,
-                    null);
-                return false;
-            }
-
             errorResponse = null;
             return true;
         }
 
-        private static bool TryValidateTimeoutMilliseconds (
-            int? timeoutMilliseconds,
-            out string errorMessage)
-        {
-            if (!timeoutMilliseconds.HasValue)
-            {
-                errorMessage = "PlayExit timeoutMilliseconds is required.";
-                return false;
-            }
-
-            if (timeoutMilliseconds.Value <= 0)
-            {
-                errorMessage = "PlayExit timeoutMilliseconds must be greater than zero.";
-                return false;
-            }
-
-            errorMessage = null;
-            return true;
-        }
     }
 }

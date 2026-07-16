@@ -10,11 +10,7 @@ public sealed class BoundedWindowApplicatorTests
     {
         var result = BoundedWindowApplicator.Apply(
             new[] { "a", "b", "c" },
-            new BoundedWindowOptions(
-                All: false,
-                Limit: 2,
-                Cursor: null,
-                Offset: 0));
+            BoundedWindowOptions.CreateBounded(limit: 2, cursor: null));
 
         Assert.Equal(new[] { "a", "b" }, result.Items);
         Assert.Equal(2, result.Window.Limit);

@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEngine;
 
 #nullable enable
@@ -10,37 +10,42 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Tracks plan-time alias bindings independently from other temporary execution state. </summary>
     internal sealed class TemporaryAliasRegistry
     {
-        private readonly Dictionary<string, TemporaryAliasValue> valuesByAlias =
-            new Dictionary<string, TemporaryAliasValue>(StringComparer.Ordinal);
+        private readonly Dictionary<RequestLocalAliasIdentity, TemporaryAliasValue> valuesByAlias =
+            new Dictionary<RequestLocalAliasIdentity, TemporaryAliasValue>();
 
+        /// <summary> Stores or replaces one request-local alias binding. </summary>
+        /// <param name="alias"> The validated alias name. </param>
+        /// <param name="unityObject"> The live object bound to the alias. </param>
+        /// <param name="resource"> The logical owner resource. </param>
+        /// <param name="sourceTrackingKey"> The optional semantic source identity used for replacement and deletion synchronization. </param>
+        /// <param name="ownerTrackingKey"> The optional semantic owner identity for a component alias. </param>
         public void Set (
-            string alias,
+            RequestLocalAliasIdentity alias,
             UnityEngine.Object unityObject,
             OperationResource resource,
-            string? sourceGlobalObjectId = null)
+            RequestLocalObjectIdentity? sourceTrackingKey,
+            RequestLocalObjectIdentity? ownerTrackingKey)
         {
-            ValidateAlias(alias);
+            if (alias == null)
+            {
+                throw new ArgumentNullException(nameof(alias));
+            }
+
             if (unityObject == null)
             {
                 throw new ArgumentNullException(nameof(unityObject));
             }
 
             ValidateResource(resource, nameof(resource));
-            if (sourceGlobalObjectId != null
-                && string.IsNullOrWhiteSpace(sourceGlobalObjectId))
-            {
-                throw new ArgumentException("Source GlobalObjectId must not be empty when provided.", nameof(sourceGlobalObjectId));
-            }
-
-            valuesByAlias[alias] = new TemporaryAliasValue(unityObject, resource, sourceGlobalObjectId);
+            valuesByAlias[alias] = new TemporaryAliasValue(unityObject, resource, sourceTrackingKey, ownerTrackingKey);
         }
 
         public bool TryGetState (
-            string alias,
+            RequestLocalAliasIdentity alias,
             out TemporaryAliasState state)
         {
             state = default;
-            if (string.IsNullOrWhiteSpace(alias))
+            if (alias == null)
             {
                 return false;
             }
@@ -56,18 +61,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            state = new TemporaryAliasState(value.UnityObject, value.Resource, value.SourceGlobalObjectId);
+            state = new TemporaryAliasState(value.UnityObject, value.Resource, value.SourceTrackingKey);
             return true;
         }
 
-        public void SynchronizeBySourceGlobalObjectId (
-            string sourceGlobalObjectId,
+        /// <summary> Advances aliases bound to one semantic source identity to a replacement object. </summary>
+        /// <param name="sourceTrackingKey"> The source identity whose aliases must advance. </param>
+        /// <param name="unityObject"> The replacement live object. </param>
+        /// <param name="resource"> The replacement object's logical owner resource. </param>
+        public void SynchronizeBySourceTrackingKey (
+            RequestLocalObjectIdentity sourceTrackingKey,
             UnityEngine.Object unityObject,
             OperationResource resource)
         {
-            if (string.IsNullOrWhiteSpace(sourceGlobalObjectId))
+            if (sourceTrackingKey == null)
             {
-                throw new ArgumentException("Source GlobalObjectId must not be null, empty, or whitespace.", nameof(sourceGlobalObjectId));
+                throw new ArgumentNullException(nameof(sourceTrackingKey));
             }
 
             if (unityObject == null)
@@ -77,15 +86,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             ValidateResource(resource, nameof(resource));
 
-            List<string>? aliasesToSynchronize = null;
+            List<RequestLocalAliasIdentity>? aliasesToSynchronize = null;
             foreach (var pair in valuesByAlias)
             {
-                if (!string.Equals(pair.Value.SourceGlobalObjectId, sourceGlobalObjectId, StringComparison.Ordinal))
+                if (pair.Value.SourceTrackingKey == null
+                    || !pair.Value.SourceTrackingKey.Equals(sourceTrackingKey))
                 {
                     continue;
                 }
 
-                aliasesToSynchronize ??= new List<string>();
+                aliasesToSynchronize ??= new List<RequestLocalAliasIdentity>();
                 aliasesToSynchronize.Add(pair.Key);
             }
 
@@ -97,7 +107,56 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < aliasesToSynchronize.Count; i++)
             {
                 var alias = aliasesToSynchronize[i];
-                valuesByAlias[alias] = new TemporaryAliasValue(unityObject, resource, sourceGlobalObjectId);
+                var existingValue = valuesByAlias[alias];
+                valuesByAlias[alias] = new TemporaryAliasValue(
+                    unityObject,
+                    resource,
+                    sourceTrackingKey,
+                    existingValue.OwnerTrackingKey);
+            }
+        }
+
+        /// <summary> Removes component aliases owned by one deleted GameObject or bound to one of its removed component identities. </summary>
+        /// <param name="ownerTrackingKey"> The validated identity of the deleted owner GameObject. </param>
+        /// <param name="sourceTrackingKeys"> The non-null set of removed component identities. </param>
+        public void RemoveComponentAliases (
+            RequestLocalObjectIdentity ownerTrackingKey,
+            ISet<RequestLocalObjectIdentity> sourceTrackingKeys)
+        {
+            if (ownerTrackingKey == null)
+            {
+                throw new ArgumentNullException(nameof(ownerTrackingKey));
+            }
+
+            if (sourceTrackingKeys == null)
+            {
+                throw new ArgumentNullException(nameof(sourceTrackingKeys));
+            }
+
+            List<RequestLocalAliasIdentity>? aliasesToRemove = null;
+            foreach (var pair in valuesByAlias)
+            {
+                var belongsToDeletedOwner = pair.Value.OwnerTrackingKey != null
+                    && pair.Value.OwnerTrackingKey.Equals(ownerTrackingKey);
+                var hasRemovedSource = pair.Value.SourceTrackingKey != null
+                    && sourceTrackingKeys.Contains(pair.Value.SourceTrackingKey);
+                if (!belongsToDeletedOwner && !hasRemovedSource)
+                {
+                    continue;
+                }
+
+                aliasesToRemove ??= new List<RequestLocalAliasIdentity>();
+                aliasesToRemove.Add(pair.Key);
+            }
+
+            if (aliasesToRemove == null)
+            {
+                return;
+            }
+
+            for (var i = 0; i < aliasesToRemove.Count; i++)
+            {
+                valuesByAlias.Remove(aliasesToRemove[i]);
             }
         }
 
@@ -106,7 +165,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UnityEngine.Object replacementUnityObject,
             OperationResource resource)
         {
-            if (sourceUnityObject == null)
+            if (ReferenceEquals(sourceUnityObject, null))
             {
                 throw new ArgumentNullException(nameof(sourceUnityObject));
             }
@@ -118,15 +177,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             ValidateResource(resource, nameof(resource));
 
-            List<string>? aliasesToSynchronize = null;
+            List<RequestLocalAliasIdentity>? aliasesToSynchronize = null;
             foreach (var pair in valuesByAlias)
             {
-                if (pair.Value.UnityObject != sourceUnityObject)
+                if (!ReferenceEquals(pair.Value.UnityObject, sourceUnityObject))
                 {
                     continue;
                 }
 
-                aliasesToSynchronize ??= new List<string>();
+                aliasesToSynchronize ??= new List<RequestLocalAliasIdentity>();
                 aliasesToSynchronize.Add(pair.Key);
             }
 
@@ -138,27 +197,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var i = 0; i < aliasesToSynchronize.Count; i++)
             {
                 var alias = aliasesToSynchronize[i];
-                var sourceGlobalObjectId = valuesByAlias[alias].SourceGlobalObjectId;
-                valuesByAlias[alias] = new TemporaryAliasValue(replacementUnityObject, resource, sourceGlobalObjectId);
+                var existingValue = valuesByAlias[alias];
+                valuesByAlias[alias] = new TemporaryAliasValue(
+                    replacementUnityObject,
+                    resource,
+                    existingValue.SourceTrackingKey,
+                    existingValue.OwnerTrackingKey);
             }
         }
 
         public void Clear ()
         {
             valuesByAlias.Clear();
-        }
-
-        private static void ValidateAlias (string alias)
-        {
-            if (string.IsNullOrWhiteSpace(alias))
-            {
-                throw new ArgumentException("Alias must not be null, empty, or whitespace.", nameof(alias));
-            }
-
-            if (StringValueValidator.HasOuterWhitespace(alias))
-            {
-                throw new ArgumentException("Alias must not contain leading or trailing whitespace.", nameof(alias));
-            }
         }
 
         private static void ValidateResource (
@@ -176,18 +226,22 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public TemporaryAliasValue (
                 UnityEngine.Object unityObject,
                 OperationResource resource,
-                string? sourceGlobalObjectId)
+                RequestLocalObjectIdentity? sourceTrackingKey,
+                RequestLocalObjectIdentity? ownerTrackingKey)
             {
                 UnityObject = unityObject;
                 Resource = resource;
-                SourceGlobalObjectId = sourceGlobalObjectId;
+                SourceTrackingKey = sourceTrackingKey;
+                OwnerTrackingKey = ownerTrackingKey;
             }
 
             public UnityEngine.Object UnityObject { get; }
 
             public OperationResource Resource { get; }
 
-            public string? SourceGlobalObjectId { get; }
+            public RequestLocalObjectIdentity? SourceTrackingKey { get; }
+
+            public RequestLocalObjectIdentity? OwnerTrackingKey { get; }
         }
 
         internal readonly struct TemporaryAliasState
@@ -195,18 +249,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public TemporaryAliasState (
                 UnityEngine.Object unityObject,
                 OperationResource resource,
-                string? sourceGlobalObjectId)
+                RequestLocalObjectIdentity? sourceTrackingKey)
             {
                 UnityObject = unityObject;
                 Resource = resource;
-                SourceGlobalObjectId = sourceGlobalObjectId;
+                SourceTrackingKey = sourceTrackingKey;
             }
 
-            public UnityEngine.Object? UnityObject { get; }
+            public UnityEngine.Object UnityObject { get; }
 
             public OperationResource Resource { get; }
 
-            public string? SourceGlobalObjectId { get; }
+            public RequestLocalObjectIdentity? SourceTrackingKey { get; }
         }
     }
 }

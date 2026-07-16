@@ -20,8 +20,7 @@ internal static class DaemonProcessStartTimeMatcher
         var expectedStartTimeUtc = expectedProcessStartedAtUtc.ToUniversalTime();
         var delta = actualStartTimeUtc - expectedStartTimeUtc;
 
-        // NOTE: This matcher is not the primary daemon identity. It is used only when editorInstanceId is absent,
-        // and the two start-time sources can be rounded to whole seconds in opposite directions.
+        // The two process-start sources can be rounded to whole seconds in opposite directions.
         return delta.Duration() <= Tolerance;
     }
 }

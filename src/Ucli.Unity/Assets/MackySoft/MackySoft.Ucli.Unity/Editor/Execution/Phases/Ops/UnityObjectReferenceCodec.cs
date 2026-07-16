@@ -1,6 +1,8 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Requests;
 
 #nullable enable
 
@@ -20,11 +22,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         public static bool TryParse (
             JsonElement element,
             string propertyPath,
-            out UnityObjectReference reference,
+            OperationAliasReferenceMap aliasReferences,
+            [NotNullWhen(true)] out UnityObjectReference? reference,
             out string errorMessage)
         {
-            reference = default;
+            reference = null;
             errorMessage = string.Empty;
+            if (aliasReferences == null)
+            {
+                throw new ArgumentNullException(nameof(aliasReferences));
+            }
+
             if (element.ValueKind != JsonValueKind.Object)
             {
                 errorMessage = $"Operation '{propertyPath}' must be an object.";
@@ -65,7 +73,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                reference = UnityObjectReference.FromAlias(alias!);
+                try
+                {
+                    reference = UnityObjectReference.FromAlias(aliasReferences.Resolve(new UcliPlanAlias(alias!)));
+                }
+                catch (ArgumentException)
+                {
+                    errorMessage = $"Operation '{propertyPath}.{AliasPropertyName}' must be a valid request-local alias.";
+                    return false;
+                }
+
                 return true;
             }
 

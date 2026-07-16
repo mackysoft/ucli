@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
 
@@ -13,5 +14,5 @@ internal sealed record CompileLifecycleOutput (
     IpcUnityGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
     DateTimeOffset? ObservedAtUtc,
-    string? ActionRequired,
+    DaemonDiagnosisActionRequired? ActionRequired,
     CompilePrimaryDiagnosticOutput? PrimaryDiagnostic);

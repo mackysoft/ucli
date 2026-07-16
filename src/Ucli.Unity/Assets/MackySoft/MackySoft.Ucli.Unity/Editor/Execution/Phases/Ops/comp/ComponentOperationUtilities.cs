@@ -9,17 +9,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Provides reusable helpers shared by component-domain operations. </summary>
     internal static class ComponentOperationUtilities
     {
-        /// <summary> Resolves one component selector against the specified GameObject and optional request-local ensure state. </summary>
+        /// <summary> Evaluates one resolved component selector against the specified GameObject and optional request-local ensure state. </summary>
         /// <param name="gameObject"> The candidate GameObject. </param>
-        /// <param name="componentType"> The component type selector. </param>
+        /// <param name="componentType"> The resolved component runtime type. </param>
         /// <param name="executionContext"> The request execution context. </param>
         /// <param name="allowTemporaryState"> Whether request-local ensure state may contribute to the selector result. </param>
-        /// <param name="resolution"> The selector resolution result when type parsing succeeds. </param>
-        /// <param name="errorMessage"> The validation error message when the component type cannot be parsed. </param>
+        /// <param name="resolution"> The selector resolution result. </param>
+        /// <param name="errorMessage"> The validation error message when request-local state cannot be inspected. </param>
         /// <returns> <see langword="true" /> when selector evaluation completes; otherwise <see langword="false" />. </returns>
         public static bool TryResolveComponentSelector (
             GameObject gameObject,
-            string componentType,
+            Type componentType,
             OperationExecutionContext? executionContext,
             bool allowTemporaryState,
             out ComponentSelectorResolutionState resolution,
@@ -30,20 +30,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(gameObject));
             }
 
-            resolution = default;
-            if (!ComponentTypeResolver.TryResolveComponentType(componentType, out var componentRuntimeType, out errorMessage))
+            if (componentType == null)
             {
-                return false;
+                throw new ArgumentNullException(nameof(componentType));
             }
 
-            var components = gameObject.GetComponents(componentRuntimeType!);
+            resolution = default;
+            var components = gameObject.GetComponents(componentType);
             Component? ensuredComponent = null;
             var ensuredComponentCount = 0;
             if (allowTemporaryState
                 && executionContext != null)
             {
-                var targetReferenceKey = UnityObjectReferenceResolver.CreateTrackingKey(gameObject);
-                if (executionContext.TryGetEnsuredComponentState(targetReferenceKey, componentRuntimeType!, out var ensuredComponentState))
+                if (!OperationResourceUtilities.TryResolveOwnerResource(
+                        gameObject,
+                        executionContext,
+                        out var resource,
+                        out errorMessage))
+                {
+                    return false;
+                }
+
+                var targetTrackingKey = executionContext.CreateGameObjectTrackingKey(gameObject, resource);
+                if (executionContext.TryGetEnsuredComponentState(targetTrackingKey, componentType, out var ensuredComponentState))
                 {
                     ensuredComponent = ensuredComponentState.Component;
                     if (ensuredComponent != null)
@@ -62,52 +71,52 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        /// <summary> Resolves one reference to a Component. Temporary plan aliases can be enabled when required. </summary>
+        /// <summary> Resolves one reference to a Component under the specified request-local state policy. </summary>
         /// <param name="reference"> The parsed Unity-object reference. </param>
         /// <param name="executionContext"> The request execution context. </param>
-        /// <param name="allowTemporaryState"> Whether temporary plan aliases may satisfy the reference. </param>
+        /// <param name="resolutionPolicy"> The request-local state participation policy. </param>
         /// <param name="resolution"> The resolved component state when successful. </param>
         /// <param name="errorMessage"> The validation error message when resolution fails. </param>
         /// <returns> <see langword="true" /> when the reference resolves to one Component target; otherwise <see langword="false" />. </returns>
         public static bool TryResolveComponent (
             UnityObjectReference reference,
             OperationExecutionContext executionContext,
-            bool allowTemporaryState,
+            OperationObjectReferenceUtilities.ReferenceResolutionPolicy resolutionPolicy,
             out ComponentResolutionState resolution,
             out string errorMessage)
         {
             resolution = default;
-            if (reference.Kind == UnityObjectReferenceKind.Alias
-                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
-            {
-                var temporaryComponent = temporaryAliasState.UnityObject as Component;
-                if (temporaryComponent == null)
-                {
-                    errorMessage = "Reference did not resolve to a Component.";
-                    return false;
-                }
-
-                resolution = new ComponentResolutionState(temporaryComponent, temporaryAliasState.Resource);
-                errorMessage = string.Empty;
-                return true;
-            }
-
-            if (!UnityObjectReferenceResolver.TryResolve(reference, executionContext, allowTemporaryState, out var unityObject, out errorMessage))
+            if (!OperationObjectReferenceUtilities.TryResolveUnityObject(
+                    reference,
+                    executionContext,
+                    resolutionPolicy,
+                    out var objectResolution,
+                    out errorMessage))
             {
                 return false;
             }
 
-            var component = unityObject as Component;
+            var component = objectResolution.UnityObject as Component;
             if (component == null)
             {
                 errorMessage = "Reference did not resolve to a Component.";
                 return false;
             }
 
-            if (allowTemporaryState
+            if (objectResolution.TemporaryAliasResource is OperationResource temporaryAliasResource)
+            {
+                resolution = new ComponentResolutionState(
+                    component,
+                    temporaryAliasResource,
+                    objectResolution.TemporaryAliasSourceTrackingKey);
+                errorMessage = string.Empty;
+                return true;
+            }
+
+            if (resolutionPolicy != OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly
                 && executionContext.TryResolveTrackedComponentResource(component, out var trackedResource))
             {
-                resolution = new ComponentResolutionState(component, trackedResource);
+                resolution = new ComponentResolutionState(component, trackedResource, temporaryAliasSourceTrackingKey: null);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -117,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            resolution = new ComponentResolutionState(component, resource);
+            resolution = new ComponentResolutionState(component, resource, temporaryAliasSourceTrackingKey: null);
             return true;
         }
 
@@ -218,15 +227,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             public ComponentResolutionState (
                 Component component,
-                OperationResource resource)
+                OperationResource resource,
+                RequestLocalObjectIdentity? temporaryAliasSourceTrackingKey)
             {
                 Component = component;
                 Resource = resource;
+                TemporaryAliasSourceTrackingKey = temporaryAliasSourceTrackingKey;
             }
 
             public Component? Component { get; }
 
             public OperationResource Resource { get; }
+
+            public RequestLocalObjectIdentity? TemporaryAliasSourceTrackingKey { get; }
         }
 
         internal readonly struct ComponentSelectorResolutionState

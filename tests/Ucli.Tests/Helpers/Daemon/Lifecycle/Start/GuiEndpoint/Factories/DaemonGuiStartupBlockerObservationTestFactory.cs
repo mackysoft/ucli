@@ -10,11 +10,11 @@ internal static class DaemonGuiStartupBlockerObservationTestFactory
         DateTimeOffset processStartedAtUtc,
         string unityLogPath,
         DaemonStartupBlockingReason startupBlockingReason = DaemonStartupBlockingReason.Compile,
-        string reason = DaemonDiagnosisReasonValues.UnityScriptCompilationFailed,
+        DaemonDiagnosisReason reason = DaemonDiagnosisReason.UnityScriptCompilationFailed,
         DaemonStartupRetryDisposition retryDisposition = DaemonStartupRetryDisposition.RetryAfterFix,
         string message = "Unity Editor startup is blocked because scripts have compiler errors.",
         DaemonDiagnosisStartupPhase startupPhase = DaemonDiagnosisStartupPhase.ScriptCompilation,
-        string actionRequired = DaemonDiagnosisActionRequiredValues.FixCompileErrors,
+        DaemonDiagnosisActionRequired actionRequired = DaemonDiagnosisActionRequired.FixCompileErrors,
         DaemonPrimaryDiagnostic? primaryDiagnostic = null)
     {
         return new DaemonGuiStartupBlockerObservation(

@@ -1,4 +1,7 @@
+using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
+
+using static MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion.ExecuteResponseConverterTestSupport;
 
 namespace MackySoft.Ucli.Application.Tests.Requests.Shared.Execution.Conversion;
 
@@ -6,57 +9,60 @@ public sealed class ExecuteResponseConverterErrorTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenErrorsAreMissing_ReturnsInternalError ()
+    public void UnityRequestResponse_WhenErrorsAreMissing_ThrowsArgumentNullException ()
     {
-        var response = new UnityRequestResponse(
-            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
-            Errors: null!,
-            HasFailureStatus: false);
+        var exception = Assert.Throws<ArgumentNullException>(() => new UnityRequestResponse(
+            Payload: CreatePayload(),
+            Errors: null!));
 
-        var result = ExecuteResponseConverter.Convert(response);
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("'errors' field", error.Message, StringComparison.Ordinal);
+        Assert.Equal("Errors", exception.ParamName);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenErrorRequiredTextIsMissing_ReturnsInternalError ()
+    public void UnityRequestResponse_WhenPayloadIsUndefined_ThrowsArgumentException ()
     {
-        var response = new UnityRequestResponse(
-            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
-            Errors:
-            [
-                new OperationExecutionError(default, "Unity execution failed.", null),
-            ],
-            HasFailureStatus: true);
+        var exception = Assert.Throws<ArgumentException>(() => new UnityRequestResponse(
+            Payload: default,
+            Errors: []));
 
-        var result = ExecuteResponseConverter.Convert(response);
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Contains("errors[0].code", error.Message, StringComparison.Ordinal);
+        Assert.Equal("Payload", exception.ParamName);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void Convert_WhenFailureStatusHasNoErrors_ReturnsStatusMessage ()
+    public void UnityRequestResponse_WhenErrorsContainNull_ThrowsArgumentException ()
     {
-        var response = new UnityRequestResponse(
-            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
-            Errors: [],
-            HasFailureStatus: true,
-            FailureStatus: "busy");
+        var exception = Assert.Throws<ArgumentException>(() => new UnityRequestResponse(
+            Payload: CreatePayload(),
+            Errors: [null!]));
 
-        var result = ExecuteResponseConverter.Convert(response);
+        Assert.Equal("Errors", exception.ParamName);
+    }
 
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Equal("Execute response failed with status 'busy'.", error.Message);
+    [Fact]
+    [Trait("Size", "Small")]
+    public void OperationExecutionError_WhenCodeIsNull_ThrowsArgumentNullException ()
+    {
+        Assert.Throws<ArgumentNullException>(() => new OperationExecutionError(
+            null!,
+            "Unity execution failed.",
+            null));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" ")]
+    [Trait("Size", "Small")]
+    public void OperationExecutionError_WhenMessageIsMissing_ThrowsArgumentException (string? message)
+    {
+        var exception = Assert.ThrowsAny<ArgumentException>(() => new OperationExecutionError(
+            UcliCoreErrorCodes.InternalError,
+            message!,
+            null));
+
+        Assert.Equal("Message", exception.ParamName);
     }
 
     [Fact]
@@ -64,16 +70,20 @@ public sealed class ExecuteResponseConverterErrorTests
     public void Convert_WhenPlanTokenValidationFails_PreservesOperationErrorCode ()
     {
         var response = new UnityRequestResponse(
-            Payload: IpcPayloadCodec.SerializeToElement(new IpcExecuteResponse([])),
+            Payload: CreatePayload(),
             Errors:
             [
                 new OperationExecutionError(PlanTokenErrorCodes.PlanTokenInvalid, "Plan token is invalid.", null),
-            ],
-            HasFailureStatus: true);
+            ]);
 
-        var result = ExecuteResponseConverter.Convert(response);
+        var result = ExecuteResponseConverter.Convert(response, ExpectedProject);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(PlanTokenErrorCodes.PlanTokenInvalid, Assert.Single(result.Errors).Code);
+    }
+
+    private static JsonElement CreatePayload ()
+    {
+        return IpcPayloadCodec.SerializeToElement(CreateExecuteResponse([]));
     }
 }

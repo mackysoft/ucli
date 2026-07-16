@@ -20,7 +20,7 @@ internal static class DaemonStartCommandTestSupport
             DaemonStatus: DaemonStatusKind.Running,
             TimeoutMilliseconds: 1234,
             Session: new DaemonSessionOutput(
-                ProjectFingerprint: "fingerprint",
+                ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
                 IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 1, 2, 3, TimeSpan.Zero),
                 EditorMode: DaemonEditorMode.Batchmode,
                 OwnerKind: DaemonSessionOwnerKind.Cli,
@@ -78,6 +78,7 @@ internal static class DaemonStartCommandTestSupport
         await progressSink!.OnEntryAsync(
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
+                    launchAttemptId: DaemonStartProgressEntryTestFactory.SampleLaunchAttemptId,
                     startedAtUtc: DaemonStartProgressEntryTestFactory.SampleStartedAtUtc,
                     startupStatus: DaemonStartupStatus.WaitingForEndpoint,
                     startupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration),
@@ -86,6 +87,7 @@ internal static class DaemonStartCommandTestSupport
         await progressSink.OnEntryAsync(
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.BlockerDetected),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
+                    launchAttemptId: DaemonStartProgressEntryTestFactory.SampleLaunchAttemptId,
                     startedAtUtc: DaemonStartProgressEntryTestFactory.SampleStartedAtUtc,
                     startupStatus: DaemonStartupStatus.Blocked,
                     startupBlockingReason: DaemonStartupBlockingReason.Compile,
@@ -98,6 +100,7 @@ internal static class DaemonStartCommandTestSupport
         await progressSink.OnEntryAsync(
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EndpointRegistered),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
+                    launchAttemptId: DaemonStartProgressEntryTestFactory.SampleLaunchAttemptId,
                     startedAtUtc: DaemonStartProgressEntryTestFactory.SampleStartedAtUtc),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -105,7 +108,7 @@ internal static class DaemonStartCommandTestSupport
                 ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved),
                 new DaemonStartLifecycleSnapshotProgressEntry(
                     DaemonStartProgressPayloadKind.LifecycleSnapshot,
-                    "fingerprint",
+                    ProjectFingerprintTestFactory.Create("fingerprint"),
                     1234,
                     DaemonEditorMode.Batchmode,
                     DaemonStartupBlockedProcessPolicy.Auto,
@@ -117,16 +120,21 @@ internal static class DaemonStartCommandTestSupport
             .ConfigureAwait(false);
     }
 
-    public static DaemonDiagnosisOutput CreateDiagnosis (string reason)
+    public static DaemonDiagnosisOutput CreateDiagnosis (DaemonDiagnosisReason reason)
     {
         return new DaemonDiagnosisOutput(
             Reason: reason,
             Message: "startup diagnosis",
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            ReportedBy: DaemonDiagnosisReportedBy.Cli,
             IsInferred: true,
             UpdatedAtUtc: new DateTimeOffset(2026, 03, 12, 4, 5, 6, TimeSpan.Zero),
             ProcessId: 1234,
-            EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json");
+            EditorInstancePath: "/repo/UnityProject/Library/EditorInstance.json",
+            ProcessStartedAtUtc: null,
+            UnityLogPath: null,
+            StartupPhase: null,
+            ActionRequired: null,
+            PrimaryDiagnostic: null);
     }
 
     private static DaemonStartProgressEntry CreateProgressEntry (
@@ -136,7 +144,7 @@ internal static class DaemonStartCommandTestSupport
         string? errorCode)
     {
         return new DaemonStartProgressEntry(
-            ProjectFingerprint: "fingerprint",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             TimeoutMilliseconds: 1234,
             EditorMode: DaemonEditorMode.Batchmode,
             OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,

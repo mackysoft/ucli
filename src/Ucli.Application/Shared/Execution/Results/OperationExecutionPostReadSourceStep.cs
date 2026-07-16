@@ -1,10 +1,12 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Shared.Execution.Results;
 
 /// <summary> Represents one public step source fact used by post-read verification. </summary>
 internal sealed record OperationExecutionPostReadSourceStep (
-    string OpId,
-    string SourceKind,
+    IpcExecuteStepId OpId,
+    IpcExecutePostReadSourceKind SourceKind,
     bool PlayModeMutation,
-    string? Commit,
+    IpcExecutePostReadCommit? Commit,
     bool PersistenceExpected,
-    string ExpectedPostState);
+    IpcExecuteExpectedPostState ExpectedPostState);

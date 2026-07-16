@@ -54,38 +54,31 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                     opId: null));
             }
 
-            if (!IpcRequestContractReader.TryRead(
-                requestObject: request.Arguments,
-                profile: IpcRequestContractReadProfile.StrictExecute,
-                requestContract: out var parsedContract,
+            if (!IpcExecuteArgumentsContractReader.TryRead(
+                argumentsObject: request.Arguments,
+                profile: IpcExecuteArgumentsContractReadProfile.StrictExecute,
+                argumentsContract: out var parsedArguments,
                 error: out var readError))
             {
                 return ExecuteRequestNormalizationResult.Failure(MapReadError(readError));
             }
 
-            if (parsedContract.ProtocolVersion != IpcProtocol.CurrentVersion)
+            if (parsedArguments.ProtocolVersion != IpcProtocol.CurrentVersion)
             {
                 return ExecuteRequestNormalizationResult.Failure(ExecuteRequestNormalizationError.ProtocolVersionMismatch(
                     expectedVersion: IpcProtocol.CurrentVersion,
-                    actualVersion: parsedContract.ProtocolVersion));
+                    actualVersion: parsedArguments.ProtocolVersion));
             }
 
-            if (parsedContract.RequestId is null)
-            {
-                return ExecuteRequestNormalizationResult.Failure(ExecuteRequestNormalizationError.InvalidArgument(
-                    message: "Request property 'requestId' is required.",
-                    opId: null));
-            }
-
-            if (parsedContract.Steps is null)
+            if (parsedArguments.Steps is null)
             {
                 return ExecuteRequestNormalizationResult.Failure(ExecuteRequestNormalizationError.InvalidArgument(
                     message: "Request property 'steps' is required.",
                     opId: null));
             }
 
-            var validatedSteps = new List<IpcRequestContractStep>(parsedContract.Steps.Count);
-            foreach (var step in parsedContract.Steps)
+            var validatedSteps = new List<IpcExecuteStepContract>(parsedArguments.Steps.Count);
+            foreach (var step in parsedArguments.Steps)
             {
                 if (step is null)
                 {
@@ -112,12 +105,12 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             var canonicalPayload = CanonicalRequestWriter.WriteDigestPayload(
-                parsedContract.ProtocolVersion,
+                parsedArguments.ProtocolVersion,
                 validatedSteps,
                 request.AllowPlayMode);
             var normalizedPlanToken = StringValueNormalizer.TrimToNull(request.PlanToken);
             if (!TryPrepareSourceSteps(
-                parsedContract,
+                parsedArguments,
                 request.AllowPlayMode,
                 operationRegistry,
                 out var sourceSteps,
@@ -127,8 +120,6 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             }
 
             var normalizedRequest = new NormalizedExecuteRequest(
-                ProtocolVersion: parsedContract.ProtocolVersion,
-                RequestId: parsedContract.RequestId,
                 SourceSteps: sourceSteps,
                 AllowDangerous: request.AllowDangerous,
                 AllowPlayMode: request.AllowPlayMode,
@@ -138,10 +129,10 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         }
 
         internal static bool TryPrepareSourceSteps (
-            IpcRequestContract requestContract,
+            IpcExecuteArgumentsContract argumentsContract,
             bool allowPlayMode,
             IPhaseOperationRegistry operationRegistry,
-            out IReadOnlyList<IpcRequestContractStep> sourceSteps,
+            out IReadOnlyList<IpcExecuteStepContract> sourceSteps,
             out ExecuteRequestNormalizationError error)
         {
             if (operationRegistry == null)
@@ -149,10 +140,10 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 throw new ArgumentNullException(nameof(operationRegistry));
             }
 
-            sourceSteps = Array.Empty<IpcRequestContractStep>();
+            sourceSteps = Array.Empty<IpcExecuteStepContract>();
             error = default!;
 
-            if (requestContract.Steps == null)
+            if (argumentsContract.Steps == null)
             {
                 error = ExecuteRequestNormalizationError.InvalidArgument(
                     message: "Request property 'steps' is required.",
@@ -160,8 +151,8 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
                 return false;
             }
 
-            var preparedSteps = new List<IpcRequestContractStep>(requestContract.Steps.Count);
-            foreach (var step in requestContract.Steps)
+            var preparedSteps = new List<IpcExecuteStepContract>(argumentsContract.Steps.Count);
+            foreach (var step in argumentsContract.Steps)
             {
                 if (step == null || step.Id == null || step.Kind == null)
                 {
@@ -173,7 +164,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
                 switch (step.Kind)
                 {
-                    case IpcRequestStepKind.Op:
+                    case IpcExecuteStepKind.Op:
                         if (!RawOperationPlayModeSupportValidator.TryValidate(operationRegistry, step, allowPlayMode, out error))
                         {
                             return false;
@@ -186,7 +177,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
 
                         break;
 
-                    case IpcRequestStepKind.Edit:
+                    case IpcExecuteStepKind.Edit:
                         if (!TryValidateEditStep(step, out var editStep, out error))
                         {
                             return false;
@@ -215,7 +206,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         }
 
         private static bool TryValidateOpStep (
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             out ExecuteRequestNormalizationError error)
         {
             if (step.OperationName == null)
@@ -240,7 +231,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         }
 
         private static bool TryValidateEditStep (
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             out IpcEditStepContract editStep,
             out ExecuteRequestNormalizationError error)
         {
@@ -258,7 +249,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         }
 
         private static bool TryValidatePlayModeEditStep (
-            string stepId,
+            IpcExecuteStepId stepId,
             IpcEditStepContract editStep,
             out ExecuteRequestNormalizationError error)
         {
@@ -300,137 +291,122 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
             return true;
         }
 
-        private static ExecuteRequestNormalizationError MapReadError (in IpcRequestContractReadError readError)
+        private static ExecuteRequestNormalizationError MapReadError (in IpcExecuteArgumentsContractReadError readError)
         {
-            if (readError.Kind == IpcRequestContractReadErrorKind.StepEditContractViolation)
+            if (readError.Kind == IpcExecuteArgumentsContractReadErrorKind.StepEditContractViolation)
             {
                 return ExecuteRequestNormalizationError.InvalidArgument(
                     message: readError.DiagnosticMessage ?? "Request arguments are invalid.",
                     opId: readError.StepId);
             }
 
-            var violation = IpcRequestContractViolationClassifier.Classify(readError);
-            var stepId = violation.StepId ?? string.Empty;
+            var violation = IpcExecuteArgumentsContractViolationClassifier.Classify(readError);
+            var stepId = violation.StepId!;
             return violation.Kind switch
             {
-                IpcRequestContractViolationKind.RequestMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.ArgumentsMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request arguments must be a JSON object.",
                     null),
-                IpcRequestContractViolationKind.UnknownRequestProperty => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.UnknownArgumentsProperty => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Request contains an unknown property: {violation.UnknownPropertyName}.",
                     null),
-                IpcRequestContractViolationKind.ProtocolVersionMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.ProtocolVersionMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request property 'protocolVersion' is required.",
                     null),
-                IpcRequestContractViolationKind.ProtocolVersionTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.ProtocolVersionTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request property 'protocolVersion' must be an integer.",
                     null),
-                IpcRequestContractViolationKind.RequestIdMissing => ExecuteRequestNormalizationError.InvalidArgument(
-                    "Request property 'requestId' is required.",
-                    null),
-                IpcRequestContractViolationKind.RequestIdTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
-                    "Request property 'requestId' must be a UUID string.",
-                    null),
-                IpcRequestContractViolationKind.RequestIdEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
-                    "Request property 'requestId' must not contain leading or trailing whitespace.",
-                    null),
-                IpcRequestContractViolationKind.RequestIdOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
-                    "Request property 'requestId' must not contain leading or trailing whitespace.",
-                    null),
-                IpcRequestContractViolationKind.RequestIdFormatMismatch => ExecuteRequestNormalizationError.InvalidArgument(
-                    "Request property 'requestId' must be UUID format 'D'.",
-                    null),
-                IpcRequestContractViolationKind.StepsMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepsMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request property 'steps' is required.",
                     null),
-                IpcRequestContractViolationKind.StepsTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepsTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     "Request property 'steps' must be an array.",
                     null),
-                IpcRequestContractViolationKind.StepMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step at index {violation.StepIndex} must be an object.",
                     null),
-                IpcRequestContractViolationKind.StepKindMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepKindMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step at index {violation.StepIndex} property 'kind' is required.",
                     null),
-                IpcRequestContractViolationKind.StepKindTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepKindTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step at index {violation.StepIndex} property 'kind' must be a string.",
                     null),
-                IpcRequestContractViolationKind.StepKindEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepKindEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step at index {violation.StepIndex} property 'kind' must not be empty.",
                     null),
-                IpcRequestContractViolationKind.StepKindOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepKindOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step at index {violation.StepIndex} property 'kind' must not contain leading or trailing whitespace.",
                     null),
-                IpcRequestContractViolationKind.StepKindUnsupported => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepKindUnsupported => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step at index {violation.StepIndex} property 'kind' is unsupported: {violation.UnknownPropertyName}.",
                     null),
-                IpcRequestContractViolationKind.UnknownStepProperty => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.UnknownStepProperty => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step at index {violation.StepIndex} contains an unknown property: {violation.UnknownPropertyName}.",
                     null),
-                IpcRequestContractViolationKind.StepIdMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepIdMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step at index {violation.StepIndex} property 'id' is required.",
                     null),
-                IpcRequestContractViolationKind.StepIdTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepIdTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step at index {violation.StepIndex} property 'id' must be a string.",
                     null),
-                IpcRequestContractViolationKind.StepIdEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepIdEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step at index {violation.StepIndex} property 'id' must not be empty.",
                     null),
-                IpcRequestContractViolationKind.StepIdOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepIdOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step at index {violation.StepIndex} property 'id' must not contain leading or trailing whitespace.",
                     null),
-                IpcRequestContractViolationKind.StepOpMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepOpMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'op' is required.",
                     stepId),
-                IpcRequestContractViolationKind.StepOpTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepOpTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'op' must be a string.",
                     stepId),
-                IpcRequestContractViolationKind.StepOpEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepOpEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'op' must not be empty.",
                     stepId),
-                IpcRequestContractViolationKind.StepOpOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepOpOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'op' must not contain leading or trailing whitespace.",
                     stepId),
-                IpcRequestContractViolationKind.StepArgsMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepArgsMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'args' is required.",
                     stepId),
-                IpcRequestContractViolationKind.StepArgsTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepArgsTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'args' must be an object.",
                     stepId),
-                IpcRequestContractViolationKind.StepOnMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepOnMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'on' is required.",
                     stepId),
-                IpcRequestContractViolationKind.StepOnTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepOnTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'on' must be an object.",
                     stepId),
-                IpcRequestContractViolationKind.StepSelectMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepSelectMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'select' is required.",
                     stepId),
-                IpcRequestContractViolationKind.StepSelectTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepSelectTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'select' must be an object.",
                     stepId),
-                IpcRequestContractViolationKind.StepActionsMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepActionsMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'actions' is required.",
                     stepId),
-                IpcRequestContractViolationKind.StepActionsTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepActionsTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'actions' must be an array.",
                     stepId),
-                IpcRequestContractViolationKind.StepActionMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepActionMustBeObject => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'actions' must contain only objects.",
                     stepId),
-                IpcRequestContractViolationKind.StepCommitMissing => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepCommitMissing => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'commit' is required.",
                     stepId),
-                IpcRequestContractViolationKind.StepCommitTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepCommitTypeMismatch => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'commit' must be a string.",
                     stepId),
-                IpcRequestContractViolationKind.StepCommitEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepCommitEmptyOrWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'commit' must not be empty.",
                     stepId),
-                IpcRequestContractViolationKind.StepCommitOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.StepCommitOuterWhitespace => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step '{stepId}' property 'commit' must not contain leading or trailing whitespace.",
                     stepId),
-                IpcRequestContractViolationKind.DuplicatedStepId => ExecuteRequestNormalizationError.InvalidArgument(
+                IpcExecuteArgumentsContractViolationKind.DuplicatedStepId => ExecuteRequestNormalizationError.InvalidArgument(
                     $"Step id is duplicated: {violation.DuplicatedStepId}.",
                     violation.DuplicatedStepId),
                 _ => ExecuteRequestNormalizationError.InvalidArgument(

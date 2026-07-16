@@ -34,10 +34,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 },
                 touchedKinds: new[]
                 {
-                    UcliTouchedResourceKindNames.Scene,
-                    UcliTouchedResourceKindNames.Prefab,
-                    UcliTouchedResourceKindNames.Asset,
-                    UcliTouchedResourceKindNames.ProjectSettings,
+                    UcliTouchedResourceKind.Scene,
+                    UcliTouchedResourceKind.Prefab,
+                    UcliTouchedResourceKind.Asset,
+                    UcliTouchedResourceKind.ProjectSettings,
                 },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Observe request-attributed dirty resources that a project save would persist without writing project files.",
@@ -164,7 +164,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             for (var resourceIndex = 0; resourceIndex < requestAttributedResources.Count; resourceIndex++)
             {
                 var resource = requestAttributedResources[resourceIndex];
-                if (resource.Kind == OperationTouchKind.Scene)
+                if (resource.Kind == UcliTouchedResourceKind.Scene)
                 {
                     if (executionContext.HasPlannedLiveSceneOpen(resource.Path))
                     {
@@ -174,7 +174,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                if (resource.Kind == OperationTouchKind.Prefab)
+                if (resource.Kind == UcliTouchedResourceKind.Prefab)
                 {
                     if (executionContext.HasPlannedLivePrefabOpen(resource.Path))
                     {
@@ -198,7 +198,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                var resource = new OperationResource(OperationTouchKind.Scene, scene.path);
+                var resource = new OperationResource(UcliTouchedResourceKind.Scene, scene.path);
                 if (executionContext.HasRequestAttributedChange(resource))
                 {
                     AddTouchedResource(resource, touchedResources, touched);
@@ -210,7 +210,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 && prefabStage.prefabContentsRoot != null
                 && !string.IsNullOrWhiteSpace(prefabStage.assetPath))
             {
-                var resource = new OperationResource(OperationTouchKind.Prefab, prefabStage.assetPath);
+                var resource = new OperationResource(UcliTouchedResourceKind.Prefab, prefabStage.assetPath);
                 if (executionContext.HasRequestAttributedChange(resource))
                 {
                     AddTouchedResource(resource, touchedResources, touched);
@@ -288,7 +288,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     continue;
                 }
 
-                var resource = new OperationResource(OperationTouchKind.Scene, scene.path);
+                var resource = new OperationResource(UcliTouchedResourceKind.Scene, scene.path);
                 if (!executionContext.HasRequestAttributedChange(resource))
                 {
                     continue;
@@ -330,7 +330,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            var resource = new OperationResource(OperationTouchKind.Prefab, prefabStage.assetPath);
+            var resource = new OperationResource(UcliTouchedResourceKind.Prefab, prefabStage.assetPath);
             if (!executionContext.HasRequestAttributedChange(resource))
             {
                 return true;

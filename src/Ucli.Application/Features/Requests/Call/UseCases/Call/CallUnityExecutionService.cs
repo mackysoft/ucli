@@ -28,6 +28,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
 
     /// <inheritdoc />
     public async ValueTask<CallServiceResult> ExecuteAsync (
+        Guid requestId,
         PhaseExecutionPreparedRequest preparedRequest,
         UnityExecutionMode mode,
         CallCommandInput input,
@@ -37,8 +38,9 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(preparedRequest);
         ArgumentNullException.ThrowIfNull(input);
+        ArgumentNullException.ThrowIfNull(deadline);
 
-        var baseOutput = CallExecutionOutputFactory.CreateBase(preparedRequest.PreparedRequest);
+        var baseOutput = CallExecutionOutputFactory.CreateBase(requestId, preparedRequest.PreparedRequest);
         var effectivePlanToken = StringValueNormalizer.TrimToNull(input.PlanToken);
         var executionOwnerCommand = input.ExecutionOwnerCommand;
 
@@ -75,13 +77,13 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                     baseOutput);
             }
 
-            var convertedPlanResponse = ExecuteResponseConverter.Convert(planExecutionResult.Response!);
+            var convertedPlanResponse = ExecuteResponseConverter.Convert(
+                planExecutionResult.Response!,
+                preparedRequest.UnityProject);
             var planProject = convertedPlanResponse.Project ?? baseOutput.Project;
             var planOutput = new CallPlanOutput(
-                RequestId: preparedRequest.Request.RequestId!,
-                Project: planProject,
-                OpResults: convertedPlanResponse.OpResults,
-                PlanToken: convertedPlanResponse.PlanToken)
+                opResults: convertedPlanResponse.OpResults,
+                planToken: convertedPlanResponse.PlanToken)
             {
                 ContractViolations = convertedPlanResponse.ContractViolations,
             };
@@ -95,14 +97,14 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
             if (!convertedPlanResponse.IsSuccess)
             {
                 var prePlanFailureMessage = CreatePrePlanFailureMessage(executionOwnerCommand);
-                var failures = RequestFailureNormalizer.FromOperationErrors(convertedPlanResponse.Errors, prePlanFailureMessage);
+                var failures = RequestFailureNormalizer.FromOperationErrors(convertedPlanResponse.Errors);
                 return CallServiceResult.Failure(
                     RequestFailureNormalizer.ResolveMessage(failures, prePlanFailureMessage),
                     failures,
                     baseOutput);
             }
 
-            if (string.IsNullOrWhiteSpace(convertedPlanResponse.PlanToken))
+            if (convertedPlanResponse.PlanToken == null)
             {
                 return CreateFailure(
                     RequestFailureNormalizer.FromTransportFailure(
@@ -149,12 +151,13 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
                 baseOutput);
         }
 
-        var convertedCallResponse = ExecuteResponseConverter.Convert(callExecutionResult.Response!);
+        var convertedCallResponse = ExecuteResponseConverter.Convert(
+            callExecutionResult.Response!,
+            preparedRequest.UnityProject);
         var callProject = convertedCallResponse.Project ?? baseOutput.Project;
         var executionOutput = baseOutput with
         {
             Project = callProject,
-            Plan = baseOutput.Plan == null ? null : baseOutput.Plan with { Project = callProject },
             OpResults = convertedCallResponse.OpResults,
             ContractViolations = convertedCallResponse.ContractViolations,
             ReadPostcondition = convertedCallResponse.ReadPostcondition,
@@ -171,7 +174,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         if (postprocessedCallResponse.PersistenceError != null)
         {
             var callFailureMessage = CreateCallFailureMessage(executionOwnerCommand);
-            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors, callFailureMessage);
+            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors);
             return CallServiceResult.Failure(
                 postprocessedCallResponse.PersistenceError.Message,
                 failures,
@@ -181,7 +184,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         if (!convertedCallResponse.IsSuccess)
         {
             var callFailureMessage = CreateCallFailureMessage(executionOwnerCommand);
-            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors, callFailureMessage);
+            var failures = RequestFailureNormalizer.FromOperationErrors(convertedCallResponse.Errors);
             return CallServiceResult.Failure(
                 RequestFailureNormalizer.ResolveMessage(failures, callFailureMessage),
                 failures,
@@ -217,10 +220,7 @@ internal sealed class CallUnityExecutionService : ICallUnityExecutionService
         bool allowPlayMode = false)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(requestJson);
-        if (!command.IsValid)
-        {
-            throw new ArgumentException("Command name is invalid.", nameof(command));
-        }
+        ArgumentNullException.ThrowIfNull(command);
 
         using var document = JsonDocument.Parse(requestJson);
         return new UnityRequestPayload.ExecuteJson(command, document.RootElement.Clone(), failFast, allowDangerous, planToken, allowPlayMode);

@@ -1,10 +1,10 @@
 using System;
-using MackySoft.Ucli.Contracts;
 using System.Collections;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
@@ -22,6 +22,137 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class ResolveOperationTests
     {
+        [Test]
+        [Category("Size.Small")]
+        public void ContractMapper_WhenSelectorUsesTypedSceneComponentValues_PreservesSemanticValues ()
+        {
+            var scene = new SceneAssetPath("Assets/Sample.unity");
+            var hierarchyPath = new UnityHierarchyPath("Root/Child");
+            var componentType = new UnityComponentTypeId("Example.Component");
+            var args = new ResolveSelectorArgs(
+                globalObjectId: null,
+                assetGuid: null,
+                assetPath: null,
+                projectAssetPath: null,
+                scene: scene,
+                prefab: null,
+                hierarchyPath: hierarchyPath,
+                componentType: componentType);
+
+            var result = UnityObjectReferenceContractMapper.TryMap(args, out var selector, out var errorMessage);
+
+            Assert.That(result, Is.True, errorMessage);
+            Assert.That(selector!.Kind, Is.EqualTo(ResolveSelectorKind.SceneComponent));
+            Assert.That(selector.ScenePath, Is.SameAs(scene));
+            Assert.That(selector.HierarchyPath, Is.SameAs(hierarchyPath));
+            Assert.That(selector.ComponentType, Is.SameAs(componentType));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ContractMapper_WhenReferenceUsesTypedAlias_PreservesSemanticValue ()
+        {
+            var alias = new UcliPlanAlias("target");
+            var args = new GameObjectReferenceArgs(
+                alias: alias,
+                globalObjectId: null,
+                prefab: null,
+                scene: null,
+                hierarchyPath: null);
+
+            var result = UnityObjectReferenceContractMapper.TryMap(
+                args,
+                "args.target",
+                OperationAliasReferenceMap.Empty,
+                out var reference,
+                out var errorMessage);
+
+            Assert.That(result, Is.True, errorMessage);
+            Assert.That(reference!.Kind, Is.EqualTo(UnityObjectReferenceKind.Alias));
+            Assert.That(reference.Alias, Is.EqualTo(RequestLocalAliasIdentity.FromPublicAlias(alias)));
+            Assert.That(reference.Alias!.Alias, Is.SameAs(alias));
+        }
+
+        [TestCase("{\"assetGuid\":\"not-a-guid\"}", IpcResolveSelectorPropertyNames.AssetGuid)]
+        [TestCase("{\"assetGuid\":\"00000000-0000-0000-0000-000000000000\"}", IpcResolveSelectorPropertyNames.AssetGuid)]
+        [TestCase("{\"assetPath\":\"ProjectSettings/TagManager.asset\"}", IpcResolveSelectorPropertyNames.AssetPath)]
+        [TestCase("{\"projectAssetPath\":\"Assets/Sample.asset\"}", IpcResolveSelectorPropertyNames.ProjectAssetPath)]
+        [TestCase("{\"scene\":\"Assets/Sample.prefab\",\"hierarchyPath\":\"Root\"}", IpcResolveSelectorPropertyNames.Scene)]
+        [TestCase("{\"prefab\":\"Assets/Sample.unity\",\"hierarchyPath\":\"Root\"}", IpcResolveSelectorPropertyNames.Prefab)]
+        [TestCase("{\"scene\":\"Assets/Sample.unity\",\"hierarchyPath\":\"Root//Child\"}", IpcResolveSelectorPropertyNames.HierarchyPath)]
+        [Category("Size.Small")]
+        public void ResolveSelectorCodec_WhenRawValueViolatesSemanticContract_ReturnsFalse (
+            string json,
+            string propertyName)
+        {
+            using var document = JsonDocument.Parse(json);
+
+            var result = ResolveSelectorCodec.TryParse(document.RootElement, out var selector, out var errorMessage);
+
+            Assert.That(result, Is.False);
+            Assert.That(selector, Is.Null);
+            Assert.That(errorMessage, Does.Contain(propertyName));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ResolveSelector_WhenAssetGuidIsEmpty_ThrowsArgumentException ()
+        {
+            var exception = Assert.Throws<ArgumentException>(() => ResolveSelector.FromAssetGuid(Guid.Empty));
+
+            Assert.That(exception!.ParamName, Is.EqualTo("assetGuid"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ResolveSelectorCodec_WhenAssetGuidUsesStandardJsonFormat_ProjectsNativeGuid ()
+        {
+            using var document = JsonDocument.Parse(
+                "{\"assetGuid\":\"11111111-1111-1111-1111-111111111111\"}");
+
+            var result = ResolveSelectorCodec.TryParse(document.RootElement, out var selector, out var errorMessage);
+
+            Assert.That(result, Is.True, errorMessage);
+            Assert.That(selector!.AssetGuid, Is.EqualTo(Guid.Parse("11111111-1111-1111-1111-111111111111")));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void ResolveSelectorCodec_WhenRawSceneComponentSelectorIsValid_ProjectsToSemanticValues ()
+        {
+            using var document = JsonDocument.Parse(
+                "{\"scene\":\"Assets/Sample.unity\",\"hierarchyPath\":\"Root/Child\",\"componentType\":\"Example.Component\"}");
+
+            var result = ResolveSelectorCodec.TryParse(document.RootElement, out var selector, out var errorMessage);
+
+            Assert.That(result, Is.True, errorMessage);
+            Assert.That(selector!.Kind, Is.EqualTo(ResolveSelectorKind.SceneComponent));
+            Assert.That(selector.ScenePath, Is.EqualTo(new SceneAssetPath("Assets/Sample.unity")));
+            Assert.That(selector.HierarchyPath, Is.EqualTo(new UnityHierarchyPath("Root/Child")));
+            Assert.That(selector.ComponentType, Is.EqualTo(new UnityComponentTypeId("Example.Component")));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void UnityObjectReferenceCodec_WhenRawAliasIsValid_ProjectsToTypedAlias ()
+        {
+            using var document = JsonDocument.Parse("{\"var\":\"target\"}");
+
+            var result = UnityObjectReferenceCodec.TryParse(
+                document.RootElement,
+                "args.target",
+                OperationAliasReferenceMap.Empty,
+                out var reference,
+                out var errorMessage);
+
+            Assert.That(result, Is.True, errorMessage);
+            Assert.That(reference!.Kind, Is.EqualTo(UnityObjectReferenceKind.Alias));
+            Assert.That(
+                reference.Alias,
+                Is.EqualTo(RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias("target"))));
+            Assert.That(reference.Alias!.Alias, Is.EqualTo(new UcliPlanAlias("target")));
+        }
+
         [UnityTest]
         [Category("Size.Small")]
         public IEnumerator Validate_WhenArgsContainMultipleSelectors_ReturnsInvalidArgument () => UniTask.ToCoroutine(async () =>
@@ -32,7 +163,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 args: new
                 {
                     assetPath = "Assets/sample.asset",
-                    assetGuid = "11111111111111111111111111111111",
+                    assetGuid = Guid.Parse("11111111-1111-1111-1111-111111111111"),
                 });
 
             using var executionContext = new OperationExecutionContext();
@@ -59,30 +190,9 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertInvalidArgument(result, "op-1");
         });
 
-        [Test]
-        [Category("Size.Small")]
-        public void ResolvedReference_WhenGlobalObjectIdIsWhitespace_ThrowsArgumentException ()
-        {
-            Assert.Throws<ArgumentException>(() => _ = new ResolvedReference(" "));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void ResolvedReference_WhenGlobalObjectIdHasOuterWhitespace_ThrowsArgumentException ()
-        {
-            Assert.Throws<ArgumentException>(() => _ = new ResolvedReference(" GlobalObjectId_V1-2-3-4-5-6-7"));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void ResolvedReference_WhenGlobalObjectIdIsMalformed_ThrowsArgumentException ()
-        {
-            Assert.Throws<ArgumentException>(() => _ = new ResolvedReference("invalid-global-object-id"));
-        }
-
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Plan_WhenArgsContainGlobalObjectId_StoresResolvedReferenceToAliasStore () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Plan_WhenArgsContainGlobalObjectId_StoresCanonicalIdentityToAliasStore () => UniTask.ToCoroutine(async () =>
         {
             var operation = new ResolveOperation();
             using var scope = new EditorTestScope();
@@ -103,8 +213,238 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertResolvedGlobalObjectId(result, expectedGlobalObjectId);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
+            Assert.That(resolvedReference!.Value, Is.EqualTo(expectedGlobalObjectId));
         });
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryResolveStableReference_WhenIdentifierTypeHasLeadingZero_UsesCanonicalRequestLocalKey ()
+        {
+            using var scope = new EditorTestScope();
+            var asset = scope.CreateScriptableAsset<ResolveTestAsset>(nameof(ResolveOperationTests), out _);
+            var canonicalGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(asset).ToString();
+            var nonCanonicalGlobalObjectId = GlobalObjectIdTestValues.CreateNonCanonicalIdentifierTypeText(canonicalGlobalObjectId);
+            Assert.That(GlobalObjectId.TryParse(nonCanonicalGlobalObjectId, out var parsedGlobalObjectId), Is.True);
+            Assert.That(parsedGlobalObjectId.ToString(), Is.EqualTo(canonicalGlobalObjectId));
+            Assert.That(nonCanonicalGlobalObjectId, Is.Not.EqualTo(canonicalGlobalObjectId));
+            var context = scope.CreateExecutionContext();
+            context.MarkDeletedStableObject(new UnityGlobalObjectId(canonicalGlobalObjectId));
+
+            var result = ResolveReferenceResolver.TryResolveStableReference(
+                ResolveSelector.FromGlobalObjectId(new UnityGlobalObjectId(nonCanonicalGlobalObjectId)),
+                context,
+                allowTemporaryState: true,
+                out var resolvedReference,
+                out var errorMessage);
+
+            Assert.That(result, Is.False);
+            Assert.That(resolvedReference, Is.Null);
+            Assert.That(errorMessage, Does.Contain(canonicalGlobalObjectId));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryResolveUnityObject_WhenAssetShadowKeyHasEquivalentSpelling_ReturnsShadow ()
+        {
+            using var scope = new EditorTestScope();
+            var asset = scope.CreateScriptableAsset<ResolveTestAsset>(nameof(ResolveOperationTests), out var assetPath);
+            var canonicalGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(asset).ToString();
+            var nonCanonicalGlobalObjectId = GlobalObjectIdTestValues.CreateNonCanonicalIdentifierTypeText(canonicalGlobalObjectId);
+            var shadow = ScriptableObject.CreateInstance<ResolveTestAsset>();
+            var context = scope.CreateExecutionContext();
+            context.TrackTemporaryObject(shadow);
+            context.SetAssetShadow(
+                new UnityGlobalObjectId(canonicalGlobalObjectId),
+                shadow,
+                assetPath);
+
+            var result = ResolveReferenceResolver.TryResolveUnityObject(
+                ResolveSelector.FromGlobalObjectId(new UnityGlobalObjectId(nonCanonicalGlobalObjectId)),
+                context,
+                allowTemporaryState: true,
+                out var unityObject,
+                out var errorMessage);
+
+            Assert.That(result, Is.True, errorMessage);
+            Assert.That(unityObject, Is.SameAs(shadow));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryResolveUnityObject_WhenDirtyScenePreviewKeyHasEquivalentSpelling_ReturnsPreviewObject ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ResolveOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var canonicalGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(root).ToString();
+            var nonCanonicalGlobalObjectId = GlobalObjectIdTestValues.CreateNonCanonicalIdentifierTypeText(canonicalGlobalObjectId);
+            root.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(scene);
+            var context = scope.CreateExecutionContext();
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+
+            var result = ResolveReferenceResolver.TryResolveUnityObject(
+                ResolveSelector.FromGlobalObjectId(new UnityGlobalObjectId(nonCanonicalGlobalObjectId)),
+                context,
+                allowTemporaryState: true,
+                out var unityObject,
+                out var errorMessage);
+
+            Assert.That(result, Is.True, errorMessage);
+            Assert.That(unityObject, Is.TypeOf<GameObject>());
+            Assert.That(unityObject, Is.Not.SameAs(root));
+            Assert.That(unityObject!.name, Is.EqualTo("Renamed"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryResolve_WhenStableAliasAllowsTemporaryState_ReturnsPreviewObject ()
+        {
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ResolveOperationTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            var root = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
+            var resolvedReference = UnityObjectReferenceResolver.CreateGlobalObjectId(root);
+            root.name = "Renamed";
+            EditorSceneManager.MarkSceneDirty(scene);
+            var context = scope.CreateExecutionContext();
+            context.AliasStore.Set("target", resolvedReference);
+            Assert.That(context.TryEnsureSceneExecutionSession(scenePath, out var ensureErrorMessage), Is.True, ensureErrorMessage);
+
+            var previewResult = UnityObjectReferenceResolver.TryResolve(
+                UnityObjectReference.FromAlias(
+                    RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias("target"))),
+                context,
+                allowTemporaryState: true,
+                out var previewObject,
+                out var previewErrorMessage);
+            Assert.That(previewResult, Is.True, previewErrorMessage);
+            Assert.That(previewObject, Is.Not.SameAs(root));
+            Assert.That(previewObject!.name, Is.EqualTo("Renamed"));
+        }
+
+        [TestCase((int)OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly, false)]
+        [TestCase((int)OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases, false)]
+        [TestCase((int)OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState, true)]
+        [Category("Size.Small")]
+        public void OperationReferenceResolution_WhenStableAndTemporaryAliasesExist_HonorsPolicyPrecedence (
+            int resolutionPolicyValue,
+            bool expectsTemporaryObject)
+        {
+            using var scope = new EditorTestScope();
+            var asset = scope.CreateScriptableAsset<ResolveTestAsset>(nameof(ResolveOperationTests), out var assetPath);
+            var stableGlobalObjectId = UnityObjectReferenceResolver.CreateGlobalObjectId(asset);
+            var shadow = ScriptableObject.CreateInstance<ResolveTestAsset>();
+            var context = scope.CreateExecutionContext();
+            context.TrackTemporaryObject(shadow);
+            context.AliasStore.Set("target", stableGlobalObjectId);
+            context.SetTemporaryAlias(
+                "target",
+                shadow,
+                OperationResource.PersistentAsset(assetPath),
+                RequestLocalObjectIdentity.FromGlobalObjectId(stableGlobalObjectId));
+
+            var result = OperationObjectReferenceUtilities.TryResolveUnityObject(
+                UnityObjectReference.FromAlias(
+                    RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias("target"))),
+                context,
+                (OperationObjectReferenceUtilities.ReferenceResolutionPolicy)resolutionPolicyValue,
+                out var resolution,
+                out var errorMessage);
+
+            Assert.That(result, Is.True, errorMessage);
+            Assert.That(resolution.UnityObject, Is.SameAs(expectsTemporaryObject ? shadow : asset));
+            Assert.That(
+                resolution.TemporaryAliasResource.HasValue,
+                Is.EqualTo(expectsTemporaryObject));
+        }
+
+        [TestCase((int)OperationObjectReferenceUtilities.ReferenceResolutionPolicy.LiveOnly, false)]
+        [TestCase((int)OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryAliases, true)]
+        [TestCase((int)OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState, true)]
+        [Category("Size.Small")]
+        public void OperationReferenceResolution_WhenOnlyTemporaryAliasExists_HonorsPolicyEligibility (
+            int resolutionPolicyValue,
+            bool expectsSuccess)
+        {
+            using var scope = new EditorTestScope();
+            var shadow = ScriptableObject.CreateInstance<ResolveTestAsset>();
+            var context = scope.CreateExecutionContext();
+            context.TrackTemporaryObject(shadow);
+            context.SetTemporaryAlias(
+                "target",
+                shadow,
+                OperationResource.PersistentAsset("Assets/Temporary.asset"));
+
+            var result = OperationObjectReferenceUtilities.TryResolveUnityObject(
+                UnityObjectReference.FromAlias(
+                    RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias("target"))),
+                context,
+                (OperationObjectReferenceUtilities.ReferenceResolutionPolicy)resolutionPolicyValue,
+                out var resolution,
+                out var errorMessage);
+
+            Assert.That(result, Is.EqualTo(expectsSuccess), errorMessage);
+            Assert.That(resolution.UnityObject, expectsSuccess ? Is.SameAs(shadow) : Is.Null);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void OperationReferenceResolution_WhenStableAndTemporaryAliasSourcesDiffer_RejectsBinding ()
+        {
+            using var scope = new EditorTestScope();
+            var stableAsset = scope.CreateScriptableAsset<ResolveTestAsset>(
+                $"{nameof(ResolveOperationTests)}_stable",
+                out _);
+            var temporarySourceAsset = scope.CreateScriptableAsset<ResolveTestAsset>(
+                $"{nameof(ResolveOperationTests)}_temporary",
+                out var temporarySourcePath);
+            var context = scope.CreateExecutionContext();
+            context.AliasStore.Set("target", UnityObjectReferenceResolver.CreateGlobalObjectId(stableAsset));
+            context.SetTemporaryAlias(
+                "target",
+                temporarySourceAsset,
+                OperationResource.PersistentAsset(temporarySourcePath),
+                RequestLocalObjectIdentity.FromUnityObject(temporarySourceAsset));
+
+            var result = OperationObjectReferenceUtilities.TryResolveUnityObject(
+                UnityObjectReference.FromAlias(
+                    RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias("target"))),
+                context,
+                OperationObjectReferenceUtilities.ReferenceResolutionPolicy.AllowTemporaryState,
+                out _,
+                out var errorMessage);
+
+            Assert.That(result, Is.False);
+            Assert.That(errorMessage, Does.Contain("inconsistent stable and request-local source identities"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void TryResolve_WhenStableAliasWasDeletedInTemporaryState_ReturnsFalse ()
+        {
+            using var scope = new EditorTestScope();
+            var asset = scope.CreateScriptableAsset<ResolveTestAsset>(nameof(ResolveOperationTests), out _);
+            var resolvedReference = UnityObjectReferenceResolver.CreateGlobalObjectId(asset);
+            var context = scope.CreateExecutionContext();
+            context.AliasStore.Set("target", resolvedReference);
+            context.MarkDeletedStableObject(resolvedReference);
+
+            var result = UnityObjectReferenceResolver.TryResolve(
+                UnityObjectReference.FromAlias(
+                    RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias("target"))),
+                context,
+                allowTemporaryState: true,
+                out var unityObject,
+                out var errorMessage);
+
+            Assert.That(result, Is.False);
+            Assert.That(unityObject, Is.Null);
+            Assert.That(errorMessage, Does.Contain(resolvedReference.Value));
+        }
 
         [UnityTest]
         [Category("Size.Small")]
@@ -113,7 +453,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var operation = new ResolveOperation();
             using var scope = new EditorTestScope();
             var asset = scope.CreateScriptableAsset<ResolveTestAsset>(nameof(ResolveOperationTests), out var assetPath);
-            var assetGuid = AssetDatabase.AssetPathToGUID(assetPath);
+            var assetGuid = Guid.ParseExact(AssetDatabase.AssetPathToGUID(assetPath), "N");
             var expectedGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(asset).ToString();
             var requestOperation = CreateOperation(
                 opId: "op-1",
@@ -129,7 +469,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
+            Assert.That(resolvedReference!.Value, Is.EqualTo(expectedGlobalObjectId));
         });
 
         [UnityTest]
@@ -154,7 +494,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
+            Assert.That(resolvedReference!.Value, Is.EqualTo(expectedGlobalObjectId));
         });
 
         [UnityTest]
@@ -180,7 +520,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
+            Assert.That(resolvedReference!.Value, Is.EqualTo(expectedGlobalObjectId));
         });
 
         [UnityTest]
@@ -213,7 +553,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
+            Assert.That(resolvedReference!.Value, Is.EqualTo(expectedGlobalObjectId));
         });
 
         [UnityTest]
@@ -270,7 +610,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
+            Assert.That(resolvedReference!.Value, Is.EqualTo(expectedGlobalObjectId));
         });
 
         [UnityTest]
@@ -289,7 +629,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var deletedGlobalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(child).ToString();
             var context = scope.CreateExecutionContext();
             var deleteRequest = new NormalizedOperation(
-                Id: "op-delete",
+                ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-delete"), primitiveIndex: 0),
                 Op: UcliPrimitiveOperationNames.GoDelete,
                 Args: JsonSerializer.SerializeToElement(new
                 {
@@ -300,7 +640,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null,
-                SourceKind: NormalizedOperation.SourceStepKind.Edit);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
@@ -355,7 +697,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
+            Assert.That(resolvedReference!.Value, Is.EqualTo(expectedGlobalObjectId));
         });
 
         [UnityTest]
@@ -369,7 +711,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var prefabPath = scope.CreatePrefabAsset(nameof(ResolveOperationTests), "PrefabRoot");
             var context = scope.CreateExecutionContext();
             var openRequest = new NormalizedOperation(
-                Id: "op-open",
+                ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-open"), primitiveIndex: 0),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
                 Args: JsonSerializer.SerializeToElement(new
                 {
@@ -377,7 +719,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null,
-                SourceKind: NormalizedOperation.SourceStepKind.Edit);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
             if (temporaryRoot == null)
@@ -385,8 +729,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 throw new AssertionException("Expected the temporary prefab contents root to be available.");
             }
 
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(temporaryRoot, out var temporaryRootReference), Is.True);
-            Assert.That(context.TryResolveTemporaryPrefabStableReference(prefabPath, temporaryRoot, out var temporaryRootStableReference), Is.True);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(temporaryRoot, out var temporaryRootReference), Is.True);
+            Assert.That(context.TryResolveTemporaryPrefabGlobalObjectId(prefabPath, temporaryRoot, out var temporaryRootGlobalObjectId), Is.True);
+            Assert.That(temporaryRootGlobalObjectId!.Value, Is.EqualTo(temporaryRootReference!.Value));
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
@@ -404,7 +749,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(resolveResult.Failure, Is.Null);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(temporaryRootStableReference));
+            Assert.That(resolvedReference, Is.EqualTo(temporaryRootGlobalObjectId));
         });
 
         [UnityTest]
@@ -429,14 +774,17 @@ namespace MackySoft.Ucli.Unity.Tests
             AssetDatabase.SaveAssets();
             var context = scope.CreateExecutionContext();
             var openRequest = new NormalizedOperation(
-                Id: "op-open",
+                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-open")),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
                 Args: JsonSerializer.SerializeToElement(new
                 {
                     path = prefabPath,
                 }),
                 As: null,
-                Expect: null);
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
@@ -469,11 +817,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(prefabAssetRoot, Is.Not.Null);
             var persistedChild = prefabAssetRoot!.transform.Find("Child");
             Assert.That(persistedChild, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(persistedChild!.gameObject, out var persistedReference), Is.True);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(persistedChild!.gameObject, out var persistedReference), Is.True);
             Assert.That(persistedReference, Is.Not.Null);
 
             var openRequest = new NormalizedOperation(
-                Id: "op-open",
+                ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-open"), primitiveIndex: 0),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
                 Args: JsonSerializer.SerializeToElement(new
                 {
@@ -481,7 +829,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null,
-                SourceKind: NormalizedOperation.SourceStepKind.Edit);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True);
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
@@ -493,7 +843,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var previewChild = new GameObject("Child");
             previewChild.transform.SetParent(temporaryRoot.transform, worldPositionStays: false);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewChild, out _), Is.False);
 
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
@@ -535,7 +885,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(temporaryRoot, Is.Not.Null);
             var previewChild = temporaryRoot!.transform.Find("Renamed");
             Assert.That(previewChild, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild!.gameObject, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewChild!.gameObject, out _), Is.False);
             var hierarchyPath = $"{temporaryRoot.name}/Renamed";
 
             var resolveRequest = CreateOperation(
@@ -583,7 +933,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(temporaryRoot, Is.Not.Null);
             var previewChildA = temporaryRoot!.transform.Find("ChildA");
             Assert.That(previewChildA, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChildA!.gameObject, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewChildA!.gameObject, out _), Is.False);
             var hierarchyPath = $"{temporaryRoot.name}/ChildA";
 
             var resolveRequest = CreateOperation(
@@ -613,7 +963,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var prefabPath = scope.CreatePrefabAsset(nameof(ResolveOperationTests), "PrefabRoot", "Child");
             var context = scope.CreateExecutionContext();
             var openRequest = new NormalizedOperation(
-                Id: "op-open",
+                ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-open"), primitiveIndex: 0),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
                 Args: JsonSerializer.SerializeToElement(new
                 {
@@ -621,33 +971,37 @@ namespace MackySoft.Ucli.Unity.Tests
                 }),
                 As: null,
                 Expect: null,
-                SourceKind: NormalizedOperation.SourceStepKind.Edit);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
             var openResult = await openOperation.PlanAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True, openResult.Failure?.Message);
             Assert.That(context.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryRoot), Is.True);
             Assert.That(temporaryRoot, Is.Not.Null);
             var previewChild = temporaryRoot!.transform.Find("Child");
             Assert.That(previewChild, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild!.gameObject, out var previewChildReference), Is.True);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewChild!.gameObject, out var previewChildReference), Is.True);
             var deleteRequest = new NormalizedOperation(
-                Id: "op-delete",
+                ExecutionKey: OperationExecutionKey.ForEditPrimitive(new IpcExecuteStepId("op-delete"), primitiveIndex: 0),
                 Op: UcliPrimitiveOperationNames.GoDelete,
                 Args: JsonSerializer.SerializeToElement(new
                 {
                     target = new
                     {
-                        globalObjectId = previewChildReference!.GlobalObjectId,
+                        globalObjectId = previewChildReference!.Value,
                     },
                 }),
                 As: null,
                 Expect: null,
-                SourceKind: NormalizedOperation.SourceStepKind.Edit);
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
                 alias: "resolved",
                 args: new
                 {
-                    globalObjectId = previewChildReference!.GlobalObjectId,
+                    globalObjectId = previewChildReference!.Value,
                 });
             var deleteResult = await deleteOperation.PlanAsync(deleteRequest, context, CancellationToken.None);
             var resolveResult = await resolveOperation.PlanAsync(resolveRequest, context, CancellationToken.None);
@@ -711,18 +1065,21 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(prefabAssetRoot, Is.Not.Null);
             var persistedChild = prefabAssetRoot!.transform.Find("Child");
             Assert.That(persistedChild, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(persistedChild!.gameObject, out var persistedReference), Is.True);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(persistedChild!.gameObject, out var persistedReference), Is.True);
             Assert.That(persistedReference, Is.Not.Null);
 
             var openRequest = new NormalizedOperation(
-                Id: "op-open",
+                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-open")),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
                 Args: JsonSerializer.SerializeToElement(new
                 {
                     path = prefabPath,
                 }),
                 As: null,
-                Expect: null);
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
             var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True);
             Assert.That(openResult.Applied, Is.True);
@@ -740,7 +1097,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var stageChild = new GameObject("Child");
             stageChild.transform.SetParent(stageRoot.transform, worldPositionStays: false);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(stageChild, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(stageChild, out _), Is.False);
 
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
@@ -771,18 +1128,21 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(prefabAssetRoot, Is.Not.Null);
             var persistedChild = prefabAssetRoot!.transform.Find("Child");
             Assert.That(persistedChild, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(persistedChild!.gameObject, out var persistedReference), Is.True);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(persistedChild!.gameObject, out var persistedReference), Is.True);
             Assert.That(persistedReference, Is.Not.Null);
 
             var openRequest = new NormalizedOperation(
-                Id: "op-open",
+                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-open")),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
                 Args: JsonSerializer.SerializeToElement(new
                 {
                     path = prefabPath,
                 }),
                 As: null,
-                Expect: null);
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
             var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True);
 
@@ -792,7 +1152,8 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(stageChild, Is.Not.Null);
             stageChild!.name = "Renamed";
             EditorSceneManager.MarkSceneDirty(prefabStage.scene);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(stageChild.gameObject, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(stageChild.gameObject, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(stageChild, out _), Is.False);
 
             var resolveRequest = CreateOperation(
                 opId: "op-resolve",
@@ -860,14 +1221,17 @@ namespace MackySoft.Ucli.Unity.Tests
             var prefabPath = scope.CreatePrefabAsset(nameof(ResolveOperationTests), "PrefabRoot", "Child");
             var context = scope.CreateExecutionContext();
             var openRequest = new NormalizedOperation(
-                Id: "op-open",
+                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId("op-open")),
                 Op: UcliPrimitiveOperationNames.PrefabOpen,
                 Args: JsonSerializer.SerializeToElement(new
                 {
                     path = prefabPath,
                 }),
                 As: null,
-                Expect: null);
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
             var openResult = await openOperation.CallAsync(openRequest, context, CancellationToken.None);
             Assert.That(openResult.IsSuccess, Is.True);
 
@@ -908,7 +1272,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var persistedChild = new GameObject("Child");
             persistedChild.transform.SetParent(root.transform, worldPositionStays: false);
             EditorSceneManager.SaveScene(scene, scenePath);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(persistedChild, out var persistedReference), Is.True);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(persistedChild, out var persistedReference), Is.True);
             Assert.That(persistedReference, Is.Not.Null);
 
             Assert.That(context.TryGetOrOpenTemporaryScene(scenePath, out var previewScene, out var previewErrorMessage), Is.True, previewErrorMessage);
@@ -919,7 +1283,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var previewChild = new GameObject("Child");
             previewChild.transform.SetParent(previewRoot.transform, worldPositionStays: false);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewChild, out _), Is.False);
 
             var requestOperation = CreateOperation(
                 opId: "op-1",
@@ -957,7 +1321,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(context.TryGetTemporaryScene(scenePath, out var previewScene), Is.True);
             var previewChild = FindRootGameObject(previewScene, "Root").transform.Find("Renamed");
             Assert.That(previewChild, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewChild!.gameObject, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewChild!.gameObject, out _), Is.False);
 
             var requestOperation = CreateOperation(
                 opId: "op-1",
@@ -973,7 +1337,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
+            Assert.That(resolvedReference!.Value, Is.EqualTo(expectedGlobalObjectId));
         });
 
         [UnityTest]
@@ -1000,7 +1364,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(previewChild, Is.Not.Null);
             var previewComponent = previewChild!.GetComponent<CompOperationTestComponent>();
             Assert.That(previewComponent, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewComponent, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewComponent, out _), Is.False);
 
             var requestOperation = CreateOperation(
                 opId: "op-1",
@@ -1017,7 +1381,7 @@ namespace MackySoft.Ucli.Unity.Tests
             AssertSuccess(result, applied: false, changed: false);
             Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
             Assert.That(resolvedReference, Is.Not.Null);
-            Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(expectedGlobalObjectId));
+            Assert.That(resolvedReference!.Value, Is.EqualTo(expectedGlobalObjectId));
         });
 
         [UnityTest]
@@ -1045,7 +1409,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(previewChild, Is.Not.Null);
             var previewComponent = previewChild!.GetComponent<CompOperationTestComponent>();
             Assert.That(previewComponent, Is.Not.Null);
-            Assert.That(UnityObjectReferenceResolver.TryCreateResolvedReference(previewComponent, out _), Is.False);
+            Assert.That(UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewComponent, out _), Is.False);
 
             var requestOperation = CreateOperation(
                 opId: "op-1",
@@ -1059,12 +1423,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var result = await operation.PlanAsync(requestOperation, context, CancellationToken.None);
 
-            if (UnityObjectReferenceResolver.TryCreateResolvedReference(recreatedComponent, out var recreatedReference))
+            if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(recreatedComponent, out var recreatedReference))
             {
                 AssertSuccess(result, applied: false, changed: false);
                 Assert.That(context.AliasStore.TryGet("resolved", out var resolvedReference), Is.True);
                 Assert.That(resolvedReference, Is.Not.Null);
-                Assert.That(resolvedReference!.GlobalObjectId, Is.EqualTo(recreatedReference!.GlobalObjectId));
+                Assert.That(resolvedReference!.Value, Is.EqualTo(recreatedReference!.Value));
                 return;
             }
 
@@ -1168,11 +1532,16 @@ namespace MackySoft.Ucli.Unity.Tests
             string? alias = null)
         {
             return new NormalizedOperation(
-                Id: opId,
+                ExecutionKey: OperationExecutionKey.ForRawStep(new IpcExecuteStepId(opId)),
                 Op: UcliPrimitiveOperationNames.Resolve,
                 Args: JsonSerializer.SerializeToElement(args),
-                As: alias,
-                Expect: null);
+                As: alias == null
+                    ? null
+                    : RequestLocalAliasIdentity.FromPublicAlias(new UcliPlanAlias(alias)),
+                Expect: null,
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false);
         }
 
         private static void AssertInvalidArgument (
@@ -1182,7 +1551,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Failure, Is.Not.Null);
             Assert.That(result.Failure!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(result.Failure.OpId, Is.EqualTo(expectedOperationId));
+            Assert.That(result.Failure.OpId?.Value, Is.EqualTo(expectedOperationId));
         }
 
         private static void AssertSuccess (

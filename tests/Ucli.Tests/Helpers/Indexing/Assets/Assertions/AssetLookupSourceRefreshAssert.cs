@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Helpers.Indexing.Assets;
 
@@ -8,12 +7,12 @@ internal static class AssetLookupSourceRefreshAssert
     public static void FirstSnapshotReturnedAfterRetryFailureWithoutPersistence (
         AssetLookupRefreshResult result,
         RecordingReadIndexArtifactWriter artifactWriter,
-        IpcIndexAssetsReadResponse expectedResponse,
+        AssetLookupSnapshot expectedSnapshot,
         string expectedFallbackReason,
         string expectedRetryFailureMessage)
     {
         Assert.True(result.IsSuccess);
-        Assert.Same(expectedResponse, result.Response);
+        Assert.Same(expectedSnapshot, result.Snapshot);
         Assert.Empty(artifactWriter.AssetLookupInvocations);
         Assert.NotNull(result.FallbackReason);
         Assert.Contains(expectedFallbackReason, result.FallbackReason!, StringComparison.Ordinal);
@@ -24,11 +23,11 @@ internal static class AssetLookupSourceRefreshAssert
     public static void LastSnapshotReturnedAfterUnstableInputsWithoutPersistence (
         AssetLookupRefreshResult result,
         RecordingReadIndexArtifactWriter artifactWriter,
-        IpcIndexAssetsReadResponse expectedResponse,
+        AssetLookupSnapshot expectedSnapshot,
         string expectedFallbackReason)
     {
         Assert.True(result.IsSuccess);
-        Assert.Same(expectedResponse, result.Response);
+        Assert.Same(expectedSnapshot, result.Snapshot);
         Assert.Empty(artifactWriter.AssetLookupInvocations);
         Assert.NotNull(result.FallbackReason);
         Assert.Contains(expectedFallbackReason, result.FallbackReason!, StringComparison.Ordinal);

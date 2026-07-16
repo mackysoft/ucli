@@ -20,13 +20,20 @@ internal sealed class RecordingDaemonSessionCleanupService : IDaemonSessionClean
     public ValueTask<DaemonSessionStoreOperationResult> CleanupInvalidSessionArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSessionReadResult readResult,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
+        _ = deadline.TryGetRemainingTimeout(out var remainingTimeout);
 
-        invalidSessionInvocations.Add(new InvalidSessionInvocation(unityProject, readResult, timeout, cancellationToken));
+        invalidSessionInvocations.Add(new InvalidSessionInvocation(
+            unityProject,
+            readResult,
+            deadline,
+            remainingTimeout,
+            cancellationToken));
 
         return ValueTask.FromResult(CleanupInvalidSessionArtifactsResult);
     }
@@ -34,14 +41,21 @@ internal sealed class RecordingDaemonSessionCleanupService : IDaemonSessionClean
     public ValueTask<DaemonSessionStoreOperationResult> CleanupStaleSessionArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
         DaemonSession session,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
+        _ = deadline.TryGetRemainingTimeout(out var remainingTimeout);
 
-        staleSessionInvocations.Add(new StaleSessionInvocation(unityProject, session, timeout, cancellationToken));
+        staleSessionInvocations.Add(new StaleSessionInvocation(
+            unityProject,
+            session,
+            deadline,
+            remainingTimeout,
+            cancellationToken));
 
         return ValueTask.FromResult(CleanupStaleSessionArtifactsResult);
     }
@@ -49,12 +63,14 @@ internal sealed class RecordingDaemonSessionCleanupService : IDaemonSessionClean
     internal readonly record struct InvalidSessionInvocation (
         ResolvedUnityProjectContext UnityProject,
         DaemonSessionReadResult ReadResult,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
+        TimeSpan RemainingTimeout,
         CancellationToken CancellationToken);
 
     internal readonly record struct StaleSessionInvocation (
         ResolvedUnityProjectContext UnityProject,
         DaemonSession Session,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
+        TimeSpan RemainingTimeout,
         CancellationToken CancellationToken);
 }

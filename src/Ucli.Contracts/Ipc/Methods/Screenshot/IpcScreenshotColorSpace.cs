@@ -7,9 +7,9 @@ public enum IpcScreenshotColorSpace
 {
     /// <summary> Uses the gamma project color space. </summary>
     [UcliContractLiteral("gamma")]
-    Gamma = 0,
+    Gamma = 1,
 
     /// <summary> Uses the linear project color space. </summary>
     [UcliContractLiteral("linear")]
-    Linear = 1,
+    Linear = 2,
 }

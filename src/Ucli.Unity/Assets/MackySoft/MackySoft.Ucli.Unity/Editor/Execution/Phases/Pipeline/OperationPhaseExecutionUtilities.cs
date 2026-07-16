@@ -18,7 +18,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="message"> The failure message. </param>
         /// <returns> The failed phase-step result. </returns>
         public static OperationPhaseStepResult CreateInvalidArgumentFailure (
-            string operationId,
+            IpcExecuteStepId operationId,
             string message)
         {
             return OperationPhaseStepResult.Failed(new OperationFailure(
@@ -43,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             try
             {
-                var stepResult = await executor(cancellationToken).ConfigureAwait(false);
+                var stepResult = await executor(cancellationToken);
                 if (stepResult == null)
                 {
                     return OperationPhaseStepResult.Failed(new OperationFailure(
@@ -111,7 +111,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(result));
             }
 
-            if (operation.SuppressPersistenceReporting)
+            if (operation.PersistenceReportingPolicy == OperationPersistenceReportingPolicy.SuppressAll)
             {
                 return result with
                 {
@@ -121,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 };
             }
 
-            if (operation.SuppressScenePersistenceReporting)
+            if (operation.PersistenceReportingPolicy == OperationPersistenceReportingPolicy.SuppressScene)
             {
                 return result with
                 {
@@ -143,7 +143,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var filtered = new List<OperationTouch>(touched.Count);
             for (var i = 0; i < touched.Count; i++)
             {
-                if (touched[i].Kind != OperationTouchKind.Scene)
+                if (touched[i].Kind != UcliTouchedResourceKind.Scene)
                 {
                     filtered.Add(touched[i]);
                 }

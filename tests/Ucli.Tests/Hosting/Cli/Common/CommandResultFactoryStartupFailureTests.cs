@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.OperationCatalog.Common.Contracts;
@@ -31,14 +30,14 @@ public sealed class CommandResultFactoryStartupFailureTests
             new(
                 UcliCommandNames.Refresh,
                 RefreshCommandResultFactory.Create(OperationExecuteResultFactory.Failure(
-                    "request-id",
+                    Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
                     [],
                     [CreateStartupFailure()],
                     "Unity startup is blocked."))),
             new(
                 UcliCommandNames.Resolve,
                 ResolveCommandResultFactory.Create(ResolveServiceResult.Failure(
-                    "request-id",
+                    Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
                     [],
                     [CreateStartupFailure()],
                     "Unity startup is blocked.",
@@ -47,7 +46,7 @@ public sealed class CommandResultFactoryStartupFailureTests
                 UcliCommandNames.Query,
                 QueryCommandResultFactory.Create(QueryServiceResult.Failure(
                     UcliCommandNames.Query,
-                    "request-id",
+                    Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
                     [],
                     [CreateStartupFailure()],
                     "Unity startup is blocked.",
@@ -80,7 +79,7 @@ public sealed class CommandResultFactoryStartupFailureTests
             var root = json.RootElement;
             JsonAssert.For(root)
                 .HasString("command", testCase.CommandName)
-                .HasString("status", "error")
+                .HasString("status", ContractLiteralCodec.ToValue(CommandResultStatus.Error))
                 .HasProperty("payload", payload => payload
                     .HasProperty("startup", startup => startup
                         .HasString("startupStatus", "blocked")
@@ -125,9 +124,9 @@ public sealed class CommandResultFactoryStartupFailureTests
                 ArtifactPath: null,
                 RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
             Diagnosis: new DaemonDiagnosisOutput(
-                Reason: "unityScriptCompilationFailed",
+                Reason: DaemonDiagnosisReason.UnityScriptCompilationFailed,
                 Message: "Unity startup is blocked.",
-                ReportedBy: "cli",
+                ReportedBy: DaemonDiagnosisReportedBy.Cli,
                 IsInferred: true,
                 UpdatedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:06+00:00"),
                 ProcessId: 1234,
@@ -135,9 +134,9 @@ public sealed class CommandResultFactoryStartupFailureTests
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: "fixCompileErrors",
+                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: "compiler",
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                     Code: "CS0246",
                     File: "Assets/Scripts/Broken.cs",
                     Line: 10,

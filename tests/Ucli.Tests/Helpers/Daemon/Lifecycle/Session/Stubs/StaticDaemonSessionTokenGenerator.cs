@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
 
@@ -6,12 +7,12 @@ internal sealed class StaticDaemonSessionTokenGenerator : IDaemonSessionTokenGen
 {
     public StaticDaemonSessionTokenGenerator (string sessionToken = "new-session-token")
     {
-        SessionToken = sessionToken;
+        SessionToken = IpcSessionTokenTestFactory.Create(sessionToken);
     }
 
-    public string SessionToken { get; }
+    public IpcSessionToken SessionToken { get; }
 
-    public string Create ()
+    public IpcSessionToken Create ()
     {
         return SessionToken;
     }

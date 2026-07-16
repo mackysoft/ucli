@@ -59,7 +59,7 @@ internal static class PlanTokenErrorCodeDescriptors
             possiblePhases: possiblePhases,
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ReplanRequired,
+            safeToRetry: UcliErrorRetryClass.ReplanRequired,
             inspect: InspectTargets(),
             nextActions: NextActions(),
             relatedCodes: RelatedCodesExcept(code));

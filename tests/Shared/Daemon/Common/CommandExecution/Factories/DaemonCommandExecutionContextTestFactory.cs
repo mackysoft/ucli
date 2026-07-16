@@ -6,31 +6,44 @@ namespace MackySoft.Ucli.TestSupport;
 
 internal static class DaemonCommandExecutionContextTestFactory
 {
-    public const string ProjectFingerprint = "fingerprint";
+    public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
 
-    public const string RepositoryRoot = "/tmp/repo-root";
+    public static string RepositoryRoot { get; } = ProjectPathTestValues.TemporaryRepositoryRoot;
 
-    public const string UnityProjectRoot = "/tmp/unity-project";
+    public static string UnityProjectRoot { get; } = ProjectPathTestValues.TemporaryUnityProject;
 
     public const string UnityVersion = "6000.1.4f1";
 
     public static DaemonCommandExecutionContext Create (
         int timeoutMilliseconds,
-        string repositoryRoot = RepositoryRoot,
-        string unityProjectRoot = UnityProjectRoot,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
+        string unityVersion = UnityVersion,
+        ConfigSource configSource = ConfigSource.Default)
+    {
+        return CreateForRepositoryRoot(
+            timeoutMilliseconds,
+            RepositoryRoot,
+            projectFingerprint,
+            unityVersion,
+            configSource);
+    }
+
+    public static DaemonCommandExecutionContext CreateForRepositoryRoot (
+        int timeoutMilliseconds,
+        string repositoryRoot,
+        ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion,
         ConfigSource configSource = ConfigSource.Default)
     {
         return new DaemonCommandExecutionContext(
             Context: new ProjectContext(
-                new ResolvedUnityProjectContext(
-                    UnityProjectRoot: unityProjectRoot,
-                    RepositoryRoot: repositoryRoot,
-                    ProjectFingerprint: projectFingerprint,
-                    PathSource: UnityProjectPathSource.CommandOption,
-                    PathSourceLabel: null,
-                    UnityVersion: unityVersion),
+                ResolvedUnityProjectContext.Create(
+                    unityProjectRoot: Path.Combine(repositoryRoot, "UnityProject"),
+                    repositoryRoot: repositoryRoot,
+                    projectFingerprint: projectFingerprint ?? ProjectFingerprint,
+                    pathSource: UnityProjectPathSource.CommandOption,
+                    pathSourceLabel: null,
+                    unityVersion: unityVersion),
                 UcliConfig.CreateDefault(),
                 configSource),
             Timeout: TimeSpan.FromMilliseconds(timeoutMilliseconds));

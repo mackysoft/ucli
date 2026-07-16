@@ -54,62 +54,63 @@ internal sealed class ProcessRunner : IProcessRunner
             return ProcessRunResult.StartFailed($"Failed to start process: {exception.Message}");
         }
 
-        process.BeginOutputReadLine();
-        process.BeginErrorReadLine();
-
-        using var timeoutCancellationTokenSource = new CancellationTokenSource(request.Timeout);
-        using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
-            cancellationToken,
-            timeoutCancellationTokenSource.Token);
-
         try
         {
-            await WaitForProcessExitOnlyAsync(process, linkedCancellationTokenSource.Token).ConfigureAwait(false);
-            await DrainOutputAsync(
-                standardOutputCompleted.Task,
-                standardErrorCompleted.Task,
-                request.OutputDrainMode,
-                linkedCancellationTokenSource.Token).ConfigureAwait(false);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            var terminationResult = await ProcessTerminator.TerminateAsync(
-                    process,
-                    request.TerminationPolicy,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-            await TryDrainOutputBestEffortAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
-            return ProcessRunResult.Canceled(
-                $"Process execution was canceled.{BuildOutputSnippet(standardError, standardOutput)}",
-                standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null,
-                terminationResult: terminationResult);
-        }
-        catch (OperationCanceledException) when (timeoutCancellationTokenSource.IsCancellationRequested
-                                                 && !cancellationToken.IsCancellationRequested)
-        {
-            var terminationResult = await ProcessTerminator.TerminateAsync(
-                    process,
-                    request.TerminationPolicy,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
-            await TryDrainOutputBestEffortAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
-            return ProcessRunResult.TimedOut(
-                $"Process timed out after {request.Timeout.TotalMilliseconds:0} milliseconds.{BuildOutputSnippet(standardError, standardOutput)}",
-                standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null,
-                terminationResult: terminationResult);
-        }
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
 
-        if (process.ExitCode == 0)
-        {
+            using var timeoutCancellationTokenSource = new CancellationTokenSource(request.Timeout);
+            using var linkedCancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(
+                cancellationToken,
+                timeoutCancellationTokenSource.Token);
+
+            try
+            {
+                await WaitForProcessExitOnlyAsync(process, linkedCancellationTokenSource.Token).ConfigureAwait(false);
+                await DrainOutputAsync(
+                    standardOutputCompleted.Task,
+                    standardErrorCompleted.Task,
+                    request.OutputDrainMode,
+                    linkedCancellationTokenSource.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                var terminationResult = await TerminateBestEffortAsync(process, request.TerminationPolicy).ConfigureAwait(false);
+                await TryDrainOutputBestEffortAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
+                return ProcessRunResult.Canceled(
+                    $"Process execution was canceled.{BuildOutputSnippet(standardError, standardOutput)}",
+                    standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null,
+                    terminationResult: terminationResult);
+            }
+            catch (OperationCanceledException) when (timeoutCancellationTokenSource.IsCancellationRequested
+                                                     && !cancellationToken.IsCancellationRequested)
+            {
+                var terminationResult = await TerminateBestEffortAsync(process, request.TerminationPolicy).ConfigureAwait(false);
+                await TryDrainOutputBestEffortAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
+                return ProcessRunResult.TimedOut(
+                    $"Process timed out after {request.Timeout.TotalMilliseconds:0} milliseconds.{BuildOutputSnippet(standardError, standardOutput)}",
+                    standardOutput: standardOutput.Length > 0 ? standardOutput.ToString() : null,
+                    terminationResult: terminationResult);
+            }
+
+            if (process.ExitCode == 0)
+            {
+                return ProcessRunResult.Exited(
+                    0,
+                    standardOutput: GetCapturedStandardOutput(standardOutput, fullStandardOutput));
+            }
+
             return ProcessRunResult.Exited(
-                0,
+                process.ExitCode,
+                $"Process exited with code {process.ExitCode}.{BuildOutputSnippet(standardError, standardOutput)}",
                 standardOutput: GetCapturedStandardOutput(standardOutput, fullStandardOutput));
         }
-
-        return ProcessRunResult.Exited(
-            process.ExitCode,
-            $"Process exited with code {process.ExitCode}.{BuildOutputSnippet(standardError, standardOutput)}",
-            standardOutput: GetCapturedStandardOutput(standardOutput, fullStandardOutput));
+        catch (Exception)
+        {
+            _ = await TerminateBestEffortAsync(process, request.TerminationPolicy).ConfigureAwait(false);
+            await TryDrainOutputBestEffortAsync(standardOutputCompleted.Task, standardErrorCompleted.Task).ConfigureAwait(false);
+            throw;
+        }
     }
 
     /// <summary> Validates one output drain mode value before process execution starts. </summary>
@@ -205,7 +206,32 @@ internal sealed class ProcessRunner : IProcessRunner
             return;
         }
 
-        await drainTask.ConfigureAwait(false);
+        try
+        {
+            await drainTask.ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            // Output observation is secondary to the process result and must not replace it.
+        }
+    }
+
+    private static async ValueTask<ProcessTerminationResult> TerminateBestEffortAsync (
+        DiagnosticsProcess process,
+        ProcessTerminationPolicy? terminationPolicy)
+    {
+        try
+        {
+            return await ProcessTerminator.TerminateAsync(
+                    process,
+                    terminationPolicy,
+                    CancellationToken.None)
+                .ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            return ProcessTerminationResult.ForceKillFailed;
+        }
     }
 
     /// <summary> Handles one redirected output line. </summary>

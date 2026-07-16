@@ -1,7 +1,4 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
-using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.VerifyCommandTestData;
@@ -18,7 +15,7 @@ public sealed class VerifyCommandGoldenOutputTests
     public async Task Verify_WithDefaultOrSupportedFormat_WritesOnlyFinalCommandResult (string? format)
     {
         var service = new RecordingVerifyService((_, _, _) => ValueTask.FromResult(VerifyExecutionResult.Success(CreateOutput())));
-        var command = new VerifyCommand(service, CommandResultTestWriter.Create());
+        var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.VerifyAsync(
             format: format,
@@ -35,13 +32,13 @@ public sealed class VerifyCommandGoldenOutputTests
     }
 
     [Theory]
-    [InlineData(VerifyVerdictValues.Fail)]
-    [InlineData(VerifyVerdictValues.Incomplete)]
+    [InlineData(AssuranceVerdict.Fail)]
+    [InlineData(AssuranceVerdict.Incomplete)]
     [Trait("Size", "Small")]
-    public async Task Verify_WithNonPassVerdict_ReturnsOkEnvelopeWithFailureExitCode (string verdict)
+    public async Task Verify_WithNonPassVerdict_ReturnsOkEnvelopeWithFailureExitCode (AssuranceVerdict verdict)
     {
         var service = new RecordingVerifyService((_, _, _) => ValueTask.FromResult(VerifyExecutionResult.Success(CreateOutput(verdict))));
-        var command = new VerifyCommand(service, CommandResultTestWriter.Create());
+        var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.VerifyAsync(
             cancellationToken: CancellationToken.None));
@@ -51,8 +48,10 @@ public sealed class VerifyCommandGoldenOutputTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Verify,
-            IpcProtocol.StatusOk,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
             1);
-        Assert.Equal(verdict, outputJson.RootElement.GetProperty("payload").GetProperty("verdict").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(verdict),
+            outputJson.RootElement.GetProperty("payload").GetProperty("verdict").GetString());
     }
 }

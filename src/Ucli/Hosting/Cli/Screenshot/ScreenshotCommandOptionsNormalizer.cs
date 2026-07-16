@@ -1,5 +1,4 @@
 using System.Globalization;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Hosting.Cli.Options;
 
@@ -10,20 +9,22 @@ internal static class ScreenshotCommandOptionsNormalizer
 {
     /// <summary> Normalizes GameView screenshot options. </summary>
     public static ScreenshotCommandOptionsNormalizationResult NormalizeGame (
-        string? mode,
         string? width,
         string? height,
         string? timeout)
     {
-        var commonResult = NormalizeCommon(mode, timeout);
-        if (!commonResult.IsSuccess)
+        var timeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
+        if (!timeoutResult.IsSuccess)
         {
-            return commonResult;
+            return ScreenshotCommandOptionsNormalizationResult.Failure(timeoutResult.Error!);
         }
 
         if (width is null && height is null)
         {
-            return commonResult;
+            return ScreenshotCommandOptionsNormalizationResult.Success(
+                requestedWidth: null,
+                requestedHeight: null,
+                timeoutResult.TimeoutMilliseconds);
         }
 
         if (!TryParsePositiveInteger(width, out var requestedWidth)
@@ -36,37 +37,7 @@ internal static class ScreenshotCommandOptionsNormalizer
         return ScreenshotCommandOptionsNormalizationResult.Success(
             requestedWidth,
             requestedHeight,
-            commonResult.TimeoutMilliseconds);
-    }
-
-    /// <summary> Normalizes SceneView screenshot options. </summary>
-    public static ScreenshotCommandOptionsNormalizationResult NormalizeScene (
-        string? mode,
-        string? timeout)
-    {
-        return NormalizeCommon(mode, timeout);
-    }
-
-    private static ScreenshotCommandOptionsNormalizationResult NormalizeCommon (
-        string? mode,
-        string? timeout)
-    {
-        var modeResult = ExecutionModeOptionNormalizer.Normalize(mode);
-        if (!modeResult.IsSuccess)
-        {
-            return ScreenshotCommandOptionsNormalizationResult.Failure(modeResult.Error!);
-        }
-
-        if (modeResult.Mode == UnityExecutionMode.Oneshot)
-        {
-            return ScreenshotCommandOptionsNormalizationResult.Failure(ExecutionError.InvalidArgument(
-                "Screenshot mode must be auto or daemon; oneshot capture is not supported."));
-        }
-
-        var timeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
-        return timeoutResult.IsSuccess
-            ? ScreenshotCommandOptionsNormalizationResult.Success(null, null, timeoutResult.TimeoutMilliseconds)
-            : ScreenshotCommandOptionsNormalizationResult.Failure(timeoutResult.Error!);
+            timeoutResult.TimeoutMilliseconds);
     }
 
     private static bool TryParsePositiveInteger (string? value, out int parsedValue)

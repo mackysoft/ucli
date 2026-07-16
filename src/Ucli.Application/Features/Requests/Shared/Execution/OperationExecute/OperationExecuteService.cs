@@ -33,26 +33,30 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         IOperationAuthorizationService operationAuthorizationService,
         IUnityRequestExecutor unityIpcRequestExecutor,
         IMutationReadPostconditionStore mutationReadPostconditionStore,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.projectContextResolver = projectContextResolver ?? throw new ArgumentNullException(nameof(projectContextResolver));
         this.operationAuthorizationService = operationAuthorizationService ?? throw new ArgumentNullException(nameof(operationAuthorizationService));
         this.unityIpcRequestExecutor = unityIpcRequestExecutor ?? throw new ArgumentNullException(nameof(unityIpcRequestExecutor));
         this.mutationReadPostconditionStore = mutationReadPostconditionStore ?? throw new ArgumentNullException(nameof(mutationReadPostconditionStore));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
     public async ValueTask<OperationExecuteResult> ExecuteAsync (
+        Guid requestId,
         OperationExecuteDefinition definition,
         OperationExecuteInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         ArgumentNullException.ThrowIfNull(definition);
         ArgumentNullException.ThrowIfNull(input);
-
-        var requestId = Guid.NewGuid().ToString("D");
 
         var projectContextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
@@ -142,7 +146,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 projectContext.UnityProject,
                 new UnityRequestPayload.ExecuteOperation(
                     UcliCommandIds.Call,
-                    requestId,
                     definition.OperationId,
                     definition.Descriptor.Name,
                     definition.Args,
@@ -164,7 +167,9 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         }
 
         var postprocessedResponse = await ExecuteResponseReadPostconditionProcessor.PersistAsync(
-                ExecuteResponseConverter.Convert(executionResult.Response!),
+                ExecuteResponseConverter.Convert(
+                    executionResult.Response!,
+                    projectContext.UnityProject),
                 mutationReadPostconditionStore,
                 projectContext.UnityProject.RepositoryRoot,
                 projectContext.UnityProject.ProjectFingerprint,
@@ -188,7 +193,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
         return OperationExecuteResultFactory.Failure(
             requestId,
             convertedResponse.OpResults,
-            RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
+            RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors),
             definition.FailureMessage,
             contractViolations: convertedResponse.ContractViolations,
             readPostcondition: convertedResponse.ReadPostcondition,
@@ -208,7 +213,7 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     /// <returns> One tuple containing the issued plan token, or a normalized failure result when plan execution cannot continue. </returns>
     private async ValueTask<(string? PlanToken, OperationExecuteResult? FailureResult)> IssuePlanTokenAsync (
         OperationExecuteDefinition definition,
-        string requestId,
+        Guid requestId,
         UnityExecutionMode mode,
         TimeSpan timeout,
         bool failFast,
@@ -219,7 +224,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(definition);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(config);
         ArgumentNullException.ThrowIfNull(unityProject);
 
@@ -231,7 +235,6 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 unityProject,
                 new UnityRequestPayload.ExecuteOperation(
                     UcliCommandIds.Plan,
-                    requestId,
                     definition.OperationId,
                     definition.Descriptor.Name,
                     definition.Args,
@@ -253,7 +256,9 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                     project: project));
         }
 
-        var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
+        var convertedResponse = ExecuteResponseConverter.Convert(
+            executionResult.Response!,
+            unityProject);
         if (!convertedResponse.IsSuccess)
         {
             return (
@@ -261,13 +266,13 @@ internal sealed class OperationExecuteService : IOperationExecuteService
                 OperationExecuteResultFactory.Failure(
                     requestId,
                     convertedResponse.OpResults,
-                    RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, definition.FailureMessage),
+                    RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors),
                     definition.FailureMessage,
                     contractViolations: convertedResponse.ContractViolations,
                     project: project));
         }
 
-        if (string.IsNullOrWhiteSpace(convertedResponse.PlanToken))
+        if (convertedResponse.PlanToken == null)
         {
             return (
                 null,

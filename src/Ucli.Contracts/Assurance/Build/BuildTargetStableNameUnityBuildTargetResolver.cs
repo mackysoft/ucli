@@ -1,103 +1,87 @@
-using MackySoft.Ucli.Contracts.Text;
-
 namespace MackySoft.Ucli.Contracts.Assurance.Build;
 
-/// <summary> Resolves uCLI buildTarget stable names to Unity BuildTarget literals. </summary>
+/// <summary> Maps stable build-target contract values to the corresponding Unity <c>BuildTarget</c> names. </summary>
 internal static class BuildTargetStableNameUnityBuildTargetResolver
 {
-    /// <summary> Tries to resolve one buildTarget stable-name literal to its Unity BuildTarget literal. </summary>
-    public static bool TryResolve (
-        string stableName,
-        out string unityBuildTargetLiteral)
-    {
-        if (!ContractLiteralCodec.TryParse<BuildTargetStableName>(stableName, out var stableNameValue))
-        {
-            unityBuildTargetLiteral = null!;
-            return false;
-        }
-
-        return TryResolve(stableNameValue, out unityBuildTargetLiteral);
-    }
-
-    /// <summary> Tries to resolve one buildTarget stable name to its Unity BuildTarget literal. </summary>
+    /// <summary> Tries to resolve a stable build target to the Unity <c>BuildTarget</c> name carried by IPC observations. </summary>
     public static bool TryResolve (
         BuildTargetStableName stableName,
-        out string unityBuildTargetLiteral)
+        out string unityBuildTargetName)
     {
         switch (stableName)
         {
             case BuildTargetStableName.StandaloneOsx:
-                unityBuildTargetLiteral = "StandaloneOSX";
+                unityBuildTargetName = "StandaloneOSX";
                 return true;
             case BuildTargetStableName.StandaloneWindows:
-                unityBuildTargetLiteral = "StandaloneWindows";
+                unityBuildTargetName = "StandaloneWindows";
                 return true;
             case BuildTargetStableName.StandaloneWindows64:
-                unityBuildTargetLiteral = "StandaloneWindows64";
+                unityBuildTargetName = "StandaloneWindows64";
                 return true;
             case BuildTargetStableName.StandaloneLinux64:
-                unityBuildTargetLiteral = "StandaloneLinux64";
+                unityBuildTargetName = "StandaloneLinux64";
                 return true;
             case BuildTargetStableName.Ios:
-                unityBuildTargetLiteral = "iOS";
+                unityBuildTargetName = "iOS";
                 return true;
             case BuildTargetStableName.Android:
-                unityBuildTargetLiteral = "Android";
+                unityBuildTargetName = "Android";
                 return true;
             case BuildTargetStableName.Webgl:
-                unityBuildTargetLiteral = "WebGL";
+                unityBuildTargetName = "WebGL";
                 return true;
             case BuildTargetStableName.WsaPlayer:
-                unityBuildTargetLiteral = "WSAPlayer";
+                unityBuildTargetName = "WSAPlayer";
                 return true;
             case BuildTargetStableName.Tvos:
-                unityBuildTargetLiteral = "tvOS";
+                unityBuildTargetName = "tvOS";
                 return true;
             case BuildTargetStableName.Switch:
-                unityBuildTargetLiteral = "Switch";
+                unityBuildTargetName = "Switch";
                 return true;
             case BuildTargetStableName.LinuxHeadlessSimulation:
-                unityBuildTargetLiteral = "LinuxHeadlessSimulation";
+                unityBuildTargetName = "LinuxHeadlessSimulation";
                 return true;
             case BuildTargetStableName.GameCoreXboxSeries:
-                unityBuildTargetLiteral = "GameCoreXboxSeries";
+                unityBuildTargetName = "GameCoreXboxSeries";
                 return true;
             case BuildTargetStableName.GameCoreXboxOne:
-                unityBuildTargetLiteral = "GameCoreXboxOne";
+                unityBuildTargetName = "GameCoreXboxOne";
                 return true;
             case BuildTargetStableName.Ps4:
-                unityBuildTargetLiteral = "PS4";
+                unityBuildTargetName = "PS4";
                 return true;
             case BuildTargetStableName.Ps5:
-                unityBuildTargetLiteral = "PS5";
+                unityBuildTargetName = "PS5";
                 return true;
             case BuildTargetStableName.XboxOne:
-                unityBuildTargetLiteral = "XboxOne";
+                unityBuildTargetName = "XboxOne";
                 return true;
             case BuildTargetStableName.EmbeddedLinux:
-                unityBuildTargetLiteral = "EmbeddedLinux";
+                unityBuildTargetName = "EmbeddedLinux";
                 return true;
             case BuildTargetStableName.Qnx:
-                unityBuildTargetLiteral = "QNX";
+                unityBuildTargetName = "QNX";
                 return true;
             case BuildTargetStableName.VisionOs:
-                unityBuildTargetLiteral = "VisionOS";
+                unityBuildTargetName = "VisionOS";
                 return true;
             default:
-                unityBuildTargetLiteral = null!;
+                unityBuildTargetName = string.Empty;
                 return false;
         }
     }
 
-    /// <summary> Tries to resolve one Unity BuildTarget literal to its stable buildTarget name. </summary>
+    /// <summary> Tries to resolve an observed Unity <c>BuildTarget</c> name to its stable contract value. </summary>
     public static bool TryResolveStableName (
-        string unityBuildTargetLiteral,
+        string unityBuildTargetName,
         out BuildTargetStableName stableName)
     {
         foreach (BuildTargetStableName candidate in Enum.GetValues(typeof(BuildTargetStableName)))
         {
-            if (TryResolve(candidate, out var candidateUnityBuildTargetLiteral)
-                && string.Equals(candidateUnityBuildTargetLiteral, unityBuildTargetLiteral, StringComparison.Ordinal))
+            if (TryResolve(candidate, out var candidateName)
+                && string.Equals(candidateName, unityBuildTargetName, StringComparison.Ordinal))
             {
                 stableName = candidate;
                 return true;

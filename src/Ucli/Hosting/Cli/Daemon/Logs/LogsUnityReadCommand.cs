@@ -1,7 +1,9 @@
+using System.Globalization;
 using ConsoleAppFramework;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Unity;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
@@ -16,15 +18,20 @@ internal sealed class LogsUnityReadCommand
 
     private readonly ICommandResultWriter commandResultWriter;
 
+    private readonly CliStreamEntryWriterFactory streamEntryWriterFactory;
+
     /// <summary> Initializes a new instance of the LogsUnityReadCommand class. </summary>
     /// <param name="logsUnityService"> The Unity-log orchestration service dependency. </param>
     /// <param name="commandResultWriter"> The command-result writer dependency. </param>
+    /// <param name="streamEntryWriterFactory"> The per-invocation standard-error stream writer factory. </param>
     public LogsUnityReadCommand (
         ILogsUnityService logsUnityService,
-        ICommandResultWriter commandResultWriter)
+        ICommandResultWriter commandResultWriter,
+        CliStreamEntryWriterFactory streamEntryWriterFactory)
     {
         this.logsUnityService = logsUnityService ?? throw new ArgumentNullException(nameof(logsUnityService));
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
+        this.streamEntryWriterFactory = streamEntryWriterFactory ?? throw new ArgumentNullException(nameof(streamEntryWriterFactory));
     }
 
     /// <summary> Executes the logs unity read command. </summary>
@@ -73,6 +80,7 @@ internal sealed class LogsUnityReadCommand
                 format,
                 timeout,
                 commandResultWriter,
+                streamEntryWriterFactory,
                 (timeoutMilliseconds, onLogEvent, executeCancellationToken) => logsUnityService.ExecuteAsync(
                     new LogsUnityServiceRequest(
                         ProjectPath: projectPath,
@@ -108,12 +116,12 @@ internal sealed class LogsUnityReadCommand
         return new CliCommandProgressEntry<JsonLinePayload>(
             "logs.unity.entry",
             new JsonLinePayload(
-                Timestamp: unityLogEvent.Timestamp,
-                Level: unityLogEvent.Level,
-                Source: unityLogEvent.Source,
+                Timestamp: unityLogEvent.Timestamp.ToString("O", CultureInfo.InvariantCulture),
+                Level: ContractLiteralCodec.ToValue(unityLogEvent.Level),
+                Source: ContractLiteralCodec.ToValue(unityLogEvent.Source),
                 Message: unityLogEvent.Message,
                 StackTrace: unityLogEvent.StackTrace,
-                Cursor: unityLogEvent.Cursor,
+                Cursor: unityLogEvent.Cursor.Value,
                 NextCursor: nextCursor));
     }
 

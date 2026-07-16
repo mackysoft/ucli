@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
-using MackySoft.Ucli.Application.Features.Assurance.Ready;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Profiles;
 
@@ -15,21 +15,23 @@ internal static class VerifyProfileDigestCalculator
     };
 
     /// <summary> Calculates the canonical digest for one resolved profile. </summary>
-    public static string Calculate (VerifyProfileDefinition profile)
+    public static Sha256Digest Calculate (VerifyProfileDefinition profile)
     {
         ArgumentNullException.ThrowIfNull(profile);
 
         var canonical = new
         {
-            source = profile.Source,
+            source = ContractLiteralCodec.ToValue(profile.Source),
             name = profile.Name,
             path = profile.RepositoryRelativePath,
             steps = profile.Steps.Select(static step => new
             {
-                kind = step.Kind,
+                kind = ContractLiteralCodec.ToValue(step.Kind),
                 required = step.Required,
-                effects = step.Effects,
-                readyTarget = ReadyTargetCodec.ToValue(step.ReadyTarget),
+                effects = step.Effects.Select(static effect => ContractLiteralCodec.ToValue(effect)).ToArray(),
+                readyTarget = step.ReadyTarget.HasValue
+                    ? ContractLiteralCodec.ToValue(step.ReadyTarget.Value)
+                    : null,
                 testPlatform = step.TestPlatform.HasValue
                     ? MackySoft.Ucli.Contracts.Testing.TestRunPlatformCodec.ToValue(step.TestPlatform.Value)
                     : null,
@@ -40,6 +42,6 @@ internal static class VerifyProfileDigestCalculator
         };
 
         var json = JsonSerializer.Serialize(canonical, SerializerOptions);
-        return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(json));
+        return Sha256Digest.Compute(Encoding.UTF8.GetBytes(json));
     }
 }

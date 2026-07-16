@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Requests.Plan.Common.Contracts;
-using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -45,21 +44,4 @@ internal static class PlanServiceInvocationAssert
             UcliCommandIds.Plan);
     }
 
-    public static UnityRequestExecutorInvocationAssert.ExecuteJsonInvocation PlanDispatched (
-        RecordingUnityRequestExecutor requestExecutor,
-        UnityExecutionMode expectedMode,
-        TimeSpan expectedTimeout,
-        bool expectedFailFast,
-        bool expectedAllowPlayMode,
-        string expectedRequestId)
-    {
-        var execution = PlanDispatched(requestExecutor);
-        Assert.Equal(expectedMode, execution.Invocation.Mode);
-        Assert.Equal(expectedTimeout, execution.Invocation.Timeout);
-        Assert.Equal(expectedFailFast, execution.Request.FailFast);
-        Assert.Equal(expectedAllowPlayMode, execution.Request.AllowPlayMode);
-        Assert.Null(execution.Request.PlanToken);
-        Assert.Equal(expectedRequestId, execution.Request.ExecuteArguments.GetProperty("requestId").GetString());
-        return execution;
-    }
 }

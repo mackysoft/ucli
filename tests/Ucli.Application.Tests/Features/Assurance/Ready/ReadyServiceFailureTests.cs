@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 
 namespace MackySoft.Ucli.Application.Tests.Features.Assurance.Ready;
@@ -58,6 +57,7 @@ public sealed class ReadyServiceFailureTests
                 daemonRunning: false,
                 UnityExecutionTarget.Oneshot),
             unityRequestExecutor: new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                UnityRequestFailureKind.General,
                 DaemonErrorCodes.DaemonStartupBlocked,
                 "Unity startup is blocked.",
                 startupFailure))));
@@ -79,7 +79,8 @@ public sealed class ReadyServiceFailureTests
                 UnityExecutionMode.Auto,
                 daemonRunning: false,
                 UnityExecutionTarget.Oneshot),
-            unityRequestExecutor: new RecordingUnityRequestExecutor(CreateReadyPingSuccess(projectFingerprint: "other-fingerprint")));
+            unityRequestExecutor: new RecordingUnityRequestExecutor(CreateReadyPingSuccess(
+                projectFingerprint: ProjectFingerprintTestFactory.Create("other-fingerprint"))));
 
         var result = await service.ExecuteAsync(CreateExecutionInput());
 

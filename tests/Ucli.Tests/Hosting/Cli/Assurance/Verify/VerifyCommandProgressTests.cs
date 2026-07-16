@@ -1,8 +1,5 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
-using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
-using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.VerifyCommandTestData;
@@ -30,7 +27,7 @@ public sealed class VerifyCommandProgressTests
                 .ConfigureAwait(false);
             return VerifyExecutionResult.Success(CreateOutput());
         });
-        var command = new VerifyCommand(service, CommandResultTestWriter.Create());
+        var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.VerifyAsync(
             format: "json",
@@ -47,7 +44,9 @@ public sealed class VerifyCommandProgressTests
         using var completedEntry = JsonDocument.Parse(lines[1]);
         AssertVerifyStreamEnvelope(startedEntry.RootElement, sequence: 1, VerifyProgressEventNames.StepStarted);
         AssertVerifyStreamEnvelope(completedEntry.RootElement, sequence: 2, VerifyProgressEventNames.StepCompleted);
-        Assert.Equal(VerifyStepKindValues.Ready, startedEntry.RootElement.GetProperty("payload").GetProperty("kind").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(VerifyStepKind.Ready),
+            startedEntry.RootElement.GetProperty("payload").GetProperty("kind").GetString());
         Assert.True(startedEntry.RootElement.GetProperty("payload").GetProperty("required").GetBoolean());
     }
 
@@ -80,7 +79,7 @@ public sealed class VerifyCommandProgressTests
                 .ConfigureAwait(false);
             return VerifyExecutionResult.Success(CreateOutput());
         });
-        var command = new VerifyCommand(service, CommandResultTestWriter.Create());
+        var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.VerifyAsync(
             cancellationToken: CancellationToken.None));

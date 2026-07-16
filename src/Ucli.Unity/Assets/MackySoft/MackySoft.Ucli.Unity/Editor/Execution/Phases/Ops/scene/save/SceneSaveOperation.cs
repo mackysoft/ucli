@@ -23,7 +23,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Saves a loaded or previewed Unity scene asset.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneSave },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the scene path and observe whether the loaded or previewed scene has save-relevant changes.",
                 callSemantics: "Persist the loaded or previewed scene asset when dirty or request-attributed changes exist.",
@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
-            var resource = new OperationResource(OperationTouchKind.Scene, validationState.ScenePath);
+            var resource = new OperationResource(UcliTouchedResourceKind.Scene, validationState.ScenePath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
             var hasDirtyScene = validationState.Scene.isDirty;
             return Task.FromResult(OperationPhaseStepResult.Success(
@@ -105,7 +105,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     $"Scene is not loaded: {validationState.ScenePath}. Use 'ucli.scene.open' first."));
             }
 
-            var resource = new OperationResource(OperationTouchKind.Scene, validationState.ScenePath);
+            var resource = new OperationResource(UcliTouchedResourceKind.Scene, validationState.ScenePath);
             var hasRequestAttributedChange = executionContext.HasRequestAttributedChange(resource);
             var hasDirtyScene = validationState.Scene.isDirty;
             if (!hasRequestAttributedChange && !hasDirtyScene)
@@ -158,7 +158,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            var scenePath = args.Path?.Value ?? string.Empty;
+            var scenePath = args.Path.Value;
             if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);
@@ -185,7 +185,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            var scenePath = args.Path?.Value ?? string.Empty;
+            var scenePath = args.Path.Value;
             if (!SceneAssetSourceUtilities.TryEnsureSceneAssetExists(scenePath, out var sceneErrorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, sceneErrorMessage);

@@ -9,11 +9,11 @@ public sealed record GoTargetArgs
     [JsonConstructor]
     public GoTargetArgs (GameObjectReferenceArgs target)
     {
-        Target = target;
+        Target = ContractArgumentGuard.RequireNotNull(target, nameof(target));
     }
 
     [UcliRequired]
     [UcliDescription("Target GameObject reference.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.ReferenceResolvable, TargetKind = UcliOperationReferenceTargetKind.GameObject)]
-    public GameObjectReferenceArgs Target { get; init; }
+    public GameObjectReferenceArgs Target { get; }
 }

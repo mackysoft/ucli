@@ -12,15 +12,10 @@ internal sealed record PersistedOpsCatalogReadFailure
         UcliCode errorCode,
         string message)
     {
-        if (!errorCode.IsValid)
-        {
-            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
-        }
-
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
 
         Kind = kind;
-        ErrorCode = errorCode;
+        ErrorCode = errorCode ?? throw new ArgumentNullException(nameof(errorCode));
         Message = message;
     }
 

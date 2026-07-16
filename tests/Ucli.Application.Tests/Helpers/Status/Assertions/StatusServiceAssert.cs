@@ -1,7 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -9,8 +7,7 @@ internal static class StatusServiceAssert
 {
     public static void NotRunningOutputReturnedWithoutPingTelemetry (
         StatusExecutionResult result,
-        string expectedUnityVersion,
-        RecordingDaemonPingInfoClient daemonPingInfoClient)
+        string expectedUnityVersion)
     {
         var output = AssertSuccessfulOutput(result);
         Assert.Equal(DaemonStatusKind.NotRunning, output.DaemonStatus);
@@ -23,29 +20,26 @@ internal static class StatusServiceAssert
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.EditorMode);
         Assert.Null(output.PlayMode);
-        Assert.Empty(daemonPingInfoClient.Invocations);
     }
 
     public static void StaleOutputReturnedWithoutPingTelemetry (
         StatusExecutionResult result,
-        string expectedUnityVersion,
-        RecordingDaemonPingInfoClient daemonPingInfoClient)
+        string expectedUnityVersion)
     {
         var output = AssertSuccessfulOutput(result);
         Assert.Equal(DaemonStatusKind.Stale, output.DaemonStatus);
         Assert.Equal(expectedUnityVersion, output.UnityVersion);
         Assert.Null(output.ServerVersion);
-        Assert.Equal(IpcEditorLifecycleState.Unavailable, output.LifecycleState);
-        Assert.Equal(IpcEditorBlockingReason.Unavailable, output.BlockingReason);
+        Assert.Null(output.LifecycleState);
+        Assert.Null(output.BlockingReason);
         Assert.Null(output.CompileState);
         Assert.Null(output.Generations);
         Assert.False(output.CanAcceptExecutionRequests);
         Assert.Null(output.EditorMode);
         Assert.Null(output.PlayMode);
-        Assert.NotNull(output.ObservedAtUtc);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.InspectUnityLog, output.ActionRequired);
+        Assert.Null(output.ObservedAtUtc);
+        Assert.Null(output.ActionRequired);
         Assert.Null(output.PrimaryDiagnostic);
-        Assert.Empty(daemonPingInfoClient.Invocations);
     }
 
     public static void InvalidTimeoutStoppedBeforeDaemonStatus (
@@ -69,14 +63,12 @@ internal static class StatusServiceAssert
         Assert.Empty(unityVersionResolver.Invocations);
     }
 
-    public static void DaemonStatusFailureStoppedBeforePingTelemetry (
+    public static void DaemonStatusFailureReturned (
         StatusExecutionResult result,
-        string expectedMessage,
-        RecordingDaemonPingInfoClient daemonPingInfoClient)
+        string expectedMessage)
     {
         var error = AssertFailure(result, ExecutionErrorKind.InternalError);
         Assert.Equal(expectedMessage, error.Message);
-        Assert.Empty(daemonPingInfoClient.Invocations);
     }
 
     private static StatusExecutionOutput AssertSuccessfulOutput (StatusExecutionResult result)

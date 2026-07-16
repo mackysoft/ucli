@@ -1,6 +1,5 @@
 using System.Runtime.InteropServices;
 using System.Text;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -20,8 +19,8 @@ internal static class FileBuildRunArtifactStoreTestSupport
     public static (FileBuildRunArtifactStore Store, BuildRunArtifactPaths Paths) PrepareArtifacts (TestDirectoryScope scope)
     {
         var store = CreateStore();
-        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, "fingerprint");
-        var prepareResult = store.Prepare(project, "run-1");
+        var project = ResolvedUnityProjectContextTestFactory.CreateWithUnityProjectDirectory(scope, ProjectFingerprintTestFactory.Create("fingerprint"));
+        var prepareResult = store.Prepare(project, RunIdTestValues.Build);
 
         Assert.True(prepareResult.IsSuccess);
         return (store, Assert.IsType<BuildRunArtifactPaths>(prepareResult.Paths));
@@ -59,11 +58,11 @@ internal static class FileBuildRunArtifactStoreTestSupport
             : outputSourcePaths;
         return new BuildRunArtifactAccountingRequest(
             paths,
-            "standaloneLinux64",
+            BuildTargetStableName.StandaloneLinux64,
             "StandaloneLinux64",
             buildReportSource,
             sourcePaths.Select(static path => BuildOutputSourceEntry.FromAbsolutePath(path)).ToArray(),
-            AllowEmptyOutputManifest: false);
+            allowEmptyOutputManifest: false);
     }
 
     public static BuildRunArtifactAccountingRequest CreateBuildReportOnlyAccountingRequest (
@@ -72,18 +71,18 @@ internal static class FileBuildRunArtifactStoreTestSupport
     {
         return new BuildRunArtifactAccountingRequest(
             paths,
-            "standaloneLinux64",
+            BuildTargetStableName.StandaloneLinux64,
             "StandaloneLinux64",
-            BuildReportSourceEntry.FromRunnerOutputRelativePath(buildReportSourcePath),
+            BuildReportSourceEntry.FromRunnerOutputRelativePath(new BuildRunnerOutputPath(buildReportSourcePath)),
             Array.Empty<BuildOutputSourceEntry>(),
-            AllowEmptyOutputManifest: true);
+            allowEmptyOutputManifest: true);
     }
 
     public static IpcBuildReportArtifact CreateBuildReportArtifact (BuildRunArtifactPaths paths)
     {
         return new IpcBuildReportArtifact(
             SchemaVersion: 1,
-            Result: ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+            Result: IpcBuildReportResult.Succeeded,
             UnityBuildTarget: "StandaloneLinux64",
             OutputPath: Path.Combine(paths.RunnerOutputDirectory, "build"),
             DurationMilliseconds: 2500,
@@ -111,34 +110,26 @@ internal static class FileBuildRunArtifactStoreTestSupport
         string pathKind,
         string escapedPath)
     {
-        return pathKind switch
+        if (pathKind is not "buildJson"
+            and not "buildReport"
+            and not "buildLog"
+            and not "outputManifest"
+            and not "artifactOutput"
+            and not "runnerOutput")
         {
-            "buildJson" => paths with
-            {
-                BuildJsonPath = escapedPath,
-            },
-            "buildReport" => paths with
-            {
-                BuildReportJsonPath = escapedPath,
-            },
-            "buildLog" => paths with
-            {
-                BuildLogPath = escapedPath,
-            },
-            "outputManifest" => paths with
-            {
-                OutputManifestJsonPath = escapedPath,
-            },
-            "artifactOutput" => paths with
-            {
-                ArtifactOutputDirectory = escapedPath,
-            },
-            "runnerOutput" => paths with
-            {
-                RunnerOutputDirectory = escapedPath,
-            },
-            _ => throw new ArgumentOutOfRangeException(nameof(pathKind), pathKind, "Unknown artifact path kind."),
-        };
+            throw new ArgumentOutOfRangeException(nameof(pathKind), pathKind, "Unknown artifact path kind.");
+        }
+
+        return new BuildRunArtifactPaths(
+            paths.RepositoryRoot,
+            paths.RunId,
+            paths.ArtifactsDirectory,
+            pathKind == "buildJson" ? escapedPath : paths.BuildJsonPath,
+            pathKind == "buildReport" ? escapedPath : paths.BuildReportJsonPath,
+            pathKind == "buildLog" ? escapedPath : paths.BuildLogPath,
+            pathKind == "outputManifest" ? escapedPath : paths.OutputManifestJsonPath,
+            pathKind == "runnerOutput" ? escapedPath : paths.RunnerOutputDirectory,
+            pathKind == "artifactOutput" ? escapedPath : paths.ArtifactOutputDirectory);
     }
 
     public static void WriteUnityGeneratedArtifacts (BuildRunArtifactPaths paths)

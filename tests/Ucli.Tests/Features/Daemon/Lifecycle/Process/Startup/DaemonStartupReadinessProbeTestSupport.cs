@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using MackySoft.Tests;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -13,13 +14,13 @@ internal static class DaemonStartupReadinessProbeTestSupport
         IDaemonPingInfoClient pingClient,
         IUnityLogReader logReader,
         UnityProjectLockFileProbeResult? lockFileProbeResult = null,
-        TimeProvider? timeProvider = null)
+        IUnityProjectLockPreflightService? projectLockPreflightService = null)
     {
         return new DaemonStartupReadinessProbe(
             pingClient,
             logReader,
-            CreateProjectLockPreflightService(lockFileProbeResult),
-            timeProvider);
+            projectLockPreflightService ?? CreateProjectLockPreflightService(lockFileProbeResult),
+            new DaemonCompensationOperationOwner());
     }
 
     public static async Task<DaemonStartupReadinessProbeResult> WaitUntilStartupDeadlineAsync (
@@ -27,12 +28,12 @@ internal static class DaemonStartupReadinessProbeTestSupport
         RecordingDaemonPingInfoClient pingClient,
         ManualTimeProvider timeProvider,
         string description,
-        string projectFingerprint)
+        ProjectFingerprint projectFingerprint)
     {
         var timeout = TimeSpan.FromMilliseconds(20);
         var resultTask = probe.WaitUntilReadyAsync(
                 ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(projectFingerprint),
-                timeout,
+                ExecutionDeadline.Start(timeout, timeProvider),
                 cancellationToken: CancellationToken.None)
             .AsTask();
 

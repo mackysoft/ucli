@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 
@@ -30,13 +31,24 @@ internal sealed class CodeCatalogService : ICodeCatalogService
     {
         ArgumentNullException.ThrowIfNull(input);
 
-        var kindFilter = input.Kind;
-        if (kindFilter is not null && string.IsNullOrWhiteSpace(kindFilter))
+        CodeCatalogKind? kindFilter = null;
+        if (input.Kind is not null && string.IsNullOrWhiteSpace(input.Kind))
         {
             return CodeCatalogListResult.Failure(
                 ExecutionError.InvalidArgument(
                     "kind must not be empty.",
                     UcliCoreErrorCodes.InvalidArgument));
+        }
+
+        if (input.Kind is not null)
+        {
+            if (!ContractLiteralCodec.TryParse<CodeCatalogKind>(input.Kind, out var parsedKind)
+                || parsedKind == CodeCatalogKind.Unknown)
+            {
+                return CodeCatalogListResult.Success(EmptyDescriptors);
+            }
+
+            kindFilter = parsedKind;
         }
 
         UcliCommand? commandFilter = null;
@@ -53,12 +65,7 @@ internal sealed class CodeCatalogService : ICodeCatalogService
             commandFilter = command;
         }
 
-        if (kindFilter is not null && !CodeCatalogKindValues.IsSupported(kindFilter))
-        {
-            return CodeCatalogListResult.Success(EmptyDescriptors);
-        }
-
-        if (commandFilter.HasValue && !KnownCommandSet.Contains(commandFilter.Value))
+        if (commandFilter is not null && !KnownCommandSet.Contains(commandFilter))
         {
             return CodeCatalogListResult.Success(EmptyDescriptors);
         }
@@ -66,13 +73,12 @@ internal sealed class CodeCatalogService : ICodeCatalogService
         var descriptors = new List<CodeCatalogDescriptor>();
         foreach (var descriptor in catalog.Descriptors)
         {
-            if (kindFilter is not null
-                && !string.Equals(descriptor.Kind, kindFilter, StringComparison.Ordinal))
+            if (kindFilter.HasValue && descriptor.Kind != kindFilter.Value)
             {
                 continue;
             }
 
-            if (commandFilter.HasValue && !MatchesCommandFilter(descriptor.AppliesTo, commandFilter.Value))
+            if (commandFilter is not null && !MatchesCommandFilter(descriptor.AppliesTo, commandFilter))
             {
                 continue;
             }
@@ -90,30 +96,15 @@ internal sealed class CodeCatalogService : ICodeCatalogService
     {
         ArgumentNullException.ThrowIfNull(reference);
 
-        if (!reference.Code.IsValid)
-        {
-            return CodeCatalogDescribeResult.Failure(
-                ExecutionError.InvalidArgument(
-                    "Code must not be empty.",
-                    UcliCoreErrorCodes.InvalidArgument));
-        }
-
-        if (reference.ExpectedKind is not null && string.IsNullOrWhiteSpace(reference.ExpectedKind))
-        {
-            return CodeCatalogDescribeResult.Failure(
-                ExecutionError.InvalidArgument(
-                    "Code kind must not be empty.",
-                    UcliCoreErrorCodes.InvalidArgument));
-        }
-
         if (catalog.TryFind(reference.Code, out var descriptor))
         {
-            if (reference.ExpectedKind is not null
-                && !string.Equals(reference.ExpectedKind, descriptor.Kind, StringComparison.Ordinal))
+            if (reference.ExpectedKind.HasValue && reference.ExpectedKind.Value != descriptor.Kind)
             {
+                var actualKind = ContractLiteralCodec.ToValue(descriptor.Kind);
+                var expectedKind = ContractLiteralCodec.ToValue(reference.ExpectedKind.Value);
                 return CodeCatalogDescribeResult.Failure(
                     ExecutionError.InvalidArgument(
-                        $"Code '{reference.Code}' has kind '{descriptor.Kind}', not '{reference.ExpectedKind}'.",
+                        $"Code '{reference.Code}' has kind '{actualKind}', not '{expectedKind}'.",
                         UcliCoreErrorCodes.InvalidArgument));
             }
 
@@ -135,8 +126,8 @@ internal sealed class CodeCatalogService : ICodeCatalogService
     {
         return new CodeCatalogDescriptor(
             Code: code,
-            Kind: CodeCatalogKindValues.Unknown,
-            Category: CodeCatalogKindValues.Unknown,
+            Kind: CodeCatalogKind.Unknown,
+            Category: ContractLiteralCodec.ToValue(CodeCatalogKind.Unknown),
             Summary: "This code is not known to this uCLI client.",
             Meaning: null,
             AppearsIn: EmptyStrings,

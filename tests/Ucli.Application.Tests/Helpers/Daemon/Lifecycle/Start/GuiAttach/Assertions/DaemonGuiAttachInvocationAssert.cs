@@ -18,7 +18,7 @@ internal static class DaemonGuiAttachInvocationAssert
         RecordingDaemonGuiSessionRegistrationAwaiter awaiter,
         params TimeSpan[] expectedTimeouts)
     {
-        Assert.Equal(expectedTimeouts, awaiter.Invocations.Select(static invocation => invocation.Timeout).ToArray());
+        Assert.Equal(expectedTimeouts, awaiter.Invocations.Select(static invocation => invocation.RemainingTimeout).ToArray());
     }
 
     public static RecordingDaemonGuiRebootstrapClient.Invocation RebootstrapRequestedFor (
@@ -34,7 +34,7 @@ internal static class DaemonGuiAttachInvocationAssert
         Assert.Equal(expectedProcessStartedAtUtc, invocation.ExpectedProcessStartedAtUtc);
         if (expectedTimeout.HasValue)
         {
-            Assert.Equal(expectedTimeout.Value, invocation.Timeout);
+            Assert.Equal(expectedTimeout.Value, invocation.RemainingTimeout);
         }
 
         return invocation;
@@ -52,7 +52,7 @@ internal static class DaemonGuiAttachInvocationAssert
         Assert.Equal(expectedProcessStartedAtUtc, invocation.ExpectedProcessStartedAtUtc);
         if (expectedTimeout.HasValue)
         {
-            Assert.Equal(expectedTimeout.Value, invocation.Timeout);
+            Assert.Equal(expectedTimeout.Value, invocation.RemainingTimeout);
         }
     }
 }

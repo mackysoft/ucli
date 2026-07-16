@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using MackySoft.Ucli.Contracts.Ipc;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -135,33 +137,33 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return previewSceneState.MirrorMapping.TryGetPreviewObject(sourceObject, out previewObject);
         }
 
-        /// <summary> Tries to resolve one preview object to its stable GlobalObjectId text. </summary>
+        /// <summary> Tries to resolve one preview object to its stable source identity. </summary>
         /// <param name="scenePath"> The tracked logical scene path. </param>
         /// <param name="previewObject"> The preview object. </param>
-        /// <param name="stableReference"> The stable GlobalObjectId text when found. </param>
+        /// <param name="globalObjectId"> The stable source identity when found. </param>
         /// <returns> <see langword="true" /> when the preview object has an explicit stable-reference mapping; otherwise <see langword="false" />. </returns>
-        public bool TryResolveStableReferenceFromPreviewObject (
+        public bool TryResolveGlobalObjectIdFromPreviewObject (
             string scenePath,
             UnityEngine.Object previewObject,
-            out string stableReference)
+            [NotNullWhen(true)] out UnityGlobalObjectId? globalObjectId)
         {
-            stableReference = string.Empty;
+            globalObjectId = null;
             if (!previewScenesByPath.TryGetValue(scenePath, out var previewSceneState))
             {
                 return false;
             }
 
-            return previewSceneState.StableReferenceIndex.TryGetStableReference(previewObject, out stableReference);
+            return previewSceneState.StableReferenceIndex.TryGetGlobalObjectId(previewObject, out globalObjectId);
         }
 
-        /// <summary> Tries to resolve one stable GlobalObjectId text to its preview object in the specified scene. </summary>
+        /// <summary> Tries to resolve one stable source identity to its preview object in the specified scene. </summary>
         /// <param name="scenePath"> The tracked logical scene path. </param>
-        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
+        /// <param name="globalObjectId"> The stable source identity. </param>
         /// <param name="previewObject"> The preview object when found. </param>
         /// <returns> <see langword="true" /> when the stable reference maps into the specified preview scene; otherwise <see langword="false" />. </returns>
-        public bool TryResolvePreviewObjectFromStableReference (
+        public bool TryResolvePreviewObjectFromGlobalObjectId (
             string scenePath,
-            string stableReference,
+            UnityGlobalObjectId globalObjectId,
             out UnityEngine.Object? previewObject)
         {
             previewObject = null;
@@ -170,21 +172,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            return previewSceneState.StableReferenceIndex.TryGetPreviewObject(stableReference, out previewObject);
+            return previewSceneState.StableReferenceIndex.TryGetPreviewObject(globalObjectId, out previewObject);
         }
 
-        /// <summary> Tries to resolve one stable GlobalObjectId text to any tracked preview scene object. </summary>
-        /// <param name="stableReference"> The stable GlobalObjectId text. </param>
+        /// <summary> Tries to resolve one stable source identity to any tracked preview scene object. </summary>
+        /// <param name="globalObjectId"> The stable source identity. </param>
         /// <param name="previewObject"> The preview object when found. </param>
         /// <returns> <see langword="true" /> when the stable reference maps into one tracked preview scene; otherwise <see langword="false" />. </returns>
-        public bool TryResolvePreviewObjectFromStableReference (
-            string stableReference,
+        public bool TryResolvePreviewObjectFromGlobalObjectId (
+            UnityGlobalObjectId globalObjectId,
             out UnityEngine.Object? previewObject)
         {
             previewObject = null;
             foreach (var pair in previewScenesByPath)
             {
-                if (pair.Value.StableReferenceIndex.TryGetPreviewObject(stableReference, out previewObject))
+                if (pair.Value.StableReferenceIndex.TryGetPreviewObject(globalObjectId, out previewObject))
                 {
                     return true;
                 }

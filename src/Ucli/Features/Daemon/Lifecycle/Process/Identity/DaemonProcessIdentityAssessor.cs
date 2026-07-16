@@ -24,7 +24,7 @@ internal sealed class DaemonProcessIdentityAssessor : IDaemonProcessIdentityAsse
         }
         catch (ArgumentException)
         {
-            return new DaemonProcessIdentityAssessment(DaemonProcessIdentityAssessmentStatus.NotRunning, null, null);
+            return DaemonProcessIdentityAssessment.NotRunning();
         }
 
         using (process)
@@ -49,7 +49,7 @@ internal sealed class DaemonProcessIdentityAssessor : IDaemonProcessIdentityAsse
 
         if (HasExited(process))
         {
-            return new DaemonProcessIdentityAssessment(DaemonProcessIdentityAssessmentStatus.NotRunning, null, null);
+            return DaemonProcessIdentityAssessment.NotRunning();
         }
 
         DateTimeOffset processStartTimeUtc;
@@ -59,12 +59,11 @@ internal sealed class DaemonProcessIdentityAssessor : IDaemonProcessIdentityAsse
         }
         catch (InvalidOperationException) when (HasExited(process))
         {
-            return new DaemonProcessIdentityAssessment(DaemonProcessIdentityAssessmentStatus.NotRunning, null, null);
+            return DaemonProcessIdentityAssessment.NotRunning();
         }
         catch (Exception exception)
         {
-            return new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.Uncertain,
+            return DaemonProcessIdentityAssessment.Uncertain(
                 null,
                 ExecutionError.InternalError(
                     $"Failed to validate daemon process identity for process '{processId}'. {exception.Message}"));
@@ -72,8 +71,7 @@ internal sealed class DaemonProcessIdentityAssessor : IDaemonProcessIdentityAsse
 
         if (expectedProcessStartedAtUtc is null || expectedProcessStartedAtUtc.Value == default)
         {
-            return new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.Uncertain,
+            return DaemonProcessIdentityAssessment.Uncertain(
                 processStartTimeUtc,
                 ExecutionError.InternalError(
                     $"Daemon process identity could not be verified for process '{processId}' because expected processStartedAtUtc is not available."));
@@ -82,18 +80,14 @@ internal sealed class DaemonProcessIdentityAssessor : IDaemonProcessIdentityAsse
         var expectedStartTimeUtc = expectedProcessStartedAtUtc.Value.ToUniversalTime();
         if (!DaemonProcessStartTimeMatcher.Matches(processStartTimeUtc, expectedStartTimeUtc))
         {
-            return new DaemonProcessIdentityAssessment(
-                DaemonProcessIdentityAssessmentStatus.DifferentProcess,
+            return DaemonProcessIdentityAssessment.DifferentProcess(
                 processStartTimeUtc,
                 ExecutionError.InternalError(
                     $"Daemon process identity mismatch for process '{processId}'. " +
                     $"ExpectedStart={expectedStartTimeUtc:O} ActualStart={processStartTimeUtc:O} Tolerance={DaemonProcessStartTimeMatcher.Tolerance}."));
         }
 
-        return new DaemonProcessIdentityAssessment(
-            DaemonProcessIdentityAssessmentStatus.MatchingLiveProcess,
-            processStartTimeUtc,
-            null);
+        return DaemonProcessIdentityAssessment.MatchingLiveProcess(processStartTimeUtc);
     }
 
     private static void ValidateProcessId (int processId)

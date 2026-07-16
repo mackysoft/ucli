@@ -14,7 +14,7 @@ internal static class QueryServiceResultFactory
     /// <summary> Creates one successful typed-query result. </summary>
     public static QueryServiceResult Success (
         string commandName,
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         ReadIndexInfo readIndex,
         ProjectIdentityInfo project,
@@ -33,7 +33,7 @@ internal static class QueryServiceResultFactory
     /// <summary> Creates one failure result from a structured execution error. </summary>
     public static QueryServiceResult FromExecutionError (
         string commandName,
-        string requestId,
+        Guid requestId,
         ExecutionError error,
         ReadIndexInfo? readIndex = null,
         ProjectIdentityInfo? project = null)
@@ -56,13 +56,13 @@ internal static class QueryServiceResultFactory
     /// <summary> Creates one failure result from one IPC error. </summary>
     public static QueryServiceResult FromIpcError (
         string commandName,
-        string requestId,
+        Guid requestId,
         OperationExecutionError error,
         ReadIndexInfo readIndex,
         ProjectIdentityInfo? project = null)
     {
         ArgumentNullException.ThrowIfNull(error);
-        var normalizedError = RequestFailureNormalizer.FromOperationError(error, FailureMessage);
+        var normalizedError = RequestFailureNormalizer.FromOperationError(error);
         return Failure(
             commandName,
             requestId,
@@ -76,7 +76,7 @@ internal static class QueryServiceResultFactory
     /// <summary> Creates one failed typed-query result. </summary>
     public static QueryServiceResult Failure (
         string commandName,
-        string requestId,
+        Guid requestId,
         IReadOnlyList<OperationExecutionOperationResult> opResults,
         IReadOnlyList<ApplicationFailure> errors,
         string message,
@@ -85,7 +85,6 @@ internal static class QueryServiceResultFactory
         IReadOnlyList<OperationExecutionContractViolation>? contractViolations = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(commandName);
-        ArgumentException.ThrowIfNullOrWhiteSpace(requestId);
         ArgumentNullException.ThrowIfNull(opResults);
         ArgumentNullException.ThrowIfNull(readIndex);
 

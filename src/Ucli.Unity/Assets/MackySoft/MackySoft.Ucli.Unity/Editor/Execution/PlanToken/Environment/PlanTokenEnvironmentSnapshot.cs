@@ -1,21 +1,48 @@
 #nullable enable
 
+using System;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Execution.PlanToken
 {
     /// <summary> Represents one captured runtime snapshot used by plan-token workflows. </summary>
-    /// <param name="ProjectRoot"> The Unity project root path. </param>
-    /// <param name="RepositoryRoot"> The repository root path. </param>
-    /// <param name="ProjectFingerprint"> The deterministic project fingerprint. </param>
-    /// <param name="UnityVersion"> The current Unity version. </param>
-    /// <param name="CompileState"> The current compile state. </param>
-    /// <param name="DomainReloadGeneration"> The current domain-reload generation marker. </param>
-    internal sealed record PlanTokenEnvironmentSnapshot (
-        string ProjectRoot,
-        string RepositoryRoot,
-        string ProjectFingerprint,
-        string UnityVersion,
-        IpcCompileState CompileState,
-        long DomainReloadGeneration);
+    internal sealed record PlanTokenEnvironmentSnapshot
+    {
+        /// <summary> Initializes one plan-token environment snapshot. </summary>
+        /// <exception cref="ArgumentNullException"> <paramref name="projectFingerprint" /> is <see langword="null" />. </exception>
+        public PlanTokenEnvironmentSnapshot (
+            string projectRoot,
+            string repositoryRoot,
+            ProjectFingerprint projectFingerprint,
+            string unityVersion,
+            IpcCompileState compileState,
+            long domainReloadGeneration)
+        {
+            ProjectRoot = projectRoot;
+            RepositoryRoot = repositoryRoot;
+            ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
+            UnityVersion = unityVersion;
+            CompileState = compileState;
+            DomainReloadGeneration = domainReloadGeneration;
+        }
+
+        /// <summary> Gets the Unity project root path. </summary>
+        public string ProjectRoot { get; init; }
+
+        /// <summary> Gets the repository root path. </summary>
+        public string RepositoryRoot { get; init; }
+
+        /// <summary> Gets the deterministic project fingerprint. </summary>
+        public ProjectFingerprint ProjectFingerprint { get; init; }
+
+        /// <summary> Gets the current Unity version. </summary>
+        public string UnityVersion { get; init; }
+
+        /// <summary> Gets the current compile state. </summary>
+        public IpcCompileState CompileState { get; init; }
+
+        /// <summary> Gets the current domain-reload generation marker. </summary>
+        public long DomainReloadGeneration { get; init; }
+    }
 }

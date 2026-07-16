@@ -4,6 +4,25 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+
+    private static readonly Guid SessionGenerationId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenDaemonSessionGenerationIdIsEmpty_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new IpcDaemonBootstrapArguments(
+            RepositoryRoot: "/repo/root",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
+            SessionPath: "/repo/root/.ucli/session.json",
+            SessionGenerationId: Guid.Empty,
+            SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
+            Endpoint: new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint")));
+
+        Assert.Equal("SessionGenerationId", exception.ParamName);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryParse_WhenTargetIsMissing_ReturnsMissingTarget ()
@@ -40,9 +59,9 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
     {
         var args = new[]
         {
-            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
+            IpcBatchmodeBootstrapArgumentNames.Target, "daemon",
             IpcDaemonBootstrapArgumentNames.RepositoryRoot,
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
             IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
@@ -61,12 +80,8 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
     {
         var args = new[]
         {
-            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.ParentProcessId,
-            IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
-            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
-            IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
-            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+            IpcBatchmodeBootstrapArgumentNames.Target, "oneshot",
+            IpcOneshotBootstrapArgumentNames.BootstrapId,
             IpcBatchmodeBootstrapArgumentNames.Target,
         };
 
@@ -83,10 +98,11 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
     {
         var args = new[]
         {
-            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
+            IpcBatchmodeBootstrapArgumentNames.Target, "daemon",
             IpcDaemonBootstrapArgumentNames.RepositoryRoot, "-tmp-repository",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
+            IpcDaemonBootstrapArgumentNames.SessionGenerationId, SessionGenerationId.ToString("D"),
             IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
             IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
@@ -98,22 +114,19 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.Equal(IpcBatchmodeBootstrapParseError.None, error);
         var daemonArguments = Assert.IsType<IpcDaemonBootstrapArguments>(bootstrapArguments);
         Assert.Equal("-tmp-repository", daemonArguments.RepositoryRoot);
+        Assert.Equal(SessionGenerationId, daemonArguments.SessionGenerationId);
         Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:00.0000000+00:00"), daemonArguments.SessionIssuedAtUtc);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryParse_WhenOneshotParentProcessIdExists_ParsesSuccessfully ()
+    public void TryParse_WhenOneshotBootstrapIdExists_ParsesSuccessfully ()
     {
+        var bootstrapId = Guid.NewGuid();
         var args = new[]
         {
-            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
-            IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
-            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
-            IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
-            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+            IpcBatchmodeBootstrapArgumentNames.Target, "oneshot",
+            IpcOneshotBootstrapArgumentNames.BootstrapId, bootstrapId.ToString("D"),
         };
 
         var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out var bootstrapArguments, out var error);
@@ -121,34 +134,26 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.True(parsed);
         Assert.Equal(IpcBatchmodeBootstrapParseError.None, error);
         var oneshotArguments = Assert.IsType<IpcOneshotBootstrapArguments>(bootstrapArguments);
-        Assert.Equal(123, oneshotArguments.ParentProcessId);
-        Assert.Equal("project-fingerprint", oneshotArguments.ProjectFingerprint);
-        Assert.Equal("oneshot-token", oneshotArguments.SessionToken);
-        Assert.Equal(DateTimeOffset.Parse("2026-03-09T00:00:00.0000000+00:00"), oneshotArguments.ExitDeadlineUtc);
-        Assert.Equal("namedPipe", oneshotArguments.EndpointTransportKind);
-        Assert.Equal("ucli-endpoint", oneshotArguments.EndpointAddress);
+        Assert.Equal(bootstrapId, oneshotArguments.BootstrapId);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("not-a-guid")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    [InlineData("0123456789abcdef0123456789abcdef")]
     [Trait("Size", "Small")]
-    public void TryParse_WhenOneshotExitDeadlineUtcIsInvalid_ReturnsEmptyRequiredValue ()
+    public void TryParse_WhenOneshotBootstrapIdIsInvalid_ReturnsInvalidBootstrapId (string bootstrapId)
     {
         var args = new[]
         {
-            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
-            IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
-            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "not-a-timestamp",
-            IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
-            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+            IpcBatchmodeBootstrapArgumentNames.Target, "oneshot",
+            IpcOneshotBootstrapArgumentNames.BootstrapId, bootstrapId,
         };
 
         var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
 
         Assert.False(parsed);
-        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.EmptyRequiredValue, error.Kind);
-        Assert.Equal("uCLI oneshot bootstrap exit deadline timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.", error.Message);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.InvalidBootstrapId, error.Kind);
     }
 
     [Fact]
@@ -157,11 +162,11 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
     {
         IpcBatchmodeBootstrapArguments source = new IpcDaemonBootstrapArguments(
             RepositoryRoot: "/repo/root",
-            ProjectFingerprint: "project-fingerprint",
-            SessionPath: "/repo/root/.ucli/local/fingerprints/project-fingerprint/session.json",
+            ProjectFingerprint: new ProjectFingerprint(ProjectFingerprintText),
+            SessionPath: $"/repo/root/.ucli/local/fingerprints/{ProjectFingerprintText}/session.json",
+            SessionGenerationId: SessionGenerationId,
             SessionIssuedAtUtc: new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-            EndpointTransportKind: "unixDomainSocket",
-            EndpointAddress: "/tmp/ucli.sock");
+            Endpoint: new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli.sock"));
         List<string> tokens =
         [
             "-batchmode",
@@ -175,17 +180,47 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
         Assert.Equal(source, bootstrapArguments);
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("not-a-guid")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    [InlineData("0123456789abcdef0123456789abcdef")]
     [Trait("Size", "Small")]
-    public void TryParse_WhenDaemonSessionIssuedAtUtcIsInvalid_ReturnsEmptyRequiredValue ()
+    public void TryParse_WhenDaemonSessionGenerationIdIsInvalid_ReturnsInvalidSessionGenerationId (
+        string sessionGenerationId)
     {
         var args = new[]
         {
-            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Daemon,
+            IpcBatchmodeBootstrapArgumentNames.Target, "daemon",
             IpcDaemonBootstrapArgumentNames.RepositoryRoot, "/repo/root",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "fingerprint",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
             IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
-            IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "not-a-timestamp",
+            IpcDaemonBootstrapArgumentNames.SessionGenerationId, sessionGenerationId,
+            IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
+            IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+        };
+
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.InvalidSessionGenerationId, error.Kind);
+        Assert.Equal("uCLI daemon bootstrap session generation identifier must be a non-empty GUID in D format.", error.Message);
+    }
+
+    [Theory]
+    [InlineData("not-a-timestamp")]
+    [InlineData("2026-03-09T09:00:00.0000000+09:00")]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenDaemonSessionIssuedAtUtcIsInvalid_ReturnsEmptyRequiredValue (string sessionIssuedAtUtc)
+    {
+        var args = new[]
+        {
+            IpcBatchmodeBootstrapArgumentNames.Target, "daemon",
+            IpcDaemonBootstrapArgumentNames.RepositoryRoot, "/repo/root",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
+            IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
+            IpcDaemonBootstrapArgumentNames.SessionGenerationId, SessionGenerationId.ToString("D"),
+            IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, sessionIssuedAtUtc,
             IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
             IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
         };
@@ -194,20 +229,86 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
 
         Assert.False(parsed);
         Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.EmptyRequiredValue, error.Kind);
-        Assert.Equal("uCLI daemon bootstrap session issued-at timestamp must be a valid ISO 8601 timestamp with explicit timezone offset.", error.Message);
+        Assert.Equal("uCLI daemon bootstrap session issued-at timestamp must be a valid ISO 8601 UTC timestamp.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenDaemonProjectFingerprintIsInvalid_ReturnsInvalidProjectFingerprint ()
+    {
+        var args = new[]
+        {
+            IpcBatchmodeBootstrapArgumentNames.Target, "daemon",
+            IpcDaemonBootstrapArgumentNames.RepositoryRoot, "/repo/root",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "not-a-project-fingerprint",
+            IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
+            IpcDaemonBootstrapArgumentNames.SessionGenerationId, SessionGenerationId.ToString("D"),
+            IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
+            IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+        };
+
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.InvalidProjectFingerprint, error.Kind);
+        Assert.Equal("uCLI batchmode bootstrap project fingerprint must be exactly 64 lowercase hexadecimal SHA-256 characters.", error.Message);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenEndpointTransportKindIsUnsupported_ReturnsInvalidEndpointTransportKind ()
+    {
+        var args = new[]
+        {
+            IpcBatchmodeBootstrapArgumentNames.Target, "daemon",
+            IpcDaemonBootstrapArgumentNames.RepositoryRoot, "/repo/root",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
+            IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
+            IpcDaemonBootstrapArgumentNames.SessionGenerationId, SessionGenerationId.ToString("D"),
+            IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
+            IpcEndpointBootstrapArgumentNames.TransportKind, "unsupported",
+            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+        };
+
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.InvalidEndpointTransportKind, error.Kind);
+    }
+
+    [Theory]
+    [InlineData("namedPipe", "directory/pipe")]
+    [InlineData("unixDomainSocket", "relative.sock")]
+    [InlineData("unixDomainSocket", "/tmp/../ucli.sock")]
+    [Trait("Size", "Small")]
+    public void TryParse_WhenEndpointAddressViolatesTransportContract_ReturnsInvalidEndpointAddress (
+        string transportKind,
+        string endpointAddress)
+    {
+        var args = new[]
+        {
+            IpcBatchmodeBootstrapArgumentNames.Target, "daemon",
+            IpcDaemonBootstrapArgumentNames.RepositoryRoot, "/repo/root",
+            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, ProjectFingerprintText,
+            IpcDaemonBootstrapArgumentNames.SessionPath, "/tmp/session.json",
+            IpcDaemonBootstrapArgumentNames.SessionGenerationId, SessionGenerationId.ToString("D"),
+            IpcDaemonBootstrapArgumentNames.SessionIssuedAtUtc, "2026-03-09T00:00:00.0000000+00:00",
+            IpcEndpointBootstrapArgumentNames.TransportKind, transportKind,
+            IpcEndpointBootstrapArgumentNames.Address, endpointAddress,
+        };
+
+        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
+
+        Assert.False(parsed);
+        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.InvalidEndpointAddress, error.Kind);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void AppendTokens_ThenTryParse_RoundTripsOneshotValues ()
     {
-        IpcBatchmodeBootstrapArguments source = new IpcOneshotBootstrapArguments(
-            456,
-            "project-fingerprint",
-            "oneshot-token",
-            new DateTimeOffset(2026, 03, 09, 0, 0, 0, TimeSpan.Zero),
-            "unixDomainSocket",
-            "/tmp/ucli.sock");
+        IpcBatchmodeBootstrapArguments source = new IpcOneshotBootstrapArguments(Guid.NewGuid());
         List<string> tokens =
         [
             "-batchmode",
@@ -227,57 +328,8 @@ public sealed class IpcBatchmodeBootstrapArgumentsCodecTests
     {
         var args = new[]
         {
-            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.ParentProcessId, " ",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
-            IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
-            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
-            IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
-            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
-        };
-
-        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
-
-        Assert.False(parsed);
-        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.EmptyRequiredValue, error.Kind);
-        Assert.Equal("uCLI oneshot bootstrap arguments must not be empty.", error.Message);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryParse_WhenOneshotParentProcessIdIsInvalid_ReturnsEmptyRequiredValue ()
-    {
-        var args = new[]
-        {
-            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.ParentProcessId, "0",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
-            IpcOneshotBootstrapArgumentNames.SessionToken, "oneshot-token",
-            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
-            IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
-            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
-        };
-
-        var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);
-
-        Assert.False(parsed);
-        Assert.Equal(IpcBatchmodeBootstrapParseErrorKind.EmptyRequiredValue, error.Kind);
-        Assert.Equal("uCLI oneshot bootstrap parent process identifier must be a positive integer.", error.Message);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void TryParse_WhenOneshotSessionTokenIsWhitespace_ReturnsEmptyRequiredValue ()
-    {
-        var args = new[]
-        {
-            IpcBatchmodeBootstrapArgumentNames.Target, IpcBatchmodeBootstrapTargetValues.Oneshot,
-            IpcOneshotBootstrapArgumentNames.ParentProcessId, "123",
-            IpcBatchmodeBootstrapArgumentNames.ProjectFingerprint, "project-fingerprint",
-            IpcOneshotBootstrapArgumentNames.SessionToken, " ",
-            IpcOneshotBootstrapArgumentNames.ExitDeadlineUtc, "2026-03-09T00:00:00.0000000+00:00",
-            IpcEndpointBootstrapArgumentNames.TransportKind, "namedPipe",
-            IpcEndpointBootstrapArgumentNames.Address, "ucli-endpoint",
+            IpcBatchmodeBootstrapArgumentNames.Target, "oneshot",
+            IpcOneshotBootstrapArgumentNames.BootstrapId, " ",
         };
 
         var parsed = IpcBatchmodeBootstrapArgumentsCodec.TryParse(args, out _, out var error);

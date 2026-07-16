@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
@@ -82,7 +83,7 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
 
                 return OpsCatalogSourceRefreshResult.Failure(
                     attemptResult.FetchResult.Message,
-                    attemptResult.FetchResult.ErrorCode!.Value,
+                    attemptResult.FetchResult.ErrorCode!,
                     attemptResult.FetchResult.StartupFailure);
             }
 
@@ -189,26 +190,26 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
                 project,
                 cancellationToken)
             .ConfigureAwait(false);
-        if (persistedArtifacts.InputsManifest != null)
+        var manifest = persistedArtifacts.InputsManifest;
+        if (manifest != null)
         {
             // NOTE:
             // Reuse persisted asset lookup hashes to keep inputs/manifest.json aligned with existing
             // lookup artifacts while avoiding an unnecessary Assets/ full scan on the common ops refresh path.
-            var manifest = persistedArtifacts.InputsManifest;
             return new OpsCatalogPersistenceInput(
                 SourceInputsHash: coreSnapshot.CombinedHash,
                 ManifestInputSnapshot: new ReadIndexInputHashSnapshot(
-                    ScriptAssembliesHash: coreSnapshot.ScriptAssembliesHash,
-                    PackagesManifestHash: coreSnapshot.PackagesManifestHash,
-                    PackagesLockHash: coreSnapshot.PackagesLockHash,
-                    AssemblyDefinitionHash: coreSnapshot.AssemblyDefinitionHash,
-                    AssetsContentHash: manifest.AssetsContentHash!,
-                    AssetSearchHash: manifest.AssetSearchHash!,
-                    GuidPathHash: manifest.GuidPathHash!,
-                    CombinedHash: coreSnapshot.CombinedHash));
+                    coreSnapshot.ScriptAssembliesHash,
+                    coreSnapshot.PackagesManifestHash,
+                    coreSnapshot.PackagesLockHash,
+                    coreSnapshot.AssemblyDefinitionHash,
+                    manifest.Hashes.AssetsContentHash,
+                    manifest.Hashes.AssetSearchHash,
+                    manifest.Hashes.GuidPathHash,
+                    coreSnapshot.CombinedHash));
         }
 
-        if (persistedArtifacts.HasPersistedAssetLookupArtifacts)
+        if (manifest != null || persistedArtifacts.HasPersistedAssetLookupArtifacts)
         {
             // NOTE:
             // Do not regenerate lookup hashes from the live filesystem when persisted lookup artifacts still exist.
@@ -228,6 +229,6 @@ internal sealed class OpsCatalogSourceRefreshService : IOpsCatalogSourceRefreshS
     }
 
     private sealed record OpsCatalogPersistenceInput (
-        string SourceInputsHash,
+        Sha256Digest SourceInputsHash,
         ReadIndexInputHashSnapshot? ManifestInputSnapshot);
 }

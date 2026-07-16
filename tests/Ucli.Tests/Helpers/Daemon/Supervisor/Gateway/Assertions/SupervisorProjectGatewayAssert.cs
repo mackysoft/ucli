@@ -4,13 +4,13 @@ internal static class SupervisorProjectGatewayAssert
 {
     public static void BootstrapFailureProgressEmitted (
         DaemonStartResult result,
-        RecordingSupervisorProcessLauncher launcher,
+        RecordingSupervisorProcessManager processManager,
         CollectingCommandProgressSink progressSink,
         string expectedStorageRoot,
         UcliCode expectedErrorCode)
     {
         Assert.False(result.IsSuccess);
-        var invocation = Assert.Single(launcher.Invocations);
+        var invocation = Assert.Single(processManager.Invocations);
         Assert.Equal(expectedStorageRoot, invocation.StorageRoot);
         Assert.Equal(expectedErrorCode, result.Error!.Code);
 

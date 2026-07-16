@@ -9,13 +9,11 @@ public sealed class DaemonStartOperationFreshLaunchTests
     [Trait("Size", "Small")]
     public async Task Start_WhenNoRunningSessionAndGuiAttachSucceeds_ReturnsAttachedWithoutFreshLaunch ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-gui-attach");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-gui-attach"));
         var guiSession = DaemonSessionTestFactory.Create(
             processId: 6060,
-            projectFingerprint: context.ProjectFingerprint) with
-        {
-            EditorMode = DaemonEditorMode.Gui,
-        };
+            projectFingerprint: context.ProjectFingerprint,
+            editorMode: DaemonEditorMode.Gui);
         var guiAttachService = new RecordingDaemonGuiEditorAttachService
         {
             NextResult = DaemonStartResult.Attached(guiSession, IpcUnityEditorObservationTestFactory.Create(editorMode: DaemonEditorMode.Gui)),
@@ -25,7 +23,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
             NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 7070, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
         };
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: launchService,
@@ -33,7 +31,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -51,14 +49,14 @@ public sealed class DaemonStartOperationFreshLaunchTests
     [Trait("Size", "Small")]
     public async Task Start_WhenGuiAttachReturnsNull_ContinuesToFreshLaunchWithRequestedMode ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-gui-launch");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-gui-launch"));
         var guiAttachService = new RecordingDaemonGuiEditorAttachService();
         var launchService = new RecordingDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 8081, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
         };
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: launchService,
@@ -66,7 +64,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
@@ -86,7 +84,7 @@ public sealed class DaemonStartOperationFreshLaunchTests
     [Trait("Size", "Small")]
     public async Task Start_WhenSessionDoesNotExist_StartsFreshDaemonWithDefaultBatchmode ()
     {
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var cleanupService = new RecordingDaemonSessionCleanupService();
         var existingSessionGateService = new RecordingDaemonExistingSessionGateService();
         var launchService = new RecordingDaemonLaunchService
@@ -100,8 +98,8 @@ public sealed class DaemonStartOperationFreshLaunchTests
             daemonLaunchService: launchService);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-no-session"),
-            TimeSpan.FromMilliseconds(500),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-no-session")),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -119,14 +117,14 @@ public sealed class DaemonStartOperationFreshLaunchTests
     {
         var launchService = new RecordingDaemonLaunchService();
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: launchService);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-gui-launch-mode"),
-            TimeSpan.FromMilliseconds(500),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-gui-launch-mode")),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

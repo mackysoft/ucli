@@ -1,5 +1,7 @@
 using System;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Unity.Runtime
 {
@@ -12,16 +14,8 @@ namespace MackySoft.Ucli.Unity.Runtime
             DateTimeOffset observedAtUtc,
             IpcPrimaryDiagnostic primaryDiagnostic = null)
         {
-            if (observedAtUtc == default)
-            {
-                throw new ArgumentOutOfRangeException(
-                    nameof(observedAtUtc),
-                    observedAtUtc,
-                    "Observation timestamp must be specified.");
-            }
-
             State = state ?? throw new ArgumentNullException(nameof(state));
-            ObservedAtUtc = observedAtUtc;
+            ObservedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(observedAtUtc, nameof(observedAtUtc));
             PrimaryDiagnostic = primaryDiagnostic;
         }
 
@@ -63,6 +57,6 @@ namespace MackySoft.Ucli.Unity.Runtime
             IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(State.LifecycleState);
 
         /// <summary> Gets the action required to resolve the lifecycle state, when one is known. </summary>
-        public string ActionRequired => UnityEditorExecutionReadinessPolicy.ResolveActionRequired(State.LifecycleState);
+        public DaemonDiagnosisActionRequired? ActionRequired => UnityEditorExecutionReadinessPolicy.ResolveActionRequired(State.LifecycleState);
     }
 }

@@ -8,6 +8,7 @@ internal interface ICallUnityExecutionService
 {
     /// <summary> Executes optional pre-plan and final call IPC passes within one shared timeout budget. </summary>
     ValueTask<CallServiceResult> ExecuteAsync (
+        Guid requestId,
         PhaseExecutionPreparedRequest preparedRequest,
         UnityExecutionMode mode,
         CallCommandInput input,

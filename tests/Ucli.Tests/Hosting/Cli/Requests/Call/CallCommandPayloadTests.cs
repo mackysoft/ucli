@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -27,10 +26,10 @@ public sealed class CallCommandPayloadTests
                 .HasArrayLength("steps", 1)
                 .HasProperty("steps", 0, step => step
                     .HasString("opId", "step-1")
-                    .HasString("sourceKind", IpcExecutePostReadSourceKindNames.Edit)
+                    .HasString("sourceKind", ContractLiteralCodec.ToValue(IpcExecutePostReadSourceKind.Edit))
                     .HasBoolean("playModeMutation", false)
-                    .HasString("commit", IpcExecutePostReadCommitNames.Context)
+                    .HasString("commit", ContractLiteralCodec.ToValue(IpcExecutePostReadCommit.Context))
                     .HasBoolean("persistenceExpected", true)
-                    .HasString("expectedPostState", IpcExecuteExpectedPostStateNames.Deterministic)));
+                    .HasString("expectedPostState", ContractLiteralCodec.ToValue(IpcExecuteExpectedPostState.Deterministic))));
     }
 }

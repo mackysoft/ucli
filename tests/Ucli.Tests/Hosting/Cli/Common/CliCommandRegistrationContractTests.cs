@@ -1,6 +1,5 @@
 using System.Text;
 using System.Text.RegularExpressions;
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 
 namespace MackySoft.Ucli.Tests.Cli;
@@ -23,6 +22,62 @@ public sealed class CliCommandRegistrationContractTests
         Assert.Equal(
             UcliCommandCatalog.CommandPaths.Order(StringComparer.Ordinal).ToArray(),
             ExtractHelpCommandPaths(result.StdOut).Order(StringComparer.Ordinal).ToArray());
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task HelpOutput_DoesNotExposeXmlDocumentationMarkup ()
+    {
+        await using var serviceProvider = UcliServiceProviderTestFactory.CreateCore();
+
+        await ConsoleAppRunner.RunWithRegisteredAppAsync(serviceProvider, async app =>
+        {
+            var rootResult = await ConsoleAppHelpRunner.RunRootHelpAsync(app);
+            AssertDoesNotExposeXmlDocumentationMarkup(rootResult);
+
+            foreach (var commandPath in UcliCommandCatalog.CommandPaths)
+            {
+                var commandResult = await ConsoleAppHelpRunner.RunHelpAsync(app, commandPath);
+                AssertDoesNotExposeXmlDocumentationMarkup(commandResult);
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData(UcliCommandNames.Call)]
+    [InlineData(UcliCommandNames.Plan)]
+    [InlineData(UcliCommandNames.Validate)]
+    [InlineData(UcliCommandNames.Eval)]
+    [Trait("Size", "Medium")]
+    public async Task HelpOutput_WhenCommandReadsRedirectedStandardInput_DescribesInput (string commandPath)
+    {
+        await using var serviceProvider = UcliServiceProviderTestFactory.CreateCore();
+
+        var result = await ConsoleAppHelpRunner.RunHelpAsync(serviceProvider, commandPath);
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("redirected standard input", result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData("build run", "--profilePath is required")]
+    [InlineData("query assets find", "Requires at least one of --type, --pathPrefix, or --nameContains")]
+    [InlineData("query scene tree", "--path is required")]
+    [InlineData("query comp schema", "--type is required")]
+    [InlineData("query asset schema", "Requires exactly one selector")]
+    [InlineData("query go describe", "Requires exactly one target")]
+    [InlineData("resolve", "Requires exactly one selector")]
+    [Trait("Size", "Medium")]
+    public async Task HelpOutput_WhenCommandHasRequiredInputRule_DescribesRule (
+        string commandPath,
+        string expectedRule)
+    {
+        await using var serviceProvider = UcliServiceProviderTestFactory.CreateCore();
+
+        var result = await ConsoleAppHelpRunner.RunHelpAsync(serviceProvider, commandPath);
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains(expectedRule, result.StdOut, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -191,6 +246,13 @@ public sealed class CliCommandRegistrationContractTests
         }
 
         throw new InvalidOperationException($"Command help line does not contain a description separator: {helpLine}");
+    }
+
+    private static void AssertDoesNotExposeXmlDocumentationMarkup (CommandExecutionResult result)
+    {
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.DoesNotContain("<c>", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("</c>", result.StdOut, StringComparison.Ordinal);
     }
 
 }

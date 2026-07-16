@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 
 /// <summary>
@@ -7,15 +9,12 @@ namespace MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 /// </summary>
 internal interface IScreenshotArtifactLease
 {
-    /// <summary> Gets the host-selected absolute raw staging path supplied only to the Unity IPC request. </summary>
-    string RawStagingPath { get; }
-
     /// <summary> Validates one raw staging image and atomically commits its PNG artifact. </summary>
-    /// <param name="request"> The captured raw-image contract returned by Unity. </param>
+    /// <param name="staging"> The captured raw-image contract returned by Unity. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The committed artifact reference, or a structured commit error. </returns>
     ValueTask<ScreenshotArtifactCommitResult> CommitAsync (
-        ScreenshotArtifactCommitRequest request,
+        IpcScreenshotStagingImage staging,
         CancellationToken cancellationToken = default);
 
     /// <summary>

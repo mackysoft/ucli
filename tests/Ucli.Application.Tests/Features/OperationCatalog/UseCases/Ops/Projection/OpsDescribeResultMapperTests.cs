@@ -49,158 +49,19 @@ public sealed class OpsDescribeResultMapperTests
 
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Output!.Operation.CodeContract);
-        Assert.Equal("csharp", result.Output.Operation.CodeContract!.Language);
+        Assert.Equal(UcliCodeLanguage.CSharp, result.Output.Operation.CodeContract!.Language);
         Assert.Equal("public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)", result.Output.Operation.CodeContract.EntryPoint!.Signature);
         Assert.Equal("Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.", result.Output.Operation.CodeContract.EntryPoint.MatchRule);
-        Assert.Equal(new[] { CsEvalSourceKindValues.CompilationUnit, CsEvalSourceKindValues.Snippet }, result.Output.Operation.CodeContract.SourceForms!.Select(static form => form.Kind));
+        Assert.Equal(
+            new[] { UcliCodeSourceFormKind.CompilationUnit, UcliCodeSourceFormKind.Snippet },
+            result.Output.Operation.CodeContract.SourceForms!.Select(static form => form.Kind!.Value));
         Assert.Equal("MackySoft.Ucli.Unity.Execution.CsEval.UcliCsEvalContext", Assert.Single(result.Output.Operation.CodeContract.ApiTypes!).FullName);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Map_WhenArgsSchemaIsInvalid_ReturnsInternalError ()
-    {
-        var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
-
-        var result = mapper.Map(CreateReadOutput(CreateDescribedEntry(
-            name: UcliPrimitiveOperationNames.Resolve,
-            kind: "query",
-            policy: "safe",
-            argsSchemaJson: "\"not-an-object\"")));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Map_WhenArgsSchemaIsMissing_ReturnsInternalError ()
-    {
-        var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
-
-        var result = mapper.Map(CreateReadOutput(CreateDescribedEntry(
-            name: UcliPrimitiveOperationNames.Resolve,
-            kind: "query",
-            policy: "safe",
-            argsSchemaJson: null,
-            resultSchemaJson: """{"type":"object"}""")));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Map_WhenResultSchemaIsInvalid_ReturnsInternalError ()
-    {
-        var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
-
-        var result = mapper.Map(CreateReadOutput(CreateDescribedEntry(
-            name: UcliPrimitiveOperationNames.Resolve,
-            kind: "query",
-            policy: "safe",
-            argsSchemaJson: """{"type":"object"}""",
-            resultSchemaJson: "\"not-an-object\"")));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-    }
-
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData("argsSchema")]
-    [InlineData("resultSchema")]
-    public void Map_WhenSchemaJsonIsMalformed_ReturnsInternalError (string schemaField)
-    {
-        var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
-        var argsSchemaJson = schemaField == "argsSchema" ? "{" : """{"type":"object"}""";
-        var resultSchemaJson = schemaField == "resultSchema" ? "{" : """{"type":"object"}""";
-
-        var result = mapper.Map(CreateReadOutput(CreateDescribedEntry(
-            name: UcliPrimitiveOperationNames.Resolve,
-            kind: "query",
-            policy: "safe",
-            argsSchemaJson: argsSchemaJson,
-            resultSchemaJson: resultSchemaJson)));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Map_WhenEmittedResultMissesResultSchema_ReturnsInternalError ()
-    {
-        var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
-
-        var result = mapper.Map(CreateReadOutput(CreateDescribedEntry(
-            name: UcliPrimitiveOperationNames.Resolve,
-            kind: "query",
-            policy: "safe",
-            argsSchemaJson: """{"type":"object"}""",
-            resultSchemaJson: null)));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Map_WhenNonEmittedResultHasResultSchema_ReturnsInternalError ()
-    {
-        var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
-        var entry = CreateDescribedEntry(
-                name: UcliPrimitiveOperationNames.Resolve,
-                kind: "query",
-                policy: "safe",
-                argsSchemaJson: """{"type":"object"}""",
-                resultSchemaJson: """{"type":"object"}""")
-            with
-        {
-            ResultContract = UcliOperationResultContract.NoResult("No result."),
-        };
-
-        var result = mapper.Map(CreateReadOutput(entry));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
-    }
-
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData("description")]
-    [InlineData("inputs")]
-    [InlineData("resultContract")]
-    [InlineData("assurance")]
-    public void Map_WhenDescribeContractIsIncomplete_ReturnsInternalError (string missingField)
-    {
-        var mapper = new OpsDescribeResultMapper(new OpsReadIndexInfoMapper());
-        var entry = CreateDescribedEntry(
-            name: UcliPrimitiveOperationNames.Resolve,
-            kind: "query",
-            policy: "safe",
-            argsSchemaJson: """{"type":"object"}""",
-            resultSchemaJson: """{"type":"object"}""");
-
-        entry = missingField switch
-        {
-            "description" => entry with { Description = null },
-            "inputs" => entry with { Inputs = null },
-            "resultContract" => entry with { ResultContract = null },
-            "assurance" => entry with { Assurance = null },
-            _ => throw new ArgumentOutOfRangeException(nameof(missingField), missingField, "Unsupported field."),
-        };
-
-        var result = mapper.Map(CreateReadOutput(entry));
-
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
     }
 
     private static OpsDescribeReadOutput CreateReadOutput (IndexOpEntryJsonContract entry)
     {
         return new OpsDescribeReadOutput(
-            Operation: entry,
+            Operation: OperationCatalogTestFixtures.CreateValidatedOperation(entry),
             AccessInfo: new OpsCatalogAccessInfo(
                 true,
                 true,
@@ -221,7 +82,7 @@ public sealed class OpsDescribeResultMapperTests
             "Resolves an asset, scene object, prefab object, or component reference to a Unity GlobalObjectId.",
             new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate arguments and observe Unity state without applying mutation.",
                 callSemantics: "Read Unity state without applying mutation.",
@@ -254,7 +115,7 @@ public sealed class OpsDescribeResultMapperTests
             sideEffects: isDangerousPolicy
                 ? [UcliOperationSideEffect.AssetSave, UcliOperationSideEffect.ArbitrarySourceExecution]
                 : isMutation ? [UcliOperationSideEffect.AssetSave] : [UcliOperationSideEffect.ObservesUnityState],
-            touchedKinds: isMutation ? [UcliTouchedResourceKindNames.Asset] : Array.Empty<string>(),
+            touchedKinds: isMutation ? [UcliTouchedResourceKind.Asset] : Array.Empty<UcliTouchedResourceKind>(),
             planMode: UcliOperationPlanMode.ObservesLiveUnity,
             planSemantics: "Validate arguments and observe Unity state without applying mutation.",
             callSemantics: isMutation ? "Execute the mutation against live Unity state." : "Read Unity state without applying mutation.",
@@ -267,7 +128,7 @@ public sealed class OpsDescribeResultMapperTests
     private static UcliOperationCodeContract CreateCodeContract ()
     {
         return new UcliOperationCodeContract(
-            "csharp",
+            UcliCodeLanguage.CSharp,
             new UcliCodeEntryPointContract(
                 "public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)",
                 "Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.",
@@ -276,8 +137,8 @@ public sealed class OpsDescribeResultMapperTests
                 "JSON-serializable value or awaited task-like result."),
             new[]
             {
-                new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
-                new UcliCodeSourceFormContract(CsEvalSourceKindValues.Snippet, "Run method body snippet."),
+                new UcliCodeSourceFormContract(UcliCodeSourceFormKind.CompilationUnit, "Complete C# compilation unit."),
+                new UcliCodeSourceFormContract(UcliCodeSourceFormKind.Snippet, "Run method body snippet."),
             },
             new[]
             {
@@ -288,7 +149,7 @@ public sealed class OpsDescribeResultMapperTests
                     new[]
                     {
                         new UcliCodeApiMemberContract(
-                            UcliCodeApiMemberKindValues.Method,
+                            UcliCodeApiMemberKind.Method,
                             "Log",
                             "Records an informational eval log entry.",
                             type: null,

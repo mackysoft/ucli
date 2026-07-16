@@ -15,7 +15,6 @@ Options:
   --assembly-name <value>     Comma-separated assembly names. Required unless UCLI_UNITY_TEST_ASSEMBLY is set.
   --test-filter <value>       Test name filter pattern.
   --test-category <value>     Comma-separated test categories.
-  --test-settings-path <path> TestSettings.json path.
   --timeout <milliseconds>    Test timeout. Defaults to 1800000.
   --configuration <name>      .NET build configuration. Defaults to Release.
   --result-dir <path>         Output directory. Defaults to a temporary directory.
@@ -32,7 +31,6 @@ test_platform="editmode"
 assembly_name="${UCLI_UNITY_TEST_ASSEMBLY:-}"
 test_filter=""
 test_category=""
-test_settings_path=""
 timeout_milliseconds="1800000"
 configuration="Release"
 result_dir=""
@@ -111,15 +109,6 @@ while [[ $# -gt 0 ]]; do
       ;;
     --test-category=*)
       test_category="${1#--test-category=}"
-      shift
-      ;;
-    --test-settings-path)
-      [[ $# -ge 2 ]] || { print_usage; exit 2; }
-      test_settings_path="$2"
-      shift 2
-      ;;
-    --test-settings-path=*)
-      test_settings_path="${1#--test-settings-path=}"
       shift
       ;;
     --timeout)
@@ -336,10 +325,6 @@ fi
 
 if [[ -n "${test_category}" ]]; then
   ucli_test_args+=(--testCategory "${test_category}")
-fi
-
-if [[ -n "${test_settings_path}" ]]; then
-  ucli_test_args+=(--testSettingsPath "${test_settings_path}")
 fi
 
 set +e

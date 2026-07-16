@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -23,15 +22,13 @@ public sealed class CallCommandResultFactoryTests
                 ApplicationFailure.InternalError("Call failed."),
             ],
             new CallExecutionOutput(
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults: [],
-                Plan: new CallPlanOutput(
-                    RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                    Project: ProjectIdentityInfoTestFactory.Create(),
-                    OpResults: [],
-                    PlanToken: null),
-                ReadPostcondition: null)));
+                requestId: Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults: [],
+                plan: new CallPlanOutput(
+                    opResults: [],
+                    planToken: null),
+                readPostcondition: null)));
 
         using var json = JsonDocument.Parse(ResultWriter.Write(result));
         var payload = json.RootElement.GetProperty("payload");
@@ -71,7 +68,7 @@ public sealed class CallCommandResultFactoryTests
         var root = json.RootElement;
         JsonAssert.For(root)
             .HasString("command", UcliCommandNames.Call)
-            .HasString("status", "error")
+            .HasString("status", ContractLiteralCodec.ToValue(CommandResultStatus.Error))
             .HasProperty("payload", payload => payload
                 .HasProperty("startup", startup => startup
                     .HasString("startupStatus", "blocked")
@@ -92,15 +89,13 @@ public sealed class CallCommandResultFactoryTests
         var readPostcondition = ReadPostconditionTestFactory.CreateSceneTreeLite();
         var result = CallCommandResultFactory.Create(CallServiceResult.Success(
             new CallExecutionOutput(
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults: [],
-                Plan: new CallPlanOutput(
-                    RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
-                    Project: ProjectIdentityInfoTestFactory.Create(),
-                    OpResults: [],
-                    PlanToken: "plan-token-1"),
-                ReadPostcondition: readPostcondition),
+                requestId: Guid.Parse("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62"),
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults: [],
+                plan: new CallPlanOutput(
+                    opResults: [],
+                    planToken: "plan-token-1"),
+                readPostcondition: readPostcondition),
             "uCLI call completed."));
 
         using var json = JsonDocument.Parse(ResultWriter.Write(result));
@@ -109,7 +104,7 @@ public sealed class CallCommandResultFactoryTests
             .HasProperty("readPostcondition", readPostconditionElement => readPostconditionElement
                 .HasArrayLength("requirements", 1)
                 .HasProperty("requirements", 0, requirement => requirement
-                    .HasString("surface", IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite)
+                    .HasString("surface", ContractLiteralCodec.ToValue(IpcExecuteReadPostconditionSurface.SceneTreeLite))
                     .HasString("scenePath", "Assets/Scenes/Main.unity")));
         Assert.False(payload.GetProperty("plan").TryGetProperty("readPostcondition", out _));
     }
@@ -132,9 +127,9 @@ public sealed class CallCommandResultFactoryTests
                 ArtifactPath: null,
                 RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix),
             Diagnosis: new DaemonDiagnosisOutput(
-                Reason: "unityScriptCompilationFailed",
+                Reason: DaemonDiagnosisReason.UnityScriptCompilationFailed,
                 Message: "Unity startup is blocked.",
-                ReportedBy: "cli",
+                ReportedBy: DaemonDiagnosisReportedBy.Cli,
                 IsInferred: true,
                 UpdatedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:06+00:00"),
                 ProcessId: 1234,
@@ -142,9 +137,9 @@ public sealed class CallCommandResultFactoryTests
                 ProcessStartedAtUtc: DateTimeOffset.Parse("2026-03-12T04:05:01+00:00"),
                 UnityLogPath: "/repo/.ucli/local/logs/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.ScriptCompilation,
-                ActionRequired: "fixCompileErrors",
+                ActionRequired: DaemonDiagnosisActionRequired.FixCompileErrors,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: "compiler",
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                     Code: "CS0246",
                     File: "Assets/Scripts/Broken.cs",
                     Line: 10,

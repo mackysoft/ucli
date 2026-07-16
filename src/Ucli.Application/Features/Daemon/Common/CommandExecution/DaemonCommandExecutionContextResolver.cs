@@ -27,11 +27,7 @@ internal sealed class DaemonCommandExecutionContextResolver : IDaemonCommandExec
         int? timeoutMilliseconds,
         CancellationToken cancellationToken = default)
     {
-        if (!timeoutCommand.IsValid)
-        {
-            throw new ArgumentException("Timeout command name is invalid.", nameof(timeoutCommand));
-        }
-
+        ArgumentNullException.ThrowIfNull(timeoutCommand);
         cancellationToken.ThrowIfCancellationRequested();
 
         var contextResolutionResult = await projectContextResolver.ResolveAsync(projectPath, cancellationToken).ConfigureAwait(false);

@@ -13,7 +13,7 @@ internal sealed class DaemonStartProgressEmitter :
     IDaemonStartProgressObserver
 {
     private readonly ICommandProgressSink progressSink;
-    private readonly string projectFingerprint;
+    private readonly ProjectFingerprint projectFingerprint;
     private readonly int timeoutMilliseconds;
     private readonly DaemonEditorMode? editorMode;
     private readonly DaemonStartupBlockedProcessPolicy onStartupBlocked;
@@ -21,12 +21,12 @@ internal sealed class DaemonStartProgressEmitter :
     /// <summary> Initializes a new instance of the <see cref="DaemonStartProgressEmitter" /> class. </summary>
     public DaemonStartProgressEmitter (
         ICommandProgressSink? progressSink,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int timeoutMilliseconds,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(projectFingerprint);
+        ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(timeoutMilliseconds);
 
         this.progressSink = progressSink ?? NullCommandProgressSink.Instance;
@@ -134,7 +134,7 @@ internal sealed class DaemonStartProgressEmitter :
     /// <inheritdoc />
     public ValueTask EmitSessionRegisteredAsync (
         DaemonSession session,
-        string? launchAttemptId,
+        Guid? launchAttemptId,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -147,7 +147,7 @@ internal sealed class DaemonStartProgressEmitter :
     /// <inheritdoc />
     public ValueTask EmitEndpointRegisteredAsync (
         DaemonSession session,
-        string? launchAttemptId,
+        Guid? launchAttemptId,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(session);
@@ -243,7 +243,7 @@ internal sealed class DaemonStartProgressEmitter :
 
     private static DaemonStartStartupProgressObservation CreateSessionObservation (
         DaemonSession session,
-        string? launchAttemptId)
+        Guid? launchAttemptId)
     {
         return new DaemonStartStartupProgressObservation(
             LaunchAttemptId: launchAttemptId,

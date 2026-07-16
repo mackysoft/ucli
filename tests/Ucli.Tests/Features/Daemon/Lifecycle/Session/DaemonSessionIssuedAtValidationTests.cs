@@ -1,6 +1,5 @@
-using MackySoft.Tests;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -13,25 +12,30 @@ public sealed class DaemonSessionIssuedAtValidationTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-issued-at");
         var store = DaemonSessionStorageTestSupport.CreateStore();
+        var sessionToken = IpcSessionTokenTestFactory.Create("missing-issued-at").GetEncodedValue();
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-missing-issued-at");
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
             scope.FullPath,
-            "fingerprint-missing-issued-at",
+            projectFingerprint,
             $$"""
             {
-              "schemaVersion": {{DaemonSession.CurrentSchemaVersion}},
-              "sessionToken": "token-1",
-              "projectFingerprint": "fingerprint-missing-issued-at",
+              "schemaVersion": {{DaemonSessionStorageContract.CurrentSchemaVersion}},
+              "sessionGenerationId": "11111111-1111-1111-1111-111111111111",
+              "sessionToken": "{{sessionToken}}",
+              "projectFingerprint": "{{projectFingerprint.ToString()}}",
               "editorMode": "batchmode",
               "ownerKind": "cli",
               "canShutdownProcess": true,
               "endpointTransportKind": "namedPipe",
               "endpointAddress": "ucli-daemon-test",
-              "processId": 1234
+              "processId": 1234,
+              "processStartedAtUtc": "2026-07-14T00:00:00+00:00",
+              "ownerProcessId": 5678
             }
             """,
             CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, "fingerprint-missing-issued-at", CancellationToken.None);
+        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -41,22 +45,11 @@ public sealed class DaemonSessionIssuedAtValidationTests
     }
 
     [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Write_WhenIssuedAtUtcIsDefault_ReturnsInvalidArgument ()
+    [Trait("Size", "Small")]
+    public void Constructor_WhenIssuedAtUtcIsDefault_ThrowsArgumentException ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "default-issued-at");
-        var store = DaemonSessionStorageTestSupport.CreateStore();
-        var session = DaemonSessionTestFactory.Create() with
-        {
-            ProjectFingerprint = "fingerprint-default-issued-at",
-            IssuedAtUtc = default,
-        };
-
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
-
-        Assert.False(writeResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(writeResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("issuedAtUtc", error.Message, StringComparison.Ordinal);
+        Assert.Throws<ArgumentException>(() => DaemonSessionTestFactory.Create(
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-default-issued-at"),
+            issuedAtUtc: default(DateTimeOffset)));
     }
 }

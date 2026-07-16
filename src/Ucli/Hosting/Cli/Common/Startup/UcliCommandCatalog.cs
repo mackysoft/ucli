@@ -134,14 +134,12 @@ internal static class UcliCommandCatalog
             new NestedCommandGroupEntry(
                 UcliCommandNames.Profile,
                 [new CommandLeafEntry(UcliCommandNames.InitSubcommand, UcliCommandNames.TestProfileInit)]),
-        ],
-        ShouldValidateSubcommandsBeforeDispatch: false);
+        ]);
 
     private static readonly CommandGroupEntry BuildCommandGroup = new(
         UcliCommandNames.Build,
         [new CommandLeafEntry(UcliCommandNames.RunSubcommand, UcliCommandNames.BuildRun)],
-        [],
-        ShouldValidateSubcommandsBeforeDispatch: false);
+        []);
 
     private static readonly CommandGroupEntry[] CommandGroups =
     [
@@ -269,7 +267,7 @@ internal static class UcliCommandCatalog
         out IReadOnlyList<string> supportedSubcommands)
     {
         var group = FindCommandGroup(commandName);
-        if (group == null || !group.ShouldValidateSubcommandsBeforeDispatch)
+        if (group == null)
         {
             supportedSubcommands = Array.Empty<string>();
             return false;
@@ -277,6 +275,38 @@ internal static class UcliCommandCatalog
 
         supportedSubcommands = group.SupportedSubcommands;
         return true;
+    }
+
+    /// <summary> Resolves a help invocation that targets a non-executable command group. </summary>
+    /// <param name="args"> The command-line arguments passed to the process. </param>
+    /// <param name="groupPath"> The resolved command-group path when found. </param>
+    /// <returns> <see langword="true" /> when the arguments request help for a known command group. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="args" /> is <see langword="null" />. </exception>
+    public static bool TryResolveGroupHelpPath (
+        string[] args,
+        out string groupPath)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+
+        groupPath = string.Empty;
+        if (args.Length < 2 || !CommandTokenClassifier.IsHelpOptionToken(args[^1]))
+        {
+            return false;
+        }
+
+        if (args.Length == 2 && FindCommandGroup(args[0]) is not null)
+        {
+            groupPath = args[0];
+            return true;
+        }
+
+        if (args.Length == 3 && FindNestedCommandGroup(args[0], args[1]) is not null)
+        {
+            groupPath = $"{args[0]} {args[1]}";
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary> Gets supported leaf subcommands for a nested command group. </summary>
@@ -454,8 +484,7 @@ internal static class UcliCommandCatalog
     private sealed record CommandGroupEntry (
         string CommandName,
         CommandLeafEntry[] Leaves,
-        NestedCommandGroupEntry[] NestedGroups,
-        bool ShouldValidateSubcommandsBeforeDispatch = true)
+        NestedCommandGroupEntry[] NestedGroups)
     {
         public int CommandPathCount { get; } = Leaves.Length + CountNestedCommandPaths(NestedGroups);
 

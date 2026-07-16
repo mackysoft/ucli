@@ -1,6 +1,4 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Ready;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.ReadyCommandTestData;
@@ -13,13 +11,14 @@ public sealed class ReadyCommandStartupFailureTests
     [Trait("Size", "Small")]
     public async Task Ready_WithStartupFailure_EmitsProjectAndStartupDiagnosis ()
     {
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("<projectFingerprint>");
         var startupFailure = CreateStartupFailureDetail();
         var service = new RecordingReadyService((_, _) => ValueTask.FromResult(ReadyExecutionResult.Failure(
             ApplicationFailure.UnityIpcFailure(
                 "Unity startup is blocked.",
                 DaemonErrorCodes.DaemonStartupBlocked,
                 startupFailure: startupFailure),
-            ProjectIdentityInfoTestFactory.Create(projectPath: "<projectPath>", projectFingerprint: "<projectFingerprint>"))));
+            ProjectIdentityInfoTestFactory.Create(projectFingerprint: projectFingerprint))));
         var command = new ReadyCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ReadyAsync(
@@ -31,15 +30,15 @@ public sealed class ReadyCommandStartupFailureTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Ready,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, DaemonErrorCodes.DaemonStartupBlocked);
 
         var payload = outputJson.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
             .HasProperty("project", project => project
-                .HasString("projectPath", "<projectPath>")
-                .HasString("projectFingerprint", "<projectFingerprint>"))
+                .HasString("projectPath", ProjectIdentityInfoTestFactory.DefaultProjectPath)
+                .HasString("projectFingerprint", projectFingerprint.ToString()))
             .HasProperty("startup", startup => startup
                 .HasString("startupStatus", "blocked")
                 .HasString("startupBlockingReason", "compile"))

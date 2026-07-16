@@ -15,8 +15,8 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-success"),
-            TimeSpan.FromMilliseconds(500),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-success")),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);
@@ -37,8 +37,8 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-starting"),
-            TimeSpan.FromSeconds(5),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-starting")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);
@@ -59,8 +59,8 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-domain-reloading"),
-            TimeSpan.FromSeconds(5),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-domain-reloading")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);
@@ -79,8 +79,8 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-compiling"),
-            TimeSpan.FromMilliseconds(500),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-compiling")),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);
@@ -106,8 +106,9 @@ public sealed class DaemonStartupReadinessProbeLifecycleTests
 
         var result = await probe.WaitUntilReadyAsync(
             ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(
-                $"fingerprint-readiness-{ContractLiteralCodec.ToValue(lifecycleState)}"),
-            TimeSpan.FromSeconds(5),
+                ProjectFingerprintTestFactory.Create(
+                    $"fingerprint-readiness-{ContractLiteralCodec.ToValue(lifecycleState)}")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);

@@ -39,7 +39,7 @@ internal sealed record ReadyExecutionResult
         return new ReadyExecutionResult(
             output,
             Array.Empty<ApplicationFailure>(),
-            output.Verdict == ReadyVerdictValues.Pass
+            output.Verdict == AssuranceVerdict.Pass
                 ? "uCLI ready assurance passed."
                 : "uCLI ready assurance completed.",
             output.Project);

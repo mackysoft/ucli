@@ -24,7 +24,7 @@ internal sealed class CodesDescribeCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes <c>codes describe</c> and emits the JSON result contract. </summary>
+    /// <summary> Describes one machine-readable code and emits the JSON result contract. </summary>
     /// <param name="code"> The target code or kind-qualified code reference. </param>
     /// <param name="requireKnown">--requireKnown, Rejects codes that are absent from this client's catalog. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>

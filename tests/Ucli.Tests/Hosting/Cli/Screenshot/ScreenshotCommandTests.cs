@@ -1,6 +1,6 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Screenshot.Artifacts;
 using MackySoft.Ucli.Application.Features.Screenshot.Capture;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Screenshot;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
@@ -9,6 +9,40 @@ namespace MackySoft.Ucli.Tests;
 
 public sealed class ScreenshotCommandTests
 {
+    [Theory]
+    [InlineData(UcliCommandNames.GameSubcommand)]
+    [InlineData(UcliCommandNames.SceneSubcommand)]
+    [Trait("Size", "Medium")]
+    public async Task Help_DoesNotAdvertiseUnusedExecutionMode (string target)
+    {
+        var result = await CliInProcessRunner.RunCommandAsync(
+            UcliCommandNames.Screenshot,
+            target,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.DoesNotContain(UcliContractConstants.CliOption.Mode, result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(UcliCommandNames.GameSubcommand, UcliCommandNames.ScreenshotGame)]
+    [InlineData(UcliCommandNames.SceneSubcommand, UcliCommandNames.ScreenshotScene)]
+    [Trait("Size", "Medium")]
+    public async Task RemovedModeOption_IsRejectedBeforeCapture (
+        string target,
+        string resultCommandName)
+    {
+        var result = await CliInProcessRunner.RunCommandAsync(
+            UcliCommandNames.Screenshot,
+            target,
+            UcliContractConstants.CliOption.Mode,
+            "daemon");
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.ReportsUnrecognizedArgument(result.StdErr, UcliContractConstants.CliOption.Mode);
+        CommandResultAssert.HasInvalidArgumentOutput(result.StdOut, resultCommandName);
+    }
+
     [Theory]
     [InlineData("1920", null)]
     [InlineData(null, "1080")]
@@ -35,23 +69,6 @@ public sealed class ScreenshotCommandTests
             UcliCommandNames.ScreenshotGame);
     }
 
-    [Theory]
-    [InlineData("oneshot")]
-    [InlineData("invalid")]
-    [Trait("Size", "Small")]
-    public async Task Scene_WithUnsupportedMode_RejectsBeforeCapture (string mode)
-    {
-        var service = CreateFailIfCalledService();
-        var command = new ScreenshotSceneCommand(service, CommandResultTestWriter.Create());
-
-        var result = await CommandResultCapture.ExecuteAsync(() => command.SceneAsync(
-            mode: mode,
-            cancellationToken: CancellationToken.None));
-
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        Assert.Empty(service.Inputs);
-    }
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Game_WhenCaptureSucceeds_EmitsMetadataAndArtifactReference ()
@@ -64,8 +81,7 @@ public sealed class ScreenshotCommandTests
         var command = new ScreenshotGameCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.GameAsync(
-            projectPath: "/repo/UnityProject",
-            mode: "daemon",
+            projectPath: ProjectPathTestValues.RepositoryUnityProject,
             width: "1920",
             height: "1080",
             timeout: "5000",
@@ -100,7 +116,7 @@ public sealed class ScreenshotCommandTests
             .HasProperty("artifact", artifact => artifact
                 .HasString("kind", "screenshot")
                 .HasString("mediaType", "image/png")
-                .HasString("path", ".ucli/local/fingerprints/pf_test/artifacts/screenshot/capture/screenshot.png")
+                .HasString("path", ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png")
                 .HasString("digest", new string('a', 64))
                 .HasInt32("sizeBytes", 4096)
                 .HasString("createdAtUtc", "2026-07-11T01:02:03+00:00"));
@@ -139,7 +155,10 @@ public sealed class ScreenshotCommandTests
         int? requestedHeight)
     {
         return new ScreenshotCaptureOutput(
-            new ProjectIdentityInfo("/repo/UnityProject", "pf_test", "6000.0.77f1"),
+            ProjectIdentityInfoTestFactory.CreateWithProjectPath(
+                projectPath: ProjectPathTestValues.RepositoryUnityProject,
+                projectFingerprint: ProjectFingerprintTestFactory.Create("screenshot-command"),
+                unityVersion: "6000.0.77f1"),
             new IpcScreenshotCapture(
                 target,
                 requestedWidth.HasValue
@@ -161,8 +180,8 @@ public sealed class ScreenshotCommandTests
                         IsPlaying: true,
                         IsPlayingOrWillChangePlaymode: true))),
             new ScreenshotArtifact(
-                ".ucli/local/fingerprints/pf_test/artifacts/screenshot/capture/screenshot.png",
-                new string('a', 64),
+                ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png",
+                Sha256Digest.Parse(new string('a', 64)),
                 4096,
                 new DateTimeOffset(2026, 7, 11, 1, 2, 3, TimeSpan.Zero)));
     }

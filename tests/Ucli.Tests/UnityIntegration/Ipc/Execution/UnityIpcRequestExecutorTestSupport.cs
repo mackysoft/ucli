@@ -18,13 +18,16 @@ internal static class UnityIpcRequestExecutorTestSupport
     public static IUnityIpcClient[] CreateClients (
         RecordingUnityIpcTransportClient daemonTransportClient,
         RecordingUnityIpcTransportClient oneshotTransportClient,
-        IDaemonSessionConnectionProvider sessionConnectionProvider,
+        IDaemonSessionStore sessionStore,
         IUnityBatchmodeProcessLauncher launcher)
     {
         return
         [
-            new UnityDaemonIpcClient(daemonTransportClient, sessionConnectionProvider),
-            new UnityOneshotIpcClient(
+            new UnityDaemonIpcClient(
+                daemonTransportClient,
+                DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                    sessionStore)),
+            UnityOneshotIpcClientTestSupport.CreateClient(
                 launcher,
                 oneshotTransportClient,
                 new StubProjectLifecycleLockProvider(),
@@ -45,26 +48,22 @@ internal static class UnityIpcRequestExecutorTestSupport
                 modeDecisionService,
                 new UnityIpcPluginVerifier(pluginLocator)),
             new UnityIpcClientSelector(clients),
-            new UnityDaemonReadinessGate(daemonPingInfoClient, timeProvider),
-            timeProvider);
+            new UnityDaemonReadinessGate(daemonPingInfoClient, timeProvider ?? TimeProvider.System),
+            timeProvider ?? TimeProvider.System);
     }
 
-    public static UnityRequestPayload.Raw CreateOpsReadPayload ()
+    public static UnityRequestPayload.OpsRead CreateOpsReadPayload ()
     {
-        return new UnityRequestPayload.Raw(
-            IpcMethodNames.OpsRead,
-            EmptyPayload());
+        return new UnityRequestPayload.OpsRead();
     }
 
-    public static UnityRequestPayload.Raw CreateOpsReadPayload (
+    public static UnityRequestPayload.OpsRead CreateOpsReadPayload (
         bool failFast,
         bool requireReadinessGate)
     {
-        return new UnityRequestPayload.Raw(
-            IpcMethodNames.OpsRead,
-            IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
-                FailFast: failFast,
-                RequireReadinessGate: requireReadinessGate)));
+        return new UnityRequestPayload.OpsRead(
+            FailFast: failFast,
+            RequireReadinessGate: requireReadinessGate);
     }
 
     public static JsonElement EmptyPayload ()
@@ -72,54 +71,59 @@ internal static class UnityIpcRequestExecutorTestSupport
         return JsonDocument.Parse("{}").RootElement.Clone();
     }
 
-    public static IpcResponse CreateSuccessResponse (string requestId)
+    public static IpcResponse CreateSuccessResponse (Guid requestId)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: EmptyPayload(),
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcResponseStatus.Ok,
+            payload: EmptyPayload(),
+            errors: Array.Empty<IpcError>());
     }
 
     public static IpcResponse CreateErrorResponse (
-        string requestId,
+        Guid requestId,
         UcliCode errorCode,
         string message)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusError,
-            Payload: EmptyPayload(),
-            Errors:
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcResponseStatus.Error,
+            payload: EmptyPayload(),
+            errors:
             [
                 new IpcError(errorCode, message, null),
             ]);
     }
 
-    public static IpcResponse CreateReadyPingResponse (string requestId)
+    public static IpcResponse CreateReadyPingResponse (
+        Guid requestId,
+        ProjectFingerprint projectFingerprint)
     {
         var payload = IpcPayloadCodec.SerializeToElement(CreatePingPayload(
-            IpcEditorLifecycleState.Ready));
+            IpcEditorLifecycleState.Ready,
+            projectFingerprint));
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: payload,
-            Errors: Array.Empty<IpcError>());
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: requestId,
+            status: IpcResponseStatus.Ok,
+            payload: payload,
+            errors: Array.Empty<IpcError>());
     }
 
-    public static IpcUnityEditorObservation CreatePingPayload (IpcEditorLifecycleState lifecycleState)
+    public static IpcUnityEditorObservation CreatePingPayload (
+        IpcEditorLifecycleState lifecycleState,
+        ProjectFingerprint? projectFingerprint = null)
     {
-        return IpcUnityEditorObservationTestFactory.Create(lifecycleState);
+        return IpcUnityEditorObservationTestFactory.Create(
+            lifecycleState,
+            projectFingerprint: projectFingerprint);
     }
 
-    public static DaemonSessionConnectionResolutionResult CreateConnectionResult (string sessionToken)
+    public static DaemonSessionReadResult CreateSessionReadResult (string sessionToken)
     {
-        return DaemonSessionConnectionResolutionResult.Success(new DaemonSessionConnection(
-            sessionToken,
-            new IpcEndpoint(IpcTransportKind.UnixDomainSocket, "/tmp/ucli-session.sock")));
+        return DaemonSessionReadResultTestFactory.FoundForToken(sessionToken);
     }
 
     public static void AssertSuccessfulUnityResponse (
@@ -127,7 +131,7 @@ internal static class UnityIpcRequestExecutorTestSupport
         UnityRequestResponse? actual)
     {
         Assert.NotNull(actual);
-        Assert.False(actual!.HasFailureStatus);
+        Assert.Empty(actual!.Errors);
         Assert.Equal(expected.Payload.GetRawText(), actual.Payload.GetRawText());
         Assert.Equal(expected.Errors.Count, actual.Errors.Count);
         for (var i = 0; i < expected.Errors.Count; i++)

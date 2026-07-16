@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <inheritdoc />
         public bool TryValidate (
             IpcDaemonLogsReadRequest request,
-            string currentStreamId,
+            Guid currentStreamId,
             out DaemonLogsReadFilter filter,
             out string errorMessage)
         {
@@ -18,9 +18,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 throw new ArgumentNullException(nameof(request));
             }
 
-            if (string.IsNullOrWhiteSpace(currentStreamId))
+            if (currentStreamId == Guid.Empty)
             {
-                throw new ArgumentException("current stream id must not be null or empty.", nameof(currentStreamId));
+                throw new ArgumentException("Current stream id must not be empty.", nameof(currentStreamId));
             }
 
             if (!TryResolveAfterSequence(request.After, currentStreamId, out var afterSequence, out errorMessage))
@@ -45,9 +45,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 Tail: normalizedRequest!.Tail,
                 Since: since,
                 Until: until,
-                Level: normalizedRequest.Level!,
+                Level: normalizedRequest.Level,
                 Query: normalizedRequest.Query,
-                QueryTarget: normalizedRequest.QueryTarget!,
+                QueryTarget: normalizedRequest.QueryTarget!.Value,
                 Category: normalizedRequest.Category);
             errorMessage = string.Empty;
             return true;
@@ -55,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool TryResolveAfterSequence (
             string afterCursor,
-            string currentStreamId,
+            Guid currentStreamId,
             out long? afterSequence,
             out string errorMessage)
         {
@@ -66,21 +66,21 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return true;
             }
 
-            if (!IpcLogCursorCodec.TryParse(afterCursor, out var parsedStreamId, out var parsedSequence))
+            if (!IpcLogCursor.TryParse(afterCursor, out var parsedCursor))
             {
                 afterSequence = null;
                 errorMessage = $"after is invalid cursor format. Actual: {afterCursor}.";
                 return false;
             }
 
-            if (!string.Equals(parsedStreamId, currentStreamId, StringComparison.Ordinal))
+            if (parsedCursor.StreamId != currentStreamId)
             {
                 afterSequence = null;
-                errorMessage = $"after streamId does not match current daemon stream. actual={parsedStreamId}, current={currentStreamId}.";
+                errorMessage = $"after streamId does not match current daemon stream. actual={parsedCursor.StreamId}, current={currentStreamId}.";
                 return false;
             }
 
-            afterSequence = parsedSequence;
+            afterSequence = parsedCursor.Sequence;
             errorMessage = string.Empty;
             return true;
         }

@@ -1,3 +1,6 @@
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Tests;
 
 internal sealed class RecordingReadIndexArtifactReader : IReadIndexArtifactReader
@@ -6,71 +9,62 @@ internal sealed class RecordingReadIndexArtifactReader : IReadIndexArtifactReade
 
     public IReadOnlyList<ReadInvocation> ReadInvocations => readInvocations;
 
-    public ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>? OpsCatalogResult { get; set; }
+    public ReadIndexArtifactReadResult<OpsCatalogDescriptorSnapshot>? OpsCatalogResult { get; set; }
 
-    public ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>? OpsDescribeResult { get; set; }
+    public Queue<ReadIndexArtifactReadResult<OpsCatalogDescriptorSnapshot>> OpsCatalogResults { get; } = [];
 
-    public ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>? TypesCatalogResult { get; set; }
+    public ReadIndexArtifactReadResult<OpsDescribeSnapshot>? OpsDescribeResult { get; set; }
 
-    public ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>? SchemasCatalogResult { get; set; }
+    public Queue<ReadIndexArtifactReadResult<OpsDescribeSnapshot>> OpsDescribeResults { get; } = [];
 
-    public ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>? AssetSearchLookupResult { get; set; }
+    public ReadIndexArtifactReadResult<AssetSearchLookupSnapshot>? AssetSearchLookupResult { get; set; }
 
-    public ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>? GuidPathLookupResult { get; set; }
+    public ReadIndexArtifactReadResult<GuidPathLookupSnapshot>? GuidPathLookupResult { get; set; }
 
-    public ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>? SceneTreeLiteLookupResult { get; set; }
+    public ReadIndexArtifactReadResult<SceneTreeLiteLookupSnapshot>? SceneTreeLiteLookupResult { get; set; }
 
-    public ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>? InputsManifestResult { get; set; }
+    public ReadIndexArtifactReadResult<ReadIndexInputsManifestSnapshot>? InputsManifestResult { get; set; }
 
-    public ValueTask<ReadIndexArtifactReadResult<IndexOpsCatalogJsonContract>> ReadOpsCatalogAsync (
+    public ValueTask<ReadIndexGenerationArtifacts> ReadGenerationArtifactsAsync (
+        ResolvedUnityProjectContext unityProject,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        readInvocations.Add(new ReadInvocation(ReadIndexArtifactKind.GenerationArtifacts, unityProject, cancellationToken));
+        return ValueTask.FromResult(new ReadIndexGenerationArtifacts(
+            OpsCatalogResult ?? Missing<OpsCatalogDescriptorSnapshot>("ops.catalog.json"),
+            AssetSearchLookupResult ?? Missing<AssetSearchLookupSnapshot>("asset-search.lookup.json"),
+            GuidPathLookupResult ?? Missing<GuidPathLookupSnapshot>("guid-path.lookup.json"),
+            InputsManifestResult ?? Missing<ReadIndexInputsManifestSnapshot>("manifest.json")));
+    }
+
+    public ValueTask<ReadIndexArtifactReadResult<OpsCatalogDescriptorSnapshot>> ReadOpsCatalogAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
         return ReadAsync(
             ReadIndexArtifactKind.OpsCatalog,
             unityProject,
-            OpsCatalogResult,
+            OpsCatalogResults.Count == 0 ? OpsCatalogResult : OpsCatalogResults.Dequeue(),
             cancellationToken);
     }
 
-    public ValueTask<ReadIndexArtifactReadResult<IndexOpsDescribeJsonContract>> ReadOpsDescribeAsync (
+    public ValueTask<ReadIndexArtifactReadResult<OpsDescribeSnapshot>> ReadOpsDescribeAsync (
         ResolvedUnityProjectContext unityProject,
-        IndexOpsCatalogEntryJsonContract catalogEntry,
-        string sourceInputsHash,
+        ValidatedOpsCatalogEntry catalogEntry,
+        Sha256Digest sourceInputsHash,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(catalogEntry);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceInputsHash);
+        ArgumentNullException.ThrowIfNull(sourceInputsHash);
         return ReadAsync(
             ReadIndexArtifactKind.OpsDescribe,
             unityProject,
-            OpsDescribeResult,
+            OpsDescribeResults.Count == 0 ? OpsDescribeResult : OpsDescribeResults.Dequeue(),
             cancellationToken);
     }
 
-    public ValueTask<ReadIndexArtifactReadResult<IndexTypesCatalogJsonContract>> ReadTypesCatalogAsync (
-        ResolvedUnityProjectContext unityProject,
-        CancellationToken cancellationToken = default)
-    {
-        return ReadAsync(
-            ReadIndexArtifactKind.TypesCatalog,
-            unityProject,
-            TypesCatalogResult,
-            cancellationToken);
-    }
-
-    public ValueTask<ReadIndexArtifactReadResult<IndexSchemasCatalogJsonContract>> ReadSchemasCatalogAsync (
-        ResolvedUnityProjectContext unityProject,
-        CancellationToken cancellationToken = default)
-    {
-        return ReadAsync(
-            ReadIndexArtifactKind.SchemasCatalog,
-            unityProject,
-            SchemasCatalogResult,
-            cancellationToken);
-    }
-
-    public ValueTask<ReadIndexArtifactReadResult<IndexAssetSearchLookupJsonContract>> ReadAssetSearchLookupAsync (
+    public ValueTask<ReadIndexArtifactReadResult<AssetSearchLookupSnapshot>> ReadAssetSearchLookupAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
@@ -81,7 +75,7 @@ internal sealed class RecordingReadIndexArtifactReader : IReadIndexArtifactReade
             cancellationToken);
     }
 
-    public ValueTask<ReadIndexArtifactReadResult<IndexGuidPathLookupJsonContract>> ReadGuidPathLookupAsync (
+    public ValueTask<ReadIndexArtifactReadResult<GuidPathLookupSnapshot>> ReadGuidPathLookupAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
@@ -92,12 +86,12 @@ internal sealed class RecordingReadIndexArtifactReader : IReadIndexArtifactReade
             cancellationToken);
     }
 
-    public ValueTask<ReadIndexArtifactReadResult<IndexSceneTreeLiteLookupJsonContract>> ReadSceneTreeLiteLookupAsync (
+    public ValueTask<ReadIndexArtifactReadResult<SceneTreeLiteLookupSnapshot>> ReadSceneTreeLiteLookupAsync (
         ResolvedUnityProjectContext unityProject,
-        string scenePath,
+        SceneAssetPath scenePath,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(scenePath);
+        ArgumentNullException.ThrowIfNull(scenePath);
         return ReadAsync(
             ReadIndexArtifactKind.SceneTreeLiteLookup,
             unityProject,
@@ -105,7 +99,7 @@ internal sealed class RecordingReadIndexArtifactReader : IReadIndexArtifactReade
             cancellationToken);
     }
 
-    public ValueTask<ReadIndexArtifactReadResult<IndexInputsManifestJsonContract>> ReadInputsManifestAsync (
+    public ValueTask<ReadIndexArtifactReadResult<ReadIndexInputsManifestSnapshot>> ReadInputsManifestAsync (
         ResolvedUnityProjectContext unityProject,
         CancellationToken cancellationToken = default)
     {
@@ -134,6 +128,14 @@ internal sealed class RecordingReadIndexArtifactReader : IReadIndexArtifactReade
         return ValueTask.FromResult(result);
     }
 
+    private static ReadIndexArtifactReadResult<T> Missing<T> (string fileName)
+        where T : class
+    {
+        return ReadIndexArtifactReadResult<T>.Failure(
+            ReadIndexErrorCodes.ReadIndexBootstrapFailed,
+            $"Index contract file was not found: {fileName}.");
+    }
+
     internal readonly record struct ReadInvocation (
         ReadIndexArtifactKind Kind,
         ResolvedUnityProjectContext UnityProject,
@@ -141,10 +143,9 @@ internal sealed class RecordingReadIndexArtifactReader : IReadIndexArtifactReade
 
     internal enum ReadIndexArtifactKind
     {
+        GenerationArtifacts,
         OpsCatalog,
         OpsDescribe,
-        TypesCatalog,
-        SchemasCatalog,
         AssetSearchLookup,
         GuidPathLookup,
         SceneTreeLiteLookup,

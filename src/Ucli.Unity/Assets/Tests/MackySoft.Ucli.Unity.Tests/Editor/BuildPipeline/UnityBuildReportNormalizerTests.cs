@@ -1,8 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Unity.Build;
 using NUnit.Framework;
 using UnityEditor;
@@ -40,7 +43,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var artifact = UnityBuildReportNormalizer.Normalize(snapshot);
 
             Assert.That(artifact.SchemaVersion, Is.EqualTo(1));
-            Assert.That(artifact.Result, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded)));
+            Assert.That(artifact.Result, Is.EqualTo(IpcBuildReportResult.Succeeded));
             Assert.That(artifact.UnityBuildTarget, Is.EqualTo("StandaloneLinux64"));
             Assert.That(artifact.OutputPath, Is.EqualTo("/tmp/ucli/output/build"));
             Assert.That(artifact.DurationMilliseconds, Is.EqualTo(1235));
@@ -73,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var artifact = UnityBuildReportNormalizer.Normalize(snapshot);
 
-            Assert.That(artifact.Result, Is.EqualTo(ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed)));
+            Assert.That(artifact.Result, Is.EqualTo(IpcBuildReportResult.Failed));
             Assert.That(artifact.ErrorCount, Is.EqualTo(1));
             Assert.That(artifact.Steps, Is.Empty);
             Assert.That(artifact.Messages, Is.Empty);
@@ -87,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Tests
             IpcBuildReportResult result,
             IpcBuildLogCompletionReason expectedCompletionReason)
         {
-            var completionReason = UnityBuildReportNormalizer.ToCompletionReason(ContractLiteralCodec.ToValue(result));
+            var completionReason = UnityBuildReportNormalizer.ToCompletionReason(result);
 
             Assert.That(completionReason, Is.EqualTo(expectedCompletionReason));
         }
@@ -96,7 +99,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void ToCompletionReason_WithUnknownBuildReportResult_ReturnsFailed ()
         {
-            var completionReason = UnityBuildReportNormalizer.ToCompletionReason("unknown");
+            var completionReason = UnityBuildReportNormalizer.ToCompletionReason(IpcBuildReportResult.Unknown);
 
             Assert.That(completionReason, Is.EqualTo(IpcBuildLogCompletionReason.Failed));
         }
@@ -107,29 +110,38 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var outputPath = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli", "output"));
             var locationPathName = Path.Combine(outputPath, "player", "Player");
-            var request = new IpcBuildRunRequest(
-                RunId: "build-run-1",
-                InputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.Explicit),
-                BuildTarget: "standaloneLinux64",
-                UnityBuildTarget: "StandaloneLinux64",
-                SceneSource: "explicit",
-                ScenePaths: new[] { "Assets/Scenes/Main.unity" },
+            var wireRequest = new IpcBuildRunRequest(
+                RunId: Guid.Parse("00000000-0000-0000-0000-000000000604"),
+                InputKind: BuildProfileInputsKind.Explicit,
+                BuildTarget: BuildTargetStableName.StandaloneLinux64,
+                SceneSource: BuildProfileSceneSource.Explicit,
+                ScenePaths: new[] { new SceneAssetPath("Assets/Scenes/Main.unity") },
                 Development: true,
                 OutputPath: outputPath,
                 OutputLayout: new IpcBuildOutputLayout(
-                    Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
+                    Shape: IpcBuildOutputLayoutShape.File,
                     LocationPathName: locationPathName),
                 BuildReportPath: "/tmp/ucli/build-report.json",
                 BuildLogPath: "/tmp/ucli/build.log",
-                AllowedEditorModes: new[] { "batchmode" },
-                ProjectMutationMode: "forbid",
-                RunnerKind: ContractLiteralCodec.ToValue(IpcBuildRunnerKind.BuildPipeline));
+                AllowedEditorModes: new[] { DaemonEditorMode.Batchmode },
+                ProjectMutationMode: BuildProfileProjectMutationMode.Forbid,
+                RunnerKind: BuildRunnerKind.BuildPipeline,
+                ProfileDigest: Sha256Digest.Parse(new string('a', 64)),
+                UnityBuildProfile: null,
+                ProfilePath: null,
+                RunnerMethod: null,
+                RunnerArguments: new Dictionary<string, string>(StringComparer.Ordinal),
+                RunnerEnvironmentVariables: Array.Empty<string>(),
+                RunnerEnvironmentSecrets: Array.Empty<string>(),
+                RunnerEnvironmentVariableValues: new Dictionary<string, string>(StringComparer.Ordinal),
+                RunnerEnvironmentSecretValues: new Dictionary<string, string>(StringComparer.Ordinal));
             var resolvedInput = new UnityBuildResolvedInput(
                 UnityBuildTarget: BuildTarget.StandaloneLinux64,
                 UnityBuildTargetGroup: BuildTargetGroup.Standalone,
-                ScenePaths: new[] { "Assets/Scenes/Main.unity" },
+                ScenePaths: new[] { new SceneAssetPath("Assets/Scenes/Main.unity") },
                 Options: BuildOptions.Development);
 
+            var request = (BuildRunExecutionRequest.ExplicitBuildPipeline)BuildRunExecutionRequest.Create(wireRequest);
             var options = UnityBuildPlayerOptionsFactory.Create(request, resolvedInput);
 
             Assert.That(options.scenes, Is.EqualTo(new[] { "Assets/Scenes/Main.unity" }));

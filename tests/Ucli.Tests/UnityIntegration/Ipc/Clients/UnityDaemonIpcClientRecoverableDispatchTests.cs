@@ -1,80 +1,450 @@
 using System.Net.Sockets;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Clients;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
+using MackySoft.Ucli.UnityIntegration.Ipc.Execution;
+using MackySoft.Ucli.UnityIntegration.Ipc.Process;
+using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 using static MackySoft.Ucli.Tests.Ipc.UnityDaemonIpcClientTestSupport;
 
 namespace MackySoft.Ucli.Tests.Ipc;
 
 public sealed class UnityDaemonIpcClientRecoverableDispatchTests
 {
+    private static readonly DateTimeOffset HostProcessStartedAtUtc =
+        new(2026, 3, 5, 0, 0, 1, TimeSpan.Zero);
+
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenRecoverableDispatchLosesResponse_RetriesWithSameRequestIdAndReloadedSessionToken ()
+    public async Task SendAsync_WhenStatelessReadResponseIsInterrupted_ReplaysSameLogicalRequest ()
     {
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
-        transportClient.EnqueueException(new EndOfStreamException("lost response"));
-        transportClient.EnqueueResponse(CreateResponse("req-recovered"));
-        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
-            CreateConnectionResult("daemon-token-1"),
-            CreateConnectionResult("daemon-token-2"));
-        var client = new UnityDaemonIpcClient(transportClient, sessionConnectionProvider);
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueException(new IpcResponseReadInterruptedException(
+            new EndOfStreamException("lost stateless read response")));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
+        var interruptedSession = CreateHostSession(
+            "daemon-token-1",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DaemonEditorMode.Batchmode);
+        var differentHostSession = CreateMismatchedHostSession(
+            interruptedSession,
+            HostIdentityMismatchKind.ProcessId);
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                    DaemonSessionReadResultTestFactory.Found(interruptedSession),
+                    DaemonSessionReadResultTestFactory.Found(differentHostSession))));
 
         var result = await client.SendAsync(
             ResolvedUnityProjectContextTestFactory.Create(),
-            new UnityIpcDispatchRequest(IpcMethodNames.PlayEnter, CreateDispatchPayload(), isRecoverable: true),
-            TimeSpan.FromSeconds(5),
+            new UnityIpcDispatchRequest(
+                UnityIpcMethod.OpsRead,
+                CreateDispatchPayload(),
+                UnityBatchmodeLaunchOptions.Default),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var requests = IpcRequestAssert.Methods(
+            transportClient,
+            UnityIpcMethod.OpsRead,
+            UnityIpcMethod.OpsRead);
+        _ = IpcRequestAssert.SingleRequestId(requests);
+        IpcRequestAssert.SessionTokens(
+            requests,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(HostIdentityMismatchKind.ProcessId)]
+    [InlineData(HostIdentityMismatchKind.ProcessStartedAtUtc)]
+    [InlineData(HostIdentityMismatchKind.EditorInstanceId)]
+    public async Task SendAsync_WhenDurableReplayFindsDifferentHost_PreservesInterruptionWithoutReplay (
+        HostIdentityMismatchKind mismatchKind)
+    {
+        var interruption = new IpcResponseReadInterruptedException(
+            new EndOfStreamException("original durable response interruption"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueException(interruption);
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
+        var interruptedSession = CreateHostSession(
+            "daemon-token-1",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            mismatchKind == HostIdentityMismatchKind.EditorInstanceId
+                ? DaemonEditorMode.Gui
+                : DaemonEditorMode.Batchmode);
+        var successorSession = CreateMismatchedHostSession(interruptedSession, mismatchKind);
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                    DaemonSessionReadResultTestFactory.Found(interruptedSession),
+                    DaemonSessionReadResultTestFactory.Found(successorSession))));
+
+        var result = await client.SendAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            new UnityIpcDispatchRequest(
+                UnityIpcMethod.PlayEnter,
+                CreateDispatchPayload(),
+                UnityBatchmodeLaunchOptions.Default),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains(interruption.Message, result.Message, StringComparison.Ordinal);
+        Assert.Single(transportClient.Requests);
+    }
+
+    [Theory]
+    [Trait("Size", "Small")]
+    [InlineData(DurableReacquisitionTrigger.PreWriteFailure)]
+    [InlineData(DurableReacquisitionTrigger.SessionTokenRejection)]
+    [InlineData(DurableReacquisitionTrigger.ResponseInterruption)]
+    [InlineData(DurableReacquisitionTrigger.TerminalTransportFailure)]
+    public async Task SendAsync_WhenDurableReplayRequiresAnotherReacquisition_PreservesFirstHostAndInterruption (
+        DurableReacquisitionTrigger trigger)
+    {
+        var firstInterruption = new IpcResponseReadInterruptedException(
+            new EndOfStreamException("first durable response interruption"));
+        var secondInterruption = new IpcResponseReadInterruptedException(
+            new EndOfStreamException("second durable response interruption"));
+        var terminalTransportFailure = new InvalidDataException(
+            "terminal replay transport failure");
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueResponse(_ => throw firstInterruption);
+        transportClient.EnqueueResponse(trigger switch
+        {
+            DurableReacquisitionTrigger.PreWriteFailure => _ => throw new IpcConnectException(
+                "IPC connection was refused before the replay request was sent.",
+                new SocketException((int)SocketError.ConnectionRefused)),
+            DurableReacquisitionTrigger.SessionTokenRejection => _ => CreateSessionTokenInvalidResponse(),
+            DurableReacquisitionTrigger.ResponseInterruption => _ => throw secondInterruption,
+            DurableReacquisitionTrigger.TerminalTransportFailure => _ => throw terminalTransportFailure,
+            _ => throw new ArgumentOutOfRangeException(nameof(trigger), trigger, null),
+        });
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
+        var interruptedSession = CreateHostSession(
+            "daemon-token-1",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DaemonEditorMode.Batchmode);
+        var sameHostSuccessor = CreateHostSession(
+            "daemon-token-2",
+            Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            DaemonEditorMode.Batchmode);
+        var differentHostSuccessor = CreateMismatchedHostSession(
+            interruptedSession,
+            HostIdentityMismatchKind.ProcessId);
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                    DaemonSessionReadResultTestFactory.Found(interruptedSession),
+                    DaemonSessionReadResultTestFactory.Found(sameHostSuccessor),
+                    DaemonSessionReadResultTestFactory.Found(differentHostSuccessor))));
+
+        var result = await client.SendAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            new UnityIpcDispatchRequest(
+                UnityIpcMethod.PlayEnter,
+                CreateDispatchPayload(),
+                UnityBatchmodeLaunchOptions.Default),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains(firstInterruption.Message, result.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(secondInterruption.Message, result.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(terminalTransportFailure.Message, result.Message, StringComparison.Ordinal);
+        Assert.Equal(2, transportClient.Requests.Count);
+        _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenDurableReplayHasPreWriteFailure_DoesNotExtendEndpointAvailabilityWindow ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var firstInterruption = new IpcResponseReadInterruptedException(
+            new EndOfStreamException("durable response interruption before endpoint deadline"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueResponse(_ => throw firstInterruption);
+        transportClient.EnqueueResponse(_ =>
+        {
+            timeProvider.Advance(
+                DaemonTimeouts.ProbeAttemptTimeoutCap
+                - TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+            throw new IpcConnectException(
+                "IPC connection was refused before the replay request was sent.",
+                new SocketException((int)SocketError.ConnectionRefused));
+        });
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
+        var interruptedSession = CreateHostSession(
+            "daemon-token-1",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DaemonEditorMode.Batchmode);
+        var sameHostSuccessor = CreateHostSession(
+            "daemon-token-2",
+            Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            DaemonEditorMode.Batchmode);
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                    DaemonSessionReadResultTestFactory.Found(interruptedSession),
+                    DaemonSessionReadResultTestFactory.Found(sameHostSuccessor))));
+
+        var sendTask = client.SendAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                new UnityIpcDispatchRequest(
+                    UnityIpcMethod.PlayEnter,
+                    CreateDispatchPayload(),
+                    UnityBatchmodeLaunchOptions.Default),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+                CancellationToken.None)
+            .AsTask();
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.False(sendTask.IsCompleted);
+        timeProvider.Advance(retryDelay);
+        var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(1));
+
+        Assert.False(result.IsSuccess);
+        Assert.Contains(firstInterruption.Message, result.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            DateTimeOffset.UnixEpoch + DaemonTimeouts.ProbeAttemptTimeoutCap,
+            timeProvider.GetUtcNow());
+        Assert.Equal(2, transportClient.Requests.Count);
+        _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenRecoverablePlayResponseIsInterrupted_PreservesLogicalDeadlineAcrossRetry ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueException(new IpcResponseReadInterruptedException(
+            new EndOfStreamException("lost play transition response")));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
+        var sessionStore = new QueuedDaemonSessionStore(
+            CreateSessionReadResult("daemon-token-1"),
+            CreateSessionReadResult("daemon-token-1"),
+            CreateSessionReadResult("daemon-token-2"));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                sessionStore));
+        var dispatchRequest = new UnityIpcRequestBuilder().Build(
+            new UnityRequestPayload.PlayEnter());
+
+        var sendTask = client.SendAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                dispatchRequest,
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+                CancellationToken.None)
+            .AsTask();
+
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(retryDelay);
+        var result = await sendTask;
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, transportClient.Timeouts.Count);
+        Assert.Equal(TimeSpan.FromSeconds(5), transportClient.Timeouts[0]);
+        Assert.True(transportClient.Timeouts[1] < transportClient.Timeouts[0]);
+        Assert.True(transportClient.Timeouts[1] > TimeSpan.FromSeconds(4));
+        var requests = IpcRequestAssert.Methods(
+            transportClient,
+            UnityIpcMethod.PlayEnter,
+            UnityIpcMethod.PlayEnter);
+        _ = IpcRequestAssert.SingleRequestId(requests);
+        Assert.All(
+            requests,
+            request => Assert.Equal(
+                DateTimeOffset.UnixEpoch + TimeSpan.FromSeconds(5),
+                request.RequestDeadlineUtc));
+        Assert.All(requests, request => Assert.True(request.RequestDeadlineRemainingMilliseconds > 1000));
+        Assert.True(
+            requests[1].RequestDeadlineRemainingMilliseconds
+            < requests[0].RequestDeadlineRemainingMilliseconds);
+        Assert.Equal(requests[0].Method, requests[1].Method);
+        Assert.Equal(requests[0].Payload.GetRawText(), requests[1].Payload.GetRawText());
+        Assert.All(requests, request => Assert.False(request.Payload.TryGetProperty("timeoutMilliseconds", out _)));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenDispatchUsesRotatedSessionToken_ReloadsDifferentHostAndRetriesSameRequest ()
+    {
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
+        var rejectedSession = CreateHostSession(
+            "daemon-token-1",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DaemonEditorMode.Batchmode);
+        var differentHostSession = CreateMismatchedHostSession(
+            rejectedSession,
+            HostIdentityMismatchKind.ProcessId);
+        var sessionStore = new QueuedDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(rejectedSession),
+            DaemonSessionReadResultTestFactory.Found(differentHostSession));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                sessionStore));
+
+        var result = await client.SendAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            new UnityIpcDispatchRequest(
+                UnityIpcMethod.PlayEnter,
+                CreateDispatchPayload(),
+                UnityBatchmodeLaunchOptions.Default),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var requests = DaemonIpcDispatchAssert.RecoveredDispatchesWithReloadedSessionToken(
             transportClient,
-            IpcMethodNames.PlayEnter,
-            "daemon-token-1",
-            "daemon-token-2");
-        var requestId = IpcRequestAssert.SingleRequestId(requests);
-        Assert.StartsWith($"{IpcMethodNames.PlayEnter}-", requestId, StringComparison.Ordinal);
+            UnityIpcMethod.PlayEnter,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
+        _ = IpcRequestAssert.SingleRequestId(requests);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SendAsync_WhenRecoverableDispatchConnectionIsRefused_RetriesWithSameRequestIdAndReloadedSessionToken ()
+    public async Task SendAsync_WhenRotatedSessionTokenAttemptLosesRecoverableResponse_RetriesSameRequest ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
-        transportClient.EnqueueException(new SocketException((int)SocketError.ConnectionRefused));
-        transportClient.EnqueueResponse(CreateResponse("req-recovered"));
-        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
-            CreateConnectionResult("daemon-token-1"),
-            CreateConnectionResult("daemon-token-2"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
+        transportClient.EnqueueResponse(static _ => throw new IpcResponseReadInterruptedException(
+            new EndOfStreamException("lost response after session token rotation")));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
+        var sessionStore = new QueuedDaemonSessionStore(
+            CreateSessionReadResult("daemon-token-1"),
+            CreateSessionReadResult("daemon-token-2"));
         var client = new UnityDaemonIpcClient(
             transportClient,
-            sessionConnectionProvider,
-            timeProvider: timeProvider);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                sessionStore));
 
         var sendTask = client.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                new UnityIpcDispatchRequest(IpcMethodNames.Compile, CreateDispatchPayload(), isRecoverable: true),
-                TimeSpan.FromSeconds(5),
+                new UnityIpcDispatchRequest(
+                    UnityIpcMethod.PlayEnter,
+                    CreateDispatchPayload(),
+                    UnityBatchmodeLaunchOptions.Default),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
-        Assert.False(sendTask.IsCompleted);
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(100));
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            sendTask,
+            TimeSpan.FromSeconds(1),
+            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
         var result = await sendTask;
+
+        Assert.True(result.IsSuccess);
+        var requests = IpcRequestAssert.Methods(
+            transportClient,
+            UnityIpcMethod.PlayEnter,
+            UnityIpcMethod.PlayEnter,
+            UnityIpcMethod.PlayEnter);
+        IpcRequestAssert.SessionTokens(
+            requests,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
+        _ = IpcRequestAssert.SingleRequestId(requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenRecoverableDispatchLosesResponse_RetriesWithSameRequestIdAndReloadedSessionToken ()
+    {
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueException(new IpcResponseReadInterruptedException(
+            new EndOfStreamException("lost response")));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
+        var sessionStore = new QueuedDaemonSessionStore(
+            CreateSessionReadResult("daemon-token-1"),
+            CreateSessionReadResult("daemon-token-2"));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                sessionStore));
+
+        var result = await client.SendAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            new UnityIpcDispatchRequest(
+                UnityIpcMethod.PlayEnter,
+                CreateDispatchPayload(),
+                UnityBatchmodeLaunchOptions.Default),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
+            CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var requests = DaemonIpcDispatchAssert.RecoveredDispatchesWithReloadedSessionToken(
             transportClient,
-            IpcMethodNames.Compile,
-            "daemon-token-1",
-            "daemon-token-2");
+            UnityIpcMethod.PlayEnter,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
         var requestId = IpcRequestAssert.SingleRequestId(requests);
-        Assert.StartsWith($"{IpcMethodNames.Compile}-", requestId, StringComparison.Ordinal);
+        Assert.NotEqual(Guid.Empty, requestId);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenPreWriteConnectionIsRefused_RetriesSameRequestWithDifferentHost ()
+    {
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueException(new IpcConnectException(
+            "IPC connection was refused before the request was sent.",
+            new SocketException((int)SocketError.ConnectionRefused)));
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
+        var failedSession = CreateHostSession(
+            "daemon-token-1",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DaemonEditorMode.Batchmode);
+        var differentHostSession = CreateMismatchedHostSession(
+            failedSession,
+            HostIdentityMismatchKind.ProcessId);
+        var sessionStore = new QueuedDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(failedSession),
+            DaemonSessionReadResultTestFactory.Found(differentHostSession));
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                sessionStore));
+
+        var result = await client.SendAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            new UnityIpcDispatchRequest(
+                UnityIpcMethod.Compile,
+                CreateDispatchPayload(),
+                UnityBatchmodeLaunchOptions.Default),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        var requests = DaemonIpcDispatchAssert.RecoveredDispatchesWithReloadedSessionToken(
+            transportClient,
+            UnityIpcMethod.Compile,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
+        var requestId = IpcRequestAssert.SingleRequestId(requests);
+        Assert.NotEqual(Guid.Empty, requestId);
     }
 
     [Fact]
@@ -82,78 +452,40 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     public async Task SendAsync_WhenRecoverableDispatchConnectionRefusalOutlivesEndpointAbsenceGrace_ReturnsDaemonNotRunning ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => throw new SocketException((int)SocketError.ConnectionRefused));
-        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
-            CreateConnectionResult("daemon-token"));
+        var transportClient = new RecordingIpcTransportClient(_ => throw new IpcConnectException(
+            "IPC connection was refused before the request was sent.",
+            new SocketException((int)SocketError.ConnectionRefused)));
+        var sessionStore = new QueuedDaemonSessionStore(
+            CreateSessionReadResult("daemon-token"));
         var client = new UnityDaemonIpcClient(
             transportClient,
-            sessionConnectionProvider,
-            timeProvider: timeProvider);
-
-        var sendTask = client.SendAsync(
-                ResolvedUnityProjectContextTestFactory.Create(),
-                new UnityIpcDispatchRequest(IpcMethodNames.Compile, CreateDispatchPayload(), isRecoverable: true),
-                TimeSpan.FromSeconds(5),
-                CancellationToken.None)
-            .AsTask();
-        Assert.False(sendTask.IsCompleted);
-
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
-            sendTask,
-            TimeSpan.FromSeconds(2),
-            TimeSpan.FromMilliseconds(100));
-
-        Assert.True(sendTask.IsCompleted);
-        var result = await sendTask;
-        Assert.False(result.IsSuccess);
-        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
-        DaemonIpcDispatchAssert.RetriedDispatchesWithSameRequestId(
-            transportClient,
-            IpcMethodNames.Compile,
-            maximumAttempts: 19);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SendAsync_WhenRecoverableResponseAttemptTimesOutBeforeDeadline_RetriesWithSameRequestId ()
-    {
-        var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
-        transportClient.EnqueueException(new TimeoutException("response wait timed out"));
-        transportClient.EnqueueResponse(CreateResponse("req-recovered"));
-        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
-            CreateConnectionResult("daemon-token-1"),
-            CreateConnectionResult("daemon-token-2"));
-        var client = new UnityDaemonIpcClient(
-            transportClient,
-            sessionConnectionProvider,
-            timeProvider: timeProvider);
-        var attemptTimeout = TimeSpan.FromMilliseconds(250);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                sessionStore));
 
         var sendTask = client.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
                 new UnityIpcDispatchRequest(
-                    IpcMethodNames.PlayExit,
+                    UnityIpcMethod.Compile,
                     CreateDispatchPayload(),
-                    isRecoverable: true,
-                    recoverableResponseAttemptTimeout: attemptTimeout),
-                TimeSpan.FromSeconds(5),
+                    UnityBatchmodeLaunchOptions.Default),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
         Assert.False(sendTask.IsCompleted);
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(100));
-        var result = await sendTask;
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(retryDelay);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap - retryDelay);
 
-        Assert.True(result.IsSuccess);
-        var requestId = DaemonIpcDispatchAssert.RecoverableDispatchRetriedWithReloadedSessionTokenAndAttemptTimeout(
+        var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(1));
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityExecutionModeDecisionErrorCodes.DaemonNotRunning, result.ErrorCode);
+        DaemonIpcDispatchAssert.RetriedDispatchesWithSameRequestId(
             transportClient,
-            IpcMethodNames.PlayExit,
-            "daemon-token-1",
-            "daemon-token-2",
-            attemptTimeout);
-        Assert.StartsWith($"{IpcMethodNames.PlayExit}-", requestId, StringComparison.Ordinal);
+            UnityIpcMethod.Compile,
+            maximumAttempts: 19);
     }
 
     [Fact]
@@ -161,35 +493,105 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
     public async Task SendAsync_WhenRecoverableSessionTokenIsTemporarilyUnavailableDuringRecovery_WaitsAndSendsRecoveredSessionToken ()
     {
         var timeProvider = new ManualTimeProvider();
-        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse("unused"));
-        transportClient.EnqueueResponse(CreateResponse("req-recovered-session"));
-        var session = DaemonSessionTestFactory.CreateEditorInstance();
-        var recoveryWaiter = CreateRecoveryWaiter(session, timeProvider);
-        var sessionConnectionProvider = new QueuedDaemonSessionConnectionProvider(
-            DaemonSessionConnectionResolutionResult.SessionNotAvailable(),
-            CreateConnectionResult("daemon-token-2"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
+        transportClient.EnqueueResponse(CreateResponse(Guid.NewGuid()));
+        var rejectedSession = CreateHostSession(
+            "daemon-token-1",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DaemonEditorMode.Gui);
+        var recoveredDifferentHostSession = CreateMismatchedHostSession(
+            rejectedSession,
+            HostIdentityMismatchKind.ProcessId);
+        var recoveryWaiter = CreateRecoveryWaiter(rejectedSession, timeProvider);
+        var sessionStore = new QueuedDaemonSessionStore(
+            DaemonSessionReadResultTestFactory.Found(rejectedSession),
+            DaemonSessionReadResult.Missing(),
+            DaemonSessionReadResultTestFactory.Found(recoveredDifferentHostSession));
         var client = new UnityDaemonIpcClient(
             transportClient,
-            sessionConnectionProvider,
-            recoveryWaiter,
-            timeProvider);
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                sessionStore,
+            recoveryWaiter));
 
         var sendTask = client.SendAsync(
                 ResolvedUnityProjectContextTestFactory.Create(),
-                new UnityIpcDispatchRequest(IpcMethodNames.PlayEnter, CreateDispatchPayload(), isRecoverable: true),
-                TimeSpan.FromSeconds(5),
+                new UnityIpcDispatchRequest(
+                    UnityIpcMethod.PlayEnter,
+                    CreateDispatchPayload(),
+                    UnityBatchmodeLaunchOptions.Default),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
         Assert.False(sendTask.IsCompleted);
 
-        timeProvider.Advance(TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await timeProvider.WaitForTimerDueWithinAsync(retryDelay).WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(retryDelay);
         var result = await sendTask;
 
         Assert.True(result.IsSuccess);
-        var request = DaemonIpcDispatchAssert.SingleDispatchSent(
+        var requests = DaemonIpcDispatchAssert.RecoveredDispatchesWithReloadedSessionToken(
             transportClient,
-            IpcMethodNames.PlayEnter,
-            "daemon-token-2");
-        Assert.StartsWith($"{IpcMethodNames.PlayEnter}-", request.RequestId, StringComparison.Ordinal);
+            UnityIpcMethod.PlayEnter,
+            IpcSessionTokenTestFactory.Create("daemon-token-1").GetEncodedValue(),
+            IpcSessionTokenTestFactory.Create("daemon-token-2").GetEncodedValue());
+        _ = IpcRequestAssert.SingleRequestId(requests);
+    }
+
+    private static DaemonSession CreateHostSession (
+        string sessionToken,
+        Guid sessionGenerationId,
+        DaemonEditorMode editorMode)
+    {
+        var isGui = editorMode == DaemonEditorMode.Gui;
+        return DaemonSessionTestFactory.Create(
+            processId: 1234,
+            sessionToken: sessionToken,
+            processStartedAtUtc: HostProcessStartedAtUtc,
+            editorMode: editorMode,
+            ownerKind: isGui ? DaemonSessionOwnerKind.User : DaemonSessionOwnerKind.Cli,
+            canShutdownProcess: !isGui,
+            editorInstanceId: isGui
+                ? Guid.Parse("aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa")
+                : null,
+            sessionGenerationId: sessionGenerationId);
+    }
+
+    private static DaemonSession CreateMismatchedHostSession (
+        DaemonSession interruptedSession,
+        HostIdentityMismatchKind mismatchKind)
+    {
+        return DaemonSessionTestFactory.Create(
+            processId: mismatchKind == HostIdentityMismatchKind.ProcessId
+                ? 5678
+                : interruptedSession.ProcessId,
+            sessionToken: "daemon-token-2",
+            projectFingerprint: interruptedSession.ProjectFingerprint,
+            processStartedAtUtc: mismatchKind == HostIdentityMismatchKind.ProcessStartedAtUtc
+                ? HostProcessStartedAtUtc.AddSeconds(10)
+                : interruptedSession.ProcessStartedAtUtc,
+            editorMode: interruptedSession.EditorMode,
+            ownerKind: interruptedSession.OwnerKind,
+            canShutdownProcess: interruptedSession.CanShutdownProcess,
+            editorInstanceId: mismatchKind == HostIdentityMismatchKind.EditorInstanceId
+                ? Guid.Parse("bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb")
+                : interruptedSession.EditorInstanceId,
+            sessionGenerationId: Guid.Parse("33333333-3333-3333-3333-333333333333"));
+    }
+
+    public enum DurableReacquisitionTrigger
+    {
+        PreWriteFailure,
+        SessionTokenRejection,
+        ResponseInterruption,
+        TerminalTransportFailure,
+    }
+
+    public enum HostIdentityMismatchKind
+    {
+        ProcessId,
+        ProcessStartedAtUtc,
+        EditorInstanceId,
     }
 }

@@ -37,7 +37,7 @@ namespace MackySoft.Ucli.Unity.Tests
         /// <param name="expectedPrimitiveOperationNames"> The expected primitive operation names in order. </param>
         /// <returns> The current assertion instance. </returns>
         public ExecuteRequestCompilerAssert HasLoweredOperations (
-            IpcRequestStepKind expectedKind,
+            IpcExecuteStepKind expectedKind,
             string expectedOperationName,
             params string[] expectedPrimitiveOperationNames)
         {
@@ -73,24 +73,23 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             for (var i = 0; i < compiledOperations.Count; i++)
             {
-                Assert.That(compiledOperations[i].Id, Is.EqualTo(expectedId));
+                Assert.That(compiledOperations[i].Id.Value, Is.EqualTo(expectedId));
             }
 
             return this;
         }
 
         /// <summary>
-        /// Asserts that every lowered primitive operation exposes a non-empty internal execution key and that keys are unique.
+        /// Asserts that every lowered primitive operation has a distinct structured execution key.
         /// </summary>
         /// <returns> The current assertion instance. </returns>
-        public ExecuteRequestCompilerAssert HaveDistinctInternalExecutionKeys ()
+        public ExecuteRequestCompilerAssert HaveDistinctExecutionKeys ()
         {
-            var uniqueKeys = new HashSet<string>();
+            var uniqueKeys = new HashSet<OperationExecutionKey>();
             for (var i = 0; i < compiledOperations.Count; i++)
             {
-                var executionKey = compiledOperations[i].InternalExecutionKey;
-                Assert.That(executionKey, Is.Not.Null.And.Not.Empty);
-                Assert.That(uniqueKeys.Add(executionKey!), Is.True);
+                var executionKey = compiledOperations[i].ExecutionKey;
+                Assert.That(uniqueKeys.Add(executionKey), Is.True);
             }
 
             return this;
@@ -105,10 +104,10 @@ namespace MackySoft.Ucli.Unity.Tests
         /// <param name="expectedPostState"> The expected post-state availability. </param>
         /// <returns> The current assertion instance. </returns>
         public ExecuteRequestCompilerAssert HasPostReadSourceStep (
-            string expectedSourceKind,
-            string? expectedCommit,
+            IpcExecutePostReadSourceKind expectedSourceKind,
+            IpcExecutePostReadCommit? expectedCommit,
             bool expectedPersistenceExpected,
-            string expectedPostState,
+            IpcExecuteExpectedPostState expectedPostState,
             bool expectedPlayModeMutation = false)
         {
             Assert.That(compiledStep.PostReadSourceStep, Is.Not.Null);

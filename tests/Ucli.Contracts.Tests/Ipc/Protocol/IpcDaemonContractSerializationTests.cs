@@ -8,6 +8,10 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 public sealed class IpcDaemonContractSerializationTests
 {
+    private const string ProjectFingerprintText = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
+    private static readonly ProjectFingerprint ProjectFingerprint = new(ProjectFingerprintText);
+    private static readonly Guid LaunchAttemptId = Guid.Parse("01234567-89ab-cdef-0123-456789abcdef");
+
     [Fact]
     [Trait("Size", "Small")]
     public void DaemonStartSupervisorProgressContracts_SerializeWithCamelCaseFields ()
@@ -25,11 +29,11 @@ public sealed class IpcDaemonContractSerializationTests
         var startupObservation = IpcPayloadCodec.SerializeToElement(
             new DaemonStartStartupObservationProgressEntry(
                 DaemonStartProgressPayloadKind.StartupObservation,
-                "project-fingerprint",
+                ProjectFingerprint,
                 120000,
                 DaemonEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Terminate,
-                "attempt-1",
+                LaunchAttemptId,
                 DaemonSessionOwnerKind.Cli,
                 true,
                 1234,
@@ -43,7 +47,7 @@ public sealed class IpcDaemonContractSerializationTests
         var lifecycleSnapshot = IpcPayloadCodec.SerializeToElement(
             new DaemonStartLifecycleSnapshotProgressEntry(
                 DaemonStartProgressPayloadKind.LifecycleSnapshot,
-                "project-fingerprint",
+                ProjectFingerprint,
                 120000,
                 DaemonEditorMode.Batchmode,
                 DaemonStartupBlockedProcessPolicy.Terminate,
@@ -54,11 +58,11 @@ public sealed class IpcDaemonContractSerializationTests
 
         JsonAssert.For(startupObservation)
             .HasString("payloadKind", "startupObservation")
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasInt32("timeoutMilliseconds", 120000)
             .HasString("editorMode", "batchmode")
             .HasString("onStartupBlocked", "terminate")
-            .HasString("launchAttemptId", "attempt-1")
+            .HasString("launchAttemptId", LaunchAttemptId.ToString("D"))
             .HasString("ownerKind", "cli")
             .HasBoolean("canShutdownProcess", true)
             .HasInt32("processId", 1234)
@@ -75,13 +79,75 @@ public sealed class IpcDaemonContractSerializationTests
 
         JsonAssert.For(lifecycleSnapshot)
             .HasString("payloadKind", "lifecycleSnapshot")
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasInt32("timeoutMilliseconds", 120000)
             .HasString("editorMode", "batchmode")
             .HasString("onStartupBlocked", "terminate")
             .HasString("lifecycleState", "ready")
             .HasValueKind("blockingReason", JsonValueKind.Null)
             .HasBoolean("canAcceptExecutionRequests", true);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DaemonStartStartupObservationProgressEntry_WithEmptyLaunchAttemptId_ThrowsArgumentException ()
+    {
+        Assert.Throws<ArgumentException>(() => new DaemonStartStartupObservationProgressEntry(
+            DaemonStartProgressPayloadKind.StartupObservation,
+            ProjectFingerprint,
+            120000,
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            Guid.Empty,
+            DaemonSessionOwnerKind.Cli,
+            true,
+            1234,
+            DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
+            DaemonStartupStatus.Blocked,
+            DaemonStartupBlockingReason.Compile,
+            DaemonDiagnosisStartupPhase.ScriptCompilation,
+            DaemonStartupRetryDisposition.RetryAfterFix,
+            "Unity scripts failed to compile.",
+            "UNITY_SCRIPT_COMPILATION_FAILED"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DaemonStartStartupObservationProgressEntry_WithMismatchedPayloadKind_ThrowsArgumentOutOfRangeException ()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new DaemonStartStartupObservationProgressEntry(
+            DaemonStartProgressPayloadKind.LifecycleSnapshot,
+            ProjectFingerprint,
+            120000,
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            LaunchAttemptId,
+            DaemonSessionOwnerKind.Cli,
+            true,
+            1234,
+            DateTimeOffset.Parse("2026-05-21T00:00:00+00:00"),
+            DaemonStartupStatus.Blocked,
+            DaemonStartupBlockingReason.Compile,
+            DaemonDiagnosisStartupPhase.ScriptCompilation,
+            DaemonStartupRetryDisposition.RetryAfterFix,
+            "Unity scripts failed to compile.",
+            "UNITY_SCRIPT_COMPILATION_FAILED"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DaemonStartLifecycleSnapshotProgressEntry_WithInconsistentLifecycleTuple_ThrowsArgumentException ()
+    {
+        Assert.Throws<ArgumentException>(() => new DaemonStartLifecycleSnapshotProgressEntry(
+            DaemonStartProgressPayloadKind.LifecycleSnapshot,
+            ProjectFingerprint,
+            120000,
+            DaemonEditorMode.Batchmode,
+            DaemonStartupBlockedProcessPolicy.Terminate,
+            IpcEditorLifecycleState.Compiling,
+            IpcEditorBlockingReason.Busy,
+            new IpcUnityGenerationSnapshot(1, 2, 3, 4),
+            false));
     }
 
     [Fact]
@@ -106,7 +172,7 @@ public sealed class IpcDaemonContractSerializationTests
     public void DaemonStartProgressContracts_SerializeWithCamelCaseFields ()
     {
         var payload = new DaemonStartProgressEntry(
-            ProjectFingerprint: "project-fingerprint",
+            ProjectFingerprint: ProjectFingerprint,
             TimeoutMilliseconds: 10000,
             EditorMode: DaemonEditorMode.Batchmode,
             OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
@@ -118,7 +184,7 @@ public sealed class IpcDaemonContractSerializationTests
         var document = IpcPayloadCodec.SerializeToElement(payload);
 
         JsonAssert.For(document)
-            .HasString("projectFingerprint", "project-fingerprint")
+            .HasString("projectFingerprint", ProjectFingerprintText)
             .HasInt32("timeoutMilliseconds", 10000)
             .HasString("editorMode", "batchmode")
             .HasString("onStartupBlocked", "auto")

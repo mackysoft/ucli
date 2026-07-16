@@ -13,7 +13,7 @@ internal sealed class UnexpectedUnityLogReader : IUnityLogReader
 
     public ValueTask<UnityLogReadResult> ReadTailAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int maxBytes = IUnityLogReader.DefaultMaxBytes,
         CancellationToken cancellationToken = default)
     {

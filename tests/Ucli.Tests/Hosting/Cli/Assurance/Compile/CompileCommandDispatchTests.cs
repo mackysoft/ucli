@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
@@ -14,7 +13,7 @@ public sealed class CompileCommandDispatchTests
     public async Task Compile_MapsOptionsToServiceInputAndCancellationToken ()
     {
         var service = new RecordingCompileService((_, _, _) => ValueTask.FromResult(CompileExecutionResult.Success(CreateOutput())));
-        var command = new CompileCommand(service, CommandResultTestWriter.Create());
+        var command = new CompileCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.CompileAsync(

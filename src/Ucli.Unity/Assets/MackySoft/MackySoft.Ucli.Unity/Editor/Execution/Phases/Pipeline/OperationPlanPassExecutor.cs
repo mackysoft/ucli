@@ -89,7 +89,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         operation,
                         executionContext,
                         operationPreflight,
-                        cancellationToken).ConfigureAwait(false);
+                        cancellationToken);
                     accumulator.Add(outcome);
                 }
             }

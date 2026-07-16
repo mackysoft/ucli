@@ -10,11 +10,6 @@ namespace MackySoft.Ucli.UnityIntegration.Project.Resolution;
 /// <summary> Resolves UnityProject identity information from command inputs. </summary>
 internal sealed class UnityProjectResolver : IUnityProjectResolver
 {
-    /// <summary> Initializes a new instance of the <see cref="UnityProjectResolver" /> class. </summary>
-    public UnityProjectResolver ()
-    {
-    }
-
     /// <summary> Resolves UnityProject context from a selected project-path candidate and validates required project markers. </summary>
     /// <param name="projectPathCandidate"> The selected but not yet normalized project-path candidate. </param>
     /// <returns> The resolution result containing either a validated UnityProject context or a structured error. </returns>
@@ -49,13 +44,13 @@ internal sealed class UnityProjectResolver : IUnityProjectResolver
         var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectRoot);
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(repositoryRoot, unityProjectRoot);
         var unityVersion = ReadUnityVersionOrUnknown(projectVersionPath);
-        return UnityProjectResolutionResult.Success(new ResolvedUnityProjectContext(
-            UnityProjectRoot: unityProjectRoot,
-            RepositoryRoot: repositoryRoot,
-            ProjectFingerprint: projectFingerprint,
-            PathSource: projectPathCandidate.Source,
-            PathSourceLabel: projectPathCandidate.SourceLabel,
-            UnityVersion: unityVersion));
+        return UnityProjectResolutionResult.Success(ResolvedUnityProjectContext.Create(
+            unityProjectRoot: unityProjectRoot,
+            repositoryRoot: repositoryRoot,
+            projectFingerprint: projectFingerprint,
+            pathSource: projectPathCandidate.Source,
+            pathSourceLabel: projectPathCandidate.SourceLabel,
+            unityVersion: unityVersion));
     }
 
     private static string ReadUnityVersionOrUnknown (string projectVersionPath)

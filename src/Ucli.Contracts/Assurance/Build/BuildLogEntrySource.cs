@@ -7,9 +7,9 @@ public enum BuildLogEntrySource
 {
     /// <summary> Unity log stream entry source. </summary>
     [UcliContractLiteral("unityLog")]
-    UnityLog = 0,
+    UnityLog = 1,
 
     /// <summary> Application-side ucli entry source. </summary>
     [UcliContractLiteral("ucli")]
-    Ucli = 1,
+    Ucli = 2,
 }

@@ -21,6 +21,10 @@ internal sealed class RecordingDaemonLaunchAttemptStore : IDaemonLaunchAttemptSt
 
     public Action<DaemonLaunchAttempt>? OnWrite { get; set; }
 
+    public Func<string, ProjectFingerprint, DaemonLaunchAttempt, CancellationToken, ValueTask<DaemonLaunchAttemptStoreOperationResult>>? WriteAsyncHandler { get; set; }
+
+    public Func<string, ProjectFingerprint, int, CancellationToken, ValueTask<DaemonLaunchAttemptStoreOperationResult>>? PruneAsyncHandler { get; set; }
+
     public IReadOnlyList<ReadInvocation> ReadInvocations => readInvocations;
 
     public IReadOnlyList<WriteInvocation> WriteInvocations => writeInvocations;
@@ -29,7 +33,7 @@ internal sealed class RecordingDaemonLaunchAttemptStore : IDaemonLaunchAttemptSt
 
     public ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteFailureAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DaemonLaunchAttempt launchAttempt,
         CancellationToken cancellationToken = default)
     {
@@ -39,12 +43,17 @@ internal sealed class RecordingDaemonLaunchAttemptStore : IDaemonLaunchAttemptSt
         writeInvocations.Add(new WriteInvocation(storageRoot, projectFingerprint, launchAttempt, cancellationToken));
         OnWrite?.Invoke(launchAttempt);
 
+        if (WriteAsyncHandler is not null)
+        {
+            return WriteAsyncHandler(storageRoot, projectFingerprint, launchAttempt, cancellationToken);
+        }
+
         return ValueTask.FromResult(WriteResults.Count > 0 ? WriteResults.Dequeue() : WriteResult);
     }
 
     public ValueTask<DaemonLaunchAttemptReadResult> ReadLastFailureAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -56,7 +65,7 @@ internal sealed class RecordingDaemonLaunchAttemptStore : IDaemonLaunchAttemptSt
 
     public ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         int keepCount,
         CancellationToken cancellationToken = default)
     {
@@ -64,23 +73,28 @@ internal sealed class RecordingDaemonLaunchAttemptStore : IDaemonLaunchAttemptSt
 
         pruneInvocations.Add(new PruneInvocation(storageRoot, projectFingerprint, keepCount, cancellationToken));
 
+        if (PruneAsyncHandler is not null)
+        {
+            return PruneAsyncHandler(storageRoot, projectFingerprint, keepCount, cancellationToken);
+        }
+
         return ValueTask.FromResult(PruneResult);
     }
 
     internal readonly record struct ReadInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 
     internal readonly record struct WriteInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         DaemonLaunchAttempt LaunchAttempt,
         CancellationToken CancellationToken);
 
     internal readonly record struct PruneInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         int KeepCount,
         CancellationToken CancellationToken);
 }

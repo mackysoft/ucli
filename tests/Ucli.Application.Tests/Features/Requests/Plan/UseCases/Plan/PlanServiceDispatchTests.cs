@@ -15,9 +15,9 @@ public sealed class PlanServiceDispatchTests
             "plan-token-1",
             [
                 new IpcExecuteOperationResult(
-                    OpId: "step-1",
+                    OpId: new IpcExecuteStepId("step-1"),
                     Op: MackySoft.Ucli.Contracts.Ipc.UcliPrimitiveOperationNames.GoDescribe,
-                    Phase: IpcExecuteOperationPhaseNames.Plan,
+                    Phase: IpcExecuteOperationPhase.Plan,
                     Applied: false,
                     Changed: false,
                     Touched: []),
@@ -35,6 +35,7 @@ public sealed class PlanServiceDispatchTests
             unityRequestExecutor: unityIpcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             CreateInput(
                 mode: UnityExecutionMode.Oneshot,
                 timeoutMilliseconds: 1234,
@@ -44,15 +45,15 @@ public sealed class PlanServiceDispatchTests
         Assert.True(result.IsSuccess);
         Assert.Equal("uCLI plan completed.", result.Message);
         Assert.NotNull(result.Output);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
+        Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.Equal("plan-token-1", result.Output.PlanToken);
         Assert.True(result.Output.ReadIndex.Used);
-        PlanServiceInvocationAssert.PlanDispatched(
-            unityIpcRequestExecutor,
-            UnityExecutionMode.Oneshot,
-            TimeSpan.FromMilliseconds(1234),
-            expectedFailFast: true,
-            expectedAllowPlayMode: false,
-            expectedRequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62");
+        var execution = PlanServiceInvocationAssert.PlanDispatched(unityIpcRequestExecutor);
+        Assert.Equal(UnityExecutionMode.Oneshot, execution.Invocation.Mode);
+        Assert.Equal(TimeSpan.FromMilliseconds(1234), execution.Invocation.Timeout);
+        Assert.True(execution.Request.FailFast);
+        Assert.False(execution.Request.AllowPlayMode);
+        Assert.Null(execution.Request.PlanToken);
+        Assert.False(execution.Request.ExecuteArguments.TryGetProperty("requestId", out _));
     }
 }

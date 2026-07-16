@@ -1,15 +1,56 @@
 namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents one ops-catalog source refresh result. </summary>
-internal sealed record OpsCatalogSourceRefreshResult (
-    OpsCatalogSnapshot? Snapshot,
-    string? FallbackReason,
-    string Message,
-    UcliCode? ErrorCode,
-    StartupFailureDetail? StartupFailure = null)
+internal sealed record OpsCatalogSourceRefreshResult
 {
+    private OpsCatalogSourceRefreshResult (
+        OpsCatalogSnapshot? snapshot,
+        string? fallbackReason,
+        string message,
+        UcliCode? errorCode,
+        StartupFailureDetail? startupFailure)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        if (snapshot is null)
+        {
+            ArgumentNullException.ThrowIfNull(errorCode);
+            if (fallbackReason is not null)
+            {
+                throw new ArgumentException("Failed source refresh must not contain a fallback reason.", nameof(fallbackReason));
+            }
+        }
+        else
+        {
+            if (errorCode is not null)
+            {
+                throw new ArgumentException("Successful source refresh must not contain an error code.", nameof(errorCode));
+            }
+
+            if (startupFailure is not null)
+            {
+                throw new ArgumentException("Successful source refresh must not contain startup failure details.", nameof(startupFailure));
+            }
+        }
+
+        Snapshot = snapshot;
+        FallbackReason = fallbackReason;
+        Message = message;
+        ErrorCode = errorCode;
+        StartupFailure = startupFailure;
+    }
+
+    public OpsCatalogSnapshot? Snapshot { get; }
+
+    public string? FallbackReason { get; }
+
+    public string Message { get; }
+
+    public UcliCode? ErrorCode { get; }
+
+    public StartupFailureDetail? StartupFailure { get; }
+
     /// <summary> Gets a value indicating whether the source refresh succeeded. </summary>
-    public bool IsSuccess => Snapshot is not null && ErrorCode is null;
+    public bool IsSuccess => Snapshot is not null;
 
     /// <summary> Creates a successful source refresh result. </summary>
     public static OpsCatalogSourceRefreshResult Success (OpsCatalogSnapshot snapshot, string? fallbackReason)
@@ -19,6 +60,7 @@ internal sealed record OpsCatalogSourceRefreshResult (
             snapshot,
             fallbackReason,
             "Ops catalog refresh completed.",
+            null,
             null);
     }
 
@@ -29,10 +71,7 @@ internal sealed record OpsCatalogSourceRefreshResult (
         StartupFailureDetail? startupFailure = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
-        if (!errorCode.IsValid)
-        {
-            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
-        }
+        ArgumentNullException.ThrowIfNull(errorCode);
 
         return new OpsCatalogSourceRefreshResult(null, null, message, errorCode, startupFailure);
     }

@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Operations;
-
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
@@ -19,37 +18,12 @@ internal static class UcliOperationInputConstraintContractMapper
 
         return new UcliOperationInputConstraintContract(ContractLiteralCodec.ToValue(attribute.Kind))
         {
-            AssetKind = MapAssetKind(attribute.AssetKind),
-            TargetKind = MapTargetKind(attribute.TargetKind),
-            TypeKind = MapTypeKind(attribute.TypeKind),
-            Access = MapAccess(attribute.Access),
-            Min = MapOptionalNumber(attribute.Min),
-            Max = MapOptionalNumber(attribute.Max),
+            AssetKind = attribute.HasAssetKind ? ContractLiteralCodec.ToValue(attribute.AssetKind) : null,
+            TargetKind = attribute.HasTargetKind ? ContractLiteralCodec.ToValue(attribute.TargetKind) : null,
+            TypeKind = attribute.HasTypeKind ? ContractLiteralCodec.ToValue(attribute.TypeKind) : null,
+            Access = attribute.HasAccess ? ContractLiteralCodec.ToValue(attribute.Access) : null,
+            Min = attribute.HasMin ? attribute.Min : null,
+            Max = attribute.HasMax ? attribute.Max : null,
         };
-    }
-
-    private static string? MapAssetKind (UcliOperationAssetKind value)
-    {
-        return value == UcliOperationAssetKind.Unspecified ? null : ContractLiteralCodec.ToValue(value);
-    }
-
-    private static string? MapTargetKind (UcliOperationReferenceTargetKind value)
-    {
-        return value == UcliOperationReferenceTargetKind.Unspecified ? null : ContractLiteralCodec.ToValue(value);
-    }
-
-    private static string? MapTypeKind (UcliOperationTypeKind value)
-    {
-        return value == UcliOperationTypeKind.Unspecified ? null : ContractLiteralCodec.ToValue(value);
-    }
-
-    private static string? MapAccess (UcliOperationSerializedPropertyAccess value)
-    {
-        return value == UcliOperationSerializedPropertyAccess.Unspecified ? null : ContractLiteralCodec.ToValue(value);
-    }
-
-    private static double? MapOptionalNumber (double value)
-    {
-        return double.IsNaN(value) ? null : value;
     }
 }

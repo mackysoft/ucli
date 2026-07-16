@@ -11,14 +11,14 @@ public sealed class IpcUnityLogsReadRequestNormalizerTests
         var result = IpcUnityLogsReadRequestNormalizer.TryNormalize(
             new IpcUnityLogsReadRequest(
                 Tail: 4,
-                After: "stream-1:4",
+                After: "abcdef0123456789abcdef0123456789:4",
                 Since: "2026-03-05T10:35:22.0000000+09:00",
                 Until: "2026-03-05T10:36:22.0000000+09:00",
                 Level: null,
                 Query: " socket ",
                 QueryTarget: null,
                 Source: null,
-                StackTrace: "none",
+                StackTrace: IpcUnityLogStackTraceMode.None,
                 StackTraceMaxFrames: 8,
                 StackTraceMaxChars: 4096),
             out var normalizedRequest,
@@ -28,10 +28,10 @@ public sealed class IpcUnityLogsReadRequestNormalizerTests
 
         Assert.True(result);
         Assert.NotNull(normalizedRequest);
-        Assert.Equal(IpcDaemonLogsLevelCodec.All, normalizedRequest.Level);
-        Assert.Equal(IpcDaemonLogsQueryTargetCodec.Message, normalizedRequest.QueryTarget);
-        Assert.Equal(IpcUnityLogsSourceCodec.All, normalizedRequest.Source);
-        Assert.Equal(IpcUnityLogsStackTraceModeCodec.None, normalizedRequest.StackTrace);
+        Assert.Null(normalizedRequest.Level);
+        Assert.Equal(IpcLogQueryTarget.Message, normalizedRequest.QueryTarget);
+        Assert.Null(normalizedRequest.Source);
+        Assert.Equal(IpcUnityLogStackTraceMode.None, normalizedRequest.StackTrace);
         Assert.Null(normalizedRequest.StackTraceMaxFrames);
         Assert.Null(normalizedRequest.StackTraceMaxChars);
         Assert.Equal("socket", normalizedRequest.Query);
@@ -86,7 +86,7 @@ public sealed class IpcUnityLogsReadRequestNormalizerTests
                 Query: null,
                 QueryTarget: null,
                 Source: null,
-                StackTrace: IpcUnityLogsStackTraceModeCodec.All,
+                StackTrace: IpcUnityLogStackTraceMode.All,
                 StackTraceMaxFrames: null,
                 StackTraceMaxChars: IpcUnityLogsReadRequestNormalizer.MinimumStackTraceMaxChars - 1),
             out var normalizedRequest,

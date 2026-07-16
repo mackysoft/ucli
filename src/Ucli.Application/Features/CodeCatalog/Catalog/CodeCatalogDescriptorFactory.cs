@@ -14,7 +14,7 @@ internal static class CodeCatalogDescriptorFactory
 
         return new CodeCatalogDescriptor(
             Code: descriptor.Code,
-            Kind: CodeCatalogKindValues.Error,
+            Kind: CodeCatalogKind.Error,
             Category: descriptor.Category,
             Summary: descriptor.Summary,
             Meaning: descriptor.Meaning,

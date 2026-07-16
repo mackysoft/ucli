@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Deletes a GameObject from a scene or prefab hierarchy.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.SceneContentMutation, UcliOperationSideEffect.PrefabContentMutation },
-                touchedKinds: new[] { UcliTouchedResourceKindNames.Scene, UcliTouchedResourceKindNames.Prefab },
+                touchedKinds: new[] { UcliTouchedResourceKind.Scene, UcliTouchedResourceKind.Prefab },
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate the GameObject target and report the expected hierarchy impact without creating preview state or mutating live Unity state.",
                 callSemantics: "Delete the GameObject from live Unity state and leave saving to explicit save operations.",
@@ -119,6 +119,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return Task.FromResult(failure!);
             }
 
+            RegisterDeletedGlobalObjectIds(state.Target, state.Resource, executionContext);
             Object.DestroyImmediate(state.Target);
             executionContext.MarkRequestAttributedChange(state.Resource);
             return Task.FromResult(
@@ -142,7 +143,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             state = default;
             failure = null;
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out var errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(
+                    args.Target,
+                    "args.target",
+                    operation.AliasReferences,
+                    out var targetReference,
+                    out var errorMessage))
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(operation.Id, errorMessage);
                 return false;
@@ -151,7 +157,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!GoOperationUtilities.TryResolveEditableGameObject(
                 targetReference,
                 executionContext,
-                allowTemporaryState,
+                OperationObjectReferenceUtilities.GetReferenceResolutionPolicy(operation, allowTemporaryState),
                 out var targetResolution,
                 out errorMessage))
             {
@@ -179,7 +185,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationExecutionContext executionContext,
             out string errorMessage)
         {
-            if (resource.Kind != OperationTouchKind.Prefab)
+            if (resource.Kind != UcliTouchedResourceKind.Prefab)
             {
                 errorMessage = string.Empty;
                 return true;
@@ -213,6 +219,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationResource resource,
             OperationExecutionContext executionContext)
         {
+            executionContext.InvalidateComponentStateOwnedBy(
+                executionContext.CreateGameObjectTrackingKey(target, resource));
             RegisterDeletedGlobalObjectId(target, resource, executionContext);
             var components = target.GetComponents<Component>();
             for (var i = 0; i < components.Length; i++)
@@ -239,29 +247,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             OperationResource resource,
             OperationExecutionContext executionContext)
         {
-            if (UnityObjectReferenceResolver.TryCreateResolvedReference(unityObject, out var directReference))
+            if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(unityObject, out var directGlobalObjectId))
             {
-                executionContext.MarkDeletedGlobalObjectId(directReference!.GlobalObjectId);
+                executionContext.MarkDeletedStableObject(directGlobalObjectId);
             }
 
             switch (resource.Kind)
             {
-                case OperationTouchKind.Scene:
+                case UcliTouchedResourceKind.Scene:
                     if (executionContext.TryResolveTemporarySceneSourceObject(resource.Path, unityObject, out var sourceSceneObject)
                         && sourceSceneObject != null
-                        && UnityObjectReferenceResolver.TryCreateResolvedReference(sourceSceneObject, out var sourceSceneReference))
+                        && UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(sourceSceneObject, out var sourceSceneGlobalObjectId))
                     {
-                        executionContext.MarkDeletedGlobalObjectId(sourceSceneReference!.GlobalObjectId);
+                        executionContext.MarkDeletedStableObject(sourceSceneGlobalObjectId);
                     }
 
                     break;
 
-                case OperationTouchKind.Prefab:
+                case UcliTouchedResourceKind.Prefab:
                     if (executionContext.TryResolveTemporaryPrefabSourceObject(resource.Path, unityObject, out var sourcePrefabObject)
                         && sourcePrefabObject != null
-                        && UnityObjectReferenceResolver.TryCreateResolvedReference(sourcePrefabObject, out var sourcePrefabReference))
+                        && UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(sourcePrefabObject, out var sourcePrefabGlobalObjectId))
                     {
-                        executionContext.MarkDeletedGlobalObjectId(sourcePrefabReference!.GlobalObjectId);
+                        executionContext.MarkDeletedStableObject(sourcePrefabGlobalObjectId);
                     }
 
                     break;

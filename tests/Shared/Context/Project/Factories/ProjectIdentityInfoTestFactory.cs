@@ -2,9 +2,7 @@ namespace MackySoft.Ucli.TestSupport;
 
 internal static class ProjectIdentityInfoTestFactory
 {
-    public const string ProjectFingerprint = "project-fingerprint";
-
-    public const string RepositoryFixtureProjectPath = "/repo/UnityProject";
+    public static readonly ProjectFingerprint ProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
 
     public const string UnityVersion = "6000.1.4f1";
 
@@ -14,32 +12,42 @@ internal static class ProjectIdentityInfoTestFactory
         "UnityProject"));
 
     public static ProjectIdentityInfo Create (
-        string? projectPath = null,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion)
     {
-        return new ProjectIdentityInfo(
-            ProjectPath: projectPath ?? DefaultProjectPath,
-            ProjectFingerprint: projectFingerprint,
-            UnityVersion: unityVersion);
+        return CreateWithProjectPath(DefaultProjectPath, projectFingerprint, unityVersion);
+    }
+
+    public static ProjectIdentityInfo CreateWithProjectPath (
+        string projectPath,
+        ProjectFingerprint? projectFingerprint = null,
+        string unityVersion = UnityVersion)
+    {
+        return ProjectIdentityInfo.From(ResolvedUnityProjectContext.Create(
+            unityProjectRoot: projectPath,
+            repositoryRoot: projectPath,
+            projectFingerprint: projectFingerprint ?? ProjectFingerprint,
+            pathSource: UnityProjectPathSource.CommandOption,
+            pathSourceLabel: null,
+            unityVersion: unityVersion));
     }
 
     public static ProjectIdentityInfo CreateRepositoryFixture (
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion)
     {
-        return Create(
-            projectPath: RepositoryFixtureProjectPath,
+        return CreateWithProjectPath(
+            projectPath: ProjectPathTestValues.RepositoryUnityProject,
             projectFingerprint: projectFingerprint,
             unityVersion: unityVersion);
     }
 
     public static ProjectIdentityInfo CreateForRepositoryRoot (
         string repositoryRoot,
-        string projectFingerprint = ProjectFingerprint,
+        ProjectFingerprint? projectFingerprint = null,
         string unityVersion = UnityVersion)
     {
-        return Create(
+        return CreateWithProjectPath(
             projectPath: Path.Combine(repositoryRoot, "UnityProject"),
             projectFingerprint: projectFingerprint,
             unityVersion: unityVersion);

@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Index;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
 namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 
@@ -6,5 +6,5 @@ namespace MackySoft.Ucli.Features.OperationCatalog.Catalog.Source;
 /// <param name="InputsManifest"> The persisted inputs manifest when available; otherwise <see langword="null" />. </param>
 /// <param name="HasPersistedAssetLookupArtifacts"> A value indicating whether persisted asset lookup artifacts still exist. </param>
 internal sealed record PersistedOpsCatalogPersistenceArtifacts (
-    IndexInputsManifestJsonContract? InputsManifest,
+    ReadIndexInputsManifestSnapshot? InputsManifest,
     bool HasPersistedAssetLookupArtifacts);

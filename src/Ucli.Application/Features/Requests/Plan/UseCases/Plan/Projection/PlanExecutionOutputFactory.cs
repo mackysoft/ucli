@@ -11,19 +11,19 @@ internal static class PlanExecutionOutputFactory
     /// <param name="readIndex"> The emitted read-index payload. </param>
     /// <returns> The base payload. </returns>
     public static PlanExecutionOutput CreateBase (
+        Guid requestId,
         PreparedRequestContext preparedRequest,
         ReadIndexInfo readIndex)
     {
         ArgumentNullException.ThrowIfNull(preparedRequest);
         ArgumentNullException.ThrowIfNull(readIndex);
-        ArgumentException.ThrowIfNullOrWhiteSpace(preparedRequest.Request.RequestId);
 
         return new PlanExecutionOutput(
-            RequestId: preparedRequest.Request.RequestId,
-            Project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
-            OpResults: [],
-            ReadIndex: readIndex,
-            PlanToken: null);
+            requestId: requestId,
+            project: ProjectIdentityInfo.From(preparedRequest.ProjectContext.UnityProject),
+            opResults: [],
+            readIndex: readIndex,
+            planToken: null);
     }
 
     /// <summary> Tries to create the base plan payload for failure projection. </summary>
@@ -31,16 +31,16 @@ internal static class PlanExecutionOutputFactory
     /// <param name="readIndex"> The emitted read-index payload when available. </param>
     /// <returns> The base payload, or <see langword="null" /> when the minimum data are unavailable. </returns>
     public static PlanExecutionOutput? TryCreateBase (
+        Guid requestId,
         PreparedRequestContext? preparedRequest,
         ReadIndexInfo? readIndex)
     {
         if (preparedRequest == null
-            || readIndex == null
-            || string.IsNullOrWhiteSpace(preparedRequest.Request.RequestId))
+            || readIndex == null)
         {
             return null;
         }
 
-        return CreateBase(preparedRequest, readIndex);
+        return CreateBase(requestId, preparedRequest, readIndex);
     }
 }

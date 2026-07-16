@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Captures Unity log events and exposes snapshot reads for IPC handlers. </summary>
@@ -9,8 +11,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="message"> The user-facing message value. </param>
         /// <param name="stackTrace"> The optional stack trace. </param>
         void Write (
-            string source,
-            string level,
+            IpcUnityLogSource source,
+            IpcLogLevel level,
             string message,
             string stackTrace = null);
 

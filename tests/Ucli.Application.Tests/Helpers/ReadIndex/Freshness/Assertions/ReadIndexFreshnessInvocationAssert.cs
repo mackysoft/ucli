@@ -1,16 +1,10 @@
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Tests;
 
 internal static class ReadIndexFreshnessInvocationAssert
 {
-    public static void PersistedHashMissingReturnedProbableWithoutInputFingerprint (
-        IndexFreshnessEvaluationResult result,
-        RecordingReadIndexInputFingerprintProvider inputProvider)
-    {
-        Assert.True(result.IsSuccess);
-        Assert.Equal(IndexFreshness.Probable, result.Freshness);
-        Assert.Empty(inputProvider.Invocations);
-    }
-
     public static RecordingReadIndexInputFingerprintProvider.Invocation CoreInputFingerprintComputedOnce (
         RecordingReadIndexInputFingerprintProvider inputProvider,
         ResolvedUnityProjectContext expectedUnityProject)
@@ -34,7 +28,7 @@ internal static class ReadIndexFreshnessInvocationAssert
     public static RecordingReadIndexSceneSourceHashProvider.Invocation SceneSourceHashComputedOnce (
         RecordingReadIndexSceneSourceHashProvider sceneHashProvider,
         ResolvedUnityProjectContext expectedUnityProject,
-        string expectedScenePath)
+        SceneAssetPath expectedScenePath)
     {
         var invocation = Assert.Single(sceneHashProvider.Invocations);
         Assert.Equal(expectedUnityProject, invocation.UnityProject);
@@ -46,7 +40,7 @@ internal static class ReadIndexFreshnessInvocationAssert
         RecordingReadIndexFreshnessEvaluator freshnessEvaluator,
         ResolvedUnityProjectContext expectedUnityProject,
         IndexFreshnessTarget expectedTarget,
-        string expectedPersistedSourceInputsHash)
+        Sha256Digest expectedPersistedSourceInputsHash)
     {
         return FreshnessObservedOnce(
             freshnessEvaluator,
@@ -59,7 +53,7 @@ internal static class ReadIndexFreshnessInvocationAssert
         RecordingReadIndexFreshnessEvaluator freshnessEvaluator,
         ResolvedUnityProjectContext expectedUnityProject,
         IndexFreshnessTarget expectedTarget,
-        string expectedPersistedSourceInputsHash)
+        Sha256Digest expectedPersistedSourceInputsHash)
     {
         var invocation = Assert.Single(freshnessEvaluator.ObserveInvocations);
         Assert.Same(expectedUnityProject, invocation.UnityProject);

@@ -1,5 +1,5 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.RefreshCommandTestData;
@@ -13,7 +13,7 @@ public sealed class RefreshCommandGoldenOutputTests
     public async Task Refresh_WhenContractViolationExists_MatchesGolden ()
     {
         var failureResult = OperationExecuteResultFactory.Failure(
-            RequestId,
+            RequestGuid,
             [
                 CreateViolationOperationResult(),
             ],
@@ -21,7 +21,7 @@ public sealed class RefreshCommandGoldenOutputTests
                 ApplicationFailure.FromCode(
                     ExecuteRequestErrorCodes.OperationContractViolation,
                     ContractViolationMessage,
-                    "refresh"),
+                    new IpcExecuteStepId("refresh")),
             ],
             ContractViolationMessage,
             contractViolations:
@@ -48,7 +48,7 @@ public sealed class RefreshCommandGoldenOutputTests
     public async Task Refresh_WhenMayPersistContractViolationExists_MatchesGolden ()
     {
         var failureResult = OperationExecuteResultFactory.Failure(
-            RequestId,
+            RequestGuid,
             [
                 CreateViolationOperationResult(),
             ],
@@ -56,7 +56,7 @@ public sealed class RefreshCommandGoldenOutputTests
                 ApplicationFailure.FromCode(
                     ExecuteRequestErrorCodes.OperationContractViolation,
                     ContractViolationMessage,
-                    "refresh"),
+                    new IpcExecuteStepId("refresh")),
             ],
             ContractViolationMessage,
             contractViolations:

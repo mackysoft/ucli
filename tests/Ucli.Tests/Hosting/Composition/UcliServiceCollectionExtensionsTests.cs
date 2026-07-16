@@ -16,6 +16,64 @@ public sealed class UcliServiceCollectionExtensionsTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void AddUcliServices_RegistersSystemTimeProviderAsSingleton ()
+    {
+        var services = new ServiceCollection();
+        services.AddUcliServices();
+        var descriptor = Assert.Single(
+            services,
+            candidate => candidate.ServiceType == typeof(TimeProvider));
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        Assert.Equal(ServiceLifetime.Singleton, descriptor.Lifetime);
+        Assert.Same(TimeProvider.System, descriptor.ImplementationInstance);
+        Assert.Same(TimeProvider.System, serviceProvider.GetRequiredService<TimeProvider>());
+        Assert.Same(
+            serviceProvider.GetRequiredService<TimeProvider>(),
+            serviceProvider.GetRequiredService<TimeProvider>());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void AddUcliServices_PreservesRegisteredTimeProvider ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var services = new ServiceCollection();
+        services.AddSingleton<TimeProvider>(timeProvider);
+        services.AddUcliServices();
+
+        using var serviceProvider = services.BuildServiceProvider(
+            new ServiceProviderOptions
+            {
+                ValidateOnBuild = true,
+                ValidateScopes = true,
+            });
+
+        Assert.Same(timeProvider, serviceProvider.GetRequiredService<TimeProvider>());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void AddUcliServices_ResolvesGuidGeneratorWithNonEmptyGuid ()
+    {
+        var services = new ServiceCollection();
+        services.AddUcliServices();
+
+        using var serviceProvider = services.BuildServiceProvider(
+            new ServiceProviderOptions
+            {
+                ValidateOnBuild = true,
+                ValidateScopes = true,
+            });
+
+        Assert.NotEqual(
+            Guid.Empty,
+            serviceProvider.GetRequiredService<IGuidGenerator>().Generate());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void AddUcliServices_ResolvesReadIndexPolicyAndAdapterGraph ()
     {
         var services = new ServiceCollection();
@@ -67,7 +125,7 @@ public sealed class UcliServiceCollectionExtensionsTests
               "verifiers": [
                 {
                   "id": "ready.lifecycle",
-                  "kind": "ready.lifecycle",
+                  "kind": "ready",
                   "deterministic": false,
                   "required": true,
                   "primaryClaims": [
@@ -84,7 +142,7 @@ public sealed class UcliServiceCollectionExtensionsTests
                   "required": true,
                   "verifierRef": "ready.lifecycle",
                   "validity": {
-                    "kind": "{{ReadyValidityKindValues.ProbeOnly}}",
+                    "kind": "{{ContractLiteralCodec.ToValue(ReadyValidityKind.ProbeOnly)}}",
                     "guaranteesReusableSession": true
                   },
                   "evidence": [],

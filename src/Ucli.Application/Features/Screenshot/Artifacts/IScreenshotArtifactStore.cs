@@ -5,9 +5,10 @@ internal interface IScreenshotArtifactStore
 {
     /// <summary> Prepares one capture-scoped staging and artifact lease. </summary>
     /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="captureId"> The collision-resistant capture identifier. </param>
+    /// <param name="captureId"> The non-empty collision-resistant capture identifier. </param>
     /// <returns> The prepared lease, or a structured preparation error. </returns>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="captureId" /> is empty. </exception>
     ScreenshotArtifactPreparationResult Prepare (
         ResolvedUnityProjectContext unityProject,
-        string captureId);
+        Guid captureId);
 }

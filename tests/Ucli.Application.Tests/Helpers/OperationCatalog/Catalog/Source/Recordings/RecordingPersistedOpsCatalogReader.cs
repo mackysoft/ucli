@@ -57,7 +57,7 @@ internal sealed class RecordingPersistedOpsCatalogReader : IPersistedOpsCatalogR
     public ValueTask<PersistedOpsDescribeReadResult> ReadDescribeAsync (
         ResolvedUnityProjectContext unityProject,
         OpsCatalogDescriptorSnapshot catalogSnapshot,
-        IndexOpsCatalogEntryJsonContract catalogEntry,
+        ValidatedOpsCatalogEntry catalogEntry,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -94,22 +94,21 @@ internal sealed class RecordingPersistedOpsCatalogReader : IPersistedOpsCatalogR
         var entries = snapshot.Operations
             .Select(static (operation, index) => new IndexOpsCatalogEntryJsonContract(
                 operation.Name,
-                operation.Kind,
-                operation.Policy,
+                ContractLiteralCodec.ToValue(operation.Kind),
+                ContractLiteralCodec.ToValue(operation.Policy),
                 operation.Description,
                 CreateHash(index),
                 CreateHash(index + 8)))
             .ToArray();
 
-        if (!OpsCatalogDescriptorSnapshot.TryCreate(
-            snapshot.GeneratedAtUtc,
-            "source-hash",
-            entries,
-            "entries",
-            out var descriptorSnapshot,
-            out var error))
+        var contract = new IndexOpsCatalogJsonContract(
+            SchemaVersion: 1,
+            GeneratedAtUtc: snapshot.GeneratedAtUtc,
+            SourceInputsHash: Sha256DigestTestFactory.Compute("source-hash").ToString(),
+            Entries: entries);
+        if (!OpsCatalogDescriptorSnapshot.TryCreate(contract, out var descriptorSnapshot))
         {
-            throw new InvalidOperationException($"Persisted ops catalog descriptor fixture is invalid. {error}");
+            throw new InvalidOperationException("Persisted ops catalog descriptor fixture is invalid.");
         }
 
         return descriptorSnapshot!;
@@ -128,6 +127,6 @@ internal sealed class RecordingPersistedOpsCatalogReader : IPersistedOpsCatalogR
     internal readonly record struct ReadDescribeInvocation (
         ResolvedUnityProjectContext UnityProject,
         OpsCatalogDescriptorSnapshot CatalogSnapshot,
-        IndexOpsCatalogEntryJsonContract CatalogEntry,
+        ValidatedOpsCatalogEntry CatalogEntry,
         CancellationToken CancellationToken);
 }

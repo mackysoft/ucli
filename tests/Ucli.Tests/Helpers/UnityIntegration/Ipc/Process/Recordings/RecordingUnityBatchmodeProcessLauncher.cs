@@ -16,17 +16,17 @@ internal sealed class RecordingUnityBatchmodeProcessLauncher : IUnityBatchmodePr
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
-    public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchAsync (
+    public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchOneshotAsync (
         ResolvedUnityProjectContext unityProject,
-        IpcBatchmodeBootstrapArguments bootstrapArguments,
+        IpcOneshotBootstrapEnvelope bootstrapEnvelope,
         string unityLogPath,
-        UnityBatchmodeLaunchOptions? launchOptions = null,
-        CancellationToken cancellationToken = default)
+        UnityBatchmodeLaunchOptions launchOptions,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         invocations.Add(new Invocation(
             unityProject,
-            bootstrapArguments,
+            bootstrapEnvelope,
             unityLogPath,
             launchOptions,
             cancellationToken));
@@ -35,8 +35,8 @@ internal sealed class RecordingUnityBatchmodeProcessLauncher : IUnityBatchmodePr
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
-        IpcBatchmodeBootstrapArguments BootstrapArguments,
+        IpcOneshotBootstrapEnvelope BootstrapEnvelope,
         string UnityLogPath,
-        UnityBatchmodeLaunchOptions? LaunchOptions,
+        UnityBatchmodeLaunchOptions LaunchOptions,
         CancellationToken CancellationToken);
 }

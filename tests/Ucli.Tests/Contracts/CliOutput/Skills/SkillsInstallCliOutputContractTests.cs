@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 
 namespace MackySoft.Ucli.Tests;
 
@@ -108,7 +107,7 @@ public sealed class SkillsInstallCliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             command: UcliCommandNames.SkillsInstall,
-            status: "error",
+            status: ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             exitCode: (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, InstallTargetHostConflictCode);
     }

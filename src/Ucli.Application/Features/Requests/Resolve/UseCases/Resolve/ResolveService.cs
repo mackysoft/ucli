@@ -13,7 +13,7 @@ namespace MackySoft.Ucli.Application.Features.Requests.Resolve.UseCases.Resolve;
 /// <summary> Implements the <c>resolve</c> workflow across read-index and Unity IPC fallback paths. </summary>
 internal sealed class ResolveService : IResolveService
 {
-    private const string ResolveOperationId = "resolve";
+    private static readonly IpcExecuteStepId ResolveOperationId = new("resolve");
 
     private readonly IProjectContextResolver projectContextResolver;
 
@@ -34,14 +34,18 @@ internal sealed class ResolveService : IResolveService
 
     /// <inheritdoc />
     public async ValueTask<ResolveServiceResult> ExecuteAsync (
+        Guid requestId,
         ResolveCommandInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        if (requestId == Guid.Empty)
+        {
+            throw new ArgumentException("Request id must not be empty.", nameof(requestId));
+        }
+
         ArgumentNullException.ThrowIfNull(input);
         ArgumentNullException.ThrowIfNull(input.Selector);
-
-        var requestId = Guid.NewGuid().ToString("D");
         var projectContextResult = await projectContextResolver.ResolveAsync(input.ProjectPath, cancellationToken).ConfigureAwait(false);
         if (!projectContextResult.IsSuccess)
         {
@@ -112,7 +116,7 @@ internal sealed class ResolveService : IResolveService
     }
 
     private async ValueTask<(ResolveServiceResult? CompletedResult, string FallbackReason)> TryResolveFromSceneTreeLiteIndexAsync (
-        string requestId,
+        Guid requestId,
         ResolveCommandInput input,
         ResolveSceneHierarchySelectorInput selector,
         ProjectContext projectContext,
@@ -129,7 +133,7 @@ internal sealed class ResolveService : IResolveService
                 executionMode,
                 timeout,
                 readIndexMode,
-                selector.Scene,
+                new UnityScenePath(selector.Scene.Value),
                 depth: null,
                 failFast: input.FailFast,
                 cancellationToken: cancellationToken)
@@ -141,7 +145,7 @@ internal sealed class ResolveService : IResolveService
                 return (
                     ResolveServiceResultFactory.FromIpcError(
                         requestId,
-                        new OperationExecutionError(readResult.ErrorCode!.Value, readResult.Message, null),
+                        new OperationExecutionError(readResult.ErrorCode!, readResult.Message, null),
                         ReadIndexInfoFactory.Unity(readResult.Message),
                         project),
                     readResult.Message);
@@ -174,7 +178,7 @@ internal sealed class ResolveService : IResolveService
     }
 
     private async ValueTask<ResolveServiceResult> ExecuteResolveInUnityAsync (
-        string requestId,
+        Guid requestId,
         ResolveCommandInput input,
         ProjectContext projectContext,
         ProjectIdentityInfo project,
@@ -190,7 +194,7 @@ internal sealed class ResolveService : IResolveService
                 timeout,
                 projectContext.Config,
                 projectContext.UnityProject,
-                CreateExecuteRequestPayload(input.Selector, requestId, input.FailFast),
+                CreateExecuteRequestPayload(input.Selector, input.FailFast),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
@@ -206,7 +210,9 @@ internal sealed class ResolveService : IResolveService
                 project);
         }
 
-        var convertedResponse = ExecuteResponseConverter.Convert(executionResult.Response!);
+        var convertedResponse = ExecuteResponseConverter.Convert(
+            executionResult.Response!,
+            projectContext.UnityProject);
         var responseProject = convertedResponse.Project ?? project;
         if (convertedResponse.IsSuccess)
         {
@@ -221,7 +227,7 @@ internal sealed class ResolveService : IResolveService
         return ResolveServiceResultFactory.Failure(
             requestId,
             convertedResponse.OpResults,
-            RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors, "uCLI resolve failed."),
+            RequestFailureNormalizer.FromOperationErrors(convertedResponse.Errors),
             readIndex,
             responseProject,
             convertedResponse.ContractViolations);
@@ -229,19 +235,17 @@ internal sealed class ResolveService : IResolveService
 
     private static UnityRequestPayload CreateExecuteRequestPayload (
         ResolveSelectorInput selector,
-        string requestId,
         bool failFast)
     {
         return new UnityRequestPayload.ExecuteOperation(
             UcliCommandIds.Resolve,
-            requestId,
             ResolveOperationId,
             UcliPrimitiveOperationNames.Resolve,
             ResolveSelectorOperationArgsFactory.Create(selector),
             failFast);
     }
 
-    private static OperationExecutionOperationResult CreateResolveOperationResult (string globalObjectId)
+    private static OperationExecutionOperationResult CreateResolveOperationResult (UnityGlobalObjectId globalObjectId)
     {
         return OperationExecutionModelMapper.CreatePlanResult(
             opId: ResolveOperationId,
@@ -264,6 +268,6 @@ internal sealed class ResolveService : IResolveService
         return "selector requires live Unity resolution.";
     }
 
-    private sealed record ResolveOperationResult (string GlobalObjectId);
+    private sealed record ResolveOperationResult (UnityGlobalObjectId GlobalObjectId);
 
 }

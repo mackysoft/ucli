@@ -2,7 +2,7 @@ using System;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
@@ -19,57 +19,45 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         private const string ProjectSettingsRootPrefix = "ProjectSettings/";
 
-        /// <summary> Validates one create-path contract and returns the normalized asset path. </summary>
-        /// <param name="assetPath"> The raw asset path. </param>
-        /// <param name="normalizedAssetPath"> The normalized asset path when valid. </param>
+        /// <summary> Validates whether one typed asset path can be used to create an asset. </summary>
+        /// <param name="assetPath"> The normalized asset path. </param>
+        /// <param name="validatedAssetPath"> The asset path when valid. </param>
         /// <param name="errorMessage"> The validation error message when validation fails. </param>
         /// <returns> <see langword="true" /> when the path is valid for <c>ucli.asset.create</c>; otherwise <see langword="false" />. </returns>
         public static bool TryValidateCreateAssetPath (
-            string assetPath,
-            out string normalizedAssetPath,
+            UnityAssetPath assetPath,
+            out string validatedAssetPath,
             out string errorMessage)
         {
-            normalizedAssetPath = string.Empty;
-            if (string.IsNullOrWhiteSpace(assetPath))
+            if (assetPath == null)
             {
-                errorMessage = "Asset path must not be empty or whitespace.";
+                throw new ArgumentNullException(nameof(assetPath));
+            }
+
+            validatedAssetPath = assetPath.Value;
+
+            if (!validatedAssetPath.EndsWith(AssetExtension, StringComparison.Ordinal))
+            {
+                errorMessage = $"Asset path must end with '{AssetExtension}'. Actual: {validatedAssetPath}.";
                 return false;
             }
 
-            if (StringValueValidator.HasOuterWhitespace(assetPath))
+            if (IsReservedAssetPath(validatedAssetPath))
             {
-                errorMessage = "Asset path must not contain leading or trailing whitespace.";
+                errorMessage = $"Asset path is reserved for another domain: {validatedAssetPath}.";
                 return false;
             }
 
-            if (!UnityAssetPathContract.TryNormalizeAssetsDescendantPath(assetPath, out normalizedAssetPath))
-            {
-                errorMessage = $"Asset path must be under '{UnityAssetPathContract.AssetsRootPrefix}'. Actual: {assetPath}.";
-                return false;
-            }
-
-            if (!normalizedAssetPath.EndsWith(AssetExtension, StringComparison.Ordinal))
-            {
-                errorMessage = $"Asset path must end with '{AssetExtension}'. Actual: {normalizedAssetPath}.";
-                return false;
-            }
-
-            if (IsReservedAssetPath(normalizedAssetPath))
-            {
-                errorMessage = $"Asset path is reserved for another domain: {normalizedAssetPath}.";
-                return false;
-            }
-
-            var directoryPath = UnityAssetPathUtility.ResolveDirectoryPath(normalizedAssetPath);
+            var directoryPath = UnityAssetPathUtility.ResolveDirectoryPath(validatedAssetPath);
             if (!AssetDatabase.IsValidFolder(directoryPath))
             {
                 errorMessage = $"Asset directory does not exist: {directoryPath}.";
                 return false;
             }
 
-            if (AssetDatabase.LoadMainAssetAtPath(normalizedAssetPath) != null || File.Exists(UnityAssetPathUtility.ToAbsolutePath(normalizedAssetPath)))
+            if (AssetDatabase.LoadMainAssetAtPath(validatedAssetPath) != null || File.Exists(UnityAssetPathUtility.ToAbsolutePath(validatedAssetPath)))
             {
-                errorMessage = $"Asset path already exists: {normalizedAssetPath}.";
+                errorMessage = $"Asset path already exists: {validatedAssetPath}.";
                 return false;
             }
 
@@ -83,7 +71,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="allowTemporaryState"> Whether temporary aliases may satisfy the reference. </param>
         /// <param name="unityObject"> The resolved asset object when successful. </param>
         /// <param name="assetPath"> The resolved asset path when successful. </param>
-        /// <param name="sourceGlobalObjectId"> The source global-object identifier when available. </param>
+        /// <param name="sourceGlobalObjectId"> The stable source identity when available. </param>
         /// <param name="errorMessage"> The validation error message when resolution fails. </param>
         /// <returns> <see langword="true" /> when the reference resolves to a supported asset target; otherwise <see langword="false" />. </returns>
         public static bool TryResolveAssetTarget (
@@ -92,7 +80,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             bool allowTemporaryState,
             [NotNullWhen(true)] out UnityEngine.Object? unityObject,
             [NotNullWhen(true)] out string? assetPath,
-            out string? sourceGlobalObjectId,
+            out UnityGlobalObjectId? sourceGlobalObjectId,
             out string errorMessage)
         {
             unityObject = null;
@@ -103,16 +91,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 throw new ArgumentNullException(nameof(executionContext));
             }
 
-            var alias = reference.Alias;
             if (allowTemporaryState
                 && reference.Kind == UnityObjectReferenceKind.Alias
-                && alias != null
-                && executionContext.TryGetTemporaryAliasState(alias, out var temporaryAliasState))
+                && executionContext.TryGetTemporaryAliasState(reference.Alias!, out var temporaryAliasState))
             {
+                var alias = reference.Alias!;
                 assetPath = temporaryAliasState.Resource.Path;
-                sourceGlobalObjectId = temporaryAliasState.SourceGlobalObjectId;
-                if (temporaryAliasState.Resource.Kind != OperationTouchKind.Asset
-                    && temporaryAliasState.Resource.Kind != OperationTouchKind.ProjectSettings)
+                temporaryAliasState.SourceTrackingKey?.TryGetStableGlobalObjectId(out sourceGlobalObjectId);
+                if (temporaryAliasState.Resource.Kind != UcliTouchedResourceKind.Asset
+                    && temporaryAliasState.Resource.Kind != UcliTouchedResourceKind.ProjectSettings)
                 {
                     errorMessage = "Reference did not resolve to an asset.";
                     assetPath = string.Empty;
@@ -123,13 +110,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 var temporaryObject = temporaryAliasState.UnityObject;
                 if (temporaryObject == null)
                 {
-                    errorMessage = $"Reference alias was not found: {alias}.";
+                    errorMessage = $"Reference alias was not found: {alias.Alias}.";
                     assetPath = string.Empty;
                     sourceGlobalObjectId = null;
                     return false;
                 }
 
-                if (!TryValidateTemporaryAssetTarget(temporaryObject, alias, out errorMessage))
+                if (!TryValidateTemporaryAssetTarget(temporaryObject, alias.Alias.Value, out errorMessage))
                 {
                     unityObject = null;
                     assetPath = string.Empty;
@@ -141,12 +128,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return true;
             }
 
-            var selectorAssetPath = reference.Selector.AssetPath;
             if (allowTemporaryState
                 && reference.Kind == UnityObjectReferenceKind.Selector
-                && reference.Selector.Kind == ResolveSelectorKind.AssetPath
-                && selectorAssetPath != null
-                && executionContext.TryGetPlannedAssetState(selectorAssetPath, out var plannedAssetState))
+                && reference.Selector!.Kind == ResolveSelectorKind.AssetPath
+                && executionContext.TryGetPlannedAssetState(reference.Selector.AssetPath!.Value, out var plannedAssetState))
             {
                 var plannedObject = plannedAssetState.UnityObject;
                 if (plannedObject == null)
@@ -175,26 +160,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            if (resolvedObject == null)
-            {
-                errorMessage = "Reference did not resolve to an asset.";
-                assetPath = string.Empty;
-                sourceGlobalObjectId = null;
-                return false;
-            }
+            var liveUnityObject = resolvedObject.UnityObject;
 
-            if (!TryValidatePersistentMainAssetTarget(resolvedObject, out assetPath, out errorMessage))
+            if (!TryValidatePersistentMainAssetTarget(liveUnityObject, out assetPath, out errorMessage))
             {
                 unityObject = null;
                 sourceGlobalObjectId = null;
                 return false;
             }
 
-            unityObject = resolvedObject;
-            sourceGlobalObjectId = UnityObjectReferenceResolver.TryCreateResolvedReference(resolvedObject, out var resolvedReference)
-                && resolvedReference != null
-                    ? resolvedReference.GlobalObjectId
-                    : null;
+            unityObject = liveUnityObject;
+            UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(liveUnityObject, out sourceGlobalObjectId);
             return true;
         }
 

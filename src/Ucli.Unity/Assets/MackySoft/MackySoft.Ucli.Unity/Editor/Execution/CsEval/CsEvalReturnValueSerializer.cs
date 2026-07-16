@@ -16,7 +16,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         {
             if (value == null)
             {
-                returnValue = new CsEvalReturnValue(CsEvalReturnValueKindValues.Null, value: null);
+                returnValue = new CsEvalReturnValue(CsEvalReturnValueKind.Null, value: null);
                 errorMessage = string.Empty;
                 return true;
             }
@@ -48,7 +48,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     return false;
                 }
 
-                returnValue = new CsEvalReturnValue(CsEvalReturnValueKindValues.Json, jsonValue);
+                returnValue = new CsEvalReturnValue(CsEvalReturnValueKind.Json, jsonValue);
                 errorMessage = string.Empty;
                 return true;
             }

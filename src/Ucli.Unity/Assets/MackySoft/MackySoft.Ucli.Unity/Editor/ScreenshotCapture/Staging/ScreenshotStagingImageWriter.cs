@@ -2,8 +2,8 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -14,7 +14,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
     {
         private readonly string storageRoot;
 
-        private readonly string projectFingerprint;
+        private readonly ProjectFingerprint projectFingerprint;
 
         private readonly string screenshotWorkDirectory;
 
@@ -35,17 +35,17 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
 
         /// <inheritdoc />
         public async Task<long> WriteAtomicAsync (
-            string path,
+            Guid captureId,
             ReadOnlyMemory<byte> bytes,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.IsNullOrWhiteSpace(path))
+            if (captureId == Guid.Empty)
             {
-                throw new ArgumentException("Screenshot staging path must not be empty.", nameof(path));
+                throw new ArgumentException("Capture id must not be empty.", nameof(captureId));
             }
 
-            var fullPath = ValidatePreparedStagingPath(path);
+            var fullPath = ResolvePreparedStagingPath(captureId);
             var directoryPath = Path.GetDirectoryName(fullPath);
             if (string.IsNullOrWhiteSpace(directoryPath))
             {
@@ -58,20 +58,16 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
                 directoryPath);
             EnsureTargetDoesNotExist(fullPath);
 
-            var temporaryPath = fullPath + $".tmp.{Guid.NewGuid():N}";
+            var temporaryStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
+                directoryPath,
+                out var temporaryPath);
             var published = false;
             try
             {
-                using (var stream = new FileStream(
-                    temporaryPath,
-                    FileMode.CreateNew,
-                    FileAccess.Write,
-                    FileShare.None,
-                    bufferSize: 81920,
-                    useAsync: true))
+                using (temporaryStream)
                 {
-                    await stream.WriteAsync(bytes, cancellationToken);
-                    await stream.FlushAsync(cancellationToken);
+                    await temporaryStream.WriteAsync(bytes, cancellationToken);
+                    await temporaryStream.FlushAsync(cancellationToken);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -85,45 +81,42 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
             {
                 if (published)
                 {
-                    DeleteIfExists(fullPath);
+                    DeletePathIfExists(fullPath);
                 }
 
                 throw;
             }
             finally
             {
-                DeleteIfExists(temporaryPath);
+                if (!published)
+                {
+                    DeletePathIfExists(temporaryPath);
+                }
             }
         }
 
         /// <inheritdoc />
-        public void DeleteIfExists (string path)
+        public void DeleteIfExists (Guid captureId)
         {
-            if (!string.IsNullOrWhiteSpace(path) && File.Exists(path))
+            if (captureId == Guid.Empty)
             {
-                File.Delete(path);
+                throw new ArgumentException("Capture id must not be empty.", nameof(captureId));
             }
+
+            var path = UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
+                storageRoot,
+                projectFingerprint,
+                captureId);
+            DeletePathIfExists(path);
         }
 
-        private string ValidatePreparedStagingPath (string path)
+        private string ResolvePreparedStagingPath (Guid captureId)
         {
-            var fullPath = Path.GetFullPath(path);
-            if (!Path.IsPathRooted(path)
-                || !string.Equals(path, fullPath, StringComparison.Ordinal))
-            {
-                throw new ArgumentException("Screenshot staging path must be absolute and normalized.", nameof(path));
-            }
-
-            if (!string.Equals(
-                Path.GetFileName(fullPath),
-                UcliStoragePathNames.ScreenshotRawStagingFileName,
-                StringComparison.Ordinal))
-            {
-                throw new ArgumentException(
-                    $"Screenshot staging file name must be '{UcliStoragePathNames.ScreenshotRawStagingFileName}'.",
-                    nameof(path));
-            }
-
+            var fullPath = Path.GetFullPath(
+                UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
+                    storageRoot,
+                    projectFingerprint,
+                    captureId));
             var directoryPath = Path.GetDirectoryName(fullPath);
             var parentPath = string.IsNullOrWhiteSpace(directoryPath)
                 ? null
@@ -136,16 +129,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
             {
                 throw new IOException(
                     "Screenshot staging path must be inside one existing capture directory owned by this project fingerprint.");
-            }
-
-            var captureId = Path.GetFileName(directoryPath);
-            var expectedDirectoryPath = UcliStoragePathResolver.ResolveScreenshotCaptureStagingDirectory(
-                storageRoot,
-                projectFingerprint,
-                captureId);
-            if (!PathIdentity.IsSamePath(directoryPath, expectedDirectoryPath))
-            {
-                throw new IOException("Screenshot staging capture directory is not normalized.");
             }
 
             return fullPath;
@@ -165,6 +148,14 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
             }
 
             throw new IOException($"Screenshot staging target already exists: {path}");
+        }
+
+        private static void DeletePathIfExists (string path)
+        {
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
         }
     }
 }

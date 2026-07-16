@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
@@ -14,7 +13,7 @@ public sealed class VerifyCommandDispatchTests
     public async Task Verify_MapsOptionsToServiceInputAndCancellationToken ()
     {
         var service = new RecordingVerifyService((_, _, _) => ValueTask.FromResult(VerifyExecutionResult.Success(CreateOutput())));
-        var command = new VerifyCommand(service, CommandResultTestWriter.Create());
+        var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.VerifyAsync(

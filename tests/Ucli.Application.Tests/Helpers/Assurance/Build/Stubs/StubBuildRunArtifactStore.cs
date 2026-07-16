@@ -1,15 +1,17 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
 internal sealed class StubBuildRunArtifactStore : IBuildRunArtifactStore
 {
-    public const string BuildMetadataDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    public const string BuildReportArtifactDigest = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
-    public const string BuildOutputManifestArtifactDigest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
-    public const string BuildLogArtifactDigest = "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd";
-    public const string OutputManifestDigest = "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee";
+    public static readonly Sha256Digest BuildMetadataDigest = Sha256Digest.Parse(new string('a', 64));
+    public static readonly Sha256Digest BuildReportArtifactDigest = Sha256Digest.Parse(new string('b', 64));
+    public static readonly Sha256Digest BuildOutputManifestArtifactDigest = Sha256Digest.Parse(new string('c', 64));
+    public static readonly Sha256Digest BuildLogArtifactDigest = Sha256Digest.Parse(new string('d', 64));
+    public static readonly Sha256Digest OutputManifestDigest = Sha256Digest.Parse(new string('e', 64));
 
     private readonly string rootPath;
 
@@ -33,28 +35,29 @@ internal sealed class StubBuildRunArtifactStore : IBuildRunArtifactStore
 
     public BuildRunArtifactPreparationResult Prepare (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
-        var runDirectory = Path.Combine(rootPath, runId);
-        var runnerOutputDirectory = Path.Combine(rootPath, "work", runId, "output");
+        var runIdText = runId.ToString("D");
+        var runDirectory = Path.Combine(rootPath, runIdText);
+        var runnerOutputDirectory = Path.Combine(rootPath, "work", runIdText, "output");
         var artifactOutputDirectory = Path.Combine(runDirectory, "output");
         Directory.CreateDirectory(runnerOutputDirectory);
         PreparedPaths = new BuildRunArtifactPaths(
-            RepositoryRoot: rootPath,
-            RunId: runId,
-            ArtifactsDirectory: runDirectory,
-            BuildJsonPath: Path.Combine(runDirectory, "build.json"),
-            BuildReportJsonPath: Path.Combine(runDirectory, "build-report.json"),
-            BuildLogPath: Path.Combine(runDirectory, "build.log"),
-            OutputManifestJsonPath: Path.Combine(runDirectory, "output-manifest.json"),
-            RunnerOutputDirectory: runnerOutputDirectory,
-            ArtifactOutputDirectory: artifactOutputDirectory);
+            repositoryRoot: rootPath,
+            runId: runId,
+            artifactsDirectory: runDirectory,
+            buildJsonPath: Path.Combine(runDirectory, "build.json"),
+            buildReportJsonPath: Path.Combine(runDirectory, "build-report.json"),
+            buildLogPath: Path.Combine(runDirectory, "build.log"),
+            outputManifestJsonPath: Path.Combine(runDirectory, "output-manifest.json"),
+            runnerOutputDirectory: runnerOutputDirectory,
+            artifactOutputDirectory: artifactOutputDirectory);
         return BuildRunArtifactPreparationResult.Success(PreparedPaths);
     }
 
     public BuildRunArtifactPreparationResult PrepareBuildPipelineOutputLayout (
         BuildRunArtifactPaths paths,
-        string buildTarget,
+        BuildTargetStableName buildTarget,
         IpcBuildOutputLayout outputLayout)
     {
         PreparedOutputLayout = outputLayout;

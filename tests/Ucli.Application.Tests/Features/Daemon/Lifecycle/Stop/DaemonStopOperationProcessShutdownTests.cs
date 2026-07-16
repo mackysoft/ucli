@@ -15,7 +15,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
     {
         var shutdownError = ExecutionError.InternalError("shutdown failed");
         var session = DaemonSessionTestFactory.Create(processId: 123);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-failure");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-failure"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.Failure(shutdownError),
@@ -34,9 +34,9 @@ public sealed class DaemonStopOperationProcessShutdownTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
-        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        Assert.Null(result.Status);
         Assert.Equal(shutdownError, result.Error);
         AssertProcessTerminationAttempted(processTerminationService, 123, session.ProcessStartedAtUtc);
         AssertSessionArtifactsInvalidated(artifactCleaner, context);
@@ -47,7 +47,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
     public async Task Stop_WhenShutdownResultIsNotRunning_EnsuresProcessStoppedAndReturnsStopped ()
     {
         var session = DaemonSessionTestFactory.Create(processId: 456);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-not-running");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-not-running"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.NotRunning(),
@@ -66,7 +66,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         Assert.Null(result.Error);
@@ -80,7 +80,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
     public async Task Stop_WhenProcessIdIsMissing_CleansUpAfterShutdownWithoutProcessTermination ()
     {
         var session = DaemonSessionTestFactory.Create(processId: null);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-pidless");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-pidless"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.Success(),
@@ -96,7 +96,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         DaemonShutdownClientAssert.EndpointShutdownAttempted(shutdownClient, context, session);
@@ -108,7 +108,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
     public async Task Stop_WhenProcessIdIsMissingAndShutdownFails_ReturnsShutdownFailureWithoutCleanup ()
     {
         var shutdownError = ExecutionError.InternalError("shutdown failed");
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-pidless-failure");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-pidless-failure"));
         var processTerminationService = new RecordingDaemonProcessTerminationService();
         var artifactCleaner = new RecordingDaemonArtifactCleaner();
         var operation = CreateOperation(
@@ -120,9 +120,9 @@ public sealed class DaemonStopOperationProcessShutdownTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
-        Assert.Equal(DaemonStopStatus.Failed, result.Status);
+        Assert.Null(result.Status);
         Assert.Equal(shutdownError, result.Error);
         AssertProcessTerminationAndArtifactCleanupSkipped(processTerminationService, artifactCleaner);
     }
@@ -140,7 +140,7 @@ public sealed class DaemonStopOperationProcessShutdownTests
             editorMode: DaemonEditorMode.Gui,
             issuedAtUtc: issuedAtUtc,
             processStartedAtUtc: processStartedAtUtc);
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-stop-cli-gui");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-stop-cli-gui"));
         var shutdownClient = new RecordingDaemonShutdownClient
         {
             NextResult = DaemonShutdownAttemptResult.Success(),
@@ -159,11 +159,16 @@ public sealed class DaemonStopOperationProcessShutdownTests
             processTerminationService: processTerminationService,
             artifactCleaner: artifactCleaner);
 
-        var result = await operation.StopAsync(context, DefaultTimeout, CancellationToken.None);
+        var result = await operation.StopAsync(context, ExecutionDeadline.Start(DefaultTimeout, new ManualTimeProvider()), CancellationToken.None);
 
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
         DaemonShutdownClientAssert.EndpointShutdownAttempted(shutdownClient, context, session);
         AssertProcessTerminationAttempted(processTerminationService, 654, processStartedAtUtc);
         AssertSessionArtifactsInvalidated(artifactCleaner, context);
+        var cleanupInvocation = Assert.Single(artifactCleaner.Invocations);
+        Assert.Null(cleanupInvocation.ExpectedSession);
+        Assert.Equal(
+            new DaemonProcessTerminationTarget(654, processStartedAtUtc),
+            cleanupInvocation.ExpectedStoppedProcess);
     }
 }

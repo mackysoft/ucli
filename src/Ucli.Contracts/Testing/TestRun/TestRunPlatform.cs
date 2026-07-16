@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Testing;
 
 /// <summary> Represents one Unity-equivalent test-run platform value. </summary>
@@ -31,6 +33,15 @@ public readonly record struct TestRunPlatform
         if (kind == TestRunPlatformKind.Player && string.IsNullOrWhiteSpace(playerBuildTargetLiteral))
         {
             throw new ArgumentException("Player build target literal must not be empty.", nameof(playerBuildTargetLiteral));
+        }
+
+        if (kind == TestRunPlatformKind.Player
+            && (StringValueValidator.HasOuterWhitespace(playerBuildTargetLiteral)
+                || StringValueValidator.HasControlCharacterOrMalformedUtf16(playerBuildTargetLiteral!)))
+        {
+            throw new ArgumentException(
+                "Player build target literal must be canonical text without outer whitespace or control characters.",
+                nameof(playerBuildTargetLiteral));
         }
 
         if (kind != TestRunPlatformKind.Player && playerBuildTargetLiteral is not null)

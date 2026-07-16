@@ -15,9 +15,9 @@ public sealed class PostReadClaimBuilderTests
 
         var claim = Assert.Single(claimSet.Claims);
         Assert.Empty(claimSet.ResidualRisks);
-        Assert.Equal(VerifyClaimCodes.ReadSurfaceSafe.Value, claim.Id);
-        Assert.Equal(VerifyClaimStatusValues.Unverified, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(VerifyClaimCodes.ReadSurfaceSafe, claim.Id);
+        Assert.Equal(AssuranceClaimStatus.Unverified, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
         Assert.True(claim.Required);
         Assert.Equal(PostReadClaimBuilder.VerifierId, claim.VerifierRef);
     }
@@ -27,19 +27,19 @@ public sealed class PostReadClaimBuilderTests
     public void Build_WithPersistenceTouched_ReturnsPassedRequiredClaim ()
     {
         var input = CreateInput(CreateOperationResult(
-            sourceKind: IpcExecutePostReadSourceKindNames.Refresh,
+            sourceKind: IpcExecutePostReadSourceKind.Refresh,
             commit: null,
             persistenceExpected: true,
-            expectedPostState: IpcExecuteExpectedPostStateNames.Unavailable,
+            expectedPostState: IpcExecuteExpectedPostState.Unavailable,
             touchedCount: 1,
             op: UcliPrimitiveOperationNames.ProjectRefresh));
 
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
 
-        var claim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PersistenceUnitTouched.Value, StringComparison.Ordinal));
+        var claim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.PersistenceUnitTouched);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Passed, claim.Status);
-        Assert.Equal(VerifyCoverageValues.Full, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
+        Assert.Equal(AssuranceCoverage.Full, claim.Coverage);
     }
 
     [Fact]
@@ -47,18 +47,18 @@ public sealed class PostReadClaimBuilderTests
     public void Build_WithPersistenceExpectedAndNoTouchedUnits_ReturnsIndeterminateClaim ()
     {
         var input = CreateInput(CreateOperationResult(
-            sourceKind: IpcExecutePostReadSourceKindNames.Refresh,
+            sourceKind: IpcExecutePostReadSourceKind.Refresh,
             commit: null,
             persistenceExpected: true,
-            expectedPostState: IpcExecuteExpectedPostStateNames.Unavailable,
+            expectedPostState: IpcExecuteExpectedPostState.Unavailable,
             touchedCount: 0,
             op: UcliPrimitiveOperationNames.ProjectRefresh));
 
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
 
-        var claim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PersistenceUnitTouched.Value, StringComparison.Ordinal));
-        Assert.Equal(VerifyClaimStatusValues.Indeterminate, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        var claim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.PersistenceUnitTouched);
+        Assert.Equal(AssuranceClaimStatus.Indeterminate, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
     [Fact]
@@ -70,10 +70,10 @@ public sealed class PostReadClaimBuilderTests
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
 
         var claim = Assert.Single(claimSet.Claims);
-        Assert.Equal(VerifyClaimCodes.ReadSurfaceSafe.Value, claim.Id);
+        Assert.Equal(VerifyClaimCodes.ReadSurfaceSafe, claim.Id);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Passed, claim.Status);
-        Assert.Equal(VerifyCoverageValues.Full, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
+        Assert.Equal(AssuranceCoverage.Full, claim.Coverage);
     }
 
     [Fact]
@@ -87,19 +87,19 @@ public sealed class PostReadClaimBuilderTests
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
 
         var claim = Assert.Single(claimSet.Claims);
-        Assert.Equal(VerifyClaimCodes.PostMutationObserved.Value, claim.Id);
+        Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Passed, claim.Status);
-        Assert.Equal(VerifyCoverageValues.Full, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
+        Assert.Equal(AssuranceCoverage.Full, claim.Coverage);
     }
 
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData(IpcExecutePostReadSourceKindNames.Operation, null, false, UcliPrimitiveOperationNames.SceneOpen)]
-    [InlineData(IpcExecutePostReadSourceKindNames.Refresh, null, true, UcliPrimitiveOperationNames.ProjectRefresh)]
+    [InlineData(IpcExecutePostReadSourceKind.Operation, null, false, UcliPrimitiveOperationNames.SceneOpen)]
+    [InlineData(IpcExecutePostReadSourceKind.Refresh, null, true, UcliPrimitiveOperationNames.ProjectRefresh)]
     public void Build_WithUnavailablePostState_ReturnsOutOfScopePostMutationClaim (
-        string sourceKind,
-        string? commit,
+        IpcExecutePostReadSourceKind sourceKind,
+        IpcExecutePostReadCommit? commit,
         bool persistenceExpected,
         string op)
     {
@@ -107,16 +107,16 @@ public sealed class PostReadClaimBuilderTests
             sourceKind: sourceKind,
             commit: commit,
             persistenceExpected: persistenceExpected,
-            expectedPostState: IpcExecuteExpectedPostStateNames.Unavailable,
+            expectedPostState: IpcExecuteExpectedPostState.Unavailable,
             touchedCount: 0,
             op: op));
 
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
 
-        var claim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
+        var claim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
         Assert.False(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.OutOfScope, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.OutOfScope, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
     [Fact]
@@ -126,15 +126,15 @@ public sealed class PostReadClaimBuilderTests
         var input = CreateInput(CreateOperationResult(
             playModeMutation: true,
             persistenceExpected: false,
-            expectedPostState: IpcExecuteExpectedPostStateNames.Unavailable,
+            expectedPostState: IpcExecuteExpectedPostState.Unavailable,
             touchedCount: 0));
 
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
 
-        var claim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
+        var claim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
         Assert.False(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.OutOfScope, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.OutOfScope, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
     [Fact]
@@ -144,17 +144,17 @@ public sealed class PostReadClaimBuilderTests
         var input = CreateInput(CreateOperationResult(
             playModeMutation: true,
             persistenceExpected: true,
-            expectedPostState: IpcExecuteExpectedPostStateNames.Unavailable,
+            expectedPostState: IpcExecuteExpectedPostState.Unavailable,
             touchedCount: 1));
 
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
 
-        var persistenceClaim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PersistenceUnitTouched.Value, StringComparison.Ordinal));
-        Assert.Equal(VerifyClaimStatusValues.Passed, persistenceClaim.Status);
-        var postMutationClaim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
+        var persistenceClaim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.PersistenceUnitTouched);
+        Assert.Equal(AssuranceClaimStatus.Passed, persistenceClaim.Status);
+        var postMutationClaim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
         Assert.False(postMutationClaim.Required);
-        Assert.Equal(VerifyClaimStatusValues.OutOfScope, postMutationClaim.Status);
-        Assert.Equal(VerifyCoverageValues.None, postMutationClaim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.OutOfScope, postMutationClaim.Status);
+        Assert.Equal(AssuranceCoverage.None, postMutationClaim.Coverage);
     }
 
     [Fact]
@@ -166,21 +166,21 @@ public sealed class PostReadClaimBuilderTests
                 opId: "live",
                 playModeMutation: true,
                 persistenceExpected: false,
-                expectedPostState: IpcExecuteExpectedPostStateNames.Unavailable,
+                expectedPostState: IpcExecuteExpectedPostState.Unavailable,
                 touchedCount: 0),
             CreateOperationResult(
                 opId: "persistent",
                 persistenceExpected: true,
-                expectedPostState: IpcExecuteExpectedPostStateNames.Deterministic,
+                expectedPostState: IpcExecuteExpectedPostState.Deterministic,
                 touchedCount: 1),
         ]);
 
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
 
-        var persistenceClaim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PersistenceUnitTouched.Value, StringComparison.Ordinal));
-        Assert.Equal(VerifyClaimStatusValues.Passed, persistenceClaim.Status);
-        var postMutationClaim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
-        Assert.Equal(VerifyClaimStatusValues.Passed, postMutationClaim.Status);
+        var persistenceClaim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.PersistenceUnitTouched);
+        Assert.Equal(AssuranceClaimStatus.Passed, persistenceClaim.Status);
+        var postMutationClaim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
+        Assert.Equal(AssuranceClaimStatus.Passed, postMutationClaim.Status);
         Assert.Equal(1, postMutationClaim.Subject["observedMutationCount"]);
     }
 
@@ -193,30 +193,34 @@ public sealed class PostReadClaimBuilderTests
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
 
         var claim = Assert.Single(claimSet.Claims);
-        Assert.Equal(VerifyClaimCodes.PostMutationObserved.Value, claim.Id);
+        Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Unverified, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Unverified, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(IpcExecuteDiagnosticCoverageImpactNames.Partial, VerifyClaimStatusValues.Passed, VerifyCoverageValues.Partial)]
-    [InlineData(IpcExecuteDiagnosticCoverageImpactNames.Indeterminate, VerifyClaimStatusValues.Indeterminate, VerifyCoverageValues.None)]
-    public void Build_WithCoverageDiagnostic_MapsClaimStatusAndCoverage (
-        string coverageImpact,
-        string expectedStatus,
-        string expectedCoverage)
+    public void Build_WithCoverageDiagnostic_MapsClaimStatusAndCoverage ()
     {
-        var input = CreateInput(
-            CreateOperationResult(diagnostics: [CreateDiagnostic(coverageImpact)]),
-            readPostconditionRequirementCount: 1);
+        var testCases = new[]
+        {
+            (IpcExecuteDiagnosticCoverageImpact.Partial, AssuranceClaimStatus.Passed, AssuranceCoverage.Partial),
+            (IpcExecuteDiagnosticCoverageImpact.Indeterminate, AssuranceClaimStatus.Indeterminate, AssuranceCoverage.None),
+        };
 
-        var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
+        foreach (var (coverageImpact, expectedStatus, expectedCoverage) in testCases)
+        {
+            var input = CreateInput(
+                CreateOperationResult(diagnostics: [CreateDiagnostic(coverageImpact)]),
+                readPostconditionRequirementCount: 1);
 
-        var claim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.ReadSurfaceSafe.Value, StringComparison.Ordinal));
-        Assert.Equal(expectedStatus, claim.Status);
-        Assert.Equal(expectedCoverage, claim.Coverage);
+            var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
+
+            var claim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.ReadSurfaceSafe);
+            Assert.Equal(expectedStatus, claim.Status);
+            Assert.Equal(expectedCoverage, claim.Coverage);
+        }
     }
 
     [Fact]
@@ -227,18 +231,18 @@ public sealed class PostReadClaimBuilderTests
             CreateOperationResult(diagnostics:
             [
                 new VerifyFromDiagnostic(
-                    Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects.Value,
-                    Severity: IpcExecuteDiagnosticSeverityNames.Warning,
-                    CoverageImpact: IpcExecuteDiagnosticCoverageImpactNames.Partial,
+                    Code: ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects,
+                    Severity: UcliDiagnosticSeverity.Warning,
+                    CoverageImpact: IpcExecuteDiagnosticCoverageImpact.Partial,
                     Message: "Hierarchy paths cannot represent every object.")
             ]),
             readPostconditionRequirementCount: 1);
 
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: true);
 
-        var claim = Assert.Single(claimSet.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.ReadSurfaceSafe.Value, StringComparison.Ordinal));
-        Assert.Equal(VerifyClaimStatusValues.Passed, claim.Status);
-        Assert.Equal(VerifyCoverageValues.Partial, claim.Coverage);
+        var claim = Assert.Single(claimSet.Claims, static claim => claim.Id == VerifyClaimCodes.ReadSurfaceSafe);
+        Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
+        Assert.Equal(AssuranceCoverage.Partial, claim.Coverage);
         Assert.Empty(claim.ResidualRisks);
         Assert.Empty(claimSet.ResidualRisks);
     }
@@ -248,12 +252,12 @@ public sealed class PostReadClaimBuilderTests
     public void Build_WithUnboundCoverageDiagnostic_ReturnsBlockingResidualRisk ()
     {
         var input = CreateInput(CreateOperationResult(
-            sourceKind: IpcExecutePostReadSourceKindNames.Operation,
+            sourceKind: IpcExecutePostReadSourceKind.Operation,
             commit: null,
             persistenceExpected: false,
-            expectedPostState: IpcExecuteExpectedPostStateNames.Unavailable,
+            expectedPostState: IpcExecuteExpectedPostState.Unavailable,
             touchedCount: 0,
-            diagnostics: [CreateDiagnostic(IpcExecuteDiagnosticCoverageImpactNames.Partial)],
+            diagnostics: [CreateDiagnostic(IpcExecuteDiagnosticCoverageImpact.Partial)],
             op: UcliPrimitiveOperationNames.SceneOpen));
 
         var claimSet = PostReadClaimBuilder.Build(input, profileRequired: false);
@@ -286,17 +290,17 @@ public sealed class PostReadClaimBuilderTests
         int readPostconditionRequirementCount)
     {
         return new VerifyFromInput(
-            Command: UcliCommandIds.Call,
-            ProjectFingerprint: "project-fingerprint",
+            Command: UcliCommandIds.Call.Name,
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             OpResults: opResults,
             ReadPostconditionRequirementCount: readPostconditionRequirementCount);
     }
 
     private static VerifyFromOperationResult CreateOperationResult (
-        string sourceKind = IpcExecutePostReadSourceKindNames.Edit,
-        string? commit = IpcExecutePostReadCommitNames.None,
+        IpcExecutePostReadSourceKind sourceKind = IpcExecutePostReadSourceKind.Edit,
+        IpcExecutePostReadCommit? commit = IpcExecutePostReadCommit.None,
         bool persistenceExpected = false,
-        string expectedPostState = IpcExecuteExpectedPostStateNames.Deterministic,
+        IpcExecuteExpectedPostState expectedPostState = IpcExecuteExpectedPostState.Deterministic,
         bool playModeMutation = false,
         bool applied = true,
         bool changed = true,
@@ -305,15 +309,17 @@ public sealed class PostReadClaimBuilderTests
         string op = "edit",
         string opId = "op-1")
     {
+        var executeStepId = new IpcExecuteStepId(opId);
+
         return new VerifyFromOperationResult(
-            OpId: opId,
+            OpId: executeStepId,
             Op: op,
             Applied: applied,
             Changed: changed,
             TouchedCount: touchedCount,
             Diagnostics: diagnostics ?? Array.Empty<VerifyFromDiagnostic>(),
             PostReadSource: new VerifyFromPostReadSourceStep(
-                OpId: opId,
+                OpId: executeStepId,
                 SourceKind: sourceKind,
                 PlayModeMutation: playModeMutation,
                 Commit: commit,
@@ -321,11 +327,11 @@ public sealed class PostReadClaimBuilderTests
                 ExpectedPostState: expectedPostState));
     }
 
-    private static VerifyFromDiagnostic CreateDiagnostic (string coverageImpact)
+    private static VerifyFromDiagnostic CreateDiagnostic (IpcExecuteDiagnosticCoverageImpact coverageImpact)
     {
         return new VerifyFromDiagnostic(
-            Code: "READ_SURFACE_PARTIAL",
-            Severity: IpcExecuteDiagnosticSeverityNames.Warning,
+            Code: new UcliCode("READ_SURFACE_PARTIAL"),
+            Severity: UcliDiagnosticSeverity.Warning,
             CoverageImpact: coverageImpact,
             Message: "Read surface coverage is partial.");
     }

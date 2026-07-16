@@ -6,9 +6,6 @@ internal static class UcliCommandNames
     /// <summary> Gets the command name used when no subcommand can be identified. </summary>
     public const string Root = "root";
 
-    /// <summary> Gets the command name for help. </summary>
-    public const string Help = "help";
-
     /// <summary> Gets the command name for init. </summary>
     public const string Init = "init";
 

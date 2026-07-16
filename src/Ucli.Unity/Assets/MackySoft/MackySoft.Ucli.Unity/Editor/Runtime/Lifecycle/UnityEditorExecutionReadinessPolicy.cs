@@ -25,14 +25,14 @@ namespace MackySoft.Ucli.Unity.Runtime
         }
 
         /// <summary> Resolves the action required to clear one lifecycle state. </summary>
-        public static string ResolveActionRequired (IpcEditorLifecycleState lifecycleState)
+        public static DaemonDiagnosisActionRequired? ResolveActionRequired (IpcEditorLifecycleState lifecycleState)
         {
             return lifecycleState switch
             {
-                IpcEditorLifecycleState.CompileFailed => DaemonDiagnosisActionRequiredValues.FixCompileErrors,
-                IpcEditorLifecycleState.ModalBlocked => DaemonDiagnosisActionRequiredValues.ResolveUnityDialog,
-                IpcEditorLifecycleState.SafeMode => DaemonDiagnosisActionRequiredValues.ResolveUnityDialog,
-                IpcEditorLifecycleState.Unavailable => DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+                IpcEditorLifecycleState.CompileFailed => DaemonDiagnosisActionRequired.FixCompileErrors,
+                IpcEditorLifecycleState.ModalBlocked => DaemonDiagnosisActionRequired.ResolveUnityDialog,
+                IpcEditorLifecycleState.SafeMode => DaemonDiagnosisActionRequired.ResolveUnityDialog,
+                IpcEditorLifecycleState.Unavailable => DaemonDiagnosisActionRequired.InspectUnityLog,
                 _ => null,
             };
         }

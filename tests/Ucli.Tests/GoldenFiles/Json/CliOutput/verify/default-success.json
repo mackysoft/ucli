@@ -77,7 +77,7 @@
     ],
     "reports": {
       "compile.summary": {
-        "path": ".ucli/local/compile/run-1/summary.json"
+        "path": ".ucli/local/compile/32c8976c-42f2-4e42-a857-3cba1241a7de/summary.json"
       }
     },
     "residualRisks": [],

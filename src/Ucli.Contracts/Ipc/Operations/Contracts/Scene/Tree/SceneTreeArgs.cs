@@ -8,55 +8,43 @@ public sealed record SceneTreeArgs
 {
     [JsonConstructor]
     public SceneTreeArgs (
-        SceneAssetPath path,
+        UnityScenePath path,
         int? depth,
         int? limit,
         string? cursor)
     {
-        Path = path;
+        Path = path ?? throw new ArgumentNullException(nameof(path));
+        if (depth is < 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(depth), depth, "Scene tree depth must not be negative.");
+        }
+
+        if (limit is < 1 or > BoundedWindowConstants.MaxLimit)
+        {
+            throw new ArgumentOutOfRangeException(nameof(limit), limit, $"Scene tree limit must be between 1 and {BoundedWindowConstants.MaxLimit}.");
+        }
+
         Depth = depth;
         Limit = limit;
         Cursor = cursor;
     }
 
-    public SceneTreeArgs (
-        SceneAssetPath path,
-        int? depth)
-        : this(path, depth, limit: null, cursor: null)
-    {
-    }
-
-    public SceneTreeArgs (
-        string path,
-        int? depth)
-        : this(path, depth, limit: null, cursor: null)
-    {
-    }
-
-    public SceneTreeArgs (
-        string path,
-        int? depth,
-        int? limit,
-        string? cursor)
-        : this(new SceneAssetPath(path), depth, limit, cursor)
-    {
-    }
-
     [UcliRequired]
     [UcliDescription("Scene asset path to inspect.")]
-    public SceneAssetPath Path { get; init; }
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
+    public UnityScenePath Path { get; }
 
     [UcliDescription("Maximum hierarchy depth to include; null means unbounded.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 0)]
-    public int? Depth { get; init; }
+    public int? Depth { get; }
 
     [UcliDescription("Maximum number of hierarchy nodes to include in the response window.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 1, Max = BoundedWindowConstants.MaxLimit)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public int? Limit { get; init; }
+    public int? Limit { get; }
 
     [UcliDescription("Opaque cursor returned by the previous scene tree window.")]
     [UcliInputConstraint(UcliOperationInputConstraintKind.Cursor)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public string? Cursor { get; init; }
+    public string? Cursor { get; }
 }

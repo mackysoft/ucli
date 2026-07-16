@@ -1,18 +1,42 @@
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 /// <summary> Represents the result of resolving one read-index backed validation catalog. </summary>
-/// <param name="Catalog"> The resolved validation catalog. </param>
-/// <param name="ReadIndex"> The emitted <c>payload.readIndex</c> metadata. </param>
-/// <param name="ErrorCode"> The machine-readable failure code when metadata resolution failed; otherwise <see langword="null" />. </param>
-/// <param name="ErrorMessage"> The user-facing failure message when metadata resolution failed; otherwise <see langword="null" />. </param>
-internal sealed record ReadIndexValidationCatalogResolutionResult (
-    RequestStaticValidationCatalog Catalog,
-    ReadIndexInfo ReadIndex,
-    UcliCode? ErrorCode,
-    string? ErrorMessage)
+internal sealed record ReadIndexValidationCatalogResolutionResult
 {
+    private ReadIndexValidationCatalogResolutionResult (
+        RequestStaticValidationCatalog catalog,
+        ReadIndexInfo readIndex,
+        UcliCode? errorCode,
+        string? errorMessage)
+    {
+        ArgumentNullException.ThrowIfNull(catalog);
+        ArgumentNullException.ThrowIfNull(readIndex);
+        if ((errorCode is null) != (errorMessage is null))
+        {
+            throw new ArgumentException("Failure code and message must either both be present or both be absent.", nameof(errorCode));
+        }
+
+        if (errorMessage is not null)
+        {
+            ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
+        }
+
+        Catalog = catalog;
+        ReadIndex = readIndex;
+        ErrorCode = errorCode;
+        ErrorMessage = errorMessage;
+    }
+
+    public RequestStaticValidationCatalog Catalog { get; }
+
+    public ReadIndexInfo ReadIndex { get; }
+
+    public UcliCode? ErrorCode { get; }
+
+    public string? ErrorMessage { get; }
+
     /// <summary> Gets a value indicating whether metadata resolution succeeded. </summary>
-    public bool IsSuccess => ErrorCode is null && ErrorMessage is null;
+    public bool IsSuccess => ErrorCode is null;
 
     /// <summary> Creates a successful metadata-resolution result. </summary>
     /// <param name="catalog"> The resolved validation catalog. </param>
@@ -38,11 +62,7 @@ internal sealed record ReadIndexValidationCatalogResolutionResult (
         string errorMessage)
     {
         ArgumentNullException.ThrowIfNull(readIndex);
-        if (!errorCode.IsValid)
-        {
-            throw new ArgumentException("Error code must not be empty.", nameof(errorCode));
-        }
-
+        ArgumentNullException.ThrowIfNull(errorCode);
         ArgumentException.ThrowIfNullOrWhiteSpace(errorMessage);
         return new ReadIndexValidationCatalogResolutionResult(RequestStaticValidationCatalog.Unavailable, readIndex, errorCode, errorMessage);
     }

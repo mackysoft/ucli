@@ -7,8 +7,7 @@ public sealed class CodeCatalogDescriptorValidationTests
 {
     public static TheoryData<string> InvalidDescriptorCases =>
     [
-        "default-code",
-        "unsupported-kind",
+        "reserved-unknown-kind",
         "invalid-applies-to-command",
         "duplicate-applies-to",
         "empty-appears-in",
@@ -31,6 +30,38 @@ public sealed class CodeCatalogDescriptorValidationTests
             ]));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DescriptorConstructor_WithNullCode_ThrowsArgumentNullException ()
+    {
+        var descriptor = CodeCatalogDescriptorTestFactory.CreateErrorDescriptor("VALID_CODE");
+
+        Assert.Throws<ArgumentNullException>(() => new CodeCatalogDescriptor(
+            null!,
+            descriptor.Kind,
+            descriptor.Category,
+            descriptor.Summary,
+            descriptor.Meaning,
+            descriptor.AppearsIn,
+            descriptor.AppliesTo,
+            descriptor.CoverageImpact,
+            descriptor.VerdictSemantics,
+            descriptor.ExecutionSemantics,
+            descriptor.Inspect,
+            descriptor.RelatedCodes));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void DescriptorConstructor_WithUndefinedKind_ThrowsArgumentOutOfRangeException ()
+    {
+        var descriptor = CodeCatalogDescriptorTestFactory.CreateErrorDescriptor("VALID_CODE");
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => CreateDescriptorWithKind(
+            descriptor,
+            (CodeCatalogKind)int.MaxValue));
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [MemberData(nameof(InvalidDescriptorCases))]
@@ -49,14 +80,7 @@ public sealed class CodeCatalogDescriptorValidationTests
         var descriptor = CodeCatalogDescriptorTestFactory.CreateErrorDescriptor("INVALID_DESCRIPTOR_CODE");
         return caseName switch
         {
-            "default-code" => descriptor with
-            {
-                Code = default,
-            },
-            "unsupported-kind" => descriptor with
-            {
-                Kind = "unknown-kind",
-            },
+            "reserved-unknown-kind" => CreateDescriptorWithKind(descriptor, CodeCatalogKind.Unknown),
             "invalid-applies-to-command" => descriptor with
             {
                 AppliesTo = [new UcliCommand("unknown.command")],
@@ -75,5 +99,24 @@ public sealed class CodeCatalogDescriptorValidationTests
             },
             _ => throw new ArgumentOutOfRangeException(nameof(caseName), caseName, "Unknown code catalog descriptor validation case."),
         };
+    }
+
+    private static CodeCatalogDescriptor CreateDescriptorWithKind (
+        CodeCatalogDescriptor descriptor,
+        CodeCatalogKind kind)
+    {
+        return new CodeCatalogDescriptor(
+            descriptor.Code,
+            kind,
+            descriptor.Category,
+            descriptor.Summary,
+            descriptor.Meaning,
+            descriptor.AppearsIn,
+            descriptor.AppliesTo,
+            descriptor.CoverageImpact,
+            descriptor.VerdictSemantics,
+            descriptor.ExecutionSemantics,
+            descriptor.Inspect,
+            descriptor.RelatedCodes);
     }
 }

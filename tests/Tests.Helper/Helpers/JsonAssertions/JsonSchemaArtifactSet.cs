@@ -20,6 +20,7 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
         "additionalProperties",
         "enum",
         "const",
+        "format",
         "pattern",
         "minimum",
         "oneOf",
@@ -200,6 +201,13 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
             && !MatchesEnum(element, enumElement))
         {
             errors.Add($"path '{path}' did not match any schema enum value.");
+            return;
+        }
+
+        if (schema.TryGetProperty("format", out var formatElement)
+            && !MatchesFormat(element, formatElement))
+        {
+            errors.Add($"path '{path}' did not match schema format.");
             return;
         }
 
@@ -588,6 +596,13 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
             ValidatePatternDefinition(patternElement, schemaPath, path, errors);
         }
 
+        if (schema.TryGetProperty("format", out var formatElement)
+            && (formatElement.ValueKind != JsonValueKind.String
+                || !string.Equals(formatElement.GetString(), "uuid", StringComparison.Ordinal)))
+        {
+            errors.Add($"schema '{schemaPath}' for path '{path}' has an unsupported format.");
+        }
+
         if (schema.TryGetProperty("minimum", out var minimumElement)
             && (minimumElement.ValueKind != JsonValueKind.Number || !minimumElement.TryGetDecimal(out _)))
         {
@@ -713,6 +728,20 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
         {
             return false;
         }
+    }
+
+    private static bool MatchesFormat (
+        JsonElement element,
+        JsonElement formatElement)
+    {
+        if (element.ValueKind != JsonValueKind.String)
+        {
+            return true;
+        }
+
+        return formatElement.ValueKind == JsonValueKind.String
+            && string.Equals(formatElement.GetString(), "uuid", StringComparison.Ordinal)
+            && Guid.TryParseExact(element.GetString(), "D", out _);
     }
 
     private static bool MatchesMinimum (

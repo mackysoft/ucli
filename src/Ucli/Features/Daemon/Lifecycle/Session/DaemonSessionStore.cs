@@ -1,6 +1,8 @@
+using System.Text;
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -9,21 +11,11 @@ namespace MackySoft.Ucli.Features.Daemon.Lifecycle.Session;
 /// <summary> Implements orchestration for filesystem-backed daemon session persistence. </summary>
 internal sealed class DaemonSessionStore : IDaemonSessionStore
 {
-    private readonly IDaemonSessionSerializer sessionSerializer;
+    private static readonly TimeSpan SessionLockAcquireTimeout = TimeSpan.FromSeconds(1);
 
-    private readonly IDaemonSessionValidator sessionValidator;
-
-    /// <summary> Initializes a new instance of the <see cref="DaemonSessionStore" /> class. </summary>
-    /// <param name="sessionSerializer"> The daemon session serializer dependency. </param>
-    /// <param name="sessionValidator"> The daemon session validator dependency. </param>
-    /// <exception cref="ArgumentNullException"> Thrown when one dependency is <see langword="null" />. </exception>
-    public DaemonSessionStore (
-        IDaemonSessionSerializer sessionSerializer,
-        IDaemonSessionValidator sessionValidator)
-    {
-        this.sessionSerializer = sessionSerializer ?? throw new ArgumentNullException(nameof(sessionSerializer));
-        this.sessionValidator = sessionValidator ?? throw new ArgumentNullException(nameof(sessionValidator));
-    }
+    private static readonly UTF8Encoding StrictUtf8 = new(
+        encoderShouldEmitUTF8Identifier: false,
+        throwOnInvalidBytes: true);
 
     /// <summary> Reads daemon session metadata for one project fingerprint. </summary>
     /// <param name="storageRoot"> The storage root path. </param>
@@ -32,7 +24,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     /// <returns> The daemon session read result. </returns>
     public async ValueTask<DaemonSessionReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -49,10 +41,14 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                 DaemonSessionReadFailureKind.PathInvalid);
         }
 
-        string? json;
+        ReadOnlyMemory<byte>? serializedContent;
         try
         {
-            json = await FileUtilities.ReadAllTextOrNullAsync(sessionPath, cancellationToken).ConfigureAwait(false);
+            serializedContent = await FileUtilities.ReadBytesOrNullWithinLimitAsync(
+                    sessionPath,
+                    DaemonSessionStorageContract.MaximumFileSizeBytes,
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -67,52 +63,63 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                 DaemonSessionReadFailureKind.IoFailure);
         }
 
-        if (json == null)
+        if (serializedContent == null)
         {
-            return DaemonSessionReadResult.Success(null);
+            return DaemonSessionReadResult.Missing();
         }
 
-        DaemonSession session;
+        var artifactIdentity = DaemonSessionArtifactIdentity.Create(serializedContent.Value.Span);
+
+        DaemonSessionJsonContract contract;
         try
         {
-            session = sessionSerializer.Deserialize(json);
+            var json = StrictUtf8.GetString(serializedContent.Value.Span);
+            contract = DaemonSessionJsonContractSerializer.Deserialize(json)
+                ?? throw new JsonException("Daemon session JSON root must be an object.");
+        }
+        catch (DecoderFallbackException exception)
+        {
+            return DaemonSessionReadResult.Invalid(ExecutionError.InvalidArgument(
+                    $"Daemon session JSON is not valid UTF-8: {sessionPath}. {exception.Message}"),
+                invalidEvidence: null,
+                artifactIdentity);
         }
         catch (JsonException exception)
         {
-            return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"),
-                DaemonSessionReadFailureKind.InvalidSession);
+            return DaemonSessionReadResult.Invalid(ExecutionError.InvalidArgument(
+                    $"Daemon session JSON is invalid: {sessionPath}. Field={exception.Path ?? "$"}. {exception.Message}"),
+                invalidEvidence: null,
+                artifactIdentity);
         }
         catch (ArgumentException exception)
         {
-            return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"),
-                DaemonSessionReadFailureKind.InvalidSession);
+            return DaemonSessionReadResult.Invalid(ExecutionError.InvalidArgument(
+                    $"Daemon session JSON is invalid: {sessionPath}. {exception.Message}"),
+                invalidEvidence: null,
+                artifactIdentity);
         }
         catch (Exception exception)
         {
             return DaemonSessionReadResult.Failure(ExecutionError.InternalError(
                 $"Failed to deserialize daemon session JSON: {sessionPath}. {exception.Message}"),
-                DaemonSessionReadFailureKind.InternalFailure);
+                DaemonSessionReadFailureKind.InternalFailure,
+                artifactIdentity);
         }
 
-        if (!sessionValidator.TryValidate(session, sessionPath, out var validationError))
+        if (!DaemonSessionContractMapper.TryCreate(
+                contract,
+                projectFingerprint,
+                sessionPath,
+                out var session,
+                out var validationError))
         {
-            return DaemonSessionReadResult.Failure(
+            return DaemonSessionReadResult.Invalid(
                 validationError!,
-                DaemonSessionReadFailureKind.InvalidSession,
-                session);
+                new DaemonInvalidSessionEvidence(contract),
+                artifactIdentity);
         }
 
-        if (!string.Equals(session.ProjectFingerprint, projectFingerprint, StringComparison.Ordinal))
-        {
-            return DaemonSessionReadResult.Failure(ExecutionError.InvalidArgument(
-                $"Daemon session projectFingerprint mismatch. Requested={projectFingerprint}, Actual={session.ProjectFingerprint}. {sessionPath}"),
-                DaemonSessionReadFailureKind.InvalidSession,
-                session);
-        }
-
-        return DaemonSessionReadResult.Success(session);
+        return DaemonSessionReadResult.Found(session, artifactIdentity);
     }
 
     /// <summary> Writes daemon session metadata to local storage. </summary>
@@ -129,9 +136,13 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         ArgumentNullException.ThrowIfNull(session);
 
         string sessionPath;
+        string sessionLockPath;
         try
         {
             sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, session.ProjectFingerprint);
+            sessionLockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
+                storageRoot,
+                session.ProjectFingerprint);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -139,15 +150,12 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
                 $"Daemon session path is invalid. {exception.Message}"));
         }
 
-        if (!sessionValidator.TryValidate(session, sessionPath, out var validationError))
-        {
-            return DaemonSessionStoreOperationResult.Failure(validationError!);
-        }
-
         string json;
         try
         {
-            json = sessionSerializer.Serialize(session) + Environment.NewLine;
+            json = DaemonSessionJsonContractSerializer.Serialize(
+                    DaemonSessionContractMapper.ToContract(session))
+                + Environment.NewLine;
         }
         catch (Exception exception)
         {
@@ -157,6 +165,11 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
 
         try
         {
+            using var sessionLock = await FileExclusiveLock.AcquireAsync(
+                    sessionLockPath,
+                    SessionLockAcquireTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
             var sessionDirectoryPath = Path.GetDirectoryName(sessionPath)
                 ?? throw new InvalidOperationException($"Daemon session directory path could not be resolved: {sessionPath}");
             FileSystemAccessBoundary.EnsureSecureDirectory(sessionDirectoryPath);
@@ -183,15 +196,19 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     /// <returns> The daemon session storage operation result. </returns>
     public async ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         string sessionPath;
+        string sessionLockPath;
         try
         {
             sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
+            sessionLockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
+                storageRoot,
+                projectFingerprint);
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -202,6 +219,11 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
+            using var sessionLock = await FileExclusiveLock.AcquireAsync(
+                    sessionLockPath,
+                    SessionLockAcquireTimeout,
+                    cancellationToken)
+                .ConfigureAwait(false);
             FileUtilities.DeleteIfExists(sessionPath);
             return DaemonSessionStoreOperationResult.Success();
         }
@@ -223,7 +245,7 @@ internal sealed class DaemonSessionStore : IDaemonSessionStore
     private static bool IsIoFailure (Exception exception)
     {
         return exception is IOException
-            or UnauthorizedAccessException;
+            or UnauthorizedAccessException
+            or TimeoutException;
     }
-
 }

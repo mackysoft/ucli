@@ -31,7 +31,7 @@ public sealed class StatusDaemonObservationCodecTests
         var pingResponse = new IpcUnityEditorObservation(
             serverVersion: " 0.5.0 ",
             unityVersion: "2022.3.5f1",
-            projectFingerprint: "project-fingerprint",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             state: new UnityEditorStateSnapshot(
                 editorMode: DaemonEditorMode.Batchmode,
                 lifecycleState: IpcEditorLifecycleState.Compiling,
@@ -46,7 +46,9 @@ public sealed class StatusDaemonObservationCodecTests
                     Transition: IpcPlayModeTransition.Entering,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: true)),
-            observedAtUtc: observedAtUtc);
+            observedAtUtc: observedAtUtc,
+            actionRequired: null,
+            primaryDiagnostic: null);
 
         var actual = StatusDaemonObservationCodec.CreateFromPing(
             DaemonStatusKind.Running,

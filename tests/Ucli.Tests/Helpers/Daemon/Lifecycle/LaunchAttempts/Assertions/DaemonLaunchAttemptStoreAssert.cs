@@ -16,7 +16,7 @@ internal static class DaemonLaunchAttemptStoreAssert
     public static DaemonLaunchAttempt LaunchAttemptRecordedAndPrunedFor (
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
-        string expectedLaunchAttemptId,
+        Guid expectedLaunchAttemptId,
         DaemonStartupStatus expectedStartupStatus,
         DaemonStartupProcessAction expectedProcessAction)
     {
@@ -33,7 +33,7 @@ internal static class DaemonLaunchAttemptStoreAssert
     public static DaemonLaunchAttempt LaunchAttemptRecordedWithoutPruneFor (
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
-        string expectedLaunchAttemptId,
+        Guid expectedLaunchAttemptId,
         DaemonStartupStatus expectedStartupStatus,
         DaemonStartupProcessAction expectedProcessAction)
     {
@@ -50,7 +50,7 @@ internal static class DaemonLaunchAttemptStoreAssert
     public static DaemonLaunchAttempt SingleLaunchAttemptRecordedAndPrunedFor (
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
-        string expectedLaunchAttemptId,
+        Guid expectedLaunchAttemptId,
         DaemonStartupStatus expectedStartupStatus,
         DaemonStartupProcessAction expectedProcessAction)
     {
@@ -67,7 +67,7 @@ internal static class DaemonLaunchAttemptStoreAssert
     public static DaemonLaunchAttempt SingleLaunchAttemptRecordedWithoutPruneFor (
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
-        string expectedLaunchAttemptId,
+        Guid expectedLaunchAttemptId,
         DaemonStartupStatus expectedStartupStatus,
         DaemonStartupProcessAction expectedProcessAction)
     {
@@ -79,38 +79,6 @@ internal static class DaemonLaunchAttemptStoreAssert
             expectedProcessAction);
         Assert.Single(launchAttemptStore.WriteInvocations);
         return launchAttempt;
-    }
-
-    public static DaemonLaunchAttempt LaunchAttemptEvidenceBeforeAndAfterCompensationFor (
-        RecordingDaemonLaunchAttemptStore launchAttemptStore,
-        ResolvedUnityProjectContext expectedUnityProject,
-        DaemonStartupProcessAction expectedFinalProcessAction)
-    {
-        DaemonLaunchAttempt? initialAttempt = null;
-        DaemonLaunchAttempt? finalAttempt = null;
-        Assert.Collection(
-            launchAttemptStore.WriteInvocations,
-            invocation => initialAttempt = AssertLaunchAttemptWrite(invocation, expectedUnityProject),
-            invocation => finalAttempt = AssertLaunchAttemptWrite(invocation, expectedUnityProject));
-
-        Assert.NotNull(initialAttempt);
-        Assert.NotNull(finalAttempt);
-        Assert.Equal(initialAttempt!.LaunchAttemptId, finalAttempt!.LaunchAttemptId);
-        Assert.Equal(expectedFinalProcessAction, finalAttempt.ProcessAction);
-        return finalAttempt;
-    }
-
-    public static DaemonLaunchAttempt LaunchAttemptEvidenceBeforeAndAfterCompensationWithoutPruneFor (
-        RecordingDaemonLaunchAttemptStore launchAttemptStore,
-        ResolvedUnityProjectContext expectedUnityProject,
-        DaemonStartupProcessAction expectedFinalProcessAction)
-    {
-        var finalAttempt = LaunchAttemptEvidenceBeforeAndAfterCompensationFor(
-            launchAttemptStore,
-            expectedUnityProject,
-            expectedFinalProcessAction);
-        Assert.Empty(launchAttemptStore.PruneInvocations);
-        return finalAttempt;
     }
 
     public static void LaunchAttemptPrunedFor (
@@ -126,7 +94,7 @@ internal static class DaemonLaunchAttemptStoreAssert
     private static DaemonLaunchAttempt LaunchAttemptRecordedFor (
         RecordingDaemonLaunchAttemptStore launchAttemptStore,
         ResolvedUnityProjectContext expectedUnityProject,
-        string expectedLaunchAttemptId,
+        Guid expectedLaunchAttemptId,
         DaemonStartupStatus expectedStartupStatus,
         DaemonStartupProcessAction expectedProcessAction)
     {

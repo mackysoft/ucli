@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Storage;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Ready;
 
@@ -13,6 +14,6 @@ internal sealed record ReadyLifecycleOutput (
     IpcUnityGenerationSnapshot? Generations,
     bool CanAcceptExecutionRequests,
     DateTimeOffset? ObservedAtUtc,
-    string? ActionRequired,
+    DaemonDiagnosisActionRequired? ActionRequired,
     ReadyPrimaryDiagnosticOutput? PrimaryDiagnostic,
-    IpcPlayModeSnapshot? PlayMode = null);
+    IpcPlayModeSnapshot? PlayMode);

@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -7,9 +6,7 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
 {
     private readonly List<Invocation> invocations = [];
 
-    public DaemonStartResult StartResult { get; set; } = DaemonStartResult.AlreadyRunning(
-        CreateDefaultSession(),
-        IpcUnityEditorObservationTestFactory.Create(projectFingerprint: "fingerprint"));
+    public DaemonStartResult StartResult { get; set; } = CreateDefaultStartResult();
 
     public TimeSpan DelayBeforeResult { get; set; }
 
@@ -21,18 +18,21 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
 
     public async ValueTask<DaemonStartResult> StartAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(deadline);
         cancellationToken.ThrowIfCancellationRequested();
+        _ = deadline.TryGetRemainingTimeout(out var remainingTimeout);
 
         invocations.Add(new Invocation(
             unityProject,
-            timeout,
+            deadline,
+            remainingTimeout,
             editorMode,
             onStartupBlocked,
             progressObserver,
@@ -55,26 +55,29 @@ internal sealed class RecordingDaemonStartOperation : IDaemonStartOperation
         return StartResult;
     }
 
-    private static DaemonSession CreateDefaultSession ()
+    private static DaemonStartResult CreateDefaultStartResult ()
     {
-        return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: "session-token",
-            ProjectFingerprint: "fingerprint",
-            IssuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: DaemonEditorMode.Batchmode,
-            OwnerKind: DaemonSessionOwnerKind.Cli,
-            CanShutdownProcess: true,
-            EndpointTransportKind: IpcTransportKind.UnixDomainSocket,
-            EndpointAddress: "/tmp/ucli.sock",
-            ProcessId: 42,
-            ProcessStartedAtUtc: null,
-            OwnerProcessId: 24);
+        var session = DaemonSessionTestFactory.Create(
+            sessionToken: "session-token",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
+            issuedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 0, TimeSpan.Zero),
+            editorMode: DaemonEditorMode.Batchmode,
+            ownerKind: DaemonSessionOwnerKind.Cli,
+            canShutdownProcess: true,
+            endpointTransportKind: IpcTransportKind.UnixDomainSocket,
+            endpointAddress: "/tmp/ucli.sock",
+            processId: 42,
+            processStartedAtUtc: new DateTimeOffset(2026, 03, 11, 0, 0, 1, TimeSpan.Zero),
+            ownerProcessId: 24);
+        return DaemonStartResult.AlreadyRunning(
+            session,
+            IpcUnityEditorObservationTestFactory.Create(projectFingerprint: session.ProjectFingerprint));
     }
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
+        TimeSpan RemainingTimeout,
         DaemonEditorMode? EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         IDaemonStartProgressObserver? ProgressObserver,

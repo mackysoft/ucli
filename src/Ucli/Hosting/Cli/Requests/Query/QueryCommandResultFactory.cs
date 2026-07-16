@@ -16,7 +16,7 @@ internal static class QueryCommandResultFactory
 
         var payload = new Dictionary<string, object?>
         {
-            ["requestId"] = serviceResult.RequestId,
+            ["requestId"] = serviceResult.RequestId.ToString("D"),
         };
         if (serviceResult.Project != null)
         {
@@ -53,6 +53,7 @@ internal static class QueryCommandResultFactory
 
     /// <summary> Creates one command result for a typed-query command from a normalized execution error. </summary>
     public static CommandResult CreateExecutionError (
+        Guid requestId,
         string commandName,
         ExecutionError error)
     {
@@ -60,7 +61,7 @@ internal static class QueryCommandResultFactory
         ArgumentNullException.ThrowIfNull(error);
         return Create(QueryServiceResultFactory.FromExecutionError(
             commandName,
-            Guid.NewGuid().ToString("D"),
+            requestId,
             error));
     }
 }

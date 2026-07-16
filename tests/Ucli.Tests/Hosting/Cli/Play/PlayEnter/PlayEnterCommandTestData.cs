@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
+using MackySoft.Ucli.Application.Features.Play.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Enter;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -7,9 +8,9 @@ namespace MackySoft.Ucli.Tests;
 internal static class PlayEnterCommandTestData
 {
     public static PlayEnterExecutionOutput CreateOutput (
-        string result = IpcPlayTransitionResultNames.Entered,
+        IpcPlayTransitionOutcome result = IpcPlayTransitionOutcome.Entered,
         bool includeAfter = true,
-        string applicationState = IpcPlayApplicationStateNames.Indeterminate)
+        IpcApplicationState applicationState = IpcApplicationState.Indeterminate)
     {
         var before = PlayCommandOutputTestData.CreateLifecycleSnapshot(
             IpcEditorLifecycleState.Ready,
@@ -19,29 +20,13 @@ internal static class PlayEnterCommandTestData
             IpcEditorLifecycleState.PlayMode,
             PlayCommandOutputTestData.CreatePlayMode(IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true),
             playModeGeneration: 3);
-        var transition = new PlayEnterTransitionOutput(
-            Transition: IpcPlayTransitionCommandNames.Enter,
+        var transition = new PlayTransitionOutput(
+            Transition: IpcPlayTransitionCommand.Enter,
             Result: result,
             Before: PlayCommandOutputTestData.CreateLifecycleSnapshotOutput(before),
-            After: null,
-            Observed: null,
-            ApplicationState: null);
-
-        if (includeAfter)
-        {
-            transition = transition with
-            {
-                After = PlayCommandOutputTestData.CreateLifecycleSnapshotOutput(current),
-            };
-        }
-        else
-        {
-            transition = transition with
-            {
-                Observed = PlayCommandOutputTestData.CreateLifecycleSnapshotOutput(current),
-                ApplicationState = applicationState,
-            };
-        }
+            After: includeAfter ? PlayCommandOutputTestData.CreateLifecycleSnapshotOutput(current) : null,
+            Observed: includeAfter ? null : PlayCommandOutputTestData.CreateLifecycleSnapshotOutput(current),
+            ApplicationState: includeAfter ? null : applicationState);
 
         return new PlayEnterExecutionOutput(
             Project: PlayCommandOutputTestData.CreateProject(),

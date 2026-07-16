@@ -2,7 +2,6 @@ using System.Text.Json;
 using MackySoft.AgentSkills.Digests;
 using MackySoft.AgentSkills.Installation.Validation;
 using MackySoft.AgentSkills.Manifests;
-using MackySoft.Tests;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Tests;

@@ -67,14 +67,19 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"Editor log offset is out of range. start={startOffset}, end={endOffset}, length={sourceStream.Length}.");
             }
 
-            var temporaryPath = destinationPath + $".tmp.{Guid.NewGuid():N}";
+            var temporaryPath = string.Empty;
+            var temporaryFileOwned = false;
             try
             {
                 var counter = new BuildLogLineCounter();
                 var redactionPatterns = CreateRedactionPatterns(redactionValues);
                 var redactionPending = redactionPatterns.Count == 0 ? null : new List<byte>();
-                using (var destinationStream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, BufferSize, true))
+                using (var destinationStream = EditorLogTemporaryFilePath.OpenExclusiveWrite(
+                           destinationPath,
+                           BufferSize,
+                           out temporaryPath))
                 {
+                    temporaryFileOwned = true;
                     sourceStream.Seek(startOffset, SeekOrigin.Begin);
                     var remaining = endOffset - startOffset;
                     var buffer = ArrayPool<byte>.Shared.Rent(BufferSize);
@@ -135,14 +140,20 @@ namespace MackySoft.Ucli.Unity.Ipc
 
                 cancellationToken.ThrowIfCancellationRequested();
                 FileSystemAccessBoundary.EnsureSecureFile(temporaryPath);
-                EnsureWritableArtifactPath(destinationPath);
-                ReplaceFile(temporaryPath, destinationPath);
+                await FileUtilities.PublishAtomicWriteTemporaryFileAsync(
+                    temporaryPath,
+                    destinationPath,
+                    cancellationToken);
+                temporaryFileOwned = false;
                 FileSystemAccessBoundary.EnsureSecureFile(destinationPath);
                 return counter.Complete();
             }
             finally
             {
-                DeleteTemporaryFileIfExists(temporaryPath);
+                if (temporaryFileOwned)
+                {
+                    FileUtilities.DeleteIfExists(temporaryPath);
+                }
             }
         }
 
@@ -296,66 +307,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             var span = output.GetSpan(byteCount);
             var written = Utf8NoBomEncoding.GetBytes(value.AsSpan(), span);
             output.Advance(written);
-        }
-
-        private static void EnsureWritableArtifactPath (string path)
-        {
-            if (!File.Exists(path) && !Directory.Exists(path))
-            {
-                return;
-            }
-
-            var attributes = File.GetAttributes(path);
-            if ((attributes & FileAttributes.ReparsePoint) != 0)
-            {
-                throw new IOException($"Build log artifact target must not be a reparse point: {path}");
-            }
-
-            if ((attributes & FileAttributes.Directory) != 0)
-            {
-                throw new IOException($"Build log artifact target must not be a directory: {path}");
-            }
-        }
-
-        private static void ReplaceFile (
-            string temporaryPath,
-            string path)
-        {
-            try
-            {
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
-            catch (FileNotFoundException)
-            {
-                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-            }
-            catch (IOException) when (!File.Exists(path))
-            {
-                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-            }
-        }
-
-        private static void MoveOrReplaceWhenCreatedConcurrently (
-            string temporaryPath,
-            string path)
-        {
-            try
-            {
-                File.Move(temporaryPath, path);
-            }
-            catch (IOException) when (File.Exists(path))
-            {
-                EnsureWritableArtifactPath(path);
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
-        }
-
-        private static void DeleteTemporaryFileIfExists (string path)
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
         }
 
         private sealed class BuildLogLineCounter

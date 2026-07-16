@@ -1,11 +1,15 @@
+using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Tests.Ipc.Common;
 
 internal static class IpcBuildContractSerializationTestSupport
 {
+    public static readonly ProjectFingerprint TestProjectFingerprint =
+        new("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef");
+
     public static IpcUnityEditorObservation CreateBuildLifecycleSnapshot (
         long generation,
         bool canAcceptExecutionRequests)
@@ -13,7 +17,7 @@ internal static class IpcBuildContractSerializationTestSupport
         return new IpcUnityEditorObservation(
             serverVersion: "0.5.0",
             unityVersion: "6000.1.4f1",
-            projectFingerprint: "project-fingerprint",
+            projectFingerprint: TestProjectFingerprint,
             state: new UnityEditorStateSnapshot(
                 editorMode: DaemonEditorMode.Batchmode,
                 lifecycleState: canAcceptExecutionRequests
@@ -38,18 +42,18 @@ internal static class IpcBuildContractSerializationTestSupport
     public static IpcBuildProjectMutationAudit CreateProjectMutationAudit ()
     {
         return new IpcBuildProjectMutationAudit(
-            Mode: "forbid",
-            Coverage: ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full),
+            Mode: BuildProfileProjectMutationMode.Forbid,
+            Coverage: IpcBuildProjectMutationAuditCoverage.Full,
             Mutated: true,
-            BeforeDigest: new string('a', 64),
-            AfterDigest: new string('b', 64),
+            BeforeDigest: Sha256Digest.Parse(new string('a', 64)),
+            AfterDigest: Sha256Digest.Parse(new string('b', 64)),
             Items:
             [
                 new IpcBuildProjectMutationAuditItem(
-                    Path: "Assets/Generated.asset",
-                    ChangeKind: ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added),
+                    Path: new ProjectMutationAuditPath("Assets/Generated.asset"),
+                    ChangeKind: IpcBuildProjectMutationChangeKind.Added,
                     BeforeSha256: null,
-                    AfterSha256: new string('b', 64)),
+                    AfterSha256: Sha256Digest.Parse(new string('b', 64))),
             ]);
     }
 }

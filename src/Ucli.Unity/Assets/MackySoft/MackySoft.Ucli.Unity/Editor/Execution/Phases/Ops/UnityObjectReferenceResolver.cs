@@ -1,8 +1,9 @@
 using System;
-#if UNITY_6000_0_OR_NEWER
-using System.Reflection;
-#endif
+using System.Diagnostics.CodeAnalysis;
+using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Execution.Requests;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 #nullable enable
@@ -12,21 +13,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
     /// <summary> Resolves parsed Unity-object references to live Unity objects. </summary>
     internal static class UnityObjectReferenceResolver
     {
-        /// <summary> Tries to resolve one Unity-object reference to a live Unity object. </summary>
-        /// <param name="reference"> The parsed reference. </param>
-        /// <param name="executionContext"> The request execution context. </param>
-        /// <param name="unityObject"> The resolved Unity object when successful. </param>
-        /// <param name="errorMessage"> The resolution error message when resolution fails. </param>
-        /// <returns> <see langword="true" /> when resolution succeeds; otherwise <see langword="false" />. </returns>
-        public static bool TryResolve (
-            UnityObjectReference reference,
-            OperationExecutionContext executionContext,
-            out UnityEngine.Object? unityObject,
-            out string errorMessage)
-        {
-            return TryResolve(reference, executionContext, allowTemporaryState: false, out unityObject, out errorMessage);
-        }
-
         /// <summary> Tries to resolve one Unity-object reference to a live Unity object. </summary>
         /// <param name="reference"> The parsed reference. </param>
         /// <param name="executionContext"> The request execution context. Must not be <see langword="null" />. </param>
@@ -39,9 +25,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UnityObjectReference reference,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
-            out UnityEngine.Object? unityObject,
+            [NotNullWhen(true)] out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
+            if (reference == null)
+            {
+                throw new ArgumentNullException(nameof(reference));
+            }
+
             if (executionContext == null)
             {
                 throw new ArgumentNullException(nameof(executionContext));
@@ -50,11 +41,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             switch (reference.Kind)
             {
                 case UnityObjectReferenceKind.Alias:
-                    return TryResolveAlias(reference.Alias!, executionContext, out unityObject, out errorMessage);
+                    return TryResolveAlias(
+                        reference.Alias!,
+                        executionContext,
+                        allowTemporaryState,
+                        out unityObject,
+                        out errorMessage);
 
                 case UnityObjectReferenceKind.Selector:
                     return ResolveReferenceResolver.TryResolveUnityObject(
-                        reference.Selector,
+                        reference.Selector!,
                         executionContext,
                         allowTemporaryState,
                         out unityObject,
@@ -69,21 +65,6 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
         /// <summary> Tries to resolve one Unity-object reference to a live <see cref="GameObject" />. </summary>
         /// <param name="reference"> The parsed reference. </param>
-        /// <param name="executionContext"> The request execution context. </param>
-        /// <param name="gameObject"> The resolved GameObject when successful. </param>
-        /// <param name="errorMessage"> The resolution error message when resolution fails. </param>
-        /// <returns> <see langword="true" /> when resolution succeeds; otherwise <see langword="false" />. </returns>
-        public static bool TryResolveGameObject (
-            UnityObjectReference reference,
-            OperationExecutionContext executionContext,
-            out GameObject? gameObject,
-            out string errorMessage)
-        {
-            return TryResolveGameObject(reference, executionContext, allowTemporaryState: false, out gameObject, out errorMessage);
-        }
-
-        /// <summary> Tries to resolve one Unity-object reference to a live <see cref="GameObject" />. </summary>
-        /// <param name="reference"> The parsed reference. </param>
         /// <param name="executionContext"> The request execution context. Must not be <see langword="null" />. </param>
         /// <param name="allowTemporaryState"> <see langword="true" /> to allow request-local prefab planning state to satisfy selector resolution before persisted state is consulted. </param>
         /// <param name="gameObject"> The resolved GameObject when successful. </param>
@@ -94,7 +75,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UnityObjectReference reference,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
-            out GameObject? gameObject,
+            [NotNullWhen(true)] out GameObject? gameObject,
             out string errorMessage)
         {
             gameObject = null;
@@ -114,155 +95,85 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return true;
         }
 
-        /// <summary> Creates one normalized resolved reference from a live Unity object. </summary>
+        /// <summary> Creates one canonical GlobalObjectId from a live Unity object. </summary>
         /// <param name="unityObject"> The live Unity object. </param>
-        /// <returns> The normalized resolved reference. </returns>
+        /// <returns> The canonical object identity. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityObject" /> is <see langword="null" />. </exception>
-        public static ResolvedReference CreateResolvedReference (UnityEngine.Object unityObject)
+        public static UnityGlobalObjectId CreateGlobalObjectId (UnityEngine.Object unityObject)
         {
-            if (!TryCreateResolvedReference(unityObject, out var resolvedReference))
+            if (!TryCreateStableGlobalObjectId(unityObject, out var globalObjectId))
             {
                 throw new InvalidOperationException("Unity object does not expose a stable GlobalObjectId in the current editor state.");
             }
 
-            return resolvedReference!;
+            return globalObjectId;
         }
 
-        /// <summary> Tries to create one normalized resolved reference from a live Unity object. </summary>
+        /// <summary> Tries to get one parsed stable GlobalObjectId from a live Unity object. </summary>
         /// <param name="unityObject"> The live Unity object. </param>
-        /// <param name="resolvedReference"> The normalized resolved reference when successful. </param>
+        /// <param name="globalObjectId"> The parsed stable GlobalObjectId when available; otherwise the default value. </param>
         /// <returns> <see langword="true" /> when the object exposes a stable GlobalObjectId; otherwise <see langword="false" />. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityObject" /> is <see langword="null" />. </exception>
-        public static bool TryCreateResolvedReference (
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityObject" /> is destroyed or <see langword="null" />. </exception>
+        public static bool TryCreateStableGlobalObjectId (
             UnityEngine.Object unityObject,
-            out ResolvedReference? resolvedReference)
+            [NotNullWhen(true)] out UnityGlobalObjectId? globalObjectId)
         {
             if (unityObject == null)
             {
                 throw new ArgumentNullException(nameof(unityObject));
             }
 
-            var globalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(unityObject).ToString();
-            if (!GlobalObjectId.TryParse(globalObjectId, out var parsedGlobalObjectId))
+            var gameObject = unityObject switch
             {
-                resolvedReference = null;
+                GameObject value => value,
+                Component value => value.gameObject,
+                _ => null,
+            };
+            // Prefab Stage GlobalObjectIds can be syntactically valid but cannot be resolved after the stage closes.
+            if (gameObject != null
+                && PrefabStageUtility.GetPrefabStage(gameObject) != null)
+            {
+                globalObjectId = null;
                 return false;
             }
 
-            resolvedReference = new ResolvedReference(parsedGlobalObjectId.ToString());
+            var candidate = GlobalObjectId.GetGlobalObjectIdSlow(unityObject).ToString();
+            if (!UnityGlobalObjectId.TryParse(candidate, out globalObjectId))
+            {
+                return false;
+            }
+
             return true;
-        }
-
-        /// <summary> Creates one request-local tracking key for a live Unity object. </summary>
-        /// <param name="unityObject"> The live Unity object. </param>
-        /// <returns> One stable tracking key for the current request. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityObject" /> is <see langword="null" />. </exception>
-        public static string CreateTrackingKey (UnityEngine.Object unityObject)
-        {
-            if (unityObject == null)
-            {
-                throw new ArgumentNullException(nameof(unityObject));
-            }
-
-            if (TryCreateResolvedReference(unityObject, out var resolvedReference))
-            {
-                return resolvedReference!.GlobalObjectId;
-            }
-
-            // NOTE:
-            // Objects inside prefab stages or request-local planning sandboxes can be live and editable
-            // without exposing a stable GlobalObjectId. Within one request, editor-local object IDs are
-            // sufficient to correlate operation-local state such as ensured components and component shadows.
-#if UNITY_6000_0_OR_NEWER
-            return $"instance:{UnityObjectEditorLocalIdAccessor.GetId(unityObject)}";
-#else
-            return $"instance:{unityObject.GetInstanceID()}";
-#endif
         }
 
         /// <summary> Tries to resolve one alias to a live Unity object. </summary>
         /// <param name="alias"> The alias name. </param>
         /// <param name="executionContext"> The request execution context. </param>
+        /// <param name="allowTemporaryState"> Whether request-local preview, shadow, and deletion state participates in resolution. </param>
         /// <param name="unityObject"> The resolved Unity object when successful. </param>
         /// <param name="errorMessage"> The resolution error message when resolution fails. </param>
         /// <returns> <see langword="true" /> when resolution succeeds; otherwise <see langword="false" />. </returns>
         private static bool TryResolveAlias (
-            string alias,
+            RequestLocalAliasIdentity alias,
             OperationExecutionContext executionContext,
+            bool allowTemporaryState,
             out UnityEngine.Object? unityObject,
             out string errorMessage)
         {
             unityObject = null;
-            if (!executionContext.AliasStore.TryGet(alias, out var resolvedReference) || resolvedReference == null)
+            if (!executionContext.AliasStore.TryGet(alias, out var globalObjectId))
             {
-                errorMessage = $"Reference alias was not found: {alias}.";
+                errorMessage = $"Reference alias was not found: {alias.Alias}.";
                 return false;
             }
 
-            return TryResolveResolvedReference(resolvedReference, out unityObject, out errorMessage);
+            return ResolveReferenceResolver.TryResolveUnityObject(
+                ResolveSelector.FromGlobalObjectId(globalObjectId),
+                executionContext,
+                allowTemporaryState,
+                out unityObject,
+                out errorMessage);
         }
 
-        /// <summary> Tries to resolve one normalized resolved reference to a live Unity object. </summary>
-        /// <param name="resolvedReference"> The normalized resolved reference. </param>
-        /// <param name="unityObject"> The resolved Unity object when successful. </param>
-        /// <param name="errorMessage"> The resolution error message when resolution fails. </param>
-        /// <returns> <see langword="true" /> when resolution succeeds; otherwise <see langword="false" />. </returns>
-        private static bool TryResolveResolvedReference (
-            ResolvedReference resolvedReference,
-            out UnityEngine.Object? unityObject,
-            out string errorMessage)
-        {
-            unityObject = null;
-            if (!GlobalObjectId.TryParse(resolvedReference.GlobalObjectId, out var globalObjectId))
-            {
-                errorMessage = $"Resolved reference is malformed: {resolvedReference.GlobalObjectId}.";
-                return false;
-            }
-
-            unityObject = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(globalObjectId);
-            if (unityObject == null)
-            {
-                errorMessage = $"Resolved reference is not available in current project state: {resolvedReference.GlobalObjectId}.";
-                return false;
-            }
-
-            errorMessage = string.Empty;
-            return true;
-        }
-
-#if UNITY_6000_0_OR_NEWER
-
-        private static class UnityObjectEditorLocalIdAccessor
-        {
-            private static readonly MethodInfo? GetEntityIdMethod =
-                typeof(UnityEngine.Object).GetMethod(
-                    "GetEntityId",
-                    BindingFlags.Instance | BindingFlags.Public,
-                    binder: null,
-                    Type.EmptyTypes,
-                    modifiers: null);
-
-            private static readonly MethodInfo? GetInstanceIdMethod =
-                typeof(UnityEngine.Object).GetMethod(
-                    "GetInstanceID",
-                    BindingFlags.Instance | BindingFlags.Public,
-                    binder: null,
-                    Type.EmptyTypes,
-                    modifiers: null);
-
-            public static string GetId (UnityEngine.Object unityObject)
-            {
-                var method = GetEntityIdMethod ?? GetInstanceIdMethod;
-                if (method == null)
-                {
-                    throw new MissingMethodException(
-                        typeof(UnityEngine.Object).FullName,
-                        "GetEntityId or GetInstanceID");
-                }
-
-                return method.Invoke(unityObject, Array.Empty<object>())?.ToString() ?? string.Empty;
-            }
-        }
-#endif
     }
 }

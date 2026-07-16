@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Features.Daemon.Observability.Logs.Common;
@@ -15,20 +14,20 @@ public sealed class VerifyServicePostReadTests
     public async Task Execute_WithPostReadPartialDiagnostics_ReturnsPartialOptionalClaimWithoutLogs ()
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithPostReadPartialDiagnostics_ReturnsPartialOptionalClaimWithoutLogs));
-        var fromPath = scope.WriteFile("from.json", CreateFromJson("project-fingerprint", coverageImpact: "partial"));
+        var fromPath = scope.WriteFile("from.json", CreateFromJson(ProjectIdentityInfoTestFactory.ProjectFingerprint, coverageImpact: "partial"));
         var logsService = new RecordingVerifyLogsUnityService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
-                    CreateLogEvent("cursor-1"),
+                    CreateLogEvent(1),
                     "cursor-1",
                     cancellationToken)
                 .ConfigureAwait(false);
             await onEvent(
-                    CreateLogEvent("cursor-2"),
+                    CreateLogEvent(2),
                     "cursor-2",
                     cancellationToken)
                 .ConfigureAwait(false);
-            return LogsReadServiceResult.Success();
+            return LogsReadServiceResult.Completed(2, "cursor-2");
         });
         var service = CreateService(scope.FullPath, logsService: logsService);
 
@@ -68,20 +67,20 @@ public sealed class VerifyServicePostReadTests
               ]
             }
             """);
-        var fromPath = scope.WriteFile("from.json", CreateFromJson("project-fingerprint", coverageImpact: "partial"));
+        var fromPath = scope.WriteFile("from.json", CreateFromJson(ProjectIdentityInfoTestFactory.ProjectFingerprint, coverageImpact: "partial"));
         var logsService = new RecordingVerifyLogsUnityService(async (_, onEvent, cancellationToken) =>
         {
             await onEvent(
-                    CreateLogEvent("cursor-1"),
+                    CreateLogEvent(1),
                     "cursor-1",
                     cancellationToken)
                 .ConfigureAwait(false);
             await onEvent(
-                    CreateLogEvent("cursor-2"),
+                    CreateLogEvent(2),
                     "cursor-2",
                     cancellationToken)
                 .ConfigureAwait(false);
-            return LogsReadServiceResult.Success();
+            return LogsReadServiceResult.Completed(2, "cursor-2");
         });
         var service = CreateService(scope.FullPath, logsService: logsService);
 
@@ -107,7 +106,7 @@ public sealed class VerifyServicePostReadTests
         var fromPath = scope.WriteFile(
             "from.json",
             CreateFromJson(
-                "project-fingerprint",
+                ProjectIdentityInfoTestFactory.ProjectFingerprint,
                 coverageImpact: "none",
                 severity: "error"));
         var service = CreateService(scope.FullPath);
@@ -121,11 +120,11 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Fail, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.ReadSurfaceSafe.Value, StringComparison.Ordinal));
+        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.ReadSurfaceSafe);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Failed, claim.Status);
-        Assert.Equal(VerifyCoverageValues.Full, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Failed, claim.Status);
+        Assert.Equal(AssuranceCoverage.Full, claim.Coverage);
     }
 
     [Fact]
@@ -137,7 +136,7 @@ public sealed class VerifyServicePostReadTests
         var fromPath = scope.WriteFile(
             "from.json",
             CreateFromJson(
-                "project-fingerprint",
+                ProjectIdentityInfoTestFactory.ProjectFingerprint,
                 coverageImpact: "none",
                 includeReadPostcondition: false));
         var service = CreateService(scope.FullPath);
@@ -151,11 +150,11 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Pass, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
+        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Passed, claim.Status);
-        Assert.Equal(VerifyCoverageValues.Full, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Passed, claim.Status);
+        Assert.Equal(AssuranceCoverage.Full, claim.Coverage);
     }
 
     [Fact]
@@ -167,7 +166,7 @@ public sealed class VerifyServicePostReadTests
         var fromPath = scope.WriteFile(
             "from.json",
             CreateFromJson(
-                "project-fingerprint",
+                ProjectIdentityInfoTestFactory.ProjectFingerprint,
                 coverageImpact: "none",
                 touchedJson: "[]",
                 sourceKind: "operation",
@@ -187,12 +186,12 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Pass, result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
         var claim = Assert.Single(result.Output.Claims);
-        Assert.Equal(VerifyClaimCodes.PostMutationObserved.Value, claim.Id);
+        Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.False(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.OutOfScope, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.OutOfScope, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
     [Fact]
@@ -204,7 +203,7 @@ public sealed class VerifyServicePostReadTests
         var fromPath = scope.WriteFile(
             "from.json",
             CreateFromJson(
-                "project-fingerprint",
+                ProjectIdentityInfoTestFactory.ProjectFingerprint,
                 coverageImpact: "none",
                 applied: false,
                 changed: false,
@@ -221,12 +220,12 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Incomplete, result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Incomplete, result.Output!.Verdict);
         var claim = Assert.Single(result.Output.Claims);
-        Assert.Equal(VerifyClaimCodes.PostMutationObserved.Value, claim.Id);
+        Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Unverified, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Unverified, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
     [Fact]
@@ -235,7 +234,7 @@ public sealed class VerifyServicePostReadTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithEmptyNoOpRequiredPostRead_ReturnsIncompleteUnverifiedClaim));
         WriteRequiredPostReadProfile(scope);
-        var fromPath = scope.WriteFile("from.json", CreateNoOpFromJson("project-fingerprint"));
+        var fromPath = scope.WriteFile("from.json", CreateNoOpFromJson(ProjectIdentityInfoTestFactory.ProjectFingerprint));
         var service = CreateService(scope.FullPath);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(
@@ -247,12 +246,12 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Incomplete, result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Incomplete, result.Output!.Verdict);
         var claim = Assert.Single(result.Output.Claims);
-        Assert.Equal(VerifyClaimCodes.PostMutationObserved.Value, claim.Id);
+        Assert.Equal(VerifyClaimCodes.PostMutationObserved, claim.Id);
         Assert.True(claim.Required);
-        Assert.Equal(VerifyClaimStatusValues.Unverified, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(AssuranceClaimStatus.Unverified, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
     [Fact]
@@ -261,7 +260,7 @@ public sealed class VerifyServicePostReadTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithIndeterminateDiagnostic_ReturnsIndeterminateClaimCoverageNone));
         WriteRequiredPostReadProfile(scope);
-        var fromPath = scope.WriteFile("from.json", CreateFromJson("project-fingerprint", coverageImpact: "indeterminate"));
+        var fromPath = scope.WriteFile("from.json", CreateFromJson(ProjectIdentityInfoTestFactory.ProjectFingerprint, coverageImpact: "indeterminate"));
         var service = CreateService(scope.FullPath);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(
@@ -273,10 +272,10 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Incomplete, result.Output!.Verdict);
-        var claim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.ReadSurfaceSafe.Value, StringComparison.Ordinal));
-        Assert.Equal(VerifyClaimStatusValues.Indeterminate, claim.Status);
-        Assert.Equal(VerifyCoverageValues.None, claim.Coverage);
+        Assert.Equal(AssuranceVerdict.Incomplete, result.Output!.Verdict);
+        var claim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.ReadSurfaceSafe);
+        Assert.Equal(AssuranceClaimStatus.Indeterminate, claim.Status);
+        Assert.Equal(AssuranceCoverage.None, claim.Coverage);
     }
 
     [Fact]
@@ -287,7 +286,7 @@ public sealed class VerifyServicePostReadTests
         var fromPath = scope.WriteFile(
             "from.json",
             CreateFromJson(
-                "project-fingerprint",
+                ProjectIdentityInfoTestFactory.ProjectFingerprint,
                 coverageImpact: "partial",
                 touchedJson: "[]",
                 sourceKind: "operation",
@@ -307,7 +306,7 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Fail, result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
         var risk = Assert.Single(result.Output.ResidualRisks);
         Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value, risk.Code);
         Assert.True(risk.Blocking);
@@ -319,7 +318,7 @@ public sealed class VerifyServicePostReadTests
     {
         using var scope = TestDirectories.CreateTempScope("ucli-verify", nameof(Execute_WithMixedBoundAndUnboundDiagnostics_ReturnsBlockingResidualRisk));
         WriteRequiredPostReadProfile(scope);
-        var fromPath = scope.WriteFile("from.json", CreateMixedBoundAndUnboundDiagnosticFromJson("project-fingerprint"));
+        var fromPath = scope.WriteFile("from.json", CreateMixedBoundAndUnboundDiagnosticFromJson(ProjectIdentityInfoTestFactory.ProjectFingerprint));
         var service = CreateService(scope.FullPath);
 
         var result = await service.ExecuteAsync(new VerifyCommandInput(
@@ -331,9 +330,9 @@ public sealed class VerifyServicePostReadTests
             TimeoutMilliseconds: 10000));
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(VerifyVerdictValues.Fail, result.Output!.Verdict);
-        var observedClaim = Assert.Single(result.Output.Claims, static claim => string.Equals(claim.Id, VerifyClaimCodes.PostMutationObserved.Value, StringComparison.Ordinal));
-        Assert.Equal(VerifyCoverageValues.Full, observedClaim.Coverage);
+        Assert.Equal(AssuranceVerdict.Fail, result.Output!.Verdict);
+        var observedClaim = Assert.Single(result.Output.Claims, static claim => claim.Id == VerifyClaimCodes.PostMutationObserved);
+        Assert.Equal(AssuranceCoverage.Full, observedClaim.Coverage);
         var risk = Assert.Single(result.Output.ResidualRisks);
         Assert.Equal(VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value, risk.Code);
         Assert.True(risk.Blocking);

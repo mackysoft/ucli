@@ -70,14 +70,33 @@ public sealed class UcliOperationJsonSchemaGeneratorTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void CreateArgsSchemaJson_WhenReferenceUsesSemanticStringValues_OmitsRequestLocalAliasBranch ()
+    public void CreateArgsSchemaJson_WhenReferenceUsesGuid_OmitsAliasAndEmitsNullableStringScalar ()
     {
         var schemaJson = UcliOperationJsonSchemaGenerator.CreateArgsSchemaJson(typeof(AssetReferenceArgs));
 
         using var document = JsonDocument.Parse(schemaJson);
         var properties = document.RootElement.GetProperty("properties");
         Assert.False(properties.TryGetProperty("var", out _));
-        Assert.Equal("string", properties.GetProperty("assetGuid").GetProperty("type").GetString());
+        var assetGuidType = properties.GetProperty("assetGuid").GetProperty("type");
+        Assert.Equal("string", assetGuidType[0].GetString());
+        Assert.Equal("null", assetGuidType[1].GetString());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateResultSchemaJson_WhenResultContainsAssetGuid_EmitsNullableStringScalar ()
+    {
+        var schemaJson = UcliOperationJsonSchemaGenerator.CreateResultSchemaJson(typeof(AssetsFindResult));
+
+        using var document = JsonDocument.Parse(schemaJson!);
+        var assetGuidType = document.RootElement
+            .GetProperty("$defs")
+            .GetProperty(nameof(AssetsFindMatch))
+            .GetProperty("properties")
+            .GetProperty("assetGuid")
+            .GetProperty("type");
+        Assert.Equal("string", assetGuidType[0].GetString());
+        Assert.Equal("null", assetGuidType[1].GetString());
     }
 
     [Fact]

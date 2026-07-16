@@ -4,7 +4,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Application.Shared.Unity.Resolution;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -24,6 +23,8 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
     private readonly IUnityUcliPluginLocator unityUcliPluginLocator;
 
     private readonly IUnityProjectLockPreflightService unityProjectLockPreflightService;
+
+    private readonly UnityBatchmodeProcessLifetimeOwner processLifetimeOwner = new();
 
     /// <summary> Initializes a new instance of the <see cref="UnityBatchmodeProcessLauncher" /> class. </summary>
     /// <param name="unityVersionResolver"> The Unity version resolver dependency. </param>
@@ -62,7 +63,7 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
         var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint);
-        var batchmodeLaunchResult = await LaunchAsync(
+        var batchmodeLaunchResult = await LaunchBatchmodeAsync(
                 unityProject,
                 new IpcDaemonBootstrapArguments(
                     RepositoryRoot: unityProject.RepositoryRoot,
@@ -70,9 +71,9 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                     SessionPath: UcliStoragePathResolver.ResolveSessionPath(
                         unityProject.RepositoryRoot,
                         unityProject.ProjectFingerprint),
+                    SessionGenerationId: session.SessionGenerationId,
                     SessionIssuedAtUtc: session.IssuedAtUtc,
-                    EndpointTransportKind: ContractLiteralCodec.ToValue(endpoint.TransportKind),
-                    EndpointAddress: endpoint.Address),
+                    Endpoint: endpoint),
                 unityLogPath,
                 UnityBatchmodeLaunchOptions.Default,
                 cancellationToken)
@@ -82,43 +83,101 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             return UnityDaemonLaunchResult.Failure(batchmodeLaunchResult.Error!);
         }
 
-        await using var processHandle = batchmodeLaunchResult.ProcessHandle!;
-        if (processHandle.StartTimeUtc is not DateTimeOffset processStartedAtUtc)
+        var processHandle = batchmodeLaunchResult.ProcessHandle!;
+        var launchResult = await UnityProcessOwnership.ResolveDaemonLaunchAsync(
+                processHandle,
+                cancellationToken)
+            .ConfigureAwait(false);
+        if (!launchResult.IsSuccess)
         {
-            return UnityDaemonLaunchResult.Failure(ExecutionError.InternalError(
-                $"Unity batchmode process start time could not be read. processId={processHandle.ProcessId}."));
+            return launchResult;
         }
 
-        return UnityDaemonLaunchResult.Success(processHandle.ProcessId, processStartedAtUtc);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            processLifetimeOwner.Transfer(processHandle);
+            return launchResult;
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await UnityProcessOwnership.TerminateAndDisposeBestEffortAsync(processHandle).ConfigureAwait(false);
+            throw;
+        }
+        catch (Exception exception)
+        {
+            await UnityProcessOwnership.TerminateAndDisposeBestEffortAsync(processHandle).ConfigureAwait(false);
+            return UnityDaemonLaunchResult.Failure(ExecutionError.InternalError(
+                $"Failed to transfer Unity batchmode process lifetime ownership. {exception.Message}"));
+        }
     }
 
     /// <inheritdoc />
-    public ValueTask<UnityBatchmodeProcessLaunchResult> LaunchAsync (
+    public async ValueTask<UnityBatchmodeProcessLaunchResult> LaunchOneshotAsync (
         ResolvedUnityProjectContext unityProject,
-        IpcBatchmodeBootstrapArguments bootstrapArguments,
+        IpcOneshotBootstrapEnvelope bootstrapEnvelope,
         string unityLogPath,
-        UnityBatchmodeLaunchOptions? launchOptions = null,
-        CancellationToken cancellationToken = default)
+        UnityBatchmodeLaunchOptions launchOptions,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentNullException.ThrowIfNull(bootstrapArguments);
+        ArgumentNullException.ThrowIfNull(bootstrapEnvelope);
+        ArgumentNullException.ThrowIfNull(launchOptions);
 
         if (string.IsNullOrWhiteSpace(unityLogPath))
         {
-            return ValueTask.FromResult(UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
-                "Unity log path must not be empty.")));
+            return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InvalidArgument(
+                "Unity log path must not be empty."));
         }
 
-        return LaunchValidatedAsync(
-            unityProject,
-            bootstrapArguments,
-            unityLogPath,
-            launchOptions ?? UnityBatchmodeLaunchOptions.Default,
-            cancellationToken);
+        var envelopeCreated = false;
+        try
+        {
+            OneshotBootstrapEnvelopeStore.Create(unityProject.RepositoryRoot, bootstrapEnvelope);
+            envelopeCreated = true;
+
+            var launchResult = await LaunchBatchmodeAsync(
+                    unityProject,
+                    new IpcOneshotBootstrapArguments(bootstrapEnvelope.BootstrapId),
+                    unityLogPath,
+                    launchOptions,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (!launchResult.IsSuccess)
+            {
+                OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(unityProject.RepositoryRoot, bootstrapEnvelope);
+                return launchResult;
+            }
+
+            return UnityBatchmodeProcessLaunchResult.Success(
+                new OneshotBootstrapOwnedProcessHandle(
+                    launchResult.ProcessHandle!,
+                    unityProject.RepositoryRoot,
+                    bootstrapEnvelope));
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            if (envelopeCreated)
+            {
+                OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(unityProject.RepositoryRoot, bootstrapEnvelope);
+            }
+
+            throw;
+        }
+        catch (Exception exception)
+        {
+            if (envelopeCreated)
+            {
+                OneshotBootstrapEnvelopeStore.TryDeleteIfOwned(unityProject.RepositoryRoot, bootstrapEnvelope);
+            }
+
+            return UnityBatchmodeProcessLaunchResult.Failure(ExecutionError.InternalError(
+                $"Failed to prepare Unity oneshot bootstrap. {exception.Message}"));
+        }
     }
 
-    private async ValueTask<UnityBatchmodeProcessLaunchResult> LaunchValidatedAsync (
+    private async ValueTask<UnityBatchmodeProcessLaunchResult> LaunchBatchmodeAsync (
         ResolvedUnityProjectContext unityProject,
         IpcBatchmodeBootstrapArguments bootstrapArguments,
         string unityLogPath,
@@ -197,8 +256,18 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
                     "Unity batchmode process could not be started."));
             }
 
-            StartRedirectedOutputDrain(process);
-            return UnityBatchmodeProcessLaunchResult.Success(new UnityBatchmodeProcessHandle(process));
+            var processHandle = new UnityProcessHandle(process);
+            try
+            {
+                StartRedirectedOutputDrain(process);
+                cancellationToken.ThrowIfCancellationRequested();
+                return UnityBatchmodeProcessLaunchResult.Success(processHandle);
+            }
+            catch (Exception)
+            {
+                await UnityProcessOwnership.TerminateAndDisposeBestEffortAsync(processHandle).ConfigureAwait(false);
+                throw;
+            }
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {
@@ -274,10 +343,10 @@ internal sealed class UnityBatchmodeProcessLauncher : IUnityDaemonProcessLaunche
             "-logFile",
             unityLogPath,
         };
-        if (!string.IsNullOrWhiteSpace(launchOptions.ActiveBuildProfilePath))
+        if (launchOptions.ActiveBuildProfilePath != null)
         {
             tokens.Add("-activeBuildProfile");
-            tokens.Add(launchOptions.ActiveBuildProfilePath);
+            tokens.Add(launchOptions.ActiveBuildProfilePath.Value);
         }
 
         IpcBatchmodeBootstrapArgumentsCodec.AppendTokens(tokens, bootstrapArguments);

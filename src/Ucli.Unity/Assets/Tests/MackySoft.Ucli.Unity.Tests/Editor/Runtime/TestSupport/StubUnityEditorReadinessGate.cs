@@ -10,7 +10,9 @@ using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
-    internal sealed class StubUnityEditorReadinessGate : IUnityEditorReadinessGate
+    internal sealed class StubUnityEditorReadinessGate :
+        IUnityEditorReadinessGate,
+        IUnityEditorAvailabilityObservationSource
     {
         private readonly TaskCompletionSource<UnityEditorExecutionReadinessResult>? completionSource;
 
@@ -41,6 +43,8 @@ namespace MackySoft.Ucli.Unity.Tests
 
         public int CaptureObservationCallCount { get; private set; }
 
+        public int CaptureAvailabilityObservationCallCount { get; private set; }
+
         public bool? LastFailFast { get; private set; }
 
         public bool? LastAllowPlayMode { get; private set; }
@@ -61,6 +65,12 @@ namespace MackySoft.Ucli.Unity.Tests
         public UnityEditorObservation CaptureObservation ()
         {
             CaptureObservationCallCount++;
+            return currentResult.Observation;
+        }
+
+        public UnityEditorObservation CaptureAvailabilityObservation ()
+        {
+            CaptureAvailabilityObservationCallCount++;
             return currentResult.Observation;
         }
 

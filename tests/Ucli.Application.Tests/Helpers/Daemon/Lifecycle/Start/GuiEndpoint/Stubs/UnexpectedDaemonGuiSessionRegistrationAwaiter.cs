@@ -12,8 +12,8 @@ internal sealed class UnexpectedDaemonGuiSessionRegistrationAwaiter : IDaemonGui
     public ValueTask<DaemonGuiSessionRegistrationWaitResult> WaitForSessionAsync (
         ResolvedUnityProjectContext unityProject,
         int expectedProcessId,
-        TimeSpan timeout,
-        DateTimeOffset? expectedProcessStartedAtUtc = null,
+        ExecutionDeadline deadline,
+        DateTimeOffset expectedProcessStartedAtUtc,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException(reason);

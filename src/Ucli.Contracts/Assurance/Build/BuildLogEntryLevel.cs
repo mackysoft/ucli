@@ -7,21 +7,21 @@ public enum BuildLogEntryLevel
 {
     /// <summary> Trace log level. </summary>
     [UcliContractLiteral("trace")]
-    Trace = 0,
+    Trace = 1,
 
     /// <summary> Debug log level. </summary>
     [UcliContractLiteral("debug")]
-    Debug = 1,
+    Debug = 2,
 
     /// <summary> Informational log level. </summary>
     [UcliContractLiteral("info")]
-    Info = 2,
+    Info = 3,
 
     /// <summary> Warning log level. </summary>
     [UcliContractLiteral("warning")]
-    Warning = 3,
+    Warning = 4,
 
     /// <summary> Error log level. </summary>
     [UcliContractLiteral("error")]
-    Error = 4,
+    Error = 5,
 }

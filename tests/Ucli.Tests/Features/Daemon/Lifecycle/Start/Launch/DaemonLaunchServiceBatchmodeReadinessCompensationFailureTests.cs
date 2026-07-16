@@ -18,7 +18,7 @@ public sealed class DaemonLaunchServiceBatchmodeReadinessCompensationFailureTest
                 ExecutionError.InternalError("diagnosis write failed")),
         };
         var scenario = CreateScenario(
-            "fingerprint-diagnosis-write-timeout",
+            ProjectFingerprintTestFactory.Create("fingerprint-diagnosis-write-timeout"),
             ExecutionError.Timeout("probe failed"),
             diagnosisStore: diagnosisStore);
 
@@ -41,7 +41,7 @@ public sealed class DaemonLaunchServiceBatchmodeReadinessCompensationFailureTest
             NextResult = DaemonSessionStoreOperationResult.Failure(cleanupError),
         };
         var scenario = CreateScenario(
-            "fingerprint-cleanup-timeout",
+            ProjectFingerprintTestFactory.Create("fingerprint-cleanup-timeout"),
             ExecutionError.Timeout("probe failed"),
             compensationService: compensationService);
 

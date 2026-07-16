@@ -56,7 +56,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                 if (!backendResult.IsSuccess)
                 {
                     return UnityScreenshotCaptureResult.Failure(
-                        backendResult.ErrorCode.Value,
+                        backendResult.ErrorCode,
                         backendResult.ErrorMessage);
                 }
 
@@ -71,14 +71,14 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
 
                 var frame = backendResult.Frame;
                 var sizeBytes = await stagingImageWriter.WriteAtomicAsync(
-                    request.StagingPath,
+                    request.CaptureId,
                     frame.Rgba8SrgbTopDown,
                     cancellationToken);
                 stagingPublished = true;
                 cancellationToken.ThrowIfCancellationRequested();
                 if (sizeBytes != frame.Rgba8SrgbTopDown.Length)
                 {
-                    stagingImageWriter.DeleteIfExists(request.StagingPath);
+                    stagingImageWriter.DeleteIfExists(request.CaptureId);
                     stagingPublished = false;
                     return UnityScreenshotCaptureResult.Failure(
                         UcliCoreErrorCodes.InternalError,
@@ -89,20 +89,22 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                     ? IpcScreenshotSizeMode.RequestedResolution
                     : IpcScreenshotSizeMode.CurrentSurface;
                 var response = new IpcScreenshotCaptureResponse(
+                    request.CaptureId,
                     new IpcScreenshotCapture(
-                        target: request.Target,
-                        sizeMode: sizeMode,
-                        requestedWidth: request.RequestedWidth,
-                        requestedHeight: request.RequestedHeight,
-                        width: frame.Width,
-                        height: frame.Height,
-                        colorSpace: frame.ColorSpace,
-                        state: before.State),
+                        Target: request.Target,
+                        SizeMode: sizeMode,
+                        RequestedWidth: request.RequestedWidth,
+                        RequestedHeight: request.RequestedHeight,
+                        Width: frame.Width,
+                        Height: frame.Height,
+                        ColorSpace: frame.ColorSpace,
+                        State: before.State),
                     new IpcScreenshotStagingImage(
-                        Path: request.StagingPath,
+                        Width: frame.Width,
+                        Height: frame.Height,
                         PixelFormat: IpcScreenshotPixelFormat.Rgba8Srgb,
                         RowOrder: IpcScreenshotRowOrder.TopDown,
-                        RowStrideBytes: checked(frame.Width * 4),
+                        RowStrideBytes: checked(frame.Width * IpcScreenshotCaptureLimits.Rgba8BytesPerPixel),
                         SizeBytes: sizeBytes));
                 return UnityScreenshotCaptureResult.Success(response);
             }
@@ -110,7 +112,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             {
                 if (stagingPublished)
                 {
-                    stagingImageWriter.DeleteIfExists(request.StagingPath);
+                    stagingImageWriter.DeleteIfExists(request.CaptureId);
                 }
 
                 throw;

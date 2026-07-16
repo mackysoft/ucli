@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Contracts.Assurance.Build;
 /// <param name="StableName"> The uCLI build target stable name. </param>
 /// <param name="UnityBuildTarget"> The Unity <c>BuildTarget</c> enum member name. </param>
 internal sealed record BuildOutputManifestTargetJsonContract (
-    string StableName,
+    BuildTargetStableName StableName,
     string UnityBuildTarget);

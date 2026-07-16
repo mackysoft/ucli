@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -5,10 +7,14 @@ namespace MackySoft.Ucli.TestSupport;
 
 internal static class DaemonSessionTestFactory
 {
+    public static readonly Guid DefaultSessionGenerationId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+
+    public static readonly Guid DefaultEditorInstanceId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+
     public static DaemonSession Create (
         int? processId = 1234,
         string sessionToken = "secret-token",
-        string projectFingerprint = "fingerprint",
+        ProjectFingerprint? projectFingerprint = null,
         DateTimeOffset? issuedAtUtc = null,
         DaemonEditorMode editorMode = DaemonEditorMode.Batchmode,
         DaemonSessionOwnerKind ownerKind = DaemonSessionOwnerKind.Cli,
@@ -17,34 +23,36 @@ internal static class DaemonSessionTestFactory
         string endpointAddress = "ucli-daemon-endpoint",
         DateTimeOffset? processStartedAtUtc = null,
         int? ownerProcessId = 9876,
-        string? editorInstanceId = null)
+        Guid? editorInstanceId = null,
+        Guid? sessionGenerationId = null)
     {
         return new DaemonSession(
-            SchemaVersion: DaemonSession.CurrentSchemaVersion,
-            SessionToken: sessionToken,
-            ProjectFingerprint: projectFingerprint,
-            IssuedAtUtc: issuedAtUtc ?? new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
-            EditorMode: editorMode,
-            OwnerKind: ownerKind,
-            CanShutdownProcess: canShutdownProcess,
-            EndpointTransportKind: endpointTransportKind,
-            EndpointAddress: endpointAddress,
-            ProcessId: processId,
-            ProcessStartedAtUtc: processStartedAtUtc ?? (processId is null ? null : DateTimeOffset.UtcNow),
-            OwnerProcessId: ownerProcessId)
-        {
-            EditorInstanceId = editorInstanceId,
-        };
+            sessionGenerationId ?? DefaultSessionGenerationId,
+            IpcSessionTokenTestFactory.Create(sessionToken),
+            projectFingerprint ?? ProjectFingerprintTestFactory.Create("fingerprint"),
+            issuedAtUtc ?? new DateTimeOffset(2026, 03, 05, 0, 0, 0, TimeSpan.Zero),
+            editorMode,
+            ownerKind,
+            canShutdownProcess,
+            new IpcEndpoint(endpointTransportKind, endpointAddress),
+            processId,
+            processStartedAtUtc ?? (processId is null
+                ? null
+                : new DateTimeOffset(2026, 03, 05, 0, 0, 1, TimeSpan.Zero)),
+            ownerProcessId ?? throw new ArgumentNullException(nameof(ownerProcessId)),
+            editorInstanceId ?? (ownerKind == DaemonSessionOwnerKind.User
+                ? DefaultEditorInstanceId
+                : null));
     }
 
     public static DaemonSession CreateUserOwned (
         DaemonEditorMode editorMode,
         string endpointAddress,
-        string? editorInstanceId = null)
+        Guid editorInstanceId)
     {
         return Create(
             sessionToken: "session-token",
-            projectFingerprint: "project-fingerprint",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             editorMode: editorMode,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
@@ -52,19 +60,33 @@ internal static class DaemonSessionTestFactory
             editorInstanceId: editorInstanceId);
     }
 
-    public static DaemonSession CreateEditorInstance (DaemonEditorMode editorMode = DaemonEditorMode.Gui)
+    public static DaemonSession CreateEditorInstance ()
     {
         return Create(
             sessionToken: "session-token",
             projectFingerprint: ProjectIdentityInfoTestFactory.ProjectFingerprint,
-            editorMode: editorMode,
+            editorMode: DaemonEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock",
             processId: 1234,
             processStartedAtUtc: DateTimeOffset.UnixEpoch.AddSeconds(10),
-            ownerProcessId: null,
-            editorInstanceId: "editor-instance-1");
+            ownerProcessId: 9876,
+            editorInstanceId: DefaultEditorInstanceId);
+    }
+
+    public static DaemonSession CreateForToken (
+        string sessionToken,
+        IpcTransportKind endpointTransportKind = IpcTransportKind.UnixDomainSocket,
+        string endpointAddress = "/tmp/ucli-session.sock")
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(sessionToken);
+        var digest = SHA256.HashData(Encoding.UTF8.GetBytes(sessionToken));
+        return Create(
+            sessionToken: sessionToken,
+            endpointTransportKind: endpointTransportKind,
+            endpointAddress: endpointAddress,
+            sessionGenerationId: new Guid(digest.AsSpan(0, 16)));
     }
 }

@@ -1,0 +1,41 @@
+using System.Diagnostics.CodeAnalysis;
+using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Operations;
+
+namespace MackySoft.Ucli.Contracts.Ipc;
+
+/// <summary> Represents a project-relative path to a ProjectSettings asset. </summary>
+[JsonConverter(typeof(UcliStringValueJsonConverterFactory))]
+[UcliDescription("Project-relative path to a ProjectSettings asset.")]
+[UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
+[UcliInputConstraint(UcliOperationInputConstraintKind.ProjectRelativePath)]
+public sealed class ProjectSettingsAssetPath : UcliStringValue
+{
+    /// <summary> Initializes a new instance of the <see cref="ProjectSettingsAssetPath" /> class. </summary>
+    /// <param name="value"> The project-relative ProjectSettings asset path. </param>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="value" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="value" /> does not identify a <c>ProjectSettings/</c> descendant. </exception>
+    [JsonConstructor]
+    public ProjectSettingsAssetPath (string value)
+        : base(UnityAssetPathContract.NormalizeProjectSettingsDescendantPathOrThrow(value))
+    {
+    }
+
+    /// <summary> Attempts to parse and normalize one ProjectSettings asset path. </summary>
+    /// <param name="value"> The candidate project-relative path. </param>
+    /// <param name="path"> The normalized typed path when parsing succeeds; otherwise <see langword="null" />. </param>
+    /// <returns> <see langword="true" /> when the value identifies a <c>ProjectSettings/</c> descendant; otherwise <see langword="false" />. </returns>
+    public static bool TryParse (
+        string? value,
+        [NotNullWhen(true)] out ProjectSettingsAssetPath? path)
+    {
+        path = null;
+        if (!UnityAssetPathContract.TryNormalizeProjectSettingsDescendantPath(value, out var normalizedPath))
+        {
+            return false;
+        }
+
+        path = new ProjectSettingsAssetPath(normalizedPath);
+        return true;
+    }
+}

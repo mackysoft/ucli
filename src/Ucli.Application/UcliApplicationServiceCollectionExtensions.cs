@@ -1,9 +1,7 @@
-using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Execution;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
-using MackySoft.Ucli.Application.Features.Assurance.Compile.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Catalog;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Contracts;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Execution;
@@ -18,6 +16,7 @@ using MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Common.Projection;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Cleanup;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.ExistingSession;
@@ -70,7 +69,9 @@ using MackySoft.Ucli.Application.Features.Testing.Run.UseCases.TestRun.Projectio
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
+using MackySoft.Ucli.Application.Shared.Identifiers;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace MackySoft.Ucli.Application;
 
@@ -85,6 +86,7 @@ public static class UcliApplicationServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
 
+        services.TryAddSingleton(TimeProvider.System);
         services.AddUcliApplicationSharedServices();
         services.AddUcliApplicationCodeCatalogServices();
         services.AddUcliApplicationAssuranceServices();
@@ -101,12 +103,12 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationSharedServices (this IServiceCollection services)
     {
+        services.AddSingleton<IGuidGenerator, GuidGenerator>();
         services.AddSingleton<IProjectPathInputResolver, ProjectPathInputResolver>();
         services.AddSingleton<IProjectContextResolver, ProjectContextResolver>();
         services.AddSingleton<IUnityExecutionModeDecisionService, UnityExecutionModeDecisionService>();
         services.AddSingleton<IReadIndexFreshnessEvaluator, ReadIndexFreshnessEvaluator>();
         services.AddSingleton<IAssetSearchLookupAccessService, AssetSearchLookupAccessService>();
-        services.AddSingleton<IGuidPathLookupAccessService, GuidPathLookupAccessService>();
         services.AddSingleton<ISceneTreeLiteAccessService, SceneTreeLiteAccessService>();
         return services;
     }
@@ -126,14 +128,13 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationAssuranceServices (this IServiceCollection services)
     {
-        services.AddSingleton<IAssuranceSemanticInvariantRule, ReadyAssuranceSemanticInvariantRule>();
-        services.AddSingleton<IAssuranceSemanticInvariantRule, BuildAssuranceSemanticInvariantRule>();
-        services.AddSingleton<IAssuranceSemanticInvariantRule, CompileAssuranceSemanticInvariantRule>();
-        services.AddSingleton<IAssuranceSemanticInvariantRule, VerifyAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssurancePayloadInvariantRule, BuildAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssuranceClaimInvariantRule, ReadyAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssuranceClaimInvariantRule, BuildAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssuranceClaimInvariantRule, CompileAssuranceSemanticInvariantRule>();
+        services.AddSingleton<IAssuranceClaimInvariantRule, VerifyAssuranceSemanticInvariantRule>();
         services.AddSingleton<AssuranceSemanticInvariantValidator>();
-        services.AddSingleton<IBuildRunIdFactory, BuildRunIdFactory>();
         services.AddSingleton<IBuildService, BuildService>();
-        services.AddSingleton<ICompileRunIdFactory, CompileRunIdFactory>();
         services.AddSingleton<ICompileService, CompileService>();
         services.AddSingleton<IReadyService, ReadyService>();
         services.AddSingleton<IVerifyService, VerifyService>();
@@ -143,7 +144,6 @@ public static class UcliApplicationServiceCollectionExtensions
     private static IServiceCollection AddUcliApplicationRequestServices (this IServiceCollection services)
     {
         services.AddSingleton<IRequestPreparationService, RequestPreparationService>();
-        services.AddSingleton<IRequestIdFactory, GuidRequestIdFactory>();
         services.AddSingleton<IRequestStaticValidationPreflightService, RequestStaticValidationPreflightService>();
         services.AddSingleton<IValidateRequestJsonParser, ValidateRequestJsonParser>();
 
@@ -185,24 +185,25 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationDaemonServices (this IServiceCollection services)
     {
-        services.AddSingleton<IDaemonSessionSerializer, DaemonSessionJsonSerializer>();
-        services.AddSingleton<IDaemonSessionValidator, DaemonSessionValidator>();
         services.AddSingleton<IDaemonSessionTokenGenerator, DaemonSessionTokenGenerator>();
-        services.AddSingleton<IDaemonSessionConnectionProvider, DaemonSessionConnectionProvider>();
+        services.AddSingleton<DaemonSessionRecoveryWaiter>();
+        services.AddSingleton<DaemonSessionAcquisitionCoordinator>();
 
         services.AddSingleton<IDaemonSessionCleanupService, DaemonSessionCleanupService>();
         services.AddSingleton<IDaemonExistingSessionGateService, DaemonExistingSessionGateService>();
         services.AddSingleton<IDaemonGuiSessionRegistrationAwaiter, DaemonGuiSessionRegistrationAwaiter>();
+        services.AddSingleton<DaemonCompensationOperationOwner>();
         services.AddSingleton<IDaemonGuiEditorAttachService, DaemonGuiEditorAttachService>();
         services.AddSingleton<IDaemonLaunchCompensationService, DaemonLaunchCompensationService>();
         services.AddSingleton<IDaemonStartOperation, DaemonStartOperation>();
         services.AddSingleton<IDaemonStopOperation, DaemonStopOperation>();
         services.AddSingleton<IDaemonCleanupOperation, DaemonCleanupOperation>();
+        services.AddSingleton<DaemonSessionProbe>();
         services.AddSingleton<IDaemonStatusOperation, DaemonStatusOperation>();
         services.AddSingleton<IDaemonInvalidSessionCleanupSafetyEvaluator, DaemonInvalidSessionCleanupSafetyEvaluator>();
 
         services.AddSingleton<ILogsDaemonRequestValidator, LogsDaemonRequestValidator>();
-        services.AddSingleton<IDaemonLogsStreamTerminationPolicy, DaemonLogsStreamTerminationPolicy>();
+        services.AddSingleton<LogsStreamPollingExecutor>();
         services.AddSingleton<ILogsDaemonService, LogsDaemonService>();
         services.AddSingleton<ILogsUnityRequestValidator, LogsUnityRequestValidator>();
         services.AddSingleton<ILogsUnityService, LogsUnityService>();
@@ -239,8 +240,6 @@ public static class UcliApplicationServiceCollectionExtensions
 
     private static IServiceCollection AddUcliApplicationScreenshotServices (this IServiceCollection services)
     {
-        services.AddSingleton<IScreenshotCaptureIdFactory>(_ =>
-            new ScreenshotCaptureIdFactory(TimeProvider.System));
         services.AddSingleton<IScreenshotCaptureService, ScreenshotCaptureService>();
         return services;
     }

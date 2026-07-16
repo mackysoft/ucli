@@ -17,16 +17,18 @@ internal sealed class RecordingPlanCommandPreflightService : IPlanCommandPreflig
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<PlanCommandPreflightResult> PrepareAsync (
+        Guid requestId,
         string? projectPath,
         string requestJson,
         ReadIndexMode? readIndexMode,
         CancellationToken cancellationToken = default)
     {
-        invocations.Add(new Invocation(projectPath, requestJson, readIndexMode, cancellationToken));
+        invocations.Add(new Invocation(requestId, projectPath, requestJson, readIndexMode, cancellationToken));
         return handler(projectPath, requestJson, readIndexMode, cancellationToken);
     }
 
     public readonly record struct Invocation (
+        Guid RequestId,
         string? ProjectPath,
         string RequestJson,
         ReadIndexMode? ReadIndexMode,

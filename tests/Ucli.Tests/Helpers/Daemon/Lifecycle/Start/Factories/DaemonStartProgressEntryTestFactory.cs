@@ -4,15 +4,19 @@ using MackySoft.Ucli.Contracts.Storage;
 
 internal static class DaemonStartProgressEntryTestFactory
 {
+    private static readonly ProjectFingerprint DefaultProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+
     public static readonly DateTimeOffset SampleStartedAtUtc = new(2026, 03, 12, 1, 2, 0, TimeSpan.Zero);
+
+    public static readonly Guid SampleLaunchAttemptId = Guid.Parse("01234567-89ab-cdef-0123-456789abcdef");
 
     public static DaemonStartStartupObservationProgressEntry CreateStartupObservation (
         DaemonStartProgressPayloadKind payloadKind = DaemonStartProgressPayloadKind.StartupObservation,
-        string projectFingerprint = "fingerprint",
+        ProjectFingerprint? projectFingerprint = null,
         int timeoutMilliseconds = 1234,
         DaemonEditorMode editorMode = DaemonEditorMode.Batchmode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto,
-        string? launchAttemptId = "attempt-1",
+        Guid? launchAttemptId = null,
         DaemonSessionOwnerKind ownerKind = DaemonSessionOwnerKind.Cli,
         bool canShutdownProcess = true,
         int? processId = 1234,
@@ -26,7 +30,7 @@ internal static class DaemonStartProgressEntryTestFactory
     {
         return new DaemonStartStartupObservationProgressEntry(
             payloadKind,
-            projectFingerprint,
+            projectFingerprint ?? DefaultProjectFingerprint,
             timeoutMilliseconds,
             editorMode,
             onStartupBlocked,

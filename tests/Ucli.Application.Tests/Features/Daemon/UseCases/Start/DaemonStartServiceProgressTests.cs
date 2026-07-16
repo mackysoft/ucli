@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 
 namespace MackySoft.Ucli.Application.Tests.Daemon;
@@ -9,9 +8,9 @@ public sealed class DaemonStartServiceProgressTests
     [Trait("Size", "Small")]
     public async Task Start_WithProgressSink_EmitsHostVisibleProgressInOrder ()
     {
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 1200,
-            repositoryRoot: "/tmp/repo-root");
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var session = DaemonSessionTestFactory.Create();
@@ -54,7 +53,7 @@ public sealed class DaemonStartServiceProgressTests
             ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed));
         DaemonStartProgressAssert.BatchmodeStartCompletedSuccessfully(
             progressSink,
-            expectedProjectFingerprint: "fingerprint",
+            expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             expectedTimeoutMilliseconds: 1200);
     }
 }

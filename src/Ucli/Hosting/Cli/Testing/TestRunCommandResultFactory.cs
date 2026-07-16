@@ -34,7 +34,7 @@ internal static class TestRunCommandResultFactory
             return new CommandResult(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
                 Command: UcliCommandNames.TestRun,
-                Status: IpcProtocol.StatusOk,
+                Status: CommandResultStatus.Ok,
                 ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(serviceResult.Outcome),
                 Message: serviceResult.Message,
                 Payload: payload,

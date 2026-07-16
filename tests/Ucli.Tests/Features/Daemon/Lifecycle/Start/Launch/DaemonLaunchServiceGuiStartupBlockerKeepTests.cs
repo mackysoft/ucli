@@ -15,14 +15,15 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
     public async Task Launch_WhenEditorModeGuiStartupObserverFindsCompilerErrorWithKeepPolicy_WritesStartupBlockedDiagnosisAndPreservesGuiProcess (
         DaemonStartupBlockedProcessPolicy onStartupBlocked)
     {
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-gui-launch-compiler-error");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-gui-launch-compiler-error"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
         };
         var primaryDiagnostic = new DaemonPrimaryDiagnostic(
-            Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+            Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
             Code: "CS1739",
             File: "Assets/Foo.cs",
             Line: 74,
@@ -47,6 +48,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
             new RecordingUnityDaemonProcessLauncher(),
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             diagnosisStore,
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver,
@@ -54,7 +56,7 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Gui,
             onStartupBlocked,
             progressObserver,
@@ -65,9 +67,9 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal(DaemonErrorCodes.DaemonStartupBlocked, error.Code);
         var diagnosis = DaemonDiagnosisStoreAssert.LatestDiagnosisWrittenFor(diagnosisStore, context);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, diagnosis.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, diagnosis.Reason);
         Assert.Equal(DaemonDiagnosisStartupPhase.ScriptCompilation, diagnosis.StartupPhase);
-        Assert.Equal(DaemonDiagnosisActionRequiredValues.FixCompileErrors, diagnosis.ActionRequired);
+        Assert.Equal(DaemonDiagnosisActionRequired.FixCompileErrors, diagnosis.ActionRequired);
         Assert.Equal(processStartedAtUtc, diagnosis.ProcessStartedAtUtc);
         Assert.Equal(blocker.UnityLogPath, diagnosis.UnityLogPath);
         Assert.Equal(primaryDiagnostic, diagnosis.PrimaryDiagnostic);
@@ -99,13 +101,14 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
     public async Task Launch_WhenEditorModeGuiStartupObserverFindsActionableBlocker_WritesDiagnosisAndPreservesGuiProcess ()
     {
         const DaemonStartupBlockingReason startupBlockingReason = DaemonStartupBlockingReason.SafeMode;
-        const string reason = DaemonDiagnosisReasonValues.EditorUserActionRequired;
+        const DaemonDiagnosisReason reason = DaemonDiagnosisReason.EditorUserActionRequired;
         const DaemonStartupRetryDisposition retryDisposition = DaemonStartupRetryDisposition.ManualActionRequired;
         const DaemonDiagnosisStartupPhase startupPhase = DaemonDiagnosisStartupPhase.UserAction;
-        const string actionRequired = DaemonDiagnosisActionRequiredValues.ResolveUnityDialog;
+        const DaemonDiagnosisActionRequired actionRequired = DaemonDiagnosisActionRequired.ResolveUnityDialog;
 
-        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext($"fingerprint-gui-launch-{startupBlockingReason}");
+        var context = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create($"fingerprint-gui-launch-{startupBlockingReason}"));
         var processStartedAtUtc = new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero);
+        var timeProvider = new ManualTimeProvider(processStartedAtUtc);
         var guiLauncher = new RecordingUnityGuiEditorProcessLauncher
         {
             NextResult = UnityDaemonLaunchResult.Success(6543, processStartedAtUtc),
@@ -131,13 +134,14 @@ public sealed class DaemonLaunchServiceGuiStartupBlockerKeepTests
             new RecordingUnityDaemonProcessLauncher(),
             new RecordingDaemonStartupReadinessProbe(),
             compensationService,
+            timeProvider,
             diagnosisStore,
             unityGuiEditorProcessLauncher: guiLauncher,
             guiStartupObserver: guiStartupObserver);
 
         var result = await service.LaunchAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

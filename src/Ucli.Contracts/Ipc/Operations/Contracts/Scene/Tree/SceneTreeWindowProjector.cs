@@ -22,12 +22,12 @@ internal static class SceneTreeWindowProjector
 
         var flatNodes = Flatten(roots);
 
-        if (options.All)
+        if (options.Limit is not int limit)
         {
             return CreateAllResult(roots, flatNodes.Count);
         }
 
-        return ApplyPage(flatNodes, options);
+        return ApplyPage(flatNodes, options, limit);
     }
 
     private static IReadOnlyList<FlatNode> Flatten (IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots)
@@ -57,11 +57,12 @@ internal static class SceneTreeWindowProjector
 
     private static BoundedWindowResult<IndexSceneTreeLiteNodeJsonContract> ApplyPage (
         IReadOnlyList<FlatNode> flatNodes,
-        BoundedWindowOptions options)
+        BoundedWindowOptions options,
+        int limit)
     {
         var offset = Math.Min(options.Offset, flatNodes.Count);
         var remaining = flatNodes.Count - offset;
-        var count = Math.Min(options.Limit, remaining);
+        var count = Math.Min(limit, remaining);
         var endExclusive = offset + count;
         var isComplete = endExclusive >= flatNodes.Count;
         var projectedRoots = ProjectRoots(flatNodes, offset, endExclusive);
@@ -69,7 +70,7 @@ internal static class SceneTreeWindowProjector
         return new BoundedWindowResult<IndexSceneTreeLiteNodeJsonContract>(
             projectedRoots,
             new BoundedWindow(
-                limit: options.Limit,
+                limit,
                 cursor: options.Cursor,
                 nextCursor: isComplete ? null : BoundedWindowCursorCodec.Encode(endExclusive),
                 isComplete: isComplete,
@@ -141,27 +142,27 @@ internal static class SceneTreeWindowProjector
             childrenState: ResolveChildrenState(node.ChildrenState, childIndices.Count, projectedChildren.Count));
     }
 
-    private static string ResolveChildrenState (
-        string? sourceChildrenState,
+    private static IndexSceneTreeLiteNodeChildrenState ResolveChildrenState (
+        IndexSceneTreeLiteNodeChildrenState sourceChildrenState,
         int sourceChildCount,
         int projectedChildCount)
     {
-        if (string.Equals(sourceChildrenState, IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth, StringComparison.Ordinal))
+        if (sourceChildrenState == IndexSceneTreeLiteNodeChildrenState.NotExpandedByDepth)
         {
-            return IndexSceneTreeLiteNodeChildrenStateValues.NotExpandedByDepth;
+            return IndexSceneTreeLiteNodeChildrenState.NotExpandedByDepth;
         }
 
         if (sourceChildCount > projectedChildCount)
         {
-            return IndexSceneTreeLiteNodeChildrenStateValues.TruncatedByWindow;
+            return IndexSceneTreeLiteNodeChildrenState.TruncatedByWindow;
         }
 
-        if (string.Equals(sourceChildrenState, IndexSceneTreeLiteNodeChildrenStateValues.Unknown, StringComparison.Ordinal))
+        if (sourceChildrenState == IndexSceneTreeLiteNodeChildrenState.Unknown)
         {
-            return IndexSceneTreeLiteNodeChildrenStateValues.Unknown;
+            return IndexSceneTreeLiteNodeChildrenState.Unknown;
         }
 
-        return IndexSceneTreeLiteNodeChildrenStateValues.Complete;
+        return IndexSceneTreeLiteNodeChildrenState.Complete;
     }
 
     private sealed class FlatNode

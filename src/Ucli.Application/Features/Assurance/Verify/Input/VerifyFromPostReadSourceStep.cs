@@ -1,10 +1,12 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 
 /// <summary> Represents normalized source facts for one <c>verify --from</c> operation result. </summary>
 internal sealed record VerifyFromPostReadSourceStep (
-    string OpId,
-    string SourceKind,
+    IpcExecuteStepId OpId,
+    IpcExecutePostReadSourceKind SourceKind,
     bool PlayModeMutation,
-    string? Commit,
+    IpcExecutePostReadCommit? Commit,
     bool PersistenceExpected,
-    string ExpectedPostState);
+    IpcExecuteExpectedPostState ExpectedPostState);

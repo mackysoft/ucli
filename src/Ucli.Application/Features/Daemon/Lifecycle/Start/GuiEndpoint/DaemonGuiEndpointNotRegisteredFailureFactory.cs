@@ -1,6 +1,8 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -10,19 +12,23 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
     /// <summary> Creates the timeout error returned when a GUI endpoint is not registered within the start budget. </summary>
     public static async ValueTask<DaemonStartResult> CreateFailureAsync (
         ResolvedUnityProjectContext unityProject,
+        DaemonCompensationOperationOwner operationOwner,
         IDaemonDiagnosisStore daemonDiagnosisStore,
         TimeProvider timeProvider,
         string endpointOwnerDescription,
         string editorInstancePath,
         int? processId,
         ExecutionError waitError,
-        DateTimeOffset? processStartedAtUtc = null,
-        string? unityLogPath = null)
+        DateTimeOffset? processStartedAtUtc,
+        string? unityLogPath,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(operationOwner);
         ArgumentNullException.ThrowIfNull(daemonDiagnosisStore);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentException.ThrowIfNullOrWhiteSpace(editorInstancePath);
+        cancellationToken.ThrowIfCancellationRequested();
 
         var timeoutError = CreateTimeoutError(endpointOwnerDescription, processId, waitError);
         var diagnosis = CreateDiagnosis(
@@ -32,12 +38,25 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
             timeProvider.GetUtcNow(),
             processStartedAtUtc,
             unityLogPath);
-        var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                diagnosis,
-                CancellationToken.None)
+        var persistenceDeadline = ExecutionDeadline.Start(
+            DaemonTimeouts.SupplementalPersistenceTimeout,
+            timeProvider);
+        var persistenceExecution = await operationOwner.ExecuteAsync(
+                unityProject,
+                DaemonOperationLane.SupplementalPersistence,
+                persistenceDeadline,
+                cancellationToken,
+                "Timed out before GUI endpoint diagnosis persistence could begin.",
+                "Timed out while persisting GUI endpoint diagnosis.",
+                (_, ownedCancellationToken) => daemonDiagnosisStore.WriteAsync(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    diagnosis,
+                    ownedCancellationToken))
             .ConfigureAwait(false);
+        var diagnosisWriteResult = persistenceExecution.IsSuccess
+            ? persistenceExecution.Value!
+            : DaemonDiagnosisStoreOperationResult.Failure(persistenceExecution.Error!);
         if (!diagnosisWriteResult.IsSuccess)
         {
             return DaemonStartResult.Failure(
@@ -58,7 +77,7 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
 
         return ExecutionError.Timeout(
             $"Timed out while waiting for {endpointOwnerDescription} endpoint registration. " +
-            $"reason={DaemonDiagnosisReasonValues.GuiEndpointNotRegistered} " +
+            $"reason={ContractLiteralCodec.ToValue(DaemonDiagnosisReason.GuiEndpointNotRegistered)} " +
             $"processId={processId}. " +
             waitError.Message,
             ExecutionErrorCodes.IpcTimeout);
@@ -76,9 +95,9 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
         ArgumentException.ThrowIfNullOrWhiteSpace(editorInstancePath);
 
         return new DaemonDiagnosis(
-            Reason: DaemonDiagnosisReasonValues.GuiEndpointNotRegistered,
+            Reason: DaemonDiagnosisReason.GuiEndpointNotRegistered,
             Message: message,
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            ReportedBy: DaemonDiagnosisReportedBy.Cli,
             IsInferred: true,
             UpdatedAtUtc: updatedAtUtc,
             ProcessId: processId,
@@ -87,7 +106,8 @@ internal static class DaemonGuiEndpointNotRegisteredFailureFactory
             ProcessStartedAtUtc: processStartedAtUtc,
             UnityLogPath: unityLogPath,
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog);
+            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
+            PrimaryDiagnostic: null);
     }
 
     private static ExecutionError CreateAugmentedPrimaryError (

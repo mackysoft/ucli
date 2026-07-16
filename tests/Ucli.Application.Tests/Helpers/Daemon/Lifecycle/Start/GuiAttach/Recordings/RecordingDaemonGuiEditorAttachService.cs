@@ -12,7 +12,7 @@ internal sealed class RecordingDaemonGuiEditorAttachService : IDaemonGuiEditorAt
 
     public ValueTask<DaemonStartResult?> TryAttachExistingGuiEditorAsync (
         ResolvedUnityProjectContext unityProject,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         DaemonEditorMode? editorMode,
         DaemonStartupBlockedProcessPolicy onStartupBlocked,
         IDaemonStartProgressObserver? progressObserver = null,
@@ -21,13 +21,13 @@ internal sealed class RecordingDaemonGuiEditorAttachService : IDaemonGuiEditorAt
         ArgumentNullException.ThrowIfNull(unityProject);
         cancellationToken.ThrowIfCancellationRequested();
 
-        invocations.Add(new Invocation(unityProject, timeout, editorMode, onStartupBlocked, progressObserver, cancellationToken));
+        invocations.Add(new Invocation(unityProject, deadline, editorMode, onStartupBlocked, progressObserver, cancellationToken));
         return ValueTask.FromResult(NextResult);
     }
 
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
-        TimeSpan Timeout,
+        ExecutionDeadline Deadline,
         DaemonEditorMode? EditorMode,
         DaemonStartupBlockedProcessPolicy OnStartupBlocked,
         IDaemonStartProgressObserver? ProgressObserver,

@@ -1,6 +1,7 @@
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.ReadPostcondition;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Text;
 using UnityExecutionModeValue = MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision.UnityExecutionMode;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Assets;
@@ -42,11 +43,6 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         ArgumentNullException.ThrowIfNull(query);
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (!AssetLookupAccessUtilities.TryNormalizeSearchQuery(query, out var normalizedQuery, out var errorMessage))
-        {
-            return AssetSearchLookupReadResult.Failure(errorMessage, UcliCoreErrorCodes.InvalidArgument);
-        }
-
         if (readIndexMode == ReadIndexMode.Disabled)
         {
             return await SearchFromSourceAsync(
@@ -54,7 +50,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     config,
                     mode,
                     timeout,
-                    normalizedQuery,
+                    query,
                     "readIndex disabled by mode.",
                     failFast,
                     cancellationToken)
@@ -79,17 +75,18 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     config,
                     mode,
                     timeout,
-                    normalizedQuery,
+                    query,
                     lookupResult.Error.Message,
                     failFast,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
+        var lookupSnapshot = lookupResult.Value!;
         var readPostconditionEvaluation = await MutationReadPostconditionAccessEvaluator.EvaluateAssetSearchAsync(
                 mutationReadPostconditionStore,
                 project,
-                lookupResult.Value!.GeneratedAtUtc,
+                lookupSnapshot.GeneratedAtUtc,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!readPostconditionEvaluation.CanUseIndex)
@@ -99,7 +96,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                     config,
                     mode,
                     timeout,
-                    normalizedQuery,
+                    query,
                     readPostconditionEvaluation.FallbackReason!,
                     failFast,
                     cancellationToken)
@@ -109,7 +106,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         var freshnessResult = await freshnessEvaluator.ObserveAsync(
                 project,
                 IndexFreshnessTarget.AssetSearchLookup,
-                lookupResult.Value!.SourceInputsHash,
+                lookupSnapshot.SourceInputsHash,
                 cancellationToken)
             .ConfigureAwait(false);
         if (!freshnessResult.IsSuccess)
@@ -123,13 +120,13 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         {
             return AssetSearchLookupReadResult.Success(
                 new AssetSearchLookupReadOutput(
-                    FilterEntries(lookupResult.Value!.Entries!, normalizedQuery),
+                    FilterEntries(lookupSnapshot.Entries, query),
                     new AssetLookupAccessInfo(
                         Used: true,
                         Hit: true,
                         Source: AssetLookupSource.Index,
                         Freshness: freshnessResult.Freshness,
-                        GeneratedAtUtc: lookupResult.Value.GeneratedAtUtc,
+                        GeneratedAtUtc: lookupSnapshot.GeneratedAtUtc,
                         FallbackReason: null)),
                 "Asset-search lookup read completed.");
         }
@@ -139,8 +136,8 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 config,
                 mode,
                 timeout,
-                normalizedQuery,
-                $"Existing asset-search index freshness is '{ReadIndexAccessUtilities.DescribeFreshness(freshnessResult.Freshness)}'.",
+                query,
+                $"Existing asset-search index freshness is '{ContractLiteralCodec.ToValue(freshnessResult.Freshness)}'.",
                 failFast,
                 cancellationToken)
             .ConfigureAwait(false);
@@ -151,7 +148,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         UcliConfig config,
         UnityExecutionModeValue mode,
         TimeSpan timeout,
-        AssetSearchLookupQuery normalizedQuery,
+        AssetSearchLookupQuery query,
         string fallbackReason,
         bool failFast,
         CancellationToken cancellationToken)
@@ -168,45 +165,47 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
             .ConfigureAwait(false);
         if (!refreshResult.IsSuccess)
         {
-            return AssetSearchLookupReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!.Value);
+            return AssetSearchLookupReadResult.Failure(refreshResult.Message, refreshResult.ErrorCode!);
         }
 
-        var response = refreshResult.Response!;
+        var snapshot = refreshResult.Snapshot!;
+
         return AssetSearchLookupReadResult.Success(
             new AssetSearchLookupReadOutput(
-                FilterEntries(response.AssetSearchEntries!, normalizedQuery),
+                FilterEntries(snapshot.AssetSearchEntries, query),
                 new AssetLookupAccessInfo(
                     Used: false,
                     Hit: true,
                     Source: AssetLookupSource.Source,
                     Freshness: IndexFreshness.Fresh,
-                    GeneratedAtUtc: response.GeneratedAtUtc,
+                    GeneratedAtUtc: snapshot.GeneratedAtUtc,
                     FallbackReason: refreshResult.FallbackReason)),
             "Asset-search lookup read completed.");
     }
 
-    private static IReadOnlyList<IndexAssetSearchEntryJsonContract> FilterEntries (
-        IReadOnlyList<IndexAssetSearchEntryJsonContract> entries,
+    private static IReadOnlyList<AssetSearchLookupEntry> FilterEntries (
+        IReadOnlyList<AssetSearchLookupEntry> entries,
         AssetSearchLookupQuery query)
     {
-        var matches = new List<IndexAssetSearchEntryJsonContract>(entries.Count);
+        var matches = new List<AssetSearchLookupEntry>(entries.Count);
+        var pathPrefix = query.PathPrefix;
         for (var i = 0; i < entries.Count; i++)
         {
             var entry = entries[i];
             if (query.TypeId != null
-                && !ContainsTypeId(entry.SearchTypeIds!, query.TypeId))
+                && !entry.ContainsSearchTypeId(query.TypeId))
             {
                 continue;
             }
 
-            if (query.PathPrefix != null
-                && !entry.AssetPath!.StartsWith(query.PathPrefix, StringComparison.Ordinal))
+            if (pathPrefix != null
+                && !UnityAssetPathContract.IsSameOrDescendantAssetPath(pathPrefix.Value, entry.AssetPath.Value))
             {
                 continue;
             }
 
             if (query.NameContains != null
-                && entry.Name!.IndexOf(query.NameContains, StringComparison.OrdinalIgnoreCase) < 0)
+                && entry.Name.IndexOf(query.NameContains, StringComparison.OrdinalIgnoreCase) < 0)
             {
                 continue;
             }
@@ -215,20 +214,5 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
         }
 
         return matches;
-    }
-
-    private static bool ContainsTypeId (
-        IReadOnlyList<string> searchTypeIds,
-        string typeId)
-    {
-        for (var i = 0; i < searchTypeIds.Count; i++)
-        {
-            if (string.Equals(searchTypeIds[i], typeId, StringComparison.Ordinal))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 }

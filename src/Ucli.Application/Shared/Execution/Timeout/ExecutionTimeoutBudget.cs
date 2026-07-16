@@ -25,13 +25,14 @@ internal sealed class ExecutionTimeoutBudget
     /// <param name="timeout"> The timeout budget. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="timeProvider"> The time provider used for monotonic elapsed-time measurements. </param>
     /// <returns> The created timeout budget. </returns>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="timeProvider" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     public static ExecutionTimeoutBudget Start (
         TimeSpan timeout,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
-        timeProvider ??= TimeProvider.System;
+        ArgumentNullException.ThrowIfNull(timeProvider);
 
         return new ExecutionTimeoutBudget(
             timeProvider,

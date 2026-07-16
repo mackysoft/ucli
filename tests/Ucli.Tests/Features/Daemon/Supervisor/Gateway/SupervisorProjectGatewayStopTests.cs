@@ -1,4 +1,4 @@
-using MackySoft.Tests;
+using System.Text;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -10,6 +10,126 @@ public sealed class SupervisorProjectGatewayStopTests
 {
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task TryStopProject_WhenTokenRotatesBeforePing_ReloadsAndProbesSuccessorGeneration ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "supervisor-project-gateway",
+            "ping-token-rotation");
+        var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(scope.FullPath);
+        var successorManifest = SupervisorClientTestSupport.CreateSuccessorManifest(
+            scenario.Manifest,
+            sessionTokenDiscriminator: 2);
+        var pingAttempt = 0;
+        scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
+            {
+                if (Interlocked.Increment(ref pingAttempt) == 1)
+                {
+                    await scenario.ManifestStore.WriteAsync(
+                        scope.FullPath,
+                        successorManifest,
+                        cancellationToken);
+                    return IpcResponseTestFactory.CreateError(
+                        request,
+                        IpcSessionErrorCodes.SessionTokenInvalid,
+                        "Initial supervisor token is invalid.");
+                }
+
+                return SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
+                    request,
+                    successorManifest);
+            }
+
+            Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject), request.Method);
+            Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), request.SessionToken);
+            return SupervisorProjectGatewayTestSupport.CreateStopProjectStoppedResponse(request);
+        };
+
+        var result = await scenario.Gateway.TryStopProjectAsync(
+            scenario.CreateUnityProject(),
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(result.IsSuccess);
+        Assert.Collection(
+            scenario.TransportClient.Invocations,
+            invocation => Assert.Equal(scenario.Manifest.SessionToken.GetEncodedValue(), invocation.Request.SessionToken),
+            invocation => Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), invocation.Request.SessionToken),
+            invocation => Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), invocation.Request.SessionToken));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TryStopProject_WhenTokenRotatesAfterPing_ReloadsManifestAndReplaysSameStopRequestOnce ()
+    {
+        using var scope = TestDirectories.CreateTempScope(
+            "supervisor-project-gateway",
+            "stop-project-token-rotation");
+        var timeProvider = new ManualTimeProvider();
+        var scenario = await SupervisorProjectGatewayTestSupport.CreateManifestBackedScenarioAsync(
+            scope.FullPath,
+            timeProvider);
+        var successorManifest = SupervisorClientTestSupport.CreateSuccessorManifest(
+            scenario.Manifest,
+            sessionTokenDiscriminator: 2);
+        var stopAttempt = 0;
+        scenario.TransportClient.SendHandler = async (_, request, _, cancellationToken) =>
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
+            {
+                return SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
+                    request,
+                    scenario.Manifest);
+            }
+
+            Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject), request.Method);
+            if (Interlocked.Increment(ref stopAttempt) == 1)
+            {
+                timeProvider.Advance(TimeSpan.FromMilliseconds(200));
+                await scenario.ManifestStore.WriteAsync(
+                    scope.FullPath,
+                    successorManifest,
+                    cancellationToken);
+                return IpcResponseTestFactory.CreateError(
+                    request,
+                    IpcSessionErrorCodes.SessionTokenInvalid,
+                    "Initial supervisor token is invalid.");
+            }
+
+            return SupervisorProjectGatewayTestSupport.CreateStopProjectStoppedResponse(request);
+        };
+
+        var result = await scenario.Gateway.TryStopProjectAsync(
+            scenario.CreateUnityProject(),
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(result.IsSuccess);
+        var requests = scenario.TransportClient.Invocations
+            .Select(static invocation => invocation.Request)
+            .Where(static request => request.Method == ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject))
+            .ToArray();
+        IpcRequestAssert.SessionTokens(
+            requests,
+            scenario.Manifest.SessionToken.GetEncodedValue(),
+            successorManifest.SessionToken.GetEncodedValue());
+        _ = IpcRequestAssert.SingleRequestId(requests);
+        var firstPayload = SupervisorProjectGatewayTestSupport.ReadStopProjectRequest(requests[0]);
+        var replayPayload = SupervisorProjectGatewayTestSupport.ReadStopProjectRequest(requests[1]);
+        Assert.Equal(requests[0].RequestDeadlineUtc, requests[1].RequestDeadlineUtc);
+        Assert.True(
+            requests[0].RequestDeadlineRemainingMilliseconds
+            > requests[1].RequestDeadlineRemainingMilliseconds);
+        Assert.Equal(firstPayload, replayPayload);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task TryStopProject_WhenManifestIsMalformed_DeletesManifestAndReturnsNull ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "malformed-manifest");
@@ -18,16 +138,16 @@ public sealed class SupervisorProjectGatewayStopTests
         Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
         await File.WriteAllTextAsync(manifestPath, "{ malformed json", CancellationToken.None);
 
-        var manifestStore = new SupervisorManifestStore();
+        var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider);
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Transport should not be used when manifest read fails."),
         };
-        var client = new SupervisorClient(transportClient);
+        var client = new SupervisorClient(transportClient, timeProvider);
         var gateway = SupervisorProjectGatewayTestSupport.CreateGateway(
             manifestStore,
             client,
-            new RecordingSupervisorProcessLauncher(),
+            new RecordingSupervisorProcessManager(),
             timeProvider);
 
         var result = await gateway.TryStopProjectAsync(
@@ -37,6 +157,103 @@ public sealed class SupervisorProjectGatewayStopTests
 
         Assert.Null(result);
         Assert.False(File.Exists(manifestPath));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TryStopProject_WhenMalformedManifestIsReplacedDuringCleanup_RetriesOnceWithSuccessorGeneration ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "malformed-manifest-replaced");
+        var timeProvider = new ManualTimeProvider();
+        var originalManifest = SupervisorClientTestSupport.CreateManifest();
+        var successorManifest = SupervisorClientTestSupport.CreateSuccessorManifest(
+            originalManifest,
+            sessionTokenDiscriminator: 2);
+        var manifestReadCount = 0;
+        var manifestStore = new SupervisorManifestStore(
+            timeProvider,
+            (_, _) => ValueTask.FromResult<ReadOnlyMemory<byte>?>(Encoding.UTF8.GetBytes(
+                Interlocked.Increment(ref manifestReadCount) == 1
+                    ? "{ malformed json"
+                    : SupervisorManifestStoreTestSupport.Serialize(successorManifest))),
+            static (_, _, _) => ValueTask.CompletedTask,
+            static _ => throw new InvalidOperationException("A successor manifest must not be deleted."));
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = (_, request, _, cancellationToken) =>
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                Assert.Equal(successorManifest.SessionToken.GetEncodedValue(), request.SessionToken);
+                return string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal)
+                    ? ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
+                        request,
+                        successorManifest))
+                    : ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateStopProjectStoppedResponse(request));
+            },
+        };
+        var client = new SupervisorClient(transportClient, timeProvider);
+        var gateway = SupervisorProjectGatewayTestSupport.CreateGateway(
+            manifestStore,
+            client,
+            new RecordingSupervisorProcessManager(),
+            timeProvider);
+
+        var result = await gateway.TryStopProjectAsync(
+            SupervisorProjectGatewayTestSupport.CreateUnityProject(scope.FullPath),
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(DaemonStopStatus.Stopped, result.Status);
+        Assert.Collection(
+            transportClient.Invocations,
+            invocation => Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), invocation.Request.Method),
+            invocation => Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject), invocation.Request.Method));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task TryStopProject_WhenManifestChangesAgainDuringSuccessorRetry_ReturnsWithoutThirdObservation ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-project-gateway", "manifest-changes-twice");
+        var timeProvider = new ManualTimeProvider();
+        var firstSuccessor = SupervisorClientTestSupport.CreateManifest(sessionTokenDiscriminator: 2);
+        var secondSuccessor = SupervisorClientTestSupport.CreateSuccessorManifest(
+            firstSuccessor,
+            sessionTokenDiscriminator: 3);
+        var manifestReadCount = 0;
+        var manifestStore = new SupervisorManifestStore(
+            timeProvider,
+            (_, _) => ValueTask.FromResult<ReadOnlyMemory<byte>?>(Encoding.UTF8.GetBytes(
+                Interlocked.Increment(ref manifestReadCount) switch
+                {
+                    1 => "{ malformed generation one",
+                    2 => SupervisorManifestStoreTestSupport.Serialize(firstSuccessor),
+                    3 => "{ malformed generation two",
+                    _ => SupervisorManifestStoreTestSupport.Serialize(secondSuccessor),
+                })),
+            static (_, _, _) => ValueTask.CompletedTask,
+            static _ => throw new InvalidOperationException("A successor manifest must not be deleted."));
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = static (_, _, _, _) => throw new InvalidOperationException(
+                "A third manifest observation must not dispatch supervisor IPC."),
+        };
+        var gateway = SupervisorProjectGatewayTestSupport.CreateGateway(
+            manifestStore,
+            new SupervisorClient(transportClient, timeProvider),
+            new RecordingSupervisorProcessManager(),
+            timeProvider);
+
+        var result = await gateway.TryStopProjectAsync(
+            SupervisorProjectGatewayTestSupport.CreateUnityProject(scope.FullPath),
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        Assert.Null(result);
+        Assert.Equal(4, manifestReadCount);
+        Assert.Empty(transportClient.Invocations);
     }
 
     [Fact]
@@ -54,7 +271,7 @@ public sealed class SupervisorProjectGatewayStopTests
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (string.Equals(request.Method, SupervisorIpcContracts.PingMethod, StringComparison.Ordinal))
+            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.Ping), StringComparison.Ordinal))
             {
                 timeProvider.Advance(TimeSpan.FromMilliseconds(220));
                 return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateSupervisorPingResponse(
@@ -62,10 +279,10 @@ public sealed class SupervisorProjectGatewayStopTests
                     scenario.Manifest));
             }
 
-            if (string.Equals(request.Method, SupervisorIpcContracts.StopProjectMethod, StringComparison.Ordinal))
+            if (string.Equals(request.Method, ContractLiteralCodec.ToValue(SupervisorIpcMethod.StopProject), StringComparison.Ordinal))
             {
-                var payload = SupervisorProjectGatewayTestSupport.ReadStopProjectRequest(request);
-                observedStopTimeout = TimeSpan.FromMilliseconds(payload.TimeoutMilliseconds);
+                _ = SupervisorProjectGatewayTestSupport.ReadStopProjectRequest(request);
+                observedStopTimeout = TimeSpan.FromMilliseconds(request.RequestDeadlineRemainingMilliseconds);
                 return ValueTask.FromResult(SupervisorProjectGatewayTestSupport.CreateStopProjectStoppedResponse(request));
             }
 

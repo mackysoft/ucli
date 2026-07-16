@@ -1,6 +1,8 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
@@ -9,6 +11,7 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
 {
     public static async ValueTask<DaemonStartResult> CreateFailureAsync (
         ResolvedUnityProjectContext unityProject,
+        DaemonCompensationOperationOwner operationOwner,
         IDaemonDiagnosisStore daemonDiagnosisStore,
         TimeProvider timeProvider,
         string editorInstancePath,
@@ -20,18 +23,19 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
+        ArgumentNullException.ThrowIfNull(operationOwner);
         ArgumentNullException.ThrowIfNull(daemonDiagnosisStore);
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentException.ThrowIfNullOrWhiteSpace(editorInstancePath);
         ArgumentNullException.ThrowIfNull(rebootstrapError);
 
         var error = ExecutionError.InternalError(
-            $"GUI daemon rebootstrap is unavailable. reason={DaemonDiagnosisReasonValues.GuiRebootstrapUnavailable} processId={processId}. {rebootstrapError.Message}",
+            $"GUI daemon rebootstrap is unavailable. reason={ContractLiteralCodec.ToValue(DaemonDiagnosisReason.GuiRebootstrapUnavailable)} processId={processId}. {rebootstrapError.Message}",
             DaemonErrorCodes.DaemonEndpointNotRegistered);
         var diagnosis = new DaemonDiagnosis(
-            Reason: DaemonDiagnosisReasonValues.GuiRebootstrapUnavailable,
+            Reason: DaemonDiagnosisReason.GuiRebootstrapUnavailable,
             Message: error.Message,
-            ReportedBy: DaemonDiagnosisReportedByValues.Cli,
+            ReportedBy: DaemonDiagnosisReportedBy.Cli,
             IsInferred: true,
             UpdatedAtUtc: timeProvider.GetUtcNow(),
             ProcessId: processId,
@@ -40,13 +44,27 @@ internal static class DaemonGuiRebootstrapUnavailableFailureFactory
             ProcessStartedAtUtc: processStartedAtUtc,
             UnityLogPath: null,
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-            ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog);
-        var diagnosisWriteResult = await daemonDiagnosisStore.WriteAsync(
-                unityProject.RepositoryRoot,
-                unityProject.ProjectFingerprint,
-                diagnosis,
-                cancellationToken)
+            ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
+            PrimaryDiagnostic: null);
+        var persistenceDeadline = ExecutionDeadline.Start(
+            DaemonTimeouts.SupplementalPersistenceTimeout,
+            timeProvider);
+        var persistenceExecution = await operationOwner.ExecuteAsync(
+                unityProject,
+                DaemonOperationLane.SupplementalPersistence,
+                persistenceDeadline,
+                cancellationToken,
+                "Timed out before GUI rebootstrap diagnosis persistence could begin.",
+                "Timed out while persisting GUI rebootstrap diagnosis.",
+                (_, ownedCancellationToken) => daemonDiagnosisStore.WriteAsync(
+                    unityProject.RepositoryRoot,
+                    unityProject.ProjectFingerprint,
+                    diagnosis,
+                    ownedCancellationToken))
             .ConfigureAwait(false);
+        var diagnosisWriteResult = persistenceExecution.IsSuccess
+            ? persistenceExecution.Value!
+            : DaemonDiagnosisStoreOperationResult.Failure(persistenceExecution.Error!);
         if (!diagnosisWriteResult.IsSuccess)
         {
             error = ExecutionError.InternalError(

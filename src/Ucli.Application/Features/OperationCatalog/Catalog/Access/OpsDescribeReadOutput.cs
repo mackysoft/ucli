@@ -4,5 +4,5 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Access;
 /// <param name="Operation"> The selected full operation entry. </param>
 /// <param name="AccessInfo"> The access metadata used to enforce catalog visibility. </param>
 internal sealed record OpsDescribeReadOutput (
-    IndexOpEntryJsonContract Operation,
+    ValidatedOpsOperation Operation,
     OpsCatalogAccessInfo AccessInfo);

@@ -13,7 +13,7 @@ internal sealed class UnexpectedDaemonDiagnosisStore : IDaemonDiagnosisStore
 
     public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException(reason);
@@ -21,7 +21,7 @@ internal sealed class UnexpectedDaemonDiagnosisStore : IDaemonDiagnosisStore
 
     public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DaemonDiagnosis diagnosis,
         CancellationToken cancellationToken = default)
     {
@@ -30,7 +30,7 @@ internal sealed class UnexpectedDaemonDiagnosisStore : IDaemonDiagnosisStore
 
     public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         throw new InvalidOperationException(reason);

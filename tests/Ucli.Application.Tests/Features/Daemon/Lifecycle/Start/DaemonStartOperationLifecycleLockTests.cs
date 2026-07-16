@@ -15,15 +15,15 @@ public sealed class DaemonStartOperationLifecycleLockTests
             ThrowTimeoutOnAcquire = true,
         };
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: new RecordingDaemonLaunchService(),
             lifecycleLockProvider: lockProvider);
 
         var result = await operation.StartAsync(
-            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-lock-timeout"),
-            TimeSpan.FromMilliseconds(500),
+            ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-lock-timeout")),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -38,10 +38,10 @@ public sealed class DaemonStartOperationLifecycleLockTests
     [Trait("Size", "Small")]
     public async Task Start_WhenWorkflowBegins_AcquiresLifecycleLockForUnityProjectRoot ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-lock-context");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-lock-context"));
         var lockProvider = new StubProjectLifecycleLockProvider();
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: new RecordingDaemonLaunchService
@@ -52,7 +52,7 @@ public sealed class DaemonStartOperationLifecycleLockTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

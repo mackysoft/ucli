@@ -128,10 +128,26 @@ internal sealed class UnityGuiEditorProcessLauncher : IUnityGuiEditorProcessLaun
                     "Unity GUI Editor process could not be started."));
             }
 
-            using (process)
+            var processHandle = new UnityProcessHandle(process);
+            var launchResult = await UnityProcessOwnership.ResolveDaemonLaunchAsync(
+                    processHandle,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (launchResult.IsSuccess)
             {
-                return UnityDaemonLaunchResult.Success(process.Id, process.StartTime.ToUniversalTime());
+                try
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    await UnityProcessOwnership.DisposeBestEffortAsync(processHandle).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    await UnityProcessOwnership.TerminateAndDisposeBestEffortAsync(processHandle).ConfigureAwait(false);
+                    throw;
+                }
             }
+
+            return launchResult;
         }
         catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
         {

@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Hosting.Cli.Requests;
 /// <summary> Creates internal call requests for the <c>eval</c> command. </summary>
 internal static class EvalRequestFactory
 {
-    private const string OperationId = "eval";
+    private static readonly IpcExecuteStepId OperationId = new("eval");
 
     /// <summary> Creates one request JSON document that invokes <c>ucli.cs.eval</c>. </summary>
     /// <param name="source"> The C# source text to evaluate. </param>

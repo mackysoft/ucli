@@ -27,7 +27,9 @@ internal sealed class RecordingDaemonLogsClient : IDaemonLogsClient
         if (responses.Count == 0)
         {
             return ValueTask.FromResult(DaemonLogsClientReadResult.Success(
-                new IpcDaemonLogsReadResponse(Array.Empty<IpcDaemonLogEvent>(), query.After ?? "stream-1:1")));
+                new IpcDaemonLogsReadResponse(
+                    Array.Empty<IpcDaemonLogEvent>(),
+                    new IpcLogCursor(query.After ?? "abcdef0123456789abcdef0123456789:1"))));
         }
 
         return ValueTask.FromResult(responses.Dequeue());

@@ -2,41 +2,100 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
-/// <summary> Represents the result of reading daemon session metadata from local storage. </summary>
-/// <param name="Session"> The loaded daemon session. </param>
-/// <param name="Error"> The structured error when read fails; otherwise <see langword="null" />. </param>
-/// <param name="FailureKind"> The categorized failure kind when read fails; otherwise <see cref="DaemonSessionReadFailureKind.None" />. </param>
-internal sealed record DaemonSessionReadResult (
-    DaemonSession? Session,
-    ExecutionError? Error,
-    DaemonSessionReadFailureKind FailureKind)
+/// <summary> Represents one internally consistent daemon session storage read outcome. </summary>
+internal sealed class DaemonSessionReadResult
 {
-    /// <summary> Gets a value indicating whether session read operation succeeded. </summary>
-    public bool IsSuccess => Error is null;
-
-    /// <summary> Gets a value indicating whether a daemon session exists. </summary>
-    public bool Exists => IsSuccess && Session is not null;
-
-    /// <summary> Creates a successful read result. </summary>
-    /// <param name="session"> The loaded daemon session when one exists; otherwise <see langword="null" />. </param>
-    /// <returns> The successful read result. </returns>
-    public static DaemonSessionReadResult Success (DaemonSession? session)
+    private DaemonSessionReadResult (
+        DaemonSession? session,
+        DaemonInvalidSessionEvidence? invalidEvidence,
+        ExecutionError? error,
+        DaemonSessionReadFailureKind failureKind,
+        DaemonSessionArtifactIdentity? artifactIdentity)
     {
-        return new DaemonSessionReadResult(session, null, DaemonSessionReadFailureKind.None);
+        Session = session;
+        InvalidEvidence = invalidEvidence;
+        Error = error;
+        FailureKind = failureKind;
+        ArtifactIdentity = artifactIdentity;
     }
 
-    /// <summary> Creates a failed read result. </summary>
-    /// <param name="error"> The structured error. </param>
-    /// <param name="failureKind"> The categorized failure kind for read operation. </param>
-    /// <param name="session"> The parsed daemon session snapshot when available for cleanup; otherwise <see langword="null" />. </param>
-    /// <returns> The failed read result. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="error" /> is <see langword="null" />. </exception>
-    public static DaemonSessionReadResult Failure (
+    /// <summary> Gets the validated session only for a successful found result. </summary>
+    public DaemonSession? Session { get; }
+
+    /// <summary> Gets restricted untrusted evidence only for a parsed invalid result. </summary>
+    public DaemonInvalidSessionEvidence? InvalidEvidence { get; }
+
+    /// <summary> Gets the read error for a failed result. </summary>
+    public ExecutionError? Error { get; }
+
+    /// <summary> Gets the categorized failure kind. </summary>
+    public DaemonSessionReadFailureKind FailureKind { get; }
+
+    /// <summary> Gets the exact serialized artifact identity when a file was observed. </summary>
+    public DaemonSessionArtifactIdentity? ArtifactIdentity { get; }
+
+    /// <summary> Gets a value indicating whether the read completed without error. </summary>
+    public bool IsSuccess => Error is null;
+
+    /// <summary> Gets a value indicating whether a validated session exists. </summary>
+    public bool Exists => Session is not null;
+
+    /// <summary> Creates a successful result for an absent session artifact. </summary>
+    /// <returns> The missing result. </returns>
+    public static DaemonSessionReadResult Missing ()
+    {
+        return new DaemonSessionReadResult(null, null, null, DaemonSessionReadFailureKind.None, null);
+    }
+
+    /// <summary> Creates a successful result for one validated observed session artifact. </summary>
+    /// <param name="session"> The validated runtime session. </param>
+    /// <param name="artifactIdentity"> The exact observed artifact identity. </param>
+    /// <returns> The found result. </returns>
+    public static DaemonSessionReadResult Found (
+        DaemonSession session,
+        DaemonSessionArtifactIdentity artifactIdentity)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        ArgumentNullException.ThrowIfNull(artifactIdentity);
+        return new DaemonSessionReadResult(session, null, null, DaemonSessionReadFailureKind.None, artifactIdentity);
+    }
+
+    /// <summary> Creates an invalid-session result for one observed artifact. </summary>
+    /// <param name="error"> The invalid-session error. </param>
+    /// <param name="invalidEvidence"> The restricted parsed evidence when JSON deserialization succeeded. </param>
+    /// <param name="artifactIdentity"> The exact observed artifact identity. </param>
+    /// <returns> The invalid-session result. </returns>
+    public static DaemonSessionReadResult Invalid (
         ExecutionError error,
-        DaemonSessionReadFailureKind failureKind = DaemonSessionReadFailureKind.Unknown,
-        DaemonSession? session = null)
+        DaemonInvalidSessionEvidence? invalidEvidence,
+        DaemonSessionArtifactIdentity artifactIdentity)
     {
         ArgumentNullException.ThrowIfNull(error);
-        return new DaemonSessionReadResult(session, error, failureKind);
+        ArgumentNullException.ThrowIfNull(artifactIdentity);
+        return new DaemonSessionReadResult(
+            null,
+            invalidEvidence,
+            error,
+            DaemonSessionReadFailureKind.InvalidSession,
+            artifactIdentity);
+    }
+
+    /// <summary> Creates a non-validation storage failure. </summary>
+    /// <param name="error"> The storage error. </param>
+    /// <param name="failureKind"> The non-validation failure kind. </param>
+    /// <param name="artifactIdentity"> The exact observed artifact identity when available. </param>
+    /// <returns> The failed result. </returns>
+    public static DaemonSessionReadResult Failure (
+        ExecutionError error,
+        DaemonSessionReadFailureKind failureKind,
+        DaemonSessionArtifactIdentity? artifactIdentity = null)
+    {
+        ArgumentNullException.ThrowIfNull(error);
+        if (failureKind is DaemonSessionReadFailureKind.None or DaemonSessionReadFailureKind.InvalidSession)
+        {
+            throw new ArgumentOutOfRangeException(nameof(failureKind), failureKind, "Use a state-specific factory for successful or invalid-session results.");
+        }
+
+        return new DaemonSessionReadResult(null, null, error, failureKind, artifactIdentity);
     }
 }

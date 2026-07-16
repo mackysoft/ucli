@@ -1,6 +1,6 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -13,14 +13,16 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "missing-can-shutdown-process");
         var store = DaemonSessionStorageTestSupport.CreateStore();
-        var projectFingerprint = "fingerprint-missing-can-shutdown-process";
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-missing-can-shutdown-process");
+        var sessionToken = IpcSessionTokenTestFactory.Create("missing-can-shutdown-process").GetEncodedValue();
         await DaemonSessionStorageTestSupport.WriteJsonAsync(
             scope.FullPath,
             projectFingerprint,
             $$"""
             {
-              "schemaVersion": {{DaemonSession.CurrentSchemaVersion}},
-              "sessionToken": "token-1",
+              "schemaVersion": {{DaemonSessionStorageContract.CurrentSchemaVersion}},
+              "sessionGenerationId": "11111111-1111-1111-1111-111111111111",
+              "sessionToken": "{{sessionToken}}",
               "projectFingerprint": "{{projectFingerprint}}",
               "issuedAtUtc": "2026-01-01T00:00:00+00:00",
               "editorMode": "batchmode",
@@ -45,22 +47,11 @@ public sealed class DaemonSessionShutdownCapabilityValidationTests
     }
 
     [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Write_WhenCanShutdownProcessIsFalse_ReturnsInvalidArgument ()
+    [Trait("Size", "Small")]
+    public void Constructor_WhenBatchmodeCannotShutdownProcess_ThrowsArgumentException ()
     {
-        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "can-shutdown-process-false");
-        var store = DaemonSessionStorageTestSupport.CreateStore();
-        var session = DaemonSessionTestFactory.Create() with
-        {
-            ProjectFingerprint = "fingerprint-can-shutdown-process-false",
-            CanShutdownProcess = false,
-        };
-
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
-
-        Assert.False(writeResult.IsSuccess);
-        var error = Assert.IsType<ExecutionError>(writeResult.Error);
-        Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
-        Assert.Contains("canShutdownProcess", error.Message, StringComparison.Ordinal);
+        Assert.Throws<ArgumentException>(() => DaemonSessionTestFactory.Create(
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-can-shutdown-process-false"),
+            canShutdownProcess: false));
     }
 }

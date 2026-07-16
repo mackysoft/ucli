@@ -11,10 +11,10 @@ public sealed class VerifyVerdictCalculatorTests
     public void Calculate_WhenAllRequiredClaimsPassedWithFullCoverage_ReturnsPass ()
     {
         var verdict = VerifyVerdictCalculator.Calculate(
-            [CreateClaim(VerifyClaimStatusValues.Passed, VerifyCoverageValues.Full, required: true)],
+            [CreateClaim(AssuranceClaimStatus.Passed, AssuranceCoverage.Full, required: true)],
             []);
 
-        Assert.Equal(VerifyVerdictValues.Pass, verdict);
+        Assert.Equal(AssuranceVerdict.Pass, verdict);
     }
 
     [Fact]
@@ -22,42 +22,52 @@ public sealed class VerifyVerdictCalculatorTests
     public void Calculate_WhenRequiredClaimFailed_ReturnsFail ()
     {
         var verdict = VerifyVerdictCalculator.Calculate(
-            [CreateClaim(VerifyClaimStatusValues.Failed, VerifyCoverageValues.Full, required: true)],
+            [CreateClaim(AssuranceClaimStatus.Failed, AssuranceCoverage.Full, required: true)],
             []);
 
-        Assert.Equal(VerifyVerdictValues.Fail, verdict);
+        Assert.Equal(AssuranceVerdict.Fail, verdict);
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(VerifyClaimStatusValues.Passed, VerifyCoverageValues.Partial)]
-    [InlineData(VerifyClaimStatusValues.Indeterminate, VerifyCoverageValues.None)]
-    [InlineData(VerifyClaimStatusValues.Unverified, VerifyCoverageValues.None)]
-    public void Calculate_WhenRequiredClaimIsNotComplete_ReturnsIncomplete (
-        string status,
-        string coverage)
+    public void Calculate_WhenRequiredClaimIsNotComplete_ReturnsIncomplete ()
     {
-        var verdict = VerifyVerdictCalculator.Calculate(
-            [CreateClaim(status, coverage, required: true)],
-            []);
+        var testCases = new[]
+        {
+            (AssuranceClaimStatus.Passed, AssuranceCoverage.Partial),
+            (AssuranceClaimStatus.Indeterminate, AssuranceCoverage.None),
+            (AssuranceClaimStatus.Unverified, AssuranceCoverage.None),
+        };
 
-        Assert.Equal(VerifyVerdictValues.Incomplete, verdict);
+        foreach (var (status, coverage) in testCases)
+        {
+            var verdict = VerifyVerdictCalculator.Calculate(
+                [CreateClaim(status, coverage, required: true)],
+                []);
+
+            Assert.Equal(AssuranceVerdict.Incomplete, verdict);
+        }
     }
 
-    [Theory]
+    [Fact]
     [Trait("Size", "Small")]
-    [InlineData(VerifyClaimStatusValues.Failed, VerifyCoverageValues.Full)]
-    [InlineData(VerifyClaimStatusValues.Passed, VerifyCoverageValues.Partial)]
-    [InlineData(VerifyClaimStatusValues.Indeterminate, VerifyCoverageValues.None)]
-    public void Calculate_WhenOptionalClaimIsNotPassingWithoutBlockingRisk_ReturnsPass (
-        string status,
-        string coverage)
+    public void Calculate_WhenOptionalClaimIsNotPassingWithoutBlockingRisk_ReturnsPass ()
     {
-        var verdict = VerifyVerdictCalculator.Calculate(
-            [CreateClaim(status, coverage, required: false)],
-            []);
+        var testCases = new[]
+        {
+            (AssuranceClaimStatus.Failed, AssuranceCoverage.Full),
+            (AssuranceClaimStatus.Passed, AssuranceCoverage.Partial),
+            (AssuranceClaimStatus.Indeterminate, AssuranceCoverage.None),
+        };
 
-        Assert.Equal(VerifyVerdictValues.Pass, verdict);
+        foreach (var (status, coverage) in testCases)
+        {
+            var verdict = VerifyVerdictCalculator.Calculate(
+                [CreateClaim(status, coverage, required: false)],
+                []);
+
+            Assert.Equal(AssuranceVerdict.Pass, verdict);
+        }
     }
 
     [Fact]
@@ -65,10 +75,10 @@ public sealed class VerifyVerdictCalculatorTests
     public void Calculate_WhenPayloadResidualRiskIsBlocking_ReturnsFail ()
     {
         var verdict = VerifyVerdictCalculator.Calculate(
-            [CreateClaim(VerifyClaimStatusValues.Passed, VerifyCoverageValues.Full, required: true)],
+            [CreateClaim(AssuranceClaimStatus.Passed, AssuranceCoverage.Full, required: true)],
             [new VerifyResidualRiskOutput(VerifyRiskCodes.FromDiagnosticCoverageUnbound.Value, Blocking: true)]);
 
-        Assert.Equal(VerifyVerdictValues.Fail, verdict);
+        Assert.Equal(AssuranceVerdict.Fail, verdict);
     }
 
     [Fact]
@@ -78,28 +88,28 @@ public sealed class VerifyVerdictCalculatorTests
         var verdict = VerifyVerdictCalculator.Calculate(
             [
                 CreateClaim(
-                    VerifyClaimStatusValues.Passed,
-                    VerifyCoverageValues.Full,
+                    AssuranceClaimStatus.Passed,
+                    AssuranceCoverage.Full,
                     required: true,
                     residualRisks: [new VerifyResidualRiskOutput("CLAIM_RISK", Blocking: true)]),
             ],
             []);
 
-        Assert.Equal(VerifyVerdictValues.Fail, verdict);
+        Assert.Equal(AssuranceVerdict.Fail, verdict);
     }
 
     private static VerifyClaimOutput CreateClaim (
-        string status,
-        string coverage,
+        AssuranceClaimStatus status,
+        AssuranceCoverage coverage,
         bool required,
         IReadOnlyList<VerifyResidualRiskOutput>? residualRisks = null)
     {
         return new VerifyClaimOutput(
-            Id: VerifyClaimCodes.PostMutationObserved.Value,
+            Id: VerifyClaimCodes.PostMutationObserved,
             Status: status,
             Coverage: coverage,
             Required: required,
-            VerifierRef: "postRead",
+            VerifierRef: new AssuranceVerifierId("postRead"),
             Statement: "Claim statement.",
             Subject: new Dictionary<string, object?>(StringComparer.Ordinal)
             {

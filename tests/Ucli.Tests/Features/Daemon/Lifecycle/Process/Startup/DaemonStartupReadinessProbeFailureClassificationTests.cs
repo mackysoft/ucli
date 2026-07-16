@@ -3,6 +3,7 @@ namespace MackySoft.Ucli.Tests.Daemon;
 using System.Net.Sockets;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
 using static DaemonStartupReadinessProbeTestSupport;
 
@@ -12,7 +13,8 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenDaemonLogContainsCompilerErrorMarker_ReturnsInternalErrorImmediately ()
     {
-        var pingClient = new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused));
+        var pingClient = new RecordingDaemonPingInfoClient(
+            IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused));
         var logReader = new RecordingUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(
@@ -24,8 +26,8 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-compiler-marker"),
-            TimeSpan.FromSeconds(5),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-compiler-marker")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsReady);
@@ -42,7 +44,8 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenDaemonLogContainsCompilerErrorCode_ReturnsInternalErrorWithFirstErrorLine ()
     {
-        var pingClient = new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused));
+        var pingClient = new RecordingDaemonPingInfoClient(
+            IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused));
         var logReader = new RecordingUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(
@@ -54,8 +57,8 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-compiler-cs"),
-            TimeSpan.FromSeconds(5),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-compiler-cs")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsReady);
@@ -68,7 +71,8 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenDaemonLogContainsPackageResolutionFailure_ReturnsInternalErrorImmediately ()
     {
-        var pingClient = new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused));
+        var pingClient = new RecordingDaemonPingInfoClient(
+            IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused));
         var logReader = new RecordingUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(
@@ -84,8 +88,8 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-package-error"),
-            TimeSpan.FromSeconds(5),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-package-error")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsReady);
@@ -102,7 +106,8 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenOnlyPreviousSessionHasPackageResolutionFailure_PreservesProcessExitFailure ()
     {
-        var pingClient = new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused));
+        var pingClient = new RecordingDaemonPingInfoClient(
+            IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused));
         var logReader = new RecordingUnityLogReader
         {
             NextResult = UnityLogReadResult.Success(
@@ -125,8 +130,8 @@ public sealed class DaemonStartupReadinessProbeFailureClassificationTests
         var probe = CreateProbe(pingClient, logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-ignore-previous-session-errors"),
-            TimeSpan.FromSeconds(5),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-ignore-previous-session-errors")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             daemonProcessId: int.MaxValue,
             cancellationToken: CancellationToken.None);
 

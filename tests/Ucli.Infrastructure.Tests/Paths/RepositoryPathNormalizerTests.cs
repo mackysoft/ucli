@@ -6,6 +6,22 @@ public sealed class RepositoryPathNormalizerTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public void Success_WithEmptyRepositoryRelativePath_ThrowsArgumentException ()
+    {
+        Assert.Throws<ArgumentException>(
+            static () => RepositoryPathNormalizationResult.Success(Path.GetTempPath(), string.Empty));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Failure_WithNoneKind_ThrowsArgumentOutOfRangeException ()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(
+            static () => RepositoryPathNormalizationResult.Failure(PathNormalizationFailureKind.None, "failure"));
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public void TryNormalize_WithRepositoryRoot_ReturnsDotRelativePath ()
     {
         var repositoryRoot = Path.Combine(Path.GetTempPath(), "ucli-repository-path-normalizer");

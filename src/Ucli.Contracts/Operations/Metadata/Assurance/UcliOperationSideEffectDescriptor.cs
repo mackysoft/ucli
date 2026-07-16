@@ -20,7 +20,7 @@ internal sealed class UcliOperationSideEffectDescriptor
         bool derivesMayDirty,
         bool derivesMayPersist,
         bool allowedForQueryOperation,
-        IReadOnlyList<string> requiredTouchedKinds)
+        IReadOnlyList<UcliTouchedResourceKind> requiredTouchedKinds)
     {
         SideEffect = sideEffect;
         Value = ContractLiteralCodec.ToValue(sideEffect);
@@ -49,22 +49,22 @@ internal sealed class UcliOperationSideEffectDescriptor
     /// <summary> Gets a value indicating whether a query operation can declare the side effect. </summary>
     public bool AllowedForQueryOperation { get; }
 
-    /// <summary> Gets touched-resource kind literals required when this side effect is declared. </summary>
-    public IReadOnlyList<string> RequiredTouchedKinds { get; }
+    /// <summary> Gets touched-resource kinds required when this side effect is declared. </summary>
+    public IReadOnlyList<UcliTouchedResourceKind> RequiredTouchedKinds { get; }
 
-    private static string[] CopyRequiredTouchedKinds (IReadOnlyList<string> requiredTouchedKinds)
+    private static UcliTouchedResourceKind[] CopyRequiredTouchedKinds (IReadOnlyList<UcliTouchedResourceKind> requiredTouchedKinds)
     {
         if (requiredTouchedKinds == null)
         {
             throw new ArgumentNullException(nameof(requiredTouchedKinds));
         }
 
-        var copy = new string[requiredTouchedKinds.Count];
+        var copy = new UcliTouchedResourceKind[requiredTouchedKinds.Count];
         for (var i = 0; i < requiredTouchedKinds.Count; i++)
         {
-            if (string.IsNullOrWhiteSpace(requiredTouchedKinds[i]))
+            if (!ContractLiteralCodec.IsDefined(requiredTouchedKinds[i]))
             {
-                throw new ArgumentException("Required touched kinds must not contain null, empty, or whitespace values.", nameof(requiredTouchedKinds));
+                throw new ArgumentException("Required touched kinds must contain only specified contract values.", nameof(requiredTouchedKinds));
             }
 
             copy[i] = requiredTouchedKinds[i];

@@ -18,7 +18,7 @@ public sealed class VerifyFromInputReaderEnvelopeInvalidInputTests
     {
         var result = VerifyFromInputReader.Read(
             json,
-            ProjectFingerprint);
+            DefaultProjectFingerprint);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(expectedCode, result.Error!.Code);
@@ -26,6 +26,8 @@ public sealed class VerifyFromInputReaderEnvelopeInvalidInputTests
 
     private static IEnumerable<InvalidInputCase> EnumerateInvalidEnvelopeCases ()
     {
+        var otherProjectFingerprintText = ProjectFingerprintTestFactory.Create("other-fingerprint").ToString();
+
         yield return new InvalidInputCase(
             "[]",
             VerifyErrorCodes.VerifyInputSchemaUnsupported
@@ -81,7 +83,7 @@ public sealed class VerifyFromInputReaderEnvelopeInvalidInputTests
             VerifyErrorCodes.VerifyInputProjectMissing
         );
         yield return new InvalidInputCase(
-            """
+            $$"""
             {
               "protocolVersion": 1,
               "status": "ok",
@@ -89,7 +91,7 @@ public sealed class VerifyFromInputReaderEnvelopeInvalidInputTests
               "command": "call",
               "payload": {
                 "project": {
-                  "projectFingerprint": "other-fingerprint"
+                  "projectFingerprint": "{{otherProjectFingerprintText}}"
                 },
                 "opResults": []
               },

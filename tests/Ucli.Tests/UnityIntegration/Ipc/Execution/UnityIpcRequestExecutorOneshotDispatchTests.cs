@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -18,14 +17,15 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
     public async Task Execute_WhenTargetIsOneshot_UsesOneshotClient ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "oneshot");
-        var response = CreateSuccessResponse("req-oneshot");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath);
+        var response = CreateSuccessResponse(Guid.NewGuid());
         var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => throw new Xunit.Sdk.XunitException("Daemon transport must not be called."));
         var oneshotTransportClient = new RecordingUnityIpcTransportClient(request =>
         {
-            return request.Method switch
+            return IpcRequestAssert.ParseMethod(request) switch
             {
-                IpcMethodNames.Ping => CreateReadyPingResponse(request.RequestId),
-                IpcMethodNames.OpsRead => response,
+                UnityIpcMethod.Ping => CreateReadyPingResponse(request.RequestId, unityProject.ProjectFingerprint),
+                UnityIpcMethod.OpsRead => response,
                 _ => throw new Xunit.Sdk.XunitException($"Unexpected method: {request.Method}"),
             };
         });
@@ -42,7 +42,7 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new UnexpectedDaemonSessionConnectionProvider("Oneshot target should not resolve a daemon session."),
+                new UnexpectedDaemonSessionStore("Oneshot target should not resolve a daemon session."),
                 launcher));
 
         var result = await executor.ExecuteAsync(
@@ -50,7 +50,7 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
             UnityExecutionMode.Auto,
             DefaultTimeout,
             UcliConfig.CreateDefault(),
-            ResolvedUnityProjectContextTestFactory.CreateForRepositoryRoot(scope.FullPath),
+            unityProject,
             CreateOpsReadPayload());
 
         Assert.True(result.IsSuccess);
@@ -59,8 +59,8 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
             daemonTransportClient,
             oneshotTransportClient,
             launcher,
-            IpcMethodNames.Ping,
-            IpcMethodNames.OpsRead);
+            UnityIpcMethod.Ping,
+            UnityIpcMethod.OpsRead);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new UnexpectedDaemonSessionConnectionProvider("Plugin verification failure should not resolve a daemon session."),
+                new UnexpectedDaemonSessionStore("Plugin verification failure should not resolve a daemon session."),
                 launcher));
 
         var result = await executor.ExecuteAsync(
@@ -139,7 +139,7 @@ public sealed class UnityIpcRequestExecutorOneshotDispatchTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new UnexpectedDaemonSessionConnectionProvider("Plugin timeout should not resolve a daemon session."),
+                new UnexpectedDaemonSessionStore("Plugin timeout should not resolve a daemon session."),
                 launcher));
 
         var result = await executor.ExecuteAsync(

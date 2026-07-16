@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Call.UseCases.Call;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -22,13 +21,13 @@ public sealed class CallServiceTimeoutBudgetTests
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults: [],
                     errors: [],
                     planToken: "issued-plan-token")),
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults: [],
                     errors: [],
                     planToken: null)))
@@ -47,6 +46,7 @@ public sealed class CallServiceTimeoutBudgetTests
             timeProvider);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),
@@ -84,7 +84,7 @@ public sealed class CallServiceTimeoutBudgetTests
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults: [],
                     errors: [],
                     planToken: null)));
@@ -95,6 +95,7 @@ public sealed class CallServiceTimeoutBudgetTests
             preflightService: preflightService);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("oneshot"),

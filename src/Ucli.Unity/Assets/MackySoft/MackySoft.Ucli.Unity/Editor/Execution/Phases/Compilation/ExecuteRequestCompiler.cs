@@ -42,7 +42,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <param name="error"> The structured normalization error when compilation fails. </param>
         /// <returns> <see langword="true" /> when the source step can be compiled for the current execution state; otherwise <see langword="false" />. </returns>
         public bool TryCompileExecutionStep (
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             OperationExecutionContext executionContext,
             bool allowPlayMode,
             out NormalizedRequestStep compiledStep,
@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             operations = Array.Empty<NormalizedOperation>();
             diagnostics = Array.Empty<OperationDiagnostic>();
 
-            if (step.Kind == IpcRequestStepKind.Op)
+            if (step.Kind == IpcExecuteStepKind.Op)
             {
                 if (!RawOperationPlayModeSupportValidator.TryValidate(operationRegistry, step, allowPlayMode, out error))
                 {
@@ -64,7 +64,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return TryCompileOpStep(step, out compiledStep, out operations, out error);
             }
 
-            if (step.Kind == IpcRequestStepKind.Edit)
+            if (step.Kind == IpcExecuteStepKind.Edit)
             {
                 return TryCompileEditStep(step, executionContext, allowPlayMode, out compiledStep, out operations, out diagnostics, out error);
             }
@@ -76,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryValidateOpStep (
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             out ExecuteRequestNormalizationError error)
         {
             if (step.OperationName == null)
@@ -101,7 +101,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryCompileOpStep (
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             out NormalizedRequestStep compiledStep,
             out IReadOnlyList<NormalizedOperation> operations,
             out ExecuteRequestNormalizationError error)
@@ -116,17 +116,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             operations = new[]
             {
                 new NormalizedOperation(
-                    Id: step.Id!,
+                    ExecutionKey: OperationExecutionKey.ForRawStep(step.Id!),
                     Op: step.OperationName!,
                     Args: step.Element.GetProperty("args").Clone(),
                     As: null,
                     Expect: null,
-                    AllowRequestLocalAliases: false,
-                    SourceKind: NormalizedOperation.SourceStepKind.Op),
+                    AliasReferences: OperationAliasReferenceMap.Empty,
+                    PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                    AllowExplicitPrefabAssetMutation: false),
             };
             compiledStep = new NormalizedRequestStep(
                 Id: step.Id!,
-                Kind: IpcRequestStepKind.Op,
+                Kind: IpcExecuteStepKind.Op,
                 OperationName: step.OperationName!,
                 PrimitiveCount: operations.Count)
             {
@@ -137,7 +138,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private bool TryCompileEditStep (
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             OperationExecutionContext executionContext,
             bool allowPlayMode,
             out NormalizedRequestStep compiledStep,
@@ -208,7 +209,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             compiledStep = new NormalizedRequestStep(
                 Id: editStep.Id,
-                Kind: IpcRequestStepKind.Edit,
+                Kind: IpcExecuteStepKind.Edit,
                 OperationName: EditOperationName,
                 PrimitiveCount: stepOperations.Count)
             {
@@ -221,19 +222,19 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static IpcExecutePostReadSourceStep CreateOperationPostReadSourceStep (
-            string opId,
+            IpcExecuteStepId opId,
             string operationName)
         {
             var sourceKind = string.Equals(operationName, UcliPrimitiveOperationNames.ProjectRefresh, StringComparison.Ordinal)
-                ? IpcExecutePostReadSourceKindNames.Refresh
-                : IpcExecutePostReadSourceKindNames.Operation;
+                ? IpcExecutePostReadSourceKind.Refresh
+                : IpcExecutePostReadSourceKind.Operation;
             return new IpcExecutePostReadSourceStep(
                 OpId: opId,
                 SourceKind: sourceKind,
                 PlayModeMutation: false,
                 Commit: null,
-                PersistenceExpected: string.Equals(sourceKind, IpcExecutePostReadSourceKindNames.Refresh, StringComparison.Ordinal),
-                ExpectedPostState: IpcExecuteExpectedPostStateNames.Unavailable);
+                PersistenceExpected: sourceKind == IpcExecutePostReadSourceKind.Refresh,
+                ExpectedPostState: IpcExecuteExpectedPostState.Unavailable);
         }
 
         private static IpcExecutePostReadSourceStep CreateEditPostReadSourceStep (
@@ -245,13 +246,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var persistenceExpected = IsPersistenceExpected(editStep);
             return new IpcExecutePostReadSourceStep(
                 OpId: editStep.Id,
-                SourceKind: IpcExecutePostReadSourceKindNames.Edit,
+                SourceKind: IpcExecutePostReadSourceKind.Edit,
                 PlayModeMutation: isPlayModeSceneMutation,
-                Commit: ToPostReadCommitName(editStep.Commit),
+                Commit: MapPostReadCommit(editStep.Commit),
                 PersistenceExpected: persistenceExpected,
                 ExpectedPostState: isPlayModeSceneMutation
-                    ? IpcExecuteExpectedPostStateNames.Unavailable
-                    : IpcExecuteExpectedPostStateNames.Deterministic);
+                    ? IpcExecuteExpectedPostState.Unavailable
+                    : IpcExecuteExpectedPostState.Deterministic);
         }
 
         private static bool IsPersistenceExpected (IpcEditStepContract editStep)
@@ -275,21 +276,21 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return false;
         }
 
-        private static string ToPostReadCommitName (IpcEditStepContract.CommitKind commit)
+        private static IpcExecutePostReadCommit MapPostReadCommit (IpcEditStepContract.CommitKind commit)
         {
             switch (commit)
             {
                 case IpcEditStepContract.CommitKind.None:
-                    return IpcExecutePostReadCommitNames.None;
+                    return IpcExecutePostReadCommit.None;
 
                 case IpcEditStepContract.CommitKind.Context:
-                    return IpcExecutePostReadCommitNames.Context;
+                    return IpcExecutePostReadCommit.Context;
 
                 case IpcEditStepContract.CommitKind.Project:
-                    return IpcExecutePostReadCommitNames.Project;
+                    return IpcExecutePostReadCommit.Project;
 
                 default:
-                    return IpcExecutePostReadCommitNames.None;
+                    throw new ArgumentOutOfRangeException(nameof(commit), commit, "Unsupported edit commit kind.");
             }
         }
 
@@ -483,12 +484,20 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
             else
             {
-                if (!SceneQuerySelectionEngine.TryResolveForEditRuntime(
-                    step,
-                    executionContext,
-                    out var matches,
-                    out diagnostics,
-                    out var errorMessage))
+                if (!TryCreateSceneQueryArguments(step, out var queryArguments, out var errorMessage))
+                {
+                    error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
+                    return false;
+                }
+
+                if (!SceneQuerySelectionEngine.TryQueryRuntime(
+                        step.Context.Path!,
+                        queryArguments,
+                        executionContext,
+                        allowTemporaryState: true,
+                        out var matches,
+                        out diagnostics,
+                        out errorMessage))
                 {
                     error = ExecuteRequestNormalizationError.InvalidArgument(errorMessage, step.Id);
                     return false;
@@ -511,6 +520,42 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
+            return true;
+        }
+
+        private static bool TryCreateSceneQueryArguments (
+            IpcEditStepContract step,
+            out SceneQuerySelectionEngine.QueryArguments queryArguments,
+            out string errorMessage)
+        {
+            queryArguments = default;
+            if (step.Context.Kind != IpcEditStepContract.ContextKind.Scene)
+            {
+                errorMessage = "Edit step query selection is supported only for scene context.";
+                return false;
+            }
+
+            if (!IpcSceneQueryArgsContractReader.TryReadForEditSelection(step.Selection.SourceArgs, out var parsedArgs, out errorMessage))
+            {
+                return false;
+            }
+
+            UnityComponentTypeId? componentTypeId = null;
+            Type? componentRuntimeType = null;
+            if (parsedArgs.ComponentType != null)
+            {
+                componentTypeId = new UnityComponentTypeId(parsedArgs.ComponentType);
+                if (!ComponentTypeResolver.TryResolveComponentType(componentTypeId.Value, out componentRuntimeType, out errorMessage))
+                {
+                    return false;
+                }
+            }
+
+            queryArguments = new SceneQuerySelectionEngine.QueryArguments(
+                parsedArgs.PathPrefix,
+                componentTypeId,
+                componentRuntimeType);
+            errorMessage = string.Empty;
             return true;
         }
 
@@ -548,7 +593,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             hasMatch = false;
-            if (!UnityObjectReferenceCodec.TryParse(target.Reference, "select", out var reference, out errorMessage))
+            if (!UnityObjectReferenceCodec.TryParse(
+                    target.Reference,
+                    "select",
+                    OperationAliasReferenceMap.Empty,
+                    out var reference,
+                    out errorMessage))
             {
                 return false;
             }
@@ -577,7 +627,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryApplyCardinality (
-            string stepId,
+            IpcExecuteStepId stepId,
             IpcEditStepContract.CardinalityKind cardinality,
             List<SelectionTarget> selectedTargets,
             out ExecuteRequestNormalizationError error)
@@ -759,14 +809,15 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             operations.Add(new NormalizedOperation(
-                Id: step.Id,
+                ExecutionKey: CreateEditPrimitiveExecutionKey(step.Id, operations.Count),
                 Op: operationName,
                 Args: CreateSetArgs(target.Reference, action.Values),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit,
-                SuppressPersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode),
+                AliasReferences: OperationAliasReferenceMap.Create(target.AliasIdentity),
+                PersistenceReportingPolicy: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)
+                    ? OperationPersistenceReportingPolicy.SuppressAll
+                    : OperationPersistenceReportingPolicy.ReportAll,
                 AllowExplicitPrefabAssetMutation: ShouldAllowExplicitPrefabAssetMutation(step, allowPlayMode)));
             error = default!;
             return true;
@@ -803,18 +854,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var internalAlias = CreateInternalAlias(step.Id, branchIndex, action.Alias);
             operations.Add(new NormalizedOperation(
-                Id: step.Id,
+                ExecutionKey: CreateEditPrimitiveExecutionKey(step.Id, operations.Count),
                 Op: operationName,
                 Args: CreateEnsureComponentArgs(target.Reference, action.Type!),
                 As: internalAlias,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit,
-                SuppressPersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)));
+                AliasReferences: OperationAliasReferenceMap.Create(target.AliasIdentity),
+                PersistenceReportingPolicy: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)
+                    ? OperationPersistenceReportingPolicy.SuppressAll
+                    : OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false));
 
             if (action.Alias != null)
             {
-                aliases[action.Alias] = new SelectionTarget(IpcEditTargetKind.Component, CreateAliasReference(internalAlias!));
+                aliases[action.Alias] = new SelectionTarget(
+                    IpcEditTargetKind.Component,
+                    CreateAliasReference(internalAlias!.Alias),
+                    internalAlias);
             }
 
             error = default!;
@@ -847,18 +903,23 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             var internalAlias = CreateInternalAlias(step.Id, branchIndex, action.Alias);
             operations.Add(new NormalizedOperation(
-                Id: step.Id,
+                ExecutionKey: CreateEditPrimitiveExecutionKey(step.Id, operations.Count),
                 Op: operationName,
                 Args: CreateGoCreateArgs(action.Name!, branchTarget.Reference),
                 As: internalAlias,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit,
-                SuppressPersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)));
+                AliasReferences: OperationAliasReferenceMap.Create(branchTarget.AliasIdentity),
+                PersistenceReportingPolicy: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)
+                    ? OperationPersistenceReportingPolicy.SuppressAll
+                    : OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false));
 
             if (action.Alias != null)
             {
-                aliases[action.Alias] = new SelectionTarget(IpcEditTargetKind.GameObject, CreateAliasReference(internalAlias!));
+                aliases[action.Alias] = new SelectionTarget(
+                    IpcEditTargetKind.GameObject,
+                    CreateAliasReference(internalAlias!.Alias),
+                    internalAlias);
             }
 
             error = default!;
@@ -886,13 +947,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             operations.Add(new NormalizedOperation(
-                Id: step.Id,
+                ExecutionKey: CreateEditPrimitiveExecutionKey(step.Id, operations.Count),
                 Op: operationName,
                 Args: CreateAssetCreateArgs(action.Type!, action.Path!),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit));
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false));
             error = default!;
             return true;
         }
@@ -926,14 +988,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             operations.Add(new NormalizedOperation(
-                Id: step.Id,
+                ExecutionKey: CreateEditPrimitiveExecutionKey(step.Id, operations.Count),
                 Op: operationName,
                 Args: CreatePrefabCreateArgs(target.Reference, action.Path!),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit,
-                SuppressScenePersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)));
+                AliasReferences: OperationAliasReferenceMap.Create(target.AliasIdentity),
+                PersistenceReportingPolicy: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)
+                    ? OperationPersistenceReportingPolicy.SuppressScene
+                    : OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false));
             error = default!;
             return true;
         }
@@ -968,14 +1032,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             operations.Add(new NormalizedOperation(
-                Id: step.Id,
+                ExecutionKey: CreateEditPrimitiveExecutionKey(step.Id, operations.Count),
                 Op: operationName,
                 Args: CreatePrefabOverrideArgs(target.Reference, action.TargetAssetPath!, action.PropertyPaths),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit,
-                SuppressPersistenceReporting: isRevert && allowPlayMode));
+                AliasReferences: OperationAliasReferenceMap.Create(target.AliasIdentity),
+                PersistenceReportingPolicy: isRevert && allowPlayMode
+                    ? OperationPersistenceReportingPolicy.SuppressAll
+                    : OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false));
             error = default!;
             return true;
         }
@@ -1009,14 +1075,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             operations.Add(new NormalizedOperation(
-                Id: step.Id,
+                ExecutionKey: CreateEditPrimitiveExecutionKey(step.Id, operations.Count),
                 Op: operationName,
                 Args: CreateDeleteArgs(target.Reference),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit,
-                SuppressPersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)));
+                AliasReferences: OperationAliasReferenceMap.Create(target.AliasIdentity),
+                PersistenceReportingPolicy: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)
+                    ? OperationPersistenceReportingPolicy.SuppressAll
+                    : OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false));
             error = default!;
             return true;
         }
@@ -1055,14 +1123,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             operations.Add(new NormalizedOperation(
-                Id: step.Id,
+                ExecutionKey: CreateEditPrimitiveExecutionKey(step.Id, operations.Count),
                 Op: operationName,
                 Args: CreateReparentArgs(target.Reference, parent.Reference),
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit,
-                SuppressPersistenceReporting: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)));
+                AliasReferences: OperationAliasReferenceMap.Create(target.AliasIdentity, parent.AliasIdentity),
+                PersistenceReportingPolicy: ShouldSuppressPlayModeLivePersistence(step, allowPlayMode)
+                    ? OperationPersistenceReportingPolicy.SuppressAll
+                    : OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false));
             error = default!;
             return true;
         }
@@ -1095,13 +1165,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             operations.Add(new NormalizedOperation(
-                Id: step.Id,
+                ExecutionKey: CreateEditPrimitiveExecutionKey(step.Id, operations.Count),
                 Op: operationName,
                 Args: args,
                 As: null,
                 Expect: null,
-                InternalExecutionKey: CreateInternalExecutionKey(step.Id, operations.Count),
-                SourceKind: NormalizedOperation.SourceStepKind.Edit));
+                AliasReferences: OperationAliasReferenceMap.Empty,
+                PersistenceReportingPolicy: OperationPersistenceReportingPolicy.ReportAll,
+                AllowExplicitPrefabAssetMutation: false));
             error = default!;
             return true;
         }
@@ -1150,21 +1221,29 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 case IpcEditStepContract.ContextKind.Scene:
                     target = new SelectionTarget(
                         IpcEditStepLoweringRules.DetermineDirectSelectionTargetKind(step.Context.Kind, step.Selection.ComponentType),
-                        CreateSceneSelector(step.Context.Path!, step.Selection.GameObjectPath!, step.Selection.ComponentType));
+                        CreateSceneSelector(step.Context.Path!, step.Selection.GameObjectPath!, step.Selection.ComponentType),
+                        aliasIdentity: null);
                     errorMessage = string.Empty;
                     return true;
                 case IpcEditStepContract.ContextKind.Prefab:
                     target = new SelectionTarget(
                         IpcEditStepLoweringRules.DetermineDirectSelectionTargetKind(step.Context.Kind, step.Selection.ComponentType),
-                        CreatePrefabSelector(step.Context.Path!, step.Selection.GameObjectPath!, step.Selection.ComponentType));
+                        CreatePrefabSelector(step.Context.Path!, step.Selection.GameObjectPath!, step.Selection.ComponentType),
+                        aliasIdentity: null);
                     errorMessage = string.Empty;
                     return true;
                 case IpcEditStepContract.ContextKind.Asset:
-                    target = new SelectionTarget(IpcEditTargetKind.Asset, CreateAssetPathSelector(step.Context.Path!));
+                    target = new SelectionTarget(
+                        IpcEditTargetKind.Asset,
+                        CreateAssetPathSelector(step.Context.Path!),
+                        aliasIdentity: null);
                     errorMessage = string.Empty;
                     return true;
                 case IpcEditStepContract.ContextKind.Project:
-                    target = new SelectionTarget(IpcEditTargetKind.Asset, CreateProjectAssetPathSelector(step.Selection.ProjectAssetPath!));
+                    target = new SelectionTarget(
+                        IpcEditTargetKind.Asset,
+                        CreateProjectAssetPathSelector(step.Selection.ProjectAssetPath!),
+                        aliasIdentity: null);
                     errorMessage = string.Empty;
                     return true;
                 default:
@@ -1193,7 +1272,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 CreateSceneSelector(
                     scenePath,
                     match.HierarchyPath,
-                    match.ComponentType));
+                    match.ComponentType?.Value),
+                aliasIdentity: null);
         }
 
         private static bool TryResolveTarget (
@@ -1256,12 +1336,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (step.Context.Kind == IpcEditStepContract.ContextKind.Scene)
             {
-                target = new SelectionTarget(IpcEditTargetKind.GameObject, CreateSceneSelector(step.Context.Path!, parentLiteral, null));
+                target = new SelectionTarget(
+                    IpcEditTargetKind.GameObject,
+                    CreateSceneSelector(step.Context.Path!, parentLiteral, null),
+                    aliasIdentity: null);
                 error = default!;
                 return true;
             }
 
-            target = new SelectionTarget(IpcEditTargetKind.GameObject, CreatePrefabSelector(step.Context.Path!, parentLiteral, null));
+            target = new SelectionTarget(
+                IpcEditTargetKind.GameObject,
+                CreatePrefabSelector(step.Context.Path!, parentLiteral, null),
+                aliasIdentity: null);
             error = default!;
             return true;
         }
@@ -1287,24 +1373,27 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                    && literal[0] == '$';
         }
 
-        private static string? CreateInternalAlias (
-            string stepId,
+        private static RequestLocalAliasIdentity.EditActionAliasIdentity? CreateInternalAlias (
+            IpcExecuteStepId stepId,
             int branchIndex,
             string? alias)
         {
-            if (string.IsNullOrWhiteSpace(alias))
+            if (alias == null)
             {
                 return null;
             }
 
-            return $"__edit:{stepId}:{branchIndex}:{alias}";
+            return RequestLocalAliasIdentity.ForEditAction(
+                stepId,
+                branchIndex,
+                new UcliPlanAlias(alias));
         }
 
-        private static string CreateInternalExecutionKey (
-            string stepId,
+        private static OperationExecutionKey CreateEditPrimitiveExecutionKey (
+            IpcExecuteStepId stepId,
             int primitiveIndex)
         {
-            return $"{stepId}#p{primitiveIndex}";
+            return OperationExecutionKey.ForEditPrimitive(stepId, primitiveIndex);
         }
 
         private static JsonElement CreatePathArgs (string path)
@@ -1332,13 +1421,13 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             return ParseElement(stream);
         }
 
-        private static JsonElement CreateAliasReference (string alias)
+        private static JsonElement CreateAliasReference (UcliPlanAlias alias)
         {
             using var stream = new MemoryStream();
             using (var writer = new Utf8JsonWriter(stream))
             {
                 writer.WriteStartObject();
-                writer.WriteString("var", alias);
+                writer.WriteString("var", alias.Value);
                 writer.WriteEndObject();
             }
 
@@ -1630,10 +1719,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             /// <param name="reference"> The cloned primitive reference payload that identifies the target. </param>
             public SelectionTarget (
                 IpcEditTargetKind kind,
-                JsonElement reference)
+                JsonElement reference,
+                RequestLocalAliasIdentity.EditActionAliasIdentity? aliasIdentity)
             {
                 Kind = kind;
                 Reference = reference;
+                AliasIdentity = aliasIdentity;
             }
 
             /// <summary>
@@ -1645,6 +1736,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             /// Gets the cloned primitive reference payload used by lowered operations.
             /// </summary>
             public JsonElement Reference { get; }
+
+            /// <summary> Gets the typed internal alias identity when the reference uses an edit-action alias. </summary>
+            public RequestLocalAliasIdentity.EditActionAliasIdentity? AliasIdentity { get; }
         }
 
         private readonly struct SetAssignment

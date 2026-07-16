@@ -1,5 +1,6 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Requests.Call.Common.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests;
@@ -10,25 +11,31 @@ internal static class EvalCommandTestData
 
     public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
 
+    private static readonly Guid RequestGuid = Guid.Parse(RequestId);
+
+    private static readonly Sha256Digest SourceDigest = Sha256Digest.Parse(
+        "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+
+    private static readonly Sha256Digest ExecutionDigest = Sha256Digest.Parse(
+        "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+
     public static CallServiceResult CreateSuccessfulServiceResult ()
     {
         return CallServiceResult.Success(
             new CallExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults:
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults:
                 [
                     CreateCallOperationResult(),
                 ],
-                Plan: new CallPlanOutput(
-                    RequestId: RequestId,
-                    Project: ProjectIdentityInfoTestFactory.Create(),
-                    OpResults:
+                plan: new CallPlanOutput(
+                    opResults:
                     [
                         CreatePlanOperationResult(),
                     ],
-                    PlanToken: "plan-token-1"),
-                ReadPostcondition: null),
+                    planToken: "plan-token-1"),
+                readPostcondition: null),
             "uCLI call completed.");
     }
 
@@ -40,31 +47,31 @@ internal static class EvalCommandTestData
                 ApplicationFailure.InvalidInput(
                     "Step 'eval' requires dangerous operation 'ucli.cs.eval'. Specify --allowDangerous to execute dangerous operations.",
                     OperationAuthorizationErrorCodes.OperationNotAllowed,
-                    "eval"),
+                    new IpcExecuteStepId("eval")),
             ]);
     }
 
     private static OperationExecutionOperationResult CreateCallOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: "eval",
+            OpId: new IpcExecuteStepId("eval"),
             Op: UcliPrimitiveOperationNames.CsEval,
-            Phase: IpcExecuteOperationPhaseNames.Call,
+            Phase: IpcExecuteOperationPhase.Call,
             Applied: true,
             Changed: false,
             Touched: [])
         {
             Result = IpcPayloadCodec.SerializeToElement(
                 new CsEvalResult(
-                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                    CsEvalSourceKindValues.Snippet,
+                    SourceDigest,
+                    UcliCodeSourceFormKind.Snippet,
                     "Snippet.Run",
-                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    ExecutionDigest,
                     CreateSuccessfulCompileResult(),
                     7,
                     [],
                     new CsEvalReturnValue(
-                        CsEvalReturnValueKindValues.Json,
+                        CsEvalReturnValueKind.Json,
                         JsonSerializer.SerializeToElement(
                             new
                             {
@@ -72,7 +79,7 @@ internal static class EvalCommandTestData
                             },
                             IpcJsonSerializerOptions.Default)),
                     new CsEvalTouchedResources(
-                        CsEvalTouchedResourceStateValues.None,
+                        CsEvalTouchedResourceState.None,
                         declared: null))),
         };
     }
@@ -80,19 +87,19 @@ internal static class EvalCommandTestData
     private static OperationExecutionOperationResult CreatePlanOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: "eval",
+            OpId: new IpcExecuteStepId("eval"),
             Op: UcliPrimitiveOperationNames.CsEval,
-            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,
             Changed: false,
             Touched: [])
         {
             Result = IpcPayloadCodec.SerializeToElement(
                 new CsEvalResult(
-                    "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-                    CsEvalSourceKindValues.Snippet,
+                    SourceDigest,
+                    UcliCodeSourceFormKind.Snippet,
                     "Snippet.Run",
-                    "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+                    ExecutionDigest,
                     CreateSuccessfulCompileResult(),
                     durationMilliseconds: null,
                     logs: null,
@@ -104,7 +111,7 @@ internal static class EvalCommandTestData
     private static CsEvalCompileResult CreateSuccessfulCompileResult ()
     {
         return new CsEvalCompileResult(
-            CsEvalCompileStatusValues.Succeeded,
+            CsEvalCompileStatus.Succeeded,
             diagnostics: []);
     }
 }

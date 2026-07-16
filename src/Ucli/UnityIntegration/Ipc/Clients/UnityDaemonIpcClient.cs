@@ -1,12 +1,11 @@
-using System.Net.Sockets;
 using System.Runtime.ExceptionServices;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.UnityIntegration.Ipc.Dispatch;
 using MackySoft.Ucli.UnityIntegration.Ipc.Failures;
 using MackySoft.Ucli.UnityIntegration.Ipc.Recovery;
@@ -19,27 +18,17 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
 {
     private readonly IIpcTransportClient transportClient;
 
-    private readonly IDaemonSessionConnectionProvider daemonSessionConnectionProvider;
-
-    private readonly UnityDaemonRecoveryWaiter? recoveryWaiter;
-
-    private readonly TimeProvider timeProvider;
+    private readonly DaemonSessionAcquisitionCoordinator sessionAcquisitionCoordinator;
 
     /// <summary> Initializes a new instance of the <see cref="UnityDaemonIpcClient" /> class. </summary>
     /// <param name="transportClient"> The shared transport client dependency. </param>
-    /// <param name="daemonSessionConnectionProvider"> The daemon session connection provider dependency. </param>
-    /// <param name="recoveryWaiter"> The daemon lifecycle recovery waiter dependency. </param>
-    /// <param name="timeProvider"> The time provider used for retry deadlines and delays. </param>
+    /// <param name="sessionAcquisitionCoordinator"> The coordinator that creates one acquisition scope per logical request. </param>
     public UnityDaemonIpcClient (
         IIpcTransportClient transportClient,
-        IDaemonSessionConnectionProvider daemonSessionConnectionProvider,
-        UnityDaemonRecoveryWaiter? recoveryWaiter = null,
-        TimeProvider? timeProvider = null)
+        DaemonSessionAcquisitionCoordinator sessionAcquisitionCoordinator)
     {
         this.transportClient = transportClient ?? throw new ArgumentNullException(nameof(transportClient));
-        this.daemonSessionConnectionProvider = daemonSessionConnectionProvider ?? throw new ArgumentNullException(nameof(daemonSessionConnectionProvider));
-        this.recoveryWaiter = recoveryWaiter;
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.sessionAcquisitionCoordinator = sessionAcquisitionCoordinator ?? throw new ArgumentNullException(nameof(sessionAcquisitionCoordinator));
     }
 
     /// <inheritdoc />
@@ -49,121 +38,54 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
     public async ValueTask<UnityRequestExecutionResult> SendAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentNullException.ThrowIfNull(unityProject);
         ArgumentNullException.ThrowIfNull(dispatchRequest);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
-
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
-        // NOTE: Recoverable replay must keep one requestId so Unity can find the same
-        // operation record after domain reload. The session token is still resolved on
-        // every attempt because the daemon endpoint can be re-registered.
-        var requestId = UnityIpcRequestFactory.CreateRequestId(dispatchRequest.Method);
-        ExecutionDeadline? endpointAbsenceRetryDeadline = null;
-
-        while (true)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
-            {
-                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.Timeout(
-                    $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds."));
-            }
-
-            var sessionConnectionResult = await daemonSessionConnectionProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
-            if (!sessionConnectionResult.IsSuccess)
-            {
-                if (dispatchRequest.IsRecoverable
-                    && recoveryWaiter != null
-                    && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false))
-                {
-                    continue;
-                }
-
-                if (sessionConnectionResult.IsSessionNotAvailable)
-                {
-                    return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
-                        UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
-                        DaemonSessionConnectionResolutionResult.SessionNotAvailableMessage));
-                }
-
-                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
-                    $"Daemon session connection could not be resolved. {sessionConnectionResult.Error!.Message}"));
-            }
-
-            try
-            {
-                var sessionConnection = sessionConnectionResult.Connection!;
-                var attemptTimeout = ResolveAttemptTimeout(dispatchRequest, remainingTimeout);
-                var response = await transportClient.SendAsync(
-                        sessionConnection.Endpoint,
-                        UnityIpcRequestFactory.Create(
-                            sessionConnection.SessionToken,
-                            dispatchRequest,
-                            requestId,
-                            remainingTimeout),
-                        attemptTimeout,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                return UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                throw;
-            }
-            catch (IpcProgressFrameHandlerException exception)
-            {
-                ExceptionDispatchInfo.Capture(exception.InnerException!).Throw();
-                throw;
-            }
-            catch (Exception exception)
-            {
-                if (dispatchRequest.IsRecoverable)
-                {
-                    var retryDecision = await ShouldRetryRecoverableDispatchAsync(
-                            unityProject,
-                            deadline,
-                            endpointAbsenceRetryDeadline,
-                            exception,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                    endpointAbsenceRetryDeadline = retryDecision.EndpointAbsenceRetryDeadline;
-                    if (retryDecision.ShouldRetry)
-                    {
-                        continue;
-                    }
-                }
-
-                return UnityRequestExecutionResult.Failure(
-                    UnityIpcFailureClassifier.FromDaemonDispatchException(exception, remainingTimeout));
-            }
-        }
+        ArgumentNullException.ThrowIfNull(deadline);
+        return await SendCoreAsync(
+                unityProject,
+                dispatchRequest,
+                deadline,
+                IpcResponseMode.Single,
+                (endpoint, request, attemptTimeout, token) => transportClient.SendAsync(
+                    endpoint,
+                    request,
+                    attemptTimeout,
+                    token),
+                cancellationToken)
+            .ConfigureAwait(false);
     }
 
     /// <inheritdoc />
     public async ValueTask<UnityRequestExecutionResult> SendStreamingAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
-        TimeSpan timeout,
+        ExecutionDeadline deadline,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(onProgressFrame);
         ArgumentNullException.ThrowIfNull(dispatchRequest);
-        if (dispatchRequest.IsRecoverable)
+        ArgumentNullException.ThrowIfNull(deadline);
+        if (!UnityIpcMethodCapabilities.SupportsStreaming(dispatchRequest.Method))
         {
             return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
-                $"Streaming IPC dispatch does not support recoverable request replay: {dispatchRequest.Method}."));
+                $"IPC method does not support streaming: {ContractLiteralCodec.ToValue(dispatchRequest.Method)}."));
         }
 
         return await SendCoreAsync(
                 unityProject,
                 dispatchRequest,
-                timeout,
-                onProgressFrame,
+                deadline,
+                IpcResponseMode.Stream,
+                (endpoint, request, attemptTimeout, token) => transportClient.SendStreamingAsync(
+                    endpoint,
+                    request,
+                    attemptTimeout,
+                    onProgressFrame,
+                    token),
                 cancellationToken)
             .ConfigureAwait(false);
     }
@@ -171,63 +93,129 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
     private async ValueTask<UnityRequestExecutionResult> SendCoreAsync (
         ResolvedUnityProjectContext unityProject,
         UnityIpcDispatchRequest dispatchRequest,
-        TimeSpan timeout,
-        Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
+        ExecutionDeadline deadline,
+        IpcResponseMode responseMode,
+        Func<IpcEndpoint, IpcRequestEnvelope, TimeSpan, CancellationToken, ValueTask<IpcResponse>> sendAttempt,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentNullException.ThrowIfNull(dispatchRequest);
-        ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(timeout, TimeSpan.Zero);
 
-        var deadline = ExecutionDeadline.Start(timeout, timeProvider);
-        var requestId = UnityIpcRequestFactory.CreateRequestId(dispatchRequest.Method);
-        ExecutionDeadline? endpointAbsenceRetryDeadline = null;
+        var requestId = Guid.NewGuid();
+        IpcResponse? sessionTokenRejection = null;
+        Exception? firstResponseInterruption = null;
+        var responseReplayPolicy = dispatchRequest.ResponseReplayPolicy;
+        var acquisitionScope = sessionAcquisitionCoordinator.CreateScope(deadline);
+        var sessionAcquisition = await acquisitionScope.ResolveCurrentAsync(
+                unityProject,
+                cancellationToken)
+            .ConfigureAwait(false);
 
         while (true)
         {
+            switch (sessionAcquisition.Kind)
+            {
+                case DaemonSessionAcquisitionKind.Success:
+                    break;
+                case DaemonSessionAcquisitionKind.RequestDeadlineExpired:
+                    return firstResponseInterruption is null
+                        ? CreateDeadlineExceededResult(deadline.Timeout)
+                        : CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                case DaemonSessionAcquisitionKind.PublicationWindowExpired:
+                case DaemonSessionAcquisitionKind.SessionNotAvailable:
+                    if (firstResponseInterruption is not null)
+                    {
+                        return CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                    }
+
+                    return sessionTokenRejection is not null
+                        ? UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(sessionTokenRejection))
+                        : UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
+                            UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                            DaemonSessionAcquisitionResult.SessionNotAvailableMessage));
+                case DaemonSessionAcquisitionKind.EndpointAvailabilityWindowExpired:
+                    return firstResponseInterruption is null
+                        ? UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
+                            UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                            DaemonSessionAcquisitionResult.SessionNotAvailableMessage))
+                        : CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                case DaemonSessionAcquisitionKind.HostIdentityMismatch:
+                    if (firstResponseInterruption is null)
+                    {
+                        throw new InvalidOperationException(
+                            "A durable response replay host mismatch requires the original response interruption.");
+                    }
+
+                    return CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                case DaemonSessionAcquisitionKind.SessionReadFailure:
+                    if (firstResponseInterruption is not null)
+                    {
+                        return CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                    }
+
+                    return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
+                        $"Daemon session could not be read. {sessionAcquisition.ReadFailure!.Error!.Message}"));
+                default:
+                    throw new InvalidOperationException(
+                        $"Unsupported daemon session acquisition outcome: {sessionAcquisition.Kind}.");
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
             if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
             {
-                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.Timeout(
-                    $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds."));
+                return firstResponseInterruption is null
+                    ? CreateDeadlineExceededResult(deadline.Timeout)
+                    : CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
             }
 
-            var sessionConnectionResult = await daemonSessionConnectionProvider.ResolveAsync(unityProject, cancellationToken).ConfigureAwait(false);
-            if (!sessionConnectionResult.IsSuccess)
+            if (!deadline.TryGetRemainingMilliseconds(out var remainingMilliseconds))
             {
-                if (recoveryWaiter != null
-                    && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false))
+                return firstResponseInterruption is null
+                    ? CreateDeadlineExceededResult(deadline.Timeout)
+                    : CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+            }
+
+            var session = sessionAcquisition.Session!;
+            try
+            {
+                var response = await sendAttempt(
+                        session.Endpoint,
+                        UnityIpcRequestFactory.Create(
+                            session.SessionToken,
+                            dispatchRequest.Method,
+                            dispatchRequest.Payload,
+                            requestId,
+                            responseMode,
+                            deadline.UtcDeadline,
+                            remainingMilliseconds),
+                        remainingTimeout,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+                if (IsSessionTokenInvalid(response))
                 {
+                    sessionTokenRejection = response;
+                    if (firstResponseInterruption is not null
+                        && responseReplayPolicy == UnityIpcResponseReplayPolicy.DurableSameHostSuccessor)
+                    {
+                        sessionAcquisition = await acquisitionScope.ResolveDurableReplacementAsync(
+                                unityProject,
+                                session,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        firstResponseInterruption = null;
+                        sessionAcquisition = await acquisitionScope.ResolveReplacementAsync(
+                                unityProject,
+                                session,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
                     continue;
                 }
 
-                if (sessionConnectionResult.IsSessionNotAvailable)
-                {
-                    return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
-                        UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
-                        DaemonSessionConnectionResolutionResult.SessionNotAvailableMessage));
-                }
-
-                return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
-                    $"Daemon session connection could not be resolved. {sessionConnectionResult.Error!.Message}"));
-            }
-
-            try
-            {
-                var sessionConnection = sessionConnectionResult.Connection!;
-                var attemptTimeout = ResolveAttemptTimeout(dispatchRequest, remainingTimeout);
-                var response = await transportClient.SendStreamingAsync(
-                        sessionConnection.Endpoint,
-                        UnityIpcRequestFactory.Create(
-                            sessionConnection.SessionToken,
-                            dispatchRequest,
-                            requestId,
-                            remainingTimeout),
-                        attemptTimeout,
-                        onProgressFrame,
-                        cancellationToken)
-                    .ConfigureAwait(false);
                 return UnityRequestExecutionResult.Success(UnityRequestResponseFactory.Create(response));
             }
             catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -241,17 +229,80 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             }
             catch (Exception exception)
             {
-                var retryDecision = await ShouldRetryEndpointAbsenceAsync(
-                        unityProject,
-                        deadline,
-                        endpointAbsenceRetryDeadline,
-                        exception,
-                        cancellationToken)
-                    .ConfigureAwait(false);
-                endpointAbsenceRetryDeadline = retryDecision.EndpointAbsenceRetryDeadline;
-                if (retryDecision.ShouldRetry)
+                var isRetryableBeforeRequestWrite = DaemonIpcConnectionFailureClassifier
+                    .IsRetryableBeforeRequestWrite(exception);
+                if (sessionTokenRejection is not null
+                    && firstResponseInterruption is null
+                    && !isRetryableBeforeRequestWrite
+                    && (responseReplayPolicy == UnityIpcResponseReplayPolicy.None
+                        || !IsRecoverableResponseInterruption(exception)))
                 {
+                    return UnityRequestExecutionResult.Failure(
+                        UnityIpcFailureClassifier.FromDaemonDispatchException(exception, remainingTimeout));
+                }
+
+                if (isRetryableBeforeRequestWrite)
+                {
+                    if (firstResponseInterruption is not null
+                        && responseReplayPolicy == UnityIpcResponseReplayPolicy.DurableSameHostSuccessor)
+                    {
+                        sessionAcquisition = await acquisitionScope.ResolveAfterDurablePreWriteFailureAsync(
+                                unityProject,
+                                session,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+                    else
+                    {
+                        firstResponseInterruption = null;
+                        sessionAcquisition = await acquisitionScope.ResolveAfterPreWriteFailureAsync(
+                                unityProject,
+                                session,
+                                cancellationToken)
+                            .ConfigureAwait(false);
+                    }
+
                     continue;
+                }
+
+                if (responseReplayPolicy != UnityIpcResponseReplayPolicy.None
+                    && IsRecoverableResponseInterruption(exception))
+                {
+                    firstResponseInterruption ??= exception;
+                    if (!deadline.IsExpired)
+                    {
+                        sessionAcquisition = responseReplayPolicy switch
+                        {
+                            UnityIpcResponseReplayPolicy.StatelessAnyHostSuccessor =>
+                                await acquisitionScope.ResolveAfterStatelessResponseInterruptionAsync(
+                                        unityProject,
+                                        session,
+                                        cancellationToken)
+                                    .ConfigureAwait(false),
+                            UnityIpcResponseReplayPolicy.DurableSameHostSuccessor =>
+                                await acquisitionScope.ResolveAfterDurableResponseInterruptionAsync(
+                                        unityProject,
+                                        session,
+                                        cancellationToken)
+                                    .ConfigureAwait(false),
+                            _ => throw new InvalidOperationException(
+                                $"Unsupported IPC response replay policy: {responseReplayPolicy}."),
+                        };
+                        continue;
+                    }
+                }
+
+                if (firstResponseInterruption is not null
+                    && responseReplayPolicy == UnityIpcResponseReplayPolicy.DurableSameHostSuccessor)
+                {
+                    return CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                }
+
+                if (deadline.IsExpired)
+                {
+                    return firstResponseInterruption is null
+                        ? CreateDeadlineExceededResult(deadline.Timeout)
+                        : CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
                 }
 
                 return UnityRequestExecutionResult.Failure(
@@ -260,135 +311,41 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         }
     }
 
-    private async ValueTask<(bool ShouldRetry, ExecutionDeadline? EndpointAbsenceRetryDeadline)> ShouldRetryRecoverableDispatchAsync (
-        ResolvedUnityProjectContext unityProject,
-        ExecutionDeadline deadline,
-        ExecutionDeadline? endpointAbsenceRetryDeadline,
-        Exception exception,
-        CancellationToken cancellationToken)
+    private static UnityRequestExecutionResult CreateDeadlineExceededResult (TimeSpan timeout)
     {
-        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
-        {
-            return (false, endpointAbsenceRetryDeadline);
-        }
-
-        if (recoveryWaiter != null
-            && await recoveryWaiter.DelayIfRecoveringAsync(unityProject, deadline, cancellationToken).ConfigureAwait(false))
-        {
-            return (true, endpointAbsenceRetryDeadline);
-        }
-
-        if (IsRecoverableEndpointAbsence(exception))
-        {
-            var effectiveEndpointAbsenceRetryDeadline = endpointAbsenceRetryDeadline
-                ?? ExecutionDeadline.Start(GetEndpointAbsenceRetryTimeout(remainingTimeout), timeProvider);
-            if (!effectiveEndpointAbsenceRetryDeadline.TryGetRemainingTimeout(out var endpointAbsenceRemainingTimeout))
-            {
-                return (false, effectiveEndpointAbsenceRetryDeadline);
-            }
-
-            await TimeProviderDelay.DelayAsync(
-                    GetRetryDelay(GetShorterTimeout(remainingTimeout, endpointAbsenceRemainingTimeout)),
-                    timeProvider,
-                    cancellationToken)
-                .ConfigureAwait(false);
-            return (true, effectiveEndpointAbsenceRetryDeadline);
-        }
-
-        if (!IsRecoverableResponseInterruption(exception))
-        {
-            return (false, endpointAbsenceRetryDeadline);
-        }
-
-        await TimeProviderDelay.DelayAsync(
-                GetRetryDelay(remainingTimeout),
-                timeProvider,
-                cancellationToken)
-            .ConfigureAwait(false);
-        return (true, endpointAbsenceRetryDeadline);
+        return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.Timeout(
+            $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds."));
     }
 
-    private async ValueTask<(bool ShouldRetry, ExecutionDeadline? EndpointAbsenceRetryDeadline)> ShouldRetryEndpointAbsenceAsync (
-        ResolvedUnityProjectContext unityProject,
-        ExecutionDeadline deadline,
-        ExecutionDeadline? endpointAbsenceRetryDeadline,
+    private static UnityRequestExecutionResult CreateResponseInterruptionResult (
         Exception exception,
-        CancellationToken cancellationToken)
+        TimeSpan timeout)
     {
-        if (!deadline.TryGetRemainingTimeout(out var remainingTimeout))
-        {
-            return (false, endpointAbsenceRetryDeadline);
-        }
-
-        if (!IsRecoverableEndpointAbsence(exception))
-        {
-            return (false, endpointAbsenceRetryDeadline);
-        }
-
-        if (recoveryWaiter != null
-            && await recoveryWaiter.DelayIfRecoveringAsync(
-                unityProject,
-                deadline,
-                cancellationToken).ConfigureAwait(false))
-        {
-            return (true, endpointAbsenceRetryDeadline);
-        }
-
-        var effectiveEndpointAbsenceRetryDeadline = endpointAbsenceRetryDeadline
-            ?? ExecutionDeadline.Start(GetEndpointAbsenceRetryTimeout(remainingTimeout), timeProvider);
-        if (!effectiveEndpointAbsenceRetryDeadline.TryGetRemainingTimeout(out var endpointAbsenceRemainingTimeout))
-        {
-            return (false, effectiveEndpointAbsenceRetryDeadline);
-        }
-
-        await TimeProviderDelay.DelayAsync(
-                GetRetryDelay(GetShorterTimeout(remainingTimeout, endpointAbsenceRemainingTimeout)),
-                timeProvider,
-                cancellationToken)
-            .ConfigureAwait(false);
-        return (true, effectiveEndpointAbsenceRetryDeadline);
+        ArgumentNullException.ThrowIfNull(exception);
+        var failure = exception is TimeoutException
+            ? UnityIpcFailureClassifier.Timeout(
+                $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds. {exception.Message}")
+            : UnityIpcFailureClassifier.FromDaemonDispatchException(exception, timeout);
+        return UnityRequestExecutionResult.Failure(failure);
     }
 
     private static bool IsRecoverableResponseInterruption (Exception exception)
     {
-        return exception is TimeoutException or EndOfStreamException or IOException or ObjectDisposedException or InvalidOperationException;
+        return exception is IpcResponseReadInterruptedException
+            || exception is TimeoutException and not IpcConnectTimeoutException;
     }
 
-    private static bool IsRecoverableEndpointAbsence (Exception exception)
+    private static bool IsSessionTokenInvalid (IpcResponse response)
     {
-        return exception is SocketException socketException
-            && DaemonEndpointAbsenceClassifier.IsDirectEndpointAbsence(socketException);
-    }
-
-    private static TimeSpan ResolveAttemptTimeout (
-        UnityIpcDispatchRequest dispatchRequest,
-        TimeSpan remainingTimeout)
-    {
-        if (!dispatchRequest.IsRecoverable
-            || !dispatchRequest.RecoverableResponseAttemptTimeout.HasValue
-            || dispatchRequest.RecoverableResponseAttemptTimeout.Value >= remainingTimeout)
+        foreach (var error in response.Errors)
         {
-            return remainingTimeout;
+            if (error.Code == IpcSessionErrorCodes.SessionTokenInvalid)
+            {
+                return true;
+            }
         }
 
-        return dispatchRequest.RecoverableResponseAttemptTimeout.Value;
+        return false;
     }
 
-    private static TimeSpan GetEndpointAbsenceRetryTimeout (TimeSpan remainingTimeout)
-    {
-        return GetShorterTimeout(remainingTimeout, DaemonTimeouts.ProbeAttemptTimeoutCap);
-    }
-
-    private static TimeSpan GetShorterTimeout (
-        TimeSpan first,
-        TimeSpan second)
-    {
-        return first < second ? first : second;
-    }
-
-    private static TimeSpan GetRetryDelay (TimeSpan remainingTimeout)
-    {
-        var retryDelayMilliseconds = Math.Min(100, Math.Max(1, (int)Math.Ceiling(remainingTimeout.TotalMilliseconds)));
-        return TimeSpan.FromMilliseconds(retryDelayMilliseconds);
-    }
 }

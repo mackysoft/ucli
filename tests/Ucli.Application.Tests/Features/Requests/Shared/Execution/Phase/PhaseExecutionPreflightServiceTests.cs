@@ -1,11 +1,10 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.Phase;
 using MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Preparation;
-using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests;
 
@@ -60,7 +59,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             new ValidationError(
                 ValidationErrorCodes.OperationArgsInvalid,
                 "Operation args are invalid.",
-                "step-1"),
+                new IpcExecuteStepId("step-1")),
         ];
         var service = new PhaseExecutionPreflightService(
             new RecordingOperationCatalog
@@ -69,7 +68,7 @@ public sealed class PhaseExecutionPreflightServiceTests
             },
             new RecordingRequestStaticValidator
             {
-                Result = new ValidationResult(validationErrors),
+                Result = ValidationResult.Invalid(validationErrors),
             });
 
         var result = await service.PrepareAsync(
@@ -294,15 +293,14 @@ public sealed class PhaseExecutionPreflightServiceTests
     private static PreparedRequestContext CreatePreparedRequestContext ()
     {
         return new PreparedRequestContext(
-            RequestJson: """{"protocolVersion":1,"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[{"kind":"op","id":"step-1","op":"ucli.scene.open","args":{"path":"Assets/Scenes/Main.unity"}}]}""",
-            Request: new ValidateRequest(
+            requestJson: """{"protocolVersion":1,"steps":[{"kind":"op","id":"step-1","op":"ucli.scene.open","args":{"path":"Assets/Scenes/Main.unity"}}]}""",
+            request: new ValidateRequest(
                 ProtocolVersion: 1,
-                RequestId: "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                 Steps:
                 [
                     new ValidateRequestStep(
-                        Kind: MackySoft.Ucli.Contracts.Ipc.ContractReading.IpcRequestStepKind.Op,
-                        StepId: "step-1",
+                        Kind: MackySoft.Ucli.Contracts.Ipc.ContractReading.IpcExecuteStepKind.Op,
+                        StepId: new IpcExecuteStepId("step-1"),
                         Op: "ucli.scene.open",
                         Element: System.Text.Json.JsonSerializer.SerializeToElement(new
                         {
@@ -315,7 +313,7 @@ public sealed class PhaseExecutionPreflightServiceTests
                             },
                         })),
                 ]),
-            ProjectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject());
+            projectContext: ProjectContextTestFactory.CreateTemporaryFixtureProject());
     }
 
     private static UcliOperationDescriptor CreateOperationDescriptor (

@@ -32,7 +32,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
     /// <param name="timeProvider"> The time provider used for timeout-budget accounting. </param>
     /// <param name="lockStorageRoot"> The optional root used to store lock files. Intended for tests. </param>
     public FileSystemProjectLifecycleLockProvider (
-        TimeProvider? timeProvider = null,
+        TimeProvider timeProvider,
         string? lockStorageRoot = null)
     {
         if (string.IsNullOrWhiteSpace(lockStorageRoot))
@@ -47,7 +47,7 @@ internal sealed class FileSystemProjectLifecycleLockProvider : IProjectLifecycle
             this.lockStorageBoundaryRoot = this.lockStorageRoot;
         }
 
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Acquires the lifecycle lock for one physical Unity project root. </summary>

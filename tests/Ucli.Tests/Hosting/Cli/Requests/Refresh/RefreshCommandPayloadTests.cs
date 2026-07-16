@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Requests.Shared.Execution.OperationExecute;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
@@ -43,11 +42,11 @@ public sealed class RefreshCommandPayloadTests
                 .HasArrayLength("steps", 1)
                 .HasProperty("steps", 0, step => step
                     .HasString("opId", "refresh")
-                    .HasString("sourceKind", IpcExecutePostReadSourceKindNames.Refresh)
+                    .HasString("sourceKind", ContractLiteralCodec.ToValue(IpcExecutePostReadSourceKind.Refresh))
                     .HasBoolean("playModeMutation", false)
                     .HasValueKind("commit", JsonValueKind.Null)
                     .HasBoolean("persistenceExpected", true)
-                    .HasString("expectedPostState", IpcExecuteExpectedPostStateNames.Unavailable)));
+                    .HasString("expectedPostState", ContractLiteralCodec.ToValue(IpcExecuteExpectedPostState.Unavailable))));
     }
 
     [Fact]
@@ -55,12 +54,12 @@ public sealed class RefreshCommandPayloadTests
     public async Task Refresh_WhenServiceFails_PreservesFailurePayloadAndErrors ()
     {
         var failureResult = OperationExecuteResultFactory.Failure(
-            RequestId,
+            RequestGuid,
             [],
             [
                 ApplicationFailure.InternalError(
                     "Unity execution failed.",
-                    opId: "refresh"),
+                    opId: new IpcExecuteStepId("refresh")),
             ],
             "uCLI refresh failed.");
         var service = new RecordingRefreshService((_, _) => ValueTask.FromResult(failureResult));
@@ -76,7 +75,7 @@ public sealed class RefreshCommandPayloadTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Refresh,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         JsonAssert.For(outputJson.RootElement)
             .HasString("message", "Unity execution failed.")
@@ -109,6 +108,6 @@ public sealed class RefreshCommandPayloadTests
             .HasProperty("readPostcondition", readPostconditionElement => readPostconditionElement
                 .HasArrayLength("requirements", 1)
                 .HasProperty("requirements", 0, requirement => requirement
-                    .HasString("surface", IpcExecuteReadPostconditionSurfaceNames.AssetSearch)));
+                    .HasString("surface", ContractLiteralCodec.ToValue(IpcExecuteReadPostconditionSurface.AssetSearch))));
     }
 }

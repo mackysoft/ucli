@@ -33,13 +33,13 @@ internal sealed class PlayStatusService : IPlayStatusService
         IUnityRequestExecutor unityRequestExecutor,
         IDaemonLifecycleStore daemonLifecycleStore,
         IDaemonProcessIdentityAssessor processIdentityAssessor,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.contextResolver = contextResolver ?? throw new ArgumentNullException(nameof(contextResolver));
         this.unityRequestExecutor = unityRequestExecutor ?? throw new ArgumentNullException(nameof(unityRequestExecutor));
         this.daemonLifecycleStore = daemonLifecycleStore ?? throw new ArgumentNullException(nameof(daemonLifecycleStore));
         this.processIdentityAssessor = processIdentityAssessor ?? throw new ArgumentNullException(nameof(processIdentityAssessor));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <inheritdoc />
@@ -64,18 +64,6 @@ internal sealed class PlayStatusService : IPlayStatusService
         }
 
         var playContext = contextResult.Context!;
-        var observedStatus = await TryCreateOutputFromLifecycleObservationAsync(
-                playContext,
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        // NOTE: A fresh sidecar is written by Unity main-thread lifecycle callbacks. Once the editor is not
-        // ready, waiting for a normal daemon IPC status response only delays the same authoritative observation.
-        if (observedStatus is not null && observedStatus.LifecycleState != IpcEditorLifecycleState.Ready)
-        {
-            return PlayStatusExecutionResult.Success(observedStatus.Output);
-        }
-
         var executionResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.PlayStatus,
                 UnityExecutionMode.Daemon,
@@ -87,26 +75,21 @@ internal sealed class PlayStatusService : IPlayStatusService
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
-            if (executionResult.FailureInfo!.Code == ExecutionErrorCodes.IpcTimeout)
-            {
-                var fallbackStatus = observedStatus
-                    ?? await TryCreateOutputFromLifecycleObservationAsync(
-                            playContext,
-                            cancellationToken)
-                        .ConfigureAwait(false);
-                if (fallbackStatus is not null)
-                {
-                    return PlayStatusExecutionResult.Success(fallbackStatus.Output);
-                }
-            }
-
-            return PlayStatusExecutionResult.Failure(CreateErrorFromUnityRequestFailure(executionResult.FailureInfo!));
+            return await ResolveFailureAsync(
+                    playContext,
+                    CreateErrorFromUnityRequestFailure(executionResult.FailureInfo!),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         var response = executionResult.Response!;
-        if (response.HasFailureStatus || response.Errors.Count != 0)
+        if (response.Errors.Count != 0)
         {
-            return PlayStatusExecutionResult.Failure(CreateErrorFromResponse(response));
+            return await ResolveFailureAsync(
+                    playContext,
+                    CreateErrorFromResponse(response),
+                    cancellationToken)
+                .ConfigureAwait(false);
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcPlayStatusResponse statusResponse, out var payloadError))
@@ -121,7 +104,7 @@ internal sealed class PlayStatusService : IPlayStatusService
         }
 
         var snapshot = statusResponse.Snapshot;
-        if (!string.Equals(snapshot.ProjectFingerprint, playContext.Project.ProjectFingerprint, StringComparison.Ordinal))
+        if (snapshot.ProjectFingerprint != playContext.Project.ProjectFingerprint)
         {
             return PlayStatusExecutionResult.Failure(ExecutionError.InternalError(
                 $"Unity play status projectFingerprint mismatch. Requested={playContext.Project.ProjectFingerprint}, Actual={snapshot.ProjectFingerprint}."));
@@ -151,7 +134,27 @@ internal sealed class PlayStatusService : IPlayStatusService
         return PlayStatusExecutionResult.Success(output);
     }
 
-    private async ValueTask<ObservedPlayStatus?> TryCreateOutputFromLifecycleObservationAsync (
+    private async ValueTask<PlayStatusExecutionResult> ResolveFailureAsync (
+        PlayCommandExecutionContext playContext,
+        ExecutionError error,
+        CancellationToken cancellationToken)
+    {
+        if (error.Code == ExecutionErrorCodes.IpcTimeout)
+        {
+            var fallbackStatus = await TryCreateOutputFromLifecycleObservationAsync(
+                    playContext,
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (fallbackStatus is { LifecycleState: not IpcEditorLifecycleState.Ready })
+            {
+                return PlayStatusExecutionResult.Success(fallbackStatus);
+            }
+        }
+
+        return PlayStatusExecutionResult.Failure(error);
+    }
+
+    private async ValueTask<PlayStatusExecutionOutput?> TryCreateOutputFromLifecycleObservationAsync (
         PlayCommandExecutionContext playContext,
         CancellationToken cancellationToken)
     {
@@ -193,12 +196,12 @@ internal sealed class PlayStatusService : IPlayStatusService
             PrimaryDiagnostic: ToOutput(observation.PrimaryDiagnostic),
             PlayMode: observation.State.PlayMode,
             TimeoutMilliseconds: playContext.TimeoutMilliseconds);
-        return new ObservedPlayStatus(output, observation.State.LifecycleState);
+        return output;
     }
 
     private static DaemonPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)
     {
-        if (diagnostic is null || !StringValueNormalizer.TryTrimToNonEmpty(diagnostic.Kind, out var kind))
+        if (diagnostic?.Kind is not { } kind)
         {
             return null;
         }
@@ -222,11 +225,9 @@ internal sealed class PlayStatusService : IPlayStatusService
 
     private static ExecutionError CreateErrorFromResponse (UnityRequestResponse response)
     {
-        var firstError = response.Errors.FirstOrDefault();
-        var message = string.IsNullOrWhiteSpace(firstError?.Message)
-            ? $"Unity play status IPC failed with status '{response.FailureStatus}'."
-            : firstError!.Message;
-        var code = firstError?.Code;
+        var firstError = response.Errors[0];
+        var message = firstError.Message;
+        var code = firstError.Code;
         return code == ExecutionErrorCodes.IpcTimeout
             ? ExecutionError.Timeout(message, code)
             : ExecutionError.InternalError(message, code);
@@ -243,9 +244,4 @@ internal sealed class PlayStatusService : IPlayStatusService
     {
         return ExecutionError.InternalError(message, PlayModeErrorCodes.PlayModeStateUnknown);
     }
-
-    /// <summary> Couples one CLI output projection with the typed lifecycle state used by pre-IPC policy. </summary>
-    private sealed record ObservedPlayStatus (
-        PlayStatusExecutionOutput Output,
-        IpcEditorLifecycleState LifecycleState);
 }

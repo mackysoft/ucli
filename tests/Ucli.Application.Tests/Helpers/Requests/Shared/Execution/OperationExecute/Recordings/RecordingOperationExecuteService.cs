@@ -20,12 +20,14 @@ internal sealed class RecordingOperationExecuteService : IOperationExecuteServic
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<OperationExecuteResult> ExecuteAsync (
+        Guid requestId,
         OperationExecuteDefinition definition,
         OperationExecuteInput input,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         invocations.Add(new Invocation(
+            requestId,
             definition,
             input,
             cancellationToken));
@@ -34,6 +36,7 @@ internal sealed class RecordingOperationExecuteService : IOperationExecuteServic
     }
 
     internal readonly record struct Invocation (
+        Guid RequestId,
         OperationExecuteDefinition Definition,
         OperationExecuteInput Input,
         CancellationToken CancellationToken);

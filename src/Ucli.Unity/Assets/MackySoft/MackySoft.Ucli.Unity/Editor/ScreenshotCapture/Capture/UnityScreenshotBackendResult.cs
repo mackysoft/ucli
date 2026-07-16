@@ -42,9 +42,9 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             UcliCode errorCode,
             string errorMessage)
         {
-            if (!errorCode.IsValid)
+            if (errorCode == null)
             {
-                throw new ArgumentException("Screenshot backend error code must be valid.", nameof(errorCode));
+                throw new ArgumentNullException(nameof(errorCode));
             }
 
             if (string.IsNullOrWhiteSpace(errorMessage))

@@ -25,12 +25,11 @@ internal static class RequestPreparationInvocationAssert
         return invocation;
     }
 
-    public static RecordingRequestPreparationService.PrepareInvocation ProjectPreparedWithoutParse (
+    public static RecordingRequestPreparationService.PrepareInvocation ProjectPreparedOnce (
         RecordingRequestPreparationService requestPreparationService,
         string? expectedProjectPath,
         string expectedRequestJson)
     {
-        Assert.Empty(requestPreparationService.ParseInvocations);
         var invocation = Assert.Single(requestPreparationService.PrepareInvocations);
         Assert.Equal(expectedProjectPath, invocation.ProjectPath);
         Assert.Equal(expectedRequestJson, invocation.RequestJson);

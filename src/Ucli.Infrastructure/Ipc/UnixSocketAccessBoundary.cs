@@ -7,27 +7,21 @@ internal sealed class UnixSocketAccessBoundary
 {
     private readonly string socketPath;
 
-    private readonly string fallbackDirectoryPrefix;
-
     /// <summary> Initializes a new instance of the <see cref="UnixSocketAccessBoundary" /> class. </summary>
-    /// <param name="socketPath"> The target unix-domain-socket path. </param>
-    /// <param name="fallbackDirectoryPrefix"> The fallback directory prefix used for cleanup. </param>
-    public UnixSocketAccessBoundary (
-        string socketPath,
-        string fallbackDirectoryPrefix)
+    /// <param name="authorizedSocketPath"> The exact unix-domain-socket path authorized before filesystem access. </param>
+    public UnixSocketAccessBoundary (string authorizedSocketPath)
     {
-        if (string.IsNullOrWhiteSpace(socketPath))
+        if (string.IsNullOrWhiteSpace(authorizedSocketPath))
         {
-            throw new ArgumentException("Socket path must not be empty.", nameof(socketPath));
+            throw new ArgumentException("Authorized socket path must not be empty.", nameof(authorizedSocketPath));
         }
 
-        if (string.IsNullOrWhiteSpace(fallbackDirectoryPrefix))
+        if (!Path.IsPathFullyQualified(authorizedSocketPath))
         {
-            throw new ArgumentException("Fallback directory prefix must not be empty.", nameof(fallbackDirectoryPrefix));
+            throw new ArgumentException("Authorized socket path must be fully qualified.", nameof(authorizedSocketPath));
         }
 
-        this.socketPath = socketPath;
-        this.fallbackDirectoryPrefix = fallbackDirectoryPrefix;
+        socketPath = Path.GetFullPath(authorizedSocketPath);
     }
 
     /// <summary> Ensures the socket directory is secure and removes stale socket residue before bind. </summary>
@@ -48,12 +42,9 @@ internal sealed class UnixSocketAccessBoundary
         FileSystemAccessBoundary.EnsureSecureUnixSocket(socketPath);
     }
 
-    /// <summary> Removes stale socket residue and cleans up empty fallback directory when applicable. </summary>
+    /// <summary> Removes the exact socket node without deleting its parent directory. </summary>
     public void Cleanup ()
     {
         FileUtilities.DeleteIfExists(socketPath);
-        UnixSocketPathUtilities.DeleteEmptyFallbackDirectoryIfPresent(
-            socketPath,
-            fallbackDirectoryPrefix);
     }
 }

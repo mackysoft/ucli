@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -22,10 +21,10 @@ public sealed class UnityEditorInstanceMarkerReaderTests
 
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.Create(
+        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.CreateWithPaths(
             unityProjectRoot: unityProjectRoot,
             repositoryRoot: unityProjectRoot,
-            projectFingerprint: "fingerprint"), CancellationToken.None);
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.True(result.Exists);
@@ -45,10 +44,10 @@ public sealed class UnityEditorInstanceMarkerReaderTests
         Directory.CreateDirectory(unityProjectRoot);
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.Create(
+        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.CreateWithPaths(
             unityProjectRoot: unityProjectRoot,
             repositoryRoot: unityProjectRoot,
-            projectFingerprint: "fingerprint"), CancellationToken.None);
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.False(result.Exists);
@@ -67,10 +66,10 @@ public sealed class UnityEditorInstanceMarkerReaderTests
         await File.WriteAllTextAsync(markerPath, new string(' ', 17 * 1024));
         var reader = new UnityEditorInstanceMarkerReader();
 
-        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.Create(
+        var result = await reader.ReadAsync(ResolvedUnityProjectContextTestFactory.CreateWithPaths(
             unityProjectRoot: unityProjectRoot,
             repositoryRoot: unityProjectRoot,
-            projectFingerprint: "fingerprint"), CancellationToken.None);
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint")), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, result.Error!.Kind);

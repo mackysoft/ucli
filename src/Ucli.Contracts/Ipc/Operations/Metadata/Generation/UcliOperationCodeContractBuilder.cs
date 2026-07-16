@@ -18,7 +18,7 @@ public static class UcliOperationCodeContractBuilder
         UcliOperationCodeContractArguments.ThrowIfInvalid(entryPointSignature, entryPointMatchRule, parameterTypes, returnValue, sourceForms, apiTypes);
 
         return new UcliOperationCodeContract(
-            "csharp",
+            UcliCodeLanguage.CSharp,
             new UcliCodeEntryPointContract(
                 entryPointSignature,
                 entryPointMatchRule,

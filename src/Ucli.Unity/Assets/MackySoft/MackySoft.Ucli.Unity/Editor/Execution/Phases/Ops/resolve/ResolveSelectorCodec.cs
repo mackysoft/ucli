@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -41,14 +42,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             public bool HasPrefabPath;
             public bool HasHierarchyPath;
             public bool HasComponentType;
-            public string? GlobalObjectId;
-            public string? AssetGuid;
-            public string? AssetPath;
-            public string? ProjectAssetPath;
-            public string? ScenePath;
-            public string? PrefabPath;
-            public string? HierarchyPath;
-            public string? ComponentType;
+            public UnityGlobalObjectId? GlobalObjectId;
+            public Guid? AssetGuid;
+            public UnityAssetPath? AssetPath;
+            public ProjectSettingsAssetPath? ProjectAssetPath;
+            public SceneAssetPath? ScenePath;
+            public PrefabAssetPath? PrefabPath;
+            public UnityHierarchyPath? HierarchyPath;
+            public UnityComponentTypeId? ComponentType;
         }
 
         /// <summary> Parses one selector from operation arguments. </summary>
@@ -58,10 +59,10 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         /// <returns> <see langword="true" /> when selector was parsed successfully; otherwise <see langword="false" />. </returns>
         public static bool TryParse (
             JsonElement args,
-            out ResolveSelector selector,
+            [NotNullWhen(true)] out ResolveSelector? selector,
             out string errorMessage)
         {
-            selector = default;
+            selector = null;
             errorMessage = string.Empty;
             if (args.ValueKind != JsonValueKind.Object)
             {
@@ -126,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (state.HasAssetGuid)
             {
-                selector = ResolveSelector.FromAssetGuid(state.AssetGuid!);
+                selector = ResolveSelector.FromAssetGuid(state.AssetGuid!.Value);
                 return true;
             }
 
@@ -201,7 +202,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    state.GlobalObjectId = globalObjectId;
+                    if (!UnityGlobalObjectId.TryParse(globalObjectId, out state.GlobalObjectId))
+                    {
+                        errorMessage = $"'{IpcResolveSelectorPropertyNames.GlobalObjectId}' must be a valid GlobalObjectId string.";
+                        return false;
+                    }
+
                     return true;
                 case SelectorPropertyKind.AssetGuid:
                     if (!TryReadUniqueRequiredString(
@@ -214,7 +220,14 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    state.AssetGuid = assetGuid;
+                    if (!Guid.TryParse(assetGuid, out var parsedAssetGuid)
+                        || parsedAssetGuid == Guid.Empty)
+                    {
+                        errorMessage = $"'{IpcResolveSelectorPropertyNames.AssetGuid}' must be a valid non-empty GUID.";
+                        return false;
+                    }
+
+                    state.AssetGuid = parsedAssetGuid;
                     return true;
                 case SelectorPropertyKind.AssetPath:
                     if (!TryReadUniqueRequiredString(
@@ -227,7 +240,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    state.AssetPath = assetPath;
+                    if (!UnityAssetPath.TryParse(assetPath, out state.AssetPath))
+                    {
+                        errorMessage = $"'{IpcResolveSelectorPropertyNames.AssetPath}' must be a valid asset path below 'Assets/'.";
+                        return false;
+                    }
+
                     return true;
                 case SelectorPropertyKind.ProjectAssetPath:
                     if (!TryReadUniqueRequiredString(
@@ -240,7 +258,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    state.ProjectAssetPath = projectAssetPath;
+                    if (!ProjectSettingsAssetPath.TryParse(projectAssetPath, out state.ProjectAssetPath))
+                    {
+                        errorMessage = $"'{IpcResolveSelectorPropertyNames.ProjectAssetPath}' must be a valid path below 'ProjectSettings/'.";
+                        return false;
+                    }
+
                     return true;
                 case SelectorPropertyKind.Scene:
                     if (!TryReadUniqueRequiredString(
@@ -253,7 +276,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    state.ScenePath = scenePath;
+                    if (!SceneAssetPath.TryParse(scenePath, out state.ScenePath))
+                    {
+                        errorMessage = $"'{IpcResolveSelectorPropertyNames.Scene}' must be a valid '.unity' asset path below 'Assets/'.";
+                        return false;
+                    }
+
                     return true;
                 case SelectorPropertyKind.Prefab:
                     if (!TryReadUniqueRequiredString(
@@ -266,7 +294,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    state.PrefabPath = prefabPath;
+                    if (!PrefabAssetPath.TryParse(prefabPath, out state.PrefabPath))
+                    {
+                        errorMessage = $"'{IpcResolveSelectorPropertyNames.Prefab}' must be a valid '.prefab' asset path below 'Assets/'.";
+                        return false;
+                    }
+
                     return true;
                 case SelectorPropertyKind.HierarchyPath:
                     if (!TryReadUniqueRequiredString(
@@ -279,7 +312,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    state.HierarchyPath = hierarchyPath;
+                    if (!UnityHierarchyPath.TryParse(hierarchyPath, out state.HierarchyPath))
+                    {
+                        errorMessage = $"'{IpcResolveSelectorPropertyNames.HierarchyPath}' must be a valid Unity hierarchy path.";
+                        return false;
+                    }
+
                     return true;
                 case SelectorPropertyKind.ComponentType:
                     if (!TryReadUniqueRequiredString(
@@ -292,7 +330,16 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                         return false;
                     }
 
-                    state.ComponentType = componentType;
+                    try
+                    {
+                        state.ComponentType = new UnityComponentTypeId(componentType);
+                    }
+                    catch (ArgumentException)
+                    {
+                        errorMessage = $"'{IpcResolveSelectorPropertyNames.ComponentType}' must be a valid Unity component type identifier.";
+                        return false;
+                    }
+
                     return true;
                 default:
                     throw new ArgumentOutOfRangeException(nameof(kind), kind, "Unsupported selector property kind.");

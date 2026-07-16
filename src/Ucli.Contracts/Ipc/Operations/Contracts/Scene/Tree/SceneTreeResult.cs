@@ -9,30 +9,30 @@ public sealed record SceneTreeResult
 {
     [JsonConstructor]
     public SceneTreeResult (
-        SceneAssetPath path,
+        UnityScenePath path,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
         SceneTreeSourceState sourceState,
         BoundedWindow window)
     {
-        Path = path;
-        Roots = roots;
-        SourceState = sourceState;
-        Window = window;
+        Path = path ?? throw new ArgumentNullException(nameof(path));
+        Roots = ContractArgumentGuard.RequireItems(roots, nameof(roots));
+        SourceState = sourceState ?? throw new ArgumentNullException(nameof(sourceState));
+        Window = window ?? throw new ArgumentNullException(nameof(window));
     }
 
     [UcliRequired]
     [UcliDescription("Scene asset path that was described.")]
-    public SceneAssetPath Path { get; init; }
+    public UnityScenePath Path { get; }
 
     [UcliRequired]
     [UcliDescription("Root GameObjects in the scene.")]
-    public IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots { get; init; }
+    public IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots { get; }
 
     [UcliRequired]
     [UcliDescription("Source state used to build the scene tree.")]
-    public SceneTreeSourceState SourceState { get; init; }
+    public SceneTreeSourceState SourceState { get; }
 
     [UcliRequired]
     [UcliDescription("Bounded result window metadata.")]
-    public BoundedWindow Window { get; init; }
+    public BoundedWindow Window { get; }
 }

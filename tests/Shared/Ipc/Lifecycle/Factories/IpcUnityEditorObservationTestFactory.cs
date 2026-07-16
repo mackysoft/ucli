@@ -9,7 +9,7 @@ internal static class IpcUnityEditorObservationTestFactory
         DaemonEditorMode editorMode = DaemonEditorMode.Batchmode,
         string serverVersion = "0.0.1",
         string unityVersion = "6000.1.4f1",
-        string projectFingerprint = "project-fingerprint",
+        ProjectFingerprint? projectFingerprint = null,
         IpcCompileState? compileState = null,
         IpcUnityGenerationSnapshot? generations = null,
         IpcPlayModeSnapshot? playMode = null,
@@ -18,7 +18,7 @@ internal static class IpcUnityEditorObservationTestFactory
         return new IpcUnityEditorObservation(
             serverVersion: serverVersion,
             unityVersion: unityVersion,
-            projectFingerprint: projectFingerprint,
+            projectFingerprint: projectFingerprint ?? ProjectFingerprintTestFactory.Create("ipc-unity-editor-observation"),
             state: new UnityEditorStateSnapshot(
                 editorMode: editorMode,
                 lifecycleState: lifecycleState,
@@ -29,7 +29,9 @@ internal static class IpcUnityEditorObservationTestFactory
                     IpcPlayModeTransition.None,
                     IsPlaying: false,
                     IsPlayingOrWillChangePlaymode: false)),
-            observedAtUtc: observedAtUtc ?? DateTimeOffset.UnixEpoch);
+            observedAtUtc: observedAtUtc ?? DateTimeOffset.UnixEpoch,
+            actionRequired: null,
+            primaryDiagnostic: null);
     }
 
     private static IpcCompileState ResolveCompileState (IpcEditorLifecycleState lifecycleState)

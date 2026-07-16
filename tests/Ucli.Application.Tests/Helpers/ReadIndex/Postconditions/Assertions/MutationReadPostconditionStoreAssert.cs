@@ -7,7 +7,7 @@ internal static class MutationReadPostconditionStoreAssert
     public static TestMutationReadPostconditionStore.WriteInvocation WrittenOnceForProject (
         TestMutationReadPostconditionStore store,
         string expectedStorageRoot,
-        string expectedProjectFingerprint)
+        ProjectFingerprint expectedProjectFingerprint)
     {
         var invocation = Assert.Single(store.WriteInvocations);
         Assert.Equal(expectedStorageRoot, invocation.StorageRoot);
@@ -15,28 +15,28 @@ internal static class MutationReadPostconditionStoreAssert
         return invocation;
     }
 
-    public static OperationExecutionReadPostconditionRequirement WrittenSceneTreeLiteRequirement (
+    public static IpcExecuteReadPostconditionRequirement WrittenSceneTreeLiteRequirement (
         TestMutationReadPostconditionStore store,
         string expectedStorageRoot,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         string expectedScenePath)
     {
         var invocation = WrittenOnceForProject(store, expectedStorageRoot, expectedProjectFingerprint);
         var requirement = Assert.Single(invocation.ReadPostcondition.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, requirement.Surface);
-        Assert.Equal(expectedScenePath, requirement.ScenePath);
+        Assert.Equal(IpcExecuteReadPostconditionSurface.SceneTreeLite, requirement.Surface);
+        Assert.Equal(new UnityScenePath(expectedScenePath), requirement.ScenePath);
         return requirement;
     }
 
-    public static OperationExecutionReadPostconditionRequirement WrittenAssetSearchRequirement (
+    public static IpcExecuteReadPostconditionRequirement WrittenAssetSearchRequirement (
         TestMutationReadPostconditionStore store,
         string expectedStorageRoot,
-        string expectedProjectFingerprint,
+        ProjectFingerprint expectedProjectFingerprint,
         DateTimeOffset expectedMinSafeGeneratedAtUtc)
     {
         var invocation = WrittenOnceForProject(store, expectedStorageRoot, expectedProjectFingerprint);
         var requirement = Assert.Single(invocation.ReadPostcondition.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.AssetSearch, requirement.Surface);
+        Assert.Equal(IpcExecuteReadPostconditionSurface.AssetSearch, requirement.Surface);
         Assert.Equal(expectedMinSafeGeneratedAtUtc, requirement.MinSafeGeneratedAtUtc);
         return requirement;
     }

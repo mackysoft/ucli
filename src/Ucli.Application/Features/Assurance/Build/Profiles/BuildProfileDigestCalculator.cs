@@ -1,8 +1,8 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
@@ -17,16 +17,12 @@ internal static class BuildProfileDigestCalculator
     };
 
     /// <summary> Calculates the canonical digest for one resolved build profile content. </summary>
-    public static string Calculate (
+    public static Sha256Digest Calculate (
         int schemaVersion,
         ResolvedBuildInputs inputs,
         ResolvedBuildRunner runner,
         ResolvedBuildPolicy policy)
     {
-        ArgumentNullException.ThrowIfNull(inputs);
-        ArgumentNullException.ThrowIfNull(runner);
-        ArgumentNullException.ThrowIfNull(policy);
-
         var canonical = new CanonicalBuildProfile(
             SchemaVersion: schemaVersion,
             Inputs: CanonicalBuildInputs.From(inputs),
@@ -34,7 +30,7 @@ internal static class BuildProfileDigestCalculator
             Policy: CanonicalBuildPolicy.From(policy));
 
         var json = JsonSerializer.Serialize(canonical, SerializerOptions);
-        return Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(json));
+        return Sha256Digest.Compute(Encoding.UTF8.GetBytes(json));
     }
 
     private sealed record CanonicalBuildProfile (
@@ -52,33 +48,34 @@ internal static class BuildProfileDigestCalculator
     {
         public static CanonicalBuildInputs From (ResolvedBuildInputs inputs)
         {
-            if (inputs.Kind == BuildProfileInputsKind.UnityBuildProfile)
+            if (inputs is ResolvedBuildInputs.UnityBuildProfile unityBuildProfileInputs)
             {
                 return new CanonicalBuildInputs(
                     ContractLiteralCodec.ToValue(inputs.Kind),
                     null,
                     null,
                     null,
-                    inputs.RequireUnityBuildProfilePath());
+                    unityBuildProfileInputs.Path.Value);
             }
 
+            var explicitInputs = (ResolvedBuildInputs.Explicit)inputs;
             return new CanonicalBuildInputs(
                 ContractLiteralCodec.ToValue(inputs.Kind),
-                inputs.RequireBuildTarget().StableName,
-                CanonicalBuildScenes.From(inputs.RequireScenes()),
-                new CanonicalBuildOptions(inputs.RequireOptions().Development),
+                ContractLiteralCodec.ToValue(explicitInputs.BuildTarget),
+                CanonicalBuildScenes.From(explicitInputs.Scenes),
+                new CanonicalBuildOptions(explicitInputs.Options.Development),
                 null);
         }
     }
 
     private sealed record CanonicalBuildScenes (
         string Source,
-        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<string>? Paths)
+        [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)] IReadOnlyList<SceneAssetPath>? Paths)
     {
         public static CanonicalBuildScenes From (ResolvedBuildScenes scenes)
         {
-            var paths = scenes.Source == BuildProfileSceneSource.Explicit
-                ? scenes.Paths
+            var paths = scenes is ResolvedBuildScenes.Explicit explicitScenes
+                ? explicitScenes.Paths
                 : null;
             return new CanonicalBuildScenes(ContractLiteralCodec.ToValue(scenes.Source), paths);
         }
@@ -93,15 +90,18 @@ internal static class BuildProfileDigestCalculator
     {
         public static CanonicalBuildRunner From (ResolvedBuildRunner runner)
         {
-            return runner.Kind == BuildProfileRunnerKind.ExecuteMethod
-                ? new CanonicalBuildRunner(
+            if (runner is ResolvedBuildRunner.ExecuteMethod executeMethodRunner)
+            {
+                return new CanonicalBuildRunner(
                     ContractLiteralCodec.ToValue(runner.Kind),
-                    runner.Method,
-                    CanonicalBuildRunnerInvocation.From(runner.Invocation))
-                : new CanonicalBuildRunner(
-                    ContractLiteralCodec.ToValue(runner.Kind),
-                    Method: null,
-                    Invocation: null);
+                    executeMethodRunner.Method,
+                    CanonicalBuildRunnerInvocation.From(executeMethodRunner.Invocation));
+            }
+
+            return new CanonicalBuildRunner(
+                ContractLiteralCodec.ToValue(runner.Kind),
+                Method: null,
+                Invocation: null);
         }
     }
 

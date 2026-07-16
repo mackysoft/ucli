@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Captures daemon control-log events and exposes snapshot reads for IPC handlers. </summary>
@@ -10,7 +12,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="raw"> The optional raw detail payload. </param>
         void Write (
             string category,
-            string level,
+            IpcLogLevel level,
             string message,
             string raw = null);
 

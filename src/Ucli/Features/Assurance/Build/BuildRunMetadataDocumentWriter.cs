@@ -81,7 +81,7 @@ internal sealed class BuildRunMetadataDocumentWriter
             writer.WritePropertyName(artifactKey);
             writer.WriteStartObject();
             writer.WriteString("path", artifact.Path);
-            writer.WriteString("digest", artifact.Digest);
+            writer.WriteString("digest", artifact.Digest.ToString());
             writer.WriteEndObject();
         }
 

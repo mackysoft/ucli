@@ -1,5 +1,3 @@
-using MackySoft.Tests;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Requests;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 using static MackySoft.Ucli.Tests.ResolveCommandTestData;
@@ -33,7 +31,7 @@ public sealed class ResolveCommandPayloadTests
         var command = new ResolveCommand(service, CommandResultTestWriter.Create());
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.ResolveAsync(
-            globalObjectId: "GlobalObjectId_V1-1-2-3-4-5-6",
+            globalObjectId: GlobalObjectId,
             cancellationToken: CancellationToken.None));
 
         Assert.Equal((int)CliExitCode.ToolError, result.ExitCode);
@@ -42,7 +40,7 @@ public sealed class ResolveCommandPayloadTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Resolve,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         JsonAssert.For(outputJson.RootElement)
             .HasString("message", "Unity execution failed.")

@@ -5,9 +5,9 @@ namespace MackySoft.Ucli.Application.Features.Requests.Query.UseCases.Query;
 /// <summary> Represents one <c>query scene tree</c> operation request. </summary>
 internal sealed record QuerySceneTreeOperationRequest (
     string CommandName,
-    string OperationId,
+    IpcExecuteStepId OperationId,
     string OperationName,
-    string ScenePath,
+    UnityScenePath ScenePath,
     int? Depth,
     BoundedWindowOptions WindowOptions)
     : QueryOperationRequest(CommandName, OperationId, OperationName);

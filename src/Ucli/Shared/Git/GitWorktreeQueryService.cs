@@ -23,11 +23,11 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
     public GitWorktreeQueryService (
         IGitCommandClient gitCommandClient,
         IGitWorktreeListPorcelainParser gitWorktreeListPorcelainParser,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.gitCommandClient = gitCommandClient ?? throw new ArgumentNullException(nameof(gitCommandClient));
         this.gitWorktreeListPorcelainParser = gitWorktreeListPorcelainParser ?? throw new ArgumentNullException(nameof(gitWorktreeListPorcelainParser));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Gets the current worktree root, current project-relative path, and sibling worktrees. </summary>
@@ -174,14 +174,26 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
     }
 
     /// <summary> Represents the result of normalizing current-worktree-root text. </summary>
-    /// <param name="WorktreeRoot"> The normalized current worktree root on success; otherwise <see langword="null" />. </param>
-    /// <param name="Error"> The structured error on failure; otherwise <see langword="null" />. </param>
-    private readonly record struct GitWorktreeRootNormalizationResult (
-        string? WorktreeRoot,
-        ExecutionError? Error)
+    private sealed class GitWorktreeRootNormalizationResult
     {
+        private GitWorktreeRootNormalizationResult (string worktreeRoot)
+        {
+            WorktreeRoot = worktreeRoot;
+        }
+
+        private GitWorktreeRootNormalizationResult (ExecutionError error)
+        {
+            Error = error;
+        }
+
         /// <summary> Gets a value indicating whether normalization succeeded. </summary>
-        public bool IsSuccess => WorktreeRoot is not null && Error is null;
+        public bool IsSuccess => WorktreeRoot is not null;
+
+        /// <summary> Gets the normalized current worktree root on success; otherwise <see langword="null" />. </summary>
+        public string? WorktreeRoot { get; }
+
+        /// <summary> Gets the structured error on failure; otherwise <see langword="null" />. </summary>
+        public ExecutionError? Error { get; }
 
         /// <summary> Creates a successful current-worktree-root normalization result. </summary>
         /// <param name="worktreeRoot"> The normalized current worktree root. </param>
@@ -189,7 +201,7 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
         public static GitWorktreeRootNormalizationResult Success (string worktreeRoot)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(worktreeRoot);
-            return new GitWorktreeRootNormalizationResult(worktreeRoot, null);
+            return new GitWorktreeRootNormalizationResult(worktreeRoot);
         }
 
         /// <summary> Creates a failed current-worktree-root normalization result. </summary>
@@ -198,7 +210,7 @@ internal sealed class GitWorktreeQueryService : IGitWorktreeQueryService
         public static GitWorktreeRootNormalizationResult Failure (ExecutionError error)
         {
             ArgumentNullException.ThrowIfNull(error);
-            return new GitWorktreeRootNormalizationResult(null, error);
+            return new GitWorktreeRootNormalizationResult(error);
         }
     }
 }

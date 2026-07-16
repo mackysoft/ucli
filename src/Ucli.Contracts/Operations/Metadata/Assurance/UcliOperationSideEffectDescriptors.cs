@@ -1,7 +1,4 @@
-using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Configuration;
-
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Operations;
 
@@ -15,66 +12,66 @@ public static class UcliOperationSideEffectDescriptors
         Define(
             UcliOperationSideEffect.OpensSceneInEditor,
             OperationPolicy.Advanced,
-            requiredTouchedKinds: new[] { UcliTouchedResourceKindNames.Scene }),
+            requiredTouchedKinds: new[] { UcliTouchedResourceKind.Scene }),
         Define(
             UcliOperationSideEffect.OpensPrefabStage,
             OperationPolicy.Advanced,
-            requiredTouchedKinds: new[] { UcliTouchedResourceKindNames.Prefab }),
+            requiredTouchedKinds: new[] { UcliTouchedResourceKind.Prefab }),
         Define(
             UcliOperationSideEffect.AssetDatabaseRefresh,
             OperationPolicy.Advanced,
-            requiredTouchedKinds: new[] { UcliTouchedResourceKindNames.Asset }),
+            requiredTouchedKinds: new[] { UcliTouchedResourceKind.Asset }),
         Define(
             UcliOperationSideEffect.AssetImport,
             OperationPolicy.Advanced,
-            requiredTouchedKinds: new[] { UcliTouchedResourceKindNames.Asset }),
+            requiredTouchedKinds: new[] { UcliTouchedResourceKind.Asset }),
         Define(UcliOperationSideEffect.ScriptCompilation, OperationPolicy.Advanced),
         Define(UcliOperationSideEffect.DomainReload, OperationPolicy.Advanced),
         Define(
             UcliOperationSideEffect.SceneContentMutation,
             OperationPolicy.Advanced,
             derivesMayDirty: true,
-            requiredTouchedKinds: new[] { UcliTouchedResourceKindNames.Scene }),
+            requiredTouchedKinds: new[] { UcliTouchedResourceKind.Scene }),
         Define(
             UcliOperationSideEffect.PrefabContentMutation,
             OperationPolicy.Advanced,
             derivesMayDirty: true,
-            requiredTouchedKinds: new[] { UcliTouchedResourceKindNames.Prefab }),
+            requiredTouchedKinds: new[] { UcliTouchedResourceKind.Prefab }),
         Define(
             UcliOperationSideEffect.AssetContentMutation,
             OperationPolicy.Advanced,
             derivesMayDirty: true,
-            requiredTouchedKinds: new[] { UcliTouchedResourceKindNames.Asset }),
+            requiredTouchedKinds: new[] { UcliTouchedResourceKind.Asset }),
         Define(
             UcliOperationSideEffect.ProjectSettingsMutation,
             OperationPolicy.Advanced,
             derivesMayDirty: true,
-            requiredTouchedKinds: new[] { UcliTouchedResourceKindNames.ProjectSettings }),
+            requiredTouchedKinds: new[] { UcliTouchedResourceKind.ProjectSettings }),
         Define(
             UcliOperationSideEffect.SceneSave,
             OperationPolicy.Advanced,
             derivesMayPersist: true,
-            requiredTouchedKinds: new[] { UcliTouchedResourceKindNames.Scene }),
+            requiredTouchedKinds: new[] { UcliTouchedResourceKind.Scene }),
         Define(
             UcliOperationSideEffect.PrefabSave,
             OperationPolicy.Advanced,
             derivesMayPersist: true,
-            requiredTouchedKinds: new[] { UcliTouchedResourceKindNames.Prefab }),
+            requiredTouchedKinds: new[] { UcliTouchedResourceKind.Prefab }),
         Define(
             UcliOperationSideEffect.AssetSave,
             OperationPolicy.Advanced,
             derivesMayPersist: true,
-            requiredTouchedKinds: new[] { UcliTouchedResourceKindNames.Asset }),
+            requiredTouchedKinds: new[] { UcliTouchedResourceKind.Asset }),
         Define(
             UcliOperationSideEffect.ProjectSave,
             OperationPolicy.Advanced,
             derivesMayPersist: true,
             requiredTouchedKinds: new[]
             {
-                UcliTouchedResourceKindNames.Scene,
-                UcliTouchedResourceKindNames.Prefab,
-                UcliTouchedResourceKindNames.Asset,
-                UcliTouchedResourceKindNames.ProjectSettings,
+                UcliTouchedResourceKind.Scene,
+                UcliTouchedResourceKind.Prefab,
+                UcliTouchedResourceKind.Asset,
+                UcliTouchedResourceKind.ProjectSettings,
             }),
         Define(UcliOperationSideEffect.ExternalProcess, OperationPolicy.Dangerous),
         Define(
@@ -101,129 +98,19 @@ public static class UcliOperationSideEffectDescriptors
     /// <summary> Gets all supported side-effect literals in canonical schema order. </summary>
     public static IReadOnlyList<string> SupportedValues => SupportedValuesCore;
 
-    /// <summary> Tries to resolve the descriptor for a side-effect literal. </summary>
-    /// <param name="sideEffect"> The side-effect literal. </param>
-    /// <param name="descriptor"> The resolved descriptor. </param>
-    /// <returns> <see langword="true" /> when <paramref name="sideEffect" /> is supported; otherwise <see langword="false" />. </returns>
-    internal static bool TryGetDescriptor (
-        string? sideEffect,
-        [NotNullWhen(true)] out UcliOperationSideEffectDescriptor? descriptor)
+    /// <summary> Gets the descriptor for a defined side-effect value. </summary>
+    /// <exception cref="InvalidOperationException"> Thrown when the descriptor table does not cover the value. </exception>
+    internal static UcliOperationSideEffectDescriptor GetDescriptor (UcliOperationSideEffect sideEffect)
     {
         for (var i = 0; i < DescriptorsCore.Length; i++)
         {
-            if (string.Equals(DescriptorsCore[i].Value, sideEffect, StringComparison.Ordinal))
+            if (DescriptorsCore[i].SideEffect == sideEffect)
             {
-                descriptor = DescriptorsCore[i];
-                return true;
+                return DescriptorsCore[i];
             }
         }
 
-        descriptor = null;
-        return false;
-    }
-
-    /// <summary> Tries to resolve the minimum policy for a side-effect literal. </summary>
-    /// <param name="sideEffect"> The side-effect literal. </param>
-    /// <param name="minimumPolicy"> The resolved minimum policy. </param>
-    /// <returns> <see langword="true" /> when <paramref name="sideEffect" /> is supported; otherwise <see langword="false" />. </returns>
-    internal static bool TryGetMinimumPolicy (
-        string? sideEffect,
-        out OperationPolicy minimumPolicy)
-    {
-        if (TryGetDescriptor(sideEffect, out var descriptor))
-        {
-            minimumPolicy = descriptor.MinimumPolicy;
-            return true;
-        }
-
-        minimumPolicy = OperationPolicy.Safe;
-        return false;
-    }
-
-    /// <summary> Gets a value indicating whether the side effect directly derives <see cref="OperationPolicy.Dangerous" />. </summary>
-    /// <param name="sideEffect"> The side-effect literal. </param>
-    /// <returns> <see langword="true" /> when the side effect is a dangerous derivation source; otherwise <see langword="false" />. </returns>
-    internal static bool IsDangerousDerivationSource (string? sideEffect)
-    {
-        return TryGetDescriptor(sideEffect, out var descriptor)
-            && descriptor.MinimumPolicy == OperationPolicy.Dangerous;
-    }
-
-    /// <summary> Gets a value indicating whether the side effect can be declared by a query operation. </summary>
-    /// <param name="sideEffect"> The side-effect literal. </param>
-    /// <returns> <see langword="true" /> when the side effect is query-compatible; otherwise <see langword="false" />. </returns>
-    internal static bool IsAllowedForQueryOperation (string? sideEffect)
-    {
-        return TryGetDescriptor(sideEffect, out var descriptor)
-            && descriptor.AllowedForQueryOperation;
-    }
-
-    /// <summary> Tries to derive <c>assurance.mayDirty</c> and <c>assurance.mayPersist</c> from side-effect literals. </summary>
-    /// <param name="sideEffects"> The side-effect literals. </param>
-    /// <param name="mayDirty"> The derived dirty-state projection. </param>
-    /// <param name="mayPersist"> The derived persistence projection. </param>
-    /// <returns> <see langword="true" /> when all side effects are supported; otherwise <see langword="false" />. </returns>
-    internal static bool TryDeriveAssuranceProjection (
-        IReadOnlyList<string>? sideEffects,
-        out bool mayDirty,
-        out bool mayPersist)
-    {
-        mayDirty = false;
-        mayPersist = false;
-
-        if (sideEffects == null)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < sideEffects.Count; i++)
-        {
-            if (!TryGetDescriptor(sideEffects[i], out var descriptor))
-            {
-                mayDirty = false;
-                mayPersist = false;
-                return false;
-            }
-
-            mayDirty |= descriptor.DerivesMayDirty;
-            mayPersist |= descriptor.DerivesMayPersist;
-        }
-
-        return true;
-    }
-
-    /// <summary> Tries to derive <c>assurance.mayDirty</c> and <c>assurance.mayPersist</c> from side-effect enum values. </summary>
-    /// <param name="sideEffects"> The side-effect enum values. </param>
-    /// <param name="mayDirty"> The derived dirty-state projection. </param>
-    /// <param name="mayPersist"> The derived persistence projection. </param>
-    /// <returns> <see langword="true" /> when <paramref name="sideEffects" /> is not <see langword="null" />; otherwise <see langword="false" />. </returns>
-    internal static bool TryDeriveAssuranceProjection (
-        IReadOnlyList<UcliOperationSideEffect>? sideEffects,
-        out bool mayDirty,
-        out bool mayPersist)
-    {
-        mayDirty = false;
-        mayPersist = false;
-
-        if (sideEffects == null)
-        {
-            return false;
-        }
-
-        for (var i = 0; i < sideEffects.Count; i++)
-        {
-            if (!TryGetDescriptor(ContractLiteralCodec.ToValue(sideEffects[i]), out var descriptor))
-            {
-                mayDirty = false;
-                mayPersist = false;
-                return false;
-            }
-
-            mayDirty |= descriptor.DerivesMayDirty;
-            mayPersist |= descriptor.DerivesMayPersist;
-        }
-
-        return true;
+        throw new InvalidOperationException($"The side-effect descriptor table does not cover '{sideEffect}'.");
     }
 
     private static UcliOperationSideEffectDescriptor Define (
@@ -231,7 +118,7 @@ public static class UcliOperationSideEffectDescriptors
         OperationPolicy minimumPolicy,
         bool derivesMayDirty = false,
         bool derivesMayPersist = false,
-        string[]? requiredTouchedKinds = null)
+        UcliTouchedResourceKind[]? requiredTouchedKinds = null)
     {
         return new UcliOperationSideEffectDescriptor(
             sideEffect,
@@ -239,7 +126,7 @@ public static class UcliOperationSideEffectDescriptors
             derivesMayDirty,
             derivesMayPersist,
             allowedForQueryOperation: false,
-            requiredTouchedKinds ?? Array.Empty<string>());
+            requiredTouchedKinds ?? Array.Empty<UcliTouchedResourceKind>());
     }
 
     private static UcliOperationSideEffectDescriptor DefineQuery (
@@ -252,7 +139,7 @@ public static class UcliOperationSideEffectDescriptors
             derivesMayDirty: false,
             derivesMayPersist: false,
             allowedForQueryOperation: true,
-            Array.Empty<string>());
+            Array.Empty<UcliTouchedResourceKind>());
     }
 
 }

@@ -1,6 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Threading;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Ipc;
+using MackySoft.Ucli.Infrastructure.Project;
+using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution;
 using UnityEditor;
@@ -15,6 +21,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static bool isStarted;
         private static BootstrapStartupKind startupKind;
         private static IpcBatchmodeBootstrapArguments batchmodeBootstrapArguments = default!;
+        private static IpcOneshotBootstrapEnvelope oneshotBootstrapEnvelope = default!;
+        private static OneshotProcessLifetimeWatchdog? oneshotLifetimeWatchdog;
         private static IpcGuiBootstrapArguments guiBootstrapArguments;
 
         static UnityBootstrapInitializer ()
@@ -25,9 +33,39 @@ namespace MackySoft.Ucli.Unity.Ipc
                 if (!IpcBatchmodeBootstrapArgumentsCodec.TryParse(
                         args,
                         out batchmodeBootstrapArguments,
-                        out _))
+                        out var batchmodeParseError))
                 {
+                    if (HasOneshotTarget(args))
+                    {
+                        Debug.LogError($"uCLI oneshot bootstrap arguments are invalid. {batchmodeParseError.Message}");
+                        EditorApplication.Exit(1);
+                    }
+
                     return;
+                }
+
+                if (batchmodeBootstrapArguments is IpcOneshotBootstrapArguments oneshotBootstrapArguments)
+                {
+                    try
+                    {
+                        var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
+                        var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
+                        var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
+                        oneshotBootstrapEnvelope = OneshotBootstrapEnvelopeStore.Read(
+                            storageRoot,
+                            projectFingerprint,
+                            oneshotBootstrapArguments.BootstrapId,
+                            DateTimeOffset.UtcNow);
+                        oneshotLifetimeWatchdog = OneshotProcessLifetimeWatchdog.Start(
+                            storageRoot,
+                            oneshotBootstrapEnvelope);
+                    }
+                    catch (Exception exception)
+                    {
+                        Debug.LogError($"uCLI oneshot bootstrap envelope is invalid. {exception.Message}");
+                        EditorApplication.Exit(1);
+                        return;
+                    }
                 }
 
                 startupKind = BootstrapStartupKind.Batchmode;
@@ -137,7 +175,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     _ = UnityGuiSupervisorBootstrap.StartAsync();
                     _ = UnityGuiBootstrap.StartAsync(
                         bootstrapArguments: guiBootstrapArguments,
-                        sessionReplacementScope: UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession);
+                        sessionReplacementScope: UnityGuiSessionReplacementScope.EquivalentCurrentProcessSession,
+                        cancellationToken: CancellationToken.None);
                     break;
 
                 default:
@@ -163,13 +202,28 @@ namespace MackySoft.Ucli.Unity.Ipc
                     _ = UnityDaemonBootstrap.StartAsync(daemonBootstrapArguments);
                     break;
 
-                case IpcOneshotBootstrapArguments oneshotBootstrapArguments:
-                    _ = UnityOneshotBootstrap.StartAsync(oneshotBootstrapArguments);
+                case IpcOneshotBootstrapArguments:
+                    var lifetimeWatchdog = oneshotLifetimeWatchdog
+                        ?? throw new InvalidOperationException(
+                            "uCLI oneshot lifetime watchdog must be active before bootstrap startup.");
+                    _ = UnityOneshotBootstrap.StartAsync(
+                        oneshotBootstrapEnvelope,
+                        lifetimeWatchdog);
                     break;
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(batchmodeBootstrapArguments), batchmodeBootstrapArguments, null);
             }
+        }
+
+        internal static bool HasOneshotTarget (IReadOnlyList<string> args)
+        {
+            return IpcBootstrapArgumentReader.TryGetArgumentValue(
+                    args,
+                    new[] { IpcBatchmodeBootstrapArgumentNames.Target },
+                    IpcBatchmodeBootstrapArgumentNames.Target,
+                    out var target)
+                && ContractLiteralCodec.Matches(target, IpcBootstrapTarget.Oneshot);
         }
 
         private enum BootstrapStartupKind

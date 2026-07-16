@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -16,8 +15,8 @@ public sealed class UnityIpcRequestExecutorModeDecisionTests
     public async Task Execute_WhenAutoModeDecisionReturnsContractError_ReturnsContractFailureWithoutCallingClients ()
     {
         using var scope = TestDirectories.CreateTempScope("unity-ipc-request-executor", "contract-error");
-        var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse("unused"));
-        var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse("unused"));
+        var daemonTransportClient = new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse(Guid.NewGuid()));
+        var oneshotTransportClient = new RecordingUnityIpcTransportClient(_ => CreateSuccessResponse(Guid.NewGuid()));
         var launcher = new RecordingUnityBatchmodeProcessLauncher(UnityBatchmodeProcessLaunchResult.Success(new StubUnityBatchmodeProcessHandle()));
         var executor = CreateExecutor(
             new StubModeDecisionService(
@@ -30,7 +29,7 @@ public sealed class UnityIpcRequestExecutorModeDecisionTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new UnexpectedDaemonSessionConnectionProvider("Contract error should not resolve a daemon session."),
+                new UnexpectedDaemonSessionStore("Contract error should not resolve a daemon session."),
                 launcher));
 
         var result = await executor.ExecuteAsync(
@@ -73,7 +72,7 @@ public sealed class UnityIpcRequestExecutorModeDecisionTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new UnexpectedDaemonSessionConnectionProvider("Mode decision failure should not resolve a daemon session."),
+                new UnexpectedDaemonSessionStore("Mode decision failure should not resolve a daemon session."),
                 launcher));
 
         var result = await executor.ExecuteAsync(
@@ -123,7 +122,7 @@ public sealed class UnityIpcRequestExecutorModeDecisionTests
             CreateClients(
                 daemonTransportClient,
                 oneshotTransportClient,
-                new UnexpectedDaemonSessionConnectionProvider("Mode decision timeout should not resolve a daemon session."),
+                new UnexpectedDaemonSessionStore("Mode decision timeout should not resolve a daemon session."),
                 launcher),
             timeProvider);
 

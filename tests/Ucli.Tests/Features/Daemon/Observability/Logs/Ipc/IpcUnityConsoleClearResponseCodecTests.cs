@@ -10,7 +10,7 @@ public sealed class IpcUnityConsoleClearResponseCodecTests
     public void TryDecode_WhenResponseIsSuccessful_ReturnsSuccess ()
     {
         var response = CreateResponse(
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             errors: Array.Empty<IpcError>(),
             payload: new IpcUnityConsoleClearResponse());
 
@@ -25,7 +25,7 @@ public sealed class IpcUnityConsoleClearResponseCodecTests
     public void TryDecode_WhenResponseContainsInvalidArgumentError_ReturnsInvalidArgument ()
     {
         var response = CreateResponse(
-            status: IpcProtocol.StatusError,
+            status: IpcResponseStatus.Error,
             errors:
             [
                 new IpcError(UcliCoreErrorCodes.InvalidArgument, "GUI Editor daemon is required.", null),
@@ -45,7 +45,7 @@ public sealed class IpcUnityConsoleClearResponseCodecTests
     public void TryDecode_WhenPayloadIsNull_ReturnsInternalError ()
     {
         var response = CreateResponse(
-            status: IpcProtocol.StatusOk,
+            status: IpcResponseStatus.Ok,
             errors: Array.Empty<IpcError>(),
             payload: null);
 
@@ -58,15 +58,15 @@ public sealed class IpcUnityConsoleClearResponseCodecTests
     }
 
     private static IpcResponse CreateResponse (
-        string status,
+        IpcResponseStatus status,
         IReadOnlyList<IpcError> errors,
         object? payload)
     {
         return new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: "req-unity-console-clear",
-            Status: status,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: errors);
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: status,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors: errors);
     }
 }

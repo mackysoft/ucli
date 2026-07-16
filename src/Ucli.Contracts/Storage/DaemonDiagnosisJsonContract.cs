@@ -1,3 +1,6 @@
+using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Storage;
 
 /// <summary> Represents persisted daemon <c>daemon-diagnosis.json</c> contract fields. </summary>
@@ -14,17 +17,109 @@ namespace MackySoft.Ucli.Contracts.Storage;
 /// <param name="StartupPhase"> The normalized startup phase associated with the diagnosis when available. </param>
 /// <param name="ActionRequired"> The normalized user action required to resolve the diagnosis when available. </param>
 /// <param name="PrimaryDiagnostic"> The primary machine-readable diagnostic associated with this diagnosis when available. </param>
-internal sealed record DaemonDiagnosisJsonContract (
-    string? Reason,
-    string? Message,
-    string? ReportedBy,
-    bool? IsInferred,
-    DateTimeOffset UpdatedAtUtc,
-    int? ProcessId,
-    string? EditorInstancePath,
-    DateTimeOffset SessionIssuedAtUtc,
-    DateTimeOffset? ProcessStartedAtUtc = null,
-    string? UnityLogPath = null,
-    string? StartupPhase = null,
-    string? ActionRequired = null,
-    DaemonDiagnosisPrimaryDiagnosticJsonContract? PrimaryDiagnostic = null);
+internal sealed record DaemonDiagnosisJsonContract
+{
+    /// <summary> Initializes persisted daemon diagnosis fields. </summary>
+    [JsonConstructor]
+    public DaemonDiagnosisJsonContract (
+        DaemonDiagnosisReason? Reason,
+        string? Message,
+        DaemonDiagnosisReportedBy? ReportedBy,
+        bool? IsInferred,
+        DateTimeOffset UpdatedAtUtc,
+        int? ProcessId,
+        string? EditorInstancePath,
+        DateTimeOffset SessionIssuedAtUtc,
+        DateTimeOffset? ProcessStartedAtUtc,
+        string? UnityLogPath,
+        DaemonDiagnosisStartupPhase? StartupPhase,
+        DaemonDiagnosisActionRequired? ActionRequired,
+        DaemonDiagnosisPrimaryDiagnosticJsonContract? PrimaryDiagnostic)
+    {
+        if (Reason.HasValue && !ContractLiteralCodec.IsDefined(Reason.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(Reason), Reason, "Unsupported daemon diagnosis reason.");
+        }
+
+        if (ReportedBy.HasValue && !ContractLiteralCodec.IsDefined(ReportedBy.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(ReportedBy), ReportedBy, "Unsupported daemon diagnosis reporter.");
+        }
+
+        if (StartupPhase.HasValue && !ContractLiteralCodec.IsDefined(StartupPhase.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(StartupPhase), StartupPhase, "Unsupported daemon diagnosis startup phase.");
+        }
+
+        if (ActionRequired.HasValue && !ContractLiteralCodec.IsDefined(ActionRequired.Value))
+        {
+            throw new ArgumentOutOfRangeException(nameof(ActionRequired), ActionRequired, "Unsupported daemon diagnosis action.");
+        }
+
+        this.Reason = Reason;
+        this.Message = Message;
+        this.ReportedBy = ReportedBy;
+        this.IsInferred = IsInferred;
+        this.UpdatedAtUtc = UpdatedAtUtc;
+        this.ProcessId = ProcessId;
+        this.EditorInstancePath = EditorInstancePath;
+        this.SessionIssuedAtUtc = SessionIssuedAtUtc;
+        this.ProcessStartedAtUtc = ProcessStartedAtUtc;
+        this.UnityLogPath = UnityLogPath;
+        this.StartupPhase = StartupPhase;
+        this.ActionRequired = ActionRequired;
+        this.PrimaryDiagnostic = PrimaryDiagnostic;
+    }
+
+    [JsonInclude]
+    [JsonRequired]
+    public DaemonDiagnosisReason? Reason { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public string? Message { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public DaemonDiagnosisReportedBy? ReportedBy { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public bool? IsInferred { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public DateTimeOffset UpdatedAtUtc { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public int? ProcessId { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public string? EditorInstancePath { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public DateTimeOffset SessionIssuedAtUtc { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public DateTimeOffset? ProcessStartedAtUtc { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public string? UnityLogPath { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public DaemonDiagnosisStartupPhase? StartupPhase { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public DaemonDiagnosisActionRequired? ActionRequired { get; private init; }
+
+    [JsonInclude]
+    [JsonRequired]
+    public DaemonDiagnosisPrimaryDiagnosticJsonContract? PrimaryDiagnostic { get; private init; }
+}

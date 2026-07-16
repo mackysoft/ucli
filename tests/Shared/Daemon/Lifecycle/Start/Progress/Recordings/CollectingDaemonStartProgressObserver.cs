@@ -55,7 +55,7 @@ internal sealed class CollectingDaemonStartProgressObserver : IDaemonStartProgre
 
     public ValueTask EmitSessionRegisteredAsync (
         DaemonSession session,
-        string? launchAttemptId,
+        Guid? launchAttemptId,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -65,7 +65,7 @@ internal sealed class CollectingDaemonStartProgressObserver : IDaemonStartProgre
 
     public ValueTask EmitEndpointRegisteredAsync (
         DaemonSession session,
-        string? launchAttemptId,
+        Guid? launchAttemptId,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

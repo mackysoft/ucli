@@ -31,11 +31,7 @@ internal sealed class PlayCommandExecutionContextResolver : IPlayCommandExecutio
         string requiresGuiEditorMessage,
         CancellationToken cancellationToken = default)
     {
-        if (!command.IsValid)
-        {
-            throw new ArgumentException("Command name is invalid.", nameof(command));
-        }
-
+        ArgumentNullException.ThrowIfNull(command);
         ArgumentException.ThrowIfNullOrWhiteSpace(sessionNotAvailableMessage);
         ArgumentException.ThrowIfNullOrWhiteSpace(requiresGuiEditorMessage);
         cancellationToken.ThrowIfCancellationRequested();

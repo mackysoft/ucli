@@ -62,7 +62,7 @@ internal sealed class BuildCodeCatalogContributor : ICodeCatalogContributor
     {
         return new CodeCatalogDescriptor(
             Code: code,
-            Kind: CodeCatalogKindValues.Claim,
+            Kind: CodeCatalogKind.Claim,
             Category: "build",
             Summary: summary,
             Meaning: summary,
@@ -81,7 +81,7 @@ internal sealed class BuildCodeCatalogContributor : ICodeCatalogContributor
     {
         return new CodeCatalogDescriptor(
             Code: code,
-            Kind: CodeCatalogKindValues.Risk,
+            Kind: CodeCatalogKind.Risk,
             Category: "build",
             Summary: summary,
             Meaning: summary,

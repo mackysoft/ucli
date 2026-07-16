@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -11,9 +12,9 @@ public sealed class DaemonStartOperationDiagnosisTests
     [Trait("Size", "Small")]
     public async Task Start_WhenWorkflowBegins_DeletesExistingDiagnosisForUnityProject ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-delete-diagnosis");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-delete-diagnosis"));
         var diagnosisStore = new RecordingDaemonDiagnosisStore();
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var operation = CreateOperation(
             daemonSessionStore: sessionStore,
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
@@ -26,7 +27,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -39,12 +40,12 @@ public sealed class DaemonStartOperationDiagnosisTests
     [Trait("Size", "Small")]
     public async Task Start_WhenDiagnosisDeleteFails_ContinuesSessionReadAndLaunch ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-delete-diagnosis-fail");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-delete-diagnosis-fail"));
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
             DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InternalError("diagnosis delete failed")),
         };
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var launchService = new RecordingDaemonLaunchService
         {
             NextResult = DaemonStartResult.Started(DaemonSessionTestFactory.Create(processId: 2025, projectFingerprint: context.ProjectFingerprint), IpcUnityEditorObservationTestFactory.Create()),
@@ -58,7 +59,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -70,14 +71,14 @@ public sealed class DaemonStartOperationDiagnosisTests
     [Trait("Size", "Small")]
     public async Task Start_WhenDiagnosisDeleteFailsAndLaunchFails_ReturnsAugmentedFailure ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-delete-diagnosis-augmented");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-delete-diagnosis-augmented"));
         var diagnosisDeleteError = ExecutionError.InternalError("diagnosis delete failed");
         var launchError = ExecutionError.InternalError("launch failed", UcliCoreErrorCodes.CommandNotImplemented);
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
             DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(diagnosisDeleteError),
         };
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
         var launchService = new RecordingDaemonLaunchService
         {
             NextResult = DaemonStartResult.Failure(launchError),
@@ -91,7 +92,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -109,7 +110,7 @@ public sealed class DaemonStartOperationDiagnosisTests
     [Trait("Size", "Small")]
     public async Task Start_WhenDiagnosisDeleteFailsAndGuiFreshLaunchFails_PreservesLaunchFailureCode ()
     {
-        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject("fingerprint-start-delete-diagnosis-gui");
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(ProjectFingerprintTestFactory.Create("fingerprint-start-delete-diagnosis-gui"));
         var diagnosisStore = new RecordingDaemonDiagnosisStore
         {
             DeleteResult = DaemonDiagnosisStoreOperationResult.Failure(ExecutionError.InternalError("diagnosis delete failed")),
@@ -120,7 +121,7 @@ public sealed class DaemonStartOperationDiagnosisTests
             NextResult = DaemonStartResult.Failure(launchError),
         };
         var operation = CreateOperation(
-            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(null)),
+            daemonSessionStore: new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing()),
             daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
             daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
             daemonLaunchService: launchService,
@@ -128,7 +129,7 @@ public sealed class DaemonStartOperationDiagnosisTests
 
         var result = await operation.StartAsync(
             context,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -138,5 +139,101 @@ public sealed class DaemonStartOperationDiagnosisTests
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, error.Code);
         Assert.Contains("diagnosis cleanup failed", error.Message, StringComparison.OrdinalIgnoreCase);
         DaemonStartOperationInvocationAssert.FreshLaunchAttempted(launchService, context, expectedEditorMode: DaemonEditorMode.Gui);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Start_WhenDiagnosisDeleteIgnoresDeadline_ContinuesLifecycleOnIndependentLane ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var compensationOperationOwner = new DaemonCompensationOperationOwner();
+        var lifecycleLease = new RecordingAsyncDisposable();
+        var context = ProjectContextTestFactory.CreateDaemonLifecycleUnityProject(
+            ProjectFingerprintTestFactory.Create("fingerprint-start-owned-diagnosis-delete"));
+        var deleteStarted = new TaskCompletionSource(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var releaseDelete = new TaskCompletionSource<DaemonDiagnosisStoreOperationResult>(
+            TaskCreationOptions.RunContinuationsAsynchronously);
+        var diagnosisStore = new RecordingDaemonDiagnosisStore
+        {
+            DeleteAsyncHandler = (_, _, _) =>
+            {
+                deleteStarted.TrySetResult();
+                return new ValueTask<DaemonDiagnosisStoreOperationResult>(releaseDelete.Task);
+            },
+        };
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing());
+        var operation = CreateOperation(
+            daemonSessionStore: sessionStore,
+            daemonSessionCleanupService: new RecordingDaemonSessionCleanupService(),
+            daemonExistingSessionGateService: new RecordingDaemonExistingSessionGateService(),
+            daemonLaunchService: new RecordingDaemonLaunchService(),
+            daemonDiagnosisStore: diagnosisStore,
+            lifecycleLockProvider: new StubProjectLifecycleLockProvider(
+                (_, _, _) => lifecycleLease),
+            compensationOperationOwner: compensationOperationOwner,
+            timeProvider: timeProvider);
+
+        var startTask = operation.StartAsync(
+                context,
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+                editorMode: null,
+                onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+                cancellationToken: CancellationToken.None)
+            .AsTask();
+        await TestAwaiter.WaitAsync(
+            deleteStarted.Task,
+            "Daemon diagnosis delete start",
+            TimeSpan.FromSeconds(5));
+
+        await timeProvider
+            .WaitForTimerDueWithinAsync(DaemonTimeouts.SupplementalPersistenceTimeout)
+            .WaitAsync(TimeSpan.FromSeconds(1));
+        timeProvider.Advance(DaemonTimeouts.SupplementalPersistenceTimeout);
+        var result = await TestAwaiter.WaitAsync(
+            startTask,
+            "Daemon diagnosis delete deadline result",
+            TimeSpan.FromSeconds(5));
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(sessionStore.ReadInvocations);
+        Assert.Equal(1, lifecycleLease.DisposeCount);
+
+        var lifecycleMutationResult = await compensationOperationOwner.ExecuteAsync(
+                context,
+                DaemonOperationLane.LifecycleCompensation,
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
+                CancellationToken.None,
+                "Timed out before lifecycle mutation began.",
+                "Timed out while lifecycle mutation was running.",
+                (_, _) => ValueTask.FromResult(true));
+        Assert.True(lifecycleMutationResult.IsSuccess);
+        Assert.True(lifecycleMutationResult.Value);
+
+        releaseDelete.TrySetResult(DaemonDiagnosisStoreOperationResult.Success());
+        var supplementalMutationResult = await TestAwaiter.WaitAsync(
+            compensationOperationOwner.ExecuteAsync(
+                    context,
+                    DaemonOperationLane.SupplementalPersistence,
+                    ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
+                    CancellationToken.None,
+                    "Timed out waiting for diagnosis cleanup quiescence.",
+                    "Timed out while replacement supplemental mutation was running.",
+                    (_, _) => ValueTask.FromResult(true))
+                .AsTask(),
+            "Replacement supplemental mutation",
+            TimeSpan.FromSeconds(5));
+        Assert.True(supplementalMutationResult.IsSuccess);
+    }
+
+    private sealed class RecordingAsyncDisposable : IAsyncDisposable
+    {
+        public int DisposeCount { get; private set; }
+
+        public ValueTask DisposeAsync ()
+        {
+            DisposeCount++;
+            return ValueTask.CompletedTask;
+        }
     }
 }

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Assurance.Build;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 
@@ -6,6 +7,6 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 internal sealed record BuildEvidenceOutput (
     string Kind,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? EvidenceRef = null,
+    BuildArtifactKind? EvidenceRef,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    object? Data = null);
+    object? Data);

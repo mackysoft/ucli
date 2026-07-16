@@ -15,7 +15,7 @@ public static class IpcExecuteOperationResultFactory
     /// <param name="diagnostics"> The diagnostics emitted for the step. </param>
     /// <returns> The created operation result envelope. </returns>
     public static IpcExecuteOperationResult CreatePlanResult (
-        string opId,
+        IpcExecuteStepId opId,
         string op,
         bool applied,
         bool changed,
@@ -26,7 +26,7 @@ public static class IpcExecuteOperationResultFactory
         return Create(
             opId,
             op,
-            IpcExecuteOperationPhaseNames.Plan,
+            IpcExecuteOperationPhase.Plan,
             applied,
             changed,
             touched,
@@ -44,26 +44,18 @@ public static class IpcExecuteOperationResultFactory
     /// <param name="result"> The optional query result payload produced by the step. </param>
     /// <param name="diagnostics"> The diagnostics emitted for the step. </param>
     /// <returns> The created operation result envelope. </returns>
-    /// <exception cref="ArgumentException"> <paramref name="opId" />, <paramref name="op" />, or <paramref name="phase" /> is empty or whitespace. </exception>
-    /// <exception cref="ArgumentNullException"> <paramref name="opId" />, <paramref name="op" />, <paramref name="phase" />, or <paramref name="touched" /> is <see langword="null" />. </exception>
+    /// <exception cref="ArgumentException"> <paramref name="op" /> is empty or whitespace. </exception>
+    /// <exception cref="ArgumentNullException"> <paramref name="opId" />, <paramref name="op" />, or <paramref name="touched" /> is <see langword="null" />. </exception>
     public static IpcExecuteOperationResult Create (
-        string opId,
+        IpcExecuteStepId opId,
         string op,
-        string phase,
+        IpcExecuteOperationPhase phase,
         bool applied,
         bool changed,
         IReadOnlyList<IpcExecuteTouchedResource> touched,
         JsonElement? result = null,
         IReadOnlyList<IpcExecuteDiagnostic>? diagnostics = null)
     {
-        ThrowIfNullOrWhiteSpace(opId, nameof(opId));
-        ThrowIfNullOrWhiteSpace(op, nameof(op));
-        ThrowIfNullOrWhiteSpace(phase, nameof(phase));
-        if (touched == null)
-        {
-            throw new ArgumentNullException(nameof(touched));
-        }
-
         return new IpcExecuteOperationResult(
             OpId: opId,
             Op: op,
@@ -75,20 +67,5 @@ public static class IpcExecuteOperationResultFactory
             Result = result,
             Diagnostics = diagnostics ?? Array.Empty<IpcExecuteDiagnostic>(),
         };
-    }
-
-    private static void ThrowIfNullOrWhiteSpace (
-        string value,
-        string parameterName)
-    {
-        if (value == null)
-        {
-            throw new ArgumentNullException(parameterName);
-        }
-
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            throw new ArgumentException("Value must not be empty or whitespace.", parameterName);
-        }
     }
 }

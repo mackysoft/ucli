@@ -14,15 +14,15 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="payload"> The response payload model. </param>
         /// <returns> The successful response envelope. </returns>
         public static IpcResponse CreateSuccessResponse<TPayload> (
-            IpcRequest request,
+            IIpcRequestCorrelation request,
             TPayload payload)
         {
             return new IpcResponse(
-                ProtocolVersion: request.ProtocolVersion,
-                RequestId: request.RequestId,
-                Status: IpcProtocol.StatusOk,
-                Payload: IpcPayloadCodec.SerializeToElement(payload),
-                Errors: Array.Empty<IpcError>());
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: request.RequestId,
+                status: IpcResponseStatus.Ok,
+                payload: IpcPayloadCodec.SerializeToElement(payload),
+                errors: Array.Empty<IpcError>());
         }
 
         /// <summary> Creates one error response envelope. </summary>
@@ -32,17 +32,17 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="opId"> The related operation identifier when available. </param>
         /// <returns> The error response envelope. </returns>
         public static IpcResponse CreateErrorResponse (
-            IpcRequest request,
+            IIpcRequestCorrelation request,
             UcliCode code,
             string message,
-            string? opId)
+            IpcExecuteStepId? opId)
         {
             return new IpcResponse(
-                ProtocolVersion: request.ProtocolVersion,
-                RequestId: request.RequestId,
-                Status: IpcProtocol.StatusError,
-                Payload: IpcPayloadCodec.SerializeToElement(new { }),
-                Errors: new[]
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: request.RequestId,
+                status: IpcResponseStatus.Error,
+                payload: IpcPayloadCodec.SerializeToElement(new { }),
+                errors: new[]
                 {
                     new IpcError(code, message, opId),
                 });
@@ -57,18 +57,18 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="payload"> The structured payload model. </param>
         /// <returns> The error response envelope. </returns>
         public static IpcResponse CreateErrorResponse<TPayload> (
-            IpcRequest request,
+            IIpcRequestCorrelation request,
             UcliCode code,
             string message,
-            string? opId,
+            IpcExecuteStepId? opId,
             TPayload payload)
         {
             return new IpcResponse(
-                ProtocolVersion: request.ProtocolVersion,
-                RequestId: request.RequestId,
-                Status: IpcProtocol.StatusError,
-                Payload: IpcPayloadCodec.SerializeToElement(payload),
-                Errors: new[]
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: request.RequestId,
+                status: IpcResponseStatus.Error,
+                payload: IpcPayloadCodec.SerializeToElement(payload),
+                errors: new[]
                 {
                     new IpcError(code, message, opId),
                 });
@@ -86,11 +86,11 @@ namespace MackySoft.Ucli.Unity.Ipc
                 ? IpcProtocolErrorCodes.IpcFrameTooLarge
                 : UcliCoreErrorCodes.InvalidArgument;
             return new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: string.Empty,
-                Status: IpcProtocol.StatusError,
-                Payload: IpcPayloadCodec.SerializeToElement(new { }),
-                Errors: new[]
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: null,
+                status: IpcResponseStatus.Error,
+                payload: IpcPayloadCodec.SerializeToElement(new { }),
+                errors: new[]
                 {
                     new IpcError(code, $"IPC request frame is invalid. {errorMessage}", null),
                 });

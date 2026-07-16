@@ -70,4 +70,12 @@ if [ "$restore" = true ]; then
   dotnet restore "$solution"
 fi
 
-dotnet test "$target" --configuration "$configuration" --no-restore --logger "console;verbosity=normal" "$@"
+dotnet test \
+  "$target" \
+  --configuration "$configuration" \
+  --no-restore \
+  --logger "console;verbosity=normal" \
+  --blame-hang \
+  --blame-hang-dump-type none \
+  --blame-hang-timeout 2m \
+  "$@"

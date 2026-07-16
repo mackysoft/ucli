@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Tests.Helpers.Unity;
 using static MackySoft.Ucli.Tests.UnityUcliPluginLocatorTestSupport;
 

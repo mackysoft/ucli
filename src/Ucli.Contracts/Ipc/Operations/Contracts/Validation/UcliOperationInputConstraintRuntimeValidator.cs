@@ -106,13 +106,13 @@ internal static class UcliOperationInputConstraintRuntimeValidator
         string path,
         out string errorMessage)
     {
-        if (!double.IsNaN(attribute.Min) && number < attribute.Min)
+        if (attribute.HasMin && number < attribute.Min)
         {
             errorMessage = $"Operation '{path}' must be greater than or equal to {attribute.Min.ToString(CultureInfo.InvariantCulture)}.";
             return false;
         }
 
-        if (!double.IsNaN(attribute.Max) && number > attribute.Max)
+        if (attribute.HasMax && number > attribute.Max)
         {
             errorMessage = $"Operation '{path}' must be less than or equal to {attribute.Max.ToString(CultureInfo.InvariantCulture)}.";
             return false;
@@ -126,7 +126,6 @@ internal static class UcliOperationInputConstraintRuntimeValidator
         return value switch
         {
             string text => string.IsNullOrWhiteSpace(text),
-            UcliStringValue semanticString => string.IsNullOrWhiteSpace(semanticString.Value),
             JsonElement jsonElement => IsEmptyJsonElement(jsonElement),
             IEnumerable enumerable => !HasAny(enumerable),
             _ => false,

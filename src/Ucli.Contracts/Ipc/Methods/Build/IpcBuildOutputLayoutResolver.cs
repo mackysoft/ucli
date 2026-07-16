@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Contracts.Assurance.Build;
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -16,36 +15,22 @@ internal static class IpcBuildOutputLayoutResolver
     /// <summary> Tries to resolve the BuildPipeline output layout for the target. </summary>
     /// <param name="outputDirectory"> The absolute runner working output root. </param>
     /// <param name="buildTarget"> The uCLI build target stable name. </param>
-    /// <param name="layout"> The resolved output layout when successful. </param>
-    /// <returns> <see langword="true" /> when the target has a deterministic output layout; otherwise <see langword="false" />. </returns>
-    public static bool TryResolve (
-        string outputDirectory,
-        string buildTarget,
-        out IpcBuildOutputLayout? layout)
-    {
-        return TryResolve(outputDirectory, buildTarget, androidAppBundle: false, out layout);
-    }
-
-    /// <summary> Tries to resolve the BuildPipeline output layout for the target. </summary>
-    /// <param name="outputDirectory"> The absolute runner working output root. </param>
-    /// <param name="buildTarget"> The uCLI build target stable name. </param>
     /// <param name="androidAppBundle"> <see langword="true" /> when the Android output is an App Bundle. Ignored for non-Android targets. </param>
     /// <param name="layout"> The resolved output layout when successful. </param>
     /// <returns> <see langword="true" /> when the target has a deterministic output layout; otherwise <see langword="false" />. </returns>
     public static bool TryResolve (
         string outputDirectory,
-        string buildTarget,
+        BuildTargetStableName buildTarget,
         bool androidAppBundle,
         out IpcBuildOutputLayout? layout)
     {
         layout = null;
-        if (string.IsNullOrWhiteSpace(outputDirectory) || string.IsNullOrWhiteSpace(buildTarget))
+        if (string.IsNullOrWhiteSpace(outputDirectory))
         {
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse<BuildTargetStableName>(buildTarget, out var stableName)
-            || !TryResolveShapeAndFileName(stableName, androidAppBundle, out var shape, out var fileName))
+        if (!TryResolveShapeAndFileName(buildTarget, androidAppBundle, out var shape, out var fileName))
         {
             return false;
         }
@@ -64,36 +49,36 @@ internal static class IpcBuildOutputLayoutResolver
     private static bool TryResolveShapeAndFileName (
         BuildTargetStableName buildTarget,
         bool androidAppBundle,
-        out string shape,
+        out IpcBuildOutputLayoutShape shape,
         out string fileName)
     {
         switch (buildTarget)
         {
             case BuildTargetStableName.StandaloneOsx:
-                shape = ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.AppBundle);
+                shape = IpcBuildOutputLayoutShape.AppBundle;
                 fileName = PlayerAppBundleName;
                 return true;
             case BuildTargetStableName.StandaloneWindows:
             case BuildTargetStableName.StandaloneWindows64:
-                shape = ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File);
+                shape = IpcBuildOutputLayoutShape.File;
                 fileName = WindowsPlayerFileName;
                 return true;
             case BuildTargetStableName.StandaloneLinux64:
-                shape = ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File);
+                shape = IpcBuildOutputLayoutShape.File;
                 fileName = PlayerFileName;
                 return true;
             case BuildTargetStableName.Android:
-                shape = ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File);
+                shape = IpcBuildOutputLayoutShape.File;
                 fileName = androidAppBundle ? AndroidPlayerAppBundleFileName : AndroidPlayerFileName;
                 return true;
             case BuildTargetStableName.Ios:
             case BuildTargetStableName.Tvos:
             case BuildTargetStableName.Webgl:
-                shape = ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.Directory);
+                shape = IpcBuildOutputLayoutShape.Directory;
                 fileName = PlayerFileName;
                 return true;
             default:
-                shape = null!;
+                shape = default;
                 fileName = null!;
                 return false;
         }

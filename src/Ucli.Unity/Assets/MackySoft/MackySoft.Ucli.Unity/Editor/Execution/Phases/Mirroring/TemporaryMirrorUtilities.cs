@@ -343,9 +343,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UnityEngine.Object previewObject,
             TemporaryPreviewStableReferenceIndex stableReferenceIndex)
         {
-            if (UnityObjectReferenceResolver.TryCreateResolvedReference(previewObject, out var resolvedReference))
+            if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewObject, out var globalObjectId))
             {
-                stableReferenceIndex.Add(previewObject, resolvedReference!.GlobalObjectId);
+                stableReferenceIndex.Add(previewObject, globalObjectId);
             }
         }
 
@@ -354,9 +354,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UnityEngine.Object sourceObject,
             TemporaryPreviewStableReferenceIndex stableReferenceIndex)
         {
-            if (UnityObjectReferenceResolver.TryCreateResolvedReference(sourceObject, out var resolvedReference))
+            if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(sourceObject, out var globalObjectId))
             {
-                stableReferenceIndex.Add(previewObject, resolvedReference!.GlobalObjectId);
+                stableReferenceIndex.Add(previewObject, globalObjectId);
             }
         }
 
@@ -365,17 +365,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             string prefabPath,
             TemporaryPreviewStableReferenceIndex stableReferenceIndex)
         {
-            if (UnityObjectReferenceResolver.TryCreateResolvedReference(previewObject, out var resolvedReference))
+            if (UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(previewObject, out var globalObjectId))
             {
-                stableReferenceIndex.Add(previewObject, resolvedReference!.GlobalObjectId);
+                stableReferenceIndex.Add(previewObject, globalObjectId);
                 return;
             }
 
             var stableSourceObject = TryGetPrefabStableSourceObject(previewObject, prefabPath);
             if (stableSourceObject != null
-                && UnityObjectReferenceResolver.TryCreateResolvedReference(stableSourceObject, out resolvedReference))
+                && UnityObjectReferenceResolver.TryCreateStableGlobalObjectId(stableSourceObject, out globalObjectId))
             {
-                stableReferenceIndex.Add(previewObject, resolvedReference!.GlobalObjectId);
+                stableReferenceIndex.Add(previewObject, globalObjectId);
             }
         }
 

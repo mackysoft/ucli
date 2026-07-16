@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -8,14 +7,17 @@ namespace MackySoft.Ucli.Tests.Ipc;
 internal static class IpcTransportTestHarness
 {
     internal static async Task WithUnixStreamingServerAsync (
-        Func<IpcRequest, Stream, CancellationToken, Task> writeFramesAsync,
-        Func<IpcEndpoint, IpcRequest, Task> executeClientAsync,
+        Func<IpcRequestEnvelope, Stream, CancellationToken, Task> writeFramesAsync,
+        Func<IpcEndpoint, IpcRequestEnvelope, Task> executeClientAsync,
         TimeSpan waitTimeout)
     {
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
-            UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
-        var server = new SupervisorTransportServer();
+            new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.Supervisor,
+                Guid.NewGuid().ToString("N")).SocketPath);
+        var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -23,7 +25,7 @@ internal static class IpcTransportTestHarness
             endpoint,
             async (stream, cancellationToken) =>
             {
-                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
+                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
                     stream,
                     IpcJsonSerializerOptions.Default,
                     cancellationToken: cancellationToken);
@@ -39,6 +41,8 @@ internal static class IpcTransportTestHarness
                 startedTaskSource.TrySetResult();
                 return Task.CompletedTask;
             },
+            SupervisorConstants.MaximumActiveConnections,
+            SupervisorConstants.ConnectionDrainTimeout,
             cancellationTokenSource.Token);
 
         try
@@ -61,14 +65,17 @@ internal static class IpcTransportTestHarness
     }
 
     internal static async Task WithUnixResponseServerAsync (
-        Func<IpcRequest, IpcResponse> createResponse,
-        Func<IpcEndpoint, IpcRequest, Task> executeClientAsync,
+        Func<IpcRequestEnvelope, Stream, CancellationToken, Task> writeResponseAsync,
+        Func<IpcEndpoint, IpcRequestEnvelope, Task> executeClientAsync,
         TimeSpan waitTimeout)
     {
         var endpoint = new IpcEndpoint(
             IpcTransportKind.UnixDomainSocket,
-            UnixSocketPathUtilities.BuildFallbackSocketPath("ucli-supervisor-", Guid.NewGuid().ToString("N")));
-        var server = new SupervisorTransportServer();
+            new UnixSocketFallbackPath(
+                Path.GetTempPath(),
+                UnixSocketFallbackPurpose.Supervisor,
+                Guid.NewGuid().ToString("N")).SocketPath);
+        var server = new SupervisorTransportServer(TimeProvider.System);
         var startedTaskSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -76,7 +83,7 @@ internal static class IpcTransportTestHarness
             endpoint,
             async (stream, cancellationToken) =>
             {
-                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequest>(
+                var readResult = await IpcFrameCodec.TryReadModelAsync<IpcRequestEnvelope>(
                     stream,
                     IpcJsonSerializerOptions.Default,
                     cancellationToken: cancellationToken);
@@ -85,17 +92,15 @@ internal static class IpcTransportTestHarness
                     throw new InvalidDataException(readResult.ErrorMessage);
                 }
 
-                await IpcFrameCodec.WriteModelAsync(
-                    stream,
-                    createResponse(readResult.Value),
-                    IpcJsonSerializerOptions.Default,
-                    cancellationToken: cancellationToken);
+                await writeResponseAsync(readResult.Value, stream, cancellationToken);
             },
             cancellationToken =>
             {
                 startedTaskSource.TrySetResult();
                 return Task.CompletedTask;
             },
+            SupervisorConstants.MaximumActiveConnections,
+            SupervisorConstants.ConnectionDrainTimeout,
             cancellationTokenSource.Token);
 
         try
@@ -129,38 +134,42 @@ internal static class IpcTransportTestHarness
             cancellationToken: cancellationToken);
     }
 
-    internal static IpcRequest CreateStreamingRequest ()
+    internal static IpcRequestEnvelope CreateStreamingRequest ()
     {
-        return new IpcRequest(
+        return new IpcRequestEnvelope(
             IpcProtocol.CurrentVersion,
-            "request-1",
+            Guid.NewGuid(),
             "token",
-            IpcMethodNames.Ping,
+            ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
             Json("{}"),
-            IpcResponseMode.Stream);
+            ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+            DateTimeOffset.MaxValue,
+            int.MaxValue);
     }
 
-    internal static IpcRequest CreateSingleRequest ()
+    internal static IpcRequestEnvelope CreateSingleRequest ()
     {
-        return new IpcRequest(
+        return new IpcRequestEnvelope(
             IpcProtocol.CurrentVersion,
-            "request-1",
+            Guid.NewGuid(),
             "token",
-            IpcMethodNames.Ping,
+            ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
             Json("{}"),
-            IpcResponseMode.Single);
+            ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+            DateTimeOffset.MaxValue,
+            int.MaxValue);
     }
 
     internal static IpcResponse CreateResponse (
-        string requestId,
+        Guid requestId,
         string payloadJson,
         int? protocolVersion = null,
-        string? status = null)
+        IpcResponseStatus? status = null)
     {
         return new IpcResponse(
             protocolVersion ?? IpcProtocol.CurrentVersion,
             requestId,
-            status ?? IpcProtocol.StatusOk,
+            status ?? IpcResponseStatus.Ok,
             Json(payloadJson),
             Array.Empty<IpcError>());
     }

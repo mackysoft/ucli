@@ -1,23 +1,24 @@
+using MackySoft.Ucli.Contracts.Ipc;
+
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 
 /// <summary> Represents one hierarchy-path resolution attempt against scene-tree-lite data. </summary>
 /// <param name="GlobalObjectId"> The resolved GlobalObjectId when resolution succeeded; otherwise <see langword="null" />. </param>
 /// <param name="ErrorMessage"> The failure message when resolution failed; otherwise <see langword="null" />. </param>
 internal sealed record SceneTreeLiteHierarchyPathResolutionResult (
-    string? GlobalObjectId,
+    UnityGlobalObjectId? GlobalObjectId,
     string? ErrorMessage)
 {
     /// <summary> Gets a value indicating whether the path resolved to one GlobalObjectId. </summary>
     public bool IsSuccess => GlobalObjectId is not null && ErrorMessage is null;
 
     /// <summary> Creates a successful resolution result. </summary>
-    /// <param name="globalObjectId"> The non-empty GlobalObjectId returned by scene-tree-lite. </param>
+    /// <param name="globalObjectId"> The parsed GlobalObjectId returned by scene-tree-lite. </param>
     /// <returns> A result whose <see cref="IsSuccess" /> value is <see langword="true" />. </returns>
     /// <exception cref="ArgumentNullException"> <paramref name="globalObjectId" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentException"> <paramref name="globalObjectId" /> is empty or whitespace. </exception>
-    public static SceneTreeLiteHierarchyPathResolutionResult Success (string globalObjectId)
+    public static SceneTreeLiteHierarchyPathResolutionResult Success (UnityGlobalObjectId globalObjectId)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(globalObjectId);
+        ArgumentNullException.ThrowIfNull(globalObjectId);
         return new SceneTreeLiteHierarchyPathResolutionResult(globalObjectId, null);
     }
 

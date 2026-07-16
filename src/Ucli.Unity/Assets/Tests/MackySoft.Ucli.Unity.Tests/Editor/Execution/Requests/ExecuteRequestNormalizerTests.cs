@@ -26,18 +26,15 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class ExecuteRequestNormalizerTests
     {
-        private const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
-
         [Test]
         [Category("Size.Small")]
         public void Normalize_WhenOpRequestIsValid_ReturnsNormalizedRequestAndCanonicalPayload ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -60,22 +57,19 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Error, Is.Null);
 
             var normalizedRequest = result.Request!;
-            Assert.That(normalizedRequest.ProtocolVersion, Is.EqualTo(IpcProtocol.CurrentVersion));
-            Assert.That(normalizedRequest.RequestId, Is.EqualTo(RequestId));
             Assert.That(normalizedRequest.SourceSteps.Count, Is.EqualTo(1));
-            Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcRequestStepKind.Op));
+            Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcExecuteStepKind.Op));
             Assert.That(normalizedRequest.SourceSteps[0].OperationName, Is.EqualTo(UcliPrimitiveOperationNames.Resolve));
             var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
             Assert.That(compiledOperations[0].AllowRequestLocalAliases, Is.False);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasPostReadSourceStep(
-                    IpcExecutePostReadSourceKindNames.Operation,
+                    IpcExecutePostReadSourceKind.Operation,
                     null,
                     false,
-                    IpcExecuteExpectedPostStateNames.Unavailable);
+                    IpcExecuteExpectedPostState.Unavailable);
 
             var canonicalPayload = Encoding.UTF8.GetString(normalizedRequest.CanonicalDigestPayloadUtf8.ToArray());
-            Assert.That(canonicalPayload, Does.Not.Contain("requestId"));
             Assert.That(canonicalPayload, Does.Contain("\"protocolVersion\":1"));
             Assert.That(canonicalPayload, Does.Contain("\"steps\""));
         }
@@ -85,11 +79,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenProjectRefreshOpRequestIsValid_CompilesRefreshPostReadSourceStep ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -114,10 +107,10 @@ namespace MackySoft.Ucli.Unity.Tests
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasOperationNames(UcliPrimitiveOperationNames.ProjectRefresh)
                 .HasPostReadSourceStep(
-                    IpcExecutePostReadSourceKindNames.Refresh,
+                    IpcExecutePostReadSourceKind.Refresh,
                     null,
                     true,
-                    IpcExecuteExpectedPostStateNames.Unavailable);
+                    IpcExecuteExpectedPostState.Unavailable);
         }
 
         [Test]
@@ -135,11 +128,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
 
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -185,20 +177,29 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var normalizedRequest = result.Request!;
             Assert.That(normalizedRequest.SourceSteps.Count, Is.EqualTo(1));
-            Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcRequestStepKind.Edit));
+            Assert.That(normalizedRequest.SourceSteps[0].Kind, Is.EqualTo(IpcExecuteStepKind.Edit));
             var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(
-                    IpcRequestStepKind.Edit,
+                    IpcExecuteStepKind.Edit,
                     "edit",
                     UcliPrimitiveOperationNames.CompEnsure,
                     UcliPrimitiveOperationNames.CompSet,
                     UcliPrimitiveOperationNames.SceneSave)
                 .HasPostReadSourceStep(
-                    IpcExecutePostReadSourceKindNames.Edit,
-                    IpcExecutePostReadCommitNames.Context,
+                    IpcExecutePostReadSourceKind.Edit,
+                    IpcExecutePostReadCommit.Context,
                     true,
-                    IpcExecuteExpectedPostStateNames.Deterministic);
+                    IpcExecuteExpectedPostState.Deterministic);
+            var producedAlias = compiledOperations[0].As;
+            var referencedAlias = compiledOperations[1].AliasReferences.Resolve(new UcliPlanAlias("collider"));
+            Assert.That(compiledOperations[0].AllowRequestLocalAliases, Is.True);
+            Assert.That(compiledOperations[1].AllowRequestLocalAliases, Is.True);
+            Assert.That(producedAlias, Is.TypeOf<RequestLocalAliasIdentity.EditActionAliasIdentity>());
+            Assert.That(referencedAlias, Is.EqualTo(producedAlias));
+            Assert.That(
+                compiledOperations[1].Args.GetProperty("target").GetProperty("var").GetString(),
+                Is.EqualTo("collider"));
         }
 
         [Test]
@@ -216,11 +217,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
 
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -257,14 +257,14 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(normalizedRequest, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(
-                    IpcRequestStepKind.Edit,
+                    IpcExecuteStepKind.Edit,
                     "edit",
                     UcliPrimitiveOperationNames.GoReparent)
                 .HasPostReadSourceStep(
-                    IpcExecutePostReadSourceKindNames.Edit,
-                    IpcExecutePostReadCommitNames.None,
+                    IpcExecutePostReadSourceKind.Edit,
+                    IpcExecutePostReadCommit.None,
                     false,
-                    IpcExecuteExpectedPostStateNames.Deterministic);
+                    IpcExecuteExpectedPostState.Deterministic);
 
             var args = compiledOperations[0].Args;
             var target = args.GetProperty("target");
@@ -288,11 +288,10 @@ namespace MackySoft.Ucli.Unity.Tests
             _ = new GameObject("ARoot");
             EditorSceneManager.SaveScene(scene, scenePath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -331,24 +330,81 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
                 .AllHavePublicId("deleteFirst")
-                .HaveDistinctInternalExecutionKeys();
+                .HaveDistinctExecutionKeys();
             var target = compiledOperations[0].Args.GetProperty("target");
             Assert.That(target.GetProperty("hierarchyPath").GetString(), Is.EqualTo("ZRoot"));
         }
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenEditContainsDuplicateCreateAssetActions_AssignsDistinctInternalExecutionKeys ()
+        public void Compile_WhenSelectFromComponentTypeCannotResolve_ReturnsInvalidArgumentBeforeSelection ()
         {
-            var assetPath = "Assets/Generated/Spawner.asset";
+            using var scope = new EditorTestScope();
+            var scenePath = scope.CreateScenePath(nameof(ExecuteRequestNormalizerTests));
+            var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+            _ = new GameObject("Root");
+            EditorSceneManager.SaveScene(scene, scenePath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
+                    steps = new object[]
+                    {
+                        new
+                        {
+                            kind = "edit",
+                            id = "invalidComponentType",
+                            on = new
+                            {
+                                scene = scenePath,
+                            },
+                            select = new
+                            {
+                                from = new
+                                {
+                                    op = UcliPrimitiveOperationNames.SceneQuery,
+                                    args = new
+                                    {
+                                        componentType = "Missing.Component, Missing.Assembly",
+                                    },
+                                },
+                                cardinality = "all",
+                            },
+                            actions = new object[]
+                            {
+                                new
+                                {
+                                    kind = "delete",
+                                },
+                            },
+                            commit = "none",
+                        },
+                    },
+                });
+
+            var normalizationResult = CreateNormalizer().Normalize(request);
+
+            Assert.That(normalizationResult.IsSuccess, Is.True, normalizationResult.Error?.Message);
+            using var executionContext = scope.CreateExecutionContext();
+            var error = CompileSingleStepFailure(normalizationResult.Request!, 0, executionContext);
+            Assert.That(error.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
+            Assert.That(error.OpId?.Value, Is.EqualTo("invalidComponentType"));
+            Assert.That(error.Message, Does.Contain("TypeId could not be resolved"));
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void Normalize_WhenEditContainsDuplicateCreateAssetActions_AssignsDistinctExecutionKeys ()
+        {
+            var assetPath = "Assets/Generated/Spawner.asset";
+            var request = CreateExecuteRequest(
+                UcliCommandIds.Plan.Name,
+                new
+                {
+                    protocolVersion = IpcProtocol.CurrentVersion,
                     steps = new object[]
                     {
                         new
@@ -398,7 +454,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     UcliPrimitiveOperationNames.AssetCreate,
                     UcliPrimitiveOperationNames.AssetCreate)
                 .AllHavePublicId("createAssets")
-                .HaveDistinctInternalExecutionKeys();
+                .HaveDistinctExecutionKeys();
         }
 
         [Test]
@@ -406,11 +462,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenProjectContextUsesDirectProjectAssetSelection_CompilesProjectAssetSelector ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -476,11 +531,10 @@ namespace MackySoft.Ucli.Unity.Tests
             spawnerB.AddComponent<BoxCollider>();
             EditorSceneManager.SaveScene(scene, scenePath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -541,11 +595,10 @@ namespace MackySoft.Ucli.Unity.Tests
             childB.transform.SetParent(root.transform, worldPositionStays: false);
             EditorSceneManager.SaveScene(scene, scenePath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -608,11 +661,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var prefabStage = PrefabStageUtility.OpenPrefab(prefabPath);
             Assert.That(prefabStage, Is.Not.Null);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -662,11 +714,10 @@ namespace MackySoft.Ucli.Unity.Tests
             root.name = "Renamed";
             EditorSceneManager.MarkSceneDirty(scene);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -724,11 +775,10 @@ namespace MackySoft.Ucli.Unity.Tests
             root.name = "Renamed";
             EditorSceneManager.MarkSceneDirty(scene);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -770,9 +820,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
                 .AllHavePublicId("ensureDirtySceneTarget")
-                .HaveDistinctInternalExecutionKeys();
+                .HaveDistinctExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
             Assert.That(
                 temporaryScene.GetRootGameObjects(),
@@ -794,11 +844,10 @@ namespace MackySoft.Ucli.Unity.Tests
             _ = new GameObject("Bad/Root");
             EditorSceneManager.SaveScene(scene, scenePath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -838,14 +887,14 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
                 .AllHavePublicId("deleteGoodRoot")
-                .HaveDistinctInternalExecutionKeys();
+                .HaveDistinctExecutionKeys();
             Assert.That(compiledStep.Diagnostics.Count, Is.EqualTo(1));
             var diagnostic = compiledStep.Diagnostics[0];
             Assert.That(diagnostic.Code, Is.EqualTo(ExecuteRequestErrorCodes.HierarchyPathUnrepresentableObjects));
-            Assert.That(diagnostic.Severity, Is.EqualTo(IpcExecuteDiagnosticSeverityNames.Warning));
-            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(IpcExecuteDiagnosticCoverageImpactNames.Partial));
+            Assert.That(diagnostic.Severity, Is.EqualTo(UcliDiagnosticSeverity.Warning));
+            Assert.That(diagnostic.CoverageImpact, Is.EqualTo(IpcExecuteDiagnosticCoverageImpact.Partial));
         }
 
         [Test]
@@ -859,11 +908,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -911,11 +959,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -963,11 +1010,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1037,11 +1083,10 @@ namespace MackySoft.Ucli.Unity.Tests
             child.transform.SetParent(root.transform, worldPositionStays: false);
             EditorSceneManager.SaveScene(scene, scenePath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1075,9 +1120,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.GoDelete)
                 .AllHavePublicId("loadedSceneDelete")
-                .HaveDistinctInternalExecutionKeys();
+                .HaveDistinctExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out var temporaryScene), Is.True);
             Assert.That(EditorSceneManager.IsPreviewScene(temporaryScene), Is.True);
 
@@ -1096,11 +1141,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1147,11 +1191,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
             var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1198,11 +1241,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 .EnablePrefabStageCleanup();
             var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1253,11 +1295,10 @@ namespace MackySoft.Ucli.Unity.Tests
             prefabStage!.prefabContentsRoot.transform.GetChild(0).name = "Renamed";
             EditorSceneManager.MarkSceneDirty(prefabStage.scene);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1292,9 +1333,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit", UcliPrimitiveOperationNames.CompEnsure)
                 .AllHavePublicId("openedPrefabEnsure")
-                .HaveDistinctInternalExecutionKeys();
+                .HaveDistinctExecutionKeys();
             Assert.That(executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out var temporaryPrefabRoot), Is.True);
             Assert.That(temporaryPrefabRoot, Is.Not.Null);
             Assert.That(temporaryPrefabRoot, Is.Not.SameAs(prefabStage.prefabContentsRoot));
@@ -1315,11 +1356,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1388,11 +1428,10 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1459,11 +1498,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 .EnablePrefabStageCleanup();
             var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1532,11 +1570,10 @@ namespace MackySoft.Ucli.Unity.Tests
             _ = new GameObject("Root");
             EditorSceneManager.SaveScene(scene, scenePath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1586,11 +1623,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1625,7 +1661,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit")
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit")
                 .AllHavePublicId("optionalMissingDirectSelectionNoCommit");
         }
 
@@ -1640,11 +1676,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1680,7 +1715,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext());
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasLoweredOperations(
-                    IpcRequestStepKind.Edit,
+                    IpcExecuteStepKind.Edit,
                     "edit",
                     UcliPrimitiveOperationNames.ProjectSave)
                 .AllHavePublicId("optionalMissingDirectSelectionProjectCommit");
@@ -1696,11 +1731,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1750,11 +1784,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1790,7 +1823,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit")
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit")
                 .AllHavePublicId("optionalMissingDirectSelectionNoCommitReleaseScenePreview");
             Assert.That(executionContext.TryGetTemporaryScene(scenePath, out _), Is.False);
         }
@@ -1803,11 +1836,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 .EnablePrefabStageCleanup();
             var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1843,7 +1875,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var executionContext = scope.CreateExecutionContext();
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, executionContext);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Edit, "edit")
+                .HasLoweredOperations(IpcExecuteStepKind.Edit, "edit")
                 .AllHavePublicId("optionalMissingDirectSelectionNoCommitReleasePrefabPreview");
             Assert.That(executionContext.TryGetTemporaryPrefabContentsRoot(prefabPath, out _), Is.False);
         }
@@ -1859,11 +1891,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1911,11 +1942,10 @@ namespace MackySoft.Ucli.Unity.Tests
             var prefabPath = scope.CreatePrefabAsset(nameof(ExecuteRequestNormalizerTests), "PrefabRoot");
             var prefabRootName = System.IO.Path.GetFileNameWithoutExtension(prefabPath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -1959,11 +1989,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenPlanTokenIsSpecified_TrimsAndStoresPlanToken ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Call,
+                UcliCommandIds.Call.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = Array.Empty<object>(),
                 });
             request = request with
@@ -1982,11 +2011,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenAllowDangerousIsSpecified_StoresAllowDangerous ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Call,
+                UcliCommandIds.Call.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = Array.Empty<object>(),
                 });
             request = request with
@@ -2005,11 +2033,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenAllowPlayModeIsSpecified_RejectsDisallowedRawOperationStep ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2036,11 +2063,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenAllowPlayModeIsSpecified_AllowsCsEvalRawOperationStep ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2064,12 +2090,12 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, new OperationExecutionContext(), allowPlayMode: true);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Op, UcliPrimitiveOperationNames.CsEval, UcliPrimitiveOperationNames.CsEval)
+                .HasLoweredOperations(IpcExecuteStepKind.Op, UcliPrimitiveOperationNames.CsEval, UcliPrimitiveOperationNames.CsEval)
                 .HasPostReadSourceStep(
-                    IpcExecutePostReadSourceKindNames.Operation,
+                    IpcExecutePostReadSourceKind.Operation,
                     null,
                     false,
-                IpcExecuteExpectedPostStateNames.Unavailable);
+                IpcExecuteExpectedPostState.Unavailable);
         }
 
         [Test]
@@ -2078,11 +2104,10 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             const string operationName = "game.cheat.required";
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2107,11 +2132,10 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             const string operationName = "game.cheat.required";
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2137,7 +2161,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 allowPlayMode: true,
                 CreateRegistry(CreatePlayModeOperation(operationName, UcliOperationPlayModeSupport.Required)));
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
-                .HasLoweredOperations(IpcRequestStepKind.Op, operationName, operationName);
+                .HasLoweredOperations(IpcExecuteStepKind.Op, operationName, operationName);
         }
 
         [Test]
@@ -2146,11 +2170,10 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             const string operationName = "game.cheat.unknown";
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2179,11 +2202,10 @@ namespace MackySoft.Ucli.Unity.Tests
             const string operationName = "game.cheat.required";
             var sourceStep = ReadSingleSourceStep(
                 CreateExecuteRequest(
-                    UcliCommandIds.Plan,
+                    UcliCommandIds.Plan.Name,
                     new
                     {
                         protocolVersion = IpcProtocol.CurrentVersion,
-                        requestId = RequestId,
                         steps = new[]
                         {
                             new
@@ -2208,7 +2230,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(compiled, Is.False);
             Assert.That(error.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(error.OpId, Is.EqualTo("cheat"));
+            Assert.That(error.OpId?.Value, Is.EqualTo("cheat"));
             Assert.That(error.Message, Is.EqualTo($"Operation '{operationName}' requires --allowPlayMode."));
         }
 
@@ -2217,11 +2239,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenAllowPlayModeDiffers_ProducesDifferentCanonicalDigestPayload ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = Array.Empty<object>(),
                 });
             var playModeRequest = request with
@@ -2246,11 +2267,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenAllowPlayModeSceneCommitIsContext_ReturnsPersistenceForbiddenError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2286,7 +2306,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(PlayModeErrorCodes.PlayModePersistenceForbidden));
-            Assert.That(result.Error.OpId, Is.EqualTo("playSceneCommit"));
+            Assert.That(result.Error.OpId?.Value, Is.EqualTo("playSceneCommit"));
         }
 
         [Test]
@@ -2299,11 +2319,10 @@ namespace MackySoft.Ucli.Unity.Tests
             _ = new GameObject("Root");
             EditorSceneManager.SaveScene(scene, scenePath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2339,14 +2358,16 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.True);
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
             Assert.That(compiledOperations, Has.Count.EqualTo(1));
-            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.True);
+            Assert.That(
+                compiledOperations[0].PersistenceReportingPolicy,
+                Is.EqualTo(OperationPersistenceReportingPolicy.SuppressAll));
             Assert.That(compiledOperations[0].AllowExplicitPrefabAssetMutation, Is.False);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasPostReadSourceStep(
-                    IpcExecutePostReadSourceKindNames.Edit,
-                    IpcExecutePostReadCommitNames.None,
+                    IpcExecutePostReadSourceKind.Edit,
+                    IpcExecutePostReadCommit.None,
                     false,
-                    IpcExecuteExpectedPostStateNames.Unavailable,
+                    IpcExecuteExpectedPostState.Unavailable,
                     expectedPlayModeMutation: true);
         }
 
@@ -2371,11 +2392,10 @@ namespace MackySoft.Ucli.Unity.Tests
             EditorSceneManager.SaveScene(scene, scenePath);
             var componentTypeId = IndexTypeIdFormatter.Format(typeof(CompOperationTestComponent));
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2430,10 +2450,10 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(compiledOperations[1].AllowExplicitPrefabAssetMutation, Is.False);
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasPostReadSourceStep(
-                    IpcExecutePostReadSourceKindNames.Edit,
-                    IpcExecutePostReadCommitNames.None,
+                    IpcExecutePostReadSourceKind.Edit,
+                    IpcExecutePostReadCommit.None,
                     true,
-                    IpcExecuteExpectedPostStateNames.Unavailable,
+                    IpcExecuteExpectedPostState.Unavailable,
                     expectedPlayModeMutation: true);
         }
 
@@ -2448,11 +2468,10 @@ namespace MackySoft.Ucli.Unity.Tests
             _ = new GameObject("Root");
             EditorSceneManager.SaveScene(scene, scenePath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2490,14 +2509,15 @@ namespace MackySoft.Ucli.Unity.Tests
             var (compiledStep, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
             Assert.That(compiledOperations, Has.Count.EqualTo(1));
             Assert.That(compiledOperations[0].Op, Is.EqualTo(UcliPrimitiveOperationNames.PrefabCreate));
-            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.False);
-            Assert.That(compiledOperations[0].SuppressScenePersistenceReporting, Is.True);
+            Assert.That(
+                compiledOperations[0].PersistenceReportingPolicy,
+                Is.EqualTo(OperationPersistenceReportingPolicy.SuppressScene));
             _ = new ExecuteRequestCompilerAssert(compiledStep, compiledOperations)
                 .HasPostReadSourceStep(
-                    IpcExecutePostReadSourceKindNames.Edit,
-                    IpcExecutePostReadCommitNames.None,
+                    IpcExecutePostReadSourceKind.Edit,
+                    IpcExecutePostReadCommit.None,
                     true,
-                    IpcExecuteExpectedPostStateNames.Unavailable,
+                    IpcExecuteExpectedPostState.Unavailable,
                     expectedPlayModeMutation: true);
         }
 
@@ -2508,11 +2528,10 @@ namespace MackySoft.Ucli.Unity.Tests
             using var scope = new EditorTestScope();
             _ = scope.CreateScriptableAsset<AssetOperationTestAsset>(nameof(ExecuteRequestNormalizerTests), out var assetPath);
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2577,7 +2596,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var (_, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: false);
             Assert.That(compiledOperations, Has.Count.EqualTo(1));
             Assert.That(compiledOperations[0].Op, Is.EqualTo(UcliPrimitiveOperationNames.PrefabRevertOverrides));
-            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.False);
+            Assert.That(
+                compiledOperations[0].PersistenceReportingPolicy,
+                Is.EqualTo(OperationPersistenceReportingPolicy.ReportAll));
         }
 
         [Test]
@@ -2598,7 +2619,9 @@ namespace MackySoft.Ucli.Unity.Tests
             var (_, compiledOperations) = CompileSingleStep(result.Request!, 0, scope.CreateExecutionContext(), allowPlayMode: true);
             Assert.That(compiledOperations, Has.Count.EqualTo(1));
             Assert.That(compiledOperations[0].Op, Is.EqualTo(UcliPrimitiveOperationNames.PrefabRevertOverrides));
-            Assert.That(compiledOperations[0].SuppressPersistenceReporting, Is.True);
+            Assert.That(
+                compiledOperations[0].PersistenceReportingPolicy,
+                Is.EqualTo(OperationPersistenceReportingPolicy.SuppressAll));
         }
 
         [Test]
@@ -2606,11 +2629,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenCommandIsValidate_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Validate,
+                UcliCommandIds.Validate.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = Array.Empty<object>(),
                 });
 
@@ -2624,12 +2646,12 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenRequestJsonKeyOrderDiffers_ProducesStableCanonicalPayload ()
         {
             var requestA = CreateExecuteRequestFromJson(
-                UcliCommandIds.Plan,
-                "{\"protocolVersion\":1,\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"steps\":[{\"kind\":\"op\",\"id\":\"setSpawner\",\"op\":\"__COMP_SET_OP__\",\"args\":{\"target\":{\"scene\":\"Assets/Scenes/Main.unity\",\"hierarchyPath\":\"Root/Spawner\",\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\"},\"sets\":[{\"path\":\"isTrigger\",\"value\":true}]}}]}"
+                UcliCommandIds.Plan.Name,
+                "{\"protocolVersion\":1,\"steps\":[{\"kind\":\"op\",\"id\":\"setSpawner\",\"op\":\"__COMP_SET_OP__\",\"args\":{\"target\":{\"scene\":\"Assets/Scenes/Main.unity\",\"hierarchyPath\":\"Root/Spawner\",\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\"},\"sets\":[{\"path\":\"isTrigger\",\"value\":true}]}}]}"
                     .Replace("__COMP_SET_OP__", UcliPrimitiveOperationNames.CompSet, StringComparison.Ordinal));
             var requestB = CreateExecuteRequestFromJson(
-                UcliCommandIds.Plan,
-                "{\"requestId\":\"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62\",\"steps\":[{\"args\":{\"sets\":[{\"value\":true,\"path\":\"isTrigger\"}],\"target\":{\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\",\"hierarchyPath\":\"Root/Spawner\",\"scene\":\"Assets/Scenes/Main.unity\"}},\"op\":\"__COMP_SET_OP__\",\"id\":\"setSpawner\",\"kind\":\"op\"}],\"protocolVersion\":1}"
+                UcliCommandIds.Plan.Name,
+                "{\"steps\":[{\"args\":{\"sets\":[{\"value\":true,\"path\":\"isTrigger\"}],\"target\":{\"componentType\":\"UnityEngine.BoxCollider, UnityEngine.PhysicsModule\",\"hierarchyPath\":\"Root/Spawner\",\"scene\":\"Assets/Scenes/Main.unity\"}},\"op\":\"__COMP_SET_OP__\",\"id\":\"setSpawner\",\"kind\":\"op\"}],\"protocolVersion\":1}"
                     .Replace("__COMP_SET_OP__", UcliPrimitiveOperationNames.CompSet, StringComparison.Ordinal));
 
             var normalizer = CreateNormalizer();
@@ -2646,11 +2668,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenProtocolVersionMismatches_ReturnsProtocolVersionMismatchError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Call,
+                UcliCommandIds.Call.Name,
                 new
                 {
                     protocolVersion = 999,
-                    requestId = RequestId,
                     steps = Array.Empty<object>(),
                 });
 
@@ -2664,39 +2685,21 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void Normalize_WhenRequestIdIsInvalid_ReturnsInvalidArgumentError ()
+        public void Normalize_WhenRequestIdExists_ReturnsUnknownPropertyError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Call,
+                UcliCommandIds.Call.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = "invalid",
+                    requestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62",
                     steps = Array.Empty<object>(),
                 });
 
             var result = CreateNormalizer().Normalize(request);
 
             AssertInvalidArgument(result);
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void Normalize_WhenTopLevelContainsUnknownProperty_ReturnsInvalidArgumentError ()
-        {
-            var request = CreateExecuteRequest(
-                UcliCommandIds.Resolve,
-                new
-                {
-                    protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
-                    steps = Array.Empty<object>(),
-                    unknown = true,
-                });
-
-            var result = CreateNormalizer().Normalize(request);
-
-            AssertInvalidArgument(result);
+            Assert.That(result.Error!.Message, Does.Contain("unknown property: requestId"));
         }
 
         [Test]
@@ -2704,11 +2707,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenStepIdIsDuplicated_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Call,
+                UcliCommandIds.Call.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2738,11 +2740,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenOpArgsPropertyIsMissing_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2764,11 +2765,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenOpArgsPropertyIsNotObject_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new[]
                     {
                         new
@@ -2791,11 +2791,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenEditCommitIsMissing_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2826,11 +2825,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenSelectFromIsUsedOutsideSceneContext_ReturnsInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2875,11 +2873,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Normalize_WhenEditCommitLiteralIsUnsupported_ReturnsDetailedInvalidArgumentError ()
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -2912,7 +2909,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.IsSuccess, Is.False);
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(result.Error.OpId, Is.EqualTo("badCommit"));
+            Assert.That(result.Error.OpId?.Value, Is.EqualTo("badCommit"));
             Assert.That(result.Error.Message, Is.EqualTo("Edit step property 'step.commit' must be one of 'none', 'context', or 'project'."));
         }
 
@@ -2921,11 +2918,10 @@ namespace MackySoft.Ucli.Unity.Tests
             bool allowPlayMode)
         {
             var request = CreateExecuteRequest(
-                UcliCommandIds.Plan,
+                UcliCommandIds.Plan.Name,
                 new
                 {
                     protocolVersion = IpcProtocol.CurrentVersion,
-                    requestId = RequestId,
                     steps = new object[]
                     {
                         new
@@ -3062,7 +3058,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 description: $"{operationName} test operation.",
                 assurance: new UcliOperationAssuranceContract(
                     sideEffects: new[] { UcliOperationSideEffect.RuntimeStateMutation },
-                    touchedKinds: Array.Empty<string>(),
+                    touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                     planMode: UcliOperationPlanMode.ObservesLiveUnity,
                     planSemantics: "Validate Play Mode operation arguments without applying changes.",
                     callSemantics: "Apply a Play Mode runtime-state mutation.",
@@ -3073,12 +3069,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 playModeSupport: playModeSupport));
         }
 
-        private static IpcRequestContractStep ReadSingleSourceStep (IpcExecuteRequest request)
+        private static IpcExecuteStepContract ReadSingleSourceStep (IpcExecuteRequest request)
         {
             Assert.That(
-                IpcRequestContractReader.TryRead(
+                IpcExecuteArgumentsContractReader.TryRead(
                     request.Arguments,
-                    IpcRequestContractReadProfile.StrictExecute,
+                    IpcExecuteArgumentsContractReadProfile.StrictExecute,
                     out var contract,
                     out var error),
                 Is.True,
@@ -3094,7 +3090,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result.Request, Is.Null);
             Assert.That(result.Error, Is.Not.Null);
             Assert.That(result.Error!.Code, Is.EqualTo(UcliCoreErrorCodes.InvalidArgument));
-            Assert.That(result.Error.OpId, Is.EqualTo(expectedOpId));
+            Assert.That(result.Error.OpId?.Value, Is.EqualTo(expectedOpId));
         }
 
         private static IpcExecuteRequest CreateExecuteRequest (string command, object arguments)

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Build.Metadata;
@@ -5,5 +6,5 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Metadata;
 /// <summary> Represents Unity Build Profile input evidence persisted in <c>build.json</c>. </summary>
 internal sealed record BuildRunUnityBuildProfileInputMetadata (
     string Path,
-    string Digest,
+    Sha256Digest Digest,
     IpcUnityBuildProfileApplyAudit ApplyAudit);

@@ -19,15 +19,22 @@ internal sealed class LogsDaemonRequestValidator : ILogsDaemonRequestValidator
         query = null;
         streamOptions = null;
 
+        if (!LogsRequestContractLiteralParser.TryParseLevel(request.Level, out var level, out var literalError)
+            || !LogsRequestContractLiteralParser.TryParseQueryTarget(request.QueryTarget, out var queryTarget, out literalError))
+        {
+            error = ExecutionError.InvalidArgument(literalError!);
+            return false;
+        }
+
         var ipcRequest = new IpcDaemonLogsReadRequest(
             Tail: request.Tail,
             After: request.After,
             Since: request.Since,
             Until: request.Until,
-            Level: request.Level,
+            Level: level,
             Query: request.Query,
-            QueryTarget: request.QueryTarget,
-            Category: request.Category);
+            QueryTarget: queryTarget,
+            Category: LogsRequestContractLiteralParser.NormalizeCategory(request.Category));
         if (!IpcDaemonLogsReadRequestNormalizer.TryNormalize(
                 ipcRequest,
                 out var normalizedQuery,

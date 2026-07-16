@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Tests.Helpers.Assurance.Build;
 
@@ -62,8 +61,8 @@ public sealed class BuildRunArtifactFixtureContractTests
         var recalculatedDigest = new BuildOutputManifestJsonContractWriter()
             .CalculateManifestDigest(BuildOutputManifestJsonContractTestSupport.ReadContent(manifestRoot));
 
-        Assert.Equal(recalculatedDigest, manifestRoot.GetProperty("manifestDigest").GetString());
-        Assert.Equal(recalculatedDigest, payloadManifestDigest);
+        Assert.Equal(recalculatedDigest.ToString(), manifestRoot.GetProperty("manifestDigest").GetString());
+        Assert.Equal(recalculatedDigest.ToString(), payloadManifestDigest);
     }
 
     [Fact]

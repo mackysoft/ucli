@@ -96,15 +96,15 @@ internal static class IndexOpsDescribeJsonContractTestSupport
                 Assurance = new UcliOperationAssuranceContract(
                     sideEffects:
                     [
-                        "assetContentMutation",
-                        "assetSave",
-                        "arbitrarySourceExecution",
+                        UcliOperationSideEffect.AssetContentMutation,
+                        UcliOperationSideEffect.AssetSave,
+                        UcliOperationSideEffect.ArbitrarySourceExecution,
                     ],
                     touchedKinds:
                     [
-                        UcliTouchedResourceKindNames.Asset,
+                        UcliTouchedResourceKind.Asset,
                     ],
-                    planMode: "mayCreatePreviewState",
+                    planMode: UcliOperationPlanMode.MayCreatePreviewState,
                     planSemantics: "Validate asset write inputs and compute preview state without persisting project data.",
                     callSemantics: "Write the requested asset data to Unity project state.",
                     touchedContract: "Reports the asset resource affected by the write.",
@@ -112,7 +112,7 @@ internal static class IndexOpsDescribeJsonContractTestSupport
                     failureSemantics: "Write failure may leave partial or indeterminate asset state.",
                     dangerousNotes: Array.Empty<string>()),
                 CodeContract = new UcliOperationCodeContract(
-                    "csharp",
+                    UcliCodeLanguage.CSharp,
                     new UcliCodeEntryPointContract(
                         "public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)",
                         "Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.",
@@ -121,8 +121,8 @@ internal static class IndexOpsDescribeJsonContractTestSupport
                         "JSON-serializable value or awaited task-like result."),
                     new[]
                     {
-                        new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
-                        new UcliCodeSourceFormContract(CsEvalSourceKindValues.Snippet, "Run method body snippet."),
+                        new UcliCodeSourceFormContract(UcliCodeSourceFormKind.CompilationUnit, "Complete C# compilation unit."),
+                        new UcliCodeSourceFormContract(UcliCodeSourceFormKind.Snippet, "Run method body snippet."),
                     },
                     new[]
                     {
@@ -133,7 +133,7 @@ internal static class IndexOpsDescribeJsonContractTestSupport
                             new[]
                             {
                                 new UcliCodeApiMemberContract(
-                                    UcliCodeApiMemberKindValues.Method,
+                                    UcliCodeApiMemberKind.Method,
                                     "Log",
                                     "Records an informational eval log entry.",
                                     type: null,
@@ -143,7 +143,7 @@ internal static class IndexOpsDescribeJsonContractTestSupport
                                         new UcliCodeApiParameterContract("message", "System.String", "Log message text."),
                                     ]),
                                 new UcliCodeApiMemberContract(
-                                    UcliCodeApiMemberKindValues.Property,
+                                    UcliCodeApiMemberKind.Property,
                                     "ProjectPath",
                                     "Gets the Unity project path.",
                                     type: "System.String",

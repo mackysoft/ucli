@@ -25,7 +25,6 @@ internal static class TestProfileTemplateStoreAssert
         Assert.Null(profile.TestFilter);
         Assert.Empty(profile.TestCategories);
         Assert.Empty(profile.AssemblyNames);
-        Assert.Null(profile.TestSettingsPath);
         Assert.Equal(1800000, profile.Timeout);
     }
 }

@@ -7,7 +7,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>daemon.logs.read</c> IPC method requests. </summary>
-    internal sealed class DaemonLogsReadUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class DaemonLogsReadUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
         private readonly IDaemonLogStream daemonLogStream;
 
@@ -30,24 +30,24 @@ namespace MackySoft.Ucli.Unity.Ipc
             IDaemonLogsReadRequestValidator requestValidator,
             IDaemonLogsReadQueryEngine queryEngine,
             DaemonLogsReadResponseFactory responseFactory,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.daemonLogStream = daemonLogStream ?? throw new ArgumentNullException(nameof(daemonLogStream));
             this.requestValidator = requestValidator ?? throw new ArgumentNullException(nameof(requestValidator));
             this.queryEngine = queryEngine ?? throw new ArgumentNullException(nameof(queryEngine));
             this.responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.DaemonLogsRead;
+        public UnityIpcMethod Method => UnityIpcMethod.DaemonLogsRead;
 
         /// <inheritdoc />
         public ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -69,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             if (!requestValidator.TryValidate(
                     payload,
-                    snapshot.StreamId,
+                    snapshot.NextCursor.StreamId,
                     out var filter,
                     out var errorMessage))
             {
@@ -90,7 +90,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="message"> The user-facing error message. </param>
         /// <returns> The invalid-argument response envelope. </returns>
         private static IpcResponse CreateInvalidArgumentResponse (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             string message)
         {
             return UnityIpcResponseFactory.CreateErrorResponse(

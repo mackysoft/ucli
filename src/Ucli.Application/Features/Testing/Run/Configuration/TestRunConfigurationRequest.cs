@@ -12,7 +12,6 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 /// <param name="TestFilter"> Optional Unity test filter pattern. </param>
 /// <param name="TestCategory"> Optional test categories parsed from the CLI option. </param>
 /// <param name="AssemblyName"> Optional assembly names parsed from the CLI option. </param>
-/// <param name="TestSettingsPath"> Optional path to <c>TestSettings.json</c>. </param>
 /// <param name="TimeoutMilliseconds"> Optional timeout in milliseconds. </param>
 internal sealed record TestRunConfigurationRequest (
     string? ProjectPath,
@@ -24,5 +23,4 @@ internal sealed record TestRunConfigurationRequest (
     string? TestFilter,
     string[]? TestCategory,
     string[]? AssemblyName,
-    string? TestSettingsPath,
     int? TimeoutMilliseconds);

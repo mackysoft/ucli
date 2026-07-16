@@ -1,19 +1,17 @@
-using MackySoft.Ucli.Contracts.Ipc;
-
 namespace MackySoft.Ucli.Application.Tests.Execution.ReadIndex;
 
 public sealed class IndexCatalogContractValidatorOpsDescribeCodeContractTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void IsValidOpsDescribe_ReturnsTrue_WhenDescribeContractHasCodeContract ()
+    public void TryCreateOpsDescribeSnapshot_ReturnsTrue_WhenDescribeContractHasCodeContract ()
     {
         var entry = IndexCatalogContractValidatorOpsTestSupport.CreateValidOpsEntry() with
         {
             Policy = "dangerous",
             Assurance = new UcliOperationAssuranceContract(
                 sideEffects: [UcliOperationSideEffect.ArbitrarySourceExecution],
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ValidationOnly,
                 planSemantics: "Validate code without applying mutation.",
                 callSemantics: "Execute caller-provided source code.",
@@ -22,7 +20,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeCodeContractTests
                 failureSemantics: "Execution failure may leave indeterminate process state.",
                 dangerousNotes: ["Executes caller-provided source code."]),
             CodeContract = new UcliOperationCodeContract(
-                "csharp",
+                UcliCodeLanguage.CSharp,
                 new UcliCodeEntryPointContract(
                     "public static object? | Task | Task<T> | ValueTask | ValueTask<T> Run(UcliCsEvalContext context)",
                     "Compiled source must contain exactly one public static Run(UcliCsEvalContext context) method returning object?, Task, Task<T>, ValueTask, or ValueTask<T>.",
@@ -31,7 +29,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeCodeContractTests
                     "JSON-serializable value or awaited task-like result."),
                 new[]
                 {
-                    new UcliCodeSourceFormContract(CsEvalSourceKindValues.CompilationUnit, "Complete C# compilation unit."),
+                    new UcliCodeSourceFormContract(UcliCodeSourceFormKind.CompilationUnit, "Complete C# compilation unit."),
                 },
                 new[]
                 {
@@ -44,8 +42,9 @@ public sealed class IndexCatalogContractValidatorOpsDescribeCodeContractTests
         };
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(entry);
 
-        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
+        var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);
 
         Assert.True(result);
+        Assert.NotNull(snapshot);
     }
 }

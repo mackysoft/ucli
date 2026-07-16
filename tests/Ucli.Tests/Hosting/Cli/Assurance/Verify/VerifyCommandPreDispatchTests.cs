@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Assurance;
 using MackySoft.Ucli.Tests.Hosting.Cli.Common.Execution;
 
@@ -17,7 +16,7 @@ public sealed class VerifyCommandPreDispatchTests
         string? format)
     {
         var service = new RecordingVerifyService((_, _, _) => throw new InvalidOperationException("Service should not be called."));
-        var command = new VerifyCommand(service, CommandResultTestWriter.Create());
+        var command = new VerifyCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.VerifyAsync(
             mode: mode,

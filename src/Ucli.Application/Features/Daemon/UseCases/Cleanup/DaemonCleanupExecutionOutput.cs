@@ -8,6 +8,6 @@ namespace MackySoft.Ucli.Application.Features.Daemon.UseCases.Cleanup;
 /// <param name="TimeoutMilliseconds"> The effective timeout in milliseconds used for daemon cleanup workflow. </param>
 internal sealed record DaemonCleanupExecutionOutput (
     DaemonCleanupStatus CleanupStatus,
-    DaemonCleanupSkipReason SkipReason,
+    DaemonCleanupSkipReason? SkipReason,
     int DeletedLaunchAttemptCount,
     int TimeoutMilliseconds);

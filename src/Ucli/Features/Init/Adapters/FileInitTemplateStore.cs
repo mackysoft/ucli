@@ -30,10 +30,17 @@ internal sealed class FileInitTemplateStore : IInitTemplateStore
         ArgumentNullException.ThrowIfNull(config);
         cancellationToken.ThrowIfCancellationRequested();
 
-        string currentDirectoryPath;
+        string repositoryRoot;
+        string ucliDirectoryPath;
+        string configPath;
+        string gitIgnorePath;
         try
         {
-            currentDirectoryPath = Path.GetFullPath(Environment.CurrentDirectory);
+            var currentDirectoryPath = Path.GetFullPath(Environment.CurrentDirectory);
+            repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(currentDirectoryPath);
+            ucliDirectoryPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(repositoryRoot);
+            configPath = UcliStoragePathResolver.ResolveConfigPath(repositoryRoot);
+            gitIgnorePath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.GitIgnoreFileName);
         }
         catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
         {
@@ -41,10 +48,6 @@ internal sealed class FileInitTemplateStore : IInitTemplateStore
                 $"Current working directory path is invalid: {Environment.CurrentDirectory}. {ex.Message}"));
         }
 
-        var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(currentDirectoryPath);
-        var ucliDirectoryPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(repositoryRoot);
-        var configPath = UcliStoragePathResolver.ResolveConfigPath(repositoryRoot);
-        var gitIgnorePath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.GitIgnoreFileName);
         var existingPaths = CollectExistingTemplatePaths(configPath, gitIgnorePath);
 
         if (!force && existingPaths.Count > 0)

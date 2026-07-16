@@ -2,6 +2,7 @@ using System;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Unity.Runtime;
 
 #nullable enable
 
@@ -13,21 +14,26 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
         public static async Task<object?> ResolveAsync (
             Type declaredReturnType,
             object? invocationReturnValue,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Action<string, Task> quarantineMutationLane)
         {
+            if (quarantineMutationLane == null)
+            {
+                throw new ArgumentNullException(nameof(quarantineMutationLane));
+            }
+
             // Preserve the Unity synchronization context for subsequent result serialization,
             // because JSON serialization may execute user-defined public getters.
-            cancellationToken.ThrowIfCancellationRequested();
             if (declaredReturnType == typeof(Task))
             {
-                await AwaitTaskAsync(GetRequiredTask(invocationReturnValue, declaredReturnType), cancellationToken);
+                await AwaitTaskAsync(GetRequiredTask(invocationReturnValue, declaredReturnType), cancellationToken, quarantineMutationLane);
                 return null;
             }
 
             if (IsGenericTask(declaredReturnType))
             {
                 var task = GetRequiredTask(invocationReturnValue, declaredReturnType);
-                await AwaitTaskAsync(task, cancellationToken);
+                await AwaitTaskAsync(task, cancellationToken, quarantineMutationLane);
                 return GetTaskResult(task);
             }
 
@@ -38,25 +44,32 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                     throw new CsEvalEntryPointReturnValueResolutionException("Entry point returned null for ValueTask.");
                 }
 
-                await AwaitTaskAsync(((ValueTask)invocationReturnValue).AsTask(), cancellationToken);
+                await AwaitTaskAsync(((ValueTask)invocationReturnValue).AsTask(), cancellationToken, quarantineMutationLane);
                 return null;
             }
 
             if (IsGenericValueTask(declaredReturnType))
             {
                 var task = ConvertValueTaskToTask(declaredReturnType, invocationReturnValue);
-                await AwaitTaskAsync(task, cancellationToken);
+                await AwaitTaskAsync(task, cancellationToken, quarantineMutationLane);
                 return GetTaskResult(task);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             return invocationReturnValue;
         }
 
         private static async Task AwaitTaskAsync (
             Task task,
-            CancellationToken cancellationToken)
+            CancellationToken cancellationToken,
+            Action<string, Task> quarantineMutationLane)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            if (cancellationToken.IsCancellationRequested)
+            {
+                await AwaitCancellationQuiescenceAsync(task, quarantineMutationLane).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+
             if (!cancellationToken.CanBeCanceled)
             {
                 await task;
@@ -73,11 +86,38 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 var completedTask = await Task.WhenAny(task, cancellationSource.Task);
                 if (!ReferenceEquals(completedTask, task))
                 {
+                    await AwaitCancellationQuiescenceAsync(task, quarantineMutationLane).ConfigureAwait(false);
                     cancellationToken.ThrowIfCancellationRequested();
                 }
             }
 
             await task;
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        private static async Task AwaitCancellationQuiescenceAsync (
+            Task task,
+            Action<string, Task> quarantineMutationLane)
+        {
+            ObserveFault(task);
+            var didQuiesce = await UnityMutationCancellationPolicy
+                .WaitForQuiescenceAsync(task)
+                .ConfigureAwait(false);
+            if (!didQuiesce)
+            {
+                quarantineMutationLane(
+                    "A C# eval task remained active after request cancellation and may still mutate Unity state.",
+                    task);
+            }
+        }
+
+        private static void ObserveFault (Task task)
+        {
+            _ = task.ContinueWith(
+                static completedTask => _ = completedTask.Exception,
+                CancellationToken.None,
+                TaskContinuationOptions.ExecuteSynchronously | TaskContinuationOptions.OnlyOnFaulted,
+                TaskScheduler.Default);
         }
 
         private static bool IsGenericTask (Type type)

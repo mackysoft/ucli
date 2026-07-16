@@ -19,7 +19,7 @@ public sealed class DaemonLaunchServiceBatchmodeReadinessArtifactFailureTests
             WriteResult = DaemonLaunchAttemptStoreOperationResult.Failure(artifactError),
         };
         var scenario = CreateScenario(
-            "fingerprint-launch-attempt-write-fail",
+            ProjectFingerprintTestFactory.Create("fingerprint-launch-attempt-write-fail"),
             probeError,
             launchAttemptStore: launchAttemptStore);
 
@@ -53,7 +53,7 @@ public sealed class DaemonLaunchServiceBatchmodeReadinessArtifactFailureTests
             PruneResult = DaemonLaunchAttemptStoreOperationResult.Failure(artifactError),
         };
         var scenario = CreateScenario(
-            "fingerprint-launch-attempt-prune-fail",
+            ProjectFingerprintTestFactory.Create("fingerprint-launch-attempt-prune-fail"),
             probeError,
             processId: 7778,
             launchAttemptStore: launchAttemptStore);

@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 namespace MackySoft.Ucli.Tests.Helpers.Indexing;
@@ -56,7 +58,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
 
     public ValueTask WriteAssetLookupsAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> assetSearchEntries,
         IReadOnlyList<IndexGuidPathEntryJsonContract> guidPathEntries,
@@ -87,10 +89,10 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
 
     public ValueTask WriteOpsCatalogAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
-        IReadOnlyList<IndexOpEntryJsonContract> operations,
-        string sourceInputsHash,
+        IReadOnlyList<ValidatedOpsOperation> operations,
+        Sha256Digest sourceInputsHash,
         ReadIndexInputHashSnapshot? manifestInputSnapshot,
         CancellationToken cancellationToken = default)
     {
@@ -118,11 +120,11 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
 
     public ValueTask WriteSceneTreeLiteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DateTimeOffset generatedAtUtc,
-        string scenePath,
+        SceneAssetPath scenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> roots,
-        string sourceInputsHash,
+        Sha256Digest sourceInputsHash,
         CancellationToken cancellationToken = default)
     {
         if (!allowSceneTreeLite)
@@ -149,7 +151,7 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
 
     internal readonly record struct AssetLookupInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         DateTimeOffset GeneratedAtUtc,
         IReadOnlyList<IndexAssetSearchEntryJsonContract> AssetSearchEntries,
         IReadOnlyList<IndexGuidPathEntryJsonContract> GuidPathEntries,
@@ -158,19 +160,19 @@ internal sealed class RecordingReadIndexArtifactWriter : IReadIndexArtifactWrite
 
     internal readonly record struct OpsCatalogInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         DateTimeOffset GeneratedAtUtc,
-        IReadOnlyList<IndexOpEntryJsonContract> Operations,
-        string SourceInputsHash,
+        IReadOnlyList<ValidatedOpsOperation> Operations,
+        Sha256Digest SourceInputsHash,
         ReadIndexInputHashSnapshot? ManifestInputSnapshot,
         CancellationToken CancellationToken);
 
     internal readonly record struct SceneTreeLiteInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         DateTimeOffset GeneratedAtUtc,
-        string ScenePath,
+        SceneAssetPath ScenePath,
         IReadOnlyList<IndexSceneTreeLiteNodeJsonContract> Roots,
-        string SourceInputsHash,
+        Sha256Digest SourceInputsHash,
         CancellationToken CancellationToken);
 }

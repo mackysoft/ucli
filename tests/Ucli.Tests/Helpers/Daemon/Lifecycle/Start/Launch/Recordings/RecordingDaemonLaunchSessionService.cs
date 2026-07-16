@@ -15,6 +15,10 @@ internal sealed class RecordingDaemonLaunchSessionService : IDaemonLaunchSession
 
     public DaemonLaunchSessionWriteResult? UpdateProcessIdResult { get; set; }
 
+    public Func<ResolvedUnityProjectContext, DaemonEditorMode, CancellationToken, ValueTask<DaemonLaunchSessionWriteResult>>? InitializeHandler { get; set; }
+
+    public Func<ResolvedUnityProjectContext, DaemonSession, int?, DateTimeOffset?, CancellationToken, ValueTask<DaemonLaunchSessionWriteResult>>? UpdateProcessIdHandler { get; set; }
+
     public IReadOnlyList<InitializeInvocation> InitializeInvocations => initializeInvocations;
 
     public IReadOnlyList<UpdateProcessIdInvocation> UpdateProcessIdInvocations => updateProcessIdInvocations;
@@ -25,6 +29,11 @@ internal sealed class RecordingDaemonLaunchSessionService : IDaemonLaunchSession
         CancellationToken cancellationToken = default)
     {
         initializeInvocations.Add(new InitializeInvocation(unityProject, editorMode, cancellationToken));
+        if (InitializeHandler is not null)
+        {
+            return InitializeHandler(unityProject, editorMode, cancellationToken);
+        }
+
         return ValueTask.FromResult(InitializeResult);
     }
 
@@ -36,13 +45,35 @@ internal sealed class RecordingDaemonLaunchSessionService : IDaemonLaunchSession
         CancellationToken cancellationToken = default)
     {
         updateProcessIdInvocations.Add(new UpdateProcessIdInvocation(unityProject, session, processId, processStartedAtUtc, cancellationToken));
+        if (UpdateProcessIdHandler is not null)
+        {
+            return UpdateProcessIdHandler(
+                unityProject,
+                session,
+                processId,
+                processStartedAtUtc,
+                cancellationToken);
+        }
+
         if (UpdateProcessIdResult is not null)
         {
             return ValueTask.FromResult(UpdateProcessIdResult);
         }
 
         var updatedSession = processId is int pid
-            ? session with { ProcessId = pid, ProcessStartedAtUtc = processStartedAtUtc }
+            ? new DaemonSession(
+                session.SessionGenerationId,
+                session.SessionToken,
+                session.ProjectFingerprint,
+                session.IssuedAtUtc,
+                session.EditorMode,
+                session.OwnerKind,
+                session.CanShutdownProcess,
+                session.Endpoint,
+                pid,
+                processStartedAtUtc ?? throw new ArgumentNullException(nameof(processStartedAtUtc)),
+                session.OwnerProcessId,
+                session.EditorInstanceId)
             : session;
         return ValueTask.FromResult(DaemonLaunchSessionWriteResult.Success(updatedSession));
     }

@@ -6,6 +6,29 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 public sealed class DaemonProcessIdentityAssessorTests
 {
     [Fact]
+    [Trait("Size", "Small")]
+    public void Assessment_WhenObservedStartTimeIsNotUtc_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => DaemonProcessIdentityAssessment.MatchingLiveProcess(
+            new DateTimeOffset(2026, 7, 14, 12, 0, 0, TimeSpan.FromHours(9))));
+
+        Assert.Equal("observedStartTimeUtc", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Assessment_WhenErrorStateHasNoError_ThrowsArgumentNullException ()
+    {
+        var differentProcessException = Assert.Throws<ArgumentNullException>(
+            () => DaemonProcessIdentityAssessment.DifferentProcess(DateTimeOffset.UtcNow, null!));
+        var uncertainException = Assert.Throws<ArgumentNullException>(
+            () => DaemonProcessIdentityAssessment.Uncertain(observedStartTimeUtc: null, null!));
+
+        Assert.Equal("error", differentProcessException.ParamName);
+        Assert.Equal("error", uncertainException.ParamName);
+    }
+
+    [Fact]
     [Trait("Size", "Medium")]
     public void AssessByProcessId_WhenProcessDoesNotExist_ReturnsNotRunning ()
     {

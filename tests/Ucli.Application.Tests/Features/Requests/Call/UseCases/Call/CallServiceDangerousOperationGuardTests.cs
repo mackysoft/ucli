@@ -18,13 +18,13 @@ public sealed class CallServiceDangerousOperationGuardTests
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: "step-1",
+                            OpId: new IpcExecuteStepId("step-1"),
                             Op: dangerousOperationName,
-                            Phase: IpcExecuteOperationPhaseNames.Plan,
+                            Phase: IpcExecuteOperationPhase.Plan,
                             Applied: false,
                             Changed: false,
                             Touched: []),
@@ -33,13 +33,13 @@ public sealed class CallServiceDangerousOperationGuardTests
                     planToken: "issued-plan-token")),
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: "step-1",
+                            OpId: new IpcExecuteStepId("step-1"),
                             Op: dangerousOperationName,
-                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
                             Changed: true,
                             Touched: []),
@@ -51,6 +51,7 @@ public sealed class CallServiceDangerousOperationGuardTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode("daemon"),
@@ -79,13 +80,13 @@ public sealed class CallServiceDangerousOperationGuardTests
         var ipcRequestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Success(
                 ExecuteUnityRequestResponseTestFactory.Create(
-                    status: IpcProtocol.StatusOk,
+                    status: IpcResponseStatus.Ok,
                     opResults:
                     [
                         new IpcExecuteOperationResult(
-                            OpId: "step-1",
+                            OpId: new IpcExecuteStepId("step-1"),
                             Op: dangerousOperationName,
-                            Phase: IpcExecuteOperationPhaseNames.Call,
+                            Phase: IpcExecuteOperationPhase.Call,
                             Applied: true,
                             Changed: true,
                             Touched: []),
@@ -97,6 +98,7 @@ public sealed class CallServiceDangerousOperationGuardTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -124,6 +126,7 @@ public sealed class CallServiceDangerousOperationGuardTests
             new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -138,11 +141,11 @@ public sealed class CallServiceDangerousOperationGuardTests
         Assert.False(result.IsSuccess);
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         Assert.NotNull(result.Output);
-        Assert.Equal("9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62", result.Output!.RequestId);
+        Assert.Equal(RequestId, result.Output!.RequestId);
         Assert.Empty(result.Output.OpResults);
         var error = Assert.Single(result.Errors);
         Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
-        Assert.Equal("step-1", error.OpId);
+        Assert.Equal("step-1", error.OpId?.Value);
     }
 
     [Fact]
@@ -160,6 +163,7 @@ public sealed class CallServiceDangerousOperationGuardTests
             new UnexpectedUnityRequestExecutor());
 
         var result = await service.ExecuteAsync(
+            RequestId,
             new CallCommandInput(
                 ProjectPath: "/repo/UnityProject",
                 Mode: NormalizeMode(null),
@@ -175,6 +179,6 @@ public sealed class CallServiceDangerousOperationGuardTests
         Assert.Equal(ApplicationOutcome.InvalidArgument, result.Outcome);
         var error = Assert.Single(result.Errors);
         Assert.Equal(OperationAuthorizationErrorCodes.OperationNotAllowed, error.Code);
-        Assert.Equal("edit-1", error.OpId);
+        Assert.Equal("edit-1", error.OpId?.Value);
     }
 }

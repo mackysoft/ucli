@@ -7,7 +7,7 @@ internal sealed record BuildReportSourceEntry
 {
     private BuildReportSourceEntry (
         IpcBuildReportArtifact? artifact,
-        string? runnerOutputRelativePath)
+        BuildRunnerOutputPath? runnerOutputRelativePath)
     {
         Artifact = artifact;
         RunnerOutputRelativePath = runnerOutputRelativePath;
@@ -17,7 +17,7 @@ internal sealed record BuildReportSourceEntry
     public IpcBuildReportArtifact? Artifact { get; }
 
     /// <summary> Gets the BuildReport source path relative to <c>RunnerOutputDirectory</c>. </summary>
-    public string? RunnerOutputRelativePath { get; }
+    public BuildRunnerOutputPath? RunnerOutputRelativePath { get; }
 
     /// <summary> Creates a BuildReport source from an already normalized artifact. </summary>
     public static BuildReportSourceEntry FromArtifact (IpcBuildReportArtifact artifact)
@@ -27,9 +27,9 @@ internal sealed record BuildReportSourceEntry
     }
 
     /// <summary> Creates a BuildReport source from a runner-output-relative JSON file path. </summary>
-    public static BuildReportSourceEntry FromRunnerOutputRelativePath (string path)
+    public static BuildReportSourceEntry FromRunnerOutputRelativePath (BuildRunnerOutputPath path)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(path);
         return new BuildReportSourceEntry(null, path);
     }
 }

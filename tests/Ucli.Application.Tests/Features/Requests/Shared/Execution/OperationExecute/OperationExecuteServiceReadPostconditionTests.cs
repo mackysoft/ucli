@@ -24,6 +24,7 @@ public sealed class OperationExecuteServiceReadPostconditionTests
             readPostconditionStore);
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: UnityExecutionMode.Daemon,
@@ -34,12 +35,12 @@ public sealed class OperationExecuteServiceReadPostconditionTests
         Assert.True(result.IsSuccess);
         MutationReadPostconditionStoreAssert.WrittenAssetSearchRequirement(
             readPostconditionStore,
-            expectedStorageRoot: "/repo",
-            expectedProjectFingerprint: "project-fingerprint",
+            expectedStorageRoot: ProjectPathTestValues.RepositoryRoot,
+            expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             expectedMinSafeGeneratedAtUtc: readPostcondition.Requirements[0].MinSafeGeneratedAtUtc);
         Assert.NotNull(result.ReadPostcondition);
         var requirement = Assert.Single(result.ReadPostcondition!.Requirements);
-        Assert.Equal(IpcExecuteReadPostconditionSurfaceNames.AssetSearch, requirement.Surface);
+        Assert.Equal(IpcExecuteReadPostconditionSurface.AssetSearch, requirement.Surface);
         Assert.Equal(readPostcondition.Requirements[0].MinSafeGeneratedAtUtc, requirement.MinSafeGeneratedAtUtc);
     }
 
@@ -64,6 +65,7 @@ public sealed class OperationExecuteServiceReadPostconditionTests
             readPostconditionStore);
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: UnityExecutionMode.Daemon,
@@ -77,8 +79,8 @@ public sealed class OperationExecuteServiceReadPostconditionTests
         Assert.NotNull(result.ReadPostcondition);
         MutationReadPostconditionStoreAssert.WrittenOnceForProject(
             readPostconditionStore,
-            expectedStorageRoot: "/repo",
-            expectedProjectFingerprint: "project-fingerprint");
+            expectedStorageRoot: ProjectPathTestValues.RepositoryRoot,
+            expectedProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"));
         var error = Assert.Single(result.Errors);
         Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
         Assert.Equal("Failed to persist mutation read postcondition.", error.Message);

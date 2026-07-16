@@ -23,10 +23,11 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
 
-        var manifestResult = await artifactReader.ReadInputsManifestAsync(
+        var generation = await artifactReader.ReadGenerationArtifactsAsync(
                 unityProject,
                 cancellationToken)
             .ConfigureAwait(false);
+        var manifestResult = generation.InputsManifest;
         if (manifestResult.IsSuccess)
         {
             return new PersistedOpsCatalogPersistenceArtifacts(
@@ -34,10 +35,7 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
                 HasPersistedAssetLookupArtifacts: true);
         }
 
-        var assetSearchLookupResult = await artifactReader.ReadAssetSearchLookupAsync(
-                unityProject,
-                cancellationToken)
-            .ConfigureAwait(false);
+        var assetSearchLookupResult = generation.AssetSearchLookup;
         if (assetSearchLookupResult.IsSuccess)
         {
             return new PersistedOpsCatalogPersistenceArtifacts(
@@ -45,10 +43,7 @@ internal sealed class PersistedOpsCatalogPersistenceArtifactsReader : IPersisted
                 HasPersistedAssetLookupArtifacts: true);
         }
 
-        var guidPathLookupResult = await artifactReader.ReadGuidPathLookupAsync(
-                unityProject,
-                cancellationToken)
-            .ConfigureAwait(false);
+        var guidPathLookupResult = generation.GuidPathLookup;
         return new PersistedOpsCatalogPersistenceArtifacts(
             InputsManifest: null,
             HasPersistedAssetLookupArtifacts: guidPathLookupResult.IsSuccess);

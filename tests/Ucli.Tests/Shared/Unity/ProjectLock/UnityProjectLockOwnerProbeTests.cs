@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -18,13 +17,13 @@ public sealed class UnityProjectLockOwnerProbeTests
         var probe = new UnityProjectLockOwnerProbe(
             new RecordingDaemonSessionStore
             {
-                ReadResult = DaemonSessionReadResult.Success(DaemonSessionTestFactory.Create(
+                ReadResult = DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.Create(
                     sessionToken: "session-token",
                     projectFingerprint: unityProject.ProjectFingerprint,
                     endpointTransportKind: IpcTransportKind.UnixDomainSocket,
                     endpointAddress: "/tmp/ucli.sock",
                     processId: Environment.ProcessId,
-                    ownerProcessId: null)),
+                    ownerProcessId: Environment.ProcessId)),
             },
             new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.NotFound()),
             new StubUnityProjectProcessScanner(UnityProjectProcessScanResult.Success([])));
@@ -45,7 +44,8 @@ public sealed class UnityProjectLockOwnerProbeTests
             {
                 ReadResult = DaemonSessionReadResult.Failure(
                     ExecutionError.InternalError("session read failed"),
-                    DaemonSessionReadFailureKind.IoFailure),
+                    DaemonSessionReadFailureKind.IoFailure,
+                    artifactIdentity: null),
             },
             new StubUnityEditorInstanceProbe(UnityEditorInstanceProbeResult.NotFound()),
             new StubUnityProjectProcessScanner(UnityProjectProcessScanResult.Success([])));

@@ -8,11 +8,11 @@
     "verdict": "pass",
     "project": {
       "projectPath": "/workspace/UnityProject",
-      "projectFingerprint": "project-fingerprint",
+      "projectFingerprint": "6c997854157f1c37233ad17eacb2ee2357866912f2d6ac6d62f1ec477b95f262",
       "unityVersion": "6000.1.4f1"
     },
     "build": {
-      "runId": "build-run-1",
+      "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a",
       "profile": {
         "path": "/workspace/.ucli/build/player.json",
         "digest": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -140,7 +140,7 @@
         "statement": "Build profile resolved.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {
@@ -159,7 +159,7 @@
         "statement": "Unity was ready for build.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {
@@ -180,7 +180,7 @@
         "statement": "Build inputs resolved.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {
@@ -199,7 +199,7 @@
         "statement": "Build runner resolved.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {
@@ -218,7 +218,7 @@
         "statement": "BuildPipeline completed.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {
@@ -237,7 +237,7 @@
         "statement": "BuildPipeline succeeded.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {
@@ -279,7 +279,7 @@
         "statement": "BuildReport artifact accounted.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {
@@ -298,7 +298,7 @@
         "statement": "Build artifacts accounted.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {
@@ -317,7 +317,7 @@
         "statement": "Build output digested.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {
@@ -336,7 +336,7 @@
         "statement": "Build logs accounted.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {
@@ -355,7 +355,7 @@
         "statement": "Project mutation accounted.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {
@@ -374,7 +374,7 @@
         "statement": "Build generations captured.",
         "subject": {
           "kind": "build",
-          "runId": "build-run-1"
+          "runId": "4d4f6988-c38a-4f9c-9d80-49d46beadf4a"
         },
         "evidence": [
           {

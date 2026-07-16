@@ -8,7 +8,7 @@ internal static class DaemonGuiEditorAttachServiceTestSupport
     public static readonly DateTimeOffset ProbeProcessStartedAtUtc = new(2026, 5, 9, 0, 0, 0, TimeSpan.Zero);
 
     public static readonly ResolvedUnityProjectContext UnityProject = ProjectContextTestFactory.CreateRepositoryFixtureUnityProject(
-        projectFingerprint: "fingerprint");
+        projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"));
 
     public static UnityEditorInstanceMarker CreateMarker ()
     {
@@ -24,7 +24,7 @@ internal static class DaemonGuiEditorAttachServiceTestSupport
     {
         return DaemonSessionTestFactory.Create(
             sessionToken: "session-token",
-            projectFingerprint: "fingerprint",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             issuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 2, 0, TimeSpan.Zero),
             editorMode: DaemonEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
@@ -32,7 +32,8 @@ internal static class DaemonGuiEditorAttachServiceTestSupport
             endpointTransportKind: IpcTransportKind.UnixDomainSocket,
             endpointAddress: "/tmp/ucli.sock",
             processId: 1234,
-            ownerProcessId: null);
+            ownerProcessId: 1234,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
     }
 
     public static IpcUnityEditorObservation CreateReadyLifecycleObservation ()

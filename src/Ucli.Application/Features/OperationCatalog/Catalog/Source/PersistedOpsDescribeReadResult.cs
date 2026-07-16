@@ -2,14 +2,14 @@ namespace MackySoft.Ucli.Application.Features.OperationCatalog.Catalog.Source;
 
 /// <summary> Represents the result of reading one persisted ops describe detail artifact. </summary>
 internal sealed record PersistedOpsDescribeReadResult (
-    IndexOpEntryJsonContract? Operation,
+    ValidatedOpsOperation? Operation,
     PersistedOpsCatalogReadFailure? ReadFailure)
 {
     /// <summary> Gets a value indicating whether reading succeeded. </summary>
     public bool IsSuccess => Operation is not null && ReadFailure is null;
 
     /// <summary> Creates a successful persisted describe read result. </summary>
-    public static PersistedOpsDescribeReadResult Success (IndexOpEntryJsonContract operation)
+    public static PersistedOpsDescribeReadResult Success (ValidatedOpsOperation operation)
     {
         ArgumentNullException.ThrowIfNull(operation);
 

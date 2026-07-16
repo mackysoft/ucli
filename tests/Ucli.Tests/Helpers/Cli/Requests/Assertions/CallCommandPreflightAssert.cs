@@ -8,6 +8,7 @@ internal static class CallCommandPreflightAssert
         string expectedRequestJson)
     {
         var invocation = Assert.Single(preflightService.Invocations);
+        Assert.NotEqual(Guid.Empty, invocation.RequestId);
         Assert.Equal(expectedProjectPath, invocation.ProjectPath);
         Assert.Equal(expectedRequestJson, invocation.RequestJson);
         return invocation;

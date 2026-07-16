@@ -1,7 +1,8 @@
 using System.Text.Json;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
 
@@ -15,22 +16,22 @@ public sealed class BuildServiceUnityBuildProfileTests
     {
         using var tempDirectory = CreateArtifactDirectoryScope();
         const string unityBuildProfilePath = "Assets/BuildProfiles/Linux.asset";
-        var unityBuildProfileDigest = new string('f', 64);
+        var unityBuildProfileDigest = Sha256Digest.Parse(new string('f', 64));
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
         var requestExecutor = new RecordingUnityRequestExecutor(payload =>
         {
             var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
             var outputLayout = new IpcBuildOutputLayout(
-                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
-                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.OutputPath));
+                Shape: IpcBuildOutputLayoutShape.File,
+                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.Request.OutputPath));
             return CreateBuildResponseResult(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
-                inputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
-                sceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
-                scenes: ["Assets/Scenes/ProfileMain.unity"],
-                buildTarget: "standaloneLinux64",
+                inputKind: BuildProfileInputsKind.UnityBuildProfile,
+                sceneSource: BuildProfileSceneSource.UnityBuildProfile,
+                scenes: [new SceneAssetPath("Assets/Scenes/ProfileMain.unity")],
+                buildTarget: BuildTargetStableName.StandaloneLinux64,
                 unityBuildTarget: "StandaloneLinux64",
                 buildOptions: "None",
                 reportOutputPath: outputLayout.LocationPathName,
@@ -46,11 +47,11 @@ public sealed class BuildServiceUnityBuildProfileTests
 
         Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
         var output = result.Output!;
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile), output.Build.Inputs.InputKind);
-        Assert.Equal("standaloneLinux64", output.Build.Inputs.Target.StableName);
+        Assert.Equal(BuildProfileInputsKind.UnityBuildProfile, output.Build.Inputs.InputKind);
+        Assert.Equal(BuildTargetStableName.StandaloneLinux64, output.Build.Inputs.Target.StableName);
         Assert.Equal("StandaloneLinux64", output.Build.Inputs.Target.UnityBuildTarget);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile), output.Build.Inputs.Scenes.Source);
-        Assert.Equal(["Assets/Scenes/ProfileMain.unity"], output.Build.Inputs.Scenes.Paths);
+        Assert.Equal(BuildProfileSceneSource.UnityBuildProfile, output.Build.Inputs.Scenes.Source);
+        Assert.Equal([new SceneAssetPath("Assets/Scenes/ProfileMain.unity")], output.Build.Inputs.Scenes.Paths);
         Assert.False(output.Build.Inputs.Options.Development);
         var outputUnityBuildProfile = Assert.IsType<BuildUnityBuildProfileOutput>(output.Build.Inputs.UnityBuildProfile);
         Assert.Equal(unityBuildProfilePath, outputUnityBuildProfile.Path);
@@ -60,14 +61,16 @@ public sealed class BuildServiceUnityBuildProfileTests
             requestExecutor,
             expectedUnityBuildProfilePath: unityBuildProfilePath);
         Assert.Null(artifactStore.PreparedOutputLayout);
-        Assert.Equal("standaloneLinux64", artifactStore.AccountingRequest!.BuildTarget);
+        Assert.Equal(BuildTargetStableName.StandaloneLinux64, artifactStore.AccountingRequest!.BuildTarget);
 
         Assert.NotNull(artifactStore.WrittenMetadata);
         var metadataInput = artifactStore.WrittenMetadata!.Inputs;
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile), metadataInput.GetProperty("inputKind").GetString());
+        Assert.Equal(
+            ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
+            metadataInput.GetProperty("inputKind").GetString());
         var metadataUnityBuildProfile = metadataInput.GetProperty("unityBuildProfile");
         Assert.Equal(unityBuildProfilePath, metadataUnityBuildProfile.GetProperty("path").GetString());
-        Assert.Equal(unityBuildProfileDigest, metadataUnityBuildProfile.GetProperty("digest").GetString());
+        Assert.Equal(unityBuildProfileDigest.ToString(), metadataUnityBuildProfile.GetProperty("digest").GetString());
         var metadataApplyAudit = metadataUnityBuildProfile.GetProperty("applyAudit");
         Assert.True(metadataApplyAudit.GetProperty("applied").GetBoolean());
         Assert.Equal(
@@ -93,22 +96,22 @@ public sealed class BuildServiceUnityBuildProfileTests
     {
         using var tempDirectory = CreateArtifactDirectoryScope();
         const string unityBuildProfilePath = "Assets/BuildProfiles/Linux.asset";
-        var unityBuildProfileDigest = new string('f', 64);
+        var unityBuildProfileDigest = Sha256Digest.Parse(new string('f', 64));
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
         var requestExecutor = new RecordingUnityRequestExecutor(payload =>
         {
             var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
             var outputLayout = new IpcBuildOutputLayout(
-                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
-                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.OutputPath, "Player.aab"));
+                Shape: IpcBuildOutputLayoutShape.File,
+                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.Request.OutputPath, "Player.aab"));
             return CreateBuildResponseResult(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
-                inputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
-                sceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
-                scenes: ["Assets/Scenes/ProfileMain.unity"],
-                buildTarget: "android",
+                inputKind: BuildProfileInputsKind.UnityBuildProfile,
+                sceneSource: BuildProfileSceneSource.UnityBuildProfile,
+                scenes: [new SceneAssetPath("Assets/Scenes/ProfileMain.unity")],
+                buildTarget: BuildTargetStableName.Android,
                 unityBuildTarget: "Android",
                 buildOptions: "None",
                 reportOutputPath: outputLayout.LocationPathName,
@@ -123,7 +126,7 @@ public sealed class BuildServiceUnityBuildProfileTests
         var result = await service.ExecuteAsync(CreateInput());
 
         Assert.True(result.IsSuccess, string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
-        Assert.Equal("android", artifactStore.AccountingRequest!.BuildTarget);
+        Assert.Equal(BuildTargetStableName.Android, artifactStore.AccountingRequest!.BuildTarget);
         Assert.NotNull(artifactStore.WrittenMetadata);
         Assert.Equal(
             CreateExpectedPlayerLocationPathName(artifactStore.PreparedPaths!.RunnerOutputDirectory, "Player.aab"),
@@ -140,12 +143,14 @@ public sealed class BuildServiceUnityBuildProfileTests
         {
             var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
             return CreateBuildResponseResult(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
-                reportOutputPath: buildRunPayload.OutputLayout!.LocationPathName,
-                outputLayout: buildRunPayload.OutputLayout,
-                unityBuildProfile: CreateUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset", new string('f', 64)));
+                reportOutputPath: buildRunPayload.Request.OutputLayout!.LocationPathName,
+                outputLayout: buildRunPayload.Request.OutputLayout,
+                unityBuildProfile: CreateUnityBuildProfileInput(
+                    "Assets/BuildProfiles/Linux.asset",
+                    Sha256Digest.Parse(new string('f', 64))));
         });
         var service = CreateService(
             requestExecutor: requestExecutor,
@@ -169,63 +174,21 @@ public sealed class BuildServiceUnityBuildProfileTests
         {
             var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
             var outputLayout = new IpcBuildOutputLayout(
-                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
-                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.OutputPath));
+                Shape: IpcBuildOutputLayoutShape.File,
+                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.Request.OutputPath));
             return CreateBuildResponseResult(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
-                inputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
-                sceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
-                buildTarget: "standaloneLinux64",
+                inputKind: BuildProfileInputsKind.UnityBuildProfile,
+                sceneSource: BuildProfileSceneSource.UnityBuildProfile,
+                buildTarget: BuildTargetStableName.StandaloneLinux64,
                 unityBuildTarget: "Android",
-                reportOutputPath: outputLayout.LocationPathName,
-                outputLayout: outputLayout,
-                unityBuildProfile: CreateUnityBuildProfileInput("Assets/BuildProfiles/Linux.asset", new string('f', 64)));
-        });
-        var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(UnityBuildProfileJson, "/workspace/build.ucli.json")),
-            requestExecutor: requestExecutor,
-            artifactStore: artifactStore);
-
-        var result = await service.ExecuteAsync(CreateInput());
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Null(artifactStore.WrittenMetadata);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Execute_WithUnityBuildProfileResponseMissingApplyAuditDirtyState_ReturnsCommandFailure ()
-    {
-        using var tempDirectory = CreateArtifactDirectoryScope();
-        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
-        var requestExecutor = new RecordingUnityRequestExecutor(payload =>
-        {
-            var buildRunPayload = (UnityRequestPayload.BuildRun)payload;
-            var outputLayout = new IpcBuildOutputLayout(
-                Shape: ContractLiteralCodec.ToValue(IpcBuildOutputLayoutShape.File),
-                LocationPathName: CreateExpectedPlayerLocationPathName(buildRunPayload.OutputPath));
-            return CreateBuildResponseResult(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-                errorCount: 0,
-                inputKind: ContractLiteralCodec.ToValue(BuildProfileInputsKind.UnityBuildProfile),
-                sceneSource: ContractLiteralCodec.ToValue(BuildProfileSceneSource.UnityBuildProfile),
-                scenes: ["Assets/Scenes/ProfileMain.unity"],
-                buildTarget: "standaloneLinux64",
-                unityBuildTarget: "StandaloneLinux64",
                 reportOutputPath: outputLayout.LocationPathName,
                 outputLayout: outputLayout,
                 unityBuildProfile: CreateUnityBuildProfileInput(
                     "Assets/BuildProfiles/Linux.asset",
-                    new string('f', 64),
-                    static audit => audit with
-                    {
-                        DirtyStateAfter = null!,
-                    }));
+                    Sha256Digest.Parse(new string('f', 64))));
         });
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(UnityBuildProfileJson, "/workspace/build.ucli.json")),

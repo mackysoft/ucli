@@ -1,6 +1,7 @@
 using System;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Configuration;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.ContractReading;
 using MackySoft.Ucli.Unity.Execution.Phases;
 
@@ -14,7 +15,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         /// <summary> Validates one raw operation step against the operation metadata Play Mode contract. </summary>
         public static bool TryValidate (
             IPhaseOperationRegistry operationRegistry,
-            IpcRequestContractStep step,
+            IpcExecuteStepContract step,
             bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {
@@ -54,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Execution.Requests
         private static bool TryValidateResolvedSupport (
             UcliOperationPlayModeSupport playModeSupport,
             string operationName,
-            string? stepId,
+            IpcExecuteStepId? stepId,
             bool allowPlayMode,
             out ExecuteRequestNormalizationError error)
         {

@@ -11,14 +11,20 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 [UcliExclusiveRequiredPropertySet(IpcResolveSelectorPropertyNames.ProjectAssetPath)]
 public sealed record AssetReferenceArgs
 {
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="assetGuid" /> is <see cref="Guid.Empty" />. </exception>
     [JsonConstructor]
     public AssetReferenceArgs (
         UcliPlanAlias? alias,
         UnityGlobalObjectId? globalObjectId,
-        UnityAssetGuid? assetGuid,
+        Guid? assetGuid,
         UnityAssetPath? assetPath,
         ProjectSettingsAssetPath? projectAssetPath)
     {
+        if (assetGuid == Guid.Empty)
+        {
+            throw new ArgumentException("Asset GUID must not be empty.", nameof(assetGuid));
+        }
+
         Alias = alias;
         GlobalObjectId = globalObjectId;
         AssetGuid = assetGuid;
@@ -26,39 +32,27 @@ public sealed record AssetReferenceArgs
         ProjectAssetPath = projectAssetPath;
     }
 
-    public AssetReferenceArgs (
-        string? alias,
-        string? globalObjectId,
-        string? assetGuid,
-        string? assetPath,
-        string? projectAssetPath)
-        : this(
-            alias == null ? null : new UcliPlanAlias(alias),
-            globalObjectId == null ? null : new UnityGlobalObjectId(globalObjectId),
-            assetGuid == null ? null : new UnityAssetGuid(assetGuid),
-            assetPath == null ? null : new UnityAssetPath(assetPath),
-            projectAssetPath == null ? null : new ProjectSettingsAssetPath(projectAssetPath))
-    {
-    }
-
     [UcliDescription("Request-local alias produced by an earlier plan step.")]
     [JsonPropertyName(UcliOperationContractPropertyNames.Alias)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UcliPlanAlias? Alias { get; init; }
+    public UcliPlanAlias? Alias { get; }
 
     [UcliDescription("Resolved Unity GlobalObjectId.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityGlobalObjectId? GlobalObjectId { get; init; }
+    public UnityGlobalObjectId? GlobalObjectId { get; }
 
     [UcliDescription("Asset GUID selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetGuid)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityAssetGuid? AssetGuid { get; init; }
+    public Guid? AssetGuid { get; }
 
     [UcliDescription("Asset path selector under the Unity project.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Asset)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityAssetPath? AssetPath { get; init; }
+    public UnityAssetPath? AssetPath { get; }
 
     [UcliDescription("Project-scoped asset path selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.ProjectSettings)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public ProjectSettingsAssetPath? ProjectAssetPath { get; init; }
+    public ProjectSettingsAssetPath? ProjectAssetPath { get; }
 }

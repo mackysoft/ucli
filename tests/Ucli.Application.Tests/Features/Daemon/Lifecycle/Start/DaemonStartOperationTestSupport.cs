@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.Lifecycle;
@@ -13,7 +14,9 @@ internal static class DaemonStartOperationTestSupport
         IDaemonLaunchService daemonLaunchService,
         IDaemonDiagnosisStore? daemonDiagnosisStore = null,
         IDaemonGuiEditorAttachService? daemonGuiEditorAttachService = null,
-        IProjectLifecycleLockProvider? lifecycleLockProvider = null)
+        IProjectLifecycleLockProvider? lifecycleLockProvider = null,
+        DaemonCompensationOperationOwner? compensationOperationOwner = null,
+        TimeProvider? timeProvider = null)
     {
         return new DaemonStartOperation(
             lifecycleLockProvider: lifecycleLockProvider ?? new StubProjectLifecycleLockProvider(),
@@ -22,6 +25,8 @@ internal static class DaemonStartOperationTestSupport
             daemonSessionCleanupService: daemonSessionCleanupService,
             daemonExistingSessionGateService: daemonExistingSessionGateService,
             daemonGuiEditorAttachService: daemonGuiEditorAttachService ?? new RecordingDaemonGuiEditorAttachService(),
-            daemonLaunchService: daemonLaunchService);
+            daemonLaunchService: daemonLaunchService,
+            compensationOperationOwner: compensationOperationOwner ?? new DaemonCompensationOperationOwner(),
+            timeProvider: timeProvider ?? new ManualTimeProvider());
     }
 }

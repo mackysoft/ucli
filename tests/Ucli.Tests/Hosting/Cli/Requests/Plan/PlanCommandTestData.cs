@@ -9,23 +9,25 @@ internal static class PlanCommandTestData
 
     public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
 
+    private static readonly Guid RequestGuid = Guid.Parse(RequestId);
+
     public const string ContractViolationMessage = "Operation result violated declared assurance facts.";
 
     public static PlanServiceResult CreateSuccessResult ()
     {
         return PlanServiceResult.Success(
             new PlanExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults:
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults:
                 [
                     CreateSuccessOperationResult(),
                 ],
-                ReadIndex: CreateReadIndexInfo(
+                readIndex: CreateReadIndexInfo(
                     used: false,
                     hit: false,
                     fallbackReason: "readIndex disabled by mode."),
-                PlanToken: "plan-token-1"),
+                planToken: "plan-token-1"),
             "uCLI plan completed.");
     }
 
@@ -33,14 +35,14 @@ internal static class PlanCommandTestData
     {
         return PlanServiceResult.Success(
             new PlanExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults: [],
-                ReadIndex: CreateReadIndexInfo(
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults: [],
+                readIndex: CreateReadIndexInfo(
                     used: false,
                     hit: false,
                     fallbackReason: "Play Mode mutation uses live Unity state."),
-                PlanToken: "plan-token-1"),
+                planToken: "plan-token-1"),
             "uCLI plan completed.");
     }
 
@@ -52,20 +54,20 @@ internal static class PlanCommandTestData
                 ApplicationFailure.FromCode(
                     ExecuteRequestErrorCodes.OperationContractViolation,
                     ContractViolationMessage,
-                    "step-1"),
+                    new IpcExecuteStepId("step-1")),
             ],
             new PlanExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults:
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults:
                 [
                     CreateViolationOperationResult(),
                 ],
-                ReadIndex: CreateReadIndexInfo(
+                readIndex: CreateReadIndexInfo(
                     used: false,
                     hit: false,
                     fallbackReason: "readIndex disabled by mode."),
-                PlanToken: null)
+                planToken: null)
             {
                 ContractViolations =
                 [
@@ -82,30 +84,30 @@ internal static class PlanCommandTestData
                 ApplicationFailure.InvalidInput(
                     "Operation args are invalid.",
                     ValidationErrorCodes.OperationArgsInvalid,
-                    "step-1"),
+                    new IpcExecuteStepId("step-1")),
             ],
             new PlanExecutionOutput(
-                RequestId: RequestId,
-                Project: ProjectIdentityInfoTestFactory.Create(),
-                OpResults: [],
-                ReadIndex: CreateReadIndexInfo(
+                requestId: RequestGuid,
+                project: ProjectIdentityInfoTestFactory.Create(),
+                opResults: [],
+                readIndex: CreateReadIndexInfo(
                     used: true,
                     hit: true,
                     fallbackReason: null),
-                PlanToken: null));
+                planToken: null));
     }
 
     public static PlanExecutionOutput CreatePreflightOutput ()
     {
         return new PlanExecutionOutput(
-            RequestId: RequestId,
-            Project: ProjectIdentityInfoTestFactory.Create(),
-            OpResults: [],
-            ReadIndex: CreateReadIndexInfo(
+            requestId: RequestGuid,
+            project: ProjectIdentityInfoTestFactory.Create(),
+            opResults: [],
+            readIndex: CreateReadIndexInfo(
                 used: false,
                 hit: false,
                 fallbackReason: "readIndex disabled by mode."),
-            PlanToken: null);
+            planToken: null);
     }
 
     private static ReadIndexInfo CreateReadIndexInfo (
@@ -127,9 +129,9 @@ internal static class PlanCommandTestData
     private static OperationExecutionOperationResult CreateSuccessOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: "step-1",
+            OpId: new IpcExecuteStepId("step-1"),
             Op: UcliPrimitiveOperationNames.GoDescribe,
-            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,
             Changed: false,
             Touched: []);
@@ -138,27 +140,27 @@ internal static class PlanCommandTestData
     private static OperationExecutionOperationResult CreateViolationOperationResult ()
     {
         return new OperationExecutionOperationResult(
-            OpId: "step-1",
+            OpId: new IpcExecuteStepId("step-1"),
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
-            Phase: IpcExecuteOperationPhaseNames.Plan,
+            Phase: IpcExecuteOperationPhase.Plan,
             Applied: false,
             Changed: true,
             Touched:
             [
                 new OperationExecutionTouchedResource(
-                    Kind: UcliTouchedResourceKindNames.Asset,
+                    Kind: UcliTouchedResourceKind.Asset,
                     Path: "Assets/Example.txt",
-                    Guid: null),
+                    AssetGuid: null),
             ]);
     }
 
     private static OperationExecutionContractViolation CreateContractViolation ()
     {
         return new OperationExecutionContractViolation(
-            OpId: "step-1",
+            OpId: new IpcExecuteStepId("step-1"),
             Operation: UcliPrimitiveOperationNames.ProjectRefresh,
             ExpectedFact: "assurance.mayDirty=false",
             ObservedResult: "opResults[].changed=true",
-            ApplicationState: IpcExecuteApplicationStateNames.Indeterminate);
+            ApplicationState: IpcApplicationState.Indeterminate);
     }
 }

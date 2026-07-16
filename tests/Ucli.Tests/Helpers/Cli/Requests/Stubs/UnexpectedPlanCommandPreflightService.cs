@@ -6,6 +6,7 @@ namespace MackySoft.Tests;
 internal sealed class UnexpectedPlanCommandPreflightService : IPlanCommandPreflightService
 {
     public ValueTask<PlanCommandPreflightResult> PrepareAsync (
+        Guid requestId,
         string? projectPath,
         string requestJson,
         ReadIndexMode? readIndexMode,

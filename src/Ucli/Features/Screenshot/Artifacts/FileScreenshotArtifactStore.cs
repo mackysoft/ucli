@@ -5,7 +5,6 @@ using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Features.Screenshot.Artifacts.Png;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -41,10 +40,13 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
     /// <inheritdoc />
     public ScreenshotArtifactPreparationResult Prepare (
         ResolvedUnityProjectContext unityProject,
-        string captureId)
+        Guid captureId)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(captureId);
+        if (captureId == Guid.Empty)
+        {
+            throw new ArgumentException("Capture identifier must not be empty.", nameof(captureId));
+        }
 
         CapturePaths paths;
         try
@@ -89,10 +91,10 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
 
     private async ValueTask<ScreenshotArtifactCommitResult> CommitAsync (
         CapturePaths paths,
-        ScreenshotArtifactCommitRequest request,
+        IpcScreenshotStagingImage staging,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        ArgumentNullException.ThrowIfNull(staging);
 
         string? temporaryPngPath = null;
         var finalArtifactCreated = false;
@@ -101,23 +103,34 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            temporaryPngPath = paths.PngPath + $".tmp.{Guid.NewGuid():N}";
-            ValidateStagingContract(paths, request);
             FileSystemAccessBoundary.EnsureSecureDirectory(paths.StagingDirectory);
-            EnsureReadableRawStagingFile(paths.RawStagingPath, request.Staging.SizeBytes);
+            EnsureReadableRawStagingFile(paths.RawStagingPath, staging.SizeBytes);
             EnsureCapturePathDoesNotExist(paths.ArtifactDirectory, "Screenshot artifact directory");
             FileSystemAccessBoundary.EnsureSecureDirectory(paths.ArtifactDirectory);
             EnsureWritableNewFilePath(paths.PngPath, "Screenshot PNG artifact");
-            EnsureWritableNewFilePath(temporaryPngPath, "Screenshot temporary PNG artifact");
 
-            await EncodeTemporaryPngAsync(paths, request, temporaryPngPath, cancellationToken).ConfigureAwait(false);
+            var temporaryPngStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
+                paths.ArtifactDirectory,
+                out var reservedTemporaryPngPath);
+            temporaryPngPath = reservedTemporaryPngPath;
+            using (temporaryPngStream)
+            {
+                await EncodeTemporaryPngAsync(
+                        paths,
+                        staging,
+                        temporaryPngStream,
+                        cancellationToken)
+                    .ConfigureAwait(false);
+            }
+
             FileSystemAccessBoundary.EnsureSecureFile(temporaryPngPath);
-            await ValidatePngAgainstRawAsync(paths, request, temporaryPngPath, cancellationToken).ConfigureAwait(false);
+            await ValidatePngAgainstRawAsync(paths, staging, temporaryPngPath, cancellationToken).ConfigureAwait(false);
 
             File.Move(temporaryPngPath, paths.PngPath);
+            temporaryPngPath = null;
             finalArtifactCreated = true;
             FileSystemAccessBoundary.EnsureSecureFile(paths.PngPath);
-            await ValidatePngAgainstRawAsync(paths, request, paths.PngPath, cancellationToken).ConfigureAwait(false);
+            await ValidatePngAgainstRawAsync(paths, staging, paths.PngPath, cancellationToken).ConfigureAwait(false);
 
             var committedFile = await ComputeCommittedFileAsync(paths.PngPath, cancellationToken).ConfigureAwait(false);
             artifact = new ScreenshotArtifact(
@@ -190,32 +203,30 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
 
     private async ValueTask EncodeTemporaryPngAsync (
         CapturePaths paths,
-        ScreenshotArtifactCommitRequest request,
-        string temporaryPngPath,
+        IpcScreenshotStagingImage staging,
+        Stream pngStream,
         CancellationToken cancellationToken)
     {
         await using var rawStream = OpenRawStagingFile(paths.RawStagingPath);
-        await using var pngStream = new FileStream(
-            temporaryPngPath,
-            FileMode.CreateNew,
-            FileAccess.Write,
-            FileShare.None,
-            FileStreamBufferSize,
-            FileOptions.Asynchronous | FileOptions.SequentialScan);
         await pngEncoder
-            .EncodeAsync(rawStream, request.Width, request.Height, pngStream, cancellationToken)
+            .EncodeAsync(
+                rawStream,
+                staging.Width,
+                staging.Height,
+                pngStream,
+                cancellationToken)
             .ConfigureAwait(false);
         await pngStream.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 
     private async ValueTask ValidatePngAgainstRawAsync (
         CapturePaths paths,
-        ScreenshotArtifactCommitRequest request,
+        IpcScreenshotStagingImage staging,
         string pngPath,
         CancellationToken cancellationToken)
     {
         EnsureReadablePngFile(pngPath);
-        EnsureReadableRawStagingFile(paths.RawStagingPath, request.Staging.SizeBytes);
+        EnsureReadableRawStagingFile(paths.RawStagingPath, staging.SizeBytes);
         await using var pngStream = new FileStream(
             pngPath,
             FileMode.Open,
@@ -225,7 +236,12 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             FileOptions.Asynchronous | FileOptions.SequentialScan);
         await using var rawStream = OpenRawStagingFile(paths.RawStagingPath);
         await pngValidator
-            .ValidateAsync(pngStream, rawStream, request.Width, request.Height, cancellationToken)
+            .ValidateAsync(
+                pngStream,
+                rawStream,
+                staging.Width,
+                staging.Height,
+                cancellationToken)
             .ConfigureAwait(false);
     }
 
@@ -240,86 +256,11 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             FileOptions.Asynchronous | FileOptions.SequentialScan);
     }
 
-    private static void ValidateStagingContract (
-        CapturePaths paths,
-        ScreenshotArtifactCommitRequest request)
-    {
-        var staging = request.Staging;
-        string returnedStagingPath;
-        try
-        {
-            returnedStagingPath = Path.GetFullPath(staging.Path);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            throw new ScreenshotCaptureContractException($"Returned staging path is invalid. {exception.Message}");
-        }
-
-        if (!PathIdentity.IsSamePath(returnedStagingPath, paths.RawStagingPath))
-        {
-            throw new ScreenshotCaptureContractException("Unity returned a staging path other than the host-prepared path.");
-        }
-
-        if (staging.PixelFormat != IpcScreenshotPixelFormat.Rgba8Srgb)
-        {
-            throw new ScreenshotCaptureContractException(
-                $"Pixel format must be {ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb)}: {staging.PixelFormat}.");
-        }
-
-        if (staging.RowOrder != IpcScreenshotRowOrder.TopDown)
-        {
-            throw new ScreenshotCaptureContractException(
-                $"Row order must be {ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown)}: {staging.RowOrder}.");
-        }
-
-        if (request.Width <= 0 || request.Height <= 0)
-        {
-            throw new ScreenshotCaptureContractException("Captured dimensions must be positive.");
-        }
-
-        if (request.Width > IpcScreenshotCaptureLimits.MaximumDimension
-            || request.Height > IpcScreenshotCaptureLimits.MaximumDimension)
-        {
-            throw new ScreenshotCaptureContractException(
-                $"Captured dimensions exceed the screenshot limit of {IpcScreenshotCaptureLimits.MaximumDimension} pixels per axis.");
-        }
-
-        int expectedRowStrideBytes;
-        long expectedSizeBytes;
-        try
-        {
-            expectedRowStrideBytes = checked(request.Width * 4);
-            expectedSizeBytes = checked((long)expectedRowStrideBytes * request.Height);
-        }
-        catch (OverflowException exception)
-        {
-            throw new ScreenshotCaptureContractException($"Captured dimensions exceed the supported raw image size. {exception.Message}");
-        }
-
-        if (staging.RowStrideBytes != expectedRowStrideBytes)
-        {
-            throw new ScreenshotCaptureContractException(
-                $"Raw row stride does not match RGBA8 dimensions. Expected={expectedRowStrideBytes}, Actual={staging.RowStrideBytes}.");
-        }
-
-        if (staging.SizeBytes != expectedSizeBytes)
-        {
-            throw new ScreenshotCaptureContractException(
-                $"Raw byte count does not match RGBA8 dimensions. Expected={expectedSizeBytes}, Actual={staging.SizeBytes}.");
-        }
-
-        if (expectedSizeBytes > IpcScreenshotCaptureLimits.MaximumRawImageBytes)
-        {
-            throw new ScreenshotCaptureContractException(
-                $"Raw byte count exceeds the screenshot limit of {IpcScreenshotCaptureLimits.MaximumRawImageBytes} bytes.");
-        }
-    }
-
     private static CapturePaths ResolvePaths (
         ResolvedUnityProjectContext unityProject,
-        string captureId)
+        Guid captureId)
     {
-        var repositoryRoot = UcliStoragePathResolver.NormalizeStorageRootPath(unityProject.RepositoryRoot);
+        var repositoryRoot = unityProject.RepositoryRoot;
         var localStorageDirectory = Path.GetFullPath(
             UcliStoragePathResolver.ResolveLocalDirectoryPath(repositoryRoot));
         var artifactDirectory = Path.GetFullPath(
@@ -757,13 +698,11 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
             this.paths = paths;
         }
 
-        public string RawStagingPath => paths.RawStagingPath;
-
         public ValueTask<ScreenshotArtifactCommitResult> CommitAsync (
-            ScreenshotArtifactCommitRequest request,
+            IpcScreenshotStagingImage staging,
             CancellationToken cancellationToken = default)
         {
-            return store.CommitAsync(paths, request, cancellationToken);
+            return store.CommitAsync(paths, staging, cancellationToken);
         }
 
         public ScreenshotArtifactDiscardResult Discard ()
@@ -782,5 +721,5 @@ internal sealed class FileScreenshotArtifactStore : IScreenshotArtifactStore
 
     private readonly record struct CommittedFile (
         long SizeBytes,
-        string Digest);
+        Sha256Digest Digest);
 }

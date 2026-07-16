@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -25,7 +24,7 @@ public sealed class IpcTransportClientUnboundedResponseWaitTests
             },
             async (endpoint, request) =>
             {
-                var client = new IpcTransportClient();
+                var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
                 var progressFrames = new List<IpcStreamFrame>();
                 var responseTask = client.SendStreamingWithUnboundedResponseWaitAsync(
                         endpoint,
@@ -43,7 +42,10 @@ public sealed class IpcTransportClientUnboundedResponseWaitTests
                     "Unbounded IPC streaming response",
                     IpcTransportClientTestSupport.WaitTimeout);
 
-                IpcTransportClientTestSupport.AssertProgressThenTerminalResult(progressFrames, response);
+                IpcTransportClientTestSupport.AssertProgressThenTerminalResult(
+                    progressFrames,
+                    response,
+                    request.RequestId);
             },
             IpcTransportClientTestSupport.WaitTimeout);
     }
@@ -68,7 +70,7 @@ public sealed class IpcTransportClientUnboundedResponseWaitTests
             },
             async (endpoint, request) =>
             {
-                var client = new IpcTransportClient();
+                var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
                 var exceptionTask = Assert.ThrowsAsync<IpcProgressFrameHandlerException>(async () =>
                 {
                     await client.SendStreamingWithUnboundedResponseWaitAsync(
@@ -88,46 +90,4 @@ public sealed class IpcTransportClientUnboundedResponseWaitTests
             IpcTransportClientTestSupport.WaitTimeout);
     }
 
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task SendStreamingWithUnboundedResponseWaitAsync_WhenTerminalResponseProtocolVersionMismatches_ThrowsInvalidDataException ()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            return;
-        }
-
-        await IpcTransportTestHarness.WithUnixStreamingServerAsync(
-            async (request, stream, cancellationToken) =>
-            {
-                await IpcTransportTestHarness.WriteStreamFrameAsync(
-                    stream,
-                    IpcTransportClientTestSupport.CreateTerminalFrame(
-                        request,
-                        response: IpcTransportTestHarness.CreateResponse(
-                            request.RequestId,
-                            "{}",
-                            protocolVersion: IpcProtocol.CurrentVersion + 1)),
-                    cancellationToken);
-            },
-            async (endpoint, request) =>
-            {
-                var client = new IpcTransportClient();
-                var exceptionTask = Assert.ThrowsAsync<InvalidDataException>(async () =>
-                {
-                    await client.SendStreamingWithUnboundedResponseWaitAsync(
-                            endpoint,
-                            request,
-                            IpcTransportClientTestSupport.DefaultTimeout,
-                            (_, _) => ValueTask.CompletedTask)
-                        .AsTask();
-                });
-
-                await TestAwaiter.WaitAsync(
-                    exceptionTask,
-                    "Unbounded IPC streaming terminal validation failure",
-                    IpcTransportClientTestSupport.WaitTimeout);
-            },
-            IpcTransportClientTestSupport.WaitTimeout);
-    }
 }

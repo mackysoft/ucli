@@ -51,7 +51,7 @@ internal sealed class UnityUcliPluginMarkerCacheStore
     /// <returns> The cache read result. </returns>
     public async ValueTask<UnityUcliPluginMarkerCacheReadResult> ReadOrNullAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -122,7 +122,7 @@ internal sealed class UnityUcliPluginMarkerCacheStore
     /// <returns> The cache operation result. </returns>
     public async ValueTask<UnityUcliPluginMarkerCacheStoreOperationResult> WriteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         UnityUcliPluginMarkerCache cache,
         CancellationToken cancellationToken = default)
     {
@@ -173,7 +173,7 @@ internal sealed class UnityUcliPluginMarkerCacheStore
     /// <returns> The cache operation result. </returns>
     public UnityUcliPluginMarkerCacheStoreOperationResult DeleteIfExists (
         string storageRoot,
-        string projectFingerprint)
+        ProjectFingerprint projectFingerprint)
     {
         string cachePath;
         try

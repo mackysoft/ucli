@@ -14,7 +14,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         return EvaluateCoreAsync(
             store,
             project,
-            IpcExecuteReadPostconditionSurfaceNames.AssetSearch,
+            IpcExecuteReadPostconditionSurface.AssetSearch,
             scenePath: null,
             generatedAtUtc,
             "asset-search",
@@ -30,7 +30,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         return EvaluateCoreAsync(
             store,
             project,
-            IpcExecuteReadPostconditionSurfaceNames.GuidPath,
+            IpcExecuteReadPostconditionSurface.GuidPath,
             scenePath: null,
             generatedAtUtc,
             "guid-path",
@@ -40,16 +40,16 @@ internal static class MutationReadPostconditionAccessEvaluator
     public static ValueTask<MutationReadPostconditionEvaluationResult> EvaluateSceneTreeLiteAsync (
         IMutationReadPostconditionStore store,
         ResolvedUnityProjectContext project,
-        string scenePath,
+        UnityScenePath scenePath,
         DateTimeOffset generatedAtUtc,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(scenePath);
+        ArgumentNullException.ThrowIfNull(scenePath);
         return EvaluateCoreAsync(
             store,
             project,
-            IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite,
-            NormalizePath(scenePath),
+            IpcExecuteReadPostconditionSurface.SceneTreeLite,
+            scenePath,
             generatedAtUtc,
             "scene-tree-lite",
             cancellationToken);
@@ -58,15 +58,14 @@ internal static class MutationReadPostconditionAccessEvaluator
     private static async ValueTask<MutationReadPostconditionEvaluationResult> EvaluateCoreAsync (
         IMutationReadPostconditionStore store,
         ResolvedUnityProjectContext project,
-        string surface,
-        string? scenePath,
+        IpcExecuteReadPostconditionSurface surface,
+        UnityScenePath? scenePath,
         DateTimeOffset generatedAtUtc,
         string surfaceDescription,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(store);
         ArgumentNullException.ThrowIfNull(project);
-        ArgumentException.ThrowIfNullOrWhiteSpace(surface);
         ArgumentException.ThrowIfNullOrWhiteSpace(surfaceDescription);
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -95,10 +94,10 @@ internal static class MutationReadPostconditionAccessEvaluator
             $"Existing {surfaceDescription} index generatedAtUtc '{generatedAtUtc:O}' is older than mutation read postcondition '{requirement.MinSafeGeneratedAtUtc:O}'.");
     }
 
-    private static OperationExecutionReadPostconditionRequirement? FindRequirement (
-        OperationExecutionReadPostcondition? readPostcondition,
-        string surface,
-        string? scenePath)
+    private static IpcExecuteReadPostconditionRequirement? FindRequirement (
+        IpcExecuteReadPostcondition? readPostcondition,
+        IpcExecuteReadPostconditionSurface surface,
+        UnityScenePath? scenePath)
     {
         if (readPostcondition == null)
         {
@@ -108,7 +107,7 @@ internal static class MutationReadPostconditionAccessEvaluator
         for (var i = 0; i < readPostcondition.Requirements.Count; i++)
         {
             var requirement = readPostcondition.Requirements[i];
-            if (!string.Equals(requirement.Surface, surface, StringComparison.Ordinal))
+            if (requirement.Surface != surface)
             {
                 continue;
             }
@@ -125,17 +124,12 @@ internal static class MutationReadPostconditionAccessEvaluator
     }
 
     private static bool MatchesScenePath (
-        string surface,
-        string? requirementScenePath,
-        string? scenePath)
+        IpcExecuteReadPostconditionSurface surface,
+        UnityScenePath? requirementScenePath,
+        UnityScenePath? scenePath)
     {
-        return string.Equals(requirementScenePath, scenePath, StringComparison.Ordinal)
-            || (string.Equals(surface, IpcExecuteReadPostconditionSurfaceNames.SceneTreeLite, StringComparison.Ordinal)
+        return requirementScenePath == scenePath
+            || (surface == IpcExecuteReadPostconditionSurface.SceneTreeLite
                 && requirementScenePath == null);
-    }
-
-    private static string NormalizePath (string path)
-    {
-        return path.Replace('\\', '/');
     }
 }

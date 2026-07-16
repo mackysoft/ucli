@@ -13,10 +13,11 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 [UcliPropertyRequires(IpcResolveSelectorPropertyNames.ComponentType, IpcResolveSelectorPropertyNames.Scene, IpcResolveSelectorPropertyNames.HierarchyPath)]
 public sealed record ResolveSelectorArgs
 {
+    /// <exception cref="ArgumentException"> Thrown when <paramref name="assetGuid" /> is <see cref="Guid.Empty" />. </exception>
     [JsonConstructor]
     public ResolveSelectorArgs (
         UnityGlobalObjectId? globalObjectId,
-        UnityAssetGuid? assetGuid,
+        Guid? assetGuid,
         UnityAssetPath? assetPath,
         ProjectSettingsAssetPath? projectAssetPath,
         SceneAssetPath? scene,
@@ -24,6 +25,11 @@ public sealed record ResolveSelectorArgs
         UnityHierarchyPath? hierarchyPath,
         UnityComponentTypeId? componentType)
     {
+        if (assetGuid == Guid.Empty)
+        {
+            throw new ArgumentException("Asset GUID must not be empty.", nameof(assetGuid));
+        }
+
         GlobalObjectId = globalObjectId;
         AssetGuid = assetGuid;
         AssetPath = assetPath;
@@ -36,33 +42,38 @@ public sealed record ResolveSelectorArgs
 
     [UcliDescription("Resolved Unity GlobalObjectId.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityGlobalObjectId? GlobalObjectId { get; init; }
+    public UnityGlobalObjectId? GlobalObjectId { get; }
 
     [UcliDescription("Asset GUID selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetGuid)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityAssetGuid? AssetGuid { get; init; }
+    public Guid? AssetGuid { get; }
 
     [UcliDescription("Asset path selector under the Unity project.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Asset)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityAssetPath? AssetPath { get; init; }
+    public UnityAssetPath? AssetPath { get; }
 
     [UcliDescription("Project-scoped asset path selector, such as ProjectSettings assets.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.ProjectSettings)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public ProjectSettingsAssetPath? ProjectAssetPath { get; init; }
+    public ProjectSettingsAssetPath? ProjectAssetPath { get; }
 
     [UcliDescription("Scene asset path for a hierarchy selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Scene)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public SceneAssetPath? Scene { get; init; }
+    public SceneAssetPath? Scene { get; }
 
     [UcliDescription("Prefab asset path for a hierarchy selector.")]
+    [UcliInputConstraint(UcliOperationInputConstraintKind.AssetExists, AssetKind = UcliOperationAssetKind.Prefab)]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public PrefabAssetPath? Prefab { get; init; }
+    public PrefabAssetPath? Prefab { get; }
 
     [UcliDescription("Unity hierarchy path inside the selected scene or prefab.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityHierarchyPath? HierarchyPath { get; init; }
+    public UnityHierarchyPath? HierarchyPath { get; }
 
     [UcliDescription("Component type identifier for component selection.")]
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    public UnityComponentTypeId? ComponentType { get; init; }
+    public UnityComponentTypeId? ComponentType { get; }
 }

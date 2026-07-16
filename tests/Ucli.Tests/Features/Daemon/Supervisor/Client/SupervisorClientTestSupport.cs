@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -8,21 +9,36 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 internal static class SupervisorClientTestSupport
 {
+    private static readonly ProjectFingerprint DefaultProjectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+
     public static SupervisorInstanceManifest CreateManifest (
+        byte sessionTokenDiscriminator = 1,
         int? processId = null,
-        string endpointTransportKind = "namedPipe")
+        IpcEndpoint? endpoint = null,
+        DateTimeOffset? issuedAtUtc = null)
     {
         return new SupervisorInstanceManifest(
-            ProcessId: processId ?? Environment.ProcessId,
-            SessionToken: "supervisor-session-token",
-            EndpointTransportKind: endpointTransportKind,
-            EndpointAddress: "ucli-supervisor-test",
-            IssuedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero));
+            processId: processId ?? Environment.ProcessId,
+            sessionToken: IpcSessionTokenTestFactory.CreateFromDiscriminator(sessionTokenDiscriminator),
+            endpoint: endpoint ?? new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-supervisor-test"),
+            issuedAtUtc: issuedAtUtc ?? new DateTimeOffset(2026, 03, 12, 0, 0, 0, TimeSpan.Zero));
     }
 
-    public static ResolvedUnityProjectContext CreateUnityProject (string projectFingerprint = "fingerprint")
+    public static SupervisorInstanceManifest CreateSuccessorManifest (
+        SupervisorInstanceManifest current,
+        byte sessionTokenDiscriminator)
     {
-        return ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: projectFingerprint);
+        ArgumentNullException.ThrowIfNull(current);
+        return CreateManifest(
+            sessionTokenDiscriminator,
+            current.ProcessId,
+            current.Endpoint,
+            current.IssuedAtUtc.AddSeconds(1));
+    }
+
+    public static ResolvedUnityProjectContext CreateUnityProject (ProjectFingerprint? projectFingerprint = null)
+    {
+        return ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: projectFingerprint ?? DefaultProjectFingerprint);
     }
 
     public static DaemonSession CreateGuiDaemonSession ()
@@ -55,49 +71,54 @@ internal static class SupervisorClientTestSupport
             StartupBlockingReason: DaemonStartupBlockingReason.Compile,
             LaunchAttemptId: null,
             ProcessAction: DaemonStartupProcessAction.Kept,
-            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix);
+            RetryDisposition: DaemonStartupRetryDisposition.RetryAfterFix,
+            EditorMode: null,
+            OwnerKind: null,
+            CanShutdownProcess: null,
+            ProcessId: null,
+            StartedAtUtc: null,
+            ElapsedMilliseconds: null,
+            ArtifactPath: null);
     }
 
     public static IpcResponse CreateEnsureRunningResponse (
-        IpcRequest request,
-        string startStatus = "started",
-        string daemonStatus = "running",
+        IpcRequestEnvelope request,
+        DaemonStartStatus startStatus = DaemonStartStatus.Started,
         DaemonSession? session = null,
         IpcUnityEditorObservation? lifecycleObservation = null)
     {
         return new IpcResponse(
-            ProtocolVersion: request.ProtocolVersion,
-            RequestId: request.RequestId,
-            Status: IpcProtocol.StatusOk,
-            Payload: IpcPayloadCodec.SerializeToElement(
+            protocolVersion: request.ProtocolVersion,
+            requestId: request.RequestId,
+            status: IpcResponseStatus.Ok,
+            payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.EnsureRunningResponse(
                     StartStatus: startStatus,
-                    DaemonStatus: daemonStatus,
-                    Session: session ?? CreateGuiDaemonSession(),
+                    Session: DaemonSessionContractMapper.ToContract(session ?? CreateGuiDaemonSession()),
                     LifecycleObservation: lifecycleObservation ?? CreateReadyLifecycleObservation())),
-            Errors: []);
+            errors: []);
     }
 
     public static IpcResponse CreateEnsureRunningFailureResponse (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         DaemonDiagnosis diagnosis,
         DaemonStartupObservation startup,
-        string daemonStatus = "stale")
+        DaemonStatusKind daemonStatus = DaemonStatusKind.Stale)
     {
         return new IpcResponse(
-            ProtocolVersion: request.ProtocolVersion,
-            RequestId: request.RequestId,
-            Status: IpcProtocol.StatusError,
-            Payload: IpcPayloadCodec.SerializeToElement(
+            protocolVersion: request.ProtocolVersion,
+            requestId: request.RequestId,
+            status: IpcResponseStatus.Error,
+            payload: IpcPayloadCodec.SerializeToElement(
                 new SupervisorIpcContracts.EnsureRunningFailureResponse(daemonStatus, diagnosis, startup)),
-            Errors:
+            errors:
             [
                 new IpcError(ExecutionErrorCodes.IpcTimeout, "endpoint registration timed out", null),
             ]);
     }
 
     public static async ValueTask<IpcResponse> ForwardProgressThenReturnStartedAsync (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         IpcStreamFrame progressFrame,
         CancellationToken cancellationToken)
@@ -107,26 +128,26 @@ internal static class SupervisorClientTestSupport
     }
 
     public static IpcStreamFrame CreateProgressFrame<TPayload> (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         string eventName,
         TPayload payload)
     {
         return new IpcStreamFrame(
             IpcProtocol.CurrentVersion,
             request.RequestId,
-            IpcStreamFrameKinds.Progress,
+            IpcStreamFrameKind.Progress,
             eventName,
             IpcPayloadCodec.SerializeToElement(payload),
-            Response: null);
+            response: null);
     }
 
     public static IpcStreamFrame CreateWaitingForEndpointProgressFrame (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         DaemonStartupBlockedProcessPolicy onStartupBlocked = DaemonStartupBlockedProcessPolicy.Auto,
         string? message = null)
     {
         var progressPayload = DaemonStartProgressEntryTestFactory.CreateStartupObservation(
-            timeoutMilliseconds: 5000,
+            timeoutMilliseconds: request.RequestDeadlineRemainingMilliseconds,
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: onStartupBlocked,
             processId: 42,
@@ -142,15 +163,15 @@ internal static class SupervisorClientTestSupport
     }
 
     public static IpcStreamFrame CreateLifecycleSnapshotProgressFrame (
-        IpcRequest request,
+        IpcRequestEnvelope request,
         IpcEditorLifecycleState lifecycleState = IpcEditorLifecycleState.Compiling,
         IpcEditorBlockingReason? blockingReason = IpcEditorBlockingReason.Compile,
         bool canAcceptExecutionRequests = false)
     {
         var progressPayload = new DaemonStartLifecycleSnapshotProgressEntry(
             DaemonStartProgressPayloadKind.LifecycleSnapshot,
-            "fingerprint",
-            5000,
+            DefaultProjectFingerprint,
+            request.RequestDeadlineRemainingMilliseconds,
             DaemonEditorMode.Gui,
             DaemonStartupBlockedProcessPolicy.Auto,
             lifecycleState,

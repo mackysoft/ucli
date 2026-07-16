@@ -21,10 +21,6 @@ internal static class UcliOperationContractValidatorTestContracts
         [property: UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
         string? Name);
 
-    internal sealed record NonEmptySemanticStringArgs (
-        [property: UcliDescription("Path prefix.")]
-        UnityHierarchyPathPrefix? PathPrefix);
-
     internal sealed record NonEmptyArrayArgs (
         [property: UcliDescription("Items.")]
         [property: UcliInputConstraint(UcliOperationInputConstraintKind.NonEmpty)]
@@ -38,6 +34,11 @@ internal static class UcliOperationContractValidatorTestContracts
     internal sealed record RangeArgs (
         [property: UcliDescription("Depth.")]
         [property: UcliInputConstraint(UcliOperationInputConstraintKind.Range, Min = 0)]
+        int Depth);
+
+    internal sealed record MaximumRangeArgs (
+        [property: UcliDescription("Depth.")]
+        [property: UcliInputConstraint(UcliOperationInputConstraintKind.Range, Max = 0)]
         int Depth);
 
     internal sealed record CursorArgs (

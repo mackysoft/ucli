@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Assurance;
+using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Infrastructure.Text;
 
@@ -46,26 +46,29 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string TimeoutLabel = " timeoutMs=";
         const string Status = " started";
 
+        var requestedMode = ContractLiteralCodec.ToValue(entry.RequestedMode);
+        var resolvedMode = ContractLiteralCodec.ToValue(entry.ResolvedMode);
+        var sessionKind = ContractLiteralCodec.ToValue(entry.SessionKind);
         var timeoutLength = SpanTextLength.GetInvariantInt64Length(entry.TimeoutMilliseconds);
         var length = checked(Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + RequestedModeLabel.Length
-            + entry.RequestedMode.Length
+            + requestedMode.Length
             + ResolvedModeLabel.Length
-            + entry.ResolvedMode.Length
+            + resolvedMode.Length
             + SessionKindLabel.Length
-            + entry.SessionKind.Length
+            + sessionKind.Length
             + TimeoutLabel.Length
             + timeoutLength
             + Status.Length);
         return string.Create(
             length,
-            entry,
+            (Entry: entry, RequestedMode: requestedMode, ResolvedMode: resolvedMode, SessionKind: sessionKind),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
-                writer.Append(state.RunId);
+                writer.Append(state.Entry.RunId);
                 writer.Append(RequestedModeLabel);
                 writer.Append(state.RequestedMode);
                 writer.Append(ResolvedModeLabel);
@@ -73,7 +76,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
                 writer.Append(SessionKindLabel);
                 writer.Append(state.SessionKind);
                 writer.Append(TimeoutLabel);
-                writer.AppendInvariant(state.TimeoutMilliseconds);
+                writer.AppendInvariant(state.Entry.TimeoutMilliseconds);
                 writer.Append(Status);
             });
     }
@@ -85,25 +88,26 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string SourceLabel = " observationSource=";
         const string Status = " started";
 
+        var refreshOrigin = ContractLiteralCodec.ToValue(entry.RefreshOrigin);
         var length = checked(Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + OriginLabel.Length
-            + entry.RefreshOrigin.Length
+            + refreshOrigin.Length
             + SourceLabel.Length
             + entry.ObservationSource.Length
             + Status.Length);
         return string.Create(
             length,
-            entry,
+            (Entry: entry, RefreshOrigin: refreshOrigin),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
-                writer.Append(state.RunId);
+                writer.Append(state.Entry.RunId);
                 writer.Append(OriginLabel);
                 writer.Append(state.RefreshOrigin);
                 writer.Append(SourceLabel);
-                writer.Append(state.ObservationSource);
+                writer.Append(state.Entry.ObservationSource);
                 writer.Append(Status);
             });
     }
@@ -117,7 +121,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
 
         var pollAttemptsLength = SpanTextLength.GetInvariantInt64Length(entry.PollAttempts);
         var length = checked(Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + PollsLabel.Length
             + pollAttemptsLength
             + SummaryLabel.Length
@@ -145,31 +149,34 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string OriginLabel = " refreshOrigin=";
         const string Separator = ": ";
 
+        var refreshOrigin = ContractLiteralCodec.ToValue(entry.RefreshOrigin);
         var diagnostic = entry.PrimaryDiagnostic;
         if (diagnostic is null)
         {
-            var length = checked(Prefix.Length + entry.RunId.Length + OriginLabel.Length + entry.RefreshOrigin.Length);
+            var length = checked(Prefix.Length + SpanTextLength.GuidDLength + OriginLabel.Length + refreshOrigin.Length);
             return string.Create(
                 length,
-                entry,
+                (Entry: entry, RefreshOrigin: refreshOrigin),
                 static (destination, state) =>
                 {
                     var writer = new SpanTextWriter(destination);
                     writer.Append(Prefix);
-                    writer.Append(state.RunId);
+                    writer.Append(state.Entry.RunId);
                     writer.Append(OriginLabel);
                     writer.Append(state.RefreshOrigin);
                 });
         }
 
         var code = string.IsNullOrWhiteSpace(diagnostic.Code) ? "compiler" : diagnostic.Code;
-        var kind = string.IsNullOrWhiteSpace(diagnostic.Kind) ? "compiler" : diagnostic.Kind;
+        var kind = diagnostic.Kind.HasValue
+            ? ContractLiteralCodec.ToValue(diagnostic.Kind.Value)
+            : "compiler";
         var message = string.IsNullOrWhiteSpace(diagnostic.Message) ? "diagnostics-read summary created" : diagnostic.Message;
         var diagnosticLength = checked(
             Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + OriginLabel.Length
-            + entry.RefreshOrigin.Length
+            + refreshOrigin.Length
             + 1
             + kind.Length
             + 1
@@ -178,7 +185,7 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
             + message.Length);
         return string.Create(
             diagnosticLength,
-            (entry.RunId, entry.RefreshOrigin, Kind: kind, Code: code, Message: message),
+            (entry.RunId, RefreshOrigin: refreshOrigin, Kind: kind, Code: code, Message: message),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
@@ -203,12 +210,13 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
         const string WarningsLabel = " warningCount=";
         const string Status = " completed";
 
+        var verdict = ContractLiteralCodec.ToValue(entry.Verdict);
         var errorCountLength = SpanTextLength.GetInvariantInt64Length(entry.ErrorCount);
         var warningCountLength = SpanTextLength.GetInvariantInt64Length(entry.WarningCount);
         var length = checked(Prefix.Length
-            + entry.RunId.Length
+            + SpanTextLength.GuidDLength
             + VerdictLabel.Length
-            + entry.Verdict.Length
+            + verdict.Length
             + ErrorsLabel.Length
             + errorCountLength
             + WarningsLabel.Length
@@ -216,18 +224,18 @@ internal sealed class CompileProgressTextProjector : ICliCommandProgressTextProj
             + Status.Length);
         return string.Create(
             length,
-            entry,
+            (Entry: entry, Verdict: verdict),
             static (destination, state) =>
             {
                 var writer = new SpanTextWriter(destination);
                 writer.Append(Prefix);
-                writer.Append(state.RunId);
+                writer.Append(state.Entry.RunId);
                 writer.Append(VerdictLabel);
                 writer.Append(state.Verdict);
                 writer.Append(ErrorsLabel);
-                writer.AppendInvariant(state.ErrorCount);
+                writer.AppendInvariant(state.Entry.ErrorCount);
                 writer.Append(WarningsLabel);
-                writer.AppendInvariant(state.WarningCount);
+                writer.AppendInvariant(state.Entry.WarningCount);
                 writer.Append(Status);
             });
     }

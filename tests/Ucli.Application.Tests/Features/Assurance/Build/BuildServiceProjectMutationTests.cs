@@ -1,6 +1,5 @@
 using MackySoft.Ucli.Application.Features.Assurance.Build.Profiles;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
-using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Ipc;
 using static MackySoft.Ucli.Application.Tests.Features.Assurance.Build.BuildServiceTestSupport;
 
@@ -16,12 +15,12 @@ public sealed class BuildServiceProjectMutationTests
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 projectMutation: CreateProjectMutation(
                     mutated: true,
-                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid))),
+                    mode: BuildProfileProjectMutationMode.Forbid)),
             artifactStore: artifactStore);
 
         var result = await service.ExecuteAsync(CreateInput());
@@ -42,13 +41,13 @@ public sealed class BuildServiceProjectMutationTests
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 projectMutation: CreateProjectMutation(
                     mutated: false,
-                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
-                    coverage: ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Partial))),
+                    mode: BuildProfileProjectMutationMode.Forbid,
+                    coverage: IpcBuildProjectMutationAuditCoverage.Partial)),
             artifactStore: artifactStore);
 
         var result = await service.ExecuteAsync(CreateInput());
@@ -72,22 +71,22 @@ public sealed class BuildServiceProjectMutationTests
                 CreateProfileJson(["daemon", "oneshot"], ["batchmode", "gui"], "audit"),
                 "/workspace/build.ucli.json")),
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 projectMutation: CreateProjectMutation(
                     mutated: true,
-                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit))),
+                    mode: BuildProfileProjectMutationMode.Audit)),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
         var result = await service.ExecuteAsync(CreateInput());
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
         var risk = Assert.Single(result.Output.ResidualRisks);
         Assert.Equal(BuildRiskCodes.ProjectMutationDetected.Value, risk.Code);
         Assert.False(risk.Blocking);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildClaimStatus.Passed), FindClaim(result.Output, BuildClaimCodes.UnityBuildProjectMutationAccounted).Status);
+        Assert.Equal(AssuranceClaimStatus.Passed, FindClaim(result.Output, BuildClaimCodes.UnityBuildProjectMutationAccounted).Status);
     }
 
     [Fact]
@@ -100,18 +99,18 @@ public sealed class BuildServiceProjectMutationTests
                 CreateProfileJson(["daemon", "oneshot"], ["batchmode", "gui"], "allowWithAudit"),
                 "/workspace/build.ucli.json")),
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 projectMutation: CreateProjectMutation(
                     mutated: true,
-                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.AllowWithAudit))),
+                    mode: BuildProfileProjectMutationMode.AllowWithAudit)),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
         var result = await service.ExecuteAsync(CreateInput());
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Pass), result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Pass, result.Output!.Verdict);
         Assert.Empty(result.Output.ResidualRisks);
     }
 
@@ -125,23 +124,23 @@ public sealed class BuildServiceProjectMutationTests
                 CreateProfileJson(["daemon", "oneshot"], ["batchmode", "gui"], "allowWithAudit"),
                 "/workspace/build.ucli.json")),
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 projectMutation: CreateProjectMutation(
                     mutated: false,
-                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.AllowWithAudit),
-                    coverage: ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Partial))),
+                    mode: BuildProfileProjectMutationMode.AllowWithAudit,
+                    coverage: IpcBuildProjectMutationAuditCoverage.Partial)),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 
         var result = await service.ExecuteAsync(CreateInput());
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildVerdict.Incomplete), result.Output!.Verdict);
+        Assert.Equal(AssuranceVerdict.Incomplete, result.Output!.Verdict);
         var risk = Assert.Single(result.Output.ResidualRisks);
         Assert.Equal(BuildRiskCodes.ProjectMutationDetected.Value, risk.Code);
         Assert.False(risk.Blocking);
-        Assert.Equal(ContractLiteralCodec.ToValue(BuildClaimStatus.Indeterminate), FindClaim(result.Output, BuildClaimCodes.UnityBuildProjectMutationAccounted).Status);
+        Assert.Equal(AssuranceClaimStatus.Indeterminate, FindClaim(result.Output, BuildClaimCodes.UnityBuildProjectMutationAccounted).Status);
     }
 
     [Fact]
@@ -152,12 +151,12 @@ public sealed class BuildServiceProjectMutationTests
         var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
         var service = CreateService(
             requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
+                IpcBuildReportResult.Succeeded,
+                IpcBuildLogCompletionReason.Completed,
                 errorCount: 0,
                 projectMutation: CreateProjectMutation(
                     mutated: false,
-                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Audit))),
+                    mode: BuildProfileProjectMutationMode.Audit)),
             artifactStore: artifactStore);
 
         var result = await service.ExecuteAsync(CreateInput());
@@ -168,63 +167,4 @@ public sealed class BuildServiceProjectMutationTests
         Assert.Null(artifactStore.WrittenMetadata);
     }
 
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Execute_WithInvalidProjectMutationCoverageResponse_ReturnsCommandFailure ()
-    {
-        using var tempDirectory = CreateArtifactDirectoryScope();
-        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
-        var service = CreateService(
-            requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-                errorCount: 0,
-                projectMutation: CreateProjectMutation(
-                    mutated: false,
-                    mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
-                    coverage: "legacy")),
-            artifactStore: artifactStore);
-
-        var result = await service.ExecuteAsync(CreateInput());
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Null(artifactStore.WrittenMetadata);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task Execute_WithInconsistentProjectMutationItemsResponse_ReturnsCommandFailure ()
-    {
-        using var tempDirectory = CreateArtifactDirectoryScope();
-        var artifactStore = new StubBuildRunArtifactStore(tempDirectory.FullPath);
-        var service = CreateService(
-            requestExecutor: CreateBuildResponseExecutor(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
-                ContractLiteralCodec.ToValue(IpcBuildLogCompletionReason.Completed),
-                errorCount: 0,
-                projectMutation: new IpcBuildProjectMutationAudit(
-                    Mode: ContractLiteralCodec.ToValue(BuildProfileProjectMutationMode.Forbid),
-                    Coverage: ContractLiteralCodec.ToValue(IpcBuildProjectMutationAuditCoverage.Full),
-                    Mutated: false,
-                    BeforeDigest: new string('1', 64),
-                    AfterDigest: new string('2', 64),
-                    Items:
-                    [
-                        new IpcBuildProjectMutationAuditItem(
-                            Path: "Assets/Generated.asset",
-                            ChangeKind: ContractLiteralCodec.ToValue(IpcBuildProjectMutationChangeKind.Added),
-                            BeforeSha256: null,
-                            AfterSha256: new string('2', 64)),
-                    ])),
-            artifactStore: artifactStore);
-
-        var result = await service.ExecuteAsync(CreateInput());
-
-        Assert.False(result.IsSuccess);
-        var error = Assert.Single(result.Errors);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, error.Code);
-        Assert.Null(artifactStore.WrittenMetadata);
-    }
 }

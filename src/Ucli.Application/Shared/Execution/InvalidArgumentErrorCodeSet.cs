@@ -10,7 +10,7 @@ internal static class InvalidArgumentErrorCodeSet
     /// <summary> Returns whether the specified code represents a caller-correctable invalid argument. </summary>
     public static bool Contains (UcliCode code)
     {
-        return code.IsValid && AllCodes.Contains(code);
+        return code is not null && AllCodes.Contains(code);
     }
 
     private static IReadOnlySet<UcliCode> CreateAllCodes ()

@@ -5,6 +5,7 @@ using MackySoft.Ucli.Application.Features.Screenshot.Capture;
 using MackySoft.Ucli.Application.Shared.Context;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Foundation;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Screenshot;
@@ -12,6 +13,8 @@ namespace MackySoft.Ucli.Application.Tests.Screenshot;
 public sealed class ScreenshotCaptureServiceTests
 {
     private static readonly DateTimeOffset CreatedAtUtc = new(2026, 7, 11, 0, 0, 0, TimeSpan.Zero);
+    private static readonly Guid CaptureId =
+        Guid.Parse("22222222-2222-2222-2222-222222222222");
 
     [Fact]
     [Trait("Size", "Small")]
@@ -20,7 +23,7 @@ public sealed class ScreenshotCaptureServiceTests
         var artifactStore = new RecordingScreenshotArtifactStore();
         var unityExecutor = new UnexpectedUnityRequestExecutor();
         var service = CreateService(
-            DaemonSessionReadResult.Success(session: null),
+            DaemonSessionReadResult.Missing(),
             unityExecutor,
             artifactStore);
 
@@ -61,26 +64,27 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.Equal(UcliCommandIds.Screenshot, invocation.Command);
         Assert.Equal(UnityExecutionMode.Daemon, invocation.Mode);
         var payload = Assert.IsType<UnityRequestPayload.ScreenshotCapture>(invocation.Payload);
-        Assert.Equal(target, payload.Target);
-        Assert.Equal(requestedWidth, payload.RequestedWidth);
-        Assert.Equal(requestedHeight, payload.RequestedHeight);
-        Assert.Equal(RecordingScreenshotArtifactStore.RawStagingPath, payload.StagingPath);
-        Assert.Equal(5000, payload.TimeoutMilliseconds);
+        Assert.Equal(CaptureId, payload.Request.CaptureId);
+        Assert.Equal(target, payload.Request.Target);
+        Assert.Equal(requestedWidth, payload.Request.RequestedWidth);
+        Assert.Equal(requestedHeight, payload.Request.RequestedHeight);
+        Assert.Equal(TimeSpan.FromMilliseconds(5000), invocation.Timeout);
+        Assert.Equal(CaptureId, Assert.Single(artifactStore.CaptureIds));
 
         var commit = Assert.Single(artifactStore.CommitRequests);
         Assert.Equal(width, commit.Width);
         Assert.Equal(height, commit.Height);
-        Assert.Equal(IpcScreenshotPixelFormat.Rgba8Srgb, commit.Staging.PixelFormat);
-        Assert.Equal(IpcScreenshotRowOrder.TopDown, commit.Staging.RowOrder);
-        Assert.Equal(width * 4, commit.Staging.RowStrideBytes);
-        Assert.Equal((long)width * height * 4, commit.Staging.SizeBytes);
+        Assert.Equal(IpcScreenshotPixelFormat.Rgba8Srgb, commit.PixelFormat);
+        Assert.Equal(IpcScreenshotRowOrder.TopDown, commit.RowOrder);
+        Assert.Equal(width * 4, commit.RowStrideBytes);
+        Assert.Equal((long)width * height * 4, commit.SizeBytes);
         Assert.Equal(1, artifactStore.DiscardCount);
 
         var output = result.Output!;
         Assert.Equal(target, output.Capture.Target);
         Assert.Equal(7, output.Capture.State.Generations.DomainReloadGeneration);
         Assert.Equal(IpcPlayModeState.Stopped, output.Capture.State.PlayMode.State);
-        Assert.Equal(new string('b', 64), output.Artifact.Digest);
+        Assert.Equal(Sha256Digest.Parse(new string('b', 64)), output.Artifact.Digest);
     }
 
     [Theory]
@@ -177,8 +181,7 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.True(result.IsSuccess);
         var invocation = Assert.Single(unityExecutor.Invocations);
         Assert.Equal(UcliCommandIds.Screenshot, invocation.Command);
-        var payload = Assert.IsType<UnityRequestPayload.ScreenshotCapture>(invocation.Payload);
-        Assert.Equal(7000, payload.TimeoutMilliseconds);
+        Assert.Equal(TimeSpan.FromMilliseconds(7000), invocation.Timeout);
     }
 
     [Fact]
@@ -203,9 +206,12 @@ public sealed class ScreenshotCaptureServiceTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task Capture_WhenUnityReturnsDifferentDimensions_RejectsAndDiscardsStagingWithoutCommit ()
+    public async Task Capture_WhenUnityReturnsDifferentCaptureId_RejectsAndDiscardsStagingWithoutCommit ()
     {
-        var response = CreateResponse(width: 1280, height: 720);
+        var response = CreateResponse(
+            width: 1920,
+            height: 1080,
+            captureId: Guid.Parse("33333333-3333-3333-3333-333333333333"));
         var unityExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(response));
         var artifactStore = new RecordingScreenshotArtifactStore();
         var service = CreateService(CreateGuiSessionResult(), unityExecutor, artifactStore);
@@ -215,44 +221,32 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.False(result.IsSuccess);
         Assert.Empty(artifactStore.CommitRequests);
         Assert.Equal(1, artifactStore.DiscardCount);
-        Assert.Contains("dimensions", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Contains("identifier", result.Error!.Message, StringComparison.Ordinal);
     }
 
-    [Theory]
-    [InlineData("dimensions")]
-    [InlineData("returned-path")]
+    [Fact]
     [Trait("Size", "Small")]
-    public async Task Capture_WhenRawStagingContractIsUnsupported_DelegatesValidationToArtifactStore (string caseName)
+    public async Task Capture_WhenUnityReturnsMalformedStagingLayout_RejectsBeforeCommit ()
     {
-        var width = caseName == "dimensions"
-            ? IpcScreenshotCaptureLimits.MaximumDimension + 1
-            : 1920;
-        var height = caseName == "dimensions" ? 1 : 1080;
-        var returnedStagingPath = caseName == "returned-path"
-            ? RecordingScreenshotArtifactStore.RawStagingPath + ".unexpected"
-            : null;
-        var response = CreateResponse(
-            width,
-            height,
-            requestedWidth: width,
-            requestedHeight: height,
-            stagingPath: returnedStagingPath);
+        var response = CreateMalformedResponse(
+            width: 1920,
+            height: 1080,
+            requestedWidth: 1920,
+            requestedHeight: 1080,
+            target: IpcScreenshotTarget.Game,
+            colorSpace: null,
+            lifecycleState: null,
+            compileState: null,
+            playModeState: null,
+            stagingSizeBytes: 1);
         var unityExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(response));
-        var artifactStore = new RecordingScreenshotArtifactStore
-        {
-            CommitResult = ScreenshotArtifactCommitResult.Failure(ExecutionError.InternalError(
-                "Screenshot staging contract is unsupported.",
-                ScreenshotErrorCodes.ScreenshotCaptureUnsupported)),
-        };
+        var artifactStore = new RecordingScreenshotArtifactStore();
         var service = CreateService(CreateGuiSessionResult(), unityExecutor, artifactStore);
 
-        var result = await service.CaptureAsync(CreateInput(width, height), CancellationToken.None);
+        var result = await service.CaptureAsync(CreateInput(), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(ScreenshotErrorCodes.ScreenshotCaptureUnsupported, result.Error!.Code);
-        var commit = Assert.Single(artifactStore.CommitRequests);
-        Assert.Equal(width, commit.Width);
-        Assert.Equal(returnedStagingPath ?? RecordingScreenshotArtifactStore.RawStagingPath, commit.Staging.Path);
+        Assert.Empty(artifactStore.CommitRequests);
         Assert.Equal(1, artifactStore.DiscardCount);
     }
 
@@ -294,7 +288,10 @@ public sealed class ScreenshotCaptureServiceTests
     public async Task Capture_WhenUnityTimesOut_DiscardsPreparedStagingWithoutCommit ()
     {
         var unityExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Failure(
-            new UnityRequestFailure(IpcTransportErrorCodes.IpcTimeout, "Screenshot timed out.")));
+            new UnityRequestFailure(
+                UnityRequestFailureKind.General,
+                IpcTransportErrorCodes.IpcTimeout,
+                "Screenshot timed out.")));
         var artifactStore = new RecordingScreenshotArtifactStore();
         var service = CreateService(CreateGuiSessionResult(), unityExecutor, artifactStore);
 
@@ -378,7 +375,8 @@ public sealed class ScreenshotCaptureServiceTests
         DaemonSessionReadResult sessionResult,
         IUnityRequestExecutor requestExecutor,
         RecordingScreenshotArtifactStore artifactStore,
-        int? screenshotTimeoutMilliseconds = null)
+        int? screenshotTimeoutMilliseconds = null,
+        Guid? captureId = null)
     {
         var context = ProjectContextTestFactory.CreateSingleRootProject() with
         {
@@ -398,7 +396,7 @@ public sealed class ScreenshotCaptureServiceTests
             new RecordingDaemonSessionStore(sessionResult),
             requestExecutor,
             artifactStore,
-            new StaticCaptureIdFactory());
+            new StaticGuidGenerator(captureId ?? CaptureId));
     }
 
     private static ScreenshotCaptureInput CreateInput (
@@ -417,9 +415,10 @@ public sealed class ScreenshotCaptureServiceTests
 
     private static DaemonSessionReadResult CreateGuiSessionResult ()
     {
-        return DaemonSessionReadResult.Success(DaemonSessionTestFactory.CreateUserOwned(
+        return DaemonSessionReadResultTestFactory.Found(DaemonSessionTestFactory.CreateUserOwned(
             editorMode: DaemonEditorMode.Gui,
-            endpointAddress: "ucli-screenshot"));
+            endpointAddress: "ucli-screenshot",
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId));
     }
 
     private static UnityRequestResponse CreateResponse (
@@ -432,7 +431,7 @@ public sealed class ScreenshotCaptureServiceTests
         string? compileState = null,
         string? playModeState = null,
         IpcScreenshotTarget target = IpcScreenshotTarget.Game,
-        string? stagingPath = null,
+        Guid? captureId = null,
         UnityEditorStateSnapshot? state = null)
     {
         if (colorSpace is not null
@@ -450,33 +449,35 @@ public sealed class ScreenshotCaptureServiceTests
                 lifecycleState,
                 compileState,
                 playModeState,
-                stagingPath ?? RecordingScreenshotArtifactStore.RawStagingPath);
+                stagingSizeBytes: null);
         }
 
         var payload = new IpcScreenshotCaptureResponse(
+            captureId ?? CaptureId,
             new IpcScreenshotCapture(
                 target,
                 requestedWidth.HasValue
                     ? IpcScreenshotSizeMode.RequestedResolution
                     : IpcScreenshotSizeMode.CurrentSurface,
-                requestedWidth: requestedWidth,
-                requestedHeight: requestedHeight,
+                RequestedWidth: requestedWidth,
+                RequestedHeight: requestedHeight,
+                Width: width,
+                Height: height,
+                IpcScreenshotColorSpace.Linear,
+                State: state ?? CreateState()),
+            new IpcScreenshotStagingImage(
                 width,
                 height,
-                IpcScreenshotColorSpace.Linear,
-                state: state ?? CreateState()),
-            new IpcScreenshotStagingImage(
-                stagingPath ?? RecordingScreenshotArtifactStore.RawStagingPath,
                 IpcScreenshotPixelFormat.Rgba8Srgb,
                 IpcScreenshotRowOrder.TopDown,
                 RowStrideBytes: width * 4,
                 SizeBytes: (long)width * height * 4));
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             IpcProtocol.CurrentVersion,
-            "request-1",
-            IpcProtocol.StatusOk,
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            IpcResponseStatus.Ok,
             IpcPayloadCodec.SerializeToElement(payload),
-            Errors: []));
+            errors: []));
     }
 
     private static UnityRequestResponse CreateMalformedResponse (
@@ -489,10 +490,11 @@ public sealed class ScreenshotCaptureServiceTests
         string? lifecycleState,
         string? compileState,
         string? playModeState,
-        string stagingPath)
+        long? stagingSizeBytes)
     {
         var payload = JsonSerializer.SerializeToElement(new
         {
+            captureId = CaptureId,
             capture = new
             {
                 target = ContractLiteralCodec.ToValue(target),
@@ -527,19 +529,20 @@ public sealed class ScreenshotCaptureServiceTests
             },
             staging = new
             {
-                path = stagingPath,
+                width,
+                height,
                 pixelFormat = ContractLiteralCodec.ToValue(IpcScreenshotPixelFormat.Rgba8Srgb),
                 rowOrder = ContractLiteralCodec.ToValue(IpcScreenshotRowOrder.TopDown),
                 rowStrideBytes = width * 4,
-                sizeBytes = (long)width * height * 4,
+                sizeBytes = stagingSizeBytes ?? ((long)width * height * 4),
             },
         });
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
             IpcProtocol.CurrentVersion,
-            "request-1",
-            IpcProtocol.StatusOk,
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            IpcResponseStatus.Ok,
             payload,
-            Errors: []));
+            errors: []));
     }
 
     private static UnityEditorStateSnapshot CreateState (
@@ -566,21 +569,15 @@ public sealed class ScreenshotCaptureServiceTests
                 IsPlayingOrWillChangePlaymode: isPlayingOrWillChangePlaymode));
     }
 
-    private sealed class StaticCaptureIdFactory : IScreenshotCaptureIdFactory
-    {
-        public string Create () => "capture-1";
-    }
-
     private sealed class RecordingScreenshotArtifactStore : IScreenshotArtifactStore
     {
-        public const string RawStagingPath =
-            "/repo/.ucli/local/fingerprints/project-fingerprint/work/screenshot/capture-1/capture.rgba";
-
         public int PrepareCount { get; private set; }
 
         public int DiscardCount { get; private set; }
 
-        public List<ScreenshotArtifactCommitRequest> CommitRequests { get; } = [];
+        public List<IpcScreenshotStagingImage> CommitRequests { get; } = [];
+
+        public List<Guid> CaptureIds { get; } = [];
 
         public ScreenshotArtifactCommitResult? CommitResult { get; init; }
 
@@ -588,9 +585,10 @@ public sealed class ScreenshotCaptureServiceTests
 
         public ScreenshotArtifactPreparationResult Prepare (
             ResolvedUnityProjectContext unityProject,
-            string captureId)
+            Guid captureId)
         {
             PrepareCount++;
+            CaptureIds.Add(captureId);
             return ScreenshotArtifactPreparationResult.Success(new RecordingScreenshotArtifactLease(this));
         }
 
@@ -603,18 +601,16 @@ public sealed class ScreenshotCaptureServiceTests
                 this.store = store;
             }
 
-            public string RawStagingPath => RecordingScreenshotArtifactStore.RawStagingPath;
-
             public ValueTask<ScreenshotArtifactCommitResult> CommitAsync (
-                ScreenshotArtifactCommitRequest request,
+                IpcScreenshotStagingImage staging,
                 CancellationToken cancellationToken = default)
             {
-                store.CommitRequests.Add(request);
+                store.CommitRequests.Add(staging);
                 return ValueTask.FromResult(store.CommitResult ?? ScreenshotArtifactCommitResult.Success(new ScreenshotArtifact(
-                    Path: ".ucli/local/fingerprints/project-fingerprint/artifacts/screenshot/capture-1/screenshot.png",
-                    Digest: new string('b', 64),
-                    SizeBytes: 1024,
-                    CreatedAtUtc)));
+                    path: ".ucli/local/projects/<projectStorageKey>/artifacts/screenshot/<captureStorageKey>/screenshot.png",
+                    digest: Sha256Digest.Parse(new string('b', 64)),
+                    sizeBytes: 1024,
+                    createdAtUtc: CreatedAtUtc)));
             }
 
             public ScreenshotArtifactDiscardResult Discard ()

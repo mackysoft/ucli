@@ -41,19 +41,17 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
                 timeout,
                 config,
                 project,
-                new UnityRequestPayload.Raw(
-                    IpcMethodNames.OpsRead,
-                    IpcPayloadCodec.SerializeToElement(new IpcOpsReadRequest(
-                        FailFast: failFast,
-                        RequireReadinessGate: requireReadinessGate,
-                        IncludeEditLoweringOnly: includeEditLoweringOnly))),
+                new UnityRequestPayload.OpsRead(
+                    FailFast: failFast,
+                    RequireReadinessGate: requireReadinessGate,
+                    IncludeEditLoweringOnly: includeEditLoweringOnly),
                 cancellationToken)
             .ConfigureAwait(false);
         if (!executionResult.IsSuccess)
         {
             return OpsCatalogFetchResult.Failure(
                 executionResult.Message,
-                executionResult.ErrorCode!.Value,
+                executionResult.ErrorCode!,
                 executionResult.FailureInfo!.StartupFailure);
         }
 
@@ -68,24 +66,10 @@ internal sealed class OpsCatalogReader : IOpsCatalogReader
         ArgumentNullException.ThrowIfNull(response);
         ArgumentException.ThrowIfNullOrWhiteSpace(responseSourceName);
 
-        if (response.HasFailureStatus || response.Errors.Count != 0)
+        if (response.Errors.Count != 0)
         {
-            var firstError = response.Errors.FirstOrDefault();
-            if (firstError != null)
-            {
-                return OpsCatalogFetchResult.Failure(firstError.Message, firstError.Code);
-            }
-
-            if (!string.IsNullOrWhiteSpace(response.FailureStatus))
-            {
-                return OpsCatalogFetchResult.Failure(
-                    $"{responseSourceName} failed with status '{response.FailureStatus}'.",
-                    UcliCoreErrorCodes.InternalError);
-            }
-
-            return OpsCatalogFetchResult.Failure(
-                $"{responseSourceName} failed with an error status.",
-                UcliCoreErrorCodes.InternalError);
+            var firstError = response.Errors[0];
+            return OpsCatalogFetchResult.Failure(firstError.Message, firstError.Code);
         }
 
         if (!IpcPayloadCodec.TryDeserialize(response.Payload, out IpcOpsReadResponse payload, out var payloadError))

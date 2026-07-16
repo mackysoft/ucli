@@ -22,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             description: "Finds project assets by type, path prefix, or name substring.",
             assurance: new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.ObservesUnityState },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate asset query arguments and observe matching project assets without applying mutation.",
                 callSemantics: "Read matching project assets and emit bounded result data without applying mutation.",
@@ -81,11 +81,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var payloadMatches = new AssetsFindMatch[windowedMatches.Items.Count];
             for (var i = 0; i < windowedMatches.Items.Count; i++)
             {
+                var match = windowedMatches.Items[i];
                 payloadMatches[i] = new AssetsFindMatch(
-                    assetPath: windowedMatches.Items[i].AssetPath,
-                    assetGuid: windowedMatches.Items[i].AssetGuid,
-                    name: windowedMatches.Items[i].Name,
-                    typeId: windowedMatches.Items[i].TypeId);
+                    assetPath: new UnityAssetPath(match.AssetPath),
+                    assetGuid: match.AssetGuid,
+                    name: match.Name,
+                    typeId: new UnityTypeId(match.TypeId));
             }
 
             return OperationPhaseStepResult.Success(
@@ -103,9 +104,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             validationState = default;
             failure = null;
 
-            if (string.IsNullOrWhiteSpace(args.Type)
-                && string.IsNullOrWhiteSpace(args.PathPrefix)
-                && string.IsNullOrWhiteSpace(args.NameContains))
+            if (args.Type == null
+                && args.PathPrefix == null
+                && args.NameContains == null)
             {
                 failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
                     operation.Id,
@@ -132,32 +133,12 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 }
             }
 
-            string? normalizedPathPrefix = null;
-            if (args.PathPrefix != null)
-            {
-                if (!UnityAssetPathContract.TryNormalizeAssetsRootOrDescendantPath(args.PathPrefix, out normalizedPathPrefix))
-                {
-                    failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
-                        operation.Id,
-                        $"Path prefix must be 'Assets' or one of its descendants. Actual: {args.PathPrefix}.");
-                    return false;
-                }
-            }
-
-            if (args.NameContains != null && string.IsNullOrWhiteSpace(args.NameContains))
-            {
-                failure = OperationPhaseExecutionUtilities.CreateInvalidArgumentFailure(
-                    operation.Id,
-                    "Operation 'args.nameContains' must not be empty or whitespace.");
-                return false;
-            }
-
-            var windowOptions = BoundedWindowOptionsNormalizer.NormalizeValidated(args.Limit, args.Cursor);
+            var windowOptions = BoundedWindowOptions.CreateBounded(args.Limit, args.Cursor);
 
             validationState = new ValidationState(
                 new AssetsFindSearchEngine.SearchCriteria(
                     typeFilter,
-                    normalizedPathPrefix,
+                    args.PathPrefix,
                     args.NameContains),
                 windowOptions);
             return true;

@@ -8,7 +8,7 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
     private readonly List<ReadInvocation> readInvocations = [];
     private readonly List<WriteInvocation> writeInvocations = [];
 
-    public Func<string, string, DaemonDiagnosisReadResult>? OnRead { get; set; }
+    public Func<string, ProjectFingerprint, DaemonDiagnosisReadResult>? OnRead { get; set; }
 
     public Action<DaemonDiagnosis>? OnWrite { get; set; }
 
@@ -21,6 +21,10 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
     public DaemonDiagnosisStoreOperationResult DeleteResult { get; set; } =
         DaemonDiagnosisStoreOperationResult.Success();
 
+    public Func<string, ProjectFingerprint, CancellationToken, ValueTask<DaemonDiagnosisStoreOperationResult>>? DeleteAsyncHandler { get; set; }
+
+    public Func<string, ProjectFingerprint, DaemonDiagnosis, CancellationToken, ValueTask<DaemonDiagnosisStoreOperationResult>>? WriteAsyncHandler { get; set; }
+
     public IReadOnlyList<ReadInvocation> ReadInvocations => readInvocations;
 
     public IReadOnlyList<WriteInvocation> WriteInvocations => writeInvocations;
@@ -29,7 +33,7 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
 
     public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -41,7 +45,7 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
 
     public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         DaemonDiagnosis diagnosis,
         CancellationToken cancellationToken = default)
     {
@@ -51,34 +55,44 @@ internal sealed class RecordingDaemonDiagnosisStore : IDaemonDiagnosisStore
         writeInvocations.Add(new WriteInvocation(storageRoot, projectFingerprint, diagnosis, cancellationToken));
         OnWrite?.Invoke(diagnosis);
 
+        if (WriteAsyncHandler is not null)
+        {
+            return WriteAsyncHandler(storageRoot, projectFingerprint, diagnosis, cancellationToken);
+        }
+
         return ValueTask.FromResult(WriteResult);
     }
 
     public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
         string storageRoot,
-        string projectFingerprint,
+        ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         deleteInvocations.Add(new DeleteInvocation(storageRoot, projectFingerprint, cancellationToken));
 
+        if (DeleteAsyncHandler is not null)
+        {
+            return DeleteAsyncHandler(storageRoot, projectFingerprint, cancellationToken);
+        }
+
         return ValueTask.FromResult(DeleteResult);
     }
 
     internal readonly record struct ReadInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 
     internal readonly record struct WriteInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         DaemonDiagnosis Diagnosis,
         CancellationToken CancellationToken);
 
     internal readonly record struct DeleteInvocation (
         string StorageRoot,
-        string ProjectFingerprint,
+        ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 }

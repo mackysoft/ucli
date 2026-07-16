@@ -11,32 +11,43 @@ namespace MackySoft.Ucli.Unity
     public sealed class UcliBuildRunnerResult
     {
         /// <summary> Initializes a new instance of the <see cref="UcliBuildRunnerResult" /> class. </summary>
-        /// <param name="status"> The terminal status literal: <c>succeeded</c>, <c>failed</c>, or <c>canceled</c>. </param>
+        /// <param name="status"> The terminal build result. </param>
         /// <param name="outputs"> The runner-declared output paths relative to <see cref="UcliBuildRunnerContext.OutputDir" />. </param>
         /// <param name="summary"> The runner terminal summary. </param>
         /// <param name="diagnostics"> The runner diagnostics. </param>
         /// <param name="buildReport"> The optional BuildReport JSON source file relative to <see cref="UcliBuildRunnerContext.OutputDir" />. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="summary" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentException"> Thrown when a collection contains a <see langword="null" /> item, or when a successful result declares no outputs. </exception>
+        /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="status" /> is not a terminal build result. </exception>
         public UcliBuildRunnerResult (
-            string status,
+            IpcBuildReportResult status,
             IReadOnlyList<string>? outputs,
             UcliBuildRunnerSummary summary,
-            IReadOnlyList<UcliBuildRunnerDiagnostic>? diagnostics = null,
-            UcliBuildRunnerBuildReport? buildReport = null)
+            IReadOnlyList<UcliBuildRunnerDiagnostic>? diagnostics,
+            UcliBuildRunnerBuildReport? buildReport)
         {
-            if (string.IsNullOrWhiteSpace(status))
+            if (!ContractLiteralCodec.IsDefined(status) || status == IpcBuildReportResult.Unknown)
             {
-                throw new ArgumentException("status must not be empty.", nameof(status));
+                throw new ArgumentOutOfRangeException(nameof(status), status, "status must be terminal.");
+            }
+
+            var runnerSummary = summary ?? throw new ArgumentNullException(nameof(summary));
+            var outputSnapshot = CreateSnapshot(outputs, nameof(outputs));
+            var diagnosticSnapshot = CreateSnapshot(diagnostics, nameof(diagnostics));
+            if (status == IpcBuildReportResult.Succeeded && outputSnapshot.Count == 0)
+            {
+                throw new ArgumentException("A successful build runner result must declare at least one output.", nameof(outputs));
             }
 
             Status = status;
-            Outputs = outputs ?? Array.Empty<string>();
-            Summary = summary ?? throw new ArgumentNullException(nameof(summary));
-            Diagnostics = diagnostics ?? Array.Empty<UcliBuildRunnerDiagnostic>();
+            Outputs = outputSnapshot;
+            Summary = runnerSummary;
+            Diagnostics = diagnosticSnapshot;
             BuildReport = buildReport;
         }
 
         /// <summary> Gets the terminal status literal. </summary>
-        public string Status { get; }
+        public IpcBuildReportResult Status { get; }
 
         /// <summary> Gets the runner-declared output paths. </summary>
         public IReadOnlyList<string> Outputs { get; }
@@ -59,7 +70,7 @@ namespace MackySoft.Ucli.Unity
             UcliBuildRunnerBuildReport? buildReport = null)
         {
             return new UcliBuildRunnerResult(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Succeeded),
+                IpcBuildReportResult.Succeeded,
                 outputs,
                 new UcliBuildRunnerSummary(durationMilliseconds, errorCount: 0, warningCount),
                 diagnostics,
@@ -76,7 +87,7 @@ namespace MackySoft.Ucli.Unity
             UcliBuildRunnerBuildReport? buildReport = null)
         {
             return new UcliBuildRunnerResult(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Failed),
+                IpcBuildReportResult.Failed,
                 outputs,
                 new UcliBuildRunnerSummary(durationMilliseconds, errorCount, warningCount),
                 diagnostics,
@@ -92,11 +103,31 @@ namespace MackySoft.Ucli.Unity
             UcliBuildRunnerBuildReport? buildReport = null)
         {
             return new UcliBuildRunnerResult(
-                ContractLiteralCodec.ToValue(IpcBuildReportResult.Canceled),
+                IpcBuildReportResult.Canceled,
                 outputs,
                 new UcliBuildRunnerSummary(durationMilliseconds, errorCount: 0, warningCount),
                 diagnostics,
                 buildReport);
+        }
+
+        private static IReadOnlyList<T> CreateSnapshot<T> (
+            IReadOnlyList<T>? values,
+            string parameterName)
+            where T : class
+        {
+            if (values == null || values.Count == 0)
+            {
+                return Array.Empty<T>();
+            }
+
+            var snapshot = new T[values.Count];
+            for (var index = 0; index < values.Count; index++)
+            {
+                snapshot[index] = values[index]
+                    ?? throw new ArgumentException($"Collection item at index {index} must not be null.", parameterName);
+            }
+
+            return Array.AsReadOnly(snapshot);
         }
     }
 }

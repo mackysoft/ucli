@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandExecution;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
@@ -14,7 +13,7 @@ public sealed class DaemonStopServiceTests
     public async Task Stop_WhenSupervisorIsUnavailable_FallsBackToDirectStopOperation ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-command-service", "stop-fallback-not-running");
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 3456,
             repositoryRoot: scope.FullPath);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
@@ -65,37 +64,11 @@ public sealed class DaemonStopServiceTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task Stop_WhenDirectStopOperationFailsWithoutError_ReturnsFallbackInternalError ()
-    {
-        using var scope = TestDirectories.CreateTempScope("daemon-command-service", "stop-fallback-failure");
-        var context = DaemonCommandExecutionContextTestFactory.Create(
-            timeoutMilliseconds: 1100,
-            repositoryRoot: scope.FullPath);
-        var resolver = new RecordingDaemonCommandExecutionContextResolver(
-            DaemonCommandExecutionContextResolutionResult.Success(context));
-        var daemonStopOperation = new RecordingDaemonStopOperation(new DaemonStopResult(DaemonStopStatus.Failed, null));
-        var supervisorProjectGateway = new RecordingDaemonProjectLifecycleGateway
-        {
-            TryStopProjectResult = null,
-        };
-        var service = CreateService(resolver, supervisorProjectGateway, daemonStopOperation);
-
-        var result = await service.StopAsync(projectPath: null, timeoutMilliseconds: null, cancellationToken: CancellationToken.None);
-
-        Assert.False(result.IsSuccess);
-        Assert.Null(result.Output);
-        var error = Assert.IsType<ExecutionError>(result.Error);
-        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal("Daemon stop operation failed without structured error details.", error.Message);
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task Stop_WhenSupervisorGatewayFails_ReturnsFailureWithoutDirectFallback ()
     {
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 2100,
-            repositoryRoot: "/tmp/repo-root");
+            repositoryRoot: ProjectPathTestValues.TemporaryRepositoryRoot);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
             DaemonCommandExecutionContextResolutionResult.Success(context));
         var daemonStopOperation = new RecordingDaemonStopOperation(DaemonStopResult.NotRunning());
@@ -123,7 +96,7 @@ public sealed class DaemonStopServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-command-service", "stop-supervisor-timeout-fallback");
         var timeProvider = new ManualTimeProvider();
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 15000,
             repositoryRoot: scope.FullPath);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
@@ -152,8 +125,8 @@ public sealed class DaemonStopServiceTests
             context.Timeout);
         Assert.Equal(TimeSpan.FromSeconds(5), tryStopInvocation.Timeout);
         var directStopInvocation = DaemonStopOperationAssert.StopRequested(daemonStopOperation, context);
-        Assert.True(directStopInvocation.Timeout > TimeSpan.Zero);
-        Assert.True(directStopInvocation.Timeout <= DaemonTimeouts.StopCompensationTimeout);
+        Assert.True(directStopInvocation.Deadline.TryGetRemainingTimeout(out var directStopTimeout));
+        Assert.True(directStopTimeout <= DaemonTimeouts.StopCompensationTimeout);
     }
 
     [Fact]
@@ -162,7 +135,7 @@ public sealed class DaemonStopServiceTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-command-service", "stop-remaining-timeout");
         var timeProvider = new ManualTimeProvider();
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 700,
             repositoryRoot: scope.FullPath);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
@@ -193,7 +166,7 @@ public sealed class DaemonStopServiceTests
     public async Task Stop_WhenSupervisorIsReachable_UsesSupervisorStopProject ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-command-service", "stop-supervisor");
-        var context = DaemonCommandExecutionContextTestFactory.Create(
+        var context = DaemonCommandExecutionContextTestFactory.CreateForRepositoryRoot(
             timeoutMilliseconds: 2100,
             repositoryRoot: scope.FullPath);
         var resolver = new RecordingDaemonCommandExecutionContextResolver(
@@ -206,7 +179,7 @@ public sealed class DaemonStopServiceTests
         var service = CreateService(resolver, supervisorProjectGateway, daemonStopOperation);
 
         var result = await service.StopAsync(
-            projectPath: "/tmp/sandbox-unity",
+            projectPath: ProjectPathTestValues.IndependentUnityProject,
             timeoutMilliseconds: 8888,
             cancellationToken: CancellationToken.None);
 
@@ -231,6 +204,6 @@ public sealed class DaemonStopServiceTests
             resolver,
             supervisorProjectGateway,
             daemonStopOperation,
-            timeProvider);
+            timeProvider ?? TimeProvider.System);
     }
 }

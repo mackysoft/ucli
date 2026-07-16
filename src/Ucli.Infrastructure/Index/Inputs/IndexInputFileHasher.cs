@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Cryptography;
 using MackySoft.Ucli.Infrastructure.Paths;
 
@@ -6,16 +7,8 @@ namespace MackySoft.Ucli.Infrastructure.Index;
 /// <summary> Hashes read-index input files using deterministic path metadata ordering. </summary>
 internal static class IndexInputFileHasher
 {
-    /// <summary> Computes the content hash for all asset files. </summary>
-    public static ValueTask<string?> TryHashAssetsContentAsync (
-        IndexInputSourcePaths sourcePaths,
-        CancellationToken cancellationToken)
-    {
-        return TryHashDirectoryContentAsync(sourcePaths.AssetsPath, cancellationToken);
-    }
-
     /// <summary> Computes the content hash for all files under one directory. </summary>
-    public static ValueTask<string?> TryHashDirectoryContentAsync (
+    public static ValueTask<Sha256Digest?> TryHashDirectoryContentAsync (
         string directoryPath,
         CancellationToken cancellationToken)
     {
@@ -33,8 +26,8 @@ internal static class IndexInputFileHasher
     {
         cancellationToken.ThrowIfCancellationRequested();
         var scriptAssembliesHash = await TryHashDirectoryContentAsync(sourcePaths.ScriptAssembliesPath, cancellationToken).ConfigureAwait(false);
-        var packagesManifestHash = await TryHashFileAsync(sourcePaths.PackagesManifestPath, cancellationToken).ConfigureAwait(false);
-        var packagesLockHash = await TryHashFileAsync(sourcePaths.PackagesLockPath, cancellationToken).ConfigureAwait(false);
+        var packagesManifestHash = await FileContentHash.TryComputeFileHashAsync(sourcePaths.PackagesManifestPath, cancellationToken).ConfigureAwait(false);
+        var packagesLockHash = await FileContentHash.TryComputeFileHashAsync(sourcePaths.PackagesLockPath, cancellationToken).ConfigureAwait(false);
         var assemblyDefinitionHash = await TryHashAssemblyDefinitionFilesAsync(sourcePaths, cancellationToken).ConfigureAwait(false);
         return TryCreateCoreInputFileHashes(
             scriptAssembliesHash,
@@ -44,7 +37,7 @@ internal static class IndexInputFileHasher
     }
 
     /// <summary> Computes the combined hash for all assembly definition and assembly reference files. </summary>
-    public static async ValueTask<string?> TryHashAssemblyDefinitionFilesAsync (
+    public static async ValueTask<Sha256Digest?> TryHashAssemblyDefinitionFilesAsync (
         IndexInputSourcePaths sourcePaths,
         CancellationToken cancellationToken)
     {
@@ -67,16 +60,8 @@ internal static class IndexInputFileHasher
         return await TryHashFilesWithPathMetadataAsync(files, cancellationToken).ConfigureAwait(false);
     }
 
-    /// <summary> Computes one file content hash. </summary>
-    public static async ValueTask<string?> TryHashFileAsync (
-        string filePath,
-        CancellationToken cancellationToken)
-    {
-        return await FileContentHash.TryComputeFileHashAsync(filePath, cancellationToken).ConfigureAwait(false);
-    }
-
     /// <summary> Computes a SHA-256 lower-hex hash for one UTF-8 text value. </summary>
-    public static string ComputeUtf8Hash (string text)
+    public static Sha256Digest ComputeUtf8Hash (string text)
     {
         if (text == null)
         {
@@ -88,7 +73,7 @@ internal static class IndexInputFileHasher
         return hashWriter.GetHashAndReset();
     }
 
-    private static async ValueTask<string?> TryHashDirectoryFilesAsync (
+    private static async ValueTask<Sha256Digest?> TryHashDirectoryFilesAsync (
         string directoryPath,
         string searchPattern,
         SearchOption searchOption,
@@ -137,7 +122,7 @@ internal static class IndexInputFileHasher
         return true;
     }
 
-    private static async ValueTask<string?> TryHashFilesWithPathMetadataAsync (
+    private static async ValueTask<Sha256Digest?> TryHashFilesWithPathMetadataAsync (
         IReadOnlyList<string> files,
         CancellationToken cancellationToken)
     {
@@ -162,10 +147,10 @@ internal static class IndexInputFileHasher
     }
 
     private static IndexCoreInputFileHashes? TryCreateCoreInputFileHashes (
-        string? scriptAssembliesHash,
-        string? packagesManifestHash,
-        string? packagesLockHash,
-        string? assemblyDefinitionHash)
+        Sha256Digest? scriptAssembliesHash,
+        Sha256Digest? packagesManifestHash,
+        Sha256Digest? packagesLockHash,
+        Sha256Digest? assemblyDefinitionHash)
     {
         return scriptAssembliesHash == null
             || packagesManifestHash == null
@@ -173,10 +158,10 @@ internal static class IndexInputFileHasher
             || assemblyDefinitionHash == null
                 ? null
                 : new IndexCoreInputFileHashes(
-                    ScriptAssembliesHash: scriptAssembliesHash,
-                    PackagesManifestHash: packagesManifestHash,
-                    PackagesLockHash: packagesLockHash,
-                    AssemblyDefinitionHash: assemblyDefinitionHash);
+                    scriptAssembliesHash,
+                    packagesManifestHash,
+                    packagesLockHash,
+                    assemblyDefinitionHash);
     }
 
     private static async ValueTask<bool> TryAppendFileHashMetadataAsync (
@@ -184,7 +169,7 @@ internal static class IndexInputFileHasher
         string filePath,
         CancellationToken cancellationToken)
     {
-        var fileHash = await TryHashFileAsync(filePath, cancellationToken).ConfigureAwait(false);
+        var fileHash = await FileContentHash.TryComputeFileHashAsync(filePath, cancellationToken).ConfigureAwait(false);
         if (fileHash == null)
         {
             return false;
@@ -193,7 +178,7 @@ internal static class IndexInputFileHasher
         var normalizedPath = PathStringNormalizer.NormalizeAbsolutePathForHash(filePath);
         hashWriter.Append(normalizedPath);
         hashWriter.Append('\n');
-        hashWriter.Append(fileHash);
+        hashWriter.Append(fileHash.ToString());
         hashWriter.Append('\n');
         return true;
     }

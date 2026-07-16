@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Inventory;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -19,7 +18,7 @@ public sealed class DaemonListCommandTests
             BranchRef: "refs/heads/main",
             Head: "aaaaaaaa",
             ProjectPath: "/repo/wt-a/UnityProject",
-            ProjectFingerprint: "fp-a",
+            ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-a"),
             State: DaemonListItemState.Stale,
             Reason: DaemonListItemReason.StaleSession,
             IssuedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 0, 0, TimeSpan.Zero),
@@ -39,19 +38,19 @@ public sealed class DaemonListCommandTests
             ActionRequired: null,
             PrimaryDiagnostic: null,
             Diagnosis: new DaemonDiagnosisOutput(
-                Reason: "shutdownRequested",
+                Reason: DaemonDiagnosisReason.ShutdownRequested,
                 Message: "daemon shutdown completed",
-                ReportedBy: DaemonDiagnosisReportedByValues.Unity,
+                ReportedBy: DaemonDiagnosisReportedBy.Unity,
                 IsInferred: false,
                 UpdatedAtUtc: new DateTimeOffset(2026, 03, 09, 12, 1, 0, TimeSpan.Zero),
                 ProcessId: 1234,
                 EditorInstancePath: null,
                 ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 09, 11, 59, 0, TimeSpan.Zero),
-                UnityLogPath: "/repo/wt-a/.ucli/local/fingerprints/fp-a/unity.log",
+                UnityLogPath: "/repo/wt-a/.ucli/local/projects/pnab2tvoljg22qqdccv40fepmntci2sj9dh3vbk7lcvc97qqj6l0/unity.log",
                 StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
-                ActionRequired: DaemonDiagnosisActionRequiredValues.InspectUnityLog,
+                ActionRequired: DaemonDiagnosisActionRequired.InspectUnityLog,
                 PrimaryDiagnostic: new DaemonPrimaryDiagnosticOutput(
-                    Kind: DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler,
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                     Code: "CS0103",
                     File: "Assets/Foo.cs",
                     Line: 12,
@@ -93,17 +92,19 @@ public sealed class DaemonListCommandTests
                     .HasString("ownerKind", "cli")
                     .HasBoolean("canShutdownProcess", true)
                     .HasProperty("diagnosis", diagnosis => diagnosis
-                        .HasString("reason", "shutdownRequested")
+                        .HasString("reason", ContractLiteralCodec.ToValue(DaemonDiagnosisReason.ShutdownRequested))
                         .HasString("message", "daemon shutdown completed")
-                        .HasString("reportedBy", DaemonDiagnosisReportedByValues.Unity)
+                        .HasString("reportedBy", ContractLiteralCodec.ToValue(DaemonDiagnosisReportedBy.Unity))
                         .HasBoolean("isInferred", false)
                         .HasInt32("processId", 1234)
                         .HasString("processStartedAtUtc", "2026-03-09T11:59:00+00:00")
-                        .HasString("unityLogPath", "/repo/wt-a/.ucli/local/fingerprints/fp-a/unity.log")
+                        .HasString(
+                            "unityLogPath",
+                            "/repo/wt-a/.ucli/local/projects/pnab2tvoljg22qqdccv40fepmntci2sj9dh3vbk7lcvc97qqj6l0/unity.log")
                         .HasString("startupPhase", ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration))
-                        .HasString("actionRequired", DaemonDiagnosisActionRequiredValues.InspectUnityLog)
+                        .HasString("actionRequired", ContractLiteralCodec.ToValue(DaemonDiagnosisActionRequired.InspectUnityLog))
                         .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
-                            .HasString("kind", DaemonDiagnosisPrimaryDiagnosticKindValues.Compiler)
+                            .HasString("kind", ContractLiteralCodec.ToValue(DaemonDiagnosisPrimaryDiagnosticKind.Compiler))
                             .HasString("code", "CS0103")
                             .HasString("file", "Assets/Foo.cs")
                             .HasInt32("line", 12)

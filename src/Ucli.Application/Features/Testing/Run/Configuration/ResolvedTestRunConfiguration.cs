@@ -11,7 +11,6 @@ namespace MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 /// <param name="TestFilter"> The optional test-filter value. </param>
 /// <param name="TestCategories"> The normalized test-category values. </param>
 /// <param name="AssemblyNames"> The normalized assembly-name values. </param>
-/// <param name="TestSettingsPath"> The optional test-settings path value. </param>
 /// <param name="TimeoutMilliseconds"> The optional timeout value in milliseconds from CLI/profile input. </param>
 internal sealed record ResolvedTestRunConfiguration (
     ResolvedUnityProjectContext UnityProject,
@@ -22,5 +21,4 @@ internal sealed record ResolvedTestRunConfiguration (
     string? TestFilter,
     string[] TestCategories,
     string[] AssemblyNames,
-    string? TestSettingsPath,
     int? TimeoutMilliseconds);

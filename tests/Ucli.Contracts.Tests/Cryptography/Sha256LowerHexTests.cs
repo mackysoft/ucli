@@ -94,13 +94,4 @@ public sealed class Sha256LowerHexTests
         Assert.False(Sha256LowerHex.IsLowerHexDigest(digest));
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Compute_Throws_WhenInputArrayIsNull ()
-    {
-        Assert.Throws<ArgumentNullException>(() =>
-        {
-            _ = Sha256LowerHex.Compute((byte[])null!);
-        });
-    }
 }

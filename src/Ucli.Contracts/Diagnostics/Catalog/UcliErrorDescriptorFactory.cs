@@ -19,7 +19,7 @@ internal static class UcliErrorDescriptorFactory
         IReadOnlyList<string>? possiblePhases,
         bool? impliesNotApplied,
         bool mayBeIndeterminate,
-        string safeToRetry,
+        UcliErrorRetryClass safeToRetry,
         IReadOnlyList<string>? inspect,
         IReadOnlyList<UcliErrorNextActionDescriptor>? nextActions,
         IReadOnlyList<UcliCode>? relatedCodes)
@@ -41,7 +41,7 @@ internal static class UcliErrorDescriptorFactory
     private static UcliErrorExecutionSemantics CreateExecutionSemantics (
         bool? impliesNotApplied,
         bool mayBeIndeterminate,
-        string safeToRetry)
+        UcliErrorRetryClass safeToRetry)
     {
         return new UcliErrorExecutionSemantics(
             ImpliesNotApplied: impliesNotApplied,

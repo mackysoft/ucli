@@ -7,7 +7,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Handles <c>unity.logs.read</c> IPC method requests. </summary>
-    internal sealed class UnityLogsReadUnityIpcMethodHandler : IUnityIpcMethodHandler
+    internal sealed class UnityLogsReadUnityIpcMethodHandler : IUnityControlPlaneIpcMethodHandler
     {
         private readonly IUnityLogStream unityLogStream;
 
@@ -25,24 +25,24 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityLogsReadRequestValidator requestValidator,
             UnityLogsReadQueryEngine queryEngine,
             UnityLogsReadResponseFactory responseFactory,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger)
         {
             this.unityLogStream = unityLogStream ?? throw new ArgumentNullException(nameof(unityLogStream));
             this.requestValidator = requestValidator ?? throw new ArgumentNullException(nameof(requestValidator));
             this.queryEngine = queryEngine ?? throw new ArgumentNullException(nameof(queryEngine));
             this.responseFactory = responseFactory ?? throw new ArgumentNullException(nameof(responseFactory));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.UnityLogsRead;
+        public UnityIpcMethod Method => UnityIpcMethod.UnityLogsRead;
 
         /// <inheritdoc />
         public ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -61,7 +61,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var snapshot = unityLogStream.Snapshot();
-            if (!requestValidator.TryValidate(payload, snapshot.StreamId, out var filter, out var errorMessage))
+            if (!requestValidator.TryValidate(payload, snapshot.NextCursor.StreamId, out var filter, out var errorMessage))
             {
                 daemonLogger.Warning(
                     DaemonLogCategories.Ipc,

@@ -1,5 +1,4 @@
 using System.Text.Json;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Tests;
 
@@ -41,7 +40,7 @@ internal static class TestRunCommandAssert
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.TestRun,
-            IpcProtocol.StatusError,
+            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         CommandResultAssert.HasSingleError(outputJson.RootElement, ExecutionErrorCodes.Canceled);
     }

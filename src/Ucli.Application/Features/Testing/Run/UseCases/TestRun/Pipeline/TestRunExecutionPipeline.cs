@@ -116,6 +116,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         var completionResult = await CompleteArtifactsSafelyAsync(
             configuration,
             artifactsSession,
+            context.Target,
             CancellationToken.None).ConfigureAwait(false);
         if (conversionUnexpectedError is not null)
         {
@@ -171,17 +172,19 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     /// <summary> Completes artifacts session and maps unexpected exceptions into internal errors. </summary>
     /// <param name="configuration"> The resolved run configuration. </param>
     /// <param name="session"> The prepared artifacts session. </param>
+    /// <param name="target"> The execution target held fixed for this test run. </param>
     /// <param name="cancellationToken"> A cancellation token propagated by caller. </param>
     /// <returns> A task that resolves to the artifact completion result. </returns>
     private async ValueTask<ArtifactsCompletionResult> CompleteArtifactsSafelyAsync (
         ResolvedTestRunConfiguration configuration,
         ArtifactsSession session,
+        UnityExecutionTarget target,
         CancellationToken cancellationToken)
     {
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            return await artifactsService.CompleteAsync(configuration, session, cancellationToken).ConfigureAwait(false);
+            return await artifactsService.CompleteAsync(configuration, session, target, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -249,7 +252,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     {
         var requestResult = await unityStreamingRequestExecutor.ExecuteAsync(
                 UcliCommandIds.TestRun,
-                context.Configuration.Mode,
+                UnityExecutionTargetModeMapper.ToExplicitMode(context.Target),
                 context.Timeout,
                 context.Config,
                 context.Configuration.UnityProject,
@@ -271,7 +274,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     {
         var requestResult = await unityRequestExecutor.ExecuteAsync(
                 UcliCommandIds.TestRun,
-                context.Configuration.Mode,
+                UnityExecutionTargetModeMapper.ToExplicitMode(context.Target),
                 context.Timeout,
                 context.Config,
                 context.Configuration.UnityProject,
@@ -287,26 +290,22 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     {
         var configuration = context.Configuration;
         return new UnityRequestPayload.TestRun(
-            TestPlatform: TestRunPlatformCodec.ToValue(configuration.TestPlatform),
-            TestFilter: configuration.TestFilter,
-            TestCategories: configuration.TestCategories,
-            AssemblyNames: configuration.AssemblyNames,
-            TestSettingsPath: configuration.TestSettingsPath,
-            ResultsXmlPath: session.Paths.ResultsXmlPath,
-            EditorLogPath: session.Paths.EditorLogPath,
-            FailFast: context.FailFast,
-            RunId: session.RunId);
+            testPlatform: configuration.TestPlatform,
+            testFilter: configuration.TestFilter,
+            testCategories: configuration.TestCategories,
+            assemblyNames: configuration.AssemblyNames,
+            failFast: context.FailFast,
+            runId: session.RunId);
     }
 
     private static async ValueTask ForwardTestRunProgressFrameAsync (
         UnityRequestProgressFrame frame,
-        string expectedRunId,
+        Guid expectedRunId,
         ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(frame);
-        ArgumentException.ThrowIfNullOrWhiteSpace(expectedRunId);
         ArgumentNullException.ThrowIfNull(progressSink);
 
         switch (frame.Event)
@@ -330,7 +329,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
 
     private static async ValueTask ForwardProgressPayloadAsync<TPayload> (
         UnityRequestProgressFrame frame,
-        string expectedRunId,
+        Guid expectedRunId,
         ICommandProgressSink progressSink,
         CancellationToken cancellationToken)
         where TPayload : notnull
@@ -388,27 +387,16 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         ArtifactsSession session)
     {
         if (target != UnityExecutionTarget.Oneshot
-            || unityExecutionResult.FailureKind != UnityTestExecutionFailureKind.AbnormalExit
-            || unityExecutionResult.ErrorCode != UcliCoreErrorCodes.InternalError
-            || string.IsNullOrWhiteSpace(unityExecutionResult.ErrorMessage))
+            || unityExecutionResult.FailureKind != UnityTestExecutionFailureKind.IpcTransportInterrupted
+            || unityExecutionResult.ErrorCode != UcliCoreErrorCodes.InternalError)
         {
             return false;
         }
 
         // NOTE:
         // Unity Test Runner can close oneshot IPC during post-test domain reload after it has
-        // already written complete results. Treat only that exact transport loss as recoverable;
+        // already written complete results. Treat only a classified transport interruption as recoverable;
         // all other abnormal exits preserve the primary execution failure.
-        if (!unityExecutionResult.ErrorMessage.StartsWith(
-                "Failed to execute Unity oneshot IPC request.",
-                StringComparison.Ordinal)
-            || !unityExecutionResult.ErrorMessage.Contains(
-                "IPC stream ended before a complete frame was read.",
-                StringComparison.Ordinal))
-        {
-            return false;
-        }
-
         return artifactExistenceProbe.ValidateGeneratedFiles(session.Paths).IsSuccess;
     }
 
@@ -427,6 +415,11 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         UnityRequestFailure failure,
         UnityExecutionTarget target)
     {
+        if (failure.FailureKind == UnityRequestFailureKind.TransportInterrupted)
+        {
+            return UnityTestExecutionFailureKind.IpcTransportInterrupted;
+        }
+
         var code = failure.Code;
         if (code == ExecutionErrorCodes.IpcTimeout)
         {
@@ -459,7 +452,7 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
         UcliCode? errorCode,
         UnityExecutionTarget target)
     {
-        if (errorCode is { IsValid: true } code)
+        if (errorCode is { } code)
         {
             if (code == IpcTransportErrorCodes.IpcTimeout || code == ExecutionErrorCodes.IpcTimeout)
             {
@@ -485,20 +478,12 @@ internal sealed class TestRunExecutionPipeline : ITestRunExecutionPipeline
     {
         ArgumentNullException.ThrowIfNull(response);
 
-        if (response.HasFailureStatus)
+        if (response.Errors.Count != 0)
         {
-            if (response.Errors.Count > 0)
-            {
-                var firstError = response.Errors[0];
-                exitCode = default;
-                errorCode = firstError.Code;
-                errorMessage = $"Unity test run failed with error code '{firstError.Code}'. {firstError.Message}";
-                return false;
-            }
-
+            var firstError = response.Errors[0];
             exitCode = default;
-            errorCode = null;
-            errorMessage = $"Unity test run failed with status '{response.FailureStatus}'.";
+            errorCode = firstError.Code;
+            errorMessage = $"Unity test run failed with error code '{firstError.Code}'. {firstError.Message}";
             return false;
         }
 

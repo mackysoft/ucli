@@ -4,37 +4,30 @@ namespace MackySoft.Ucli.TestSupport;
 
 internal static class ExecuteUnityRequestResponseTestFactory
 {
-    private const string DefaultRequestId = "req-1";
-
     public static UnityRequestResponse Create (
-        string status,
+        IpcResponseStatus status,
         IReadOnlyList<IpcExecuteOperationResult> opResults,
         IReadOnlyList<IpcError> errors,
         string? planToken = null,
-        OperationExecutionReadPostcondition? readPostcondition = null,
-        IpcProjectIdentity? project = null,
-        string requestId = DefaultRequestId)
+        IpcExecuteReadPostcondition? readPostcondition = null,
+        IpcProjectIdentity? project = null)
     {
-        var payload = new IpcExecuteResponse(opResults)
-        {
-            PlanToken = planToken,
-            ReadPostcondition = readPostcondition == null
-                ? null
-                : ReadPostconditionTestFactory.ToIpcContract(readPostcondition),
-        };
-        if (project != null)
-        {
-            payload = payload with
-            {
-                Project = project,
-            };
-        }
+        var payload = new IpcExecuteResponse(
+            opResults,
+            project ?? new IpcProjectIdentity(
+                projectPath: ProjectPathTestValues.RepositoryUnityProject,
+                projectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
+                unityVersion: "6000.1.4f1"),
+            planToken: planToken,
+            readPostcondition: readPostcondition,
+            postReadSource: null,
+            contractViolations: null);
 
         return UnityRequestResponseTestFactory.Create(new IpcResponse(
-            ProtocolVersion: IpcProtocol.CurrentVersion,
-            RequestId: requestId,
-            Status: status,
-            Payload: IpcPayloadCodec.SerializeToElement(payload),
-            Errors: errors));
+            protocolVersion: IpcProtocol.CurrentVersion,
+            requestId: Guid.NewGuid(),
+            status: status,
+            payload: IpcPayloadCodec.SerializeToElement(payload),
+            errors: errors));
     }
 }

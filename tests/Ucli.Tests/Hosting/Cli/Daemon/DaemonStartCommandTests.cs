@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Daemon.UseCases.Start;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Daemon;
@@ -18,7 +17,7 @@ public sealed class DaemonStartCommandTests
         DaemonEditorMode expectedEditorMode)
     {
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput()));
-        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteAsync(() => command.StartAsync(
@@ -47,7 +46,7 @@ public sealed class DaemonStartCommandTests
         DaemonStartupBlockedProcessPolicy expectedPolicy)
     {
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput()));
-        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteAsync(() => command.StartAsync(
@@ -71,7 +70,7 @@ public sealed class DaemonStartCommandTests
             lifecycleState: IpcEditorLifecycleState.Compiling,
             blockingReason: IpcEditorBlockingReason.Compile,
             canAcceptExecutionRequests: false)));
-        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.StartAsync(
@@ -99,7 +98,7 @@ public sealed class DaemonStartCommandTests
     public async Task Start_WhenEditorModeIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput()));
-        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteAsync(() => command.StartAsync(
@@ -116,7 +115,7 @@ public sealed class DaemonStartCommandTests
     public async Task Start_WhenFormatIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput()));
-        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteWithErrorAsync(() => command.StartAsync(
@@ -133,7 +132,7 @@ public sealed class DaemonStartCommandTests
     public async Task Start_WhenOnStartupBlockedIsInvalid_ReturnsInvalidArgumentWithoutCallingService ()
     {
         var service = new RecordingDaemonStartService(DaemonStartExecutionResult.Success(CreateSuccessOutput()));
-        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create());
+        var command = new DaemonStartCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
 
         CommandExecutionState.Reset();
         var result = await CommandResultCapture.ExecuteAsync(() => command.StartAsync(

@@ -23,14 +23,14 @@ internal static class ReadyLifecycleOutputFactory
             Generations: state.Generations,
             CanAcceptExecutionRequests: IpcEditorLifecycleSemantics.CanAcceptExecutionRequests(state.LifecycleState),
             ObservedAtUtc: pingResponse.ObservedAtUtc,
-            ActionRequired: StringValueNormalizer.TrimToNull(pingResponse.ActionRequired),
+            ActionRequired: pingResponse.ActionRequired,
             PrimaryDiagnostic: ToOutput(pingResponse.PrimaryDiagnostic),
             PlayMode: state.PlayMode);
     }
 
     private static ReadyPrimaryDiagnosticOutput? ToOutput (IpcPrimaryDiagnostic? diagnostic)
     {
-        if (diagnostic is null || !StringValueNormalizer.TryTrimToNonEmpty(diagnostic.Kind, out var kind))
+        if (diagnostic?.Kind is not { } kind)
         {
             return null;
         }

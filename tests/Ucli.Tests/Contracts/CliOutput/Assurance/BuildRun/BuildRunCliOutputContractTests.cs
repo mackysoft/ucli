@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Tests;
@@ -17,7 +16,8 @@ public sealed class BuildRunCliOutputContractTests
 
             JsonGoldenFileAssert.Matches(
                 CliOutputGoldenFiles.GetPath(BuildRunCliOutputContractTestSupport.GoldenDirectory, testCase.FileName),
-                json);
+                json,
+                new JsonGoldenFileNormalization().NormalizePathPrefix(ProjectPathTestValues.WorkspaceRoot, "/workspace"));
         }
     }
 }

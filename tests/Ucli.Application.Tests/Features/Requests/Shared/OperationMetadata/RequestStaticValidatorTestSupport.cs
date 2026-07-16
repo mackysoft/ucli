@@ -16,8 +16,6 @@ internal static class RequestStaticValidatorTestSupport
     public static readonly InvalidRequestCase[] InvalidRequestCases =
     [
         new("protocol-version-mismatch", IpcProtocolErrorCodes.ProtocolVersionMismatch),
-        new("request-id-invalid", ValidationErrorCodes.RequestIdInvalid),
-        new("request-id-not-canonical-d", ValidationErrorCodes.RequestIdInvalid),
         new("steps-required", ValidationErrorCodes.StepsRequired),
         new("step-id-duplicated", ValidationErrorCodes.StepIdDuplicated),
         new("operation-not-found", ValidationErrorCodes.OperationNotFound),
@@ -46,13 +44,11 @@ internal static class RequestStaticValidatorTestSupport
 
     public static ValidateRequest CreateRequest (
         int protocolVersion = IpcProtocol.CurrentVersion,
-        string? requestId = null,
         IReadOnlyList<ValidateRequestStep?>? steps = null,
         bool allowPlayMode = false)
     {
         return new ValidateRequest(
             ProtocolVersion: protocolVersion,
-            RequestId: requestId ?? Guid.NewGuid().ToString(),
             Steps: steps ??
             [
                 CreateOpStep("step-1", UcliPrimitiveOperationNames.SceneOpen, new
@@ -68,11 +64,8 @@ internal static class RequestStaticValidatorTestSupport
         return scenario switch
         {
             "protocol-version-mismatch" => CreateRequest(protocolVersion: IpcProtocol.CurrentVersion + 1),
-            "request-id-invalid" => CreateRequest(requestId: "invalid-request-id"),
-            "request-id-not-canonical-d" => CreateRequest(requestId: Guid.NewGuid().ToString("B")),
             "steps-required" => new ValidateRequest(
                 ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: Guid.NewGuid().ToString(),
                 Steps: null),
             "step-id-duplicated" => CreateRequest(
                 steps:
@@ -148,8 +141,8 @@ internal static class RequestStaticValidatorTestSupport
         });
 
         return new ValidateRequestStep(
-            Kind: IpcRequestStepKind.Op,
-            StepId: stepId,
+            Kind: IpcExecuteStepKind.Op,
+            StepId: new IpcExecuteStepId(stepId),
             Op: operationName,
             Element: stepElement);
     }
@@ -169,8 +162,8 @@ internal static class RequestStaticValidatorTestSupport
         });
 
         return new ValidateRequestStep(
-            Kind: IpcRequestStepKind.Op,
-            StepId: stepId,
+            Kind: IpcExecuteStepKind.Op,
+            StepId: new IpcExecuteStepId(stepId),
             Op: operationName,
             Element: stepElement);
     }
@@ -181,8 +174,8 @@ internal static class RequestStaticValidatorTestSupport
     {
         using var document = JsonDocument.Parse(stepJson);
         return new ValidateRequestStep(
-            Kind: IpcRequestStepKind.Edit,
-            StepId: stepId,
+            Kind: IpcExecuteStepKind.Edit,
+            StepId: new IpcExecuteStepId(stepId),
             Op: null,
             Element: document.RootElement.Clone());
     }

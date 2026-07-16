@@ -5,6 +5,7 @@ internal interface IQueryService
 {
     /// <summary> Executes one typed query command. </summary>
     ValueTask<QueryServiceResult> ExecuteAsync (
+        Guid requestId,
         QueryCommandInput input,
         CancellationToken cancellationToken = default);
 }

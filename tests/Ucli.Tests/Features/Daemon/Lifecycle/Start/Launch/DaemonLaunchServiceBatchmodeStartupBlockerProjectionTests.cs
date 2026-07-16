@@ -11,7 +11,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerProjectionTests
     public async Task Launch_WhenReadinessProbeReturnsClassifiedBlocker_PreservesStartupClassification ()
     {
         var scenario = CreateClassifiedBlockerScenario(
-            "fingerprint-probe-classified-blocker",
+            ProjectFingerprintTestFactory.Create("fingerprint-probe-classified-blocker"),
             processId: 7778);
 
         var result = await scenario.LaunchAsync();
@@ -27,7 +27,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerProjectionTests
         Assert.Equal(scenario.ProcessStartedAtUtc, result.Startup.StartedAtUtc);
         Assert.Equal(DaemonStartupProcessAction.Terminated, result.Startup.ProcessAction);
         Assert.NotNull(result.Startup.ArtifactPath);
-        Assert.Equal(DaemonDiagnosisReasonValues.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
+        Assert.Equal(DaemonDiagnosisReason.UnityScriptCompilationFailed, result.Diagnosis!.Reason);
         DaemonLaunchInvocationAssert.LaunchCompensationAttempted(
             scenario.CompensationService,
             scenario.Context,
@@ -46,7 +46,7 @@ public sealed class DaemonLaunchServiceBatchmodeStartupBlockerProjectionTests
     public async Task Launch_WhenReadinessProbeReturnsClassifiedBlockerAndKeepPolicy_PreservesProcess ()
     {
         var scenario = CreateClassifiedBlockerScenario(
-            "fingerprint-probe-classified-blocker-keep",
+            ProjectFingerprintTestFactory.Create("fingerprint-probe-classified-blocker-keep"),
             processId: 7779);
 
         var result = await scenario.LaunchAsync(DaemonStartupBlockedProcessPolicy.Keep);

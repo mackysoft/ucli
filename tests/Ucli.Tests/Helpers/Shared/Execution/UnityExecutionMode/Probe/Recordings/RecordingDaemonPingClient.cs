@@ -1,4 +1,6 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Probe;
+using MackySoft.Ucli.Contracts.Ipc.Authorization;
 
 namespace MackySoft.Ucli.Tests.Helpers.Ipc;
 
@@ -36,15 +38,79 @@ internal sealed class RecordingDaemonPingClient : IDaemonPingClient
     public ValueTask PingAsync (
         ResolvedUnityProjectContext unityProject,
         TimeSpan timeout,
-        string? sessionToken = null,
         CancellationToken cancellationToken = default)
     {
+        return RecordPing(
+            unityProject,
+            timeout,
+            session: null,
+            explicitSessionToken: null,
+            cancellationToken);
+    }
+
+    public ValueTask PingSessionAsync (
+        ResolvedUnityProjectContext unityProject,
+        DaemonSession session,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(session);
+        return RecordPing(
+            unityProject,
+            timeout,
+            session,
+            explicitSessionToken: null,
+            cancellationToken);
+    }
+
+    public ValueTask PingCanonicalEndpointWithoutSessionTokenAsync (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        return RecordPing(
+            unityProject,
+            timeout,
+            session: null,
+            explicitSessionToken: null,
+            cancellationToken);
+    }
+
+    public ValueTask PingCanonicalEndpointWithSessionTokenAsync (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        IpcSessionToken sessionToken,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(sessionToken);
+        return RecordPing(
+            unityProject,
+            timeout,
+            session: null,
+            sessionToken,
+            cancellationToken);
+    }
+
+    private ValueTask RecordPing (
+        ResolvedUnityProjectContext unityProject,
+        TimeSpan timeout,
+        DaemonSession? session,
+        IpcSessionToken? explicitSessionToken,
+        CancellationToken cancellationToken)
+    {
         ArgumentNullException.ThrowIfNull(unityProject);
+        var sessionToken = session?.SessionToken.GetEncodedValue()
+            ?? explicitSessionToken?.GetEncodedValue();
 
         unityProjects.Add(unityProject);
         timeouts.Add(timeout);
         sessionTokens.Add(sessionToken);
-        invocations.Add(new Invocation(unityProject, timeout, sessionToken, cancellationToken));
+        invocations.Add(new Invocation(
+            unityProject,
+            timeout,
+            session,
+            explicitSessionToken?.GetEncodedValue(),
+            cancellationToken));
 
         return handler(unityProject, timeout, sessionToken, cancellationToken);
     }
@@ -52,6 +118,10 @@ internal sealed class RecordingDaemonPingClient : IDaemonPingClient
     internal readonly record struct Invocation (
         ResolvedUnityProjectContext UnityProject,
         TimeSpan Timeout,
-        string? SessionToken,
-        CancellationToken CancellationToken);
+        DaemonSession? Session,
+        string? ExplicitSessionToken,
+        CancellationToken CancellationToken)
+    {
+        public string? SessionToken => Session?.SessionToken.GetEncodedValue() ?? ExplicitSessionToken;
+    }
 }

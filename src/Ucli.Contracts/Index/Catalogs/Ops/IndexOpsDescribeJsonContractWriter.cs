@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace MackySoft.Ucli.Contracts.Index;
 
-/// <summary> Writes <c>ops.describe/&lt;opKey&gt;.json</c> contracts with a fixed public JSON shape. </summary>
+/// <summary> Writes <c>ops/&lt;operationStorageKey&gt;.json</c> contracts with a fixed public JSON shape. </summary>
 internal sealed class IndexOpsDescribeJsonContractWriter : IndexJsonContractWriterBase<IndexOpsDescribeJsonContract>
 {
     /// <inheritdoc />

@@ -75,12 +75,18 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             state = default;
-            if (!UnityObjectReferenceContractMapper.TryMap(args.Target, "args.target", out var targetReference, out errorMessage))
+            if (!UnityObjectReferenceContractMapper.TryMap(
+                    args.Target,
+                    "args.target",
+                    operation.AliasReferences,
+                    out var targetReference,
+                    out errorMessage))
             {
                 return false;
             }
 
             if (!TryResolveComponentTarget(
+                    operation,
                     targetReference,
                     executionContext,
                     allowTemporaryState,
@@ -91,21 +97,17 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             }
 
             var component = componentResolution.Component!;
-            if (componentResolution.Resource.Kind != OperationTouchKind.Scene)
+            if (componentResolution.Resource.Kind != UcliTouchedResourceKind.Scene)
             {
                 errorMessage = "Prefab override actions require a scene component target.";
                 return false;
             }
 
-            if (!UnityAssetPathContract.TryNormalizePrefabAssetPath(args.TargetAssetPath.Value, out var targetAssetPath))
-            {
-                errorMessage = $"Prefab path must be a project-relative prefab asset path under '{UnityAssetPathContract.AssetsRootPrefix}': {args.TargetAssetPath.Value}.";
-                return false;
-            }
+            var targetAssetPath = args.TargetAssetPath.Value;
 
             var usesPlannedPrefabCreation = allowTemporaryState
                 && executionContext.IsPlannedPrefabInstanceLineage(component, targetAssetPath);
-            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(targetAssetPath, out _, out var prefabAssetErrorMessage))
+            if (!PrefabOperationUtilities.TryEnsurePrefabAssetExists(args.TargetAssetPath, out var prefabAssetErrorMessage))
             {
                 if (!usesPlannedPrefabCreation)
                 {
@@ -119,10 +121,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                 return false;
             }
 
-            var targetKey = executionContext.CreatePrefabOverrideTargetKey(
-                targetReference,
-                component,
-                componentResolution.Resource);
+            var targetKey = executionContext.CreateComponentTrackingKey(component, componentResolution.Resource);
             if (!executionContext.TryCollectPrefabOverridePropertyChanges(
                     operation.Id,
                     targetKey,
@@ -221,6 +220,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         }
 
         private static bool TryResolveComponentTarget (
+            NormalizedOperation operation,
             UnityObjectReference targetReference,
             OperationExecutionContext executionContext,
             bool allowTemporaryState,
@@ -230,7 +230,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             if (!ComponentOperationUtilities.TryResolveComponent(
                     targetReference,
                     executionContext,
-                    allowTemporaryState,
+                    OperationObjectReferenceUtilities.GetReferenceResolutionPolicy(operation, allowTemporaryState),
                     out componentResolution,
                     out errorMessage))
             {
@@ -239,19 +239,130 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
 
             if (allowTemporaryState
                 && componentResolution.Component != null
-                && !PrefabUtility.IsPartOfPrefabInstance(componentResolution.Component)
-                && !executionContext.IsPlannedPrefabInstanceLineage(componentResolution.Component)
-                && ComponentOperationUtilities.TryResolveComponent(
-                    targetReference,
-                    executionContext,
-                    allowTemporaryState: false,
-                    out var liveComponentResolution,
-                    out _))
+                && !IsPrefabInstanceOrPlannedLineage(componentResolution.Component, executionContext))
             {
-                componentResolution = liveComponentResolution;
+                var hasShadowSource = TryResolveComponentShadowSource(
+                    componentResolution,
+                    executionContext,
+                    out var shadowSourceResolution);
+                if (hasShadowSource
+                    && shadowSourceResolution.Component != null
+                    && IsPrefabInstanceOrPlannedLineage(shadowSourceResolution.Component, executionContext))
+                {
+                    componentResolution = shadowSourceResolution;
+                }
+                else if (TryResolveLiveComponentTarget(
+                    targetReference,
+                    componentResolution.TemporaryAliasSourceTrackingKey,
+                    executionContext,
+                    out var liveComponentResolution))
+                {
+                    componentResolution = liveComponentResolution;
+                }
+                else if (hasShadowSource)
+                {
+                    componentResolution = shadowSourceResolution;
+                }
             }
 
             errorMessage = string.Empty;
+            return true;
+        }
+
+        private static bool TryResolveComponentShadowSource (
+            ComponentOperationUtilities.ComponentResolutionState componentResolution,
+            OperationExecutionContext executionContext,
+            out ComponentOperationUtilities.ComponentResolutionState sourceComponentResolution)
+        {
+            sourceComponentResolution = default;
+            var component = componentResolution.Component;
+            if (component == null)
+            {
+                return false;
+            }
+
+            var sourceTrackingKey = executionContext.CreateComponentTrackingKey(component, componentResolution.Resource);
+            if (!executionContext.TryGetComponentShadowState(sourceTrackingKey, out var componentShadowState)
+                || componentShadowState.SourceComponent == null
+                || !OperationResourceUtilities.TryResolveOwnerResource(
+                    componentShadowState.SourceComponent,
+                    executionContext,
+                    out var sourceResource,
+                    out _))
+            {
+                return false;
+            }
+
+            sourceComponentResolution = new ComponentOperationUtilities.ComponentResolutionState(
+                componentShadowState.SourceComponent,
+                sourceResource,
+                componentResolution.TemporaryAliasSourceTrackingKey);
+            return true;
+        }
+
+        private static bool IsPrefabInstanceOrPlannedLineage (
+            Component component,
+            OperationExecutionContext executionContext)
+        {
+            return PrefabUtility.IsPartOfPrefabInstance(component)
+                || executionContext.IsPlannedPrefabInstanceLineage(component);
+        }
+
+        private static bool TryResolveLiveComponentTarget (
+            UnityObjectReference targetReference,
+            RequestLocalObjectIdentity? temporaryAliasSourceTrackingKey,
+            OperationExecutionContext executionContext,
+            out ComponentOperationUtilities.ComponentResolutionState componentResolution)
+        {
+            componentResolution = default;
+            UnityEngine.Object? unityObject;
+            if (temporaryAliasSourceTrackingKey != null)
+            {
+                if (temporaryAliasSourceTrackingKey.TryGetStableGlobalObjectId(out var globalObjectId))
+                {
+                    if (!ResolveReferenceResolver.TryResolveUnityObject(
+                        ResolveSelector.FromGlobalObjectId(globalObjectId),
+                        executionContext,
+                        allowTemporaryState: false,
+                        out unityObject,
+                        out _))
+                    {
+                        return false;
+                    }
+                }
+                else if (!temporaryAliasSourceTrackingKey.TryGetTransientUnityObject(out unityObject))
+                {
+                    return false;
+                }
+            }
+            else
+            {
+                if (targetReference.Kind == UnityObjectReferenceKind.Alias
+                    || !UnityObjectReferenceResolver.TryResolve(
+                        targetReference,
+                        executionContext,
+                        allowTemporaryState: false,
+                        out unityObject,
+                        out _))
+                {
+                    return false;
+                }
+            }
+
+            if (!(unityObject is Component component)
+                || !OperationResourceUtilities.TryResolveOwnerResource(
+                    component,
+                    executionContext,
+                    out var resource,
+                    out _))
+            {
+                return false;
+            }
+
+            componentResolution = new ComponentOperationUtilities.ComponentResolutionState(
+                component,
+                resource,
+                temporaryAliasSourceTrackingKey: null);
             return true;
         }
 
@@ -525,9 +636,9 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             out string errorMessage)
         {
             if (targetReference.Kind == UnityObjectReferenceKind.Selector
-                && !string.IsNullOrEmpty(targetReference.Selector.HierarchyPath))
+                && targetReference.Selector!.HierarchyPath != null)
             {
-                hierarchyPath = targetReference.Selector.HierarchyPath!;
+                hierarchyPath = targetReference.Selector.HierarchyPath.Value;
                 errorMessage = string.Empty;
                 return true;
             }
@@ -625,7 +736,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
         {
             var serializedObject = new SerializedObject(assetComponent);
             serializedObject.UpdateIfRequiredOrScript();
-            var assetResource = new OperationResource(OperationTouchKind.Prefab, targetAssetPath);
+            var assetResource = new OperationResource(UcliTouchedResourceKind.Prefab, targetAssetPath);
             for (var i = 0; i < changes.Count; i++)
             {
                 var propertyPath = changes[i].PropertyPath;
@@ -636,8 +747,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     return false;
                 }
 
-                var assetValueHash = SerializedPropertyValueHasher.Create(property, executionContext, assetResource);
-                if (!string.Equals(assetValueHash, changes[i].ValueHashBeforeRequest, StringComparison.Ordinal))
+                var assetValueSignature = SerializedPropertyValueSignatureFactory.Create(property, executionContext, assetResource);
+                if (!string.Equals(assetValueSignature, changes[i].ValueSignatureBeforeRequest, StringComparison.Ordinal))
                 {
                     errorMessage = $"Prefab override property already existed before the request: {propertyPath}.";
                     return false;

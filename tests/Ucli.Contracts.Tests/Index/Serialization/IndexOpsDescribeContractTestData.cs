@@ -10,7 +10,7 @@ internal static class IndexOpsDescribeContractTestData
             "Returns a GameObject description including components and child hierarchy.",
             new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate arguments and observe Unity state without applying mutation.",
                 callSemantics: "Read Unity state without applying mutation.",

@@ -7,7 +7,7 @@ internal static class AssuranceSemanticInvariantValidatorTestSupport
 {
     public static CodeCatalogDescriptor CreateDescriptor (
         string code,
-        string kind)
+        CodeCatalogKind kind)
     {
         return new CodeCatalogDescriptor(
             new UcliCode(code),

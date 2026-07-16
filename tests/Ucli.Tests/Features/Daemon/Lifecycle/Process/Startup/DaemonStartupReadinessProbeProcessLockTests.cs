@@ -1,19 +1,68 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Net.Sockets;
+using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
+using MackySoft.Ucli.Tests.Helpers.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Process;
+using MackySoft.Ucli.Tests.Helpers.Unity;
 using static DaemonStartupReadinessProbeTestSupport;
 
 public sealed class DaemonStartupReadinessProbeProcessLockTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public async Task WaitUntilReady_WhenPostExitLockCleanupIgnoresCancellation_ReturnsProcessExitAtDeadline ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var cleanupStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var cleanupCompletion = new TaskCompletionSource<UnityProjectLockPreflightResult>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var preflightService = new RecordingUnityProjectLockPreflightService
+        {
+            CleanupAsyncHandler = (_, _) =>
+            {
+                cleanupStarted.TrySetResult();
+                return new ValueTask<UnityProjectLockPreflightResult>(cleanupCompletion.Task);
+            },
+        };
+        var probe = CreateProbe(
+            new UnexpectedDaemonPingInfoClient("An exited process must be classified before daemon ping."),
+            new UnexpectedUnityLogReader("A timed-out post-exit cleanup must not begin a Unity log read."),
+            projectLockPreflightService: preflightService);
+        var timeout = TimeSpan.FromSeconds(1);
+
+        var resultTask = probe.WaitUntilReadyAsync(
+                ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-post-exit-cleanup-timeout")),
+                ExecutionDeadline.Start(timeout, timeProvider),
+                daemonProcessId: int.MaxValue,
+                cancellationToken: CancellationToken.None)
+            .AsTask();
+        await cleanupStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+
+        try
+        {
+            await timeProvider.WaitForTimerDueWithinAsync(timeout).WaitAsync(TimeSpan.FromSeconds(1));
+            timeProvider.Advance(timeout);
+            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
+
+            Assert.False(result.IsReady);
+            Assert.Equal(ExecutionErrorKind.InternalError, result.Error!.Kind);
+            Assert.Contains("process exited", result.Error.Message, StringComparison.OrdinalIgnoreCase);
+        }
+        finally
+        {
+            cleanupCompletion.TrySetResult(UnityProjectLockPreflightResult.Unlocked(
+                "/tmp/unity-project/Temp/UnityLockfile"));
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenLaunchedProcessIsAliveAndProjectLockFileExists_RetriesUntilReady ()
     {
         var pingClient = new RecordingDaemonPingInfoClient(
-            new SocketException((int)SocketError.ConnectionRefused),
+            IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused),
             CreatePingPayload());
         var logReader = new RecordingUnityLogReader
         {
@@ -27,17 +76,23 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
             pingClient,
             logReader,
             UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
-        var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-lock-during-startup");
+        var unityProject = ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-lock-during-startup"));
 
         var result = await probe.WaitUntilReadyAsync(
             unityProject,
-            TimeSpan.FromSeconds(5),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             daemonProcessId: Environment.ProcessId,
             cancellationToken: CancellationToken.None);
 
         Assert.True(result.IsReady);
         Assert.Null(result.Error);
-        DaemonPingInfoClientAssert.ReadinessProbeRetriedFor(pingClient, unityProject, CancellationToken.None);
+        Assert.Equal(2, pingClient.Invocations.Count);
+        Assert.All(pingClient.Invocations, invocation =>
+        {
+            Assert.Equal(unityProject, invocation.UnityProject);
+            Assert.Null(invocation.Session);
+            Assert.True(invocation.CancellationToken.CanBeCanceled);
+        });
         UnityLogReaderAssert.LogInspected(logReader);
     }
 
@@ -45,7 +100,8 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
     [Trait("Size", "Small")]
     public async Task WaitUntilReady_WhenProjectLockFileExistsAfterDaemonIsNotRunning_ReturnsProjectAlreadyOpenImmediately ()
     {
-        var pingClient = new RecordingDaemonPingInfoClient(new SocketException((int)SocketError.ConnectionRefused));
+        var pingClient = new RecordingDaemonPingInfoClient(
+            IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused));
         var logReader = new UnexpectedUnityLogReader("Project already open should be reported without Unity log inspection.");
         var probe = CreateProbe(
             pingClient,
@@ -53,8 +109,8 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
             UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-already-open"),
-            TimeSpan.FromSeconds(5),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-already-open")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             cancellationToken: CancellationToken.None);
 
         Assert.False(result.IsReady);
@@ -81,8 +137,8 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
             logReader);
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-process-exited"),
-            TimeSpan.FromSeconds(5),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-process-exited")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             daemonProcessId: int.MaxValue,
             cancellationToken: CancellationToken.None);
 
@@ -112,8 +168,8 @@ public sealed class DaemonStartupReadinessProbeProcessLockTests
             UnityProjectLockFileProbeResult.Locked("/tmp/unity-project/Temp/UnityLockfile"));
 
         var result = await probe.WaitUntilReadyAsync(
-            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext("fingerprint-readiness-exited-lock-file"),
-            TimeSpan.FromSeconds(5),
+            ResolvedUnityProjectContextTestFactory.CreateDaemonLifecycleContext(ProjectFingerprintTestFactory.Create("fingerprint-readiness-exited-lock-file")),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             daemonProcessId: int.MaxValue,
             cancellationToken: CancellationToken.None);
 

@@ -1,22 +1,30 @@
 namespace MackySoft.Ucli.Application.Features.Requests.Shared.OperationMetadata;
 
 /// <summary> Represents authorization result for one operation execution attempt. </summary>
-/// <param name="IsAllowed"> Whether execution is allowed under current configuration. </param>
-/// <param name="ErrorCode"> The machine-readable denial code when <paramref name="IsAllowed" /> is <see langword="false" />. </param>
-/// <param name="Message"> The human-readable authorization detail. </param>
-internal sealed record OperationAuthorizationResult (
-    bool IsAllowed,
-    UcliCode? ErrorCode,
-    string Message)
+internal sealed record OperationAuthorizationResult
 {
+    private OperationAuthorizationResult (
+        UcliCode? errorCode,
+        string message)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(message);
+        ErrorCode = errorCode;
+        Message = message;
+    }
+
+    public bool IsAllowed => ErrorCode is null;
+
+    public UcliCode? ErrorCode { get; }
+
+    public string Message { get; }
+
     /// <summary> Creates an allowed authorization result. </summary>
     /// <returns> The allowed authorization result. </returns>
     public static OperationAuthorizationResult Allowed ()
     {
         return new OperationAuthorizationResult(
-            IsAllowed: true,
-            ErrorCode: null,
-            Message: "Operation is allowed.");
+            errorCode: null,
+            "Operation is allowed.");
     }
 
     /// <summary> Creates a denied authorization result. </summary>
@@ -28,14 +36,10 @@ internal sealed record OperationAuthorizationResult (
         UcliCode errorCode,
         string message)
     {
-        if (!errorCode.IsValid)
-        {
-            throw new ArgumentException("Error code must not be null, empty, or whitespace.", nameof(errorCode));
-        }
+        ArgumentNullException.ThrowIfNull(errorCode);
 
         return new OperationAuthorizationResult(
-            IsAllowed: false,
-            ErrorCode: errorCode,
-            Message: message);
+            errorCode,
+            message);
     }
 }

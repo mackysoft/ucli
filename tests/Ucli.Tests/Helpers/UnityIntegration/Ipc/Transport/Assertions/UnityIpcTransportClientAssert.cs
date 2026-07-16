@@ -7,7 +7,7 @@ internal static class UnityIpcTransportClientAssert
     public static void SendForwardedToResolvedEndpoint (
         RecordingIpcTransportClient transportClient,
         IpcEndpoint expectedEndpoint,
-        IpcRequest expectedRequest,
+        IpcRequestEnvelope expectedRequest,
         TimeSpan expectedTimeout,
         CancellationToken expectedCancellationToken)
     {
@@ -20,7 +20,7 @@ internal static class UnityIpcTransportClientAssert
     public static void StreamingSendForwardedToResolvedEndpoint (
         RecordingIpcTransportClient transportClient,
         IpcEndpoint expectedEndpoint,
-        IpcRequest expectedRequest,
+        IpcRequestEnvelope expectedRequest,
         TimeSpan expectedTimeout,
         CancellationToken expectedCancellationToken)
     {
@@ -43,12 +43,12 @@ internal static class UnityIpcTransportClientAssert
         Assert.Equal(expectedEndpointAddress, endpointInvocation.Endpoint.Address);
     }
 
-    public static IpcRequest SingleStreamingRequestSent (
+    public static IpcRequestEnvelope SingleStreamingRequestSent (
         RecordingUnityIpcTransportClient transportClient,
-        string expectedMethod)
+        UnityIpcMethod expectedMethod)
     {
         var request = Assert.Single(transportClient.StreamingRequests);
-        Assert.Equal(expectedMethod, request.Method);
+        Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method);
         return request;
     }
 }

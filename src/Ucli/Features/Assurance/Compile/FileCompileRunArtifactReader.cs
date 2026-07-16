@@ -18,11 +18,10 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     /// <inheritdoc />
     public async ValueTask<CompileRunArtifactReadResult> ReadSummaryAsync (
         ResolvedUnityProjectContext unityProject,
-        string runId,
+        Guid runId,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
         cancellationToken.ThrowIfCancellationRequested();
 
         string summaryPath;
@@ -53,7 +52,7 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
                 ? CompileRunArtifactReadResult.Failure(ExecutionError.InternalError($"Compile summary artifact is empty: {summaryPath}."))
                 : CompileRunArtifactReadResult.Success(summary);
         }
-        catch (JsonException exception)
+        catch (Exception exception) when (exception is JsonException or ArgumentException)
         {
             return CompileRunArtifactReadResult.Failure(ExecutionError.InternalError(
                 $"Compile summary artifact is invalid: {summaryPath}. {exception.Message}"));
@@ -72,14 +71,19 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     /// <inheritdoc />
     public ValueTask<ExecutionError?> WriteArtifactsAsync (
         ResolvedUnityProjectContext unityProject,
-        string runId,
+        Guid runId,
         IpcCompileSummary summary,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
         ArgumentNullException.ThrowIfNull(summary);
         cancellationToken.ThrowIfCancellationRequested();
+
+        if (summary.RunId != runId)
+        {
+            return ValueTask.FromResult<ExecutionError?>(ExecutionError.InvalidArgument(
+                "Compile summary run identifier must match its artifact path run identifier."));
+        }
 
         string diagnosticsPath;
         string summaryPath;
@@ -128,7 +132,7 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     /// <inheritdoc />
     public string ResolveSummaryPath (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         return Path.Combine(
@@ -139,7 +143,7 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
     /// <inheritdoc />
     public string ResolveDiagnosticsPath (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
         return Path.Combine(
@@ -149,10 +153,9 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
 
     private static string ResolveRunDirectory (
         ResolvedUnityProjectContext unityProject,
-        string runId)
+        Guid runId)
     {
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(runId);
         return UcliStoragePathResolver.ResolveCompileRunArtifactsDirectory(
             unityProject.RepositoryRoot,
             unityProject.ProjectFingerprint,
@@ -170,25 +173,30 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
         }
 
         FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-        var tempPath = path + $".tmp.{Guid.NewGuid():N}";
+        var temporaryStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var tempPath);
+        var temporaryFileOwned = true;
 
         try
         {
-            EnsureWritableArtifactPath(tempPath);
-            using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-            using (var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+            using (temporaryStream)
+            using (var writer = new StreamWriter(
+                       temporaryStream,
+                       new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
             {
                 writer.Write(JsonSerializer.Serialize(value, IpcJsonSerializerOptions.Default));
             }
 
             FileSystemAccessBoundary.EnsureSecureFile(tempPath);
-            EnsureWritableArtifactPath(path);
-            ReplaceFile(tempPath, path);
+            FileUtilities.PublishAtomicWriteTemporaryFile(tempPath, path);
+            temporaryFileOwned = false;
             FileSystemAccessBoundary.EnsureSecureFile(path);
         }
         finally
         {
-            DeleteTemporaryFileIfExists(tempPath);
+            if (temporaryFileOwned)
+            {
+                FileUtilities.DeleteIfExists(tempPath);
+            }
         }
     }
 
@@ -256,68 +264,8 @@ internal sealed class FileCompileRunArtifactReader : ICompileRunArtifactStore
         }
     }
 
-    private static void EnsureWritableArtifactPath (string path)
-    {
-        if (!File.Exists(path) && !Directory.Exists(path))
-        {
-            return;
-        }
-
-        var attributes = File.GetAttributes(path);
-        if ((attributes & FileAttributes.ReparsePoint) != 0)
-        {
-            throw new IOException($"Compile artifact target must not be a reparse point: {path}");
-        }
-
-        if ((attributes & FileAttributes.Directory) != 0)
-        {
-            throw new IOException($"Compile artifact target must not be a directory: {path}");
-        }
-    }
-
-    private static void ReplaceFile (
-        string temporaryPath,
-        string path)
-    {
-        try
-        {
-            File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-        }
-        catch (FileNotFoundException)
-        {
-            MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-        }
-        catch (IOException) when (!File.Exists(path))
-        {
-            MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-        }
-    }
-
-    private static void MoveOrReplaceWhenCreatedConcurrently (
-        string temporaryPath,
-        string path)
-    {
-        try
-        {
-            File.Move(temporaryPath, path);
-        }
-        catch (IOException) when (File.Exists(path))
-        {
-            EnsureWritableArtifactPath(path);
-            File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-        }
-    }
-
-    private static void DeleteTemporaryFileIfExists (string path)
-    {
-        if (File.Exists(path))
-        {
-            File.Delete(path);
-        }
-    }
-
     private sealed record CompileDiagnosticsArtifact (
-        string RunId,
+        Guid RunId,
         int ErrorCount,
         int WarningCount,
         IpcPrimaryDiagnostic? PrimaryDiagnostic);

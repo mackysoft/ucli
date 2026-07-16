@@ -4,7 +4,7 @@ public sealed class IndexCatalogContractValidatorOpsDescribeInputTests
 {
     [Fact]
     [Trait("Size", "Small")]
-    public void IsValidOpsDescribe_ReturnsTrue_WhenDescribeContractHasMultiFieldVariant ()
+    public void TryCreateOpsDescribeSnapshot_ReturnsTrue_WhenDescribeContractHasMultiFieldVariant ()
     {
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(
             IndexCatalogContractValidatorOpsTestSupport.CreateValidOpsEntry(
@@ -45,14 +45,15 @@ public sealed class IndexCatalogContractValidatorOpsDescribeInputTests
                         ]),
                 ]));
 
-        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
+        var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);
 
         Assert.True(result);
+        Assert.NotNull(snapshot);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public void IsValidOpsDescribe_ReturnsFalse_WhenDescribeContractInputIsInvalid ()
+    public void TryCreateOpsDescribeSnapshot_ReturnsFalse_WhenDescribeContractInputIsInvalid ()
     {
         var contract = IndexCatalogContractValidatorOpsTestSupport.CreateOpsDescribe(
             IndexCatalogContractValidatorOpsTestSupport.CreateValidOpsEntry(
@@ -65,8 +66,9 @@ public sealed class IndexCatalogContractValidatorOpsDescribeInputTests
                         constraints: Array.Empty<UcliOperationInputConstraintContract>()),
                 ]));
 
-        var result = IndexCatalogContractValidator.IsValidOpsDescribe(contract);
+        var result = OpsDescribeSnapshot.TryCreate(contract, out var snapshot);
 
         Assert.False(result);
+        Assert.Null(snapshot);
     }
 }

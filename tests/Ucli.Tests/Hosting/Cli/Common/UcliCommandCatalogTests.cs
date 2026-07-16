@@ -176,14 +176,14 @@ public sealed class UcliCommandCatalogTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void TryGetPreDispatchSupportedSubcommands_WhenTestCommandSpecified_ReturnsFalse ()
+    public void TryGetPreDispatchSupportedSubcommands_WhenTestCommandSpecified_ReturnsTestGroups ()
     {
         var found = UcliCommandCatalog.TryGetPreDispatchSupportedSubcommands(
             UcliCommandNames.Test,
             out var subcommands);
 
-        Assert.False(found);
-        Assert.Empty(subcommands);
+        Assert.True(found);
+        Assert.Equal([UcliCommandNames.RunSubcommand, UcliCommandNames.Profile], subcommands);
     }
 
     [Theory]

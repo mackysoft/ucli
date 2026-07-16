@@ -9,12 +9,14 @@ internal static class RefreshCommandTestData
 
     public const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
 
+    public static readonly Guid RequestGuid = Guid.Parse(RequestId);
+
     public static OperationExecuteResult CreateSuccessResult (
-        OperationExecutionReadPostcondition? readPostcondition = null,
+        IpcExecuteReadPostcondition? readPostcondition = null,
         OperationExecutionPostReadSource? postReadSource = null)
     {
         return OperationExecuteResultFactory.Success(
-            RequestId,
+            RequestGuid,
             [
                 CreateRefreshOperationResult(),
             ],
@@ -30,9 +32,9 @@ internal static class RefreshCommandTestData
             touched:
             [
                 new OperationExecutionTouchedResource(
-                    Kind: UcliTouchedResourceKindNames.Asset,
+                    Kind: UcliTouchedResourceKind.Asset,
                     Path: "Assets/Example.txt",
-                    Guid: null),
+                    AssetGuid: null),
             ]);
     }
 
@@ -41,11 +43,11 @@ internal static class RefreshCommandTestData
         string observedResult = "opResults[].changed=true")
     {
         return new OperationExecutionContractViolation(
-            OpId: "refresh",
+            OpId: new IpcExecuteStepId("refresh"),
             Operation: UcliPrimitiveOperationNames.ProjectRefresh,
             ExpectedFact: expectedFact,
             ObservedResult: observedResult,
-            ApplicationState: IpcExecuteApplicationStateNames.Applied);
+            ApplicationState: IpcApplicationState.Applied);
     }
 
     public static OperationExecutionPostReadSource CreateRefreshPostReadSource ()
@@ -54,12 +56,12 @@ internal static class RefreshCommandTestData
             IpcExecutePostReadSource.CurrentSchemaVersion,
             [
                 new OperationExecutionPostReadSourceStep(
-                    OpId: "refresh",
-                    SourceKind: IpcExecutePostReadSourceKindNames.Refresh,
+                    OpId: new IpcExecuteStepId("refresh"),
+                    SourceKind: IpcExecutePostReadSourceKind.Refresh,
                     PlayModeMutation: false,
                     Commit: null,
                     PersistenceExpected: true,
-                    ExpectedPostState: IpcExecuteExpectedPostStateNames.Unavailable),
+                    ExpectedPostState: IpcExecuteExpectedPostState.Unavailable),
             ]);
     }
 
@@ -67,17 +69,17 @@ internal static class RefreshCommandTestData
         IReadOnlyList<OperationExecutionTouchedResource>? touched = null)
     {
         return new OperationExecutionOperationResult(
-            OpId: "refresh",
+            OpId: new IpcExecuteStepId("refresh"),
             Op: UcliPrimitiveOperationNames.ProjectRefresh,
-            Phase: IpcExecuteOperationPhaseNames.Call,
+            Phase: IpcExecuteOperationPhase.Call,
             Applied: true,
             Changed: true,
             Touched: touched ??
             [
                 new OperationExecutionTouchedResource(
-                    Kind: UcliTouchedResourceKindNames.Asset,
+                    Kind: UcliTouchedResourceKind.Asset,
                     Path: "Assets/Example.txt",
-                    Guid: null),
+                    AssetGuid: null),
             ]);
     }
 }

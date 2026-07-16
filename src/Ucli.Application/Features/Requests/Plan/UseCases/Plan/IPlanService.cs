@@ -6,10 +6,12 @@ namespace MackySoft.Ucli.Application.Features.Requests.Plan.UseCases.Plan;
 internal interface IPlanService
 {
     /// <summary> Executes one <c>plan</c> workflow and returns the normalized execution result. </summary>
+    /// <param name="requestId"> The non-empty correlation identifier owned by the CLI command invocation. </param>
     /// <param name="input"> The normalized command input. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that resolves to the plan execution result. </returns>
     ValueTask<PlanServiceResult> ExecuteAsync (
+        Guid requestId,
         PlanCommandInput input,
         CancellationToken cancellationToken = default);
 }

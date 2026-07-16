@@ -1,5 +1,4 @@
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Contracts;
-using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -53,8 +52,8 @@ internal static class VerifyCommandResultFactory
         return new CommandResult(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: UcliCommandNames.Verify,
-            Status: IpcProtocol.StatusOk,
-            ExitCode: string.Equals(output.Verdict, VerifyVerdictValues.Pass, StringComparison.Ordinal)
+            Status: CommandResultStatus.Ok,
+            ExitCode: output.Verdict == AssuranceVerdict.Pass
                 ? (int)CliExitCode.Success
                 : 1,
             Message: executionResult.Message,

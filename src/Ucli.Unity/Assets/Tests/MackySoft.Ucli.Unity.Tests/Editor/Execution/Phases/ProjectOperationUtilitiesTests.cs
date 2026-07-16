@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text.Json;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using NUnit.Framework;
 
@@ -44,13 +45,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
             Assert.That(touched.Count, Is.EqualTo(4));
             Assert.That(touched[0].Path, Is.EqualTo("Assets/Data/Config.asset"));
-            Assert.That(touched[0].Kind, Is.EqualTo(OperationTouchKind.Asset));
+            Assert.That(touched[0].Kind, Is.EqualTo(UcliTouchedResourceKind.Asset));
             Assert.That(touched[1].Path, Is.EqualTo("Assets/Prefabs/Enemy.prefab"));
-            Assert.That(touched[1].Kind, Is.EqualTo(OperationTouchKind.Prefab));
+            Assert.That(touched[1].Kind, Is.EqualTo(UcliTouchedResourceKind.Prefab));
             Assert.That(touched[2].Path, Is.EqualTo("Assets/Scenes/Main.unity"));
-            Assert.That(touched[2].Kind, Is.EqualTo(OperationTouchKind.Scene));
+            Assert.That(touched[2].Kind, Is.EqualTo(UcliTouchedResourceKind.Scene));
             Assert.That(touched[3].Path, Is.EqualTo("ProjectSettings/TagManager.asset"));
-            Assert.That(touched[3].Kind, Is.EqualTo(OperationTouchKind.ProjectSettings));
+            Assert.That(touched[3].Kind, Is.EqualTo(UcliTouchedResourceKind.ProjectSettings));
         }
 
         [Test]

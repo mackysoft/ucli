@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Testing;
@@ -13,7 +12,6 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
     public async Task Resolve_WithCliOverridesProfileValues_ReturnsMergedCliValues ()
     {
         using var scope = TestDirectories.CreateTempScope("test-run-config-resolver", "cli-overrides-profile");
-        var testSettingsPath = scope.GetPath("ProjectSettings/TestSettings.json");
 
         var profile = new TestRunProfile
         {
@@ -25,7 +23,6 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
             TestFilter = "Category=Smoke",
             TestCategories = ["profile"],
             AssemblyNames = ["Profile.Tests"],
-            TestSettingsPath = testSettingsPath,
             Timeout = 30,
         };
 
@@ -40,9 +37,7 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
             new RecordingProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
             unityProjectResolver,
             unityVersionResolver,
-            unityEditorPathResolver,
-            new StubTestRunPathNormalizer(),
-            new StubTestRunPathExistenceProbe(testSettingsPath));
+            unityEditorPathResolver);
 
         var input = new TestRunConfigurationRequest(
             ProjectPath: unityProject.UnityProjectRoot,
@@ -54,7 +49,6 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
             TestFilter: "Name~Smoke",
             TestCategory: ["smoke", "quick"],
             AssemblyName: ["Cli.Tests"],
-            TestSettingsPath: testSettingsPath,
             TimeoutMilliseconds: 120);
 
         var result = await resolver.ResolveAsync(input, CancellationToken.None);
@@ -66,7 +60,6 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
         Assert.Equal("Name~Smoke", configuration.TestFilter);
         Assert.Equal(["smoke", "quick"], configuration.TestCategories);
         Assert.Equal(["Cli.Tests"], configuration.AssemblyNames);
-        Assert.Equal(testSettingsPath, configuration.TestSettingsPath);
         Assert.Equal(120, configuration.TimeoutMilliseconds);
     }
 
@@ -85,7 +78,6 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
             TestFilter = null,
             TestCategories = [" smoke ", "smoke", "", "nightly"],
             AssemblyNames = [" Game.Tests ", "Game.Tests", "Game.MoreTests"],
-            TestSettingsPath = null,
             Timeout = 30,
         };
 
@@ -94,9 +86,7 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
             new RecordingProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
             new RecordingUnityProjectResolver(UnityProjectResolutionResult.Success(CreateUnityProjectContext(scope, "profile-project"))),
             new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
-            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
-            new StubTestRunPathNormalizer(),
-            new StubTestRunPathExistenceProbe());
+            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
 
         var input = new TestRunConfigurationRequest(
             ProjectPath: null,
@@ -108,7 +98,6 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
-            TestSettingsPath: null,
             TimeoutMilliseconds: null);
 
         var result = await resolver.ResolveAsync(input, CancellationToken.None);
@@ -135,7 +124,6 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
             TestFilter: null,
             TestCategory: null,
             AssemblyName: null,
-            TestSettingsPath: null,
             TimeoutMilliseconds: 30);
 
         var result = await resolver.ResolveAsync(input, CancellationToken.None);

@@ -4,9 +4,6 @@ namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 internal enum IndexFreshnessTarget
 {
     OpsCatalog,
-    TypesCatalog,
-    SchemasCatalog,
     AssetSearchLookup,
     GuidPathLookup,
-    SceneTreeLite,
 }

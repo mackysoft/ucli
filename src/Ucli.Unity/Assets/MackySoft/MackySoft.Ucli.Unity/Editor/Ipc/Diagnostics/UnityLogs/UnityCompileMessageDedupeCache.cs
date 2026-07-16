@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Unity.Runtime;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -10,7 +11,16 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly object syncRoot = new object();
 
-        private readonly Dictionary<string, DateTimeOffset> entries = new Dictionary<string, DateTimeOffset>(StringComparer.Ordinal);
+        private readonly Dictionary<string, TimeSpan> entries = new Dictionary<string, TimeSpan>(StringComparer.Ordinal);
+
+        private readonly IMonotonicClock monotonicClock;
+
+        /// <summary> Initializes a compile-message cache with one monotonic process-time source. </summary>
+        /// <param name="monotonicClock"> The monotonic process-time source. </param>
+        public UnityCompileMessageDedupeCache (IMonotonicClock monotonicClock)
+        {
+            this.monotonicClock = monotonicClock ?? throw new ArgumentNullException(nameof(monotonicClock));
+        }
 
         /// <summary> Registers one compile message as recently emitted. </summary>
         /// <param name="message"> The normalized compile message. </param>
@@ -23,8 +33,9 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             lock (syncRoot)
             {
-                PruneExpired(DateTimeOffset.UtcNow);
-                entries[message] = DateTimeOffset.UtcNow + EntryLifetime;
+                var monotonicNow = monotonicClock.Elapsed;
+                PruneExpired(monotonicNow);
+                entries[message] = monotonicNow;
             }
         }
 
@@ -40,31 +51,41 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             lock (syncRoot)
             {
-                var now = DateTimeOffset.UtcNow;
-                PruneExpired(now);
-                if (!entries.TryGetValue(message, out var expiresAt))
+                var monotonicNow = monotonicClock.Elapsed;
+                PruneExpired(monotonicNow);
+                if (!entries.ContainsKey(message))
                 {
                     return false;
                 }
 
-                return expiresAt >= now;
+                return true;
             }
         }
 
-        private void PruneExpired (DateTimeOffset now)
+        private void PruneExpired (TimeSpan monotonicNow)
         {
             if (entries.Count == 0)
             {
                 return;
             }
 
-            var expiredKeys = new List<string>();
+            List<string> expiredKeys = null;
             foreach (var entry in entries)
             {
-                if (entry.Value < now)
+                if (monotonicNow - entry.Value >= EntryLifetime)
                 {
+                    if (expiredKeys == null)
+                    {
+                        expiredKeys = new List<string>();
+                    }
+
                     expiredKeys.Add(entry.Key);
                 }
+            }
+
+            if (expiredKeys == null)
+            {
+                return;
             }
 
             foreach (var expiredKey in expiredKeys)

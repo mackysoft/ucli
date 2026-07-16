@@ -1,5 +1,4 @@
 using System.Text.Json.Nodes;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Play.UseCases.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -13,9 +12,10 @@ public sealed class PlayStatusServiceResponseValidationTests
     [Trait("Size", "Small")]
     public async Task Execute_WhenResponseProjectFingerprintDiffers_ReturnsMismatchFailure ()
     {
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
+        var otherProjectFingerprint = ProjectFingerprintTestFactory.Create("other-project-fingerprint");
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreatePlaySession()));
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(CreateResponse(CreateStatusResponse(
-            projectFingerprint: "other-project-fingerprint"))));
+            projectFingerprint: otherProjectFingerprint))));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);
@@ -24,24 +24,24 @@ public sealed class PlayStatusServiceResponseValidationTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
-        Assert.Contains("project-fingerprint", error.Message, StringComparison.Ordinal);
-        Assert.Contains("other-project-fingerprint", error.Message, StringComparison.Ordinal);
+        Assert.Contains(PlayProjectContext.UnityProject.ProjectFingerprint.ToString(), error.Message, StringComparison.Ordinal);
+        Assert.Contains(otherProjectFingerprint.ToString(), error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task Execute_WhenPlayModeStateLiteralIsInvalid_ReturnsInvalidPayloadFailure ()
     {
-        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Success(CreatePlaySession()));
+        var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResultTestFactory.Found(CreatePlaySession()));
         var payload = JsonNode.Parse(IpcPayloadCodec.SerializeToElement(CreateStatusResponse()).GetRawText())!;
         payload["snapshot"]!["state"]!["playMode"]!["state"] = "invalid";
         var requestExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(
             UnityRequestResponseTestFactory.Create(new IpcResponse(
-                ProtocolVersion: IpcProtocol.CurrentVersion,
-                RequestId: "request-1",
-                Status: IpcProtocol.StatusOk,
-                Payload: IpcPayloadCodec.SerializeToElement(payload),
-                Errors: []))));
+                protocolVersion: IpcProtocol.CurrentVersion,
+                requestId: Guid.NewGuid(),
+                status: IpcResponseStatus.Ok,
+                payload: IpcPayloadCodec.SerializeToElement(payload),
+                errors: []))));
         var service = CreateService(PlayProjectContext, sessionStore, requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayStatusCommandInput(null, null), CancellationToken.None);

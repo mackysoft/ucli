@@ -22,11 +22,12 @@ namespace MackySoft.Ucli.Unity.Tests
                 snapshot,
                 Array.Empty<OperationPhaseTrace>());
             var nextDomainReloadGeneration = snapshot.DomainReloadGeneration + 1;
+            var changedSnapshot = snapshot with
+            {
+                DomainReloadGeneration = nextDomainReloadGeneration,
+            };
             var changedFingerprint = PlanTokenStateFingerprintCalculator.Compute(
-                snapshot with
-                {
-                    DomainReloadGeneration = nextDomainReloadGeneration,
-                },
+                changedSnapshot,
                 Array.Empty<OperationPhaseTrace>());
 
             Assert.That(changedFingerprint, Is.Not.EqualTo(currentFingerprint));

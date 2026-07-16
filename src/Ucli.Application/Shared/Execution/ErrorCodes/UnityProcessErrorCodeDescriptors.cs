@@ -25,7 +25,7 @@ internal static class UnityProcessErrorCodeDescriptors
             possiblePhases: ["processLaunch", "projectLockCheck"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["status", UcliErrorInspectTargets.DaemonListCommand, UcliErrorInspectTargets.DaemonErrorLogsCommand],
             nextActions:
             [
@@ -49,7 +49,7 @@ internal static class UnityProcessErrorCodeDescriptors
             possiblePhases: ["processLaunch", "projectLockCheck"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.No,
+            safeToRetry: UcliErrorRetryClass.No,
             inspect: ["projectPath", "status", UcliErrorInspectTargets.DaemonListCommand, UcliErrorInspectTargets.DaemonErrorLogsCommand],
             nextActions:
             [
@@ -72,7 +72,7 @@ internal static class UnityProcessErrorCodeDescriptors
             possiblePhases: ["processLaunch", "projectLockCheck"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
-            safeToRetry: UcliErrorRetryClassValues.ContextDependent,
+            safeToRetry: UcliErrorRetryClass.ContextDependent,
             inspect: ["projectPath", "status", UcliErrorInspectTargets.DaemonListCommand, UcliErrorInspectTargets.DaemonErrorLogsCommand],
             nextActions:
             [

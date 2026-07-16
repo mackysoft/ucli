@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Operations;
+using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
@@ -20,7 +21,8 @@ internal static class UcliOperationCodeSourceFormContractBuilder
         string paramName)
     {
         if (sourceForm == null
-            || string.IsNullOrWhiteSpace(sourceForm.Kind)
+            || !sourceForm.Kind.HasValue
+            || !ContractLiteralCodec.IsDefined(sourceForm.Kind.Value)
             || string.IsNullOrWhiteSpace(sourceForm.Description))
         {
             throw new ArgumentException("Source form kind and description must not be empty.", paramName);

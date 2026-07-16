@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -11,22 +12,17 @@ namespace MackySoft.Ucli.Unity.Project
     internal static class UnityProjectIdentityFactory
     {
         /// <summary> Creates the current project identity after validating the expected fingerprint. </summary>
-        public static IpcProjectIdentity Create (string expectedProjectFingerprint)
+        public static IpcProjectIdentity Create (ProjectFingerprint expectedProjectFingerprint)
         {
-            if (string.IsNullOrWhiteSpace(expectedProjectFingerprint))
+            if (expectedProjectFingerprint == null)
             {
-                throw new ArgumentException(
-                    "Expected project fingerprint must not be empty.",
-                    nameof(expectedProjectFingerprint));
+                throw new ArgumentNullException(nameof(expectedProjectFingerprint));
             }
 
             var projectPath = Path.GetFullPath(UnityProjectPathResolver.ResolveProjectRootPath());
             var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
             var actualProjectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectPath);
-            if (!string.Equals(
-                    expectedProjectFingerprint,
-                    actualProjectFingerprint,
-                    StringComparison.Ordinal))
+            if (expectedProjectFingerprint != actualProjectFingerprint)
             {
                 throw new ArgumentException(
                     $"Expected project fingerprint does not match the current Unity project. Expected={expectedProjectFingerprint}, Actual={actualProjectFingerprint}.",
@@ -37,9 +33,9 @@ namespace MackySoft.Ucli.Unity.Project
                 ? "unknown"
                 : Application.unityVersion;
             return new IpcProjectIdentity(
-                ProjectPath: projectPath,
-                ProjectFingerprint: actualProjectFingerprint,
-                UnityVersion: unityVersion);
+                projectPath: projectPath,
+                projectFingerprint: actualProjectFingerprint,
+                unityVersion: unityVersion);
         }
     }
 }

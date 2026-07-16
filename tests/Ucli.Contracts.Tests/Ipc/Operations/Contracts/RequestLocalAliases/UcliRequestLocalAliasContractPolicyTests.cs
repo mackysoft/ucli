@@ -54,7 +54,7 @@ public sealed class UcliRequestLocalAliasContractPolicyTests
         Assert.False(UcliRequestLocalAliasContractPolicy.IsInternalRequestLocalAliasBranchProperty(aliasProperty));
     }
 
-    private sealed record OtherStringValue : UcliStringValue
+    private sealed class OtherStringValue : UcliStringValue
     {
         public OtherStringValue (string value)
             : base(value)

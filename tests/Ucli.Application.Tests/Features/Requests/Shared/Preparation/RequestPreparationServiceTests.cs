@@ -8,30 +8,6 @@ namespace MackySoft.Ucli.Application.Tests;
 
 public sealed class RequestPreparationServiceTests
 {
-    private const string RequestId = "9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62";
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Parse_WhenDependenciesSucceed_ReturnsParsedRequestWithoutResolvingProject ()
-    {
-        const string requestJson = """{"steps":[]}""";
-        var parsedRequest = CreateRequest();
-        var parser = new RecordingValidateRequestJsonParser
-        {
-            Result = ValidateRequestJsonParseResult.Success(parsedRequest),
-        };
-        var service = CreateService(parser, new UnexpectedProjectContextResolver());
-
-        var result = service.Parse(requestJson);
-
-        var normalizedRequestJson = CreateNormalizedRequestJson();
-        Assert.True(result.IsSuccess);
-        Assert.NotNull(result.ParsedRequest);
-        Assert.Equal(normalizedRequestJson, result.ParsedRequest!.RequestJson);
-        Assert.Same(parsedRequest, result.ParsedRequest.Request);
-        RequestPreparationInvocationAssert.RequestJsonParsedOnce(parser, normalizedRequestJson);
-    }
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Prepare_WhenDependenciesSucceed_ReturnsPreparedRequest ()
@@ -88,8 +64,8 @@ public sealed class RequestPreparationServiceTests
     [Trait("Size", "Small")]
     public async Task Prepare_WhenUserRequestNormalizationFails_ReturnsFailureWithoutParsing ()
     {
-        const string requestJson = """{"requestId":"9b0e6d1e-3f55-4a6b-8c66-5b9a3a7c9c62","steps":[]}""";
-        var error = ExecutionError.InvalidArgument("requestId is reserved.");
+        const string requestJson = """{"unknown":true,"steps":[]}""";
+        var error = ExecutionError.InvalidArgument("unknown property.");
         var parser = new RecordingValidateRequestJsonParser
         {
             Result = ValidateRequestJsonParseResult.Success(CreateRequest()),
@@ -196,13 +172,12 @@ public sealed class RequestPreparationServiceTests
     {
         return new ValidateRequest(
             ProtocolVersion: 1,
-            RequestId: RequestId,
             Steps: Array.Empty<ValidateRequestStep?>());
     }
 
     private static string CreateNormalizedRequestJson ()
     {
-        return $$"""{"protocolVersion":1,"requestId":"{{RequestId}}","steps":[]}""";
+        return """{"protocolVersion":1,"steps":[]}""";
     }
 
     private static RequestPreparationService CreateService (

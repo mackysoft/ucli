@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Unity.Runtime;
 
 #nullable enable
 
@@ -12,28 +14,28 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
     {
         private readonly object syncRoot = new object();
 
-        private readonly Dictionary<string, CompletedEntry> completedEntries = new Dictionary<string, CompletedEntry>(StringComparer.Ordinal);
+        private readonly Dictionary<Guid, CompletedEntry> completedEntries = new Dictionary<Guid, CompletedEntry>();
 
-        private readonly LinkedList<string> completedOrder = new LinkedList<string>();
+        private readonly LinkedList<Guid> completedOrder = new LinkedList<Guid>();
 
-        private readonly Dictionary<string, InFlightEntry> inFlightEntries = new Dictionary<string, InFlightEntry>(StringComparer.Ordinal);
+        private readonly Dictionary<Guid, InFlightEntry> inFlightEntries = new Dictionary<Guid, InFlightEntry>();
 
         private readonly TimeSpan cacheTtl;
 
         private readonly int maxEntries;
 
-        private readonly Func<DateTimeOffset> utcNowProvider;
+        private readonly IMonotonicClock monotonicClock;
 
         /// <summary> Initializes a new instance of the <see cref="InMemoryExecuteRequestIdempotencyStore" /> class. </summary>
         /// <param name="cacheTtl"> The cache TTL duration. Must be greater than <see cref="TimeSpan.Zero" />. </param>
         /// <param name="maxEntries"> The maximum number of completed entries retained in memory. Must be greater than zero. </param>
-        /// <param name="utcNowProvider"> The UTC clock provider. </param>
+        /// <param name="monotonicClock"> The monotonic process-time source. </param>
         /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="cacheTtl" /> or <paramref name="maxEntries" /> is invalid. </exception>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="utcNowProvider" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="monotonicClock" /> is <see langword="null" />. </exception>
         public InMemoryExecuteRequestIdempotencyStore (
             TimeSpan cacheTtl,
             int maxEntries,
-            Func<DateTimeOffset> utcNowProvider)
+            IMonotonicClock monotonicClock)
         {
             if (cacheTtl <= TimeSpan.Zero)
             {
@@ -47,26 +49,31 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
             this.cacheTtl = cacheTtl;
             this.maxEntries = maxEntries;
-            this.utcNowProvider = utcNowProvider ?? throw new ArgumentNullException(nameof(utcNowProvider));
+            this.monotonicClock = monotonicClock ?? throw new ArgumentNullException(nameof(monotonicClock));
         }
 
         /// <summary> Acquires one idempotency decision for an incoming request-id and fingerprint. </summary>
         /// <param name="requestId"> The request identifier. </param>
         /// <param name="requestFingerprint"> The deterministic request fingerprint. </param>
         /// <returns> The idempotency decision. </returns>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestFingerprint" /> is <see langword="null" />. </exception>
         public ExecuteRequestIdempotencyStoreDecision Acquire (
-            string requestId,
-            string requestFingerprint)
+            Guid requestId,
+            Sha256Digest requestFingerprint)
         {
-            var nowUtc = utcNowProvider();
+            if (requestFingerprint == null)
+            {
+                throw new ArgumentNullException(nameof(requestFingerprint));
+            }
 
             lock (syncRoot)
             {
-                EvictExpiredEntries(nowUtc);
+                var monotonicNow = monotonicClock.Elapsed;
+                EvictExpiredEntries(monotonicNow);
 
                 if (completedEntries.TryGetValue(requestId, out var completedEntry))
                 {
-                    if (string.Equals(completedEntry.RequestFingerprint, requestFingerprint, StringComparison.Ordinal))
+                    if (completedEntry.RequestFingerprint == requestFingerprint)
                     {
                         return ExecuteRequestIdempotencyStoreDecision.ReplayCompleted(completedEntry.Response);
                     }
@@ -76,7 +83,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
 
                 if (inFlightEntries.TryGetValue(requestId, out var inFlightEntry))
                 {
-                    if (!string.Equals(inFlightEntry.RequestFingerprint, requestFingerprint, StringComparison.Ordinal))
+                    if (inFlightEntry.RequestFingerprint != requestFingerprint)
                     {
                         return ExecuteRequestIdempotencyStoreDecision.Conflict();
                     }
@@ -94,18 +101,22 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="requestId"> The request identifier. </param>
         /// <param name="requestFingerprint"> The deterministic request fingerprint. </param>
         /// <param name="response"> The completed response envelope. </param>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="response" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="requestFingerprint" /> or <paramref name="response" /> is <see langword="null" />. </exception>
         public void CompleteSuccess (
-            string requestId,
-            string requestFingerprint,
+            Guid requestId,
+            Sha256Digest requestFingerprint,
             IpcResponse response)
         {
+            if (requestFingerprint == null)
+            {
+                throw new ArgumentNullException(nameof(requestFingerprint));
+            }
+
             if (response == null)
             {
                 throw new ArgumentNullException(nameof(response));
             }
 
-            var createdAtUtc = utcNowProvider();
             lock (syncRoot)
             {
                 if (!inFlightEntries.TryGetValue(requestId, out var inFlightEntry))
@@ -114,14 +125,14 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                 }
 
                 inFlightEntries.Remove(requestId);
-                SaveCompletedEntry(requestId, requestFingerprint, response, createdAtUtc);
+                SaveCompletedEntry(requestId, requestFingerprint, response, monotonicClock.Elapsed);
                 inFlightEntry.CompletionSource.TrySetResult(response);
             }
         }
 
         /// <summary> Completes one owner execution with cancellation and notifies shared waiters. </summary>
         /// <param name="requestId"> The request identifier. </param>
-        public void CompleteCanceled (string requestId)
+        public void CompleteCanceled (Guid requestId)
         {
             lock (syncRoot)
             {
@@ -140,7 +151,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="exception"> The execution failure exception. </param>
         /// <exception cref="ArgumentNullException"> Thrown when <paramref name="exception" /> is <see langword="null" />. </exception>
         public void CompleteFailed (
-            string requestId,
+            Guid requestId,
             Exception exception)
         {
             if (exception == null)
@@ -164,12 +175,12 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="requestId"> The request identifier. </param>
         /// <param name="requestFingerprint"> The request fingerprint. </param>
         /// <param name="response"> The completed response. </param>
-        /// <param name="createdAtUtc"> The completion timestamp in UTC. </param>
+        /// <param name="completedAtMonotonicTime"> The monotonic completion time. </param>
         private void SaveCompletedEntry (
-            string requestId,
-            string requestFingerprint,
+            Guid requestId,
+            Sha256Digest requestFingerprint,
             IpcResponse response,
-            DateTimeOffset createdAtUtc)
+            TimeSpan completedAtMonotonicTime)
         {
             if (completedEntries.TryGetValue(requestId, out var existingEntry))
             {
@@ -180,14 +191,14 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
             completedEntries[requestId] = new CompletedEntry(
                 RequestFingerprint: requestFingerprint,
                 Response: response,
-                ExpiresAtUtc: createdAtUtc.Add(cacheTtl),
+                CompletedAtMonotonicTime: completedAtMonotonicTime,
                 OrderNode: orderNode);
             EvictOverflowEntries();
         }
 
         /// <summary> Evicts expired completed entries in chronological insertion order. </summary>
-        /// <param name="nowUtc"> The current UTC timestamp. </param>
-        private void EvictExpiredEntries (DateTimeOffset nowUtc)
+        /// <param name="monotonicNow"> The current monotonic process time. </param>
+        private void EvictExpiredEntries (TimeSpan monotonicNow)
         {
             while (completedOrder.First != null)
             {
@@ -198,7 +209,7 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
                     continue;
                 }
 
-                if (nowUtc <= entry.ExpiresAtUtc)
+                if (monotonicNow - entry.CompletedAtMonotonicTime < cacheTtl)
                 {
                     break;
                 }
@@ -223,18 +234,18 @@ namespace MackySoft.Ucli.Unity.Execution.RequestIdempotency
         /// <param name="RequestFingerprint"> The fingerprint used by the owner request. </param>
         /// <param name="CompletionSource"> The shared completion source for waiters. </param>
         private sealed record InFlightEntry (
-            string RequestFingerprint,
+            Sha256Digest RequestFingerprint,
             TaskCompletionSource<IpcResponse> CompletionSource);
 
         /// <summary> Represents one completed response cache entry keyed by request-id. </summary>
         /// <param name="RequestFingerprint"> The fingerprint used by the completed request. </param>
         /// <param name="Response"> The completed response envelope. </param>
-        /// <param name="ExpiresAtUtc"> The expiration timestamp in UTC. </param>
+        /// <param name="CompletedAtMonotonicTime"> The monotonic process time when the response completed. </param>
         /// <param name="OrderNode"> The insertion-order linked-list node. </param>
         private sealed record CompletedEntry (
-            string RequestFingerprint,
+            Sha256Digest RequestFingerprint,
             IpcResponse Response,
-            DateTimeOffset ExpiresAtUtc,
-            LinkedListNode<string> OrderNode);
+            TimeSpan CompletedAtMonotonicTime,
+            LinkedListNode<Guid> OrderNode);
     }
 }

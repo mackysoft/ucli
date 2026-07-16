@@ -1,3 +1,5 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
+
 namespace MackySoft.Ucli.Application.Tests.Daemon;
 
 public sealed class DaemonGuiEditorAttachServicePreEndpointTests
@@ -22,11 +24,13 @@ public sealed class DaemonGuiEditorAttachServicePreEndpointTests
             processProbe,
             awaiter,
             new UnexpectedDaemonGuiRebootstrapClient("Batchmode editor mode mismatch should not request rebootstrap."),
-            diagnosisStore);
+            diagnosisStore,
+            new DaemonCompensationOperationOwner(),
+            new ManualTimeProvider());
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             DaemonGuiEditorAttachServiceTestSupport.UnityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             DaemonEditorMode.Batchmode,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -54,11 +58,13 @@ public sealed class DaemonGuiEditorAttachServicePreEndpointTests
             processProbe,
             awaiter,
             new UnexpectedDaemonGuiRebootstrapClient("Rejected GUI marker should not request rebootstrap."),
-            new UnexpectedDaemonDiagnosisStore("Rejected GUI marker should not write diagnosis."));
+            new UnexpectedDaemonDiagnosisStore("Rejected GUI marker should not write diagnosis."),
+            new DaemonCompensationOperationOwner(),
+            new ManualTimeProvider());
 
         var result = await service.TryAttachExistingGuiEditorAsync(
             DaemonGuiEditorAttachServiceTestSupport.UnityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), new ManualTimeProvider()),
             editorMode: null,
             DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

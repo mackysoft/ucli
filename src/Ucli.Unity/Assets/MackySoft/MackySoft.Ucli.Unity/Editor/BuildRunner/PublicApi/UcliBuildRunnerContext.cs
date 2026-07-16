@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Cryptography;
 
 #nullable enable
 
@@ -10,12 +12,12 @@ namespace MackySoft.Ucli.Unity
     {
         /// <summary> Initializes a new instance of the <see cref="UcliBuildRunnerContext" /> class. </summary>
         internal UcliBuildRunnerContext (
-            string runId,
+            Guid runId,
             string projectPath,
-            string projectFingerprint,
+            ProjectFingerprint projectFingerprint,
             string outputDir,
             string profilePath,
-            string profileDigest,
+            Sha256Digest profileDigest,
             UcliResolvedBuildTarget target,
             IReadOnlyList<string> scenes,
             UcliBuildOptions options,
@@ -23,12 +25,17 @@ namespace MackySoft.Ucli.Unity
             IReadOnlyDictionary<string, string> environmentVariables,
             IReadOnlyDictionary<string, string> environmentSecrets)
         {
-            RunId = RequireValue(runId, nameof(runId));
+            if (runId == Guid.Empty)
+            {
+                throw new ArgumentException("runId must not be empty.", nameof(runId));
+            }
+
+            RunId = runId;
             ProjectPath = RequireValue(projectPath, nameof(projectPath));
-            ProjectFingerprint = RequireValue(projectFingerprint, nameof(projectFingerprint));
+            ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             OutputDir = RequireValue(outputDir, nameof(outputDir));
             ProfilePath = RequireValue(profilePath, nameof(profilePath));
-            ProfileDigest = RequireValue(profileDigest, nameof(profileDigest));
+            ProfileDigest = profileDigest ?? throw new ArgumentNullException(nameof(profileDigest));
             Target = target ?? throw new ArgumentNullException(nameof(target));
             Scenes = scenes ?? throw new ArgumentNullException(nameof(scenes));
             Options = options ?? throw new ArgumentNullException(nameof(options));
@@ -40,13 +47,13 @@ namespace MackySoft.Ucli.Unity
         public static UcliBuildRunnerContext? Current { get; internal set; }
 
         /// <summary> Gets the uCLI build run identifier. </summary>
-        public string RunId { get; }
+        public Guid RunId { get; }
 
         /// <summary> Gets the absolute Unity project root path. </summary>
         public string ProjectPath { get; }
 
         /// <summary> Gets the uCLI project fingerprint. </summary>
-        public string ProjectFingerprint { get; }
+        public ProjectFingerprint ProjectFingerprint { get; }
 
         /// <summary> Gets the absolute runner working output directory. </summary>
         public string OutputDir { get; }
@@ -55,7 +62,7 @@ namespace MackySoft.Ucli.Unity
         public string ProfilePath { get; }
 
         /// <summary> Gets the canonical build profile digest. </summary>
-        public string ProfileDigest { get; }
+        public Sha256Digest ProfileDigest { get; }
 
         /// <summary> Gets the resolved build target. </summary>
         public UcliResolvedBuildTarget Target { get; }

@@ -31,7 +31,7 @@ internal sealed class CallDangerousOperationGuard : ICallDangerousOperationGuard
 
             switch (step.Kind)
             {
-                case IpcRequestStepKind.Op:
+                case IpcExecuteStepKind.Op:
                     if (!StringValueNormalizer.TryTrimToNonEmpty(step.Op, out var operationName))
                     {
                         continue;
@@ -41,13 +41,13 @@ internal sealed class CallDangerousOperationGuard : ICallDangerousOperationGuard
                     {
                         return new ValidationError(
                             OperationAuthorizationErrorCodes.OperationNotAllowed,
-                            $"Step '{step.StepId ?? string.Empty}' requires dangerous operation '{operationDescriptor!.Name}'. Specify --allowDangerous to execute dangerous operations.",
+                            $"Step '{step.StepId}' requires dangerous operation '{operationDescriptor!.Name}'. Specify --allowDangerous to execute dangerous operations.",
                             step.StepId);
                     }
 
                     break;
 
-                case IpcRequestStepKind.Edit:
+                case IpcExecuteStepKind.Edit:
                     if (!RequestEditStepLowerPreviewBuilder.TryBuild(
                             step.Element,
                             preparedRequest.Request.AllowPlayMode,
@@ -70,7 +70,7 @@ internal sealed class CallDangerousOperationGuard : ICallDangerousOperationGuard
 
                         return new ValidationError(
                             OperationAuthorizationErrorCodes.OperationNotAllowed,
-                            $"Edit step '{step.StepId ?? string.Empty}' requires dangerous operation '{operationDescriptor!.Name}'. Specify --allowDangerous to execute dangerous operations.",
+                            $"Edit step '{step.StepId}' requires dangerous operation '{operationDescriptor!.Name}'. Specify --allowDangerous to execute dangerous operations.",
                             step.StepId);
                     }
 

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Testing;
 using MackySoft.Ucli.Hosting.Cli.Testing;
@@ -17,10 +16,10 @@ public sealed class TestRunCommandDispatchTests
         var service = new RecordingTestRunService(
             (_, _, _) => ValueTask.FromResult(TestRunServiceResult.Pass(
                 message: "Unity test execution completed.",
-                runId: "run-id",
+                runId: RunIdTestValues.Test,
                 artifactsDir: artifactsDir,
                 summaryJsonPath: summaryJsonPath)));
-        var command = new TestRunCommand(service, CommandResultTestWriter.Create());
+        var command = new TestRunCommand(service, CommandResultTestWriter.Create(), CliStreamEntryWriterFactoryTestFixture.System);
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.RunAsync(
@@ -33,7 +32,6 @@ public sealed class TestRunCommandDispatchTests
             testFilter: "Name~Smoke",
             testCategory: "smoke, fast,nightly",
             assemblyName: "MyGame.Tests.EditMode,MyGame.Tests.PlayMode",
-            testSettingsPath: "/repo/UnityProject/ProjectSettings/TestSettings.json",
             timeout: 120,
             failFast: true,
             allowEmptyTestRun: true,
@@ -53,7 +51,6 @@ public sealed class TestRunCommandDispatchTests
         Assert.Equal("Name~Smoke", input.TestFilter);
         Assert.Equal(["smoke", "fast", "nightly"], Assert.IsType<string[]>(input.TestCategory));
         Assert.Equal(["MyGame.Tests.EditMode", "MyGame.Tests.PlayMode"], Assert.IsType<string[]>(input.AssemblyName));
-        Assert.Equal("/repo/UnityProject/ProjectSettings/TestSettings.json", input.TestSettingsPath);
         Assert.Equal(120, input.TimeoutMilliseconds);
         Assert.True(input.FailFast);
         Assert.True(input.AllowEmptyTestRun);

@@ -27,7 +27,7 @@ internal static class CommandFailureProjector
         return new CommandResult(
             ProtocolVersion: IpcProtocol.CurrentVersion,
             Command: command,
-            Status: IpcProtocol.StatusError,
+            Status: CommandResultStatus.Error,
             ExitCode: ApplicationOutcomeCliExitCodeMapper.ToExitCode(ApplicationFailureOutcomeResolver.Resolve(failures)),
             Message: message,
             Payload: payload ?? EmptyPayload,

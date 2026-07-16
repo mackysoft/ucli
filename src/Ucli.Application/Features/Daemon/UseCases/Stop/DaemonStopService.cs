@@ -26,12 +26,12 @@ internal sealed class DaemonStopService : IDaemonStopService
         IDaemonCommandExecutionContextResolver daemonCommandExecutionContextResolver,
         IDaemonProjectLifecycleGateway daemonProjectLifecycleGateway,
         IDaemonStopOperation daemonStopOperation,
-        TimeProvider? timeProvider = null)
+        TimeProvider timeProvider)
     {
         this.daemonCommandExecutionContextResolver = daemonCommandExecutionContextResolver ?? throw new ArgumentNullException(nameof(daemonCommandExecutionContextResolver));
         this.daemonProjectLifecycleGateway = daemonProjectLifecycleGateway ?? throw new ArgumentNullException(nameof(daemonProjectLifecycleGateway));
         this.daemonStopOperation = daemonStopOperation ?? throw new ArgumentNullException(nameof(daemonStopOperation));
-        this.timeProvider = timeProvider ?? TimeProvider.System;
+        this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
     }
 
     /// <summary> Executes one daemon-stop workflow. </summary>
@@ -77,7 +77,7 @@ internal sealed class DaemonStopService : IDaemonStopService
 
         if (stopResult == null)
         {
-            if (!deadline.TryGetRemainingTimeout(out var directStopTimeout))
+            if (!deadline.TryGetRemainingTimeout(out _))
             {
                 if (supervisorStopFailure?.Error is not null)
                 {
@@ -90,19 +90,18 @@ internal sealed class DaemonStopService : IDaemonStopService
 
             stopResult = await daemonStopOperation.StopAsync(
                     executionContext.Context.UnityProject,
-                    directStopTimeout,
+                    deadline,
                     cancellationToken)
                 .ConfigureAwait(false);
         }
 
         if (!stopResult.IsSuccess)
         {
-            return DaemonStopExecutionResult.Failure(stopResult.Error ?? ExecutionError.InternalError(
-                "Daemon stop operation failed without structured error details."));
+            return DaemonStopExecutionResult.Failure(stopResult.Error);
         }
 
         var output = new DaemonStopExecutionOutput(
-            StopStatus: stopResult.Status,
+            StopStatus: stopResult.Status.Value,
             DaemonStatus: DaemonStatusKind.NotRunning,
             TimeoutMilliseconds: checked((int)executionContext.Timeout.TotalMilliseconds),
             Session: null);

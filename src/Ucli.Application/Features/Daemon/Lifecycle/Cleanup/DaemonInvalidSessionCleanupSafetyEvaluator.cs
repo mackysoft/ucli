@@ -16,39 +16,28 @@ internal sealed class DaemonInvalidSessionCleanupSafetyEvaluator : IDaemonInvali
     }
 
     /// <summary> Determines whether invalid daemon session artifacts must be skipped as unsafe. </summary>
-    /// <param name="unityProject"> The resolved Unity project context. </param>
-    /// <param name="session"> The parsed invalid daemon session snapshot when available; otherwise <see langword="null" />. </param>
+    /// <param name="evidence"> The restricted invalid daemon session evidence when available; otherwise <see langword="null" />. </param>
     /// <returns>
     /// <para> <see langword="true" /> when the parsed invalid session still provides enough live-process evidence that cleanup must be skipped immediately as unsafe. </para>
-    /// <para> <see langword="false" /> when this evaluator does not force an unsafe skip; callers still need separate endpoint evidence before destructive cleanup. </para>
+    /// <para> <see langword="false" /> when this evaluator does not force an unsafe skip; callers must still scope cleanup to independently observed artifact identity. </para>
     /// </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="unityProject" /> is <see langword="null" />. </exception>
-    public bool RequiresUnsafeSkip (
-        ResolvedUnityProjectContext unityProject,
-        DaemonSession? session)
+    public bool RequiresUnsafeSkip (DaemonInvalidSessionEvidence? evidence)
     {
-        ArgumentNullException.ThrowIfNull(unityProject);
-
-        if (session == null)
-        {
-            return false;
-        }
-
-        if (!string.Equals(session.ProjectFingerprint, unityProject.ProjectFingerprint, StringComparison.Ordinal))
+        if (evidence == null)
         {
             return false;
         }
 
         // NOTE:
-        // Invalid session snapshots are not trusted enough to authorize destructive cleanup of the
-        // canonical endpoint. Snapshot process identity is therefore used only to force an unsafe
-        // skip when it still points to a plausible live daemon for the current project.
-        if (session.ProcessId is not int processId || processId <= 0)
+        // Invalid session snapshots are not trusted enough to authorize destructive cleanup or to
+        // identify a different project. Snapshot process identity is used only to force an unsafe
+        // skip when it still points to a plausible live daemon.
+        if (evidence.ProcessId is not int processId || processId <= 0)
         {
             return false;
         }
 
-        var identityAssessment = daemonProcessIdentityAssessor.AssessByProcessId(processId, session.ProcessStartedAtUtc);
+        var identityAssessment = daemonProcessIdentityAssessor.AssessByProcessId(processId, evidence.ProcessStartedAtUtc);
         return identityAssessment.Status switch
         {
             DaemonProcessIdentityAssessmentStatus.NotRunning => false,

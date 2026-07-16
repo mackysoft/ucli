@@ -4,7 +4,7 @@ namespace MackySoft.Ucli.Application.Tests;
 
 internal sealed class StaticCodeCatalog : ICodeCatalog
 {
-    private readonly IReadOnlyDictionary<string, CodeCatalogDescriptor> descriptorsByCode;
+    private readonly IReadOnlyDictionary<UcliCode, CodeCatalogDescriptor> descriptorsByCode;
 
     public StaticCodeCatalog (IEnumerable<CodeCatalogDescriptor> descriptors)
     {
@@ -14,9 +14,8 @@ internal sealed class StaticCodeCatalog : ICodeCatalog
             .OrderBy(static descriptor => descriptor.Code.Value, StringComparer.Ordinal)
             .ToArray();
         descriptorsByCode = Descriptors.ToDictionary(
-            static descriptor => descriptor.Code.Value,
-            static descriptor => descriptor,
-            StringComparer.Ordinal);
+            static descriptor => descriptor.Code,
+            static descriptor => descriptor);
     }
 
     public IReadOnlyList<CodeCatalogDescriptor> Descriptors { get; }
@@ -25,12 +24,7 @@ internal sealed class StaticCodeCatalog : ICodeCatalog
         UcliCode code,
         out CodeCatalogDescriptor descriptor)
     {
-        if (code.IsValid && descriptorsByCode.TryGetValue(code.Value, out descriptor!))
-        {
-            return true;
-        }
-
-        descriptor = null!;
-        return false;
+        ArgumentNullException.ThrowIfNull(code);
+        return descriptorsByCode.TryGetValue(code, out descriptor!);
     }
 }

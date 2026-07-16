@@ -28,7 +28,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -59,7 +59,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Terminate,
             cancellationToken: CancellationToken.None);
@@ -90,7 +90,7 @@ public sealed class SupervisorProjectCoordinatorTests
         var pingClient = new RecordingDaemonPingClient(async (_, _, _, cancellationToken) =>
         {
             await releasePing.Task.WaitAsync(cancellationToken).ConfigureAwait(false);
-            throw new SocketException();
+            throw IpcConnectExceptionTestFactory.FromSocketError(SocketError.ConnectionRefused);
         });
         var coordinator = CreateCoordinator(
             startOperation,
@@ -101,7 +101,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: null,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -125,7 +125,8 @@ public sealed class SupervisorProjectCoordinatorTests
             processId: 4242,
             editorMode: DaemonEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
-            canShutdownProcess: false);
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var startOperation = new RecordingDaemonStartOperation
         {
             StartResult = CreateAlreadyRunningResult(userOwnedSession),
@@ -139,7 +140,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);
@@ -160,7 +161,8 @@ public sealed class SupervisorProjectCoordinatorTests
             processId: 4243,
             editorMode: DaemonEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
-            canShutdownProcess: false);
+            canShutdownProcess: false,
+            editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
         var startOperation = new RecordingDaemonStartOperation
         {
             StartResult = DaemonStartResult.Started(
@@ -178,7 +180,7 @@ public sealed class SupervisorProjectCoordinatorTests
 
         var result = await coordinator.EnsureRunningAsync(
             unityProject,
-            TimeSpan.FromMilliseconds(500),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
             editorMode: DaemonEditorMode.Gui,
             onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
             cancellationToken: CancellationToken.None);

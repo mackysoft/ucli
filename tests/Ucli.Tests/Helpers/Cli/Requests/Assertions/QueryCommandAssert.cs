@@ -30,9 +30,9 @@ internal static class QueryCommandAssert
             expectedFailFast);
         var operation = Assert.IsType<QueryAssetsFindOperationRequest>(input.Operation);
         Assert.Equal(UcliCommandNames.QueryAssetsFind, operation.CommandName);
-        Assert.Equal("assets.find", operation.OperationId);
+        Assert.Equal("assets.find", operation.OperationId.Value);
         Assert.Equal(UcliPrimitiveOperationNames.AssetsFind, operation.OperationName);
-        Assert.Equal(expectedTypeId, operation.Filter.TypeId);
+        Assert.Equal(expectedTypeId, operation.Query.TypeId!.Value);
         Assert.Equal(expectedLimit, operation.WindowOptions.Limit);
     }
 
@@ -62,11 +62,10 @@ internal static class QueryCommandAssert
             expectedFailFast);
         var operation = Assert.IsType<QuerySceneTreeOperationRequest>(input.Operation);
         Assert.Equal(UcliCommandNames.QuerySceneTree, operation.CommandName);
-        Assert.Equal("scene.tree", operation.OperationId);
+        Assert.Equal("scene.tree", operation.OperationId.Value);
         Assert.Equal(UcliPrimitiveOperationNames.SceneTree, operation.OperationName);
-        Assert.Equal(expectedScenePath, operation.ScenePath);
+        Assert.Equal(expectedScenePath, operation.ScenePath.Value);
         Assert.Equal(expectedDepth, operation.Depth);
-        Assert.False(operation.WindowOptions.All);
         Assert.Equal(expectedLimit, operation.WindowOptions.Limit);
         Assert.Equal(expectedCursor, operation.WindowOptions.Cursor);
         Assert.Equal(expectedOffset, operation.WindowOptions.Offset);
@@ -88,7 +87,7 @@ internal static class QueryCommandAssert
                 .HasString("requestId", expectedRequestId)
                 .HasProperty("project", project => project
                     .HasString("projectPath", ProjectIdentityInfoTestFactory.DefaultProjectPath)
-                    .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint)
+                    .HasString("projectFingerprint", ProjectIdentityInfoTestFactory.ProjectFingerprint.ToString())
                     .HasString("unityVersion", ProjectIdentityInfoTestFactory.UnityVersion))
                 .HasArrayLength("opResults", 1)
                 .HasProperty("readIndex", readIndex => readIndex
@@ -116,6 +115,7 @@ internal static class QueryCommandAssert
         ReadIndexMode expectedReadIndexMode,
         bool expectedFailFast)
     {
+        Assert.NotEqual(Guid.Empty, Assert.Single(service.RequestIds));
         var invocation = Assert.Single(service.Invocations);
         Assert.Equal(expectedCancellationToken, invocation.CancellationToken);
         Assert.Equal(expectedProjectPath, invocation.Input.ProjectPath);

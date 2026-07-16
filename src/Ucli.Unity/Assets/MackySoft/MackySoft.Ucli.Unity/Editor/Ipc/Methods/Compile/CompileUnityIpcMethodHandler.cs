@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
@@ -19,7 +20,6 @@ namespace MackySoft.Ucli.Unity.Ipc
     /// <summary> Handles <c>compile</c> IPC method requests. </summary>
     internal sealed class CompileUnityIpcMethodHandler : IRecoverableUnityIpcMethodHandler
     {
-        private const string RefreshOriginAssetDatabaseRefresh = "assetDatabaseRefresh";
         private const long MaxCompileRequestBytes = 1024 * 1024;
         private const int RequiredStableLifecycleObservations = 2;
 
@@ -31,26 +31,30 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IDaemonLogger daemonLogger;
 
+        private readonly IUnityMutationLaneControl mutationLaneControl;
+
         /// <summary> Initializes a new instance of the <see cref="CompileUnityIpcMethodHandler" /> class. </summary>
         public CompileUnityIpcMethodHandler (
             IUnityEditorReadinessGate readinessGate,
             IpcProjectIdentity projectIdentity,
             IServerVersionProvider serverVersionProvider,
-            IDaemonLogger daemonLogger = null)
+            IDaemonLogger daemonLogger,
+            IUnityMutationLaneControl mutationLaneControl)
         {
             this.readinessGate = readinessGate ?? throw new ArgumentNullException(nameof(readinessGate));
             this.projectIdentity = projectIdentity ?? throw new ArgumentNullException(nameof(projectIdentity));
             this.serverVersionProvider = serverVersionProvider ?? throw new ArgumentNullException(nameof(serverVersionProvider));
-            this.daemonLogger = daemonLogger ?? NoOpDaemonLogger.Instance;
+            this.daemonLogger = daemonLogger ?? throw new ArgumentNullException(nameof(daemonLogger));
+            this.mutationLaneControl = mutationLaneControl ?? throw new ArgumentNullException(nameof(mutationLaneControl));
         }
 
         /// <inheritdoc />
-        public string Method => IpcMethodNames.Compile;
+        public UnityIpcMethod Method => UnityIpcMethod.Compile;
 
         /// <inheritdoc />
         public bool TryCreateRecoverableRequestPayloadHash (
-            IpcRequest request,
-            out string requestPayloadHash,
+            ValidatedUnityIpcRequest request,
+            out Sha256Digest requestPayloadHash,
             out IpcResponse errorResponse)
         {
             if (!TryReadCompileRequest(
@@ -64,35 +68,35 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             // NOTE: compile retry identity is the requested run. The caller may resend with a
-            // refreshed dispatch timeout while recovering the same run after domain reload.
+            // refreshed execution budget while recovering the same run after domain reload.
             var stablePayload = IpcPayloadCodec.SerializeToElement(new IpcCompileRequest(compileRequest!.RunId));
-            requestPayloadHash = Sha256LowerHex.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
+            requestPayloadHash = Sha256Digest.Compute(Encoding.UTF8.GetBytes(stablePayload.GetRawText()));
             return true;
         }
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleAsync (
-            IpcRequest request,
-            CancellationToken cancellationToken)
+            ValidatedUnityIpcRequest request,
+            IpcRequestCancellation cancellation)
         {
-            return await HandleCoreAsync(request, null, cancellationToken);
+            return await HandleCoreAsync(request, null, cancellation);
         }
 
         /// <inheritdoc />
         public async ValueTask<IpcResponse> HandleRecoverableAsync (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             RecoverableIpcOperationContext context,
-            CancellationToken cancellationToken)
+            IpcRequestCancellation cancellation)
         {
-            return await HandleCoreAsync(request, context, cancellationToken);
+            return await HandleCoreAsync(request, context, cancellation);
         }
 
         private async ValueTask<IpcResponse> HandleCoreAsync (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             RecoverableIpcOperationContext recoverableContext,
-            CancellationToken cancellationToken)
+            IpcRequestCancellation cancellation)
         {
-            cancellationToken.ThrowIfCancellationRequested();
+            cancellation.Token.ThrowIfCancellationRequested();
             if (request == null)
             {
                 throw new ArgumentNullException(nameof(request));
@@ -108,14 +112,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             CompileArtifactPaths paths = null;
-            CancellationTokenSource requestTimeoutCancellationTokenSource = null;
             try
             {
-                requestTimeoutCancellationTokenSource = CreateRequestTimeoutCancellationTokenSource(
-                    compileRequest.TimeoutMilliseconds,
-                    cancellationToken);
-                var executionCancellationToken = requestTimeoutCancellationTokenSource?.Token ?? cancellationToken;
-                paths = CompileArtifactPaths.Resolve(projectIdentity.ProjectFingerprint, compileRequest.RunId);
+                paths = CompileArtifactPaths.Resolve(
+                    projectIdentity.ProjectFingerprint,
+                    compileRequest.RunId);
 
                 if (recoverableContext != null
                     && recoverableContext.HasOperationRecord)
@@ -125,7 +126,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         compileRequest,
                         paths,
                         recoverableContext,
-                        executionCancellationToken);
+                        cancellation.Token);
                     if (recoveredResponse != null)
                     {
                         return recoveredResponse;
@@ -138,18 +139,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                     readinessGate,
                     serverVersionProvider,
                     paths,
-                    recoverableContext);
+                    recoverableContext,
+                    mutationLaneControl);
                 // NOTE: Compile handling observes Unity Editor APIs across awaits, so it must remain on
                 // Unity's synchronization context instead of resuming on a thread-pool thread.
-                var summary = await recorder.ExecuteAsync(executionCancellationToken);
-                var response = new IpcCompileResponse(
-                    RunId: compileRequest.RunId,
-                    Summary: summary);
+                var summary = await recorder.ExecuteAsync(cancellation.Token);
+                var response = new IpcCompileResponse(summary);
                 return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
             }
-            catch (OperationCanceledException) when (IsRequestTimeout(
-                requestTimeoutCancellationTokenSource,
-                cancellationToken))
+            catch (OperationCanceledException) when (
+                cancellation.Reason == IpcRequestCancellationReason.ExecutionDeadline)
             {
                 TryWriteAbandonedPendingRun(
                     paths,
@@ -160,7 +159,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return UnityIpcResponseFactory.CreateErrorResponse(
                     request,
                     IpcTransportErrorCodes.IpcTimeout,
-                    $"Unity compile assurance timed out after {compileRequest.TimeoutMilliseconds!.Value} milliseconds.",
+                    "Unity compile assurance reached its request deadline.",
                     null);
             }
             catch (OperationCanceledException)
@@ -183,14 +182,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                     $"Unity compile assurance failed. {exception.Message}",
                     null);
             }
-            finally
-            {
-                requestTimeoutCancellationTokenSource?.Dispose();
-            }
         }
 
         private bool TryReadCompileRequest (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             bool logDecodeFailure,
             out IpcCompileRequest? compileRequest,
             out IpcResponse errorResponse)
@@ -210,32 +205,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!IsValidRunId(compileRequest!.RunId))
-            {
-                errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    "Compile runId must be one non-empty path segment.",
-                    null);
-                return false;
-            }
-
-            if (!TryValidateTimeoutMilliseconds(compileRequest.TimeoutMilliseconds, out var timeoutErrorMessage))
-            {
-                errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
-                    request,
-                    UcliCoreErrorCodes.InvalidArgument,
-                    timeoutErrorMessage,
-                    null);
-                return false;
-            }
-
             errorResponse = null;
             return true;
         }
 
         private async Task<IpcResponse> TryRecoverPendingRunAsync (
-            IpcRequest request,
+            ValidatedUnityIpcRequest request,
             IpcCompileRequest compileRequest,
             CompileArtifactPaths paths,
             RecoverableIpcOperationContext recoverableContext,
@@ -266,13 +241,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             if (TryReadPendingSummary(paths.SummaryJsonPath, daemonLogger, out var completedSummary)
-                && completedSummary != null
                 && completedSummary.Completed
                 && MatchesPendingSummaryIdentity(completedSummary, pendingSummary))
             {
                 // NOTE: summary.json is a public compile artifact, so recovery may reuse it
                 // only when it belongs to the same pending run that the operation store restored.
-                return CreateCompileSuccessResponse(request, compileRequest.RunId, completedSummary);
+                return CreateCompileSuccessResponse(request, completedSummary);
             }
 
             if (!File.Exists(paths.RequestJsonPath))
@@ -297,17 +271,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                     DateTimeOffset.UtcNow);
             WriteDiagnostics(paths.DiagnosticsJsonPath, finalSummary);
             WriteJsonAtomically(paths.SummaryJsonPath, finalSummary);
-            return CreateCompileSuccessResponse(request, compileRequest.RunId, finalSummary);
+            return CreateCompileSuccessResponse(request, finalSummary);
         }
 
         private static IpcResponse CreateCompileSuccessResponse (
-            IpcRequest request,
-            string runId,
+            ValidatedUnityIpcRequest request,
             IpcCompileSummary summary)
         {
-            var response = new IpcCompileResponse(
-                RunId: runId,
-                Summary: summary);
+            var response = new IpcCompileResponse(summary);
             return UnityIpcResponseFactory.CreateSuccessResponse(request, response);
         }
 
@@ -317,33 +288,21 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcProjectIdentity projectIdentity,
             out string errorMessage)
         {
-            if (pendingSummary == null)
-            {
-                errorMessage = "Recoverable compile operation pending summary is missing.";
-                return false;
-            }
-
             if (pendingSummary.Completed)
             {
                 errorMessage = "Recoverable compile operation pending summary is already completed.";
                 return false;
             }
 
-            if (!string.Equals(pendingSummary.RunId, compileRequest.RunId, StringComparison.Ordinal))
+            if (pendingSummary.RunId != compileRequest.RunId)
             {
                 errorMessage = "Recoverable compile operation runId does not match the retry request.";
                 return false;
             }
 
-            if (!string.Equals(pendingSummary.ProjectFingerprint, projectIdentity.ProjectFingerprint, StringComparison.Ordinal))
+            if (pendingSummary.ProjectFingerprint != projectIdentity.ProjectFingerprint)
             {
                 errorMessage = "Recoverable compile operation project fingerprint does not match this daemon.";
-                return false;
-            }
-
-            if (pendingSummary.Lifecycle == null)
-            {
-                errorMessage = "Recoverable compile operation lifecycle evidence is missing.";
                 return false;
             }
 
@@ -364,13 +323,9 @@ namespace MackySoft.Ucli.Unity.Ipc
             IpcCompileSummary completedSummary,
             IpcCompileSummary pendingSummary)
         {
-            return completedSummary != null
-                && pendingSummary != null
-                && string.Equals(completedSummary.RunId, pendingSummary.RunId, StringComparison.Ordinal)
-                && string.Equals(completedSummary.ProjectFingerprint, pendingSummary.ProjectFingerprint, StringComparison.Ordinal)
+            return completedSummary.RunId == pendingSummary.RunId
+                && completedSummary.ProjectFingerprint == pendingSummary.ProjectFingerprint
                 && completedSummary.StartedAtUtc == pendingSummary.StartedAtUtc
-                && completedSummary.Lifecycle != null
-                && pendingSummary.Lifecycle != null
                 && string.Equals(
                     completedSummary.Lifecycle.UnityVersion,
                     pendingSummary.Lifecycle.UnityVersion,
@@ -472,72 +427,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static void EnsureWritableArtifactPath (string path)
-        {
-            if (!File.Exists(path) && !Directory.Exists(path))
-            {
-                return;
-            }
-
-            var attributes = File.GetAttributes(path);
-            if ((attributes & FileAttributes.ReparsePoint) != 0)
-            {
-                throw new IOException($"Compile artifact target must not be a reparse point: {path}");
-            }
-
-            if ((attributes & FileAttributes.Directory) != 0)
-            {
-                throw new IOException($"Compile artifact target must not be a directory: {path}");
-            }
-        }
-
-        private static bool IsValidRunId (string runId)
-        {
-            return !string.IsNullOrWhiteSpace(runId)
-                && runId.IndexOf('/') < 0
-                && runId.IndexOf('\\') < 0
-                && runId.IndexOf(':') < 0
-                && !string.Equals(runId, ".", StringComparison.Ordinal)
-                && !string.Equals(runId, "..", StringComparison.Ordinal);
-        }
-
-        private static bool TryValidateTimeoutMilliseconds (
-            int? timeoutMilliseconds,
-            out string errorMessage)
-        {
-            errorMessage = null;
-            if (!timeoutMilliseconds.HasValue || timeoutMilliseconds.Value > 0)
-            {
-                return true;
-            }
-
-            errorMessage = "Compile timeoutMilliseconds must be greater than zero when specified.";
-            return false;
-        }
-
-        private static CancellationTokenSource CreateRequestTimeoutCancellationTokenSource (
-            int? timeoutMilliseconds,
-            CancellationToken cancellationToken)
-        {
-            if (!timeoutMilliseconds.HasValue)
-            {
-                return null;
-            }
-
-            var cancellationTokenSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-            cancellationTokenSource.CancelAfter(timeoutMilliseconds.Value);
-            return cancellationTokenSource;
-        }
-
-        private static bool IsRequestTimeout (
-            CancellationTokenSource requestTimeoutCancellationTokenSource,
-            CancellationToken callerCancellationToken)
-        {
-            return requestTimeoutCancellationTokenSource != null
-                && requestTimeoutCancellationTokenSource.IsCancellationRequested
-                && !callerCancellationToken.IsCancellationRequested;
-        }
-
         private static void TryWriteAbandonedPendingRun (
             CompileArtifactPaths paths,
             IUnityEditorReadinessGate readinessGate,
@@ -551,14 +440,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             if (!TryReadPendingSummary(paths.RequestJsonPath, daemonLogger, out var pendingSummary)
-                || pendingSummary == null
                 || pendingSummary.Completed)
             {
                 return;
             }
 
             if (TryReadPendingSummary(paths.SummaryJsonPath, daemonLogger, out var existingSummary)
-                && existingSummary != null
                 && existingSummary.Completed
                 && MatchesPendingSummaryIdentity(existingSummary, pendingSummary))
             {
@@ -586,7 +473,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static IpcCompileSummary CreatePendingSummary (
-            string runId,
+            Guid runId,
             IpcProjectIdentity projectIdentity,
             UnityEditorObservation beforeSnapshot,
             IServerVersionProvider serverVersionProvider,
@@ -599,7 +486,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 StartedAtUtc: startedAtUtc,
                 CompletedAtUtc: null,
                 Refresh: new IpcCompileSummary.RefreshEvidence(
-                    Origin: RefreshOriginAssetDatabaseRefresh,
+                    Origin: CompileRefreshOrigin.AssetDatabaseRefresh,
                     Requested: true,
                     StartedAtUtc: startedAtUtc,
                     CompletedAtUtc: null,
@@ -638,39 +525,39 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var domainReloadObserved = IsDomainReloadObserved(pendingSummary, afterSnapshot);
-            return pendingSummary with
-            {
-                Completed = true,
-                CompletedAtUtc = completedAtUtc,
-                Refresh = pendingSummary.Refresh with
-                {
-                    Completed = true,
-                    CompletedAtUtc = completedAtUtc,
-                },
-                ScriptCompilation = pendingSummary.ScriptCompilation with
-                {
-                    Started = diagnostics.CompilationStarted
+            return new IpcCompileSummary(
+                RunId: pendingSummary.RunId,
+                ProjectFingerprint: pendingSummary.ProjectFingerprint,
+                Completed: true,
+                StartedAtUtc: pendingSummary.StartedAtUtc,
+                CompletedAtUtc: completedAtUtc,
+                Refresh: new IpcCompileSummary.RefreshEvidence(
+                    Origin: pendingSummary.Refresh.Origin,
+                    Requested: pendingSummary.Refresh.Requested,
+                    StartedAtUtc: pendingSummary.Refresh.StartedAtUtc,
+                    CompletedAtUtc: completedAtUtc,
+                    Completed: true),
+                ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
+                    Started: diagnostics.CompilationStarted
                         || pendingSummary.ScriptCompilation.CompileGenerationBefore
                             != afterSnapshot.State.Generations.CompileGeneration,
-                    Completed = true,
-                    CompileGenerationAfter = afterSnapshot.State.Generations.CompileGeneration,
-                    Diagnostics = new IpcCompileSummary.DiagnosticsEvidence(
+                    Completed: true,
+                    CompileGenerationBefore: pendingSummary.ScriptCompilation.CompileGenerationBefore,
+                    CompileGenerationAfter: afterSnapshot.State.Generations.CompileGeneration,
+                    Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
                         ErrorCount: errorCount,
                         WarningCount: diagnostics.WarningCount,
-                        PrimaryDiagnostic: primaryDiagnostic),
-                },
-                DomainReload = pendingSummary.DomainReload with
-                {
-                    ReloadRequired = domainReloadObserved,
-                    ReloadObserved = domainReloadObserved,
-                    GenerationAfter = afterSnapshot.State.Generations.DomainReloadGeneration,
-                    Settled = IsLifecycleSettled(afterSnapshot),
-                },
-                Lifecycle = CreateLifecycleEvidence(
+                        PrimaryDiagnostic: primaryDiagnostic)),
+                DomainReload: new IpcCompileSummary.DomainReloadEvidence(
+                    ReloadRequired: domainReloadObserved,
+                    ReloadObserved: domainReloadObserved,
+                    GenerationBefore: pendingSummary.DomainReload.GenerationBefore,
+                    GenerationAfter: afterSnapshot.State.Generations.DomainReloadGeneration,
+                    Settled: IsLifecycleSettled(afterSnapshot)),
+                Lifecycle: CreateLifecycleEvidence(
                     afterSnapshot,
                     unityVersion,
-                    serverVersionProvider),
-            };
+                    serverVersionProvider));
         }
 
         private static IpcCompileSummary CreateAbandonedPendingSummary (
@@ -683,37 +570,37 @@ namespace MackySoft.Ucli.Unity.Ipc
             var primaryDiagnostic = afterSnapshot.PrimaryDiagnostic;
             var errorCount = primaryDiagnostic == null ? 0 : 1;
             var domainReloadObserved = IsDomainReloadObserved(pendingSummary, afterSnapshot);
-            return pendingSummary with
-            {
-                Completed = true,
-                CompletedAtUtc = completedAtUtc,
-                Refresh = pendingSummary.Refresh with
-                {
-                    Completed = false,
-                    CompletedAtUtc = null,
-                },
-                ScriptCompilation = pendingSummary.ScriptCompilation with
-                {
-                    Started = false,
-                    Completed = false,
-                    CompileGenerationAfter = afterSnapshot.State.Generations.CompileGeneration,
-                    Diagnostics = new IpcCompileSummary.DiagnosticsEvidence(
+            return new IpcCompileSummary(
+                RunId: pendingSummary.RunId,
+                ProjectFingerprint: pendingSummary.ProjectFingerprint,
+                Completed: true,
+                StartedAtUtc: pendingSummary.StartedAtUtc,
+                CompletedAtUtc: completedAtUtc,
+                Refresh: new IpcCompileSummary.RefreshEvidence(
+                    Origin: pendingSummary.Refresh.Origin,
+                    Requested: pendingSummary.Refresh.Requested,
+                    StartedAtUtc: pendingSummary.Refresh.StartedAtUtc,
+                    CompletedAtUtc: null,
+                    Completed: false),
+                ScriptCompilation: new IpcCompileSummary.ScriptCompilationEvidence(
+                    Started: false,
+                    Completed: false,
+                    CompileGenerationBefore: pendingSummary.ScriptCompilation.CompileGenerationBefore,
+                    CompileGenerationAfter: afterSnapshot.State.Generations.CompileGeneration,
+                    Diagnostics: new IpcCompileSummary.DiagnosticsEvidence(
                         ErrorCount: errorCount,
                         WarningCount: 0,
-                        PrimaryDiagnostic: primaryDiagnostic),
-                },
-                DomainReload = pendingSummary.DomainReload with
-                {
-                    ReloadRequired = domainReloadObserved,
-                    ReloadObserved = domainReloadObserved,
-                    GenerationAfter = afterSnapshot.State.Generations.DomainReloadGeneration,
-                    Settled = IsLifecycleSettled(afterSnapshot),
-                },
-                Lifecycle = CreateLifecycleEvidence(
+                        PrimaryDiagnostic: primaryDiagnostic)),
+                DomainReload: new IpcCompileSummary.DomainReloadEvidence(
+                    ReloadRequired: domainReloadObserved,
+                    ReloadObserved: domainReloadObserved,
+                    GenerationBefore: pendingSummary.DomainReload.GenerationBefore,
+                    GenerationAfter: afterSnapshot.State.Generations.DomainReloadGeneration,
+                    Settled: IsLifecycleSettled(afterSnapshot)),
+                Lifecycle: CreateLifecycleEvidence(
                     afterSnapshot,
                     unityVersion,
-                    serverVersionProvider),
-            };
+                    serverVersionProvider));
         }
 
         private static bool CanCompletePendingRunFromRecovery (
@@ -801,69 +688,32 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
-            var tempPath = path + $".tmp.{Guid.NewGuid():N}";
+            var temporaryStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(directoryPath, out var tempPath);
+            var temporaryFileOwned = true;
 
             try
             {
-                EnsureWritableArtifactPath(tempPath);
-                using (var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None))
-                using (var writer = new StreamWriter(stream, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
+                using (temporaryStream)
+                using (var writer = new StreamWriter(
+                           temporaryStream,
+                           new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)))
                 {
                     writer.Write(JsonSerializer.Serialize(value, IpcJsonSerializerOptions.Default));
                 }
 
                 FileSystemAccessBoundary.EnsureSecureFile(tempPath);
-                EnsureWritableArtifactPath(path);
-                ReplaceFile(tempPath, path);
+                FileUtilities.PublishAtomicWriteTemporaryFile(tempPath, path);
+                temporaryFileOwned = false;
                 FileSystemAccessBoundary.EnsureSecureFile(path);
             }
             finally
             {
-                DeleteTemporaryFileIfExists(tempPath);
+                if (temporaryFileOwned)
+                {
+                    FileUtilities.DeleteIfExists(tempPath);
+                }
             }
         }
-
-        private static void ReplaceFile (
-            string temporaryPath,
-            string path)
-        {
-            try
-            {
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
-            catch (FileNotFoundException)
-            {
-                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-            }
-            catch (IOException) when (!File.Exists(path))
-            {
-                MoveOrReplaceWhenCreatedConcurrently(temporaryPath, path);
-            }
-        }
-
-        private static void MoveOrReplaceWhenCreatedConcurrently (
-            string temporaryPath,
-            string path)
-        {
-            try
-            {
-                File.Move(temporaryPath, path);
-            }
-            catch (IOException) when (File.Exists(path))
-            {
-                EnsureWritableArtifactPath(path);
-                File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
-            }
-        }
-
-        private static void DeleteTemporaryFileIfExists (string path)
-        {
-            if (File.Exists(path))
-            {
-                File.Delete(path);
-            }
-        }
-
 
         private sealed class SettledLifecycleObservationWindow
         {
@@ -927,7 +777,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private sealed class CompileRunRecorder : IDisposable
         {
-            private readonly string runId;
+            private readonly Guid runId;
 
             private readonly IpcProjectIdentity projectIdentity;
 
@@ -939,15 +789,18 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             private readonly RecoverableIpcOperationContext recoverableContext;
 
+            private readonly IUnityMutationLaneControl mutationLaneControl;
+
             private readonly DiagnosticAccumulator diagnostics = new DiagnosticAccumulator();
 
             public CompileRunRecorder (
-                string runId,
+                Guid runId,
                 IpcProjectIdentity projectIdentity,
                 IUnityEditorReadinessGate readinessGate,
                 IServerVersionProvider serverVersionProvider,
                 CompileArtifactPaths paths,
-                RecoverableIpcOperationContext recoverableContext)
+                RecoverableIpcOperationContext recoverableContext,
+                IUnityMutationLaneControl mutationLaneControl)
             {
                 this.runId = runId;
                 this.projectIdentity = projectIdentity;
@@ -955,6 +808,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 this.serverVersionProvider = serverVersionProvider;
                 this.paths = paths;
                 this.recoverableContext = recoverableContext;
+                this.mutationLaneControl = mutationLaneControl;
             }
 
             public async Task<IpcCompileSummary> ExecuteAsync (CancellationToken cancellationToken)
@@ -968,10 +822,16 @@ namespace MackySoft.Ucli.Unity.Ipc
                     serverVersionProvider,
                     startedAtUtc);
 
-                if (recoverableContext != null
-                    && !recoverableContext.TryMarkPending(pendingSummary, out var recoveryErrorMessage))
+                if (recoverableContext != null)
                 {
-                    throw new InvalidOperationException($"Compile recovery state could not be persisted. {recoveryErrorMessage}");
+                    var recoveryWriteResult = await recoverableContext.MarkPendingAsync(
+                        pendingSummary,
+                        cancellationToken);
+                    if (!recoveryWriteResult.IsSuccess)
+                    {
+                        throw new InvalidOperationException(
+                            $"Compile recovery state could not be persisted. {recoveryWriteResult.ErrorMessage}");
+                    }
                 }
 
                 // NOTE: Remove completed outputs only after pending recovery state is durable.
@@ -979,11 +839,27 @@ namespace MackySoft.Ucli.Unity.Ipc
                 DeleteCompletedRunArtifacts(paths);
                 WriteJsonAtomically(paths.RequestJsonPath, pendingSummary);
 
-                Subscribe();
+                var mutationActivity = mutationLaneControl.BeginMutation();
+                Task<UnityEditorObservation> settleTask = null;
                 try
                 {
+                    Subscribe();
+                    settleTask = WaitUntilCompileSettledAsync(readinessGate, CancellationToken.None);
+                    _ = settleTask.ContinueWith(
+                        static (completedTask, state) =>
+                        {
+                            _ = completedTask.Exception;
+                            if (completedTask.Status == TaskStatus.RanToCompletion)
+                            {
+                                ((IUnityMutationActivity)state).Complete();
+                            }
+                        },
+                        mutationActivity,
+                        CancellationToken.None,
+                        TaskContinuationOptions.ExecuteSynchronously,
+                        TaskScheduler.Default);
                     AssetDatabase.Refresh(ImportAssetOptions.ForceUpdate);
-                    var afterSnapshot = await WaitUntilCompileSettledAsync(readinessGate, cancellationToken);
+                    var afterSnapshot = await AwaitWithCancellationAsync(settleTask, cancellationToken);
                     var completedAtUtc = DateTimeOffset.UtcNow;
                     var finalSummary = CreateFinalSummary(
                         pendingSummary,
@@ -998,8 +874,39 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
                 finally
                 {
+                    if (settleTask == null)
+                    {
+                        mutationActivity.Complete();
+                    }
+
                     Dispose();
                 }
+            }
+
+            private static async Task<T> AwaitWithCancellationAsync<T> (
+                Task<T> task,
+                CancellationToken cancellationToken)
+            {
+                if (!cancellationToken.CanBeCanceled || task.IsCompleted)
+                {
+                    return await task;
+                }
+
+                var cancellationSource = new TaskCompletionSource<bool>(
+                    TaskCreationOptions.RunContinuationsAsynchronously);
+                using (cancellationToken.Register(
+                           static state => ((TaskCompletionSource<bool>)state).TrySetResult(true),
+                           cancellationSource))
+                {
+                    if (!ReferenceEquals(
+                            await Task.WhenAny(task, cancellationSource.Task),
+                            task))
+                    {
+                        cancellationToken.ThrowIfCancellationRequested();
+                    }
+                }
+
+                return await task;
             }
 
             public void Dispose ()
@@ -1080,7 +987,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             private static IpcPrimaryDiagnostic CreateDiagnostic (CompilerMessage message)
             {
                 return new IpcPrimaryDiagnostic(
-                    Kind: "compiler",
+                    Kind: DaemonDiagnosisPrimaryDiagnosticKind.Compiler,
                     Code: TryExtractCompilerCode(message.message),
                     File: string.IsNullOrWhiteSpace(message.file) ? null : message.file,
                     Line: message.line > 0 ? message.line : null,
@@ -1124,8 +1031,8 @@ namespace MackySoft.Ucli.Unity.Ipc
             string DiagnosticsJsonPath)
         {
             public static CompileArtifactPaths Resolve (
-                string projectFingerprint,
-                string runId)
+                ProjectFingerprint projectFingerprint,
+                Guid runId)
             {
                 var artifactsDir = UcliStoragePathResolver.ResolveCompileRunArtifactsDirectory(
                     ResolveStorageRoot(),
@@ -1136,13 +1043,6 @@ namespace MackySoft.Ucli.Unity.Ipc
                     RequestJsonPath: Path.Combine(artifactsDir, UcliStoragePathNames.CompileRequestFileName),
                     SummaryJsonPath: Path.Combine(artifactsDir, UcliStoragePathNames.CompileSummaryFileName),
                     DiagnosticsJsonPath: Path.Combine(artifactsDir, UcliStoragePathNames.CompileDiagnosticsFileName));
-            }
-
-            public static string ResolveCompileArtifactsDirectory (string projectFingerprint)
-            {
-                return UcliStoragePathResolver.ResolveCompileArtifactsDirectory(
-                    ResolveStorageRoot(),
-                    projectFingerprint);
             }
 
             private static string ResolveStorageRoot ()

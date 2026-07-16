@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using MackySoft.Ucli.Contracts.Index;
 using UnityEditor;
 
@@ -9,14 +8,14 @@ using UnityEditor;
 namespace MackySoft.Ucli.Unity.Index
 {
     /// <summary> Collects deterministic schema property entries from one SerializedObject walk. </summary>
-    internal sealed class IndexSchemaPropertyCollector : IIndexSchemaPropertyCollector
+    internal sealed class IndexSchemaPropertyCollector
     {
         /// <summary> Collects schema properties for one serialized object instance and root type. </summary>
         /// <param name="rootType"> The serialized root runtime type. </param>
         /// <param name="serializedObject"> The serialized object instance. </param>
         /// <returns> The collected property result. </returns>
         /// <exception cref="ArgumentNullException"> Thrown when any argument is <see langword="null" />. </exception>
-        public IndexSchemaPropertyCollectionResult Collect (
+        public IReadOnlyList<IndexSchemaPropertyEntryJsonContract> Collect (
             Type rootType,
             SerializedObject serializedObject)
         {
@@ -31,7 +30,6 @@ namespace MackySoft.Ucli.Unity.Index
             }
 
             var propertyMap = new Dictionary<string, IndexSchemaPropertyEntryJsonContract>(StringComparer.Ordinal);
-            var referencedTypes = new HashSet<Type>();
 
             var iterator = serializedObject.GetIterator();
             var enterChildren = true;
@@ -79,21 +77,14 @@ namespace MackySoft.Ucli.Unity.Index
                         IsArray: isArray,
                         ElementTypeId: elementTypeId,
                         IsReadOnly: !iterator.editable));
-
-                referencedTypes.Add(declaredType);
-                if (resolvedElementType != null)
-                {
-                    referencedTypes.Add(resolvedElementType);
-                }
             }
 
             if (propertyMap.Count == 0)
             {
-                return IndexSchemaPropertyCollectionResult.Empty();
+                return Array.Empty<IndexSchemaPropertyEntryJsonContract>();
             }
 
-            var properties = IndexJsonOrderingPolicy.OrderSchemaProperties(propertyMap.Values);
-            return new IndexSchemaPropertyCollectionResult(properties, referencedTypes);
+            return IndexJsonOrderingPolicy.OrderSchemaProperties(propertyMap.Values);
         }
     }
 }

@@ -1,17 +1,84 @@
+using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Text;
+
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Represents the resolved Unity project identity attached to one execute response. </summary>
-/// <param name="ProjectPath"> The normalized absolute Unity project root path. </param>
-/// <param name="ProjectFingerprint"> The resolved Unity project fingerprint. </param>
-/// <param name="UnityVersion"> The Unity editor version resolved for the project, or <c>unknown</c> when unavailable. </param>
-public sealed record IpcProjectIdentity (
-    string ProjectPath,
-    string ProjectFingerprint,
-    string UnityVersion)
+public sealed record IpcProjectIdentity
 {
-    /// <summary> Gets a sentinel project identity for tests and legacy in-process construction. </summary>
-    public static IpcProjectIdentity Unknown { get; } = new(
-        ProjectPath: "unknown",
-        ProjectFingerprint: "unknown",
-        UnityVersion: "unknown");
+    /// <summary> Initializes a resolved Unity project identity. </summary>
+    /// <param name="projectPath"> The fully qualified Unity project root path. </param>
+    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <param name="unityVersion"> The non-empty Unity editor version, or <c>unknown</c> when unavailable. </param>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="projectPath" />, <paramref name="projectFingerprint" />, or <paramref name="unityVersion" /> is <see langword="null" />.
+    /// </exception>
+    /// <exception cref="ArgumentException">
+    /// Thrown when <paramref name="projectPath" /> is not fully qualified, when a required value is empty, or when <paramref name="unityVersion" /> contains outer whitespace.
+    /// </exception>
+    [JsonConstructor]
+    public IpcProjectIdentity (
+        string projectPath,
+        ProjectFingerprint projectFingerprint,
+        string unityVersion)
+    {
+        if (projectPath == null)
+        {
+            throw new ArgumentNullException(nameof(projectPath));
+        }
+
+        if (string.IsNullOrWhiteSpace(projectPath))
+        {
+            throw new ArgumentException("Project path must not be empty or whitespace.", nameof(projectPath));
+        }
+
+        if (!Path.IsPathFullyQualified(projectPath))
+        {
+            throw new ArgumentException("Project path must be fully qualified.", nameof(projectPath));
+        }
+
+        ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
+
+        if (unityVersion == null)
+        {
+            throw new ArgumentNullException(nameof(unityVersion));
+        }
+
+        if (string.IsNullOrWhiteSpace(unityVersion))
+        {
+            throw new ArgumentException("Unity version must not be empty or whitespace.", nameof(unityVersion));
+        }
+
+        if (StringValueValidator.HasOuterWhitespace(unityVersion))
+        {
+            throw new ArgumentException("Unity version must not contain leading or trailing whitespace.", nameof(unityVersion));
+        }
+
+        var normalizedProjectPath = Path.GetFullPath(projectPath);
+        var rootLength = Path.GetPathRoot(normalizedProjectPath)?.Length ?? 0;
+        var normalizedLength = normalizedProjectPath.Length;
+        while (normalizedLength > rootLength
+            && (normalizedProjectPath[normalizedLength - 1] == Path.DirectorySeparatorChar
+                || normalizedProjectPath[normalizedLength - 1] == Path.AltDirectorySeparatorChar))
+        {
+            normalizedLength--;
+        }
+
+        if (normalizedLength != normalizedProjectPath.Length)
+        {
+            normalizedProjectPath = normalizedProjectPath.Substring(0, normalizedLength);
+        }
+
+        ProjectPath = normalizedProjectPath;
+        UnityVersion = unityVersion;
+    }
+
+    /// <summary> Gets the normalized absolute Unity project root path. </summary>
+    public string ProjectPath { get; }
+
+    /// <summary> Gets the canonical project fingerprint. </summary>
+    public ProjectFingerprint ProjectFingerprint { get; }
+
+    /// <summary> Gets the non-empty Unity editor version, or <c>unknown</c> when unavailable. </summary>
+    public string UnityVersion { get; }
 }

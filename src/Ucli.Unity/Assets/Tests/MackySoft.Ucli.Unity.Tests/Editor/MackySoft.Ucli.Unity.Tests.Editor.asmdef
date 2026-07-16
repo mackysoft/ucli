@@ -17,6 +17,8 @@
         "MackySoft.Ucli.Infrastructure.dll",
         "System.Text.Json.dll",
         "System.Text.Encodings.Web.dll",
+        "Microsoft.Extensions.DependencyInjection.dll",
+        "Microsoft.Extensions.DependencyInjection.Abstractions.dll",
         "Microsoft.Bcl.AsyncInterfaces.dll",
         "System.Runtime.CompilerServices.Unsafe.dll"
     ],

@@ -43,11 +43,12 @@ internal sealed class RefreshCommand
         cancellationToken.ThrowIfCancellationRequested();
 
         CommandExecutionState.MarkStarted();
+        var requestId = Guid.NewGuid();
 
         var normalizedModeResult = ExecutionModeOptionNormalizer.Normalize(mode);
         if (!normalizedModeResult.IsSuccess)
         {
-            var errorResult = RefreshCommandResultFactory.CreateExecutionError(normalizedModeResult.Error!);
+            var errorResult = RefreshCommandResultFactory.CreateExecutionError(requestId, normalizedModeResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
@@ -55,12 +56,13 @@ internal sealed class RefreshCommand
         var normalizedTimeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
         if (!normalizedTimeoutResult.IsSuccess)
         {
-            var errorResult = RefreshCommandResultFactory.CreateExecutionError(normalizedTimeoutResult.Error!);
+            var errorResult = RefreshCommandResultFactory.CreateExecutionError(requestId, normalizedTimeoutResult.Error!);
             commandResultWriter.WriteToStandardOutput(errorResult);
             return errorResult.ExitCode;
         }
 
         var executionResult = await refreshService.ExecuteAsync(
+                requestId,
                 new RefreshCommandInput(
                     ProjectPath: projectPath,
                     Mode: normalizedModeResult.Mode,

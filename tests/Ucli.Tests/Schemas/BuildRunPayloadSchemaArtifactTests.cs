@@ -1,7 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using MackySoft.Tests;
-using MackySoft.Ucli.Application.Features.Assurance.Build.Vocabulary;
+using MackySoft.Ucli.Contracts.Assurance.Build;
+using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Schemas;
 
@@ -26,7 +26,7 @@ public sealed class BuildRunPayloadSchemaArtifactTests
         Assert.False(buildProperties.TryGetProperty("scenes", out _));
         Assert.False(buildProperties.TryGetProperty("options", out _));
         Assert.Equal(
-            [BuildReportRefs.Build, BuildReportRefs.BuildReport, BuildReportRefs.BuildOutputManifest, BuildReportRefs.BuildLog],
+            ContractLiteralCodec.GetLiterals<BuildArtifactKind>(),
             reportProperties.EnumerateObject().Select(static property => property.Name).ToArray());
         foreach (var reportSchema in reportProperties.EnumerateObject())
         {
@@ -116,7 +116,7 @@ public sealed class BuildRunPayloadSchemaArtifactTests
             "cli-output/payload/build.run.schema.json",
             document.RootElement);
 
-        Assert.Equal(expectedValid, UnityAssetPathContract.IsNormalizedBuildProfileAssetPath(path));
+        Assert.Equal(expectedValid, UnityBuildProfileAssetPath.TryParse(path, out _));
         if (expectedValid)
         {
             Assert.Empty(errors);

@@ -26,7 +26,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             foreach (var daemonLogEvent in events)
             {
                 if (!LogReadFilterUtilities.PassesSequenceAndTimeWindow(
-                        daemonLogEvent.Sequence,
+                        daemonLogEvent.Cursor.Sequence,
                         daemonLogEvent.Timestamp,
                         filter.AfterSequence,
                         filter.Since,
@@ -35,13 +35,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                     continue;
                 }
 
-                if (!string.Equals(filter.Level, IpcDaemonLogsLevelCodec.All, StringComparison.Ordinal)
-                    && !string.Equals(daemonLogEvent.Level, filter.Level, StringComparison.OrdinalIgnoreCase))
+                if (filter.Level.HasValue && daemonLogEvent.Level != filter.Level.Value)
                 {
                     continue;
                 }
 
-                if (ShouldApplyCategoryFilter(filter.Category)
+                if (filter.Category != null
                     && !string.Equals(daemonLogEvent.Category, filter.Category, StringComparison.OrdinalIgnoreCase))
                 {
                     continue;
@@ -53,7 +52,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         daemonLogEvent.Raw,
                         filter.Query,
                         searchPrimaryText: true,
-                        searchSecondaryText: string.Equals(filter.QueryTarget, IpcDaemonLogsQueryTargetCodec.Both, StringComparison.Ordinal)))
+                        searchSecondaryText: filter.QueryTarget == IpcLogQueryTarget.Both))
                 {
                     continue;
                 }
@@ -62,16 +61,6 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return LogReadFilterUtilities.ApplyTail(filteredEvents, filter.Tail);
-        }
-
-        private static bool ShouldApplyCategoryFilter (string? category)
-        {
-            if (string.IsNullOrWhiteSpace(category))
-            {
-                return false;
-            }
-
-            return !IpcDaemonLogsCategoryCodec.IsAll(category);
         }
     }
 }

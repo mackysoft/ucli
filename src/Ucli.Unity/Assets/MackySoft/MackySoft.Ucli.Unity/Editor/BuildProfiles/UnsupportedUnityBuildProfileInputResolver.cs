@@ -12,13 +12,14 @@ namespace MackySoft.Ucli.Unity.Build
     {
         /// <inheritdoc />
         public Task<UnityBuildProfileInputResolutionResult> ResolveAsync (
-            IpcBuildRunRequest request,
-            CancellationToken cancellationToken = default)
+            BuildRunExecutionRequest.UnityBuildProfile request,
+            CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var unityBuildProfile = request.UnityBuildProfile == null
-                ? null
-                : new IpcUnityBuildProfileInput(request.UnityBuildProfile.Path);
+            var unityBuildProfile = new IpcUnityBuildProfileInput(
+                Path: request.Profile.Path,
+                Digest: null,
+                ApplyAudit: null);
             return Task.FromResult(UnityBuildProfileInputResolutionResult.Failure(
                 new IpcError(
                     BuildErrorCodes.BuildUnityBuildProfileInvalid,

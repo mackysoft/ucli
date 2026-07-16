@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -9,13 +8,6 @@ internal static class TestRunConfigurationResolverTestSupport
 
     public static TestRunConfigurationResolver CreateResolverWithSuccessfulDependencies (TestDirectoryScope scope)
     {
-        return CreateResolverWithSuccessfulDependencies(scope, new StubTestRunPathExistenceProbe());
-    }
-
-    public static TestRunConfigurationResolver CreateResolverWithSuccessfulDependencies (
-        TestDirectoryScope scope,
-        ITestRunPathExistenceProbe pathExistenceProbe)
-    {
         var unityProject = CreateUnityProjectContext(scope, "Unity");
 
         return new TestRunConfigurationResolver(
@@ -23,9 +15,7 @@ internal static class TestRunConfigurationResolverTestSupport
             new RecordingProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
             new RecordingUnityProjectResolver(UnityProjectResolutionResult.Success(unityProject)),
             new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
-            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))),
-            new StubTestRunPathNormalizer(),
-            pathExistenceProbe);
+            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
     }
 
     public static ResolvedUnityProjectContext CreateUnityProjectContext (
@@ -33,10 +23,10 @@ internal static class TestRunConfigurationResolverTestSupport
         string relativePath)
     {
         var projectPath = scope.GetPath(relativePath);
-        return ProjectContextTestFactory.CreateUnityProject(
+        return ProjectContextTestFactory.CreateUnityProjectWithPaths(
             unityProjectRoot: projectPath,
             repositoryRoot: scope.FullPath,
-            projectFingerprint: "fingerprint",
+            projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint"),
             pathSourceLabel: null,
             unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
     }

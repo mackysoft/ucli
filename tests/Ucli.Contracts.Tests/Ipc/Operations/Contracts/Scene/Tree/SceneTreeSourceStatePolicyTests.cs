@@ -4,6 +4,17 @@ namespace MackySoft.Ucli.Contracts.Tests.Ipc.Operations.Contracts.Scene.Tree;
 
 public sealed class SceneTreeSourceStatePolicyTests
 {
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenKindIsUndefined_ThrowsArgumentOutOfRangeException ()
+    {
+        var exception = Assert.Throws<ArgumentOutOfRangeException>(() => new SceneTreeSourceState(
+            (SceneTreeSourceStateKind)0,
+            isDirty: false));
+
+        Assert.Equal("kind", exception.ParamName);
+    }
+
     [Theory]
     [Trait("Size", "Small")]
     [InlineData(SceneTreeSourceStateKind.TemporaryScene, true)]

@@ -12,7 +12,7 @@ internal sealed class QueryGoDescribeCommand
 {
     private const int DefaultDepth = 0;
 
-    private const string OperationId = "go.describe";
+    private static readonly IpcExecuteStepId OperationId = new("go.describe");
 
     private readonly IQueryService queryService;
 
@@ -29,7 +29,7 @@ internal sealed class QueryGoDescribeCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes <c>query go describe</c> and emits the JSON result contract. </summary>
+    /// <summary> Describes a Unity GameObject and emits the JSON result contract. Requires exactly one target: --globalObjectId, --scene with --hierarchyPath, or --prefab with --hierarchyPath. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
@@ -60,25 +60,27 @@ internal sealed class QueryGoDescribeCommand
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
+        var requestId = Guid.NewGuid();
 
         var commonOptionsResult = QueryCommonOptionsNormalizer.Normalize(projectPath, mode, timeout, readIndexMode, failFast);
         if (!commonOptionsResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryGoDescribe, commonOptionsResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QueryGoDescribe, commonOptionsResult.Error!);
         }
 
         if (!TryCreateTarget(globalObjectId, scene, hierarchyPath, prefab, out var target, out var error))
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryGoDescribe, error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QueryGoDescribe, error!);
         }
 
         var depthResult = QueryDepthOptionNormalizer.Normalize(depth, fullDepth, DefaultDepth);
         if (!depthResult.IsSuccess)
         {
-            return QueryCommandExecutionHelper.WriteExecutionError(commandResultWriter, UcliCommandNames.QueryGoDescribe, depthResult.Error!);
+            return QueryCommandExecutionHelper.WriteExecutionError(requestId, commandResultWriter, UcliCommandNames.QueryGoDescribe, depthResult.Error!);
         }
 
         return await QueryCommandExecutionHelper.ExecuteAsync(
+                requestId,
                 queryService,
                 commonOptionsResult.Options!,
                 new QueryUnityOperationRequest(
@@ -96,7 +98,7 @@ internal sealed class QueryGoDescribeCommand
         string? scene,
         string? hierarchyPath,
         string? prefab,
-        out IReadOnlyDictionary<string, string>? target,
+        out GameObjectReferenceArgs? target,
         out ExecutionError? error)
     {
         target = null;
@@ -137,10 +139,19 @@ internal sealed class QueryGoDescribeCommand
                 return false;
             }
 
-            target = new Dictionary<string, string>(StringComparer.Ordinal)
+            if (!UnityGlobalObjectId.TryParse(normalizedGlobalObjectId, out var typedGlobalObjectId))
             {
-                ["globalObjectId"] = normalizedGlobalObjectId,
-            };
+                error = ExecutionError.InvalidArgument(
+                    "Selector '--globalObjectId' must be a supported non-null Unity GlobalObjectId.");
+                return false;
+            }
+
+            target = new GameObjectReferenceArgs(
+                alias: null,
+                globalObjectId: typedGlobalObjectId,
+                prefab: null,
+                scene: null,
+                hierarchyPath: null);
             return true;
         }
 
@@ -151,11 +162,37 @@ internal sealed class QueryGoDescribeCommand
             return false;
         }
 
-        target = new Dictionary<string, string>(StringComparer.Ordinal)
+        if (!UnityHierarchyPath.TryParse(normalizedHierarchyPath, out var typedHierarchyPath))
         {
-            [normalizedScene is not null ? "scene" : "prefab"] = normalizedScene ?? normalizedPrefab!,
-            ["hierarchyPath"] = normalizedHierarchyPath,
-        };
+            error = ExecutionError.InvalidArgument(
+                "Selector '--hierarchyPath' must contain non-empty slash-separated object names.");
+            return false;
+        }
+
+        SceneAssetPath? typedScene = null;
+        if (normalizedScene is not null
+            && !SceneAssetPath.TryParse(normalizedScene, out typedScene))
+        {
+            error = ExecutionError.InvalidArgument(
+                "Selector '--scene' must be a normalized .unity path below 'Assets/'.");
+            return false;
+        }
+
+        PrefabAssetPath? typedPrefab = null;
+        if (normalizedPrefab is not null
+            && !PrefabAssetPath.TryParse(normalizedPrefab, out typedPrefab))
+        {
+            error = ExecutionError.InvalidArgument(
+                "Selector '--prefab' must be a normalized .prefab path below 'Assets/'.");
+            return false;
+        }
+
+        target = new GameObjectReferenceArgs(
+            alias: null,
+            globalObjectId: null,
+            prefab: typedPrefab,
+            scene: typedScene,
+            hierarchyPath: typedHierarchyPath);
         return true;
     }
 }

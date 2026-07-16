@@ -3,6 +3,7 @@ using MackySoft.Ucli.Application.Features.Screenshot.Capture;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
+using MackySoft.Ucli.Hosting.Cli.Options;
 
 namespace MackySoft.Ucli.Hosting.Cli.Screenshot;
 
@@ -23,26 +24,24 @@ internal sealed class ScreenshotSceneCommand
 
     /// <summary> Captures the active SceneView presentation surface. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
-    /// <param name="mode">Unity execution mode. Accepts auto or daemon.</param>
     /// <param name="timeout">Capture timeout in milliseconds.</param>
     /// <param name="cancellationToken">The cancellation token propagated by command execution.</param>
     /// <returns>The exit code contained in the emitted command result.</returns>
     [Command(UcliCommandNames.SceneSubcommand)]
     public async Task<int> SceneAsync (
         string? projectPath = null,
-        string? mode = null,
         string? timeout = null,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
-        var options = ScreenshotCommandOptionsNormalizer.NormalizeScene(mode, timeout);
-        if (!options.IsSuccess)
+        var timeoutResult = TimeoutOptionNormalizer.Normalize(timeout);
+        if (!timeoutResult.IsSuccess)
         {
             var invalidResult = CommandResultFactory.FromExecutionError(
                 UcliCommandNames.ScreenshotScene,
-                options.Error!);
+                timeoutResult.Error!);
             commandResultWriter.WriteToStandardOutput(invalidResult);
             return invalidResult.ExitCode;
         }
@@ -53,7 +52,7 @@ internal sealed class ScreenshotSceneCommand
                     projectPath,
                     RequestedWidth: null,
                     RequestedHeight: null,
-                    options.TimeoutMilliseconds),
+                    timeoutResult.TimeoutMilliseconds),
                 cancellationToken)
             .ConfigureAwait(false);
         var commandResult = ScreenshotCommandResultFactory.Create(UcliCommandNames.ScreenshotScene, result);

@@ -1,4 +1,3 @@
-using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Configuration;
@@ -22,6 +21,7 @@ public sealed class OperationExecuteServicePlanTokenTests
             ipcRequestExecutor);
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: UnityExecutionMode.Oneshot,
@@ -33,7 +33,6 @@ public sealed class OperationExecuteServicePlanTokenTests
         OperationExecuteInvocationAssert.PlanThenCallDispatched(
             ipcRequestExecutor,
             UcliCommandIds.Refresh,
-            expectedRequestId: result.RequestId,
             expectedPlanToken: "plan-token-1",
             expectedFailFast: true);
     }
@@ -64,6 +63,7 @@ public sealed class OperationExecuteServicePlanTokenTests
             timeProvider: timeProvider);
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: UnityExecutionMode.Oneshot,
@@ -103,6 +103,7 @@ public sealed class OperationExecuteServicePlanTokenTests
             timeProvider: timeProvider);
 
         var result = await service.ExecuteAsync(
+            OperationExecuteServiceTestSupport.RequestId,
             OperationExecuteServiceTestSupport.RefreshOperation,
             OperationExecuteServiceTestSupport.CreateInput(
                 mode: UnityExecutionMode.Oneshot,

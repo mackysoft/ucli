@@ -11,8 +11,11 @@ using MackySoft.Ucli.Contracts.Configuration;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Execution;
+using MackySoft.Ucli.Unity.Execution.CsEval;
 using MackySoft.Ucli.Unity.Execution.Phases;
 using MackySoft.Ucli.Unity.Execution.Requests;
+using MackySoft.Ucli.Unity.Runtime;
+using Microsoft.Extensions.DependencyInjection;
 using NUnit.Framework;
 using MackySoft.Ucli.Contracts.Operations;
 
@@ -25,6 +28,26 @@ namespace MackySoft.Ucli.Unity.Tests
         private const string AssemblyCSharpEditorFixtureOperationName = "ucli.tests.assembly-csharp-editor.discover";
         private const string AssemblyCSharpEditorAssemblyName = "Assembly-CSharp-Editor";
 
+        private readonly ServiceProvider operationServiceProvider = CreateOperationServiceProvider();
+
+        internal static ServiceProvider CreateOperationServiceProvider ()
+        {
+            return new ServiceCollection()
+                .AddSingleton<IUnityMutationLaneControl>(new UnexpectedMutationLaneControl())
+                .AddUnityOperationServices()
+                .BuildServiceProvider(new ServiceProviderOptions
+                {
+                    ValidateOnBuild = true,
+                    ValidateScopes = true,
+                });
+        }
+
+        [OneTimeTearDown]
+        public void DisposeOperationServiceProvider ()
+        {
+            operationServiceProvider.Dispose();
+        }
+
         [Test]
         [Category("Size.Small")]
         public void DiscoverFromTypes_WhenTypeIsValidOperation_ReturnsOperationInstance ()
@@ -32,7 +55,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var operations = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
             {
                 typeof(DiscoverableOperation),
-            });
+            }, operationServiceProvider);
 
             Assert.That(operations.Count, Is.EqualTo(1));
             Assert.That(operations[0].Operation, Is.TypeOf<DiscoverableOperation>());
@@ -46,7 +69,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var operations = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
             {
                 typeof(GenericDiscoverableOperation),
-            });
+            }, operationServiceProvider);
 
             Assert.That(operations.Count, Is.EqualTo(1));
             Assert.That(operations[0].Operation, Is.TypeOf<GenericDiscoverableOperation>());
@@ -120,7 +143,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
                 {
                     typeof(MetadataArgsMismatchOperation),
-                });
+                }, operationServiceProvider);
             });
         }
 
@@ -133,7 +156,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
                 {
                     typeof(MetadataResultMismatchOperation),
-                });
+                }, operationServiceProvider);
             });
         }
 
@@ -153,7 +176,8 @@ namespace MackySoft.Ucli.Unity.Tests
                             emitted: true,
                             resultType: "DifferentResult",
                             description: "Wrong result contract."),
-                    CreateValidationOnlyAssurance()));
+                        CreateValidationOnlyAssurance(),
+                        codeContract: null));
             });
         }
 
@@ -292,7 +316,8 @@ namespace MackySoft.Ucli.Unity.Tests
                                 }),
                         },
                         UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
-                        CreateValidationOnlyAssurance()));
+                        CreateValidationOnlyAssurance(),
+                        codeContract: null));
             });
         }
 
@@ -322,7 +347,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 "Defensive copy operation.",
                 new[] { input },
                 UcliOperationResultContract.NoResult("This operation does not emit operation-specific result data."),
-                CreateValidationOnlyAssurance());
+                CreateValidationOnlyAssurance(),
+                codeContract: null);
 
             var metadata = UcliOperationMetadata.Create<GenericDiscoverableArgs, UcliNoResult>(
                 operationName: "ucli.tests.describe-defensive-copy",
@@ -350,7 +376,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 _ = UcliOperationDiscoverer.DiscoverFromTypes(new Type[]
                 {
                     typeof(InvalidAttributedType),
-                });
+                }, operationServiceProvider);
             });
         }
 
@@ -358,7 +384,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenCurrentDomainContainsInvalidAttributedTestType_IgnoresTestAssembly ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             Assert.That(operations.Count, Is.GreaterThan(0));
 
@@ -379,7 +405,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenAssemblyCSharpEditorOperationExists_ReturnsUserDefinedOperation ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var registration = FindRegistration(operations, AssemblyCSharpEditorFixtureOperationName);
 
@@ -391,7 +417,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenBuiltInOperationsAreRead_ReturnsConcreteArgsSchemas ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var resolveMetadata = FindMetadata(operations, UcliPrimitiveOperationNames.Resolve);
             using var resolveSchemaDocument = JsonDocument.Parse(resolveMetadata.ArgsSchemaJson);
@@ -495,7 +521,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenAssetsFindOperationIsRead_ReturnsConcreteArgsSchema ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.AssetsFind);
             using var schemaDocument = JsonDocument.Parse(metadata.ArgsSchemaJson);
@@ -519,7 +545,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenAssetsFindOperationIsRead_ReturnsWindowResultSchema ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.AssetsFind);
             using var schemaDocument = JsonDocument.Parse(metadata.ResultSchemaJson!);
@@ -542,7 +568,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void Discover_WhenSceneTreeOperationIsRead_ReturnsWindowArgsSchema ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.SceneTree);
             using var schemaDocument = JsonDocument.Parse(metadata.ArgsSchemaJson);
@@ -564,7 +590,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void BuildCatalog_WhenCsEvalOperationIsDiscovered_IncludesPublicDangerousOperation ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
             var metadata = FindMetadata(operations, UcliPrimitiveOperationNames.CsEval);
 
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
@@ -584,11 +610,11 @@ namespace MackySoft.Ucli.Unity.Tests
             var catalogEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.CsEval);
             Assert.That(catalogEntry.PlayModeSupport, Is.EqualTo("allowed"));
             Assert.That(describeContract.CodeContract, Is.Not.Null);
-            Assert.That(describeContract.CodeContract!.Language, Is.EqualTo("csharp"));
+            Assert.That(describeContract.CodeContract!.Language, Is.EqualTo(UcliCodeLanguage.CSharp));
             Assert.That(describeContract.CodeContract.EntryPoint!.MatchRule, Does.Contain("exactly one"));
             Assert.That(describeContract.CodeContract.SourceForms!.Count, Is.EqualTo(2));
-            Assert.That(describeContract.CodeContract.SourceForms![0].Kind, Is.EqualTo(CsEvalSourceKindValues.CompilationUnit));
-            Assert.That(describeContract.CodeContract.SourceForms[1].Kind, Is.EqualTo(CsEvalSourceKindValues.Snippet));
+            Assert.That(describeContract.CodeContract.SourceForms![0].Kind, Is.EqualTo(UcliCodeSourceFormKind.CompilationUnit));
+            Assert.That(describeContract.CodeContract.SourceForms[1].Kind, Is.EqualTo(UcliCodeSourceFormKind.Snippet));
             Assert.That(describeContract.CodeContract.ApiTypes!.Count, Is.EqualTo(1));
             Assert.That(describeContract.Assurance, Is.Not.Null);
             Assert.That(describeContract.Assurance!.PlanSemantics, Does.Contain("without invoking user code"));
@@ -634,7 +660,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void BuildCatalog_WhenBuiltInOperationsAreExported_RemovesVarSelectorsFromPublicSchemas ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
 
@@ -645,9 +671,9 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(sceneOpenEntry.ResultContract, Is.Not.Null);
             Assert.That(sceneOpenEntry.ResultContract!.Emitted, Is.False);
             Assert.That(sceneOpenEntry.Assurance, Is.Not.Null);
-            Assert.That(sceneOpenEntry.Assurance!.SideEffects, Does.Contain("editorStateChange"));
-            Assert.That(sceneOpenEntry.Assurance.SideEffects, Does.Contain("opensSceneInEditor"));
-            Assert.That(sceneOpenEntry.Assurance!.PlanMode, Is.EqualTo("observesLiveUnity"));
+            Assert.That(sceneOpenEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffect.EditorStateChange));
+            Assert.That(sceneOpenEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.OpensSceneInEditor));
+            Assert.That(sceneOpenEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanMode.ObservesLiveUnity));
             Assert.That(sceneOpenEntry.Assurance.PlanSemantics, Does.Contain("scene path"));
             Assert.That(sceneOpenEntry.Assurance.CallSemantics, Does.Contain("Open the requested scene"));
             Assert.That(sceneOpenEntry.Assurance.TouchedContract, Does.Contain("observed editor context"));
@@ -655,21 +681,21 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var goDeleteEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoDelete);
             Assert.That(goDeleteEntry.Assurance, Is.Not.Null);
-            Assert.That(goDeleteEntry.Assurance!.PlanMode, Is.EqualTo("observesLiveUnity"));
+            Assert.That(goDeleteEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanMode.ObservesLiveUnity));
 
             var goReparentEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.GoReparent);
             Assert.That(goReparentEntry.Assurance, Is.Not.Null);
-            Assert.That(goReparentEntry.Assurance!.PlanMode, Is.EqualTo("observesLiveUnity"));
+            Assert.That(goReparentEntry.Assurance!.PlanMode, Is.EqualTo(UcliOperationPlanMode.ObservesLiveUnity));
 
             var projectRefreshEntry = FindCatalogEntry(snapshot.Catalog.Operations!, UcliPrimitiveOperationNames.ProjectRefresh);
             Assert.That(projectRefreshEntry.Kind, Is.EqualTo("command"));
             Assert.That(projectRefreshEntry.Assurance, Is.Not.Null);
-            Assert.That(projectRefreshEntry.Assurance!.SideEffects, Does.Contain("assetDatabaseRefresh"));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("assetImport"));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("scriptCompilation"));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("domainReload"));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("assetContentMutation"));
-            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain("assetSave"));
+            Assert.That(projectRefreshEntry.Assurance!.SideEffects, Does.Contain(UcliOperationSideEffect.AssetDatabaseRefresh));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.AssetImport));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.ScriptCompilation));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.DomainReload));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.AssetContentMutation));
+            Assert.That(projectRefreshEntry.Assurance.SideEffects, Does.Contain(UcliOperationSideEffect.AssetSave));
             Assert.That(projectRefreshEntry.Assurance.MayDirty, Is.True);
             Assert.That(projectRefreshEntry.Assurance.MayPersist, Is.True);
             Assert.That(projectRefreshEntry.Assurance.ReadPostconditionContract, Does.Contain("readIndex"));
@@ -702,7 +728,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [Category("Size.Small")]
         public void BuildCatalog_WhenPrefabRevertOverridesIsExported_DescribesSceneTouchAndReadInvalidation ()
         {
-            var operations = UcliOperationDiscoverer.Discover();
+            var operations = UcliOperationDiscoverer.Discover(operationServiceProvider);
 
             var snapshot = UcliOperationCatalogSnapshotBuilder.Build(operations);
 
@@ -712,7 +738,7 @@ namespace MackySoft.Ucli.Unity.Tests
             var entry = FindCatalogEntry(snapshot.RequestValidationCatalog.Operations!, UcliPrimitiveOperationNames.PrefabRevertOverrides);
             Assert.That(entry.Exposure, Is.EqualTo("editLoweringOnly"));
             Assert.That(entry.Assurance, Is.Not.Null);
-            Assert.That(entry.Assurance!.TouchedKinds, Does.Contain(UcliTouchedResourceKindNames.Scene));
+            Assert.That(entry.Assurance!.TouchedKinds, Does.Contain(UcliTouchedResourceKind.Scene));
             Assert.That(entry.Assurance.TouchedContract, Does.Contain("scene resource"));
             Assert.That(entry.Assurance.ReadPostconditionContract, Does.Contain("Scene tree"));
         }
@@ -723,7 +749,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var operations = UcliOperationDiscoverer.Discover(
                 includeUcliDefinedAssemblies: false,
-                includeUserDefinedAssemblies: true);
+                includeUserDefinedAssemblies: true,
+                serviceProvider: operationServiceProvider);
 
             Assert.That(ContainsOperation(operations, UcliPrimitiveOperationNames.Resolve), Is.False);
             Assert.That(ContainsOperation(operations, AssemblyCSharpEditorFixtureOperationName), Is.True);
@@ -735,7 +762,8 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var operations = UcliOperationDiscoverer.Discover(
                 includeUcliDefinedAssemblies: true,
-                includeUserDefinedAssemblies: false);
+                includeUserDefinedAssemblies: false,
+                serviceProvider: operationServiceProvider);
 
             Assert.That(ContainsOperation(operations, UcliPrimitiveOperationNames.Resolve), Is.True);
             Assert.That(ContainsOperation(operations, AssemblyCSharpEditorFixtureOperationName), Is.False);
@@ -751,7 +779,8 @@ namespace MackySoft.Ucli.Unity.Tests
                     typeof(UcliOperationDiscovererTests).Assembly,
                 },
                 includeUcliDefinedAssemblies: true,
-                includeUserDefinedAssemblies: true);
+                includeUserDefinedAssemblies: true,
+                serviceProvider: operationServiceProvider);
 
             Assert.That(operations, Is.Empty);
         }
@@ -947,6 +976,35 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class UnregisteredOperationDependency
         {
+        }
+
+        private sealed class UnexpectedMutationLaneControl : IUnityMutationLaneControl
+        {
+            public bool IsBusy => throw new InvalidOperationException("Operation discovery must not inspect mutation-lane state.");
+
+            public bool HasUnfinishedWork => throw new InvalidOperationException("Operation discovery must not inspect mutation-lane state.");
+
+            public bool IsQuarantined => throw new InvalidOperationException("Operation discovery must not inspect mutation-lane state.");
+
+            public IUnityMutationActivity BeginMutation ()
+            {
+                throw new InvalidOperationException("Operation discovery must not mutate mutation-lane state.");
+            }
+
+            public void Quarantine (string reason, Task mutationCompletion)
+            {
+                throw new InvalidOperationException("Operation discovery must not mutate mutation-lane state.");
+            }
+
+            public bool TrySealAdmissionForRetirement (out IDisposable admissionSeal)
+            {
+                throw new InvalidOperationException("Operation discovery must not mutate mutation-lane state.");
+            }
+
+            public Task WaitForRetirementAsync ()
+            {
+                throw new InvalidOperationException("Operation discovery must not inspect mutation-lane state.");
+            }
         }
 
         private sealed class SingleServiceProvider : IServiceProvider
@@ -1278,7 +1336,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ValidationOnly,
                 planSemantics: "Validate arguments without applying mutation.",
                 callSemantics: "Read Unity state without applying mutation.",
@@ -1292,7 +1350,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UcliOperationAssuranceContract(
                 sideEffects: Array.Empty<UcliOperationSideEffect>(),
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.MayCreatePreviewState,
                 planSemantics: "Create request-local preview state before approval.",
                 callSemantics: "Apply the requested operation.",
@@ -1306,7 +1364,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new UcliOperationAssuranceContract(
                 sideEffects: new[] { UcliOperationSideEffect.RuntimeStateMutation },
-                touchedKinds: Array.Empty<string>(),
+                touchedKinds: Array.Empty<UcliTouchedResourceKind>(),
                 planMode: UcliOperationPlanMode.ObservesLiveUnity,
                 planSemantics: "Validate Play Mode runtime state before mutation.",
                 callSemantics: "Apply a Play Mode runtime-state mutation.",
@@ -1322,7 +1380,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 $"{operationName} test operation.",
                 Array.Empty<UcliOperationInputContract>(),
                 UcliOperationResultContract.NoResult("This test operation does not emit operation-specific result data."),
-                CreateValidationOnlyAssurance());
+                CreateValidationOnlyAssurance(),
+                codeContract: null);
         }
     }
 }

@@ -17,7 +17,6 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
         "testFilter",
         "testCategories",
         "assemblyNames",
-        "testSettingsPath",
         "timeout",
     };
 
@@ -187,18 +186,6 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
             return false;
         }
 
-        if (!JsonObjectPropertyReader.TryReadRequiredNullableString(
-            root,
-            "testSettingsPath",
-            CreateMissingRequiredPropertyError,
-            CreateNullableStringTypeMismatchError,
-            noError: null,
-            out var testSettingsPath,
-            out errorMessage))
-        {
-            return false;
-        }
-
         if (!TryReadRequiredPositiveInt32(root, "timeout", out var timeoutMilliseconds, out errorMessage))
         {
             return false;
@@ -214,7 +201,6 @@ internal sealed class TestRunProfileLoader : ITestRunProfileLoader
             TestFilter = testFilter,
             TestCategories = NormalizeListValues(testCategories),
             AssemblyNames = NormalizeListValues(assemblyNames),
-            TestSettingsPath = testSettingsPath,
             Timeout = timeoutMilliseconds,
         };
         return true;
