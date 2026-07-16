@@ -565,7 +565,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Guid.NewGuid(),
                 UnityIpcMethod.Compile,
                 new IpcCompileRequest(Guid.Parse("00000000-0000-0000-0000-000000000612")),
-                requestDuration: TimeSpan.FromMilliseconds(50));
+                requestDuration: TimeSpan.FromMilliseconds(500));
 
             var response = await TestAwaiter.WaitAsync(
                 DispatchAsync(dispatcher, request, CancellationToken.None).AsUniTask(),
