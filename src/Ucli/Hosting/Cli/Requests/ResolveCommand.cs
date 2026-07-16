@@ -25,7 +25,7 @@ internal sealed class ResolveCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes the resolve command and emits the JSON result contract. </summary>
+    /// <summary> Resolves a Unity object identifier and emits the JSON result contract. Requires exactly one selector: --globalObjectId, --assetGuid, --assetPath, --projectAssetPath, --scene with --hierarchyPath, or --prefab with --hierarchyPath. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>

@@ -29,13 +29,13 @@ internal sealed class QuerySceneTreeCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Reads a Unity scene hierarchy and emits the JSON result contract. </summary>
+    /// <summary> Reads a Unity scene hierarchy and emits the JSON result contract. --path is required. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
     /// <param name="readIndexMode">--readIndexMode, readIndex mode (disabled|allowStale|requireFresh).</param>
     /// <param name="failFast">--failFast, Fails immediately when live fallback hits a non-ready Unity editor lifecycle.</param>
-    /// <param name="path">Scene asset path.</param>
+    /// <param name="path">Required scene asset path.</param>
     /// <param name="depth">Tree depth. 0 returns only roots.</param>
     /// <param name="fullDepth">--fullDepth, Expands the full tree.</param>
     /// <param name="limit">Maximum number of preorder hierarchy nodes to return in one window.</param>

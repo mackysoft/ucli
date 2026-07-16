@@ -26,7 +26,7 @@ internal sealed class QueryAssetsFindCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Finds Unity assets and emits the JSON result contract. </summary>
+    /// <summary> Finds Unity assets and emits the JSON result contract. Requires at least one of --type, --pathPrefix, or --nameContains. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>

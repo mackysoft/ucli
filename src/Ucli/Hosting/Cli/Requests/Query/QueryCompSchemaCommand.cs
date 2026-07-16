@@ -26,13 +26,13 @@ internal sealed class QueryCompSchemaCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Describes a Unity component schema and emits the JSON result contract. </summary>
+    /// <summary> Describes a Unity component schema and emits the JSON result contract. --type is required. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
     /// <param name="readIndexMode">--readIndexMode, readIndex mode (disabled|allowStale|requireFresh).</param>
     /// <param name="failFast">--failFast, Fails immediately when Unity editor lifecycle is not yet ready.</param>
-    /// <param name="type">Component runtime type identifier.</param>
+    /// <param name="type">Required component runtime type identifier.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The exit code contained in the emitted command result. </returns>
     [Command(UcliCommandNames.SchemaSubcommand)]

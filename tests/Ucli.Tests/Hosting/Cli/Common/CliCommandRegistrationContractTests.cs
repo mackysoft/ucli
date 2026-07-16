@@ -59,6 +59,27 @@ public sealed class CliCommandRegistrationContractTests
         Assert.Contains("redirected standard input", result.StdOut, StringComparison.Ordinal);
     }
 
+    [Theory]
+    [InlineData("build run", "--profilePath is required")]
+    [InlineData("query assets find", "Requires at least one of --type, --pathPrefix, or --nameContains")]
+    [InlineData("query scene tree", "--path is required")]
+    [InlineData("query comp schema", "--type is required")]
+    [InlineData("query asset schema", "Requires exactly one selector")]
+    [InlineData("query go describe", "Requires exactly one target")]
+    [InlineData("resolve", "Requires exactly one selector")]
+    [Trait("Size", "Medium")]
+    public async Task HelpOutput_WhenCommandHasRequiredInputRule_DescribesRule (
+        string commandPath,
+        string expectedRule)
+    {
+        await using var serviceProvider = UcliServiceProviderTestFactory.CreateCore();
+
+        var result = await ConsoleAppHelpRunner.RunHelpAsync(serviceProvider, commandPath);
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains(expectedRule, result.StdOut, StringComparison.Ordinal);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void CommandCatalog_CommandPathsMatchPublicLeafCommands ()
