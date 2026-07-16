@@ -1,5 +1,6 @@
 using ConsoleAppFramework;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
+using MackySoft.Ucli.Hosting.Cli.Common.Help;
 using MackySoft.Ucli.Hosting.Cli.Common.Parsing;
 using MackySoft.Ucli.Hosting.Cli.Common.Startup;
 using MackySoft.Ucli.Hosting.Cli.Skills;
@@ -39,6 +40,13 @@ internal sealed class CliExecutionRunner
         }
 
         var app = UcliCommandCatalog.RegisterCommands(ConsoleApp.Create());
+        if (UcliCommandCatalog.TryResolveGroupHelpPath(args, out var groupPath))
+        {
+            Console.Out.Write(CliGroupHelpRenderer.Render(groupPath, app.GetCliSchema()));
+            Environment.ExitCode = (int)CliExitCode.Success;
+            return Environment.ExitCode;
+        }
+
         var previousServiceProvider = ConsoleApp.ServiceProvider;
         ConsoleApp.ServiceProvider = serviceProvider;
         var normalizedArgs = SkillsCommandArgumentNormalizer.Normalize(args);

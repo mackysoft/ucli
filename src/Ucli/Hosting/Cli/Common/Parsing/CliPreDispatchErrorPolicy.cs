@@ -48,8 +48,7 @@ internal static class CliPreDispatchErrorPolicy
             return TryCreateInvalidNestedLeafSubcommandResult(args, firstArgument);
         }
 
-        if (UcliCommandCatalog.IsRegisteredRootCommand(firstArgument)
-            || string.Equals(firstArgument, UcliCommandNames.Help, StringComparison.Ordinal))
+        if (UcliCommandCatalog.IsRegisteredRootCommand(firstArgument))
         {
             return null;
         }

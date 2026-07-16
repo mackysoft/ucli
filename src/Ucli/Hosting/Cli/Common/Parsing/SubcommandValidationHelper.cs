@@ -47,7 +47,11 @@ internal static class SubcommandValidationHelper
         if (CommandTokenClassifier.IsHelpOptionToken(subcommand)
             || CommandTokenClassifier.IsVersionOptionToken(subcommand))
         {
-            return null;
+            return args.Length == subcommandArgumentIndex + 1
+                ? null
+                : CommandResult.InvalidArgument(
+                    command: resultCommandName,
+                    message: $"Argument '{args[subcommandArgumentIndex + 1]}' is not recognized.");
         }
 
         for (var i = 0; i < supportedSubcommands.Count; i++)

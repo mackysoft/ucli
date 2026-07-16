@@ -11,6 +11,18 @@ public sealed class CliPreDispatchErrorPolicyTests
             UcliCommandNames.Root,
             "Command 'unknown' is not recognized."),
         new(
+            ["help"],
+            UcliCommandNames.Root,
+            "Command 'help' is not recognized."),
+        new(
+            [UcliCommandNames.Build],
+            UcliCommandNames.Build,
+            "Subcommand is required for command 'build'. Supported subcommands: run."),
+        new(
+            [UcliCommandNames.Build, "unknown"],
+            UcliCommandNames.Build,
+            "Subcommand 'unknown' is not recognized for command 'build'."),
+        new(
             [UcliCommandNames.Daemon],
             UcliCommandNames.Daemon,
             "Subcommand is required for command 'daemon'. Supported subcommands: start, stop, cleanup, status, list."),
@@ -19,6 +31,10 @@ public sealed class CliPreDispatchErrorPolicyTests
             UcliCommandNames.Daemon,
             "Subcommand 'unknown' is not recognized for command 'daemon'."),
         new(
+            [UcliCommandNames.Daemon, "--help", "extra"],
+            UcliCommandNames.Daemon,
+            "Argument 'extra' is not recognized."),
+        new(
             [UcliCommandNames.Logs],
             UcliCommandNames.Logs,
             "Subcommand is required for command 'logs'. Supported subcommands: daemon, unity."),
@@ -26,6 +42,10 @@ public sealed class CliPreDispatchErrorPolicyTests
             [UcliCommandNames.Logs, UcliCommandNames.UnitySubcommand],
             UcliCommandNames.Logs,
             "Subcommand is required for command 'logs unity'. Supported subcommands: read, clear."),
+        new(
+            [UcliCommandNames.Logs, UcliCommandNames.UnitySubcommand, "--version", "extra"],
+            UcliCommandNames.Logs,
+            "Argument 'extra' is not recognized."),
         new(
             [UcliCommandNames.Logs, UcliCommandNames.Daemon],
             UcliCommandNames.Logs,
@@ -94,21 +114,34 @@ public sealed class CliPreDispatchErrorPolicyTests
             [UcliCommandNames.Query, UcliCommandNames.AssetsSubcommand, "unknown"],
             UcliCommandNames.Query,
             "Subcommand 'unknown' is not recognized for command 'query assets'."),
+        new(
+            [UcliCommandNames.Test],
+            UcliCommandNames.Test,
+            "Subcommand is required for command 'test'. Supported subcommands: run, profile."),
+        new(
+            [UcliCommandNames.Test, "unknown"],
+            UcliCommandNames.Test,
+            "Subcommand 'unknown' is not recognized for command 'test'."),
+        new(
+            [UcliCommandNames.Test, UcliCommandNames.Profile],
+            UcliCommandNames.Test,
+            "Subcommand is required for command 'test profile'. Supported subcommands: init."),
+        new(
+            [UcliCommandNames.Test, UcliCommandNames.Profile, "unknown"],
+            UcliCommandNames.Test,
+            "Subcommand 'unknown' is not recognized for command 'test profile'."),
     ];
 
     private static readonly string[][] PassThroughCases =
     [
         [],
         ["--help"],
-        [UcliCommandNames.Help],
         [UcliCommandNames.Status],
         [UcliCommandNames.Daemon, "--help"],
         [UcliCommandNames.Query, UcliCommandNames.AssetsSubcommand, "--help"],
         [UcliCommandNames.Query, UcliCommandNames.AssetsSubcommand, UcliCommandNames.FindSubcommand],
-        [UcliCommandNames.Test],
-        [UcliCommandNames.Test, "unknown"],
-        [UcliCommandNames.Test, UcliCommandNames.Profile],
-        [UcliCommandNames.Test, UcliCommandNames.Profile, "unknown"],
+        [UcliCommandNames.Build, "--help"],
+        [UcliCommandNames.Test, "--help"],
         [UcliCommandNames.Test, UcliCommandNames.Profile, "--help"],
         [UcliCommandNames.Test, UcliCommandNames.Profile, UcliCommandNames.InitSubcommand],
     ];

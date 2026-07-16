@@ -51,6 +51,11 @@ if ! "${tool_path}/ucli" --help | grep -F "Commands:" >/dev/null; then
   exit 1
 fi
 
+if ! "${tool_path}/ucli" query --help | grep -F "asset schema" >/dev/null; then
+  echo "ucli query --help did not include the query subcommands." >&2
+  exit 1
+fi
+
 package_entries="$(unzip -Z1 "${package_path}")"
 for entry in README.md LICENSE tools/net8.0/any/DotnetToolSettings.xml tools/net8.0/any/schemas/v1/schema-manifest.json; do
   if ! grep -Fx "${entry}" <<< "${package_entries}" >/dev/null; then

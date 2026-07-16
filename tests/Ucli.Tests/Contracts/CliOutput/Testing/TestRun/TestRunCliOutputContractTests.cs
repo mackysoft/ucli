@@ -8,26 +8,6 @@ public sealed class TestRunCliOutputContractTests
 {
     private static readonly Lazy<ServiceProvider> SharedTestRunServiceProvider = new(UcliServiceProviderTestFactory.CreateCore);
 
-    private static readonly string[][] FrameworkHelpArgumentCases =
-    [
-        [],
-        ["unknown"],
-        [UcliCommandNames.Profile],
-        [UcliCommandNames.Profile, "unknown"],
-    ];
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task TestFramework_WithMissingOrUnknownSubcommand_ReturnsHelpOutput ()
-    {
-        foreach (var arguments in FrameworkHelpArgumentCases)
-        {
-            var result = await CliInProcessRunner.RunCommandAsync([UcliCommandNames.Test, .. arguments]);
-
-            AssertFrameworkHelpOutput(result);
-        }
-    }
-
     [Fact]
     [Trait("Size", "Medium")]
     public async Task WithUnknownOption_ReturnsInvalidArgumentErrorAsSingleJson ()
@@ -148,12 +128,4 @@ public sealed class TestRunCliOutputContractTests
                     cancellationToken: CancellationToken.None));
     }
 
-    private static void AssertFrameworkHelpOutput (CommandExecutionResult result)
-    {
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        Assert.Contains("Usage:", result.StdOut, StringComparison.Ordinal);
-        Assert.Contains("test run", result.StdOut, StringComparison.Ordinal);
-        Assert.Contains("test profile init", result.StdOut, StringComparison.Ordinal);
-        Assert.DoesNotContain("\"protocolVersion\"", result.StdOut, StringComparison.Ordinal);
-    }
 }
