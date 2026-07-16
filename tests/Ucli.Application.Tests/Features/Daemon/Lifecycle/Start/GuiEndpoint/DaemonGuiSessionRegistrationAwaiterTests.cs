@@ -183,16 +183,21 @@ public sealed class DaemonGuiSessionRegistrationAwaiterTests
                 DefaultExpectedProcessStartedAtUtc,
                 CancellationToken.None)
             .AsTask();
-        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-            timeProvider,
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
+            "GUI session registration retry timer",
+            SignalWaitTimeout);
+        timeProvider.Advance(WaitTimeout);
+        var result = await TestAwaiter.WaitAsync(
             resultTask,
-            WaitTimeout,
-            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-        var result = await resultTask;
+            "GUI session registration deadline result",
+            SignalWaitTimeout);
 
         Assert.False(result.IsSuccess);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
         Assert.Equal(2, pingClient.Invocations.Count);
+        Assert.Equal(DateTimeOffset.UnixEpoch + WaitTimeout, timeProvider.GetUtcNow());
     }
 
     [Fact]

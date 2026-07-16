@@ -285,17 +285,17 @@ public sealed class DaemonSessionProbeTests
                 ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
                 CancellationToken.None)
             .AsTask();
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
         await TestAwaiter.WaitAsync(
-            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-                    timeProvider,
-                    probeTask,
-                    DaemonTimeouts.ProbeAttemptTimeoutCap,
-                    TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
-                .AsTask(),
-            "daemon session probe endpoint window manual time",
+            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
+            "daemon session probe endpoint retry timer",
             TimeSpan.FromSeconds(5));
+        timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap);
 
-        var result = await probeTask;
+        var result = await TestAwaiter.WaitAsync(
+            probeTask,
+            "daemon session probe endpoint window result",
+            TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Same(interruption, result.ProbeFailure);

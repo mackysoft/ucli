@@ -315,17 +315,17 @@ public sealed class IpcDaemonPingClientRequestTests
                 validateProjectFingerprint: true,
                 CancellationToken.None)
             .AsTask();
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
         await TestAwaiter.WaitAsync(
-            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-                    timeProvider,
-                    pingTask,
-                    timeout,
-                    TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
-                .AsTask(),
-            "daemon ping request deadline manual time",
+            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
+            "daemon ping replacement publication retry timer",
             AsyncWaitTimeout);
+        timeProvider.Advance(timeout);
 
-        await Assert.ThrowsAsync<TimeoutException>(() => pingTask);
+        _ = await TestAwaiter.WaitAsync(
+            Assert.ThrowsAsync<TimeoutException>(() => pingTask),
+            "daemon ping request deadline",
+            AsyncWaitTimeout);
         Assert.Single(unityIpcClient.Requests);
         Assert.Equal(DateTimeOffset.UnixEpoch + timeout, timeProvider.GetUtcNow());
     }

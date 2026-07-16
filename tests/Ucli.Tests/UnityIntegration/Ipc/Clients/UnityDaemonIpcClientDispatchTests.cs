@@ -555,16 +555,15 @@ public sealed class UnityDaemonIpcClientDispatchTests
             .AsTask();
         var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
         await TestAwaiter.WaitAsync(
-            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-                    timeProvider,
-                    sendTask,
-                    DaemonTimeouts.ProbeAttemptTimeoutCap,
-                    retryDelay)
-                .AsTask(),
-            "Unity daemon dispatch endpoint window manual time",
+            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
+            "Unity daemon dispatch endpoint retry timer",
             TimeSpan.FromSeconds(5));
+        timeProvider.Advance(DaemonTimeouts.ProbeAttemptTimeoutCap);
 
-        var result = await sendTask;
+        var result = await TestAwaiter.WaitAsync(
+            sendTask,
+            "Unity daemon dispatch endpoint window result",
+            TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);

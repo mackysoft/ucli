@@ -127,12 +127,15 @@ public sealed class IpcDaemonReachabilityProbeTests
                 pingStarted.Task,
                 "daemon reachability ping start",
                 SignalWaitTimeout);
-            await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-                timeProvider,
+            await TestAwaiter.WaitAsync(
+                timeProvider.WaitForTimerDueWithinAsync(TimeoutClassificationProbeTimeout),
+                "daemon reachability timeout retry timer",
+                SignalWaitTimeout);
+            timeProvider.Advance(TimeoutClassificationProbeTimeout);
+            var result = await TestAwaiter.WaitAsync(
                 resultTask,
-                TimeoutClassificationProbeTimeout,
-                TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
-            var result = await resultTask;
+                "daemon reachability timeout result",
+                SignalWaitTimeout);
 
             Assert.False(result.IsRunning);
             Assert.True(result.HasError);
@@ -140,6 +143,9 @@ public sealed class IpcDaemonReachabilityProbeTests
             Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
             Assert.Contains("Timed out while probing daemon reachability.", error.Message, StringComparison.Ordinal);
             DaemonPingClientAssert.PingedAtLeastOnce(daemonPingClient);
+            Assert.Equal(
+                DateTimeOffset.UnixEpoch + TimeoutClassificationProbeTimeout,
+                timeProvider.GetUtcNow());
         }
     }
 
@@ -257,17 +263,17 @@ public sealed class IpcDaemonReachabilityProbeTests
                 DefaultProbeTimeout,
                 CancellationToken.None)
             .AsTask();
+        var retryDelay = TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds);
         await TestAwaiter.WaitAsync(
-            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-                    timeProvider,
-                    resultTask,
-                    ProbeAttemptTimeoutCap,
-                    TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
-                .AsTask(),
-            "daemon reachability endpoint window manual time",
+            timeProvider.WaitForTimerDueWithinAsync(retryDelay),
+            "daemon reachability endpoint retry timer",
             SignalWaitTimeout);
+        timeProvider.Advance(ProbeAttemptTimeoutCap);
 
-        var result = await resultTask;
+        var result = await TestAwaiter.WaitAsync(
+            resultTask,
+            "daemon reachability endpoint window result",
+            SignalWaitTimeout);
 
         Assert.False(result.IsRunning);
         Assert.False(result.HasError);
