@@ -8,6 +8,25 @@ public sealed class PlayExitServiceUnityFailureTests
 {
     [Fact]
     [Trait("Size", "Small")]
+    public async Task Execute_WhenExitResponseIsLostDuringDomainReload_ReturnsFailureWithoutServiceRetry ()
+    {
+        var requestExecutor = new RecordingUnityRequestExecutor(
+            UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+                UnityRequestFailureKind.TransportInterrupted,
+                EditorLifecycleErrorCodes.EditorUnavailable,
+                "Unity daemon IPC response was interrupted and no successor endpoint became available.")));
+        var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
+
+        var result = await service.ExecuteAsync(new PlayExitCommandInput(null, 1500), CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Null(result.Output);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorUnavailable, result.Error!.Code);
+        UnityRequestExecutorInvocationAssert.ExecutedOnce(requestExecutor, UcliCommandIds.PlayExit);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
     public async Task Execute_WhenUnityReturnsTransitionTimeout_ReturnsFailureWithObservedPayload ()
     {
         var before = CreateSnapshot(

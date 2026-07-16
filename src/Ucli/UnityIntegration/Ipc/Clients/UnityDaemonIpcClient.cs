@@ -1,6 +1,7 @@
 using System.Runtime.ExceptionServices;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
+using MackySoft.Ucli.Application.Shared.Execution.ErrorCodes;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Application.Shared.Execution.UnityRequest;
@@ -120,12 +121,13 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                 case DaemonSessionAcquisitionKind.RequestDeadlineExpired:
                     return firstResponseInterruption is null
                         ? CreateDeadlineExceededResult(deadline.Timeout)
-                        : CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                        : CreateInterruptedResponseTimeoutResult(firstResponseInterruption, deadline.Timeout);
                 case DaemonSessionAcquisitionKind.PublicationWindowExpired:
-                case DaemonSessionAcquisitionKind.SessionNotAvailable:
                     if (firstResponseInterruption is not null)
                     {
-                        return CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                        return CreateInterruptedResponseUnavailableResult(
+                            firstResponseInterruption,
+                            sessionAcquisition);
                     }
 
                     return sessionTokenRejection is not null
@@ -133,12 +135,24 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                         : UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
                             UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
                             DaemonSessionAcquisitionResult.SessionNotAvailableMessage));
+                case DaemonSessionAcquisitionKind.SessionNotAvailable:
+                    if (firstResponseInterruption is not null || sessionTokenRejection is not null)
+                    {
+                        throw new InvalidOperationException(
+                            "Session-not-available is valid only during initial daemon session resolution.");
+                    }
+
+                    return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
+                        UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
+                        DaemonSessionAcquisitionResult.SessionNotAvailableMessage));
                 case DaemonSessionAcquisitionKind.EndpointAvailabilityWindowExpired:
                     return firstResponseInterruption is null
                         ? UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.FromCodeAndMessage(
                             UnityExecutionModeDecisionErrorCodes.DaemonNotRunning,
                             DaemonSessionAcquisitionResult.SessionNotAvailableMessage))
-                        : CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                        : CreateInterruptedResponseUnavailableResult(
+                            firstResponseInterruption,
+                            sessionAcquisition);
                 case DaemonSessionAcquisitionKind.HostIdentityMismatch:
                     if (firstResponseInterruption is null)
                     {
@@ -146,11 +160,15 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                             "A durable response replay host mismatch requires the original response interruption.");
                     }
 
-                    return CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                    return CreateInterruptedResponseUnavailableResult(
+                        firstResponseInterruption,
+                        sessionAcquisition);
                 case DaemonSessionAcquisitionKind.SessionReadFailure:
                     if (firstResponseInterruption is not null)
                     {
-                        return CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                        return CreateInterruptedResponseUnavailableResult(
+                            firstResponseInterruption,
+                            sessionAcquisition);
                     }
 
                     return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
@@ -165,14 +183,14 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             {
                 return firstResponseInterruption is null
                     ? CreateDeadlineExceededResult(deadline.Timeout)
-                    : CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                    : CreateInterruptedResponseTimeoutResult(firstResponseInterruption, deadline.Timeout);
             }
 
             if (!deadline.TryGetRemainingMilliseconds(out var remainingMilliseconds))
             {
                 return firstResponseInterruption is null
                     ? CreateDeadlineExceededResult(deadline.Timeout)
-                    : CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                    : CreateInterruptedResponseTimeoutResult(firstResponseInterruption, deadline.Timeout);
             }
 
             var session = sessionAcquisition.Session!;
@@ -231,6 +249,15 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             {
                 var isRetryableBeforeRequestWrite = DaemonIpcConnectionFailureClassifier
                     .IsRetryableBeforeRequestWrite(exception);
+                if (!isRetryableBeforeRequestWrite
+                    && responseReplayPolicy == UnityIpcResponseReplayPolicy.None
+                    && IsRecoverableResponseInterruption(exception))
+                {
+                    return CreateNonReplayableResponseInterruptionResult(
+                        exception,
+                        deadline.Timeout);
+                }
+
                 if (sessionTokenRejection is not null
                     && firstResponseInterruption is null
                     && !isRetryableBeforeRequestWrite
@@ -292,17 +319,18 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
                     }
                 }
 
-                if (firstResponseInterruption is not null
-                    && responseReplayPolicy == UnityIpcResponseReplayPolicy.DurableSameHostSuccessor)
+                if (firstResponseInterruption is not null)
                 {
-                    return CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                    return deadline.IsExpired
+                        ? CreateInterruptedResponseTimeoutResult(firstResponseInterruption, deadline.Timeout)
+                        : CreateInterruptedResponseReplayFailureResult(
+                            firstResponseInterruption,
+                            exception);
                 }
 
                 if (deadline.IsExpired)
                 {
-                    return firstResponseInterruption is null
-                        ? CreateDeadlineExceededResult(deadline.Timeout)
-                        : CreateResponseInterruptionResult(firstResponseInterruption, deadline.Timeout);
+                    return CreateDeadlineExceededResult(deadline.Timeout);
                 }
 
                 return UnityRequestExecutionResult.Failure(
@@ -317,16 +345,76 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
             $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds."));
     }
 
-    private static UnityRequestExecutionResult CreateResponseInterruptionResult (
-        Exception exception,
+    private static UnityRequestExecutionResult CreateInterruptedResponseTimeoutResult (
+        Exception interruption,
         TimeSpan timeout)
     {
-        ArgumentNullException.ThrowIfNull(exception);
-        var failure = exception is TimeoutException
-            ? UnityIpcFailureClassifier.Timeout(
-                $"Unity daemon IPC request timed out after {timeout.TotalMilliseconds:0} milliseconds. {exception.Message}")
-            : UnityIpcFailureClassifier.FromDaemonDispatchException(exception, timeout);
-        return UnityRequestExecutionResult.Failure(failure);
+        ArgumentNullException.ThrowIfNull(interruption);
+        return UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityRequestFailureKind.TransportInterrupted,
+            ExecutionErrorCodes.IpcTimeout,
+            $"Unity daemon IPC response was interrupted and the request deadline expired after "
+            + $"{timeout.TotalMilliseconds:0} milliseconds. {interruption.Message}"));
+    }
+
+    private static UnityRequestExecutionResult CreateInterruptedResponseUnavailableResult (
+        Exception interruption,
+        DaemonSessionAcquisitionResult acquisition)
+    {
+        ArgumentNullException.ThrowIfNull(acquisition);
+        var recoveryFailure = acquisition.Kind switch
+        {
+            DaemonSessionAcquisitionKind.PublicationWindowExpired =>
+                "No successor daemon session was published within the recovery window.",
+            DaemonSessionAcquisitionKind.EndpointAvailabilityWindowExpired =>
+                "The successor daemon endpoint did not become available within the recovery window.",
+            DaemonSessionAcquisitionKind.HostIdentityMismatch =>
+                "The published successor session belongs to a different Unity Editor host.",
+            DaemonSessionAcquisitionKind.SessionReadFailure =>
+                $"Daemon session metadata could not be read. {acquisition.ReadFailure!.Error!.Message}",
+            _ => throw new ArgumentOutOfRangeException(
+                nameof(acquisition),
+                acquisition.Kind,
+                "The acquisition outcome does not describe an unavailable interrupted response."),
+        };
+
+        ArgumentNullException.ThrowIfNull(interruption);
+        return UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityRequestFailureKind.TransportInterrupted,
+            EditorLifecycleErrorCodes.EditorUnavailable,
+            $"Unity daemon IPC response was interrupted and could not be recovered. "
+            + $"{recoveryFailure} Original interruption: {interruption.Message}"));
+    }
+
+    private static UnityRequestExecutionResult CreateInterruptedResponseReplayFailureResult (
+        Exception interruption,
+        Exception replayFailure)
+    {
+        ArgumentNullException.ThrowIfNull(interruption);
+        ArgumentNullException.ThrowIfNull(replayFailure);
+        return UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityRequestFailureKind.TransportInterrupted,
+            UcliCoreErrorCodes.InternalError,
+            $"Unity daemon IPC response was interrupted and could not be recovered. "
+            + $"The replay attempt failed: {replayFailure.Message} "
+            + $"Original interruption: {interruption.Message}"));
+    }
+
+    private static UnityRequestExecutionResult CreateNonReplayableResponseInterruptionResult (
+        Exception interruption,
+        TimeSpan timeout)
+    {
+        ArgumentNullException.ThrowIfNull(interruption);
+        if (interruption is TimeoutException)
+        {
+            return CreateInterruptedResponseTimeoutResult(interruption, timeout);
+        }
+
+        return UnityRequestExecutionResult.Failure(new UnityRequestFailure(
+            UnityRequestFailureKind.TransportInterrupted,
+            UcliCoreErrorCodes.InternalError,
+            $"Unity daemon IPC response was interrupted after the request was sent. "
+            + $"The request cannot be replayed safely. {interruption.Message}"));
     }
 
     private static bool IsRecoverableResponseInterruption (Exception exception)

@@ -97,6 +97,8 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorUnavailable, result.ErrorCode);
         Assert.Contains(interruption.Message, result.Message, StringComparison.Ordinal);
         Assert.Single(transportClient.Requests);
     }
@@ -158,9 +160,22 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal(
+            trigger == DurableReacquisitionTrigger.TerminalTransportFailure
+                ? UcliCoreErrorCodes.InternalError
+                : EditorLifecycleErrorCodes.EditorUnavailable,
+            result.ErrorCode);
         Assert.Contains(firstInterruption.Message, result.Message, StringComparison.Ordinal);
         Assert.DoesNotContain(secondInterruption.Message, result.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain(terminalTransportFailure.Message, result.Message, StringComparison.Ordinal);
+        if (trigger == DurableReacquisitionTrigger.TerminalTransportFailure)
+        {
+            Assert.Contains(terminalTransportFailure.Message, result.Message, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.DoesNotContain(terminalTransportFailure.Message, result.Message, StringComparison.Ordinal);
+        }
         Assert.Equal(2, transportClient.Requests.Count);
         _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
     }
@@ -216,10 +231,177 @@ public sealed class UnityDaemonIpcClientRecoverableDispatchTests
         var result = await sendTask.WaitAsync(TimeSpan.FromSeconds(1));
 
         Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorUnavailable, result.ErrorCode);
         Assert.Contains(firstInterruption.Message, result.Message, StringComparison.Ordinal);
         Assert.Equal(
             DateTimeOffset.UnixEpoch + DaemonTimeouts.ProbeAttemptTimeoutCap,
             timeProvider.GetUtcNow());
+        Assert.Equal(2, transportClient.Requests.Count);
+        _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenResponseInterruptionExhaustsRequestDeadline_ReturnsTransportTimeout ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueResponse(_ =>
+        {
+            timeProvider.Advance(TimeSpan.FromSeconds(5));
+            throw new IpcResponseReadInterruptedException(
+                new EndOfStreamException("response interruption at request deadline"));
+        });
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(CreateSessionReadResult("daemon-token-1"))));
+
+        var result = await client.SendAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            new UnityIpcDispatchRequest(
+                UnityIpcMethod.PlayEnter,
+                CreateDispatchPayload(),
+                UnityBatchmodeLaunchOptions.Default),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Contains("response interruption at request deadline", result.Message, StringComparison.Ordinal);
+        Assert.Single(transportClient.Requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenSuccessorWaitExhaustsRequestDeadline_ReturnsTransportTimeout ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var interruption = new IpcResponseReadInterruptedException(
+            new EndOfStreamException("response interruption before successor wait"));
+        var transportClient = new RecordingIpcTransportClient(_ => throw interruption);
+        var interruptedSession = CreateHostSession(
+            "daemon-token-1",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DaemonEditorMode.Gui);
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                    DaemonSessionReadResultTestFactory.Found(interruptedSession),
+                    DaemonSessionReadResult.Missing()),
+                CreateRecoveryWaiter(interruptedSession, timeProvider)));
+
+        var sendTask = client.SendAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                new UnityIpcDispatchRequest(
+                    UnityIpcMethod.PlayEnter,
+                    CreateDispatchPayload(),
+                    UnityBatchmodeLaunchOptions.Default),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+                CancellationToken.None)
+            .AsTask();
+
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            sendTask,
+            TimeSpan.FromSeconds(5),
+            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var result = await sendTask;
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
+        Assert.Contains(interruption.Message, result.Message, StringComparison.Ordinal);
+        Assert.Single(transportClient.Requests);
+        Assert.Equal(DateTimeOffset.UnixEpoch + TimeSpan.FromSeconds(5), timeProvider.GetUtcNow());
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenResponseReplayCannotReadSession_ReturnsTransportUnavailable ()
+    {
+        var interruption = new IpcResponseReadInterruptedException(
+            new EndOfStreamException("response interruption before invalid session metadata"));
+        var transportClient = new RecordingIpcTransportClient(_ => throw interruption);
+        var interruptedSession = CreateHostSession(
+            "daemon-token-1",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DaemonEditorMode.Batchmode);
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                    DaemonSessionReadResultTestFactory.Found(interruptedSession),
+                    DaemonSessionReadResultTestFactory.Invalid())));
+
+        var result = await client.SendAsync(
+            ResolvedUnityProjectContextTestFactory.Create(),
+            new UnityIpcDispatchRequest(
+                UnityIpcMethod.PlayEnter,
+                CreateDispatchPayload(),
+                UnityBatchmodeLaunchOptions.Default),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorUnavailable, result.ErrorCode);
+        Assert.Contains("Synthetic invalid daemon session", result.Message, StringComparison.Ordinal);
+        Assert.Contains(interruption.Message, result.Message, StringComparison.Ordinal);
+        Assert.Single(transportClient.Requests);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task SendAsync_WhenReplaySessionTokenIsRejectedWithoutSuccessor_ReturnsTransportUnavailable ()
+    {
+        var timeProvider = new ManualTimeProvider();
+        var interruption = new IpcResponseReadInterruptedException(
+            new EndOfStreamException("response interruption before rejected replay token"));
+        var transportClient = new RecordingIpcTransportClient(_ => CreateResponse(Guid.NewGuid()));
+        transportClient.EnqueueException(interruption);
+        transportClient.EnqueueResponse(CreateSessionTokenInvalidResponse());
+        var interruptedSession = CreateHostSession(
+            "daemon-token-1",
+            Guid.Parse("11111111-1111-1111-1111-111111111111"),
+            DaemonEditorMode.Batchmode);
+        var sameHostSuccessor = CreateHostSession(
+            "daemon-token-2",
+            Guid.Parse("22222222-2222-2222-2222-222222222222"),
+            DaemonEditorMode.Batchmode);
+        var client = new UnityDaemonIpcClient(
+            transportClient,
+            DaemonSessionAcquisitionCoordinatorTestFactory.Create(
+                new QueuedDaemonSessionStore(
+                    DaemonSessionReadResultTestFactory.Found(interruptedSession),
+                    DaemonSessionReadResultTestFactory.Found(sameHostSuccessor),
+                    DaemonSessionReadResultTestFactory.Found(sameHostSuccessor))));
+
+        var sendTask = client.SendAsync(
+                ResolvedUnityProjectContextTestFactory.Create(),
+                new UnityIpcDispatchRequest(
+                    UnityIpcMethod.PlayEnter,
+                    CreateDispatchPayload(),
+                    UnityBatchmodeLaunchOptions.Default),
+                ExecutionDeadline.Start(TimeSpan.FromSeconds(5), timeProvider),
+                CancellationToken.None)
+            .AsTask();
+
+        await ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
+            timeProvider,
+            sendTask,
+            DaemonTimeouts.SessionPublicationRetryTimeout,
+            TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds));
+        var result = await sendTask;
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorUnavailable, result.ErrorCode);
+        Assert.Contains("No successor daemon session was published", result.Message, StringComparison.Ordinal);
+        Assert.Contains(interruption.Message, result.Message, StringComparison.Ordinal);
         Assert.Equal(2, transportClient.Requests.Count);
         _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
     }
