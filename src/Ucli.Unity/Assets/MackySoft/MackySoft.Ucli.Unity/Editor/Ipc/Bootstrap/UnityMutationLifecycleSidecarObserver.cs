@@ -67,7 +67,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 // The mutation delegate must not begin while a prior durable Ready snapshot can still be read.
-                await lifecycleSidecarWriter.FlushAsync(version, cancellationToken);
+                await lifecycleSidecarWriter
+                    .FlushAsync(version, cancellationToken)
+                    .ConfigureAwait(false);
             }
             catch (Exception exception)
             {
