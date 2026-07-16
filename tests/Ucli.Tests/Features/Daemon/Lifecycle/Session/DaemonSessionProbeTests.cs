@@ -126,16 +126,15 @@ public sealed class DaemonSessionProbeTests
                 CancellationToken.None)
             .AsTask();
         await TestAwaiter.WaitAsync(
-            ManualTimeTaskDriver.AdvanceUntilCompletedAsync(
-                    timeProvider,
-                    probeTask,
-                    timeout,
-                    TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds))
-                .AsTask(),
-            "daemon session probe request deadline manual time",
+            timeProvider.WaitForTimerDueWithinAsync(
+                TimeSpan.FromMilliseconds(DaemonTimeouts.StartupProbeRetryDelayMilliseconds)),
+            "daemon session probe publication retry timer",
             TimeSpan.FromSeconds(5));
-
-        var result = await probeTask;
+        timeProvider.Advance(timeout);
+        var result = await TestAwaiter.WaitAsync(
+            probeTask,
+            "daemon session probe request deadline result",
+            TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
         Assert.IsType<TimeoutException>(result.ProbeFailure);
