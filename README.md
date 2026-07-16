@@ -202,8 +202,8 @@ Use `--projectPath <path>` when a single command needs to override the environme
 
 ## 🧭 Runtime Modes
 
-uCLI can run Unity-backed commands through three execution modes:
-Use `--mode auto|daemon|oneshot` on Unity-backed commands to choose the mode for one command.
+uCLI can run commands that support multiple Unity execution paths through three modes.
+Use `--mode auto|daemon|oneshot` only on commands that expose the option. Screenshot commands require an existing GUI Editor daemon and do not expose `--mode`.
 
 | Mode | Use it for |
 | --- | --- |
@@ -754,7 +754,7 @@ Common options:
 | Option | Applies to | Meaning |
 | --- | --- | --- |
 | `--projectPath <path>` | Unity-backed commands | Target Unity project path. Overrides `UCLI_PROJECT_PATH` and current-directory resolution. |
-| `--mode auto\|daemon\|oneshot` | Unity-backed commands | Choose daemon reuse or one-shot batchmode. |
+| `--mode auto\|daemon\|oneshot` | Commands that expose `--mode` | Choose daemon reuse or one-shot batchmode. |
 | `--timeout <milliseconds>` | Unity-backed commands | Override the command timeout. |
 | `--readIndexMode disabled\|allowStale\|requireFresh`, `--read-index-mode disabled\|allowStale\|requireFresh` | Query-like commands | Control read-index use. |
 | `--failFast` | Unity-backed commands | Fail when the Unity editor lifecycle is not ready instead of waiting. |

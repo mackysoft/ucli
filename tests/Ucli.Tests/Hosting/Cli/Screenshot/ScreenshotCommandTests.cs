@@ -10,6 +10,40 @@ namespace MackySoft.Ucli.Tests;
 public sealed class ScreenshotCommandTests
 {
     [Theory]
+    [InlineData(UcliCommandNames.GameSubcommand)]
+    [InlineData(UcliCommandNames.SceneSubcommand)]
+    [Trait("Size", "Medium")]
+    public async Task Help_DoesNotAdvertiseUnusedExecutionMode (string target)
+    {
+        var result = await CliInProcessRunner.RunCommandAsync(
+            UcliCommandNames.Screenshot,
+            target,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.DoesNotContain(UcliContractConstants.CliOption.Mode, result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(UcliCommandNames.GameSubcommand, UcliCommandNames.ScreenshotGame)]
+    [InlineData(UcliCommandNames.SceneSubcommand, UcliCommandNames.ScreenshotScene)]
+    [Trait("Size", "Medium")]
+    public async Task RemovedModeOption_IsRejectedBeforeCapture (
+        string target,
+        string resultCommandName)
+    {
+        var result = await CliInProcessRunner.RunCommandAsync(
+            UcliCommandNames.Screenshot,
+            target,
+            UcliContractConstants.CliOption.Mode,
+            "daemon");
+
+        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
+        CommandResultAssert.ReportsUnrecognizedArgument(result.StdErr, UcliContractConstants.CliOption.Mode);
+        CommandResultAssert.HasInvalidArgumentOutput(result.StdOut, resultCommandName);
+    }
+
+    [Theory]
     [InlineData("1920", null)]
     [InlineData(null, "1080")]
     [InlineData("0", "1080")]
@@ -35,23 +69,6 @@ public sealed class ScreenshotCommandTests
             UcliCommandNames.ScreenshotGame);
     }
 
-    [Theory]
-    [InlineData("oneshot")]
-    [InlineData("invalid")]
-    [Trait("Size", "Small")]
-    public async Task Scene_WithUnsupportedMode_RejectsBeforeCapture (string mode)
-    {
-        var service = CreateFailIfCalledService();
-        var command = new ScreenshotSceneCommand(service, CommandResultTestWriter.Create());
-
-        var result = await CommandResultCapture.ExecuteAsync(() => command.SceneAsync(
-            mode: mode,
-            cancellationToken: CancellationToken.None));
-
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        Assert.Empty(service.Inputs);
-    }
-
     [Fact]
     [Trait("Size", "Small")]
     public async Task Game_WhenCaptureSucceeds_EmitsMetadataAndArtifactReference ()
@@ -65,7 +82,6 @@ public sealed class ScreenshotCommandTests
 
         var result = await CommandResultCapture.ExecuteAsync(() => command.GameAsync(
             projectPath: ProjectPathTestValues.RepositoryUnityProject,
-            mode: "daemon",
             width: "1920",
             height: "1080",
             timeout: "5000",

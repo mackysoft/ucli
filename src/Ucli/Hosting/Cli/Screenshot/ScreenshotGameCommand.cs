@@ -23,7 +23,6 @@ internal sealed class ScreenshotGameCommand
 
     /// <summary> Captures the main GameView presentation surface. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
-    /// <param name="mode">Unity execution mode. Accepts auto or daemon.</param>
     /// <param name="width">Requested GameView capture width. Must be specified with height.</param>
     /// <param name="height">Requested GameView capture height. Must be specified with width.</param>
     /// <param name="timeout">Capture timeout in milliseconds.</param>
@@ -32,7 +31,6 @@ internal sealed class ScreenshotGameCommand
     [Command(UcliCommandNames.GameSubcommand)]
     public async Task<int> GameAsync (
         string? projectPath = null,
-        string? mode = null,
         string? width = null,
         string? height = null,
         string? timeout = null,
@@ -41,7 +39,7 @@ internal sealed class ScreenshotGameCommand
         cancellationToken.ThrowIfCancellationRequested();
         CommandExecutionState.MarkStarted();
 
-        var options = ScreenshotCommandOptionsNormalizer.NormalizeGame(mode, width, height, timeout);
+        var options = ScreenshotCommandOptionsNormalizer.NormalizeGame(width, height, timeout);
         if (!options.IsSuccess)
         {
             var invalidResult = CommandResultFactory.FromExecutionError(
