@@ -41,8 +41,7 @@
           ]
         },
         "lifecycleStateAtCapture": {
-          "type": "string",
-          "const": "ready"
+          "type": "string"
         },
         "compileStateAtCapture": {
           "type": "string",
@@ -77,8 +76,7 @@
           ]
         },
         "playModeState": {
-          "type": "string",
-          "const": "stopped"
+          "type": "string"
         }
       },
       "required": [
@@ -93,6 +91,42 @@
         "compileStateAtCapture",
         "generations",
         "playModeState"
+      ],
+      "oneOf": [
+        {
+          "type": "object",
+          "properties": {
+            "lifecycleStateAtCapture": {
+              "type": "string",
+              "const": "ready"
+            },
+            "playModeState": {
+              "type": "string",
+              "const": "stopped"
+            }
+          },
+          "required": [
+            "lifecycleStateAtCapture",
+            "playModeState"
+          ]
+        },
+        {
+          "type": "object",
+          "properties": {
+            "lifecycleStateAtCapture": {
+              "type": "string",
+              "const": "playmode"
+            },
+            "playModeState": {
+              "type": "string",
+              "const": "playing"
+            }
+          },
+          "required": [
+            "lifecycleStateAtCapture",
+            "playModeState"
+          ]
+        }
       ]
     },
     "artifact": {

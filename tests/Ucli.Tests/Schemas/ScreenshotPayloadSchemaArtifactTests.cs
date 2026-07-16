@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace MackySoft.Ucli.Tests.Schemas;
 
@@ -20,18 +21,92 @@ public sealed class ScreenshotPayloadSchemaArtifactTests
             scene.RootElement.GetProperty("payload")));
     }
 
-    [Fact]
+    [Theory]
+    [InlineData("currentSurface", false, "ready", "stopped")]
+    [InlineData("currentSurface", false, "playmode", "playing")]
+    [InlineData("requestedResolution", true, "ready", "stopped")]
+    [InlineData("requestedResolution", true, "playmode", "playing")]
     [Trait("Size", "Medium")]
-    public void ScreenshotPayloadSchemas_RejectCaptureStateOutsideSuccessfulContract ()
+    public void ScreenshotGamePayloadSchema_AcceptsSupportedSizeAndCaptureStateVariants (
+        string sizeMode,
+        bool hasRequestedResolution,
+        string lifecycleStateAtCapture,
+        string playModeState)
     {
         var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
-        using var playing = JsonDocument.Parse(CreateGamePayload(
+        using var payload = JsonDocument.Parse(CreateGamePayload(
             artifactPrefix: string.Empty,
-            playModeState: "playing"));
+            sizeMode: sizeMode,
+            hasRequestedResolution: hasRequestedResolution,
+            lifecycleStateAtCapture: lifecycleStateAtCapture,
+            playModeState: playModeState));
+
+        Assert.Empty(schemaSet.Validate(
+            "cli-output/payload/screenshot.game.schema.json",
+            payload.RootElement));
+    }
+
+    [Theory]
+    [InlineData("ready", "playing")]
+    [InlineData("playmode", "stopped")]
+    [Trait("Size", "Medium")]
+    public void ScreenshotGamePayloadSchema_RejectsIncoherentCaptureStatePair (
+        string lifecycleStateAtCapture,
+        string playModeState)
+    {
+        var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
+        using var payload = JsonDocument.Parse(CreateGamePayload(
+            artifactPrefix: string.Empty,
+            lifecycleStateAtCapture: lifecycleStateAtCapture,
+            playModeState: playModeState));
 
         Assert.NotEmpty(schemaSet.Validate(
             "cli-output/payload/screenshot.game.schema.json",
-            playing.RootElement));
+            payload.RootElement));
+    }
+
+    [Theory]
+    [InlineData("ready", "stopped")]
+    [InlineData("playmode", "playing")]
+    [Trait("Size", "Medium")]
+    public void ScreenshotScenePayloadSchema_AcceptsSupportedCaptureStateVariants (
+        string lifecycleStateAtCapture,
+        string playModeState)
+    {
+        var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
+        using var golden = CliOutputGoldenFiles.ReadJsonDocument("screenshot", "scene-success.json");
+        var payloadNode = JsonNode.Parse(
+            golden.RootElement.GetProperty("payload").GetRawText())!.AsObject();
+        var captureNode = payloadNode["capture"]!.AsObject();
+        captureNode["lifecycleStateAtCapture"] = lifecycleStateAtCapture;
+        captureNode["playModeState"] = playModeState;
+        using var payload = JsonDocument.Parse(payloadNode.ToJsonString());
+
+        Assert.Empty(schemaSet.Validate(
+            "cli-output/payload/screenshot.scene.schema.json",
+            payload.RootElement));
+    }
+
+    [Theory]
+    [InlineData("ready", "playing")]
+    [InlineData("playmode", "stopped")]
+    [Trait("Size", "Medium")]
+    public void ScreenshotScenePayloadSchema_RejectsIncoherentCaptureStatePair (
+        string lifecycleStateAtCapture,
+        string playModeState)
+    {
+        var schemaSet = CliOutputSchemaTestSupport.SchemaSet;
+        using var golden = CliOutputGoldenFiles.ReadJsonDocument("screenshot", "scene-success.json");
+        var payloadNode = JsonNode.Parse(
+            golden.RootElement.GetProperty("payload").GetRawText())!.AsObject();
+        var captureNode = payloadNode["capture"]!.AsObject();
+        captureNode["lifecycleStateAtCapture"] = lifecycleStateAtCapture;
+        captureNode["playModeState"] = playModeState;
+        using var payload = JsonDocument.Parse(payloadNode.ToJsonString());
+
+        Assert.NotEmpty(schemaSet.Validate(
+            "cli-output/payload/screenshot.scene.schema.json",
+            payload.RootElement));
     }
 
     [Fact]
@@ -53,8 +128,12 @@ public sealed class ScreenshotPayloadSchemaArtifactTests
     private static string CreateGamePayload (
         string artifactPrefix,
         string sizeMode = "requestedResolution",
+        bool hasRequestedResolution = true,
+        string lifecycleStateAtCapture = "ready",
         string playModeState = "stopped")
     {
+        var requestedWidth = hasRequestedResolution ? "1920" : "null";
+        var requestedHeight = hasRequestedResolution ? "1080" : "null";
         return $$"""
         {
           "project": {
@@ -65,12 +144,12 @@ public sealed class ScreenshotPayloadSchemaArtifactTests
           "capture": {
             "target": "game",
             "sizeMode": "{{sizeMode}}",
-            "requestedWidth": 1920,
-            "requestedHeight": 1080,
+            "requestedWidth": {{requestedWidth}},
+            "requestedHeight": {{requestedHeight}},
             "width": 1920,
             "height": 1080,
             "colorSpace": "linear",
-            "lifecycleStateAtCapture": "ready",
+            "lifecycleStateAtCapture": "{{lifecycleStateAtCapture}}",
             "compileStateAtCapture": "ready",
             "generations": {
               "compileGeneration": 5,

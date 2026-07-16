@@ -239,19 +239,6 @@ internal sealed class ScreenshotCaptureService : IScreenshotCaptureService
             return InvalidResponse("capture target or requested-size metadata does not match the request");
         }
 
-        var state = capture.State;
-        var playMode = state.PlayMode;
-        if (state.EditorMode != DaemonEditorMode.Gui
-            || state.LifecycleState != IpcEditorLifecycleState.Ready
-            || state.CompileState != IpcCompileState.Ready
-            || playMode.State != IpcPlayModeState.Stopped
-            || playMode.Transition != IpcPlayModeTransition.None
-            || playMode.IsPlaying
-            || playMode.IsPlayingOrWillChangePlaymode)
-        {
-            return InvalidResponse("capture state metadata is invalid");
-        }
-
         return null;
     }
 

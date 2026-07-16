@@ -88,67 +88,52 @@ public sealed class ScreenshotCaptureServiceTests
     }
 
     [Theory]
-    [InlineData(
-        IpcEditorLifecycleState.PlayMode,
-        IpcCompileState.Ready,
-        IpcPlayModeState.Stopped,
-        IpcPlayModeTransition.None,
-        false,
-        false)]
-    [InlineData(
-        IpcEditorLifecycleState.Ready,
-        IpcCompileState.Compiling,
-        IpcPlayModeState.Stopped,
-        IpcPlayModeTransition.None,
-        false,
-        false)]
-    [InlineData(
-        IpcEditorLifecycleState.Ready,
-        IpcCompileState.Ready,
-        IpcPlayModeState.Playing,
-        IpcPlayModeTransition.None,
-        false,
-        false)]
-    [InlineData(
-        IpcEditorLifecycleState.Ready,
-        IpcCompileState.Ready,
-        IpcPlayModeState.Stopped,
-        IpcPlayModeTransition.Entering,
-        false,
-        false)]
-    [InlineData(
-        IpcEditorLifecycleState.Ready,
-        IpcCompileState.Ready,
-        IpcPlayModeState.Stopped,
-        IpcPlayModeTransition.None,
-        true,
-        false)]
-    [InlineData(
-        IpcEditorLifecycleState.Ready,
-        IpcCompileState.Ready,
-        IpcPlayModeState.Stopped,
-        IpcPlayModeTransition.None,
-        false,
-        true)]
+    [InlineData(IpcScreenshotTarget.Game, 1920, 1080, 1920, 1080)]
+    [InlineData(IpcScreenshotTarget.Scene, 1280, 720, null, null)]
     [Trait("Size", "Small")]
-    public async Task Capture_WhenUnityReturnsNonCaptureReadyState_RejectsAndDiscardsWithoutCommit (
-        IpcEditorLifecycleState lifecycleState,
-        IpcCompileState compileState,
-        IpcPlayModeState playModeState,
-        IpcPlayModeTransition playModeTransition,
-        bool isPlaying,
-        bool isPlayingOrWillChangePlaymode)
+    public async Task Capture_WhenUnityReturnsStablePlayModeState_CommitsPng (
+        IpcScreenshotTarget target,
+        int width,
+        int height,
+        int? requestedWidth,
+        int? requestedHeight)
+    {
+        var response = CreateResponse(
+            width,
+            height,
+            requestedWidth,
+            requestedHeight,
+            target: target,
+            state: CreateState(
+                lifecycleState: IpcEditorLifecycleState.PlayMode,
+                playModeState: IpcPlayModeState.Playing,
+                isPlaying: true,
+                isPlayingOrWillChangePlaymode: true));
+        var artifactStore = new RecordingScreenshotArtifactStore();
+        var service = CreateService(
+            CreateGuiSessionResult(),
+            new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(response)),
+            artifactStore);
+
+        var result = await service.CaptureAsync(
+            CreateInput(requestedWidth, requestedHeight, target: target),
+            CancellationToken.None);
+
+        Assert.True(result.IsSuccess);
+        Assert.Single(artifactStore.CommitRequests);
+        Assert.Equal(target, result.Output!.Capture.Target);
+        Assert.Equal(IpcEditorLifecycleState.PlayMode, result.Output.Capture.State.LifecycleState);
+        Assert.Equal(IpcPlayModeState.Playing, result.Output.Capture.State.PlayMode.State);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task Capture_WhenUnityReturnsIncoherentCaptureState_RejectsAndDiscardsWithoutCommit ()
     {
         var response = CreateResponse(
             width: 1920,
             height: 1080,
-            state: CreateState(
-                lifecycleState,
-                compileState,
-                playModeState,
-                playModeTransition,
-                isPlaying,
-                isPlayingOrWillChangePlaymode));
+            playModeState: ContractLiteralCodec.ToValue(IpcPlayModeState.Playing));
         var unityExecutor = new RecordingUnityRequestExecutor(UnityRequestExecutionResult.Success(response));
         var artifactStore = new RecordingScreenshotArtifactStore();
         var service = CreateService(CreateGuiSessionResult(), unityExecutor, artifactStore);
@@ -158,7 +143,7 @@ public sealed class ScreenshotCaptureServiceTests
         Assert.False(result.IsSuccess);
         Assert.Empty(artifactStore.CommitRequests);
         Assert.Equal(1, artifactStore.DiscardCount);
-        Assert.Contains("capture state", result.Error!.Message, StringComparison.Ordinal);
+        Assert.Contains("payload is invalid", result.Error!.Message, StringComparison.Ordinal);
     }
 
     [Fact]
