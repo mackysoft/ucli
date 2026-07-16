@@ -47,53 +47,49 @@ description: "自然言語の文章を作成、変更、レビュー、要約、
 | --- | --- |
 | 事実性、意味保持、主張、根拠、不確実性 | [references/lens-argument-integrity.md](references/lens-argument-integrity.md) |
 | 見出し、段落、順序、例、表、箇条書き | [references/lens-document-structure.md](references/lens-document-structure.md) |
+| 読み物として進行を持たせる長文の作成、変更、平坦さや密度の偏りのレビュー | [references/lens-reading-rhythm.md](references/lens-reading-rhythm.md) |
 | 冗長表現、反復、文体、過剰な一般論 | [references/lens-style-concision.md](references/lens-style-concision.md) |
 | スレッド、チャット、メール、返信、コメント、レビュー結果、問い合わせ、やりとりの流れ | [references/medium-interaction.md](references/medium-interaction.md) |
 | 専門文書、仕様、手順、マニュアル、リファレンス | [references/medium-technical-document.md](references/medium-technical-document.md) |
 | 翻訳、ローカライズ、言語間の意味保持 | [references/task-translation-localization.md](references/task-translation-localization.md) |
 | 日本語の語彙、表記、文末、強調、外来語 | [references/language-japanese.md](references/language-japanese.md) |
-| 日本語の専門的な長文、専門記事、書籍調の文章 | [references/profile-japanese-technical-manuscript.md](references/profile-japanese-technical-manuscript.md)、[references/lens-argument-integrity.md](references/lens-argument-integrity.md)、[references/lens-document-structure.md](references/lens-document-structure.md)、[references/lens-style-concision.md](references/lens-style-concision.md)、[references/medium-technical-document.md](references/medium-technical-document.md)、[references/language-japanese.md](references/language-japanese.md) |
+| 日本語の専門的な長文、専門記事、書籍調の文章 | [references/profile-japanese-technical-manuscript.md](references/profile-japanese-technical-manuscript.md)、[references/lens-argument-integrity.md](references/lens-argument-integrity.md)、[references/lens-document-structure.md](references/lens-document-structure.md)、[references/lens-reading-rhythm.md](references/lens-reading-rhythm.md)、[references/lens-style-concision.md](references/lens-style-concision.md)、[references/medium-technical-document.md](references/medium-technical-document.md)、[references/language-japanese.md](references/language-japanese.md) |
 
 ## 優先順位
 1. 確認済みの事実、意味保持、責任主体、条件、不確実性を守る。
 2. 文章前提を優先する。
 3. 媒体に合う構造と粒度にする。
 4. 言語ごとの自然な表記、語法、強調へ整える。
-5. 簡潔さ、読みやすさ、語感を調整する。
+5. 簡潔さ、読みやすさ、文章のリズム、語感を調整する。
 
 ## 流れ
-1. 文章前提を固定する。
-2. 入力された情報の役割を分け、成果物へ残す内容を選ぶ。
-3. 必要な参照だけを読む。
-4. 選んだ内容を使い、文章前提と参照に従って、求められた作業を行う。
-5. 文章全体を自己点検し、問題があれば文章前提、情報の選別、参照の該当箇所へ戻って直す。
-6. 完成文、レビュー結果、確認事項など、求められた出力を返す。
+作業の規模と影響に応じて、必要な判断だけを行う。
+
+1. 必要な文章前提を決め、成果物に残す情報と参照を選ぶ。
+2. 文章前提と判断基準に従い、求められた作業を行う。
+3. 文章全体を点検し、問題があれば該当する判断を見直して直す。
 
 ## 基本規則
-- 確認していない内容を、確認済みのように書かない。
-- 弱い根拠を、強い断定へ変えない。
-- 意味保持が必要な作業では、事実、主張、条件、責任主体、時制、確度を変えない。
-- 冗長を削る場合も、読者に必要な定義、条件、根拠、制約は残す。
-- 文体を整えるためだけに、判断に必要な曖昧さや未確定事項を消さない。
-- 成果物に残す記述は、文章の目的、読者、利用場面、文章内で担う役割から必要性を説明できるものに限る。
-- 範囲、条件、制約は、現在の内容を直接定義し、作成過程や採用しなかった考えへの応答として残さない。
-- 変更では、現在有効な内容を文章へ直接反映し、役割を失った記述を置換、統合、削除する。
-- 既存の文章を更新する場合は、既存の見出し階層、用語、表記、粒度に合わせる。
-- 参照へ分けた規則を、要約して弱めない。
+- 記述の確度と断定の強さを、確認できた根拠に合わせる。
+- 意味保持が必要な作業では、事実、主張、条件、責任主体、時制、確度を保持する。
+- 簡潔化や文体調整の後も、読者に必要な定義、条件、根拠、制約、不確実性を保持する。
+- 各記述には、結論、根拠、条件、案内など、成果物内で果たす役割を持たせる。
+- 範囲、条件、制約は、読者が利用できる現在有効な内容として直接記述する。
+- 作成過程や採用しなかった案は、読者の判断に必要な場合だけ、その判断材料として整理する。
+- 変更では、現在有効な内容を文章へ反映し、役割を失った記述を置換、統合、削除する。
+- 既存の文章を変更するときは、見出し階層、用語、表記、粒度を既存文書と整合させる。
+- 選択した参照の判断基準を満たす。
 
 ## 自己点検
-出力前に、必要な範囲で次を確認する。
+出力前に、必要な観点だけを確認する。
 
-- 確認していない内容を、確認済みのように書いていないか。
-- 元文の事実、主張、条件、責任主体、不確実性を変えていないか。
-- 主張、根拠、因果、例の対応が崩れていないか。
-- 読者が目的、判断、次の行動を追える構造になっているか。
-- 文章へ変更を加えたあと、編集箇所だけでなく、前後の段落、属する節、文章全体の流れを確認したか。
+- 事実、主張、条件、責任主体、確度が、根拠および元の文章と一致しているか。
+- 主張、根拠、因果、例の対応を追えるか。
+- 読者が目的、必要な情報、判断、次の行動と文章の進行を追える構造になっているか。
 - 媒体と言語に合う粒度、表記、文体になっているか。
-- 日本語で十分に説明できる一般概念を、英語句のまま残していないか。
-- 文章に残した情報は、目的、読者、利用場面、文章内で担う役割に必要で、共有範囲に含まれているか。
-- 作業を決める情報や作業中だけの文脈を、そのまま文章へ持ち込んでいないか。
-- 論点を増やさない空句、作業姿勢だけの宣言、根拠のない強調が残っていないか。
+- 成果物に残したすべての記述が、読者にとって必要な役割を持ち、共有範囲に含まれているか。
+- 作業を決める情報、作成過程、採用しなかった案が、読者に必要な判断材料へ整理されずに残っていないか。
+- 変更箇所だけでなく、前後の段落、属する節、文章全体が整合しているか。
 
 ## 出力
 完成文を求められている場合は、完成文を先に返す。
