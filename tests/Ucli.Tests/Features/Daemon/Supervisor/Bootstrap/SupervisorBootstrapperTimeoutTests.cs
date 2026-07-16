@@ -22,7 +22,8 @@ public sealed class SupervisorBootstrapperTimeoutTests
             LaunchHandler = static async (_, cancellationToken) =>
             {
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
-                return null;
+                return SupervisorProcessLaunchResult.Failure(
+                    ExecutionError.InternalError("Unreachable launch result."));
             },
             LaunchStarted = launchStarted,
         };
@@ -106,19 +107,23 @@ public sealed class SupervisorBootstrapperTimeoutTests
         var timeProvider = new ManualTimeProvider();
         var releaseStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var releaseAllowed = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var launchLease = new RecordingSupervisorProcessLaunchLease
+        {
+            RollbackHandler = async () =>
+            {
+                releaseStarted.TrySetResult();
+                await releaseAllowed.Task.ConfigureAwait(false);
+                return null;
+            },
+        };
         var transportClient = new StubIpcTransportClient
         {
             SendHandler = static (_, _, _, _) => throw new InvalidOperationException("Supervisor transport should not be called without a manifest."),
         };
         var processManager = new RecordingSupervisorProcessManager
         {
-            LaunchHandler = static (_, _) => ValueTask.FromResult<ExecutionError?>(null),
-            ReleaseHandler = async (_, _, _) =>
-            {
-                releaseStarted.TrySetResult();
-                await releaseAllowed.Task.ConfigureAwait(false);
-                return null;
-            },
+            LaunchHandler = (_, _) => ValueTask.FromResult(
+                SupervisorProcessLaunchResult.Success(launchLease)),
         };
         var bootstrapper = new SupervisorBootstrapper(
             SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider),
@@ -154,9 +159,8 @@ public sealed class SupervisorBootstrapperTimeoutTests
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Equal(ExecutionErrorKind.Timeout, result.Error.Kind);
-        Assert.Equal(
-            SupervisorProcessReleaseMode.AwaitTermination,
-            Assert.Single(processManager.ReleaseInvocations).ReleaseMode);
+        Assert.Equal(1, launchLease.RollbackCount);
+        Assert.Equal(0, launchLease.CommitCount);
     }
 
     [Fact]
@@ -165,10 +169,11 @@ public sealed class SupervisorBootstrapperTimeoutTests
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "post-launch-cancellation");
         var timeProvider = new ManualTimeProvider();
+        var launchLease = new RecordingSupervisorProcessLaunchLease();
         var processManager = new RecordingSupervisorProcessManager
         {
-            LaunchHandler = static (_, _) => ValueTask.FromResult<ExecutionError?>(null),
-            ReleaseHandler = static (_, _, _) => ValueTask.FromResult<ExecutionError?>(null),
+            LaunchHandler = (_, _) => ValueTask.FromResult(
+                SupervisorProcessLaunchResult.Success(launchLease)),
         };
         var bootstrapper = new SupervisorBootstrapper(
             SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider),
@@ -189,8 +194,7 @@ public sealed class SupervisorBootstrapperTimeoutTests
         cancellation.Cancel();
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => resultTask);
-        Assert.Equal(
-            SupervisorProcessReleaseMode.AwaitTermination,
-            Assert.Single(processManager.ReleaseInvocations).ReleaseMode);
+        Assert.Equal(1, launchLease.RollbackCount);
+        Assert.Equal(0, launchLease.CommitCount);
     }
 }

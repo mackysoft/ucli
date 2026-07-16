@@ -174,8 +174,9 @@ public sealed class SupervisorBootstrapperManifestFailureTests
         };
         var processManager = new RecordingSupervisorProcessManager
         {
-            LaunchHandler = static (_, _) => ValueTask.FromResult<ExecutionError?>(
-                ExecutionError.InternalError("stop after cleanup")),
+            LaunchHandler = static (_, _) => ValueTask.FromResult(
+                SupervisorProcessLaunchResult.Failure(
+                    ExecutionError.InternalError("stop after cleanup"))),
         };
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,

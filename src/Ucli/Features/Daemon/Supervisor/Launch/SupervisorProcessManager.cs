@@ -33,8 +33,8 @@ internal sealed class SupervisorProcessManager : ISupervisorProcessManager
     /// <summary> Launches the supervisor for the specified storage root. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> One structured error when launch fails; otherwise <see langword="null" />. </returns>
-    public async ValueTask<ExecutionError?> LaunchAsync (
+    /// <returns> The launch outcome, including any generation lease whose cleanup ownership remains with the caller. </returns>
+    public async ValueTask<SupervisorProcessLaunchResult> LaunchAsync (
         string storageRoot,
         CancellationToken cancellationToken)
     {
@@ -43,7 +43,7 @@ internal sealed class SupervisorProcessManager : ISupervisorProcessManager
         var launchCommandResult = launchCommandResolver.Resolve();
         if (!launchCommandResult.IsSuccess)
         {
-            return launchCommandResult.Error!;
+            return SupervisorProcessLaunchResult.Failure(launchCommandResult.Error!);
         }
 
         var launchCommand = launchCommandResult.Command!;
@@ -62,28 +62,22 @@ internal sealed class SupervisorProcessManager : ISupervisorProcessManager
             return windowsDetachedLauncher.Launch(storageRoot, launchCommand);
         }
 
-        return ExecutionError.InternalError("Supervisor launch is not supported on the current operating system.");
+        return SupervisorProcessLaunchResult.Failure(
+            ExecutionError.InternalError("Supervisor launch is not supported on the current operating system."));
     }
 
-    /// <summary> Releases the platform registration for the specified storage root after supervisor retirement. </summary>
+    /// <summary> Releases the operating-system registration of the currently executing supervisor. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
-    /// <param name="releaseMode"> Whether release must wait for the registered process to terminate. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by supervisor retirement. </param>
     /// <returns> One structured error when release fails; otherwise <see langword="null" />. </returns>
-    public ValueTask<ExecutionError?> ReleaseAsync (
+    public ValueTask<ExecutionError?> ReleaseCurrentProcessRegistrationAsync (
         string storageRoot,
-        SupervisorProcessReleaseMode releaseMode,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (releaseMode is not SupervisorProcessReleaseMode.AwaitTermination
-            and not SupervisorProcessReleaseMode.CurrentProcess)
-        {
-            throw new ArgumentOutOfRangeException(nameof(releaseMode), releaseMode, "Unknown supervisor process-release mode.");
-        }
 
         return OperatingSystem.IsMacOS()
-            ? launchdManager.ReleaseAsync(storageRoot, releaseMode, cancellationToken)
+            ? launchdManager.ReleaseCurrentProcessRegistrationAsync(storageRoot, cancellationToken)
             : ValueTask.FromResult<ExecutionError?>(null);
     }
 }

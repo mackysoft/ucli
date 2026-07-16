@@ -1,6 +1,5 @@
 using System.Text;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
 
@@ -27,12 +26,13 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             deleteIfExists: static _ => { });
         var transportClient = CreatePingTransport(manifest);
         var launchStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var launchLease = new RecordingSupervisorProcessLaunchLease();
         var processManager = new RecordingSupervisorProcessManager
         {
             LaunchHandler = (_, _) =>
             {
                 launchCount++;
-                return ValueTask.FromResult<ExecutionError?>(null);
+                return ValueTask.FromResult(SupervisorProcessLaunchResult.Success(launchLease));
             },
             LaunchStarted = launchStarted,
         };
@@ -61,7 +61,8 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Manifest);
         Assert.Equal(1, launchCount);
-        Assert.Empty(processManager.ReleaseInvocations);
+        Assert.Equal(1, launchLease.CommitCount);
+        Assert.Equal(0, launchLease.RollbackCount);
     }
 
     [Fact]
@@ -71,6 +72,33 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "relaunch-success");
         var timeProvider = new ManualTimeProvider();
         var launchCount = 0;
+        var events = new List<string>();
+        var firstLaunchLease = new RecordingSupervisorProcessLaunchLease
+        {
+            RollbackHandler = () =>
+            {
+                events.Add("rollback:first");
+                return ValueTask.FromResult<ExecutionError?>(null);
+            },
+            CommitHandler = () =>
+            {
+                events.Add("commit:first");
+                return ValueTask.CompletedTask;
+            },
+        };
+        var secondLaunchLease = new RecordingSupervisorProcessLaunchLease
+        {
+            RollbackHandler = () =>
+            {
+                events.Add("rollback:second");
+                return ValueTask.FromResult<ExecutionError?>(null);
+            },
+            CommitHandler = () =>
+            {
+                events.Add("commit:second");
+                return ValueTask.CompletedTask;
+            },
+        };
         var manifest = SupervisorBootstrapperTestSupport.CreateManifest();
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
@@ -84,7 +112,11 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             LaunchHandler = (_, _) =>
             {
                 launchCount++;
-                return ValueTask.FromResult<ExecutionError?>(null);
+                events.Add($"launch:{launchCount}");
+                var lease = launchCount == 1
+                    ? firstLaunchLease
+                    : secondLaunchLease;
+                return ValueTask.FromResult(SupervisorProcessLaunchResult.Success(lease));
             },
         };
         var bootstrapper = new SupervisorBootstrapper(
@@ -120,6 +152,11 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         Assert.True(result.IsSuccess);
         Assert.NotNull(result.Manifest);
         Assert.Equal(2, launchCount);
+        Assert.Equal(
+            ["launch:1", "rollback:first", "launch:2", "commit:second"],
+            events);
+        Assert.Equal(0, firstLaunchLease.CommitCount);
+        Assert.Equal(0, secondLaunchLease.RollbackCount);
     }
 
     [Fact]
@@ -129,6 +166,11 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "launch-no-manifest");
         var timeProvider = new ManualTimeProvider();
         var launchCount = 0;
+        var launchLeases = new[]
+        {
+            new RecordingSupervisorProcessLaunchLease(),
+            new RecordingSupervisorProcessLaunchLease(),
+        };
         var manifestStore = new SupervisorManifestStore(
             timeProvider,
             readAllBytesOrNull: static (path, cancellationToken) => ValueTask.FromResult<ReadOnlyMemory<byte>?>(null),
@@ -143,9 +185,9 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             LaunchHandler = (_, _) =>
             {
                 launchCount++;
-                return ValueTask.FromResult<ExecutionError?>(null);
+                return ValueTask.FromResult(
+                    SupervisorProcessLaunchResult.Success(launchLeases[launchCount - 1]));
             },
-            ReleaseHandler = static (_, _, _) => ValueTask.FromResult<ExecutionError?>(null),
         };
         var bootstrapper = new SupervisorBootstrapper(
             manifestStore,
@@ -179,9 +221,97 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
         Assert.Equal(ExecutionErrorKind.InternalError, result.Error.Kind);
         Assert.Contains("did not publish a reachable manifest", result.Error.Message, StringComparison.Ordinal);
         Assert.Equal(2, launchCount);
-        var releaseInvocation = Assert.Single(processManager.ReleaseInvocations);
-        Assert.Equal(UcliStoragePathResolver.NormalizeStorageRootPath(scope.FullPath), releaseInvocation.StorageRoot);
-        Assert.Equal(SupervisorProcessReleaseMode.AwaitTermination, releaseInvocation.ReleaseMode);
+        Assert.All(launchLeases, static lease => Assert.Equal(1, lease.RollbackCount));
+        Assert.All(launchLeases, static lease => Assert.Equal(0, lease.CommitCount));
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task EnsureReady_WhenPreviousLaunchRollbackFails_DoesNotCreateAnotherGeneration ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "rollback-failure");
+        var timeProvider = new ManualTimeProvider();
+        var rollbackAttemptCount = 0;
+        var launchLease = new RecordingSupervisorProcessLaunchLease
+        {
+            RollbackHandler = () =>
+            {
+                rollbackAttemptCount++;
+                return ValueTask.FromResult<ExecutionError?>(
+                    rollbackAttemptCount == 1
+                        ? ExecutionError.InternalError("Injected rollback failure.")
+                        : null);
+            },
+        };
+        var processManager = new RecordingSupervisorProcessManager
+        {
+            LaunchHandler = (_, _) => ValueTask.FromResult(
+                SupervisorProcessLaunchResult.Success(launchLease)),
+        };
+        var bootstrapper = new SupervisorBootstrapper(
+            SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider),
+            new SupervisorClient(new StubIpcTransportClient(), timeProvider),
+            processManager,
+            new SupervisorBootstrapLockProvider(timeProvider),
+            new SupervisorEndpointResolver(),
+            timeProvider);
+
+        var resultTask = bootstrapper.EnsureReadyAsync(
+                scope.FullPath,
+                TimeSpan.FromSeconds(30),
+                CancellationToken.None)
+            .AsTask();
+        await ManualTimeTaskDriver.WaitForTimerDueWithinOrCompletionAsync(
+            timeProvider,
+            resultTask,
+            SupervisorConstants.ManifestPublicationTimeout);
+        if (!resultTask.IsCompleted)
+        {
+            timeProvider.Advance(SupervisorConstants.ManifestPublicationTimeout);
+        }
+
+        var result = await TestAwaiter.WaitAsync(
+            resultTask,
+            "Supervisor rollback failure result",
+            SupervisorBootstrapperTestSupport.SignalWaitTimeout);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal("Injected rollback failure.", result.Error!.Message);
+        Assert.Single(processManager.Invocations);
+        Assert.Equal(2, launchLease.RollbackCount);
+        Assert.Equal(0, launchLease.CommitCount);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task EnsureReady_WhenFailedLaunchRetainsGenerationLease_RollsItBackBeforeReturning ()
+    {
+        using var scope = TestDirectories.CreateTempScope("supervisor-bootstrapper", "failed-launch-lease");
+        var timeProvider = new ManualTimeProvider();
+        var launchLease = new RecordingSupervisorProcessLaunchLease();
+        var launchError = ExecutionError.InternalError("Injected launch failure with unresolved ownership.");
+        var processManager = new RecordingSupervisorProcessManager
+        {
+            LaunchHandler = (_, _) => ValueTask.FromResult(
+                SupervisorProcessLaunchResult.FailureWithLease(launchError, launchLease)),
+        };
+        var bootstrapper = new SupervisorBootstrapper(
+            SupervisorManifestStoreTestSupport.CreateFileBacked(timeProvider),
+            new SupervisorClient(new StubIpcTransportClient(), timeProvider),
+            processManager,
+            new SupervisorBootstrapLockProvider(timeProvider),
+            new SupervisorEndpointResolver(),
+            timeProvider);
+
+        var result = await bootstrapper.EnsureReadyAsync(
+            scope.FullPath,
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        Assert.Same(launchError, result.Error);
+        Assert.Equal(1, launchLease.RollbackCount);
+        Assert.Equal(0, launchLease.CommitCount);
     }
 
     private static StubIpcTransportClient CreatePingTransport (SupervisorInstanceManifest manifest)

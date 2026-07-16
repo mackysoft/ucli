@@ -8,9 +8,9 @@ internal sealed class RecordingSupervisorProcessManager : ISupervisorProcessMana
 
     private readonly List<ReleaseInvocation> releaseInvocations = [];
 
-    public Func<string, CancellationToken, ValueTask<ExecutionError?>>? LaunchHandler { get; set; }
+    public Func<string, CancellationToken, ValueTask<SupervisorProcessLaunchResult>>? LaunchHandler { get; set; }
 
-    public Func<string, SupervisorProcessReleaseMode, CancellationToken, ValueTask<ExecutionError?>>? ReleaseHandler { get; set; }
+    public Func<string, CancellationToken, ValueTask<ExecutionError?>>? ReleaseHandler { get; set; }
 
     public ExecutionError? LaunchError { get; set; }
 
@@ -22,7 +22,7 @@ internal sealed class RecordingSupervisorProcessManager : ISupervisorProcessMana
 
     public IReadOnlyList<ReleaseInvocation> ReleaseInvocations => releaseInvocations;
 
-    public async ValueTask<ExecutionError?> LaunchAsync (
+    public async ValueTask<SupervisorProcessLaunchResult> LaunchAsync (
         string storageRoot,
         CancellationToken cancellationToken)
     {
@@ -39,7 +39,7 @@ internal sealed class RecordingSupervisorProcessManager : ISupervisorProcessMana
 
             if (LaunchError is not null)
             {
-                return LaunchError;
+                return SupervisorProcessLaunchResult.Failure(LaunchError);
             }
 
             throw new InvalidOperationException("Supervisor launch should not be used by this test.");
@@ -51,19 +51,18 @@ internal sealed class RecordingSupervisorProcessManager : ISupervisorProcessMana
         }
     }
 
-    public async ValueTask<ExecutionError?> ReleaseAsync (
+    public async ValueTask<ExecutionError?> ReleaseCurrentProcessRegistrationAsync (
         string storageRoot,
-        SupervisorProcessReleaseMode releaseMode,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        releaseInvocations.Add(new ReleaseInvocation(storageRoot, releaseMode, cancellationToken));
+        releaseInvocations.Add(new ReleaseInvocation(storageRoot, cancellationToken));
         if (ReleaseHandler is null)
         {
             throw new InvalidOperationException("Supervisor process release should not be used by this test.");
         }
 
-        return await ReleaseHandler(storageRoot, releaseMode, cancellationToken).ConfigureAwait(false);
+        return await ReleaseHandler(storageRoot, cancellationToken).ConfigureAwait(false);
     }
 
     internal readonly record struct Invocation (
@@ -72,6 +71,5 @@ internal sealed class RecordingSupervisorProcessManager : ISupervisorProcessMana
 
     internal readonly record struct ReleaseInvocation (
         string StorageRoot,
-        SupervisorProcessReleaseMode ReleaseMode,
         CancellationToken CancellationToken);
 }

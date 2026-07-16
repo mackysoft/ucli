@@ -109,7 +109,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
         var timeProvider = new ManualTimeProvider();
         var processManager = new RecordingSupervisorProcessManager
         {
-            ReleaseHandler = (storageRoot, _, _) =>
+            ReleaseHandler = (storageRoot, _) =>
             {
                 var bootstrapLockPath = UcliStoragePathResolver.ResolveSupervisorBootstrapLockPath(storageRoot);
                 Assert.Throws<IOException>(() =>
@@ -138,7 +138,6 @@ public sealed class InternalSupervisorExecutionRunnerTests
         Assert.False(File.Exists(manifestPath));
         var releaseInvocation = Assert.Single(processManager.ReleaseInvocations);
         Assert.Equal(UcliStoragePathResolver.NormalizeStorageRootPath(scope.FullPath), releaseInvocation.StorageRoot);
-        Assert.Equal(SupervisorProcessReleaseMode.CurrentProcess, releaseInvocation.ReleaseMode);
         Assert.Equal(CancellationToken.None, releaseInvocation.CancellationToken);
     }
 
@@ -245,7 +244,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
         using var scope = TestDirectories.CreateTempScope("supervisor-host", "publication-failure-release");
         var processManager = new RecordingSupervisorProcessManager
         {
-            ReleaseHandler = static (_, _, _) => ValueTask.FromResult<ExecutionError?>(null),
+            ReleaseHandler = static (_, _) => ValueTask.FromResult<ExecutionError?>(null),
         };
         var manifestStore = new SupervisorManifestStore(
             TimeProvider.System,
@@ -269,7 +268,6 @@ public sealed class InternalSupervisorExecutionRunnerTests
             Assert.Equal(1, exitCode);
             var releaseInvocation = Assert.Single(processManager.ReleaseInvocations);
             Assert.Equal(UcliStoragePathResolver.NormalizeStorageRootPath(scope.FullPath), releaseInvocation.StorageRoot);
-            Assert.Equal(SupervisorProcessReleaseMode.CurrentProcess, releaseInvocation.ReleaseMode);
         }
         finally
         {
@@ -289,7 +287,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
         var readCount = 0;
         var processManager = new RecordingSupervisorProcessManager
         {
-            ReleaseHandler = static (_, _, _) => ValueTask.FromResult<ExecutionError?>(null),
+            ReleaseHandler = static (_, _) => ValueTask.FromResult<ExecutionError?>(null),
         };
         var manifestStore = new SupervisorManifestStore(
             TimeProvider.System,
@@ -304,9 +302,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
         var exitCode = await host.RunAsync(scope.FullPath, CancellationToken.None).WaitAsync(AsyncTestTimeout);
 
         Assert.Equal(1, exitCode);
-        Assert.Equal(
-            SupervisorProcessReleaseMode.CurrentProcess,
-            Assert.Single(processManager.ReleaseInvocations).ReleaseMode);
+        Assert.Single(processManager.ReleaseInvocations);
     }
 
     private static ServiceProvider BuildServiceProvider (

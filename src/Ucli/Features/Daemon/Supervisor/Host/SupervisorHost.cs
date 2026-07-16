@@ -301,9 +301,8 @@ internal sealed class SupervisorHost
                 return;
             }
 
-            var releaseError = await processManager.ReleaseAsync(
+            var releaseError = await processManager.ReleaseCurrentProcessRegistrationAsync(
                     storageRoot,
-                    SupervisorProcessReleaseMode.CurrentProcess,
                     CancellationToken.None)
                 .ConfigureAwait(false);
             if (releaseError is not null)

@@ -115,7 +115,7 @@ internal sealed class SupervisorBootstrapper
         await using var acquiredLock = lockHandle;
         var launchAttemptCount = 0;
         long? latestLaunchTimestamp = null;
-        var ownsLaunchRegistration = false;
+        ISupervisorProcessLaunchLease? pendingLaunchLease = null;
 
         try
         {
@@ -133,7 +133,13 @@ internal sealed class SupervisorBootstrapper
                     .ConfigureAwait(false);
                 if (manifestProbe.ReadyManifest != null)
                 {
-                    ownsLaunchRegistration = false;
+                    var committedLaunchLease = pendingLaunchLease;
+                    pendingLaunchLease = null;
+                    if (committedLaunchLease is not null)
+                    {
+                        await CommitLaunchBestEffortAsync(committedLaunchLease).ConfigureAwait(false);
+                    }
+
                     return SupervisorBootstrapResult.Success(manifestProbe.ReadyManifest);
                 }
 
@@ -159,6 +165,17 @@ internal sealed class SupervisorBootstrapper
                         continue;
                     }
 
+                    if (pendingLaunchLease is not null)
+                    {
+                        var rollbackError = await TryRollbackLaunchAsync(pendingLaunchLease).ConfigureAwait(false);
+                        if (rollbackError is not null)
+                        {
+                            return SupervisorBootstrapResult.Failure(rollbackError);
+                        }
+
+                        pendingLaunchLease = null;
+                    }
+
                     if (launchAttemptCount >= MaxLaunchAttempts)
                     {
                         return SupervisorBootstrapResult.Failure(ExecutionError.InternalError(
@@ -171,14 +188,14 @@ internal sealed class SupervisorBootstrapper
                             "Timed out before supervisor launch could begin."));
                     }
 
-                    ExecutionError? launchError;
+                    SupervisorProcessLaunchResult launchResult;
                     using var launchCancellationScope = TimeProviderCancellationScope.CreateLinked(
                         cancellationToken,
                         launchTimeout,
                         timeProvider);
                     try
                     {
-                        launchError = await processManager.LaunchAsync(
+                        launchResult = await processManager.LaunchAsync(
                                 normalizedStorageRoot,
                                 launchCancellationScope.Token)
                             .ConfigureAwait(false);
@@ -190,12 +207,19 @@ internal sealed class SupervisorBootstrapper
                             $"Timed out while launching supervisor. Timeout={launchTimeout.TotalMilliseconds:0}ms."));
                     }
 
-                    if (launchError != null)
+                    pendingLaunchLease = launchResult.Lease;
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (launchCancellationScope.HasTimedOut)
                     {
-                        return SupervisorBootstrapResult.Failure(launchError);
+                        return SupervisorBootstrapResult.Failure(ExecutionError.Timeout(
+                            $"Timed out while launching supervisor. Timeout={launchTimeout.TotalMilliseconds:0}ms."));
                     }
 
-                    ownsLaunchRegistration = true;
+                    if (!launchResult.IsSuccess)
+                    {
+                        return SupervisorBootstrapResult.Failure(launchResult.Error!);
+                    }
+
                     launchAttemptCount++;
                     latestLaunchTimestamp = timeProvider.GetTimestamp();
                 }
@@ -209,26 +233,39 @@ internal sealed class SupervisorBootstrapper
         }
         finally
         {
-            if (ownsLaunchRegistration)
+            if (pendingLaunchLease is not null)
             {
-                await ReleaseLaunchRegistrationBestEffortAsync(normalizedStorageRoot).ConfigureAwait(false);
+                _ = await TryRollbackLaunchAsync(pendingLaunchLease).ConfigureAwait(false);
             }
         }
     }
 
-    private async ValueTask ReleaseLaunchRegistrationBestEffortAsync (string storageRoot)
+    private static async ValueTask CommitLaunchBestEffortAsync (ISupervisorProcessLaunchLease launchLease)
     {
+        ArgumentNullException.ThrowIfNull(launchLease);
+
         try
         {
-            _ = await processManager.ReleaseAsync(
-                    storageRoot,
-                    SupervisorProcessReleaseMode.AwaitTermination,
-                    CancellationToken.None)
-                .ConfigureAwait(false);
+            await launchLease.CommitAsync().ConfigureAwait(false);
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
+        catch (Exception)
         {
-            // Registration rollback is secondary to the bootstrap failure or cancellation being returned.
+            // Readiness has already transferred process ownership; local handle cleanup must not roll it back.
+        }
+    }
+
+    private static async ValueTask<ExecutionError?> TryRollbackLaunchAsync (ISupervisorProcessLaunchLease launchLease)
+    {
+        ArgumentNullException.ThrowIfNull(launchLease);
+
+        try
+        {
+            return await launchLease.RollbackAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            return ExecutionError.InternalError(
+                $"Failed to roll back supervisor process launch. {exception.Message}");
         }
     }
 

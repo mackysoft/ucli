@@ -8,36 +8,39 @@ namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 /// <summary> Launches the worktree-local supervisor as one detached Windows process. </summary>
 internal sealed class WindowsDetachedSupervisorProcessLauncher
 {
+    private readonly IDetachedProcessStarter processStarter;
+
+    /// <summary> Initializes a new instance of the <see cref="WindowsDetachedSupervisorProcessLauncher" /> class. </summary>
+    /// <param name="processStarter"> The detached-process starter dependency. </param>
+    public WindowsDetachedSupervisorProcessLauncher (IDetachedProcessStarter processStarter)
+    {
+        this.processStarter = processStarter ?? throw new ArgumentNullException(nameof(processStarter));
+    }
+
     /// <summary> Launches the supervisor for the specified storage root by using detached process creation. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="launchCommand"> The resolved relaunch command. </param>
-    /// <returns> One structured error when launch fails; otherwise <see langword="null" />. </returns>
-    public ExecutionError? Launch (
+    /// <returns> The launch outcome, including any generation lease whose cleanup ownership remains with the caller. </returns>
+    public SupervisorProcessLaunchResult Launch (
         string storageRoot,
         SupervisorLaunchCommand launchCommand)
     {
         try
         {
-            var process = Process.Start(BuildStartInfo(storageRoot, launchCommand));
-            if (process == null)
+            var processHandle = processStarter.Start(BuildStartInfo(storageRoot, launchCommand));
+            if (processHandle is null)
             {
-                return ExecutionError.InternalError("Supervisor detached process could not be started.");
+                return SupervisorProcessLaunchResult.Failure(
+                    ExecutionError.InternalError("Supervisor detached process could not be started."));
             }
 
-            try
-            {
-                process.Dispose();
-            }
-            catch (Exception)
-            {
-                // Process creation already transferred lifetime ownership to the detached child.
-            }
-
-            return null;
+            var lease = new DetachedSupervisorProcessLaunchLease(processHandle);
+            return SupervisorProcessLaunchResult.Success(lease);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException or Win32Exception)
         {
-            return ExecutionError.InternalError($"Failed to launch supervisor detached process. {exception.Message}");
+            return SupervisorProcessLaunchResult.Failure(ExecutionError.InternalError(
+                $"Failed to launch supervisor detached process. {exception.Message}"));
         }
     }
 

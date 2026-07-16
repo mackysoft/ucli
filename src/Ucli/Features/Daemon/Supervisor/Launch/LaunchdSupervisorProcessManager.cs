@@ -23,8 +23,8 @@ internal sealed class LaunchdSupervisorProcessManager
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="launchCommand"> The resolved relaunch command. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
-    /// <returns> One structured error when launch fails; otherwise <see langword="null" />. </returns>
-    public async ValueTask<ExecutionError?> LaunchAsync (
+    /// <returns> The launch outcome, including any generation lease whose cleanup ownership remains with the caller. </returns>
+    public async ValueTask<SupervisorProcessLaunchResult> LaunchAsync (
         string storageRoot,
         SupervisorLaunchCommand launchCommand,
         CancellationToken cancellationToken)
@@ -32,7 +32,7 @@ internal sealed class LaunchdSupervisorProcessManager
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(launchCommand);
 
-        string? bootstrapServiceTarget = null;
+        LaunchdSupervisorProcessLaunchLease? launchLease = null;
         try
         {
             var worktreeIdentity = SupervisorWorktreeIdentity.Create(storageRoot);
@@ -43,7 +43,7 @@ internal sealed class LaunchdSupervisorProcessManager
             var userIdResult = await ResolveCurrentUserIdAsync(cancellationToken).ConfigureAwait(false);
             if (userIdResult.Error is not null)
             {
-                return userIdResult.Error;
+                return SupervisorProcessLaunchResult.Failure(userIdResult.Error);
             }
 
             var userDomain = $"gui/{userIdResult.UserId}";
@@ -54,9 +54,11 @@ internal sealed class LaunchdSupervisorProcessManager
                     captureStandardOutput: false,
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             if (!IsSuccessfulBootout(bootoutResult))
             {
-                return CreateProcessError("remove stale supervisor LaunchAgent", bootoutResult);
+                return SupervisorProcessLaunchResult.Failure(
+                    CreateProcessError("remove stale supervisor LaunchAgent", bootoutResult));
             }
 
             var plistDirectoryPath = Path.GetDirectoryName(plistPath);
@@ -68,58 +70,60 @@ internal sealed class LaunchdSupervisorProcessManager
             var plistContents = LaunchAgentPlistDocumentFactory.Build(label, launchCommand, normalizedStorageRoot, logPath);
             await FileUtilities.WriteAllTextAtomicallyAsync(plistPath, plistContents + Environment.NewLine, cancellationToken).ConfigureAwait(false);
 
-            bootstrapServiceTarget = serviceTarget;
+            launchLease = new LaunchdSupervisorProcessLaunchLease(this, serviceTarget);
             var bootstrapResult = await RunProcessAsync(
                     LaunchctlExecutablePath,
                     ["bootstrap", userDomain, plistPath],
                     captureStandardOutput: false,
                     cancellationToken)
                 .ConfigureAwait(false);
-            if (!IsSuccessfulExit(bootstrapResult))
+            if (IsSuccessfulExit(bootstrapResult))
             {
-                return await AddRollbackFailureAsync(
-                        CreateProcessError("bootstrap supervisor LaunchAgent", bootstrapResult),
-                        bootstrapServiceTarget)
-                    .ConfigureAwait(false);
+                return SupervisorProcessLaunchResult.Success(launchLease);
             }
 
-            bootstrapServiceTarget = null;
-            return null;
+            cancellationToken.ThrowIfCancellationRequested();
+            return await CreateFailureAfterRollbackAsync(
+                    CreateProcessError("bootstrap supervisor LaunchAgent", bootstrapResult),
+                    launchLease)
+                .ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
-            if (bootstrapServiceTarget is not null)
+            if (launchLease is null)
             {
-                _ = await RollbackPossibleRegistrationAsync(bootstrapServiceTarget).ConfigureAwait(false);
+                throw;
             }
 
-            throw;
+            var rollbackError = await TryRollbackAsync(launchLease).ConfigureAwait(false);
+            if (rollbackError is null)
+            {
+                throw;
+            }
+
+            return SupervisorProcessLaunchResult.FailureWithLease(
+                ExecutionError.InternalError(
+                    $"Supervisor LaunchAgent bootstrap was canceled. RegistrationRollback={rollbackError.Message}"),
+                launchLease);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or InvalidOperationException)
         {
             var launchError = ExecutionError.InternalError($"Failed to launch supervisor with launchctl. {exception.Message}");
-            return bootstrapServiceTarget is null
-                ? launchError
-                : await AddRollbackFailureAsync(launchError, bootstrapServiceTarget).ConfigureAwait(false);
+            return launchLease is null
+                ? SupervisorProcessLaunchResult.Failure(launchError)
+                : await CreateFailureAfterRollbackAsync(launchError, launchLease).ConfigureAwait(false);
         }
     }
 
-    /// <summary> Removes the worktree-local LaunchAgent registration after its supervisor retires. </summary>
+    /// <summary> Removes the LaunchAgent registration of the currently executing supervisor. </summary>
     /// <param name="storageRoot"> The storage-root path that deterministically identifies the LaunchAgent. </param>
-    /// <param name="releaseMode"> Whether release must wait for the registered process to terminate. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by supervisor retirement. </param>
     /// <returns> One structured error when release fails; otherwise <see langword="null" />. </returns>
-    public async ValueTask<ExecutionError?> ReleaseAsync (
+    public async ValueTask<ExecutionError?> ReleaseCurrentProcessRegistrationAsync (
         string storageRoot,
-        SupervisorProcessReleaseMode releaseMode,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (releaseMode is not SupervisorProcessReleaseMode.AwaitTermination
-            and not SupervisorProcessReleaseMode.CurrentProcess)
-        {
-            throw new ArgumentOutOfRangeException(nameof(releaseMode), releaseMode, "Unknown supervisor process-release mode.");
-        }
 
         try
         {
@@ -132,18 +136,13 @@ internal sealed class LaunchdSupervisorProcessManager
             }
 
             var serviceTarget = $"gui/{userIdResult.UserId}/{label}";
-            var bootoutArguments = releaseMode switch
-            {
-                SupervisorProcessReleaseMode.AwaitTermination => new[] { "bootout", "--wait", serviceTarget },
-                SupervisorProcessReleaseMode.CurrentProcess => ["bootout", serviceTarget],
-                _ => throw new ArgumentOutOfRangeException(nameof(releaseMode), releaseMode, "Unknown supervisor process-release mode."),
-            };
             var bootoutResult = await RunProcessAsync(
                     LaunchctlExecutablePath,
-                    bootoutArguments,
+                    ["bootout", serviceTarget],
                     captureStandardOutput: false,
                     cancellationToken)
                 .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
             return IsSuccessfulBootout(bootoutResult)
                 ? null
                 : CreateProcessError("release supervisor LaunchAgent", bootoutResult);
@@ -167,6 +166,7 @@ internal sealed class LaunchdSupervisorProcessManager
                 captureStandardOutput: true,
                 cancellationToken)
             .ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         if (!IsSuccessfulExit(result))
         {
             return (null, CreateProcessError("resolve current user identifier", result));
@@ -184,7 +184,7 @@ internal sealed class LaunchdSupervisorProcessManager
         bool captureStandardOutput,
         CancellationToken cancellationToken)
     {
-        var result = await processRunner.RunAsync(
+        return await processRunner.RunAsync(
                 new ProcessRunRequest(
                     FileName: fileName,
                     Arguments: arguments,
@@ -194,21 +194,37 @@ internal sealed class LaunchdSupervisorProcessManager
                     TerminationPolicy: ProcessTerminationPolicy.ForceKill),
                 cancellationToken)
             .ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        return result;
     }
 
-    private async ValueTask<ExecutionError> AddRollbackFailureAsync (
+    private static async ValueTask<SupervisorProcessLaunchResult> CreateFailureAfterRollbackAsync (
         ExecutionError primaryError,
-        string serviceTarget)
+        ISupervisorProcessLaunchLease launchLease)
     {
-        var rollbackError = await RollbackPossibleRegistrationAsync(serviceTarget).ConfigureAwait(false);
-        return rollbackError is null
-            ? primaryError
-            : primaryError with
+        var rollbackError = await TryRollbackAsync(launchLease).ConfigureAwait(false);
+        if (rollbackError is null)
+        {
+            return SupervisorProcessLaunchResult.Failure(primaryError);
+        }
+
+        return SupervisorProcessLaunchResult.FailureWithLease(
+            primaryError with
             {
                 Message = $"{primaryError.Message} RegistrationRollback={rollbackError.Message}",
-            };
+            },
+            launchLease);
+    }
+
+    private static async ValueTask<ExecutionError?> TryRollbackAsync (ISupervisorProcessLaunchLease launchLease)
+    {
+        try
+        {
+            return await launchLease.RollbackAsync().ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            return ExecutionError.InternalError(
+                $"Supervisor LaunchAgent registration rollback crashed. {exception.Message}");
+        }
     }
 
     private async ValueTask<ExecutionError?> RollbackPossibleRegistrationAsync (string serviceTarget)
@@ -257,5 +273,46 @@ internal sealed class LaunchdSupervisorProcessManager
     private static string BuildLaunchdLabel (SupervisorWorktreeIdentity worktreeIdentity)
     {
         return "dev.mackysoft.ucli.supervisor." + worktreeIdentity.LaunchServiceNameSuffix;
+    }
+
+    private sealed class LaunchdSupervisorProcessLaunchLease : ISupervisorProcessLaunchLease
+    {
+        private readonly LaunchdSupervisorProcessManager processManager;
+
+        private readonly string serviceTarget;
+
+        private bool finalized;
+
+        public LaunchdSupervisorProcessLaunchLease (
+            LaunchdSupervisorProcessManager processManager,
+            string serviceTarget)
+        {
+            this.processManager = processManager ?? throw new ArgumentNullException(nameof(processManager));
+            this.serviceTarget = !string.IsNullOrWhiteSpace(serviceTarget)
+                ? serviceTarget
+                : throw new ArgumentException("LaunchAgent service target must not be empty.", nameof(serviceTarget));
+        }
+
+        public ValueTask CommitAsync ()
+        {
+            finalized = true;
+            return ValueTask.CompletedTask;
+        }
+
+        public async ValueTask<ExecutionError?> RollbackAsync ()
+        {
+            if (finalized)
+            {
+                return null;
+            }
+
+            var error = await processManager.RollbackPossibleRegistrationAsync(serviceTarget).ConfigureAwait(false);
+            if (error is null)
+            {
+                finalized = true;
+            }
+
+            return error;
+        }
     }
 }

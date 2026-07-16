@@ -19,12 +19,15 @@ public sealed class LaunchdSupervisorProcessManagerTests
         var manager = new LaunchdSupervisorProcessManager(processRunner);
         var plistPath = UcliStoragePathResolver.ResolveSupervisorLaunchAgentPlistPath(scope.FullPath);
 
-        var error = await manager.LaunchAsync(
+        var result = await manager.LaunchAsync(
             scope.FullPath,
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
 
-        Assert.Null(error);
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Error);
+        var lease = Assert.IsAssignableFrom<ISupervisorProcessLaunchLease>(result.Lease);
+        await lease.CommitAsync();
         Assert.True(File.Exists(plistPath));
         Assert.Collection(
             processRunner.Invocations,
@@ -33,11 +36,40 @@ public sealed class LaunchdSupervisorProcessManagerTests
             invocation => Assert.Equal(["bootstrap", "gui/501", plistPath], invocation.Request.Arguments));
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task LaunchAsync_WhenLaunchSucceeds_RollbackBootsOutCapturedServiceAndWaits ()
+    {
+        using var scope = TestDirectories.CreateTempScope("launchd-supervisor", "rollback");
+        var processRunner = new RecordingProcessRunner(
+            ProcessRunResult.Exited(0, standardOutput: "501\n"),
+            ProcessRunResult.Exited(3),
+            ProcessRunResult.Exited(0),
+            ProcessRunResult.Exited(0));
+        var manager = new LaunchdSupervisorProcessManager(processRunner);
+
+        var launchResult = await manager.LaunchAsync(
+            scope.FullPath,
+            new SupervisorLaunchCommand("ucli", []),
+            CancellationToken.None);
+        var lease = Assert.IsAssignableFrom<ISupervisorProcessLaunchLease>(launchResult.Lease);
+
+        var rollbackError = await lease.RollbackAsync();
+
+        Assert.Null(rollbackError);
+        Assert.Collection(
+            processRunner.Invocations,
+            invocation => Assert.Equal(["-u"], invocation.Request.Arguments),
+            invocation => Assert.Equal(["bootout", "--wait", GetServiceTarget(scope.FullPath)], invocation.Request.Arguments),
+            invocation => Assert.Equal("bootstrap", invocation.Request.Arguments[0]),
+            invocation => Assert.Equal(["bootout", "--wait", GetServiceTarget(scope.FullPath)], invocation.Request.Arguments));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(3)]
     [Trait("Size", "Small")]
-    public async Task ReleaseAsync_WhenPlistIsMissing_BootsOutDeterministicWorktreeService (int bootoutExitCode)
+    public async Task ReleaseCurrentProcessRegistrationAsync_WhenPlistIsMissing_BootsOutDeterministicWorktreeService (int bootoutExitCode)
     {
         using var scope = TestDirectories.CreateTempScope("launchd-supervisor", "release-missing-plist");
         var processRunner = new RecordingProcessRunner(
@@ -47,9 +79,8 @@ public sealed class LaunchdSupervisorProcessManagerTests
         var plistPath = UcliStoragePathResolver.ResolveSupervisorLaunchAgentPlistPath(scope.FullPath);
         Assert.False(File.Exists(plistPath));
 
-        var error = await processManager.ReleaseAsync(
+        var error = await processManager.ReleaseCurrentProcessRegistrationAsync(
             scope.FullPath,
-            SupervisorProcessReleaseMode.CurrentProcess,
             CancellationToken.None);
 
         Assert.Null(error);
@@ -72,58 +103,51 @@ public sealed class LaunchdSupervisorProcessManagerTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task ReleaseAsync_WhenBootoutFails_ReturnsInternalError ()
+    public async Task LaunchLeaseRollbackAsync_WhenBootoutFails_ReturnsInternalError ()
     {
         using var scope = TestDirectories.CreateTempScope("launchd-supervisor", "release-failure");
         var processRunner = new RecordingProcessRunner(
             ProcessRunResult.Exited(0, standardOutput: "501\n"),
+            ProcessRunResult.Exited(3),
+            ProcessRunResult.Exited(0),
             ProcessRunResult.Exited(5, "bootout failed"));
         var processManager = new LaunchdSupervisorProcessManager(processRunner);
 
-        var error = await processManager.ReleaseAsync(
+        var launchResult = await processManager.LaunchAsync(
             scope.FullPath,
-            SupervisorProcessReleaseMode.AwaitTermination,
+            new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
+        var lease = Assert.IsAssignableFrom<ISupervisorProcessLaunchLease>(launchResult.Lease);
+
+        var error = await lease.RollbackAsync();
 
         Assert.NotNull(error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
-        Assert.Equal("--wait", processRunner.Invocations[1].Request.Arguments[1]);
+        Assert.Equal("--wait", processRunner.Invocations[3].Request.Arguments[1]);
     }
 
     [Fact]
     [Trait("Size", "Small")]
-    public async Task ReleaseAsync_WhenBootoutTimesOut_ReturnsTimeout ()
+    public async Task LaunchLeaseRollbackAsync_WhenBootoutTimesOut_ReturnsTimeout ()
     {
         using var scope = TestDirectories.CreateTempScope("launchd-supervisor", "release-timeout");
         var processRunner = new RecordingProcessRunner(
             ProcessRunResult.Exited(0, standardOutput: "501\n"),
+            ProcessRunResult.Exited(3),
+            ProcessRunResult.Exited(0),
             ProcessRunResult.TimedOut("bootout timed out"));
         var processManager = new LaunchdSupervisorProcessManager(processRunner);
 
-        var error = await processManager.ReleaseAsync(
+        var launchResult = await processManager.LaunchAsync(
             scope.FullPath,
-            SupervisorProcessReleaseMode.AwaitTermination,
+            new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
+        var lease = Assert.IsAssignableFrom<ISupervisorProcessLaunchLease>(launchResult.Lease);
+
+        var error = await lease.RollbackAsync();
 
         Assert.NotNull(error);
         Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task ReleaseAsync_WhenReleaseModeIsUndefined_RejectsBeforeStartingProcess ()
-    {
-        using var scope = TestDirectories.CreateTempScope("launchd-supervisor", "invalid-release-mode");
-        var processRunner = new RecordingProcessRunner();
-        var processManager = new LaunchdSupervisorProcessManager(processRunner);
-
-        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(() => processManager.ReleaseAsync(
-                scope.FullPath,
-                (SupervisorProcessReleaseMode)999,
-                CancellationToken.None)
-            .AsTask());
-
-        Assert.Empty(processRunner.Invocations);
     }
 
     [Fact]
@@ -138,12 +162,14 @@ public sealed class LaunchdSupervisorProcessManagerTests
             ProcessRunResult.Exited(0));
         var processManager = new LaunchdSupervisorProcessManager(processRunner);
 
-        var error = await processManager.LaunchAsync(
+        var result = await processManager.LaunchAsync(
             scope.FullPath,
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
 
-        Assert.NotNull(error);
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Null(result.Lease);
         Assert.False(File.Exists(UcliStoragePathResolver.ResolveSupervisorLaunchAgentPlistPath(scope.FullPath)));
         Assert.Collection(
             processRunner.Invocations,
@@ -163,13 +189,15 @@ public sealed class LaunchdSupervisorProcessManagerTests
             ProcessRunResult.Exited(0));
         var manager = new LaunchdSupervisorProcessManager(processRunner);
 
-        var error = await manager.LaunchAsync(
+        var result = await manager.LaunchAsync(
             scope.FullPath,
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
 
-        Assert.NotNull(error);
-        Assert.Equal(ExecutionErrorKind.Timeout, error.Kind);
+        Assert.False(result.IsSuccess);
+        Assert.NotNull(result.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, result.Error.Kind);
+        Assert.Null(result.Lease);
         Assert.Collection(
             processRunner.Invocations,
             invocation => Assert.Equal(["-u"], invocation.Request.Arguments),
@@ -227,6 +255,92 @@ public sealed class LaunchdSupervisorProcessManagerTests
             });
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task LaunchAsync_WhenCanceledAfterBootstrapSucceeds_ReturnsOwnedLease ()
+    {
+        using var scope = TestDirectories.CreateTempScope("launchd-supervisor", "post-bootstrap-cancellation");
+        using var cancellation = new CancellationTokenSource();
+        var processRunner = new RecordingProcessRunner();
+        processRunner.RunHandler = (_, _) =>
+        {
+            return processRunner.Invocations.Count switch
+            {
+                1 => Task.FromResult(ProcessRunResult.Exited(0, standardOutput: "501\n")),
+                2 => Task.FromResult(ProcessRunResult.Exited(3)),
+                3 => CancelAfterBootstrapSuccess(cancellation),
+                _ => throw new InvalidOperationException("Unexpected launchctl invocation."),
+            };
+        };
+        var manager = new LaunchdSupervisorProcessManager(processRunner);
+
+        var launchResult = await manager.LaunchAsync(
+            scope.FullPath,
+            new SupervisorLaunchCommand("ucli", []),
+            cancellation.Token);
+
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.True(launchResult.IsSuccess);
+        Assert.NotNull(launchResult.Lease);
+        Assert.Equal(3, processRunner.Invocations.Count);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task LaunchAsync_WhenBootstrapAndRollbackFail_ReturnsFailureWithOwnedLease ()
+    {
+        using var scope = TestDirectories.CreateTempScope("launchd-supervisor", "bootstrap-rollback-failure");
+        var processRunner = new RecordingProcessRunner(
+            ProcessRunResult.Exited(0, standardOutput: "501\n"),
+            ProcessRunResult.Exited(3),
+            ProcessRunResult.TimedOut("bootstrap timed out"),
+            ProcessRunResult.TimedOut("bootout timed out"));
+        var manager = new LaunchdSupervisorProcessManager(processRunner);
+
+        var launchResult = await manager.LaunchAsync(
+            scope.FullPath,
+            new SupervisorLaunchCommand("ucli", []),
+            CancellationToken.None);
+
+        Assert.False(launchResult.IsSuccess);
+        Assert.NotNull(launchResult.Lease);
+        Assert.NotNull(launchResult.Error);
+        Assert.Equal(ExecutionErrorKind.Timeout, launchResult.Error.Kind);
+        Assert.Contains("RegistrationRollback=", launchResult.Error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task LaunchAsync_WhenCancellationRollbackFails_ReturnsFailureWithOwnedLease ()
+    {
+        using var scope = TestDirectories.CreateTempScope("launchd-supervisor", "cancellation-rollback-failure");
+        using var cancellation = new CancellationTokenSource();
+        var processRunner = new RecordingProcessRunner();
+        processRunner.RunHandler = (_, cancellationToken) =>
+        {
+            return processRunner.Invocations.Count switch
+            {
+                1 => Task.FromResult(ProcessRunResult.Exited(0, standardOutput: "501\n")),
+                2 => Task.FromResult(ProcessRunResult.Exited(3)),
+                3 => CancelBootstrap(cancellation, cancellationToken),
+                4 => Task.FromResult(ProcessRunResult.Exited(5, "bootout failed")),
+                _ => throw new InvalidOperationException("Unexpected launchctl invocation."),
+            };
+        };
+        var manager = new LaunchdSupervisorProcessManager(processRunner);
+
+        var launchResult = await manager.LaunchAsync(
+            scope.FullPath,
+            new SupervisorLaunchCommand("ucli", []),
+            cancellation.Token);
+
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.False(launchResult.IsSuccess);
+        Assert.NotNull(launchResult.Lease);
+        Assert.NotNull(launchResult.Error);
+        Assert.Contains("RegistrationRollback=", launchResult.Error.Message, StringComparison.Ordinal);
+    }
+
     private static Task<ProcessRunResult> CancelBootstrap (
         CancellationTokenSource cancellation,
         CancellationToken cancellationToken)
@@ -234,6 +348,12 @@ public sealed class LaunchdSupervisorProcessManagerTests
         Assert.Equal(cancellation.Token, cancellationToken);
         cancellation.Cancel();
         return Task.FromResult(ProcessRunResult.Canceled("bootstrap canceled"));
+    }
+
+    private static Task<ProcessRunResult> CancelAfterBootstrapSuccess (CancellationTokenSource cancellation)
+    {
+        cancellation.Cancel();
+        return Task.FromResult(ProcessRunResult.Exited(0));
     }
 
     private static Task<ProcessRunResult> WaitForRollback (
