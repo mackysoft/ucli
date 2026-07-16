@@ -747,6 +747,8 @@ Common operation groups include:
 | `ucli daemon` | Manage daemon sessions. |
 | `ucli test` | Run Unity Test Framework tests. |
 
+`ucli logs unity clear` clears only the visible Unity Editor Console. It does not remove entries retained by `ucli logs unity read`.
+
 Common options:
 
 | Option | Applies to | Meaning |

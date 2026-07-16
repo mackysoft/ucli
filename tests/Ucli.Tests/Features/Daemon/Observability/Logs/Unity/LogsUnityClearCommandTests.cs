@@ -8,6 +8,21 @@ namespace MackySoft.Ucli.Tests.Logs;
 public sealed class LogsUnityClearCommandTests
 {
     [Fact]
+    [Trait("Size", "Medium")]
+    public async Task ClearHelp_ExplainsVisibleConsoleAndRetainedLogBoundary ()
+    {
+        var result = await CliInProcessRunner.RunCommandAsync(
+            UcliCommandNames.Logs,
+            UcliCommandNames.UnitySubcommand,
+            UcliCommandNames.ClearSubcommand,
+            "--help");
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("visible Unity Editor Console", result.StdOut, StringComparison.Ordinal);
+        Assert.Contains("logs unity read", result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
     [Trait("Size", "Small")]
     public async Task Clear_WhenServiceSucceeds_WritesJsonEnvelope ()
     {
@@ -25,6 +40,9 @@ public sealed class LogsUnityClearCommandTests
             outputJson.RootElement,
             UcliCommandNames.LogsUnityClear);
         CommandResultAssert.HasNoErrors(outputJson.RootElement);
+        Assert.Equal(
+            "Unity Editor Console display cleared; retained logs remain available to logs unity read.",
+            outputJson.RootElement.GetProperty("message").GetString());
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasString("clearStatus", "cleared")
             .HasInt32("timeoutMilliseconds", 4500);
