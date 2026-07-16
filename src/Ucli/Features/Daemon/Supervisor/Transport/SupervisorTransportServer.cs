@@ -121,7 +121,7 @@ internal sealed class SupervisorTransportServer
         int maximumActiveConnections,
         CancellationToken cancellationToken)
     {
-        var started = false;
+        var startupCompleted = false;
         while (!cancellationToken.IsCancellationRequested)
         {
             ThrowIfFatalConnectionException();
@@ -140,10 +140,10 @@ internal sealed class SupervisorTransportServer
                     activePipeStream = serverStream;
                 }
 
-                if (!started)
+                if (!startupCompleted)
                 {
                     await onStarted(cancellationToken).ConfigureAwait(false);
-                    started = true;
+                    startupCompleted = true;
                 }
 
                 await serverStream.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
@@ -168,7 +168,11 @@ internal sealed class SupervisorTransportServer
             {
                 break;
             }
-            catch (Exception exception) when (!cancellationToken.IsCancellationRequested && exception is IOException or InvalidDataException or ObjectDisposedException)
+            // Startup failures must escape so the host releases ownership instead of remaining undiscoverable.
+            catch (Exception exception) when (
+                startupCompleted
+                && !cancellationToken.IsCancellationRequested
+                && exception is IOException or InvalidDataException or ObjectDisposedException)
             {
             }
             finally

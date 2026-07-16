@@ -197,6 +197,48 @@ public sealed class SupervisorTransportServerTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Run_OnNamedPipe_WhenStartupCallbackThrowsIOException_PropagatesWithoutRetry ()
+    {
+        var endpoint = new IpcEndpoint(
+            IpcTransportKind.NamedPipe,
+            UcliIpcEndpointNames.SupervisorAddressPrefix + Guid.NewGuid().ToString("N")[..16]);
+        var server = new SupervisorTransportServer(TimeProvider.System);
+        using var cancellationTokenSource = new CancellationTokenSource();
+        var startupCallbackInvocations = 0;
+        var serverTask = server.RunAsync(
+            endpoint,
+            static (_, _) => Task.CompletedTask,
+            async _ =>
+            {
+                Interlocked.Increment(ref startupCallbackInvocations);
+                await Task.Yield();
+                throw new IOException("Supervisor startup callback failed.");
+            },
+            SupervisorConstants.MaximumActiveConnections,
+            SupervisorConstants.ConnectionDrainTimeout,
+            cancellationTokenSource.Token);
+
+        try
+        {
+            var exception = await Assert.ThrowsAsync<IOException>(async () =>
+                await TestAwaiter.WaitAsync(
+                    serverTask,
+                    "Named-pipe supervisor startup failure",
+                    SignalWaitTimeout));
+
+            Assert.Contains("startup callback failed", exception.Message, StringComparison.Ordinal);
+            Assert.Equal(1, Volatile.Read(ref startupCallbackInvocations));
+        }
+        finally
+        {
+            cancellationTokenSource.Cancel();
+            server.Release();
+            await ObserveConnectionCompletionAsync(serverTask);
+        }
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     [SupportedOSPlatform("macos")]
     [SupportedOSPlatform("linux")]
     public async Task Run_OnUnix_WhenReleasedGenerationFinishesAfterSuccessorStarts_PreservesSuccessorSocket ()

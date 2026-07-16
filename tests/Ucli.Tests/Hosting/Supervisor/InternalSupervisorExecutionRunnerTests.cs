@@ -240,7 +240,7 @@ public sealed class InternalSupervisorExecutionRunnerTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task RunAsync_WhenEndpointPublicationFails_ReleasesWorktreeRegistration ()
+    public async Task RunAsync_WhenEndpointPublicationFails_ReleasesRuntimeOwnershipAndProcessRegistration ()
     {
         using var scope = TestDirectories.CreateTempScope("supervisor-host", "publication-failure-release");
         var processManager = new RecordingSupervisorProcessManager
@@ -254,13 +254,31 @@ public sealed class InternalSupervisorExecutionRunnerTests
             deleteIfExists: static _ => { });
         using var serviceProvider = BuildServiceProvider(TimeProvider.System, processManager, manifestStore);
         var host = serviceProvider.GetRequiredService<SupervisorHost>();
+        var ownershipLockPath = UcliStoragePathResolver.ResolveSupervisorRuntimeOwnershipLockPath(scope.FullPath);
+        using var hostCancellation = new CancellationTokenSource();
+        var hostTask = host.RunAsync(scope.FullPath, hostCancellation.Token);
 
-        var exitCode = await host.RunAsync(scope.FullPath, CancellationToken.None).WaitAsync(AsyncTestTimeout);
+        try
+        {
+            var exitCode = await hostTask.WaitAsync(AsyncTestTimeout);
+            using var successorOwnership = await FileExclusiveLock.AcquireAsync(
+                ownershipLockPath,
+                AsyncTestTimeout,
+                CancellationToken.None);
 
-        Assert.Equal(1, exitCode);
-        var releaseInvocation = Assert.Single(processManager.ReleaseInvocations);
-        Assert.Equal(UcliStoragePathResolver.NormalizeStorageRootPath(scope.FullPath), releaseInvocation.StorageRoot);
-        Assert.Equal(SupervisorProcessReleaseMode.CurrentProcess, releaseInvocation.ReleaseMode);
+            Assert.Equal(1, exitCode);
+            var releaseInvocation = Assert.Single(processManager.ReleaseInvocations);
+            Assert.Equal(UcliStoragePathResolver.NormalizeStorageRootPath(scope.FullPath), releaseInvocation.StorageRoot);
+            Assert.Equal(SupervisorProcessReleaseMode.CurrentProcess, releaseInvocation.ReleaseMode);
+        }
+        finally
+        {
+            if (!hostTask.IsCompleted)
+            {
+                hostCancellation.Cancel();
+                _ = await hostTask.WaitAsync(AsyncTestTimeout);
+            }
+        }
     }
 
     [Fact]
