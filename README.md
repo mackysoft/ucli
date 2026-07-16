@@ -742,7 +742,8 @@ Common operation groups include:
 | `ucli plan` | Prepare a separated review gate and receive a `planToken`. |
 | `ucli validate` | Diagnose static request validation without running `plan` or `call`. |
 | `ucli verify` | Return a JSON verification result for Unity-side checks. |
-| `ucli build run` | Run Unity BuildPipeline from a build profile and return build evidence. |
+| `ucli build` | Run Unity BuildPipeline from a build profile and return build evidence. |
+| `ucli screenshot` | Capture GameView or SceneView presentation surfaces from an existing GUI Editor daemon. |
 | `ucli logs` | Read Unity or daemon logs. |
 | `ucli daemon` | Manage daemon sessions. |
 | `ucli test` | Run Unity Test Framework tests. |
