@@ -23,17 +23,17 @@ internal static class ManualTimeTaskDriver
                 return;
             }
 
-            if (elapsed >= totalTime)
-            {
-                throw new TimeoutException($"The observed task did not complete within {totalTime} of manual time.");
-            }
-
             if (!timeProvider.TryGetNextTimerDelay(out var nextTimerDelay) || nextTimerDelay > maximumTimerDelay)
             {
                 continue;
             }
 
             var remainingTime = totalTime - elapsed;
+            if (remainingTime <= TimeSpan.Zero && nextTimerDelay > TimeSpan.Zero)
+            {
+                throw new TimeoutException($"The observed task did not complete within {totalTime} of manual time.");
+            }
+
             var advanceBy = nextTimerDelay < remainingTime ? nextTimerDelay : remainingTime;
             timeProvider.Advance(advanceBy);
             elapsed += advanceBy;
