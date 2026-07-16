@@ -19,8 +19,6 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private const int DisposedState = 3;
 
-        private const int FailureExitCode = 1;
-
         private static readonly TimeSpan ProductionPollInterval = TimeSpan.FromMilliseconds(250);
 
         private readonly string storageRoot;
@@ -35,7 +33,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly Func<string, IpcOneshotBootstrapEnvelope, bool> tryDeleteEnvelopeIfOwned;
 
-        private readonly Action<int> processExit;
+        private readonly Action terminateProcess;
 
         private readonly Timer timer;
 
@@ -49,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             DateTimeOffset observedUtcNow,
             IMonotonicClock monotonicClock,
             Func<string, IpcOneshotBootstrapEnvelope, bool> tryDeleteEnvelopeIfOwned,
-            Action<int> processExit)
+            Action terminateProcess)
         {
             if (string.IsNullOrWhiteSpace(storageRoot))
             {
@@ -76,7 +74,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
             this.monotonicClock = monotonicClock ?? throw new ArgumentNullException(nameof(monotonicClock));
             this.tryDeleteEnvelopeIfOwned = tryDeleteEnvelopeIfOwned ?? throw new ArgumentNullException(nameof(tryDeleteEnvelopeIfOwned));
-            this.processExit = processExit ?? throw new ArgumentNullException(nameof(processExit));
+            this.terminateProcess = terminateProcess ?? throw new ArgumentNullException(nameof(terminateProcess));
 
             var monotonicNow = monotonicClock.Elapsed;
             if (monotonicNow < TimeSpan.Zero)
@@ -124,7 +122,13 @@ namespace MackySoft.Ucli.Unity.Ipc
                 DateTimeOffset.UtcNow,
                 monotonicClock,
                 OneshotBootstrapEnvelopeStore.TryDeleteIfOwned,
-                static exitCode => Environment.Exit(exitCode));
+                static () =>
+                {
+                    using (var process = System.Diagnostics.Process.GetCurrentProcess())
+                    {
+                        process.Kill();
+                    }
+                });
         }
 
         /// <summary> Stops enforcing the request deadline after a terminal response while retaining parent-process monitoring. </summary>
@@ -223,7 +227,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     // NOTE: Process termination remains fail-closed when best-effort envelope cleanup cannot complete.
                 }
 
-                processExit(FailureExitCode);
+                terminateProcess();
                 return;
             }
         }

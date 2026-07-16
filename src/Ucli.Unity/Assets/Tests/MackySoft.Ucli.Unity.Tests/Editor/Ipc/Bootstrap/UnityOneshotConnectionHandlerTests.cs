@@ -34,7 +34,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var requestExitTimeout = TimeSpan.FromMinutes(1);
             var elapsedTicks = 0L;
-            var exitObserved = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+            var exitObserved = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var watchdog = new OneshotProcessLifetimeWatchdog(
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc + requestExitTimeout),
@@ -44,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 monotonicClock: new DelegatingMonotonicClock(
                     () => new TimeSpan(Interlocked.Read(ref elapsedTicks))),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
-                processExit: exitCode => exitObserved.TrySetResult(exitCode));
+                terminateProcess: () => exitObserved.TrySetResult(true));
             var completionSignal = new OneshotRequestCompletionSignal(watchdog);
             var request = CreateRequest(
                 UnityIpcMethod.Ping,
@@ -59,7 +59,6 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(completionSignal.IsCompleted, Is.False);
             Interlocked.Exchange(ref elapsedTicks, requestExitTimeout.Ticks);
             Assert.That(exitObserved.Task.Wait(SignalWaitTimeout), Is.True);
-            Assert.That(exitObserved.Task.Result, Is.EqualTo(1));
         });
 
         [UnityTest]
@@ -87,7 +86,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 monotonicClock: new DelegatingMonotonicClock(
                     () => new TimeSpan(Interlocked.Read(ref elapsedTicks))),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
-                processExit: _ => Interlocked.Increment(ref exitCount));
+                terminateProcess: () => Interlocked.Increment(ref exitCount));
             var completionSignal = new OneshotRequestCompletionSignal(watchdog);
             var request = CreateRequest(UnityIpcMethod.Ping, JsonSerializer.SerializeToElement(new IpcPingRequest(IpcPingClientVersions.Ready)));
             var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal, watchdog);
@@ -128,7 +127,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 monotonicClock: new DelegatingMonotonicClock(
                     () => new TimeSpan(Interlocked.Read(ref elapsedTicks))),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
-                processExit: _ => Interlocked.Increment(ref exitCount));
+                terminateProcess: () => Interlocked.Increment(ref exitCount));
             var completionSignal = new OneshotRequestCompletionSignal(watchdog);
             var request = CreateRequest(UnityIpcMethod.OpsRead, JsonSerializer.SerializeToElement(new IpcOpsReadRequest()));
             var handler = CreateHandler(request, CreateSuccessResponse(request.RequestId), completionSignal, watchdog);
@@ -256,7 +255,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 observedUtcNow: ObservedUtc,
                 monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
-                processExit: static _ => { });
+                terminateProcess: static () => { });
         }
 
         private static IpcOneshotBootstrapEnvelope CreateBootstrapEnvelope (DateTimeOffset exitDeadlineUtc)

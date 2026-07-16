@@ -38,7 +38,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     if (HasOneshotTarget(args))
                     {
                         Debug.LogError($"uCLI oneshot bootstrap arguments are invalid. {batchmodeParseError.Message}");
-                        Environment.Exit(1);
+                        EditorApplication.Exit(1);
                     }
 
                     return;
@@ -63,7 +63,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     catch (Exception exception)
                     {
                         Debug.LogError($"uCLI oneshot bootstrap envelope is invalid. {exception.Message}");
-                        Environment.Exit(1);
+                        EditorApplication.Exit(1);
                         return;
                     }
                 }

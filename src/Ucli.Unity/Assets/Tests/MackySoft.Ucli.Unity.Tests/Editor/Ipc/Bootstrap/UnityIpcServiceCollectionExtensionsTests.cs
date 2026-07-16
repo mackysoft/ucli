@@ -76,7 +76,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 observedUtcNow: ObservedUtc,
                 monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
-                processExit: _ => Interlocked.Increment(ref exitCount));
+                terminateProcess: () => Interlocked.Increment(ref exitCount));
             try
             {
                 services.AddUnityIpcOneshotHostServices(endpoint, watchdog);
