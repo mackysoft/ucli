@@ -1,7 +1,0 @@
-interface:
-  display_name: "Unity Authoring Rules"
-  short_description: "Unity プロジェクトの C# コード、ゲームコード、Editor 拡張、テスト、Asset、Scene、Prefab、asmdef、プロジェクト構成を実装、修正、レビューするときに、C# 一般ルールと併用して Unity 固有の判断規則を適用する。Runtime、Editor、Test の境界、MonoBehaviour、SerializeField、UnityEngine.Object の寿命、Unity が管理する状態、生成物、ScriptableObject、Domain Reload、Unity メインスレッド、永続化を伴う副作用、依存方向の判断で使う。"
-  default_prompt: "Use $unity-authoring-rules to follow the Unity Authoring Rules workflow."
-
-policy:
-  allow_implicit_invocation: true
