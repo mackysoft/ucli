@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
@@ -133,9 +134,7 @@ internal static class OneshotBootstrapEnvelopeStore
             throw new InvalidDataException("Oneshot bootstrap envelope endpoint does not match the current project endpoint.");
         }
 
-        if (!ProcessLivenessProbe.IsSameProcess(
-                envelope.ParentProcessId,
-                envelope.ParentProcessStartedAtUtc))
+        if (!ProcessLivenessProbe.IsSameProcess(envelope.ParentProcess))
         {
             throw new InvalidDataException("Oneshot bootstrap parent process generation is no longer alive.");
         }
@@ -231,7 +230,8 @@ internal static class OneshotBootstrapEnvelopeStore
 
     private static IpcOneshotBootstrapEnvelope FromContract (EnvelopeContract contract)
     {
-        if (contract.ProjectFingerprint is null
+        if (contract.ParentProcess is null
+            || contract.ProjectFingerprint is null
             || !IpcSessionToken.TryParse(contract.SessionToken, out var sessionToken)
             || contract.EndpointTransportKind is null
             || string.IsNullOrWhiteSpace(contract.EndpointAddress))
@@ -241,8 +241,7 @@ internal static class OneshotBootstrapEnvelopeStore
 
         return new IpcOneshotBootstrapEnvelope(
             contract.BootstrapId,
-            contract.ParentProcessId,
-            contract.ParentProcessStartedAtUtc,
+            contract.ParentProcess,
             contract.ProjectFingerprint,
             sessionToken,
             contract.CreatedAtUtc,
@@ -254,8 +253,7 @@ internal static class OneshotBootstrapEnvelopeStore
     {
         return new EnvelopeContract(
             envelope.BootstrapId,
-            envelope.ParentProcessId,
-            envelope.ParentProcessStartedAtUtc,
+            envelope.ParentProcess,
             envelope.ProjectFingerprint,
             envelope.SessionToken.GetEncodedValue(),
             envelope.CreatedAtUtc,
@@ -286,9 +284,7 @@ internal static class OneshotBootstrapEnvelopeStore
                 if (envelope.BootstrapId == bootstrapId
                     && envelope.ProjectFingerprint == projectFingerprint
                     && (envelope.ExitDeadlineUtc <= nowUtc
-                    || !ProcessLivenessProbe.IsSameProcess(
-                        envelope.ParentProcessId,
-                        envelope.ParentProcessStartedAtUtc)))
+                    || !ProcessLivenessProbe.IsSameProcess(envelope.ParentProcess)))
                 {
                     FileUtilities.EnsureRegularFile(path, "Oneshot bootstrap envelope");
                     File.Delete(path);
@@ -374,8 +370,7 @@ internal static class OneshotBootstrapEnvelopeStore
 
     private sealed record EnvelopeContract (
         Guid BootstrapId,
-        int ParentProcessId,
-        DateTimeOffset ParentProcessStartedAtUtc,
+        ProcessIdentity? ParentProcess,
         ProjectFingerprint? ProjectFingerprint,
         string? SessionToken,
         DateTimeOffset CreatedAtUtc,

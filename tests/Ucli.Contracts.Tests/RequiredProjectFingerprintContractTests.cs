@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
@@ -51,8 +52,7 @@ public sealed class RequiredProjectFingerprintContractTests
                 Endpoint: new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-endpoint")),
             ContractKind.OneshotBootstrap => new IpcOneshotBootstrapEnvelope(
                 BootstrapId: Guid.NewGuid(),
-                ParentProcessId: 1234,
-                ParentProcessStartedAtUtc: Timestamp.AddMinutes(-2),
+                ParentProcess: new ProcessIdentity(1234, 1),
                 ProjectFingerprint: null!,
                 SessionToken: IpcSessionToken.CreateRandom(),
                 CreatedAtUtc: Timestamp.AddMinutes(-1),

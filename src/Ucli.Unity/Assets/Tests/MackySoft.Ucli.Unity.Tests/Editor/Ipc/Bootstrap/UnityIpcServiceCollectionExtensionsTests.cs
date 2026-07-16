@@ -3,6 +3,7 @@ using System.IO;
 using System.Threading;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Infrastructure.Project;
@@ -64,15 +65,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: "ucli-composition-root-tests",
                 bootstrapEnvelope: new IpcOneshotBootstrapEnvelope(
                     BootstrapId: Guid.NewGuid(),
-                    ParentProcessId: 42,
-                    ParentProcessStartedAtUtc: ObservedUtc.AddMinutes(-1),
+                    ParentProcess: new ProcessIdentity(42, 123),
                     ProjectFingerprint: projectFingerprint,
                     SessionToken: IpcSessionToken.CreateRandom(),
                     CreatedAtUtc: ObservedUtc,
                     ExitDeadlineUtc: ObservedUtc.AddMinutes(1),
                     Endpoint: endpoint),
                 pollInterval: TimeSpan.FromHours(1),
-                parentProcessIsSameProcess: static (_, _) => true,
+                parentProcessIsSameProcess: static _ => true,
                 observedUtcNow: ObservedUtc,
                 monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,

@@ -13,6 +13,7 @@ using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
@@ -184,11 +185,9 @@ internal sealed class UnityOneshotIpcClient : IUnityIpcClient
 
             var sessionToken = IpcSessionToken.CreateRandom();
             var bootstrapCreatedAtUtc = timeProvider.GetUtcNow();
-            using var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
             var bootstrapEnvelope = new IpcOneshotBootstrapEnvelope(
                 BootstrapId: Guid.NewGuid(),
-                ParentProcessId: currentProcess.Id,
-                ParentProcessStartedAtUtc: new DateTimeOffset(currentProcess.StartTime.ToUniversalTime()),
+                ParentProcess: ProcessLivenessProbe.CaptureCurrentProcess(),
                 ProjectFingerprint: unityProject.ProjectFingerprint,
                 SessionToken: sessionToken,
                 CreatedAtUtc: bootstrapCreatedAtUtc,

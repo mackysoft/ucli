@@ -1,5 +1,6 @@
 using System;
 using System.Threading;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -26,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IpcOneshotBootstrapEnvelope bootstrapEnvelope;
 
-        private readonly Func<int, DateTimeOffset, bool> parentProcessIsSameProcess;
+        private readonly Func<ProcessIdentity, bool> parentProcessIsSameProcess;
 
         private readonly TimeSpan monotonicRequestExitDeadline;
 
@@ -44,7 +45,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             string storageRoot,
             IpcOneshotBootstrapEnvelope bootstrapEnvelope,
             TimeSpan pollInterval,
-            Func<int, DateTimeOffset, bool> parentProcessIsSameProcess,
+            Func<ProcessIdentity, bool> parentProcessIsSameProcess,
             DateTimeOffset observedUtcNow,
             IMonotonicClock monotonicClock,
             Func<string, IpcOneshotBootstrapEnvelope, bool> tryDeleteEnvelopeIfOwned,
@@ -181,9 +182,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 {
                     case RequestDeadlineMonitoringState:
                         if (monotonicClock.Elapsed < monotonicRequestExitDeadline
-                            && parentProcessIsSameProcess(
-                                bootstrapEnvelope.ParentProcessId,
-                                bootstrapEnvelope.ParentProcessStartedAtUtc))
+                            && parentProcessIsSameProcess(bootstrapEnvelope.ParentProcess))
                         {
                             return;
                         }
@@ -191,9 +190,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         break;
 
                     case ParentOnlyMonitoringState:
-                        if (parentProcessIsSameProcess(
-                            bootstrapEnvelope.ParentProcessId,
-                            bootstrapEnvelope.ParentProcessStartedAtUtc))
+                        if (parentProcessIsSameProcess(bootstrapEnvelope.ParentProcess))
                         {
                             return;
                         }

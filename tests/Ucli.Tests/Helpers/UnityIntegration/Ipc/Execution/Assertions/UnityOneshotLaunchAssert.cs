@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Tests.Helpers.Process;
@@ -55,9 +56,8 @@ internal static class UnityOneshotLaunchAssert
     {
         var bootstrapEnvelope = invocation.BootstrapEnvelope;
         Assert.NotEqual(Guid.Empty, bootstrapEnvelope.BootstrapId);
-        Assert.Equal(Environment.ProcessId, bootstrapEnvelope.ParentProcessId);
-        Assert.NotEqual(default, bootstrapEnvelope.ParentProcessStartedAtUtc);
-        Assert.Equal(TimeSpan.Zero, bootstrapEnvelope.ParentProcessStartedAtUtc.Offset);
+        Assert.Equal(Environment.ProcessId, bootstrapEnvelope.ParentProcess.ProcessId);
+        Assert.True(ProcessLivenessProbe.IsSameProcess(bootstrapEnvelope.ParentProcess));
         Assert.Equal(expectedUnityProject.ProjectFingerprint, bootstrapEnvelope.ProjectFingerprint);
         Assert.False(string.IsNullOrWhiteSpace(bootstrapEnvelope.SessionToken.GetEncodedValue()));
         Assert.True(bootstrapEnvelope.ExitDeadlineUtc > exitDeadlineReferenceUtc);

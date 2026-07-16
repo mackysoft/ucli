@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 
@@ -61,8 +62,7 @@ public sealed class IpcOneshotBootstrapContractTests
     {
         return new IpcOneshotBootstrapEnvelope(
             BootstrapId: bootstrapId,
-            ParentProcessId: 1234,
-            ParentProcessStartedAtUtc: createdAtUtc.AddMinutes(-1),
+            ParentProcess: new ProcessIdentity(1234, 1),
             ProjectFingerprint: new ProjectFingerprint(
                 "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
             SessionToken: IpcSessionToken.CreateRandom(),

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
@@ -8,8 +9,7 @@ public sealed record IpcOneshotBootstrapEnvelope
     /// <summary> Initializes one validated Unity oneshot bootstrap generation. </summary>
     public IpcOneshotBootstrapEnvelope (
         Guid BootstrapId,
-        int ParentProcessId,
-        DateTimeOffset ParentProcessStartedAtUtc,
+        ProcessIdentity ParentProcess,
         ProjectFingerprint ProjectFingerprint,
         IpcSessionToken SessionToken,
         DateTimeOffset CreatedAtUtc,
@@ -17,10 +17,7 @@ public sealed record IpcOneshotBootstrapEnvelope
         IpcEndpoint Endpoint)
     {
         this.BootstrapId = ContractArgumentGuard.RequireNonEmptyGuid(BootstrapId, nameof(BootstrapId));
-        this.ParentProcessId = ContractArgumentGuard.RequirePositive(ParentProcessId, nameof(ParentProcessId));
-        this.ParentProcessStartedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(
-            ParentProcessStartedAtUtc,
-            nameof(ParentProcessStartedAtUtc));
+        this.ParentProcess = ContractArgumentGuard.RequireNotNull(ParentProcess, nameof(ParentProcess));
         this.ProjectFingerprint = ContractArgumentGuard.RequireNotNull(ProjectFingerprint, nameof(ProjectFingerprint));
         this.SessionToken = ContractArgumentGuard.RequireNotNull(SessionToken, nameof(SessionToken));
         this.CreatedAtUtc = ContractArgumentGuard.RequireUtcTimestamp(CreatedAtUtc, nameof(CreatedAtUtc));
@@ -39,11 +36,8 @@ public sealed record IpcOneshotBootstrapEnvelope
     /// <summary> Gets the non-empty bootstrap generation identifier. </summary>
     public Guid BootstrapId { get; }
 
-    /// <summary> Gets the positive originating CLI process identifier. </summary>
-    public int ParentProcessId { get; }
-
-    /// <summary> Gets the originating CLI process start timestamp used to reject identifier reuse. </summary>
-    public DateTimeOffset ParentProcessStartedAtUtc { get; }
+    /// <summary> Gets the originating CLI process generation used to reject identifier reuse. </summary>
+    public ProcessIdentity ParentProcess { get; }
 
     /// <summary> Gets the project fingerprint bound to this generation. </summary>
     public ProjectFingerprint ProjectFingerprint { get; }

@@ -2,6 +2,7 @@ using MackySoft.Tests;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
+using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -133,6 +134,34 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
             nowUtc));
 
         Assert.Contains("identifier", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public void Read_WhenStoredParentGenerationWasTampered_ThrowsInvalidDataException ()
+    {
+        using var scope = TestDirectories.CreateTempScope("oneshot-bootstrap-envelope", "tampered-parent-generation");
+        var nowUtc = DateTimeOffset.UtcNow;
+        var envelope = CreateEnvelope(scope.FullPath, Guid.NewGuid(), nowUtc, nowUtc.AddMinutes(1));
+        OneshotBootstrapEnvelopeStore.Create(scope.FullPath, envelope);
+        var path = UcliStoragePathResolver.ResolveOneshotBootstrapPath(
+            scope.FullPath,
+            ProjectFingerprint,
+            envelope.BootstrapId);
+        File.WriteAllText(
+            path,
+            File.ReadAllText(path).Replace(
+                $"\"generation\": {envelope.ParentProcess.Generation}",
+                $"\"generation\": {envelope.ParentProcess.Generation + 1}",
+                StringComparison.Ordinal));
+
+        var exception = Assert.Throws<InvalidDataException>(() => OneshotBootstrapEnvelopeStore.Read(
+            scope.FullPath,
+            ProjectFingerprint,
+            envelope.BootstrapId,
+            nowUtc));
+
+        Assert.Contains("parent process generation", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -336,11 +365,9 @@ public sealed class OneshotBootstrapEnvelopeStoreTests
         DateTimeOffset createdAtUtc,
         DateTimeOffset exitDeadlineUtc)
     {
-        using var process = System.Diagnostics.Process.GetCurrentProcess();
         return new IpcOneshotBootstrapEnvelope(
             BootstrapId: bootstrapId,
-            ParentProcessId: process.Id,
-            ParentProcessStartedAtUtc: new DateTimeOffset(process.StartTime.ToUniversalTime()),
+            ParentProcess: ProcessLivenessProbe.CaptureCurrentProcess(),
             ProjectFingerprint: ProjectFingerprint,
             SessionToken: IpcSessionToken.CreateRandom(),
             CreatedAtUtc: createdAtUtc,

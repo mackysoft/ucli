@@ -3,6 +3,7 @@ using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -135,19 +136,15 @@ namespace MackySoft.Ucli.Unity.Tests
                         Endpoint: endpoint);
 
                 case BatchmodeBootstrapKind.Oneshot:
-                    using (var process = System.Diagnostics.Process.GetCurrentProcess())
-                    {
-                        var nowUtc = DateTimeOffset.UtcNow;
-                        return new IpcOneshotBootstrapEnvelope(
+                    var nowUtc = DateTimeOffset.UtcNow;
+                    return new IpcOneshotBootstrapEnvelope(
                         BootstrapId: Guid.NewGuid(),
-                        ParentProcessId: process.Id,
-                        ParentProcessStartedAtUtc: new DateTimeOffset(process.StartTime.ToUniversalTime()),
+                        ParentProcess: ProcessLivenessProbe.CaptureCurrentProcess(),
                         ProjectFingerprint: projectFingerprint,
                         SessionToken: IpcSessionToken.CreateRandom(),
                         CreatedAtUtc: nowUtc,
                         ExitDeadlineUtc: nowUtc.AddMinutes(1),
                         Endpoint: endpoint);
-                    }
 
                 default:
                     throw new ArgumentOutOfRangeException(nameof(bootstrapKind), bootstrapKind, null);

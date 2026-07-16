@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Unity.Ipc;
@@ -16,8 +17,7 @@ namespace MackySoft.Ucli.Unity.Tests
         private static readonly DateTimeOffset ObservedUtc =
             new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero);
 
-        private static readonly DateTimeOffset ParentProcessStartedAtUtc =
-            ObservedUtc.AddMinutes(-5);
+        private static readonly ProcessIdentity ParentProcess = new ProcessIdentity(42, 123);
 
         private static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(10);
 
@@ -29,16 +29,14 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var testThreadId = Thread.CurrentThread.ManagedThreadId;
             var exitObserved = new TaskCompletionSource<(int ExitCode, int ThreadId)>(TaskCreationOptions.RunContinuationsAsynchronously);
-            var observedParentProcessId = 0;
-            var observedParentProcessStartedAtUtc = default(DateTimeOffset);
+            ProcessIdentity observedParentProcess = null;
             using var watchdog = new OneshotProcessLifetimeWatchdog(
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(1)),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: (parentProcessId, parentProcessStartedAtUtc) =>
+                parentProcessIsSameProcess: parentProcess =>
                 {
-                    observedParentProcessId = parentProcessId;
-                    observedParentProcessStartedAtUtc = parentProcessStartedAtUtc;
+                    observedParentProcess = parentProcess;
                     return false;
                 },
                 observedUtcNow: ObservedUtc,
@@ -52,8 +50,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(exitObserved.Task.Wait(SignalWaitTimeout), Is.True);
             Assert.That(exitObserved.Task.Result.ExitCode, Is.EqualTo(1));
             Assert.That(exitObserved.Task.Result.ThreadId, Is.Not.EqualTo(testThreadId));
-            Assert.That(observedParentProcessId, Is.EqualTo(42));
-            Assert.That(observedParentProcessStartedAtUtc, Is.EqualTo(ParentProcessStartedAtUtc));
+            Assert.That(observedParentProcess, Is.EqualTo(ParentProcess));
         }
 
         [Test]
@@ -65,7 +62,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: static (_, _) => true,
+                parentProcessIsSameProcess: static _ => true,
                 observedUtcNow: ObservedUtc,
                 monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
@@ -90,7 +87,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(1)),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: (_, _) =>
+                parentProcessIsSameProcess: _ =>
                 {
                     if (Interlocked.Increment(ref probeCount) >= 2)
                     {
@@ -123,7 +120,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(1)),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: static (_, _) => true,
+                parentProcessIsSameProcess: static _ => true,
                 observedUtcNow: ObservedUtc,
                 monotonicClock: new DelegatingMonotonicClock(
                     () => new TimeSpan(Interlocked.Read(ref elapsedTicks))),
@@ -155,7 +152,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc + requestExitTimeout),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: (_, _) =>
+                parentProcessIsSameProcess: _ =>
                 {
                     firstObservation.TrySetResult("parent-probed");
                     return true;
@@ -195,7 +192,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc + requestExitTimeout),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: (_, _) =>
+                parentProcessIsSameProcess: _ =>
                 {
                     if (Interlocked.Read(ref elapsedTicks) >= requestExitTimeout.Ticks)
                     {
@@ -233,7 +230,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: (_, _) =>
+                parentProcessIsSameProcess: _ =>
                 {
                     parentProbeObserved.TrySetResult(true);
                     return true;
@@ -280,7 +277,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(1)),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: (_, _) => Volatile.Read(ref parentIsAlive) != 0,
+                parentProcessIsSameProcess: _ => Volatile.Read(ref parentIsAlive) != 0,
                 observedUtcNow: ObservedUtc,
                 monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => true,
@@ -305,7 +302,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(1)),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: (_, _) =>
+                parentProcessIsSameProcess: _ =>
                 {
                     probeEntered.TrySetResult(true);
                     releaseProbe.Wait();
@@ -348,7 +345,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(1)),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: (_, _) =>
+                parentProcessIsSameProcess: _ =>
                 {
                     parentProbeEntered.TrySetResult(true);
                     releaseParentProbe.Wait();
@@ -402,7 +399,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc.AddMinutes(-1)),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: static (_, _) => false,
+                parentProcessIsSameProcess: static _ => false,
                 observedUtcNow: ObservedUtc,
                 monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: (_, _) => Interlocked.Increment(ref cleanupCount) == 1,
@@ -449,7 +446,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: expectedEnvelope,
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: static (_, _) => true,
+                parentProcessIsSameProcess: static _ => true,
                 observedUtcNow: ObservedUtc,
                 monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: (storageRoot, bootstrapEnvelope) =>
@@ -482,7 +479,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 storageRoot: StorageRoot,
                 bootstrapEnvelope: CreateBootstrapEnvelope(ObservedUtc),
                 pollInterval: PollInterval,
-                parentProcessIsSameProcess: static (_, _) => true,
+                parentProcessIsSameProcess: static _ => true,
                 observedUtcNow: ObservedUtc,
                 monotonicClock: new ManualMonotonicClock(),
                 tryDeleteEnvelopeIfOwned: static (_, _) => throw new InvalidOperationException("cleanup failed"),
@@ -496,8 +493,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             return new IpcOneshotBootstrapEnvelope(
                 BootstrapId: Guid.Parse("c654b0e1-98ad-46b6-a6e5-1be351259fd0"),
-                ParentProcessId: 42,
-                ParentProcessStartedAtUtc: ParentProcessStartedAtUtc,
+                ParentProcess: ParentProcess,
                 ProjectFingerprint: new ProjectFingerprint(
                     "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
                 SessionToken: IpcSessionToken.CreateRandom(),

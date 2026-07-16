@@ -1,5 +1,6 @@
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
@@ -277,11 +278,9 @@ public sealed class UnityBatchmodeProcessLauncherTests
     private static IpcOneshotBootstrapEnvelope CreateBootstrapEnvelope (string storageRoot)
     {
         var createdAtUtc = DateTimeOffset.UtcNow;
-        using var process = System.Diagnostics.Process.GetCurrentProcess();
         return new IpcOneshotBootstrapEnvelope(
             BootstrapId: Guid.NewGuid(),
-            ParentProcessId: process.Id,
-            ParentProcessStartedAtUtc: new DateTimeOffset(process.StartTime.ToUniversalTime()),
+            ParentProcess: ProcessLivenessProbe.CaptureCurrentProcess(),
             ProjectFingerprint: ProjectFingerprintTestFactory.Create("project-fingerprint"),
             SessionToken: IpcSessionTokenTestFactory.Create("session-token"),
             CreatedAtUtc: createdAtUtc,
