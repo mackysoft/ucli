@@ -25,6 +25,41 @@ public sealed class CliCommandRegistrationContractTests
     }
 
     [Fact]
+    [Trait("Size", "Medium")]
+    public async Task HelpOutput_DoesNotExposeXmlDocumentationMarkup ()
+    {
+        await using var serviceProvider = UcliServiceProviderTestFactory.CreateCore();
+
+        await ConsoleAppRunner.RunWithRegisteredAppAsync(serviceProvider, async app =>
+        {
+            var rootResult = await ConsoleAppHelpRunner.RunRootHelpAsync(app);
+            AssertDoesNotExposeXmlDocumentationMarkup(rootResult);
+
+            foreach (var commandPath in UcliCommandCatalog.CommandPaths)
+            {
+                var commandResult = await ConsoleAppHelpRunner.RunHelpAsync(app, commandPath);
+                AssertDoesNotExposeXmlDocumentationMarkup(commandResult);
+            }
+        });
+    }
+
+    [Theory]
+    [InlineData(UcliCommandNames.Call)]
+    [InlineData(UcliCommandNames.Plan)]
+    [InlineData(UcliCommandNames.Validate)]
+    [InlineData(UcliCommandNames.Eval)]
+    [Trait("Size", "Medium")]
+    public async Task HelpOutput_WhenCommandReadsRedirectedStandardInput_DescribesInput (string commandPath)
+    {
+        await using var serviceProvider = UcliServiceProviderTestFactory.CreateCore();
+
+        var result = await ConsoleAppHelpRunner.RunHelpAsync(serviceProvider, commandPath);
+
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.Contains("redirected standard input", result.StdOut, StringComparison.Ordinal);
+    }
+
+    [Fact]
     [Trait("Size", "Small")]
     public void CommandCatalog_CommandPathsMatchPublicLeafCommands ()
     {
@@ -190,6 +225,13 @@ public sealed class CliCommandRegistrationContractTests
         }
 
         throw new InvalidOperationException($"Command help line does not contain a description separator: {helpLine}");
+    }
+
+    private static void AssertDoesNotExposeXmlDocumentationMarkup (CommandExecutionResult result)
+    {
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        Assert.DoesNotContain("<c>", result.StdOut, StringComparison.Ordinal);
+        Assert.DoesNotContain("</c>", result.StdOut, StringComparison.Ordinal);
     }
 
 }

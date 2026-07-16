@@ -29,7 +29,7 @@ internal sealed class QuerySceneTreeCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes <c>query scene tree</c> and emits the JSON result contract. </summary>
+    /// <summary> Reads a Unity scene hierarchy and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>

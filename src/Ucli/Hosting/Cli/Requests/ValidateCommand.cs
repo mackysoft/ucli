@@ -30,7 +30,7 @@ internal sealed class ValidateCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes the validate command and emits the JSON result contract. </summary>
+    /// <summary> Validates the JSON request read from redirected standard input and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
     /// <param name="readIndexMode">--readIndexMode, readIndex mode (disabled|allowStale|requireFresh).</param>

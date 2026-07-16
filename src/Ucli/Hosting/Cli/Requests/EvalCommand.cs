@@ -31,7 +31,7 @@ internal sealed class EvalCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes <c>eval</c> as a convenience wrapper around <c>ucli.cs.eval</c>. </summary>
+    /// <summary> Evaluates C# from --source, --file, or redirected standard input through the ucli.cs.eval operation. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="mode">Unity execution mode (auto|daemon|oneshot).</param>
     /// <param name="timeout">Timeout in milliseconds.</param>

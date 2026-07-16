@@ -24,7 +24,7 @@ internal sealed class PlayStatusCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes <c>play status</c> and emits the JSON result contract. </summary>
+    /// <summary> Reports the current Unity Play Mode state and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>

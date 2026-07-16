@@ -24,7 +24,7 @@ internal sealed class PlayEnterCommand
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
     }
 
-    /// <summary> Executes <c>play enter</c> and emits the JSON result contract. </summary>
+    /// <summary> Requests Unity to enter Play Mode and emits the JSON result contract. </summary>
     /// <param name="projectPath">-p|--projectPath, Optional target Unity project path.</param>
     /// <param name="timeout">Timeout in milliseconds.</param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>

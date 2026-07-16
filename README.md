@@ -310,7 +310,7 @@ ucli logs unity read --tail 200 --level error
 
 ## 🛠️ Request Input and Planned Writes
 
-> **IMPORTANT:** Request commands read JSON only from redirected standard input. Keep the request in your script or job and pipe it to uCLI.
+> **IMPORTANT:** `ucli call`, `ucli plan`, and `ucli validate` read JSON only from redirected standard input. Keep the request in your script or job and pipe it to uCLI.
 
 Use `call --withPlan` for compact local automation where the same script or job plans and applies immediately.
 
