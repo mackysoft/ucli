@@ -41,17 +41,44 @@
           ]
         },
         "lifecycleStateAtCapture": {
-          "type": "string"
+          "type": "string",
+          "const": "ready"
         },
         "compileStateAtCapture": {
-          "type": "string"
+          "type": "string",
+          "const": "ready"
         },
-        "domainReloadGeneration": {
-          "type": "integer",
-          "minimum": 0
+        "generations": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "compileGeneration": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "domainReloadGeneration": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "assetRefreshGeneration": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "playModeGeneration": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "compileGeneration",
+            "domainReloadGeneration",
+            "assetRefreshGeneration",
+            "playModeGeneration"
+          ]
         },
         "playModeState": {
-          "type": "string"
+          "type": "string",
+          "const": "stopped"
         }
       },
       "required": [
@@ -64,7 +91,7 @@
         "colorSpace",
         "lifecycleStateAtCapture",
         "compileStateAtCapture",
-        "domainReloadGeneration",
+        "generations",
         "playModeState"
       ]
     },

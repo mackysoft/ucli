@@ -1423,10 +1423,16 @@ internal static class Program
                 Required(
                     "colorSpace",
                     EnumSchema(ContractLiteralCodec.GetLiterals<IpcScreenshotColorSpace>().ToArray())),
-                Required("lifecycleStateAtCapture", StringSchema()),
-                Required("compileStateAtCapture", StringSchema()),
-                Required("domainReloadGeneration", NonNegativeIntegerSchema()),
-                Required("playModeState", StringSchema()))),
+                Required(
+                    "lifecycleStateAtCapture",
+                    ConstString(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready))),
+                Required(
+                    "compileStateAtCapture",
+                    ConstString(ContractLiteralCodec.ToValue(IpcCompileState.Ready))),
+                Required("generations", CreateUnityGenerationSnapshotSchema()),
+                Required(
+                    "playModeState",
+                    ConstString(ContractLiteralCodec.ToValue(IpcPlayModeState.Stopped))))),
             Required("artifact", ObjectSchema(
                 additionalProperties: false,
                 Required(

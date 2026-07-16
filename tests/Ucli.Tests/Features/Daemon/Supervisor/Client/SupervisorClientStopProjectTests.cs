@@ -7,6 +7,8 @@ namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorClientStopProjectTests
 {
+    private static readonly TimeSpan SignalWaitTimeout = TimeSpan.FromSeconds(5);
+
     [Fact]
     [Trait("Size", "Small")]
     public async Task StopProject_WhenTerminalArrivesAfterCommandDeadlineWithinGrace_PreservesResult ()
@@ -35,12 +37,18 @@ public sealed class SupervisorClientStopProjectTests
                 deadline,
                 CancellationToken.None)
             .AsTask();
-        var request = await requestObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+        var request = await TestAwaiter.WaitAsync(
+            requestObserved.Task,
+            "supervisor stop request",
+            SignalWaitTimeout);
         timeProvider.Advance(commandTimeout.Add(TimeSpan.FromMilliseconds(500)));
         terminalResponseSource.TrySetResult(
             SupervisorProjectGatewayTestSupport.CreateStopProjectStoppedResponse(request));
 
-        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
+        var result = await TestAwaiter.WaitAsync(
+            resultTask,
+            "supervisor stop result",
+            SignalWaitTimeout);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(DaemonStopStatus.Stopped, result.Status);
@@ -79,17 +87,29 @@ public sealed class SupervisorClientStopProjectTests
                 deadline,
                 CancellationToken.None)
             .AsTask();
-        await requestObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        await timeProvider.WaitForTimerDueWithinAsync(terminalTimeout).WaitAsync(TimeSpan.FromSeconds(1));
+        await TestAwaiter.WaitAsync(
+            requestObserved.Task,
+            "supervisor stop request",
+            SignalWaitTimeout);
+        await TestAwaiter.WaitAsync(
+            timeProvider.WaitForTimerDueWithinAsync(terminalTimeout),
+            "supervisor stop terminal deadline timer",
+            SignalWaitTimeout);
 
         try
         {
             timeProvider.Advance(terminalTimeout);
-            var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(1));
+            var result = await TestAwaiter.WaitAsync(
+                resultTask,
+                "supervisor stop timeout result",
+                SignalWaitTimeout);
 
             Assert.False(result.IsSuccess);
             Assert.Equal(ExecutionErrorKind.Timeout, result.Error!.Kind);
-            await cancellationObserved.Task.WaitAsync(TimeSpan.FromSeconds(1));
+            await TestAwaiter.WaitAsync(
+                cancellationObserved.Task,
+                "supervisor stop transport cancellation",
+                SignalWaitTimeout);
         }
         finally
         {
