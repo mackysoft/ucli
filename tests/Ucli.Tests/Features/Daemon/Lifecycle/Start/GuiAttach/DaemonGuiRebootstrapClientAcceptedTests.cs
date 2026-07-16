@@ -15,6 +15,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenSessionTokenRotates_ReloadsManifestAndReplaysSameRequestOnce ()
     {
+        var timeProvider = new ManualTimeProvider();
         var manifest = CreateManifest();
         var initialManifest = new GuiSupervisorManifestJsonContract(
             manifest.SchemaVersion,
@@ -70,7 +71,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             unityProject,
             initialManifest.ProcessId,
             ProcessStartedAtUtc,
-            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
             CancellationToken.None);
 
         Assert.True(result.IsAccepted);
@@ -87,6 +88,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenRejectedSessionTokenIsStillPublished_DoesNotReplayRequest ()
     {
+        var timeProvider = new ManualTimeProvider();
         var manifest = CreateManifest();
         var unityProject = ResolvedUnityProjectContextTestFactory.Create(projectFingerprint: manifest.ProjectFingerprint);
         var manifestReadCount = 0;
@@ -114,7 +116,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
             CancellationToken.None);
 
         Assert.False(result.IsAccepted);
@@ -126,6 +128,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Small")]
     public async Task RequestRebootstrapAsync_WhenSuccessorTokenIsAlsoRejected_DoesNotObserveThirdGeneration ()
     {
+        var timeProvider = new ManualTimeProvider();
         var manifest = CreateManifest();
         var initialManifest = new GuiSupervisorManifestJsonContract(
             manifest.SchemaVersion,
@@ -181,7 +184,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             unityProject,
             initialManifest.ProcessId,
             ProcessStartedAtUtc,
-            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromSeconds(1), timeProvider),
             CancellationToken.None);
 
         Assert.False(result.IsAccepted);
@@ -325,6 +328,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestMatchesAndSupervisorAccepts_ReturnsAccepted ()
     {
+        var timeProvider = new ManualTimeProvider();
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestMatchesAndSupervisorAccepts_ReturnsAccepted));
@@ -339,7 +343,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            ExecutionDeadline.Start(timeout, TimeProvider.System),
+            ExecutionDeadline.Start(timeout, timeProvider),
             CancellationToken.None);
 
         Assert.True(result.IsAccepted);
@@ -354,6 +358,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestStartTimeDiffersWithinTolerance_RequestsSupervisor ()
     {
+        var timeProvider = new ManualTimeProvider();
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestStartTimeDiffersWithinTolerance_RequestsSupervisor));
@@ -376,7 +381,7 @@ public sealed class DaemonGuiRebootstrapClientAcceptedTests
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            ExecutionDeadline.Start(timeout, TimeProvider.System),
+            ExecutionDeadline.Start(timeout, timeProvider),
             CancellationToken.None);
 
         Assert.True(result.IsAccepted);

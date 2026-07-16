@@ -66,6 +66,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestMissing_ReturnsUnavailableWithoutIpc ()
     {
+        var timeProvider = new ManualTimeProvider();
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestMissing_ReturnsUnavailableWithoutIpc));
@@ -77,7 +78,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             unityProject,
             expectedProcessId: 1234,
             ProcessStartedAtUtc,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             CancellationToken.None);
 
         AssertUnavailableWithoutIpc(result, transportClient);
@@ -87,6 +88,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestProcessDoesNotMatch_ReturnsUnavailableWithoutIpc ()
     {
+        var timeProvider = new ManualTimeProvider();
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestProcessDoesNotMatch_ReturnsUnavailableWithoutIpc));
@@ -99,7 +101,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             unityProject,
             expectedProcessId: 5678,
             ProcessStartedAtUtc,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             CancellationToken.None);
 
         AssertUnavailableWithoutIpc(result, transportClient);
@@ -111,6 +113,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
     public async Task RequestRebootstrapAsync_WhenManifestValidationFails_ReturnsUnavailableWithoutIpc (
         InvalidManifestCase testCase)
     {
+        var timeProvider = new ManualTimeProvider();
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             $"{nameof(RequestRebootstrapAsync_WhenManifestValidationFails_ReturnsUnavailableWithoutIpc)}-{testCase.Name}");
@@ -137,7 +140,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             unityProject,
             manifest.ProcessId,
             testCase.ExpectedProcessStartedAtUtc,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             CancellationToken.None);
 
         AssertUnavailableWithoutIpc(result, transportClient);
@@ -147,6 +150,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenManifestTransportKindIsInvalid_ReturnsUnavailableWithoutIpc ()
     {
+        var timeProvider = new ManualTimeProvider();
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenManifestTransportKindIsInvalid_ReturnsUnavailableWithoutIpc));
@@ -173,7 +177,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             unityProject,
             expectedProcessId: 1234,
             ProcessStartedAtUtc,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             CancellationToken.None);
 
         AssertUnavailableWithoutIpc(result, transportClient);

@@ -11,6 +11,7 @@ public sealed class DaemonGuiRebootstrapClientMalformedEndpointTests
     [Trait("Size", "Medium")]
     public async Task RequestRebootstrapAsync_WhenEndpointAddressViolatesTransportContract_ReturnsUnavailableWithoutIpc ()
     {
+        var timeProvider = new ManualTimeProvider();
         using var scope = TestDirectories.CreateTempScope(
             "daemon-command-service",
             nameof(RequestRebootstrapAsync_WhenEndpointAddressViolatesTransportContract_ReturnsUnavailableWithoutIpc));
@@ -39,7 +40,7 @@ public sealed class DaemonGuiRebootstrapClientMalformedEndpointTests
             unityProject,
             manifest.ProcessId,
             ProcessStartedAtUtc,
-            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), TimeProvider.System),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(500), timeProvider),
             CancellationToken.None);
 
         Assert.False(result.IsAccepted);
