@@ -88,7 +88,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var response = await ExecuteOnSelectedLaneAsync(
                     methodHandler,
                     request,
-                    phaseScope);
+                    phaseScope)
+                    .ConfigureAwait(false);
                 return EnsureCorrelatedResponse(request, response);
             }
             catch (OperationCanceledException) when (
@@ -175,7 +176,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                     streamingMethodHandler,
                     request,
                     streamWriter,
-                    phaseScope);
+                    phaseScope)
+                    .ConfigureAwait(false);
                 return EnsureCorrelatedResponse(request, response);
             }
             catch (OperationCanceledException) when (
@@ -263,7 +265,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 TaskCreationOptions.RunContinuationsAsynchronously);
             Func<Task<IpcResponse>> workItem = async () =>
             {
-                var response = await methodHandler.HandleAsync(request, cancellation);
+                var response = await methodHandler
+                    .HandleAsync(request, cancellation)
+                    .ConfigureAwait(false);
                 terminalResponseSource.TrySetResult(response);
                 return response;
             };
@@ -292,7 +296,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 TaskCreationOptions.RunContinuationsAsynchronously);
             Func<Task<IpcResponse>> workItem = async () =>
             {
-                var response = await methodHandler.HandleStreamingAsync(request, streamWriter, cancellation);
+                var response = await methodHandler
+                    .HandleStreamingAsync(request, streamWriter, cancellation)
+                    .ConfigureAwait(false);
                 terminalResponseSource.TrySetResult(response);
                 return response;
             };
@@ -378,8 +384,11 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             await recoverableDispatchGate.WaitAsync(cancellation.Token).ConfigureAwait(false);
+            var dispatchLifetime = new RecoverableIpcDispatchLifetime(recoverableDispatchGate);
+            RecoverableIpcDispatchLifetime? ownedDispatchLifetime = dispatchLifetime;
             try
             {
+                phaseScope.RetainResourcesUntil(dispatchLifetime.Retirement);
                 var readResult = await recoverableOperationStore.ReadAsync(
                         methodHandler.Method,
                         request.RequestId,
@@ -411,39 +420,55 @@ namespace MackySoft.Ucli.Unity.Ipc
                     request.RequestId,
                     requestPayloadHash,
                     record);
-                var terminalResponseSource = new TaskCompletionSource<IpcResponse>(
+                var terminalResponseSource = new TaskCompletionSource<RecoverableTerminalResponse>(
                     TaskCreationOptions.RunContinuationsAsynchronously);
                 var laneExecutionTask = ExecuteRecoverableHandlerOnSelectedLaneAsync(
                     methodHandler,
                     request,
                     context,
                     terminalResponseSource,
-                    cancellation);
+                    cancellation,
+                    phaseScope.PersistenceCutoffToken,
+                    dispatchLifetime);
 
-                IpcResponse response;
+                RecoverableTerminalResponse terminalResponse;
                 try
                 {
-                    response = await laneExecutionTask.ConfigureAwait(false);
+                    terminalResponse = await laneExecutionTask.ConfigureAwait(false);
                 }
                 catch (OperationCanceledException) when (
                     cancellation.Reason != IpcRequestCancellationReason.None
                     &&
                     terminalResponseSource.Task.Status == TaskStatus.RanToCompletion)
                 {
-                    response = await terminalResponseSource.Task.ConfigureAwait(false);
+                    terminalResponse = await terminalResponseSource.Task.ConfigureAwait(false);
+                }
+                catch (Exception)
+                {
+                    if (dispatchLifetime.TryRevokeUnstartedWork())
+                    {
+                        ownedDispatchLifetime = null;
+                    }
+                    else
+                    {
+                        ownedDispatchLifetime = null;
+                        _ = RetireAbandonedRecoverableDispatchAsync(
+                            terminalResponseSource.Task,
+                            dispatchLifetime);
+                    }
+
+                    throw;
                 }
 
+                var response = terminalResponse.Response;
                 IpcResponse completionPersistenceFailureResponse = null;
-                if (context.HasOperationRecord)
+                if (terminalResponse.CompletionPersistenceTask != null)
                 {
                     RecoverableIpcOperationStoreResult completionResult = null;
                     var persistenceCutoffToken = phaseScope.PersistenceCutoffToken;
                     try
                     {
-                        var completionTask = context.MarkCompletedAsync(
-                                response,
-                                persistenceCutoffToken)
-                            .AsTask();
+                        var completionTask = terminalResponse.CompletionPersistenceTask;
                         var cutoffTask = Task.Delay(
                             Timeout.Infinite,
                             persistenceCutoffToken);
@@ -454,7 +479,10 @@ namespace MackySoft.Ucli.Unity.Ipc
                         if (completedTask != completionTask
                             && !completionTask.IsCompleted)
                         {
-                            ObserveLateCompletionPersistence(completionTask);
+                            ownedDispatchLifetime = null;
+                            _ = RetireAbandonedCompletionPersistenceAsync(
+                                completionTask,
+                                dispatchLifetime);
                             completionPersistenceFailureResponse =
                                 CreateCompletionPersistenceTimeoutResponse(request);
                         }
@@ -501,7 +529,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             finally
             {
-                recoverableDispatchGate.Release();
+                ownedDispatchLifetime?.Retire();
             }
         }
 
@@ -514,14 +542,49 @@ namespace MackySoft.Ucli.Unity.Ipc
                 null);
         }
 
-        private static void ObserveLateCompletionPersistence (
-            Task<RecoverableIpcOperationStoreResult> completionTask)
+        private static Task<RecoverableIpcOperationStoreResult> StartCompletionPersistence (
+            RecoverableIpcOperationContext context,
+            IpcResponse response,
+            CancellationToken cancellationToken)
         {
-            _ = ObserveLateCompletionPersistenceAsync(completionTask);
+            try
+            {
+                return context.MarkCompletedAsync(response, cancellationToken).AsTask();
+            }
+            catch (Exception exception)
+            {
+                // Terminal publication owns both synchronous startup failures and asynchronous
+                // persistence failures so the dispatcher can classify them at one boundary.
+                return Task.FromException<RecoverableIpcOperationStoreResult>(exception);
+            }
         }
 
-        private static async Task ObserveLateCompletionPersistenceAsync (
-            Task<RecoverableIpcOperationStoreResult> completionTask)
+        private static async Task RetireAbandonedRecoverableDispatchAsync (
+            Task<RecoverableTerminalResponse> terminalResponseTask,
+            RecoverableIpcDispatchLifetime dispatchLifetime)
+        {
+            try
+            {
+                var terminalResponse = await terminalResponseTask.ConfigureAwait(false);
+                if (terminalResponse.CompletionPersistenceTask != null)
+                {
+                    await terminalResponse.CompletionPersistenceTask.ConfigureAwait(false);
+                }
+            }
+            catch (Exception)
+            {
+                // The lane outcome has already escaped dispatch. Actual work retirement,
+                // rather than its outcome, owns the phase resources and retry fence.
+            }
+            finally
+            {
+                dispatchLifetime.Retire();
+            }
+        }
+
+        private static async Task RetireAbandonedCompletionPersistenceAsync (
+            Task<RecoverableIpcOperationStoreResult> completionTask,
+            RecoverableIpcDispatchLifetime dispatchLifetime)
         {
             try
             {
@@ -529,34 +592,67 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
             catch (Exception)
             {
-                // The request already returned a persistence failure. Observe late faults
-                // without invoking Unity APIs or logging from this background continuation.
+                // The dispatcher has already returned the persistence-cutoff response.
+                // The retry fence remains owned until the started write actually retires.
+            }
+            finally
+            {
+                dispatchLifetime.Retire();
             }
         }
 
-        private Task<IpcResponse> ExecuteRecoverableHandlerOnSelectedLaneAsync (
+        private Task<RecoverableTerminalResponse> ExecuteRecoverableHandlerOnSelectedLaneAsync (
             IRecoverableUnityIpcMethodHandler methodHandler,
             ValidatedUnityIpcRequest request,
             RecoverableIpcOperationContext context,
-            TaskCompletionSource<IpcResponse> terminalResponseSource,
-            IpcRequestCancellation cancellation)
+            TaskCompletionSource<RecoverableTerminalResponse> terminalResponseSource,
+            IpcRequestCancellation cancellation,
+            CancellationToken persistenceCutoffToken,
+            RecoverableIpcDispatchLifetime dispatchLifetime)
         {
             var reportMaintenanceFailure = methodHandler is not IUnityControlPlaneIpcMethodHandler;
-            Func<Task<IpcResponse>> workItem = async () =>
+            Func<Task<RecoverableTerminalResponse>> workItem = async () =>
             {
-                if (reportMaintenanceFailure)
+                if (!dispatchLifetime.TryStartWork())
                 {
-                    ReportMaintenanceFailureOnMainThread();
+                    throw new OperationCanceledException(
+                        "Recoverable IPC work admission ended before the lane started the work item.");
                 }
 
-                var response = EnsureCorrelatedResponse(
-                    request,
-                    await methodHandler.HandleRecoverableAsync(
+                try
+                {
+                    if (reportMaintenanceFailure)
+                    {
+                        ReportMaintenanceFailureOnMainThread();
+                    }
+
+                    var response = EnsureCorrelatedResponse(
                         request,
-                        context,
-                        cancellation));
-                terminalResponseSource.TrySetResult(response);
-                return response;
+                        await methodHandler.HandleRecoverableAsync(
+                            request,
+                            context,
+                            cancellation)
+                            .ConfigureAwait(false));
+                    Task<RecoverableIpcOperationStoreResult>? completionPersistenceTask = null;
+                    if (context.HasOperationRecord)
+                    {
+                        completionPersistenceTask = StartCompletionPersistence(
+                            context,
+                            response,
+                            persistenceCutoffToken);
+                    }
+
+                    var terminalResponse = new RecoverableTerminalResponse(
+                        response,
+                        completionPersistenceTask);
+                    terminalResponseSource.TrySetResult(terminalResponse);
+                    return terminalResponse;
+                }
+                catch (Exception exception)
+                {
+                    terminalResponseSource.TrySetException(exception);
+                    throw;
+                }
             };
 
             if (methodHandler is IUnityControlPlaneIpcMethodHandler)
@@ -565,6 +661,69 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             return mutationRequestExecutor.ExecuteAsync(workItem, cancellation.Token);
+        }
+
+        private sealed record RecoverableTerminalResponse (
+            IpcResponse Response,
+            Task<RecoverableIpcOperationStoreResult>? CompletionPersistenceTask);
+
+        private sealed class RecoverableIpcDispatchLifetime
+        {
+            private const int WorkPending = 0;
+            private const int WorkStarted = 1;
+            private const int Retired = 2;
+
+            private readonly SemaphoreSlim dispatchGate;
+
+            private readonly TaskCompletionSource<bool> retirementSource = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+
+            private int state;
+
+            public RecoverableIpcDispatchLifetime (SemaphoreSlim dispatchGate)
+            {
+                this.dispatchGate = dispatchGate ?? throw new ArgumentNullException(nameof(dispatchGate));
+            }
+
+            public Task Retirement => retirementSource.Task;
+
+            public bool TryStartWork ()
+            {
+                return Interlocked.CompareExchange(
+                    ref state,
+                    WorkStarted,
+                    WorkPending) == WorkPending;
+            }
+
+            public bool TryRevokeUnstartedWork ()
+            {
+                if (Interlocked.CompareExchange(
+                        ref state,
+                        Retired,
+                        WorkPending) != WorkPending)
+                {
+                    return false;
+                }
+
+                CompleteRetirement();
+                return true;
+            }
+
+            public void Retire ()
+            {
+                if (Interlocked.Exchange(ref state, Retired) == Retired)
+                {
+                    return;
+                }
+
+                CompleteRetirement();
+            }
+
+            private void CompleteRetirement ()
+            {
+                retirementSource.TrySetResult(true);
+                dispatchGate.Release();
+            }
         }
 
         private void ReportMaintenanceFailureOnMainThread ()

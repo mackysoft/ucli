@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -31,7 +32,11 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private int disposeRequested;
 
+        private int retainedResourceLifetimeCount;
+
         private bool additionalUpstreamAttached;
+
+        private bool ownerDisposeRequested;
 
         private bool timerDisposed;
 
@@ -86,6 +91,30 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Gets the token canceled at the progress and terminal frame-write cutoff. </summary>
         public CancellationToken WriteCutoffToken => writeCutoffCancellationTokenSource.Token;
 
+        /// <summary> Keeps this scope's timer and cancellation resources alive until one admitted operation has actually retired. </summary>
+        /// <param name="lifetime"> The actual operation lifetime, which may outlive its outward lane result. </param>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="lifetime" /> is <see langword="null" />. </exception>
+        /// <exception cref="InvalidOperationException"> Thrown when the connection owner has already disposed this scope. </exception>
+        public void RetainResourcesUntil (Task lifetime)
+        {
+            if (lifetime == null)
+            {
+                throw new ArgumentNullException(nameof(lifetime));
+            }
+
+            lock (lifetimeSyncRoot)
+            {
+                if (ownerDisposeRequested)
+                {
+                    throw new InvalidOperationException("The request phase scope owner has already disposed the scope.");
+                }
+
+                retainedResourceLifetimeCount++;
+            }
+
+            _ = ReleaseResourcesWhenLifetimeCompletesAsync(lifetime);
+        }
+
         /// <summary> Adds one execution upstream after endpoint validation has selected its connection-lifetime policy. </summary>
         /// <param name="upstreamCancellationToken"> The additional upstream token. </param>
         /// <exception cref="InvalidOperationException"> Thrown when an additional upstream was already attached or disposal has started. </exception>
@@ -93,7 +122,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         {
             lock (lifetimeSyncRoot)
             {
-                if (disposeRequested != 0)
+                if (ownerDisposeRequested)
                 {
                     throw new InvalidOperationException("The request phase scope is being disposed.");
                 }
@@ -112,7 +141,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             var disposeRegistration = false;
             lock (lifetimeSyncRoot)
             {
-                if (disposeRequested != 0)
+                if (ownerDisposeRequested)
                 {
                     disposeRegistration = true;
                 }
@@ -128,19 +157,74 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        /// <summary> Stops future timer callbacks and releases callback-shared resources after active callbacks return. </summary>
+        /// <summary> Releases connection ownership and disposes phase resources after every retained operation has retired. </summary>
         public void Dispose ()
         {
+            bool disposeResources;
             lock (lifetimeSyncRoot)
             {
-                if (disposeRequested != 0)
+                if (ownerDisposeRequested)
                 {
                     return;
                 }
 
-                Volatile.Write(ref disposeRequested, 1);
+                ownerDisposeRequested = true;
+                disposeResources = retainedResourceLifetimeCount == 0
+                    && TryBeginResourceDisposalLocked();
             }
 
+            if (disposeResources)
+            {
+                DisposeTimerAndOwnedResources();
+            }
+        }
+
+        private async Task ReleaseResourcesWhenLifetimeCompletesAsync (Task lifetime)
+        {
+            try
+            {
+                await lifetime.ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                // Resource retention follows actual task retirement, not its success or failure.
+            }
+            finally
+            {
+                ReleaseRetainedResourceLifetime();
+            }
+        }
+
+        private void ReleaseRetainedResourceLifetime ()
+        {
+            bool disposeResources;
+            lock (lifetimeSyncRoot)
+            {
+                retainedResourceLifetimeCount--;
+                disposeResources = ownerDisposeRequested
+                    && retainedResourceLifetimeCount == 0
+                    && TryBeginResourceDisposalLocked();
+            }
+
+            if (disposeResources)
+            {
+                DisposeTimerAndOwnedResources();
+            }
+        }
+
+        private bool TryBeginResourceDisposalLocked ()
+        {
+            if (disposeRequested != 0)
+            {
+                return false;
+            }
+
+            Volatile.Write(ref disposeRequested, 1);
+            return true;
+        }
+
+        private void DisposeTimerAndOwnedResources ()
+        {
             // Timer.Dispose does not wait for a running callback. Keep callback-shared resources alive
             // until every callback that entered before this disposal request has returned.
             try

@@ -260,6 +260,49 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         });
 
+        [UnityTest]
+        [Category("Size.Small")]
+        public IEnumerator RetainResourcesUntil_WhenPhaseScopeIsDisposed_PreservesCutoffsUntilLifetimeCompletes () => UniTask.ToCoroutine(async () =>
+        {
+            var retainedLifetime = new TaskCompletionSource<bool>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var elapsedTime = Stopwatch.StartNew();
+            var requestDeadlineUtc = DateTimeOffset.UtcNow + TimeSpan.FromMilliseconds(250);
+            var plan = IpcRequestPhasePlan.Create(
+                CreateRequest(requestDeadlineUtc, requestDeadlineRemainingMilliseconds: 250),
+                DateTimeOffset.UtcNow,
+                maximumResponseFrameWriteDuration: TimeSpan.FromMilliseconds(20));
+            var phaseScope = new IpcRequestPhaseScope(
+                plan,
+                elapsedTime,
+                CancellationToken.None);
+            try
+            {
+                phaseScope.RetainResourcesUntil(retainedLifetime.Task);
+
+                phaseScope.Dispose();
+
+                Assert.That(phaseScope.PersistenceCutoffToken.IsCancellationRequested, Is.False);
+                Assert.That(elapsedTime.IsRunning, Is.True);
+                await AsyncExceptionCapture.CaptureAsync<OperationCanceledException>(async () =>
+                {
+                    await Task.Delay(Timeout.Infinite, phaseScope.PersistenceCutoffToken);
+                }, "retained request persistence cutoff", SignalWaitTimeout);
+
+                Assert.That(elapsedTime.IsRunning, Is.True);
+                retainedLifetime.TrySetResult(true);
+                await TestAwaiter.WaitUntilAsync(
+                    () => !elapsedTime.IsRunning,
+                    "retained request phase resource disposal",
+                    SignalWaitTimeout);
+            }
+            finally
+            {
+                retainedLifetime.TrySetResult(true);
+                phaseScope.Dispose();
+            }
+        });
+
         [Test]
         [Category("Size.Small")]
         public void CancellationReason_WhenDeadlineCancelsFirst_RemainsDeadlineAfterUpstreamCancellation ()

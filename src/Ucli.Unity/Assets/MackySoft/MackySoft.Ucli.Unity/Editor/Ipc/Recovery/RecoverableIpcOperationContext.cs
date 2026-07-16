@@ -18,12 +18,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         private readonly Guid requestId;
         private readonly Sha256Digest requestPayloadHash;
 
-        private readonly object completionSyncRoot = new object();
-
         private DateTimeOffset startedAtUtc;
         private JsonElement recoveryPayload;
         private bool hasRecord;
-        private Task<RecoverableIpcOperationStoreResult> completionTask;
 
         /// <summary> Initializes a new instance of the <see cref="RecoverableIpcOperationContext" /> class. </summary>
         public RecoverableIpcOperationContext (
@@ -106,7 +103,8 @@ namespace MackySoft.Ucli.Unity.Ipc
                 requestPayloadHash,
                 nextStartedAtUtc,
                 nextRecoveryPayload,
-                cancellationToken);
+                cancellationToken)
+                .ConfigureAwait(false);
             if (!result.IsSuccess)
             {
                 return result;
@@ -134,18 +132,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     RecoverableIpcOperationStoreResult.Success());
             }
 
-            lock (completionSyncRoot)
-            {
-                completionTask ??= MarkCompletedCoreAsync(response, cancellationToken);
-                return new ValueTask<RecoverableIpcOperationStoreResult>(completionTask);
-            }
-        }
-
-        private async Task<RecoverableIpcOperationStoreResult> MarkCompletedCoreAsync (
-            IpcResponse response,
-            CancellationToken cancellationToken)
-        {
-            return await store.WriteCompletedAsync(
+            return store.WriteCompletedAsync(
                 method,
                 requestId,
                 requestPayloadHash,
