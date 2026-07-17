@@ -1,6 +1,6 @@
 interface:
   display_name: "Code Authoring Rules"
-  short_description: "ソースコードを実装、変更、レビューするときに、責務と契約の境界、既存実装への収束、意味を持つ構造、依存関係と副作用、設計意図を残すコメントの判断規則を適用する。言語、フレームワーク、プロジェクト固有の規則と併用する。"
+  short_description: "ソースコードを実装、変更、レビューするときに、設計判断の根拠、責務と契約の境界、既存実装への収束、意味を持つ構造、依存関係と副作用、設計意図を残すコメントの判断規則を適用する。言語、フレームワーク、プロジェクト固有の規則と併用する。"
   default_prompt: "Use $code-authoring-rules to follow the Code Authoring Rules workflow."
 
 policy:
