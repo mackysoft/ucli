@@ -9,6 +9,11 @@ on:
     branches:
       - master
   workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: Commit SHA that the Agent Skills sync workflow expects this run to verify.
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
@@ -18,8 +23,24 @@ permissions:
   contents: read
 
 jobs:
+  source:
+    name: synchronized source
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Guard synchronized commit
+        env:
+          ACTUAL_SHA: ${{ github.sha }}
+          EXPECTED_SHA: ${{ inputs.expected_sha }}
+        run: |
+          if [[ -n "${EXPECTED_SHA}" && "${ACTUAL_SHA}" != "${EXPECTED_SHA}" ]]; then
+            echo "Expected synchronized commit ${EXPECTED_SHA}, but workflow_dispatch resolved ${ACTUAL_SHA}." >&2
+            exit 1
+          fi
+
   changes:
     name: changes
+    needs: source
     runs-on: ubuntu-latest
 
     outputs:
@@ -48,6 +69,20 @@ jobs:
           PUSH_BEFORE_SHA: ${{ github.event.before }}
           CURRENT_SHA: ${{ github.sha }}
         run: ./scripts/detect-verify-scopes.sh
+
+  agent_skills:
+    name: agent-skills
+    needs: source
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Verify Agent Skills bundle
+        uses: mackysoft/agent-skills/actions/verify@1.0.0
+        with:
+          root: skills
 
   access_guard:
     name: access-guard
@@ -540,6 +575,7 @@ jobs:
     if: ${{ always() }}
     needs:
       - changes
+      - agent_skills
       - access_guard
       - dotnet
       - unity
@@ -560,6 +596,7 @@ jobs:
           NEEDS_UNITY_PACK: ${{ needs.changes.outputs.needs_unity_pack }}
           NEEDS_RELEASE_PACK: ${{ needs.changes.outputs.needs_release_pack }}
           CHANGES_RESULT: ${{ needs.changes.result }}
+          AGENT_SKILLS_RESULT: ${{ needs.agent_skills.result }}
           ACCESS_GUARD_RESULT: ${{ needs.access_guard.result }}
           DOTNET_RESULT: ${{ needs.dotnet.result }}
           UNITY_RESULT: ${{ needs.unity.result }}
@@ -572,6 +609,11 @@ jobs:
 
           if [[ "${CHANGES_RESULT}" != "success" ]]; then
             echo "changes job did not succeed. Actual result: ${CHANGES_RESULT}" >&2
+            exit 1
+          fi
+
+          if [[ "${AGENT_SKILLS_RESULT}" != "success" ]]; then
+            echo "agent-skills job did not succeed. Actual result: ${AGENT_SKILLS_RESULT}" >&2
             exit 1
           fi
 

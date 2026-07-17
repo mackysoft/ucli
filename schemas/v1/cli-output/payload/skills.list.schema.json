@@ -4,14 +4,12 @@
   "type": "object",
   "additionalProperties": false,
   "properties": {
-    "tiers": {
+    "categories": {
       "type": "array",
       "items": {
         "type": "string",
         "enum": [
-          "basic",
-          "advanced",
-          "developer"
+          "basic"
         ]
       }
     },
@@ -21,18 +19,16 @@
         "type": "string"
       }
     },
-    "availableTiers": {
+    "availableCategories": {
       "type": "array",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "tier": {
+          "category": {
             "type": "string",
             "enum": [
-              "basic",
-              "advanced",
-              "developer"
+              "basic"
             ]
           },
           "skillCount": {
@@ -41,7 +37,7 @@
           }
         },
         "required": [
-          "tier",
+          "category",
           "skillCount"
         ]
       }
@@ -67,12 +63,10 @@
               "type": "string"
             }
           },
-          "tier": {
+          "category": {
             "type": "string",
             "enum": [
-              "basic",
-              "advanced",
-              "developer"
+              "basic"
             ]
           },
           "catalogId": {
@@ -131,7 +125,7 @@
           "displayName",
           "description",
           "dependencies",
-          "tier",
+          "category",
           "catalogId",
           "skillBundleVersion",
           "contentDigest",
@@ -168,9 +162,9 @@
     }
   },
   "required": [
-    "tiers",
+    "categories",
     "skillNames",
-    "availableTiers",
+    "availableCategories",
     "skills",
     "supportedHosts"
   ]

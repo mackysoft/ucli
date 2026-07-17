@@ -57,7 +57,7 @@ if ! "${tool_path}/ucli" query --help | grep -F "asset schema" >/dev/null; then
 fi
 
 package_entries="$(unzip -Z1 "${package_path}")"
-for entry in README.md LICENSE tools/net8.0/any/DotnetToolSettings.xml tools/net8.0/any/schemas/v1/schema-manifest.json; do
+for entry in README.md LICENSE tools/net8.0/any/DotnetToolSettings.xml tools/net8.0/any/schemas/v1/schema-manifest.json tools/net8.0/any/skills/bundle.json; do
   if ! grep -Fx "${entry}" <<< "${package_entries}" >/dev/null; then
     echo "CLI package is missing required entry: ${entry}" >&2
     exit 1
@@ -135,17 +135,15 @@ if skill_names != []:
     )
     sys.exit(1)
 actual = [
-    (tier.get("tier"), tier.get("skillCount"))
-    for tier in payload.get("availableTiers", [])
+    (category.get("category"), category.get("skillCount"))
+    for category in payload.get("availableCategories", [])
 ]
 expected = [
     ("basic", 4),
-    ("advanced", 0),
-    ("developer", 0),
 ]
 if actual != expected:
     print(
-        f"ucli skills list did not report expected availableTiers. Expected: {expected}. Actual: {actual}",
+        f"ucli skills list did not report expected availableCategories. Expected: {expected}. Actual: {actual}",
         file=sys.stderr,
     )
     sys.exit(1)
@@ -173,7 +171,7 @@ if skill_names != ["ucli-read-project"] or skills != ["ucli-read-project"]:
 PY
 
 export_path="${tool_path}/exported-skills"
-"${tool_path}/ucli" skills export --host openai --tier basic --output "${export_path}" >/dev/null
+"${tool_path}/ucli" skills export --host openai --category basic --output "${export_path}" >/dev/null
 while IFS= read -r relative_path; do
   exported_file="${export_path}/${relative_path}"
   if [[ ! -f "${exported_file}" ]]; then
@@ -194,9 +192,9 @@ if [[ -e "${single_export_path}/ucli-plan-apply" ]]; then
 fi
 
 install_repo="$(mktemp -d "${temp_root%/}/ucli-skills-install.XXXXXX")"
-"${tool_path}/ucli" skills install --host openai --tier basic --scope project --repoRoot "${install_repo}" >/dev/null
-"${tool_path}/ucli" skills install --host openai --tier basic --scope project --repoRoot "${install_repo}" >/dev/null
-"${tool_path}/ucli" skills doctor --host openai --tier basic --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills install --host openai --category basic --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills install --host openai --category basic --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills doctor --host openai --category basic --scope project --repoRoot "${install_repo}" >/dev/null
 installed_path="${install_repo}/.agents/skills"
 if [[ ! -d "${installed_path}" ]]; then
   echo "ucli skills install did not create the project skills directory: ${installed_path}" >&2

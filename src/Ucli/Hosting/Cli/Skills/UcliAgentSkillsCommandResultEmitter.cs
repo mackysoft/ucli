@@ -1,6 +1,5 @@
 using MackySoft.AgentSkills.Hosting.Commands;
 using MackySoft.AgentSkills.Hosting.Reporting;
-using MackySoft.AgentSkills.Hosts.Registration;
 using MackySoft.Ucli.Hosting.Cli.Common.Execution;
 
 namespace MackySoft.Ucli.Hosting.Cli.Skills;
@@ -9,15 +8,11 @@ namespace MackySoft.Ucli.Hosting.Cli.Skills;
 internal sealed class UcliAgentSkillsCommandResultEmitter : IAgentSkillsCommandResultEmitter
 {
     private readonly ICommandResultWriter commandResultWriter;
-    private readonly SkillHostAdapterSet hostAdapters;
 
     /// <summary> Initializes a new instance of the <see cref="UcliAgentSkillsCommandResultEmitter" /> class. </summary>
-    public UcliAgentSkillsCommandResultEmitter (
-        ICommandResultWriter commandResultWriter,
-        SkillHostAdapterSet hostAdapters)
+    public UcliAgentSkillsCommandResultEmitter (ICommandResultWriter commandResultWriter)
     {
         this.commandResultWriter = commandResultWriter ?? throw new ArgumentNullException(nameof(commandResultWriter));
-        this.hostAdapters = hostAdapters ?? throw new ArgumentNullException(nameof(hostAdapters));
     }
 
     /// <inheritdoc />
@@ -30,7 +25,7 @@ internal sealed class UcliAgentSkillsCommandResultEmitter : IAgentSkillsCommandR
         ArgumentNullException.ThrowIfNull(options);
         cancellationToken.ThrowIfCancellationRequested();
 
-        var commandResult = SkillsCommandResultFactory.Create(result, hostAdapters);
+        var commandResult = SkillsCommandResultFactory.Create(result);
         commandResultWriter.WriteToStandardOutput(commandResult);
         return ValueTask.FromResult(commandResult.ExitCode);
     }

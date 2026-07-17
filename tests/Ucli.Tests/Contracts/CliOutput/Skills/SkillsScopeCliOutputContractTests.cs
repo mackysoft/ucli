@@ -28,7 +28,7 @@ public sealed class SkillsScopeCliOutputContractTests
             Host = "openai",
             Scope = "project",
             RepoRoot = repoRoot,
-            Tier = ["basic"],
+            Category = ["basic"],
         });
         Assert.Equal((int)CliExitCode.Success, seed.ExitCode);
 
@@ -70,6 +70,30 @@ public sealed class SkillsScopeCliOutputContractTests
         FileSystemAssert.ForPath(payload.GetProperty("repositoryRoot").GetString()!).EqualsNormalized(workingDirectory);
         FileSystemAssert.ForPath(payload.GetProperty("targetRoot").GetString()!).EqualsNormalized(Path.Combine(workingDirectory, ".agents", "skills"));
         FileSystemAssert.ForPath(Path.Combine(workingDirectory, ".agents")).DoesNotExist();
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task SkillsProjectScope_WithExplicitTargetDir_ReportsRequestedRepositoryRoot ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "project-explicit-target");
+        var repoRoot = scope.CreateDirectory("repo");
+        var targetRoot = Path.Combine(repoRoot, "custom", "skills");
+
+        var result = await SkillsCliOutputContractTestSupport.RunScopedCommandAsync(
+            UcliCommandNames.InstallSubcommand,
+            repoRoot,
+            host: "openai",
+            scope: "project",
+            targetDir: targetRoot,
+            dryRun: true);
+
+        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
+        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
+        CommandResultAssert.HasSuccessEnvelope(outputJson.RootElement, UcliCommandNames.SkillsInstall);
+        var payload = outputJson.RootElement.GetProperty("payload");
+        FileSystemAssert.ForPath(payload.GetProperty("repositoryRoot").GetString()!).EqualsNormalized(repoRoot);
+        FileSystemAssert.ForPath(payload.GetProperty("targetRoot").GetString()!).EqualsNormalized(targetRoot);
     }
 
     [Fact]

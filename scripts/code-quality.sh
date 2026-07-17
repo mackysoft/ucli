@@ -105,6 +105,15 @@ done
 solution="$(dotnet_resolve_solution "$solution_arg")"
 cd "$DOTNET_REPO_ROOT"
 
+# NOTE: Package-provided consumer sources can appear as Compile items, but their formatting remains package-owned.
+if [ "${#include_paths[@]}" -eq 0 ]; then
+  include_paths=(
+    src
+    tests
+    tools
+  )
+fi
+
 diagnostics=(
   IDE0005
   IDE0011
@@ -125,11 +134,7 @@ run_dotnet_format() {
   local command="$1"
   shift
 
-  if [ "${#include_paths[@]}" -gt 0 ]; then
-    dotnet format "$command" "$solution" --include "${include_paths[@]}" "$@"
-  else
-    dotnet format "$command" "$solution" "$@"
-  fi
+  dotnet format "$command" "$solution" --include "${include_paths[@]}" "$@"
 }
 
 run_format() {

@@ -1,7 +1,0 @@
-interface:
-  display_name: "uCLI Read Project"
-  short_description: "Use when inspecting a Unity project with uCLI before choosing selectors, operation metadata, schemas, or readIndex freshness. Guides read-first discovery without hard-coding operation contracts."
-  default_prompt: "Use $ucli-read-project to follow the uCLI Read Project workflow."
-
-policy:
-  allow_implicit_invocation: true

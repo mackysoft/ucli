@@ -1,6 +1,7 @@
+using MackySoft.AgentSkills.Doctor;
 using MackySoft.AgentSkills.Hosting.Commands;
-using MackySoft.AgentSkills.Hosts.Registration;
 using MackySoft.AgentSkills.OperationReports.Contracts;
+using MackySoft.AgentSkills.OperationReports.Literals;
 using MackySoft.AgentSkills.Shared;
 using MackySoft.Ucli.Application.Shared.Execution;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -11,19 +12,13 @@ namespace MackySoft.Ucli.Hosting.Cli.Skills;
 /// <summary> Creates command-level JSON results for <c>skills</c> commands. </summary>
 internal static class SkillsCommandResultFactory
 {
-    private const string ProjectScopeLiteral = "project";
-    private const string BlockedStatusLiteral = "blocked";
-    private const string DoctorErrorSeverityLiteral = "error";
     private const string PrivateVarPath = "/private/var";
     private const string VarPath = "/var";
 
     /// <summary> Creates a command result from the shared Agent Skills command runtime result. </summary>
-    public static CommandResult Create (
-        AgentSkillsCommandResult result,
-        SkillHostAdapterSet hostAdapters)
+    public static CommandResult Create (AgentSkillsCommandResult result)
     {
         ArgumentNullException.ThrowIfNull(result);
-        ArgumentNullException.ThrowIfNull(hostAdapters);
 
         if (!result.IsSuccess)
         {
@@ -43,8 +38,8 @@ internal static class SkillsCommandResultFactory
             SkillOperationReport report => CommandResult.Success(
                 result.Command,
                 CreateOperationMessage(result.Command, report),
-                CreateOperationPayload(result.Command, report, hostAdapters)),
-            SkillDoctorReport report => CreateDoctor(result.Command, report, hostAdapters),
+                CreateOperationPayload(result.Command, report)),
+            SkillDoctorReport report => CreateDoctor(result.Command, report),
             _ => CommandFailureProjector.Create(
                 result.Command,
                 ApplicationFailure.InternalError($"Unsupported Agent Skills command payload: {result.Payload?.GetType().FullName ?? "(null)"}"),
@@ -73,13 +68,13 @@ internal static class SkillsCommandResultFactory
     {
         return new
         {
-            tiers = report.Tiers,
+            categories = report.Categories,
             skillNames = report.SkillNames,
-            availableTiers = report.AvailableTiers
-                .Select(static tier => new
+            availableCategories = report.AvailableCategories
+                .Select(static category => new
                 {
-                    tier = tier.Tier,
-                    skillCount = tier.SkillCount,
+                    category = category.Category,
+                    skillCount = category.SkillCount,
                 })
                 .ToArray(),
             skills = report.Skills
@@ -89,7 +84,7 @@ internal static class SkillsCommandResultFactory
                     skill.DisplayName,
                     skill.Description,
                     dependencies = skill.Dependencies,
-                    tier = skill.Tier,
+                    category = skill.Category,
                     catalogId = skill.CatalogId,
                     skillBundleVersion = skill.SkillBundleVersion,
                     contentDigest = skill.ContentDigest,
@@ -113,7 +108,7 @@ internal static class SkillsCommandResultFactory
         return new
         {
             host = report.Host,
-            tiers = report.Tiers,
+            categories = report.Categories,
             skillNames = report.SkillNames,
             format = report.Format,
             outputRoot = ToDisplayPath(report.OutputPath),
@@ -125,19 +120,18 @@ internal static class SkillsCommandResultFactory
 
     private static object CreateOperationPayload (
         string command,
-        SkillOperationReport report,
-        SkillHostAdapterSet hostAdapters)
+        SkillOperationReport report)
     {
         var targetRoot = ToDisplayPath(report.TargetRoot);
         var actions = CreateActionPayloads(report.Actions, targetRoot);
-        var repositoryRoot = InferRepositoryRoot(report.Host, report.Scope, targetRoot, hostAdapters);
+        var repositoryRoot = report.RepositoryRoot is null ? null : ToDisplayPath(report.RepositoryRoot);
 
         return command switch
         {
             UcliCommandNames.SkillsInstall => new
             {
                 host = report.Host,
-                tiers = report.Tiers,
+                categories = report.Categories,
                 skillNames = report.SkillNames,
                 scope = report.Scope,
                 repositoryRoot,
@@ -155,7 +149,7 @@ internal static class SkillsCommandResultFactory
             UcliCommandNames.SkillsUpdate => new
             {
                 host = report.Host,
-                tiers = report.Tiers,
+                categories = report.Categories,
                 skillNames = report.SkillNames,
                 scope = report.Scope,
                 repositoryRoot,
@@ -173,7 +167,7 @@ internal static class SkillsCommandResultFactory
             UcliCommandNames.SkillsUninstall => new
             {
                 host = report.Host,
-                tiers = report.Tiers,
+                categories = report.Categories,
                 skillNames = report.SkillNames,
                 scope = report.Scope,
                 repositoryRoot,
@@ -190,7 +184,7 @@ internal static class SkillsCommandResultFactory
             UcliCommandNames.SkillsPrune => new
             {
                 host = report.Host,
-                tiers = report.Tiers,
+                categories = report.Categories,
                 skillNames = report.SkillNames,
                 scope = report.Scope,
                 repositoryRoot,
@@ -208,7 +202,7 @@ internal static class SkillsCommandResultFactory
             _ => new
             {
                 host = report.Host,
-                tiers = report.Tiers,
+                categories = report.Categories,
                 skillNames = report.SkillNames,
                 scope = report.Scope,
                 repositoryRoot,
@@ -225,19 +219,18 @@ internal static class SkillsCommandResultFactory
 
     private static CommandResult CreateDoctor (
         string command,
-        SkillDoctorReport report,
-        SkillHostAdapterSet hostAdapters)
+        SkillDoctorReport report)
     {
         var targetRoot = ToDisplayPath(report.TargetRoot);
         var payload = new
         {
             host = report.Host,
-            tiers = report.Tiers,
+            categories = report.Categories,
             skillNames = report.SkillNames,
             scope = report.Scope,
-            repositoryRoot = InferRepositoryRoot(report.Host, report.Scope, targetRoot, hostAdapters),
+            repositoryRoot = report.RepositoryRoot is null ? null : ToDisplayPath(report.RepositoryRoot),
             targetRoot,
-            reloadGuidance = ResolveReloadGuidance(report.Host, hostAdapters),
+            reloadGuidance = report.ReloadGuidance,
             report.IsHealthy,
             diagnostics = report.Diagnostics
                 .Select(static diagnostic => new
@@ -259,7 +252,7 @@ internal static class SkillsCommandResultFactory
         }
 
         var failures = report.Diagnostics
-            .Where(static diagnostic => string.Equals(diagnostic.Severity, DoctorErrorSeverityLiteral, StringComparison.Ordinal))
+            .Where(static diagnostic => diagnostic.Severity == SkillDoctorSeverity.Error)
             .Select(static diagnostic => ApplicationFailure.InternalError(diagnostic.Message, new UcliCode(diagnostic.Code)))
             .ToArray();
         if (failures.Length == 0)
@@ -341,46 +334,13 @@ internal static class SkillsCommandResultFactory
     private static int CountBlocked (SkillOperationReport report)
     {
         return report.Actions.Count(static action =>
-            string.Equals(action.Status, BlockedStatusLiteral, StringComparison.Ordinal)
+            action.Status == SkillOperationActionStatus.Blocked
             || action.BlockedReason is not null);
     }
 
     private static bool HasDiffs (SkillOperationReport report)
     {
         return report.Actions.Any(static action => action.FileDiffs.Count > 0);
-    }
-
-    private static string? InferRepositoryRoot (
-        string host,
-        string scope,
-        string targetRoot,
-        SkillHostAdapterSet hostAdapters)
-    {
-        if (!string.Equals(scope, ProjectScopeLiteral, StringComparison.Ordinal))
-        {
-            return null;
-        }
-
-        var adapterResult = hostAdapters.GetAdapter(host);
-        var projectDefaultTargetPath = adapterResult.IsSuccess
-            ? adapterResult.Value!.Descriptor.ProjectDefaultTargetPath
-            : null;
-        if (string.IsNullOrWhiteSpace(projectDefaultTargetPath))
-        {
-            return null;
-        }
-
-        var normalizedSuffix = Path.DirectorySeparatorChar + projectDefaultTargetPath.Replace('/', Path.DirectorySeparatorChar);
-        var comparison = OperatingSystem.IsWindows()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
-        if (!targetRoot.EndsWith(normalizedSuffix, comparison))
-        {
-            return null;
-        }
-
-        var repositoryRoot = targetRoot[..^normalizedSuffix.Length];
-        return string.IsNullOrWhiteSpace(repositoryRoot) ? null : repositoryRoot;
     }
 
     private static string ToDisplayPath (string path)
@@ -399,13 +359,5 @@ internal static class SkillsCommandResultFactory
         return path.StartsWith(privateVarPrefix, StringComparison.Ordinal)
             ? VarPath + "/" + path[privateVarPrefix.Length..]
             : path;
-    }
-
-    private static string ResolveReloadGuidance (
-        string host,
-        SkillHostAdapterSet hostAdapters)
-    {
-        var adapterResult = hostAdapters.GetAdapter(host);
-        return adapterResult.IsSuccess ? adapterResult.Value!.Descriptor.ReloadGuidance : string.Empty;
     }
 }

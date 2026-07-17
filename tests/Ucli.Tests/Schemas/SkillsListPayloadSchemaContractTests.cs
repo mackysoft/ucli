@@ -6,10 +6,10 @@ public sealed class SkillsListPayloadSchemaContractTests
 {
     [Theory]
     [Trait("Size", "Small")]
-    [InlineData("""{"tiers":["internal"],"skillNames":[],"availableTiers":[{"tier":"basic","skillCount":0}],"skills":[],"supportedHosts":[]}""")]
-    [InlineData("""{"tiers":["basic"],"skillNames":[],"availableTiers":[{"tier":"internal","skillCount":0}],"skills":[],"supportedHosts":[]}""")]
-    [InlineData("""{"tiers":["basic"],"skillNames":[],"availableTiers":[{"tier":"basic","skillCount":-1}],"skills":[],"supportedHosts":[]}""")]
-    public void SkillsListPayloadSchema_RejectsInvalidTierInventory (string payloadJson)
+    [InlineData("""{"categories":["internal"],"skillNames":[],"availableCategories":[{"category":"basic","skillCount":0}],"skills":[],"supportedHosts":[]}""")]
+    [InlineData("""{"categories":["basic"],"skillNames":[],"availableCategories":[{"category":"internal","skillCount":0}],"skills":[],"supportedHosts":[]}""")]
+    [InlineData("""{"categories":["basic"],"skillNames":[],"availableCategories":[{"category":"basic","skillCount":-1}],"skills":[],"supportedHosts":[]}""")]
+    public void SkillsListPayloadSchema_RejectsInvalidCategoryInventory (string payloadJson)
     {
         using var payload = JsonDocument.Parse(payloadJson);
 

@@ -52,6 +52,17 @@ public sealed class VerifyScopeDetectorTests
             NeedsUnityPack: "false",
             NeedsReleasePack: "true"),
         new(
+            "Agent Skills sync workflow",
+            ".github/workflows/agent-skills-sync.yaml",
+            "name: agent-skills-sync\n",
+            "name: agent-skills-sync\n# changed\n",
+            NeedsDotnet: "true",
+            NeedsSharedPack: "false",
+            NeedsCliPack: "false",
+            NeedsUnity: "false",
+            NeedsUnityPack: "false",
+            NeedsReleasePack: "false"),
+        new(
             "release publish workflow",
             ".github/workflows/package-publish.yaml",
             "name: package-publish\n",

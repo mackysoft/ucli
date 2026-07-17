@@ -6,14 +6,13 @@ namespace MackySoft.Ucli.Tests;
 [Collection(CurrentDirectoryTestCollection.Name)]
 public sealed class SkillsListCliOutputContractTests
 {
-    private const string SkillInputInvalidCode = "SKILL_INPUT_INVALID";
     private const string InvalidArgumentCode = "INVALID_ARGUMENT";
 
     [Fact]
     [Trait("Size", "Small")]
     public async Task SkillsList_ReturnsOfficialSkillsAndSupportedHosts ()
     {
-        var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync(tier: ["basic"]);
+        var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync(category: ["basic"]);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
@@ -24,26 +23,20 @@ public sealed class SkillsListCliOutputContractTests
 
         var payload = outputJson.RootElement.GetProperty("payload");
         JsonAssert.For(payload)
-            .HasArrayLength("tiers", 1)
+            .HasArrayLength("categories", 1)
             .HasArrayLength("skillNames", 0)
-            .HasArrayLength("availableTiers", 3)
+            .HasArrayLength("availableCategories", 1)
             .HasArrayLength("skills", SkillsCliOutputContractTestSupport.ExpectedSkillNames.Length)
             .HasArrayLength("supportedHosts", 3)
-            .HasProperty("availableTiers", 0, static tier => tier
-                .HasString("tier", "basic")
+            .HasProperty("availableCategories", 0, static category => category
+                .HasString("category", "basic")
                 .HasInt32("skillCount", SkillsCliOutputContractTestSupport.ExpectedSkillNames.Length))
-            .HasProperty("availableTiers", 1, static tier => tier
-                .HasString("tier", "advanced")
-                .HasInt32("skillCount", 0))
-            .HasProperty("availableTiers", 2, static tier => tier
-                .HasString("tier", "developer")
-                .HasInt32("skillCount", 0))
             .HasProperty("skills", 0, static skill => skill
                 .HasString("skillName", SkillsCliOutputContractTestSupport.ExpectedSkillNames[0])
                 .HasValueKind("displayName", JsonValueKind.String)
                 .HasValueKind("description", JsonValueKind.String)
                 .HasArrayLength("dependencies", 0)
-                .HasString("tier", "basic")
+                .HasString("category", "basic")
                 .HasString("catalogId", "com.mackysoft.ucli")
                 .HasInt32("skillBundleVersion", 1)
                 .HasValueKind("contentDigest", JsonValueKind.String)
@@ -65,9 +58,9 @@ public sealed class SkillsListCliOutputContractTests
                 .HasValueKind("reloadGuidance", JsonValueKind.String));
 
         Assert.Equal(["basic"], payload
-            .GetProperty("tiers")
+            .GetProperty("categories")
             .EnumerateArray()
-            .Select(static tier => tier.GetString() ?? string.Empty)
+            .Select(static category => category.GetString() ?? string.Empty)
             .ToArray());
         Assert.Equal(SkillsCliOutputContractTestSupport.ExpectedSkillNames, payload
             .GetProperty("skills")
@@ -77,59 +70,9 @@ public sealed class SkillsListCliOutputContractTests
         SkillsListPayloadSchemaTestSupport.AssertPayloadMatchesSchema(outputJson.RootElement);
     }
 
-    [Theory]
-    [Trait("Size", "Small")]
-    [InlineData("advanced")]
-    [InlineData("developer")]
-    public async Task SkillsList_WithEmptyTier_ReturnsEmptySkillList (string tier)
-    {
-        var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync(tier: [tier]);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CommandResultAssert.HasSuccessEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.SkillsList);
-        JsonAssert.For(outputJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasArrayLength("tiers", 1)
-                .HasArrayLength("skillNames", 0)
-                .HasArrayLength("availableTiers", 3)
-                .HasArrayLength("skills", 0));
-        Assert.Equal(tier, outputJson.RootElement.GetProperty("payload").GetProperty("tiers")[0].GetString());
-        Assert.Equal(["basic", "advanced", "developer"], ReadPayloadStringArray(outputJson.RootElement, "availableTiers", "tier"));
-    }
-
     [Fact]
     [Trait("Size", "Small")]
-    public async Task SkillsList_WithMultipleTiers_ReturnsMatchingSkills ()
-    {
-        var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync(tier: ["basic", "advanced"]);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.Success, result.ExitCode);
-        CommandResultAssert.HasSuccessEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.SkillsList);
-
-        var payload = outputJson.RootElement.GetProperty("payload");
-        Assert.Equal(["basic", "advanced"], payload
-            .GetProperty("tiers")
-            .EnumerateArray()
-            .Select(static tier => tier.GetString() ?? string.Empty)
-            .ToArray());
-        Assert.Empty(payload.GetProperty("skillNames").EnumerateArray());
-        Assert.Equal(["basic", "advanced", "developer"], ReadPayloadStringArray(outputJson.RootElement, "availableTiers", "tier"));
-        Assert.Equal(SkillsCliOutputContractTestSupport.ExpectedSkillNames, payload
-            .GetProperty("skills")
-            .EnumerateArray()
-            .Select(static skill => skill.GetProperty("skillName").GetString())
-            .ToArray());
-    }
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SkillsList_WithoutTier_ReturnsAllDefinedTiersAndMatchingSkills ()
+    public async Task SkillsList_WithoutCategory_ReturnsAllDefinedCategoriesAndMatchingSkills ()
     {
         var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync();
 
@@ -140,13 +83,13 @@ public sealed class SkillsListCliOutputContractTests
             UcliCommandNames.SkillsList);
 
         var payload = outputJson.RootElement.GetProperty("payload");
-        Assert.Equal(["basic", "advanced", "developer"], payload
-            .GetProperty("tiers")
+        Assert.Equal(["basic"], payload
+            .GetProperty("categories")
             .EnumerateArray()
-            .Select(static tier => tier.GetString() ?? string.Empty)
+            .Select(static category => category.GetString() ?? string.Empty)
             .ToArray());
         Assert.Empty(payload.GetProperty("skillNames").EnumerateArray());
-        Assert.Equal(["basic", "advanced", "developer"], ReadPayloadStringArray(outputJson.RootElement, "availableTiers", "tier"));
+        Assert.Equal(["basic"], ReadPayloadStringArray(outputJson.RootElement, "availableCategories", "category"));
         Assert.Equal(SkillsCliOutputContractTestSupport.ExpectedSkillNames, payload
             .GetProperty("skills")
             .EnumerateArray()
@@ -167,10 +110,10 @@ public sealed class SkillsListCliOutputContractTests
             UcliCommandNames.SkillsList);
 
         var payload = outputJson.RootElement.GetProperty("payload");
-        Assert.Equal(["basic", "advanced", "developer"], payload
-            .GetProperty("tiers")
+        Assert.Equal(["basic"], payload
+            .GetProperty("categories")
             .EnumerateArray()
-            .Select(static tier => tier.GetString() ?? string.Empty)
+            .Select(static category => category.GetString() ?? string.Empty)
             .ToArray());
         Assert.Equal([SkillsCliOutputContractTestSupport.SelectedSingleSkillName], payload
             .GetProperty("skillNames")
@@ -185,31 +128,15 @@ public sealed class SkillsListCliOutputContractTests
         SkillsListPayloadSchemaTestSupport.AssertPayloadMatchesSchema(outputJson.RootElement);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public async Task SkillsList_WithTierAndMismatchedSkillName_ReturnsInvalidArgument ()
-    {
-        var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync(
-            tier: ["advanced"],
-            skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasInvalidArgumentEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.SkillsList);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, SkillInputInvalidCode);
-        Assert.Contains("does not match selected tiers", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
-    }
-
     [Theory]
     [Trait("Size", "Small")]
     [InlineData("unknown")]
     [InlineData("Basic")]
+    [InlineData("advanced")]
     [InlineData("advanced ")]
-    public async Task SkillsList_WithInvalidTier_ReturnsInvalidArgument (string tier)
+    public async Task SkillsList_WithInvalidCategory_ReturnsInvalidArgument (string category)
     {
-        var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync(tier: [tier]);
+        var result = await SkillsCliOutputContractTestSupport.SharedRunner.ListAsync(category: [category]);
 
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
         Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
@@ -217,7 +144,7 @@ public sealed class SkillsListCliOutputContractTests
             outputJson.RootElement,
             UcliCommandNames.SkillsList);
         CommandResultAssert.HasSingleError(outputJson.RootElement, InvalidArgumentCode);
-        Assert.Contains("Unsupported SKILL tier:", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
+        Assert.Contains("Unsupported SKILL category:", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
     }
 
     private static string[] ReadPayloadStringArray (

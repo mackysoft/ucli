@@ -1,7 +1,0 @@
-interface:
-  display_name: "uCLI Plan Apply"
-  short_description: "Use when building, validating, planning, and applying a uCLI JSON request for Unity changes. Enforces read -> ready -> describe -> build request -> validate -> plan -> call --withPlan -> verify."
-  default_prompt: "Use $ucli-plan-apply to follow the uCLI Plan Apply workflow."
-
-policy:
-  allow_implicit_invocation: true
