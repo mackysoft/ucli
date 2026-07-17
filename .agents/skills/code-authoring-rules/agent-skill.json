@@ -5,26 +5,26 @@
   "tier": "development",
   "skillName": "code-authoring-rules",
   "displayName": "Code Authoring Rules",
-  "description": "ソースコードを実装、変更、レビューするときに、責務と契約の境界、既存実装への収束、意味を持つ構造、依存関係と副作用、設計意図を残すコメントの判断規則を適用する。言語、フレームワーク、プロジェクト固有の規則と併用する。",
+  "description": "ソースコードを実装、変更、レビューするときに、設計判断の根拠、責務と契約の境界、既存実装への収束、意味を持つ構造、依存関係と副作用、設計意図を残すコメントの判断規則を適用する。言語、フレームワーク、プロジェクト固有の規則と併用する。",
   "dependencies": [
     "writing"
   ],
-  "contentDigest": "c64f07c53ab69ec5b8c50121739c0c466b3fc61f4dc6db09645ffbf5bc5343ed",
-  "manifestDigest": "dcbe42446c0e030bc4cdb568cd9dae5e0e6c9404c9e49803540a593c2f5c1ab2",
+  "contentDigest": "53eb96aa9267e33a9f45aabf513423a5ee64c59c8eadf2c0507d4b637e737327",
+  "manifestDigest": "4c4c9c89f53facf642c82841d10ad37124964aa2ba36bb9d7da1ecc12d020549",
   "hostArtifacts": [
     {
       "host": "claude",
-      "materializedFrontmatterDigest": "5186b7f99260db468c260ab5b645da22e7b4da011cecd9d6fb09da1e04c2fe4e"
+      "materializedFrontmatterDigest": "2ca7aca6801fd45728b5bee191a70e81da9f36205be6d75b20fb63c91070e3a3"
     },
     {
       "host": "copilot",
-      "materializedFrontmatterDigest": "f7b7abd2cb560902d7b3e4ffa82256a07160397c2d02998cff25d676e8408592"
+      "materializedFrontmatterDigest": "26ce63996da566e16b1179e0b615982efb3d94e15c08b85f51b68114b68cce5e"
     },
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "435761cd2a57a1c5980787a2ecae8f83003e71ec26df135399ab1c0fca97c2e3",
-      "materializedFrontmatterDigest": "526cabc9c01d96466c7c30394436a4450ae17474ae63426be941e511c21a095e"
+      "digest": "b762b2dab3126f40befac6728f8e4d31112c118b407ef2c0879b9ae06ef8d204",
+      "materializedFrontmatterDigest": "fcb694dcfd25cf484aeb26bc1c2b0ea3563698e7c0552beaff3c1fe227ecfdcc"
     }
   ]
 }

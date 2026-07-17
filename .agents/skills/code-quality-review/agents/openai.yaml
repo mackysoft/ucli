@@ -1,6 +1,6 @@
 interface:
   display_name: "Code Quality Review"
-  short_description: "コードベース全体または変更差分に対して、既存ユーティリティの再実装、本質的な重複、低凝集、冗長な状態管理、不要抽象化を findings-first でレビューする。品質上の懸念を整理し、改善方向まで含めた指摘を返したいときに使う。"
+  short_description: "コードベース全体または変更差分について、既存処理の再実装、本質的な重複、低凝集、冗長な状態管理、不要な抽象化をレビューし、優先度、影響、根拠、改善方向を所見として返す。"
   default_prompt: "Use $code-quality-review to follow the Code Quality Review workflow."
 
 policy:
