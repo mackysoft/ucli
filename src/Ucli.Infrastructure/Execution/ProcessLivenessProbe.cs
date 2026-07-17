@@ -11,6 +11,7 @@ internal static class ProcessLivenessProbe
 {
     private const int LinuxProcessStateFieldIndex = 0;
     private const int LinuxProcessStartGenerationFieldIndex = 19;
+    private const long MacOsNativeProcessStartTimePrecisionTicks = TimeSpan.TicksPerMillisecond / 1000;
 
     /// <summary> Gets whether the specified process identifier still points to a live process. </summary>
     /// <param name="processId"> The operating-system process identifier. </param>
@@ -130,6 +131,27 @@ internal static class ProcessLivenessProbe
         return false;
     }
 
+    /// <summary> Creates the canonical macOS generation for one native process start timestamp. </summary>
+    /// <param name="startTimeTicks"> The positive process start timestamp reconstructed by the current runtime. </param>
+    /// <returns> The timestamp rounded to the microsecond precision exposed by the macOS process API. </returns>
+    /// <exception cref="ArgumentOutOfRangeException"> <paramref name="startTimeTicks" /> is outside the <see cref="DateTime" /> tick range. </exception>
+    internal static ulong CreateMacOsProcessStartGeneration (long startTimeTicks)
+    {
+        if (startTimeTicks <= 0 || startTimeTicks > DateTime.MaxValue.Ticks)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(startTimeTicks),
+                startTimeTicks,
+                "Process start time ticks must be within the positive DateTime range.");
+        }
+
+        var remainder = startTimeTicks % MacOsNativeProcessStartTimePrecisionTicks;
+        var canonicalTicks = remainder < MacOsNativeProcessStartTimePrecisionTicks / 2
+            ? startTimeTicks - remainder
+            : startTimeTicks + MacOsNativeProcessStartTimePrecisionTicks - remainder;
+        return (ulong)canonicalTicks;
+    }
+
     private static ulong GetProcessGeneration (Process process)
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
@@ -138,6 +160,11 @@ internal static class ProcessLivenessProbe
         }
 
         var startTimeTicks = process.StartTime.ToUniversalTime().Ticks;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return CreateMacOsProcessStartGeneration(startTimeTicks);
+        }
+
         if (startTimeTicks <= 0)
         {
             throw new InvalidOperationException("Process start time must identify a positive generation.");
