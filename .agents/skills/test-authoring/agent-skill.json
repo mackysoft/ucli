@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
+  "skillName": "test-authoring",
+  "displayName": "Test Authoring",
+  "description": "自動テストを新規作成、更新、見直すときに、契約の根拠、独自の検出価値、所有境界、代表ケース、観測範囲、実行境界を判断し、重複、役割を失ったテスト、実装詳細だけを固定するテストを統合または削除して最小のテスト集合にする。テスト実行や変更全体の検証だけが目的のときは使わない。",
+  "dependencies": [
+    "code-authoring-rules"
+  ],
+  "contentDigest": "761fb101040c9fd9027a3fb6fcb9f771420805d52e28a2a20729aac1a7bf2224",
+  "manifestDigest": "7114aaaf8d217b2da9be0f4b5cf1b43a2520141d362f41860661361debc7ac3a",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "3b2d72368f682ff5cece5232fb50970bff36f783e42f8b70ce5efe9e38108f93"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "bc7d60b3e3887ac39aaaa16f906d591b6d4007bb5a8b9a25f7b24a615e41a06a"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "3640183c882eebed02288220e543c2d4aae7b97bc9c80963ab92125f35fbd9bc",
+      "materializedFrontmatterDigest": "fe2183b3f98ffcfded437074e244154fa0ec4866cdac9ae4eeca05c763a56361"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "skillBundleVersion": 1,
+  "catalogId": "com.mackysoft.skills-pack",
+  "tier": "development",
+  "skillName": "unity-authoring-rules",
+  "displayName": "Unity Authoring Rules",
+  "description": "Unity プロジェクトの C# コード、ゲームコード、Editor 拡張、テスト、Asset、Scene、Prefab、asmdef、プロジェクト構成を実装、修正、レビューするときに、C# 一般ルールと併用して Unity 固有の判断規則を適用する。Runtime、Editor、Test の境界、MonoBehaviour、SerializeField、UnityEngine.Object の寿命、Unity が管理する状態、生成物、ScriptableObject、Domain Reload、Unity メインスレッド、永続化を伴う副作用、依存方向の判断で使う。",
+  "dependencies": [
+    "csharp-authoring-rules"
+  ],
+  "contentDigest": "c35d9b732b6fc0f81973ed59d4cb98097d283720dee60544f274a53d698069d1",
+  "manifestDigest": "6598267fc2ffd52bc035312110ec6c573e09a82543cfb870c693f0a4a209892e",
+  "hostArtifacts": [
+    {
+      "host": "claude",
+      "materializedFrontmatterDigest": "d9cbbf1bb0ef16c3d74272e983f8d253ed1d8dfc360c5d514d768c5bae516aaf"
+    },
+    {
+      "host": "copilot",
+      "materializedFrontmatterDigest": "72d75f0e4fa72251288648fca878ef4c1da8c09c2979c6eed28747a6e9dde577"
+    },
+    {
+      "host": "openai",
+      "path": "agents/openai.yaml",
+      "digest": "980633f8d525d6299494e01232276f0e7aae2ecd34009c7a22176df226a8fa8a",
+      "materializedFrontmatterDigest": "987e9b96ad8b8b3adda9fd1ca1d98fc960260a7b9be9ca178a542ff1f3cccb00"
+    }
+  ]
+}

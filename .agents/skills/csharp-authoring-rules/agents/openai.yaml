@@ -1,6 +1,6 @@
 interface:
   display_name: "C# Authoring Rules"
-  short_description: "C# のコードを実装、変更、レビューするときに、API 契約、例外、null、非同期処理、依存性注入、リソースの寿命、言語機能、XML ドキュメント、割り当てに関する C# 固有の判断規則を適用する。言語非依存の設計判断には code-authoring-rules を併用する。"
+  short_description: "C# のコードを実装、変更、レビューするときに、API 契約、例外、`null`、非同期処理、依存性注入、リソースの寿命、言語機能、XML ドキュメント、割り当てに関する C# 固有の判断規則を適用する。言語非依存の設計判断には $code-authoring-rules を併用する。"
   default_prompt: "Use $csharp-authoring-rules to follow the C# Authoring Rules workflow."
 
 policy:

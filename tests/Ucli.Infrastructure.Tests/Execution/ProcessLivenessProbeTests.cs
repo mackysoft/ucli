@@ -26,6 +26,37 @@ public sealed class ProcessLivenessProbeTests
         Assert.False(ProcessLivenessProbe.IsSameProcess(differentGeneration));
     }
 
+    [Theory]
+    [InlineData(-2)]
+    [InlineData(0)]
+    [InlineData(2)]
+    [Trait("Size", "Small")]
+    public void CreateMacOsProcessStartGeneration_WhenRuntimesReconstructSameNativeStartTime_ReturnsSameGeneration (
+        int representationOffsetTicks)
+    {
+        const long nativeStartTimeTicks = 638000000000000000;
+
+        var generation = ProcessLivenessProbe.CreateMacOsProcessStartGeneration(
+            nativeStartTimeTicks + representationOffsetTicks);
+
+        Assert.Equal((ulong)nativeStartTimeTicks, generation);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void CreateMacOsProcessStartGeneration_WhenNativeStartTimesDiffer_ReturnsDifferentGenerations ()
+    {
+        const long firstNativeStartTimeTicks = 638000000000000000;
+        const long nextNativeStartTimeTicks = firstNativeStartTimeTicks + 10;
+
+        var firstGeneration = ProcessLivenessProbe.CreateMacOsProcessStartGeneration(
+            firstNativeStartTimeTicks + 2);
+        var nextGeneration = ProcessLivenessProbe.CreateMacOsProcessStartGeneration(
+            nextNativeStartTimeTicks - 2);
+
+        Assert.NotEqual(firstGeneration, nextGeneration);
+    }
+
     [Fact]
     [Trait("Size", "Small")]
     public void TryParseLinuxProcessStartGeneration_WhenCommandContainsClosingParenthesis_ReturnsFieldTwentyTwo ()

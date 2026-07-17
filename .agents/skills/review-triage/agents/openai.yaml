@@ -1,6 +1,6 @@
 interface:
   display_name: "Review Triage"
-  short_description: "貼り付けられた、サブエージェントから返された、または自動レビューで生成されたコードレビュー・設計レビュー所見を対象コード・仕様・関連資料と照合し、各所見の正当性を `採用 / 却下 / 保留 / 要確認` にトリアージし、採用所見を対応方針へ束ねる。レビュー返信作成や実装変更そのものが主目的のときは使わない。"
+  short_description: "レビュー所見を対象成果物、要求、契約、関連資料と照合し、妥当性と今回の対象との関係を分けて判断する。重複を統合し、`採用 / 却下 / 保留 / 要確認` に分類して対応方針へまとめる。"
   default_prompt: "Use $review-triage to follow the Review Triage workflow."
 
 policy:

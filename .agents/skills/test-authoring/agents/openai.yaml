@@ -1,0 +1,7 @@
+interface:
+  display_name: "Test Authoring"
+  short_description: "自動テストを新規作成、更新、見直すときに、契約の根拠、独自の検出価値、所有境界、代表ケース、観測範囲、実行境界を判断し、重複、役割を失ったテスト、実装詳細だけを固定するテストを統合または削除して最小のテスト集合にする。テスト実行や変更全体の検証だけが目的のときは使わない。"
+  default_prompt: "Use $test-authoring to follow the Test Authoring workflow."
+
+policy:
+  allow_implicit_invocation: true
