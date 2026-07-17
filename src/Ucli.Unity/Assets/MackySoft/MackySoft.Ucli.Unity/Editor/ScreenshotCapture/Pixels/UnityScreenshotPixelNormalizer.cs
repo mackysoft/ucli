@@ -14,8 +14,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
     {
         private const string NormalizeShaderName = "Hidden/uCLI/ScreenshotNormalize";
 
-        private static readonly GraphicsFormat StagingGraphicsFormat = GraphicsFormat.R8G8B8A8_SRGB;
-
         public static UnityScreenshotNormalizationResult Normalize (
             Texture source,
             int width,
@@ -36,7 +34,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     $"Screenshot source format is not sampleable: {source.graphicsFormat}.");
             }
 
-            if (!TryValidateStagingFormat(out var formatError))
+            var stagingGraphicsFormat = colorSpace == IpcScreenshotColorSpace.Linear
+                ? GraphicsFormat.R8G8B8A8_SRGB
+                : GraphicsFormat.R8G8B8A8_UNorm;
+            if (!TryValidateStagingFormat(stagingGraphicsFormat, out var formatError))
             {
                 return UnityScreenshotNormalizationResult.Failure(formatError);
             }
@@ -65,7 +66,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     width,
                     height,
                     "uCLI screenshot staging",
-                    StagingGraphicsFormat,
+                    stagingGraphicsFormat,
                     out staging,
                     out var stagingError))
                 {
@@ -98,6 +99,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!TryResolveRawRowOrder(
                     material,
+                    stagingGraphicsFormat,
                     colorSpace,
                     cancellationToken,
                     out var rawIsTopDown,
@@ -206,6 +208,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
 
         private static bool TryResolveRawRowOrder (
             Material material,
+            GraphicsFormat stagingGraphicsFormat,
             IpcScreenshotColorSpace colorSpace,
             CancellationToken cancellationToken,
             out bool rawIsTopDown,
@@ -221,7 +224,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     width: 2,
                     height: 2,
                     "uCLI screenshot calibration",
-                    StagingGraphicsFormat,
+                    stagingGraphicsFormat,
                     out calibration,
                     out errorMessage)
                     || !TryDraw(
@@ -346,7 +349,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                 cpuTexture = new Texture2D(
                     source.width,
                     source.height,
-                    StagingGraphicsFormat,
+                    source.graphicsFormat,
                     TextureCreationFlags.None)
                 {
                     hideFlags = HideFlags.HideAndDontSave,
@@ -393,14 +396,16 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             }
         }
 
-        private static bool TryValidateStagingFormat (out string errorMessage)
+        private static bool TryValidateStagingFormat (
+            GraphicsFormat stagingGraphicsFormat,
+            out string errorMessage)
         {
-            if (!SystemInfo.IsFormatSupported(StagingGraphicsFormat, GraphicsFormatUsage.Sample)
-                || !SystemInfo.IsFormatSupported(StagingGraphicsFormat, GraphicsFormatUsage.Render)
-                || !SystemInfo.IsFormatSupported(StagingGraphicsFormat, GraphicsFormatUsage.ReadPixels))
+            if (!SystemInfo.IsFormatSupported(stagingGraphicsFormat, GraphicsFormatUsage.Sample)
+                || !SystemInfo.IsFormatSupported(stagingGraphicsFormat, GraphicsFormatUsage.Render)
+                || !SystemInfo.IsFormatSupported(stagingGraphicsFormat, GraphicsFormatUsage.ReadPixels))
             {
                 errorMessage =
-                    $"Screenshot staging format does not support sample, render, and readback usage: {StagingGraphicsFormat}.";
+                    $"Screenshot staging format does not support sample, render, and readback usage: {stagingGraphicsFormat}.";
                 return false;
             }
 
