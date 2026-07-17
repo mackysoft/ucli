@@ -106,16 +106,16 @@ public sealed class PlayEnterServiceTests
     {
         var requestExecutor = new RecordingUnityRequestExecutor(
             UnityRequestExecutionResult.Failure(new UnityRequestFailure(
-                UnityRequestFailureKind.General,
-                UcliCoreErrorCodes.InternalError,
-                "Failed to execute Unity daemon IPC request. IPC stream ended before a complete frame was read.")));
+                UnityRequestFailureKind.TransportInterrupted,
+                EditorLifecycleErrorCodes.EditorUnavailable,
+                "Unity daemon IPC response was interrupted and no successor endpoint became available.")));
         var service = CreateService(PlayProjectContext, CreateGuiSessionStore(), requestExecutor);
 
         var result = await service.ExecuteAsync(new PlayEnterCommandInput(null, 1500), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Null(result.Output);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.Error!.Code);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorUnavailable, result.Error!.Code);
         UnityRequestExecutorInvocationAssert.ExecutedOnce(requestExecutor, UcliCommandIds.PlayEnter);
     }
 

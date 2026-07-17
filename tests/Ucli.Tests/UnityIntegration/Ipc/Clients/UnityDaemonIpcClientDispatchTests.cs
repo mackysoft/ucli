@@ -517,6 +517,8 @@ public sealed class UnityDaemonIpcClientDispatchTests
         var result = await sendTask;
 
         Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
         var requests = transportClient.Requests;
         IpcRequestAssert.SessionTokens(
             requests,
@@ -566,7 +568,8 @@ public sealed class UnityDaemonIpcClientDispatchTests
             TimeSpan.FromSeconds(5));
 
         Assert.False(result.IsSuccess);
-        Assert.Equal(UcliCoreErrorCodes.InternalError, result.ErrorCode);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
+        Assert.Equal(EditorLifecycleErrorCodes.EditorUnavailable, result.ErrorCode);
         Assert.Contains(interruption.Message, result.Message, StringComparison.Ordinal);
         Assert.Single(transportClient.Requests);
         _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
@@ -1056,6 +1059,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
+        Assert.Equal(UnityRequestFailureKind.TransportInterrupted, result.FailureInfo!.FailureKind);
         Assert.Equal(ExecutionErrorCodes.IpcTimeout, result.ErrorCode);
         _ = Assert.Single(transportClient.Requests);
     }
