@@ -72,7 +72,7 @@ is_dotnet_input() {
 
   case "${file}" in
     # Changes to this detector can alter every downstream job decision.
-    .config/dotnet-tools.json|.editorconfig|.gitattributes|Directory.Build.props|Ucli.slnx|.github/workflows/verify.yaml|.github/workflows/package-publish.yaml|scripts/code-quality.sh|scripts/detect-verify-scopes.sh|scripts/dotnet-common.sh|scripts/generate-schemas.sh|scripts/generate-skills.sh|scripts/test-dotnet.sh|scripts/verify-schemas.sh|scripts/verify-skills.sh|scripts/verify.sh|schemas/*|skills/*|skills/definitions/*|skills/generated/*|tools/*)
+    .config/dotnet-tools.json|.editorconfig|.gitattributes|Directory.Build.props|Ucli.slnx|.github/workflows/agent-skills-sync.yaml|.github/workflows/verify.yaml|.github/workflows/package-publish.yaml|scripts/code-quality.sh|scripts/detect-verify-scopes.sh|scripts/dotnet-common.sh|scripts/generate-schemas.sh|scripts/test-dotnet.sh|scripts/verify-schemas.sh|scripts/verify-skills.sh|scripts/verify.sh|schemas/*|skills/*|skills/definitions/*|skills/generated/*|tools/*)
       return 0
       ;;
   esac
@@ -179,7 +179,7 @@ is_cli_pack_input() {
   fi
 
   case "${file}" in
-    README.md|LICENSE|.config/dotnet-tools.json|.gitattributes|Directory.Build.props|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/generate-schemas.sh|scripts/generate-skills.sh|scripts/pack-schema-artifacts.sh|scripts/schema-artifact-common.sh|scripts/verify-cli-package.sh|scripts/verify-schema-artifacts.sh|scripts/verify-schemas.sh|scripts/verify-skills.sh|schemas/*|skills/*|skills/definitions/*|skills/generated/*|src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*|tools/*)
+    README.md|LICENSE|.config/dotnet-tools.json|.gitattributes|Directory.Build.props|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/generate-schemas.sh|scripts/pack-schema-artifacts.sh|scripts/schema-artifact-common.sh|scripts/verify-cli-package.sh|scripts/verify-schema-artifacts.sh|scripts/verify-schemas.sh|scripts/verify-skills.sh|schemas/*|skills/*|skills/definitions/*|skills/generated/*|src/Ucli/*|src/Ucli.Application/*|src/Ucli.Contracts/*|src/Ucli.Infrastructure/*|tools/*)
       return 0
       ;;
     *)

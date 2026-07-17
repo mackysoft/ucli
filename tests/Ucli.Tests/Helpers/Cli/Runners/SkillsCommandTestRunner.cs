@@ -15,10 +15,10 @@ internal sealed class SkillsCommandTestRunner
     }
 
     public Task<CommandExecutionResult> ListAsync (
-        string[]? tier = null,
+        string[]? category = null,
         string[]? skill = null)
     {
-        return ExecuteRunnerAsync(runner => runner.ListAsync(new AgentSkillsListCommandRequest(tier, skill)));
+        return ExecuteRunnerAsync(runner => runner.ListAsync(new AgentSkillsListCommandRequest(category, skill)));
     }
 
     public Task<CommandExecutionResult> ExecuteAsync (
@@ -45,7 +45,7 @@ internal sealed class SkillsCommandTestRunner
 
         return ExecuteRunnerAsync(runner => runner.ExportAsync(new AgentSkillsExportCommandRequest(
             options.Host,
-            options.Tier,
+            options.Category,
             options.Skill,
             options.Output,
             options.Format)));
@@ -57,7 +57,7 @@ internal sealed class SkillsCommandTestRunner
 
         return ExecuteRunnerAsync(runner => runner.InstallAsync(new AgentSkillsInstallCommandRequest(
             options.Host,
-            options.Tier,
+            options.Category,
             options.Skill,
             options.Scope,
             options.RepoRoot,
@@ -73,7 +73,7 @@ internal sealed class SkillsCommandTestRunner
 
         return ExecuteRunnerAsync(runner => runner.UpdateAsync(new AgentSkillsUpdateCommandRequest(
             options.Host,
-            options.Tier,
+            options.Category,
             options.Skill,
             options.Scope,
             options.RepoRoot,
@@ -89,7 +89,7 @@ internal sealed class SkillsCommandTestRunner
 
         return ExecuteRunnerAsync(runner => runner.UninstallAsync(new AgentSkillsUninstallCommandRequest(
             options.Host,
-            options.Tier,
+            options.Category,
             options.Skill,
             options.Scope,
             options.RepoRoot,
@@ -104,7 +104,7 @@ internal sealed class SkillsCommandTestRunner
 
         return ExecuteRunnerAsync(runner => runner.PruneAsync(new AgentSkillsPruneCommandRequest(
             options.Host,
-            options.Tier,
+            options.Category,
             options.Skill,
             options.Scope,
             options.RepoRoot,
@@ -119,7 +119,7 @@ internal sealed class SkillsCommandTestRunner
 
         return ExecuteRunnerAsync(runner => runner.DoctorAsync(new AgentSkillsDoctorCommandRequest(
             options.Host,
-            options.Tier,
+            options.Category,
             options.Skill,
             options.Scope,
             options.RepoRoot,
@@ -162,7 +162,7 @@ internal sealed class SkillsCommandTestRunner
 
         public bool PrintDiff { get; init; }
 
-        public string[]? Tier { get; init; }
+        public string[]? Category { get; init; }
 
         public string[]? Skill { get; init; }
     }

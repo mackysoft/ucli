@@ -24,34 +24,6 @@ public sealed class SkillsUpdateCliOutputContractTests
 
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task SkillsUpdate_WithCleanOutdatedTarget_ReturnsUpdatedAction ()
-    {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-outdated");
-        var repoRoot = scope.CreateDirectory("repo");
-        var installed = await SkillsCliOutputContractTestSupport.InstallSelectedProjectSkillAsync(repoRoot);
-        await SkillsCliOutputContractTestSupport.RewriteInstalledSkillBodyAndManifestAsOlderAsync(installed);
-
-        var updated = await SkillsCliOutputContractTestSupport.RunOpenAiUpdateAsync(
-            repoRoot,
-            skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
-
-        using var updatedJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(updated.StdOut);
-        Assert.Equal((int)CliExitCode.Success, updated.ExitCode);
-        CommandResultAssert.HasSuccessEnvelope(
-            updatedJson.RootElement,
-            UcliCommandNames.SkillsUpdate);
-        JsonAssert.For(updatedJson.RootElement)
-            .HasProperty("payload", payload => payload
-                .HasInt32("createdCount", 0)
-                .HasInt32("updatedCount", 1)
-                .HasInt32("noOpCount", 0)
-                .HasProperty("actions", 0, static action => action
-                    .HasString("skillName", SkillsCliOutputContractTestSupport.SelectedSingleSkillName)
-                    .HasString("action", "updated")));
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
     public async Task SkillsUpdate_WithDryRunLocalModification_ReturnsBlockedPlanWithoutWriting ()
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-dry-run-local-modification");

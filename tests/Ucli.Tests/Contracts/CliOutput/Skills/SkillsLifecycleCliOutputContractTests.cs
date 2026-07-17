@@ -7,7 +7,7 @@ public sealed class SkillsLifecycleCliOutputContractTests
 {
     [Fact]
     [Trait("Size", "Medium")]
-    public async Task SkillsProjectScope_WithBasicTierUpdateThenUninstall_CreatesNoOpsDeletesThenNoOps ()
+    public async Task SkillsProjectScope_WithBasicCategoryUpdateThenUninstall_CreatesNoOpsDeletesThenNoOps ()
     {
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "update-uninstall-openai");
         var repoRoot = scope.CreateDirectory("repo");

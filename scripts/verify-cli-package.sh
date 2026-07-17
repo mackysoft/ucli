@@ -57,7 +57,7 @@ if ! "${tool_path}/ucli" query --help | grep -F "asset schema" >/dev/null; then
 fi
 
 package_entries="$(unzip -Z1 "${package_path}")"
-for entry in README.md LICENSE tools/net8.0/any/DotnetToolSettings.xml tools/net8.0/any/schemas/v1/schema-manifest.json; do
+for entry in README.md LICENSE tools/net8.0/any/DotnetToolSettings.xml tools/net8.0/any/schemas/v1/schema-manifest.json tools/net8.0/any/skills/bundle.json; do
   if ! grep -Fx "${entry}" <<< "${package_entries}" >/dev/null; then
     echo "CLI package is missing required entry: ${entry}" >&2
     exit 1
@@ -69,6 +69,15 @@ unzip -p "${package_path}" tools/net8.0/any/schemas/v1/schema-manifest.json > "$
 assert_json_manifest_package_version "${package_schema_manifest_path}" "${expected_version}" "CLI package schema manifest"
 
 generated_skills_root="${repo_root}/skills/generated"
+expected_bundle_descriptor_path="${generated_skills_root}/bundle.json"
+package_bundle_descriptor_path="${tool_path}/package-skills-bundle.json"
+unzip -p "${package_path}" tools/net8.0/any/skills/bundle.json > "${package_bundle_descriptor_path}"
+if ! cmp -s "${expected_bundle_descriptor_path}" "${package_bundle_descriptor_path}"; then
+  diff -u "${expected_bundle_descriptor_path}" "${package_bundle_descriptor_path}" || true
+  echo "CLI package Agent Skills bundle descriptor differs from skills/generated/bundle.json." >&2
+  exit 1
+fi
+
 while IFS= read -r skill_file; do
   relative_path="${skill_file#"${generated_skills_root}/"}"
   entry="tools/net8.0/any/skills/${relative_path}"
@@ -120,13 +129,16 @@ if ! grep -F '"skillName": "ucli-plan-apply"' <<< "${skills_list}" >/dev/null; t
 fi
 
 require_python3
-SKILLS_LIST_JSON="${skills_list}" python3 - <<'PY'
+EXPECTED_BUNDLE_DESCRIPTOR_PATH="${expected_bundle_descriptor_path}" SKILLS_LIST_JSON="${skills_list}" python3 - <<'PY'
 import json
 import os
 import sys
 
 root = json.loads(os.environ["SKILLS_LIST_JSON"])
 payload = root.get("payload") or {}
+with open(os.environ["EXPECTED_BUNDLE_DESCRIPTOR_PATH"], encoding="utf-8") as descriptor_file:
+    expected_bundle_version = json.load(descriptor_file)["skillBundleVersion"]
+
 skill_names = payload.get("skillNames")
 if skill_names != []:
     print(
@@ -135,45 +147,63 @@ if skill_names != []:
     )
     sys.exit(1)
 actual = [
-    (tier.get("tier"), tier.get("skillCount"))
-    for tier in payload.get("availableTiers", [])
+    (category.get("category"), category.get("skillCount"))
+    for category in payload.get("availableCategories", [])
 ]
 expected = [
     ("basic", 4),
-    ("advanced", 0),
-    ("developer", 0),
 ]
 if actual != expected:
     print(
-        f"ucli skills list did not report expected availableTiers. Expected: {expected}. Actual: {actual}",
+        f"ucli skills list did not report expected availableCategories. Expected: {expected}. Actual: {actual}",
+        file=sys.stderr,
+    )
+    sys.exit(1)
+
+unexpected_bundle_versions = [
+    (skill.get("skillName"), skill.get("skillBundleVersion"))
+    for skill in payload.get("skills", [])
+    if skill.get("skillBundleVersion") != expected_bundle_version
+]
+if unexpected_bundle_versions:
+    print(
+        "ucli skills list reported skillBundleVersion values that differ from "
+        f"skills/generated/bundle.json. Expected: {expected_bundle_version}. "
+        f"Actual mismatches: {unexpected_bundle_versions}",
         file=sys.stderr,
     )
     sys.exit(1)
 PY
 
 single_skill_list="$("${tool_path}/ucli" skills list --skill ucli-read-project)"
-SINGLE_SKILL_LIST_JSON="${single_skill_list}" python3 - <<'PY'
+EXPECTED_BUNDLE_DESCRIPTOR_PATH="${expected_bundle_descriptor_path}" SINGLE_SKILL_LIST_JSON="${single_skill_list}" python3 - <<'PY'
 import json
 import os
 import sys
 
 root = json.loads(os.environ["SINGLE_SKILL_LIST_JSON"])
 payload = root.get("payload") or {}
+with open(os.environ["EXPECTED_BUNDLE_DESCRIPTOR_PATH"], encoding="utf-8") as descriptor_file:
+    expected_bundle_version = json.load(descriptor_file)["skillBundleVersion"]
+
 skill_names = payload.get("skillNames")
 skills = [
-    skill.get("skillName")
+    (skill.get("skillName"), skill.get("skillBundleVersion"))
     for skill in payload.get("skills", [])
 ]
-if skill_names != ["ucli-read-project"] or skills != ["ucli-read-project"]:
+expected_skills = [("ucli-read-project", expected_bundle_version)]
+if skill_names != ["ucli-read-project"] or skills != expected_skills:
     print(
-        f"ucli skills list --skill did not select only ucli-read-project. skillNames={skill_names}; skills={skills}",
+        "ucli skills list --skill did not select only ucli-read-project with the "
+        f"generated bundle version. skillNames={skill_names}; skills={skills}; "
+        f"expectedSkills={expected_skills}",
         file=sys.stderr,
     )
     sys.exit(1)
 PY
 
 export_path="${tool_path}/exported-skills"
-"${tool_path}/ucli" skills export --host openai --tier basic --output "${export_path}" >/dev/null
+"${tool_path}/ucli" skills export --host openai --category basic --output "${export_path}" >/dev/null
 while IFS= read -r relative_path; do
   exported_file="${export_path}/${relative_path}"
   if [[ ! -f "${exported_file}" ]]; then
@@ -194,9 +224,9 @@ if [[ -e "${single_export_path}/ucli-plan-apply" ]]; then
 fi
 
 install_repo="$(mktemp -d "${temp_root%/}/ucli-skills-install.XXXXXX")"
-"${tool_path}/ucli" skills install --host openai --tier basic --scope project --repoRoot "${install_repo}" >/dev/null
-"${tool_path}/ucli" skills install --host openai --tier basic --scope project --repoRoot "${install_repo}" >/dev/null
-"${tool_path}/ucli" skills doctor --host openai --tier basic --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills install --host openai --category basic --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills install --host openai --category basic --scope project --repoRoot "${install_repo}" >/dev/null
+"${tool_path}/ucli" skills doctor --host openai --category basic --scope project --repoRoot "${install_repo}" >/dev/null
 installed_path="${install_repo}/.agents/skills"
 if [[ ! -d "${installed_path}" ]]; then
   echo "ucli skills install did not create the project skills directory: ${installed_path}" >&2

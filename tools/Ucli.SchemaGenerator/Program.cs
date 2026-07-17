@@ -38,7 +38,8 @@ internal static class Program
         try
         {
             packageVersion ??= ReadPackageVersion(repositoryRoot);
-            WriteSchemas(outputRoot, packageVersion);
+            var skillCategories = ReadSkillCategories(repositoryRoot);
+            WriteSchemas(outputRoot, packageVersion, skillCategories);
             Console.WriteLine($"Generated schemas: {Path.GetFullPath(outputRoot)}");
             return 0;
         }
@@ -51,10 +52,12 @@ internal static class Program
 
     private static void WriteSchemas (
         string outputRoot,
-        string packageVersion)
+        string packageVersion,
+        string[] skillCategories)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(outputRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(packageVersion);
+        ArgumentNullException.ThrowIfNull(skillCategories);
 
         var versionRoot = Path.Combine(outputRoot, SchemaSetVersion);
         if (Directory.Exists(versionRoot))
@@ -64,7 +67,7 @@ internal static class Program
 
         Directory.CreateDirectory(versionRoot);
 
-        var schemaFiles = CreateSchemaFiles();
+        var schemaFiles = CreateSchemaFiles(skillCategories);
         foreach (var schemaFile in schemaFiles)
         {
             var outputPath = Path.Combine(versionRoot, schemaFile.RelativePath.Replace('/', Path.DirectorySeparatorChar));
@@ -77,8 +80,10 @@ internal static class Program
             SerializeJson(CreateManifest(packageVersion, schemaFiles)));
     }
 
-    private static IReadOnlyList<SchemaFile> CreateSchemaFiles ()
+    private static IReadOnlyList<SchemaFile> CreateSchemaFiles (string[] skillCategories)
     {
+        ArgumentNullException.ThrowIfNull(skillCategories);
+
         var files = new List<SchemaFile>
         {
             CreateSchema("cli-output/envelope.schema.json", "cli-output-envelope", null, CreateEnvelopeSchema()),
@@ -117,7 +122,7 @@ internal static class Program
             CreatePayloadSchema(UcliCommandIds.OpsDescribe.Name, CreateOpsDescribePayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.CodesList.Name, CreateCodesListPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.CodesDescribe.Name, CreateCodesDescribePayloadSchema()),
-            CreatePayloadSchema(UcliCommandIds.SkillsList.Name, CreateSkillsListPayloadSchema()),
+            CreatePayloadSchema(UcliCommandIds.SkillsList.Name, CreateSkillsListPayloadSchema(skillCategories)),
             CreatePayloadSchema(UcliCommandIds.PlayStatus.Name, CreatePlayStatusPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.PlayEnter.Name, CreatePlayEnterPayloadSchema()),
             CreatePayloadSchema(UcliCommandIds.PlayExit.Name, CreatePlayExitPayloadSchema()),
@@ -1280,26 +1285,28 @@ internal static class Program
             Required("description", StringSchema()));
     }
 
-    private static Dictionary<string, object?> CreateSkillsListPayloadSchema ()
+    private static Dictionary<string, object?> CreateSkillsListPayloadSchema (string[] skillCategories)
     {
+        ArgumentNullException.ThrowIfNull(skillCategories);
+
         return ObjectSchema(
             additionalProperties: false,
-            Required("tiers", ArraySchema(SkillTierLiteralSchema())),
+            Required("categories", ArraySchema(SkillCategoryLiteralSchema(skillCategories))),
             Required("skillNames", ArraySchema(StringSchema())),
-            Required("availableTiers", ArraySchema(CreateSkillsListTierSchema())),
-            Required("skills", ArraySchema(CreateSkillsListSkillSchema())),
+            Required("availableCategories", ArraySchema(CreateSkillsListCategorySchema(skillCategories))),
+            Required("skills", ArraySchema(CreateSkillsListSkillSchema(skillCategories))),
             Required("supportedHosts", ArraySchema(CreateSkillsListSupportedHostSchema())));
     }
 
-    private static Dictionary<string, object?> CreateSkillsListTierSchema ()
+    private static Dictionary<string, object?> CreateSkillsListCategorySchema (string[] skillCategories)
     {
         return ObjectSchema(
             additionalProperties: false,
-            Required("tier", SkillTierLiteralSchema()),
+            Required("category", SkillCategoryLiteralSchema(skillCategories)),
             Required("skillCount", NonNegativeIntegerSchema()));
     }
 
-    private static Dictionary<string, object?> CreateSkillsListSkillSchema ()
+    private static Dictionary<string, object?> CreateSkillsListSkillSchema (string[] skillCategories)
     {
         return ObjectSchema(
             additionalProperties: false,
@@ -1307,7 +1314,7 @@ internal static class Program
             Required("displayName", StringSchema()),
             Required("description", StringSchema()),
             Required("dependencies", ArraySchema(StringSchema())),
-            Required("tier", SkillTierLiteralSchema()),
+            Required("category", SkillCategoryLiteralSchema(skillCategories)),
             Required("catalogId", StringSchema()),
             Required("skillBundleVersion", PositiveIntegerSchema()),
             Required("contentDigest", Sha256LowerHexSchema()),
@@ -1334,9 +1341,9 @@ internal static class Program
             Required("reloadGuidance", StringSchema()));
     }
 
-    private static Dictionary<string, object?> SkillTierLiteralSchema ()
+    private static Dictionary<string, object?> SkillCategoryLiteralSchema (string[] skillCategories)
     {
-        return EnumSchema("basic", "advanced", "developer");
+        return EnumSchema(skillCategories);
     }
 
     private static Dictionary<string, object?> CreateCodesListPayloadSchema ()
@@ -2236,6 +2243,27 @@ internal static class Program
         }
 
         return version;
+    }
+
+    private static string[] ReadSkillCategories (string repositoryRoot)
+    {
+        var definitionsPath = Path.Combine(repositoryRoot, "skills", "definitions");
+        if (!Directory.Exists(definitionsPath))
+        {
+            throw new InvalidOperationException($"Agent Skills definitions directory was not found: {definitionsPath}");
+        }
+
+        var categories = Directory
+            .GetDirectories(definitionsPath)
+            .Select(static categoryPath => new DirectoryInfo(categoryPath).Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        if (categories.Length == 0)
+        {
+            throw new InvalidOperationException($"No Agent Skills categories were found: {definitionsPath}");
+        }
+
+        return categories;
     }
 
     private static bool TryParseArgs (

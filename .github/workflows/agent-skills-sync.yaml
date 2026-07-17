@@ -1,0 +1,61 @@
+name: agent-skills-sync
+
+on:
+  push:
+    paths:
+      - skills/bundle.json
+      - skills/definitions/**
+      - .config/dotnet-tools.json
+      - .github/workflows/agent-skills-sync.yaml
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: sync
+    if: github.ref_type == 'branch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      changed: ${{ steps.skills.outputs.changed }}
+      synchronized_sha: ${{ steps.synchronized.outputs.sha }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Sync Agent Skills bundle
+        id: skills
+        uses: mackysoft/agent-skills/actions/sync@1.0.0
+        with:
+          root: skills
+
+      - name: Capture synchronized commit
+        id: synchronized
+        if: steps.skills.outputs.changed == 'true'
+        run: echo "sha=$(git rev-parse HEAD)" >> "${GITHUB_OUTPUT}"
+
+  dispatch:
+    name: dispatch verification
+    needs: sync
+    if: needs.sync.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+
+    steps:
+      - name: Dispatch verification for synchronized commit
+        env:
+          EXPECTED_SHA: ${{ needs.sync.outputs.synchronized_sha }}
+          GH_TOKEN: ${{ github.token }}
+        run: >-
+          gh workflow run verify.yaml
+          --repo "${GITHUB_REPOSITORY}"
+          --ref "${GITHUB_REF_NAME}"
+          --field expected_sha="${EXPECTED_SHA}"

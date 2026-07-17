@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "skillBundleVersion": 1,
   "catalogId": "com.mackysoft.ucli",
-  "tier": "basic",
+  "category": "basic",
   "skillName": "ucli-troubleshoot",
   "displayName": "uCLI Troubleshoot",
   "description": "Use when diagnosing uCLI daemon, lifecycle, readIndex freshness, timeout, compile or domain reload, logs, IPC, and Unity execution failures.",
   "dependencies": [],
   "contentDigest": "908466a91c7f8f022e9a5e2e9c221bb72cf71d04645df11c5ac9518634cca528",
-  "manifestDigest": "01471b2527e6f571e47f8f429faaecfd1cafefc21bda408dd3569740ae1dce9c",
+  "manifestDigest": "81dd424e34dc4c935be0c083be5a320e8973282c197087ae9b63faa396fcc4bd",
   "hostArtifacts": [
     {
       "host": "claude",

@@ -79,7 +79,7 @@ uCLI ships official agent skills with the CLI package. Install them when an agen
 Install the skills into a repository for the agent host you use:
 
 ```bash
-ucli skills install --host openai --tier basic --scope project
+ucli skills install --host openai --category basic --scope project
 ```
 
 Supported host keys are `openai`, `claude`, and `copilot`. Project scope installs host-native skill files under the repository root:
@@ -92,15 +92,15 @@ Supported host keys are `openai`, `claude`, and `copilot`. Project scope install
 
 Run the command from the target repository. Use `--repoRoot <path>` only when the current working directory is outside the repository or when automation needs to select a repository explicitly.
 
-uCLI defines `basic`, `advanced`, and `developer`; the bundled official skills currently belong to `basic`. `skills export`, `install`, `update`, `uninstall`, and `doctor` require at least one package selector: `--tier` or `--skill`. `--skill` selects exact `skillName` values, and combining it with `--tier` requires the named skills to belong to the selected tiers. If a selected skill declares dependencies, uCLI resolves the transitive dependency set before export, install, update, uninstall, or doctor execution; `payload.skillNames` keeps the requested root selection, while `payload.skills` and file operations include the resolved package set. `skills list` may omit both selectors to show all defined tiers, bundled skill counts, and each skill's `dependencies`. Selecting `advanced` or `developer` is valid and succeeds with an empty skill set until uCLI ships skills in those tiers. To select multiple tiers or skills in one command, pass comma-separated values such as `--tier basic,advanced` or `--skill ucli-read-project,ucli-verify-changes`.
+The bundled official skills belong to the `basic` category. `skills export`, `install`, `update`, `uninstall`, and `doctor` require at least one package selector: `--category` or `--skill`. `--skill` selects exact `skillName` values, and combining it with `--category` requires the named skills to belong to the selected categories. If a selected skill declares dependencies, uCLI resolves the transitive dependency set before export, install, update, uninstall, or doctor execution; `payload.skillNames` keeps the requested root selection, while `payload.skills` and file operations include the resolved package set. `skills list` may omit both selectors to show all available categories, bundled skill counts, and each skill's `dependencies`. Options accept comma-separated values, such as `--skill ucli-read-project,ucli-verify-changes`.
 
-Use `skills list` when you want to inspect the bundled skills, selected tiers, available tiers, supported hosts, target directories, and reload guidance:
+Use `skills list` when you want to inspect the bundled skills, selected categories, available categories, supported hosts, target directories, and reload guidance:
 
 ```bash
 ucli skills list
 ```
 
-Export a single named skill when you do not want the whole tier:
+Export a single named skill when you do not want the whole category:
 
 ```bash
 ucli skills export --host openai --skill ucli-read-project --output ./exported-skills
@@ -109,20 +109,20 @@ ucli skills export --host openai --skill ucli-read-project --output ./exported-s
 Use user scope only for local, non-repository defaults:
 
 ```bash
-ucli skills install --host openai --tier basic --scope user
+ucli skills install --host openai --category basic --scope user
 ```
 
 Preview file changes before writing:
 
 ```bash
-ucli skills install --host openai --tier basic --scope project --dryRun --printDiff
+ucli skills install --host openai --category basic --scope project --dryRun --printDiff
 ```
 
 Keep installed skills aligned with the current CLI version and diagnose drift:
 
 ```bash
-ucli skills update --host openai --tier basic --scope project
-ucli skills doctor --host openai --tier basic --scope project
+ucli skills update --host openai --category basic --scope project
+ucli skills doctor --host openai --category basic --scope project
 ```
 
 After installing or updating, reload the agent host. The command result includes `payload.reloadGuidance`; for Codex, start a new session or restart the app so newly installed skills are loaded.

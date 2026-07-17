@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "skillBundleVersion": 1,
   "catalogId": "com.mackysoft.ucli",
-  "tier": "basic",
+  "category": "basic",
   "skillName": "ucli-read-project",
   "displayName": "uCLI Read Project",
   "description": "Use when inspecting a Unity project with uCLI before choosing selectors, operation metadata, schemas, or readIndex freshness. Guides read-first discovery without hard-coding operation contracts.",
   "dependencies": [],
   "contentDigest": "89f4bd46eca4712c90c54f407372fa67d550b9a0cc2259ecd628cca0f75524d5",
-  "manifestDigest": "a0546a544d2ab33ff3843fedc87750c0e71b2d8a6764f8ce2b1b00f883d4bd5d",
+  "manifestDigest": "5a804842e839d0046ef7ff38ec1da533fd4d71c628c90d9e87085acb142fa87f",
   "hostArtifacts": [
     {
       "host": "claude",

@@ -6,7 +6,6 @@ namespace MackySoft.Ucli.Tests;
 [Collection(CurrentDirectoryTestCollection.Name)]
 public sealed class SkillsExportCliOutputContractTests
 {
-    private const string SkillInputInvalidCode = "SKILL_INPUT_INVALID";
     private const string InvalidArgumentCode = "INVALID_ARGUMENT";
 
     [Fact]
@@ -27,7 +26,7 @@ public sealed class SkillsExportCliOutputContractTests
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
                 .HasString("host", "openai")
-                .HasArrayLength("tiers", 1)
+                .HasArrayLength("categories", 1)
                 .HasArrayLength("skillNames", 0)
                 .HasString("format", "directory")
                 .HasString("outputRoot", outputRoot)
@@ -61,7 +60,7 @@ public sealed class SkillsExportCliOutputContractTests
             UcliCommandNames.SkillsExport);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", payload => payload
-                .HasArrayLength("tiers", 3)
+                .HasArrayLength("categories", 1)
                 .HasArrayLength("skillNames", 1)
                 .HasArrayLength("skills", 1)
                 .HasInt32("skillCount", 1));
@@ -78,26 +77,6 @@ public sealed class SkillsExportCliOutputContractTests
             .ToArray());
         Assert.True(File.Exists(Path.Combine(outputRoot, SkillsCliOutputContractTestSupport.SelectedSingleSkillName, "SKILL.md")));
         Assert.False(Directory.Exists(Path.Combine(outputRoot, SkillsCliOutputContractTestSupport.ExpectedSkillNames[0])));
-    }
-
-    [Fact]
-    [Trait("Size", "Medium")]
-    public async Task SkillsExport_WithTierAndMismatchedSkillName_ReturnsInvalidArgument ()
-    {
-        using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "export-skill-tier-mismatch");
-
-        var result = await RunSkillsExportCommandAsync(
-            scope.GetPath("exported"),
-            tier: ["advanced"],
-            skill: [SkillsCliOutputContractTestSupport.SelectedSingleSkillName]);
-
-        using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        Assert.Equal((int)CliExitCode.InvalidArgument, result.ExitCode);
-        CommandResultAssert.HasInvalidArgumentEnvelope(
-            outputJson.RootElement,
-            UcliCommandNames.SkillsExport);
-        CommandResultAssert.HasSingleError(outputJson.RootElement, SkillInputInvalidCode);
-        Assert.Contains("does not match selected tiers", outputJson.RootElement.GetProperty("message").GetString(), StringComparison.Ordinal);
     }
 
     [Fact]
@@ -164,7 +143,7 @@ public sealed class SkillsExportCliOutputContractTests
         string? outputRoot,
         string? host = "openai",
         string format = "directory",
-        string[]? tier = null,
+        string[]? category = null,
         string[]? skill = null)
     {
         return SkillsCliOutputContractTestSupport.SharedRunner.ExportAsync(new SkillsCommandTestRunner.Options
@@ -172,7 +151,7 @@ public sealed class SkillsExportCliOutputContractTests
             Host = host,
             Output = outputRoot,
             Format = format,
-            Tier = tier ?? (skill is null ? ["basic"] : null),
+            Category = category ?? (skill is null ? ["basic"] : null),
             Skill = skill,
         });
     }

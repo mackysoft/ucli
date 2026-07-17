@@ -104,7 +104,7 @@ public sealed class SkillsCommandValidationTests
 
         var result = await ExecuteWithoutPackageSelectionAsync(subcommand, repoRoot, outputRoot);
 
-        AssertInvalidArgument(result, expectedCommand, "Option '--tier' or '--skill' is required.");
+        AssertInvalidArgument(result, expectedCommand, "Option '--category' or '--skill' is required.");
         AssertValidationPathsWereNotCreated(repoRoot, outputRoot);
     }
 
@@ -114,29 +114,44 @@ public sealed class SkillsCommandValidationTests
     [InlineData(UcliCommandNames.InstallSubcommand, UcliCommandNames.SkillsInstall)]
     [InlineData(UcliCommandNames.UpdateSubcommand, UcliCommandNames.SkillsUpdate)]
     [InlineData(UcliCommandNames.UninstallSubcommand, UcliCommandNames.SkillsUninstall)]
-    [InlineData(UcliCommandNames.PruneSubcommand, UcliCommandNames.SkillsPrune)]
     [InlineData(UcliCommandNames.DoctorSubcommand, UcliCommandNames.SkillsDoctor)]
-    public async Task Execute_WhenSelectedTierContainsNoPackages_ReturnsSuccessfulEmptyResult (
+    public async Task Execute_WhenCategoryIsNotInBundle_ReturnsInvalidArgumentBeforeTargetResolution (
         string subcommand,
         string expectedCommand)
     {
-        using var scope = TestDirectories.CreateTempScope("skills-command-validation", $"empty-tier-{subcommand}");
+        using var scope = TestDirectories.CreateTempScope("skills-command-validation", $"unavailable-category-{subcommand}");
+        var repoRoot = scope.GetPath(Path.Combine(subcommand, "repo"));
+        var outputRoot = scope.GetPath(Path.Combine(subcommand, "exported"));
 
-        var result = await ExecuteEmptyTierAsync(
+        var result = await ExecuteUnavailableCategoryAsync(
             subcommand,
-            scope.GetPath(Path.Combine(subcommand, "repo")),
-            scope.GetPath(Path.Combine(subcommand, "exported")));
+            repoRoot,
+            outputRoot);
+
+        AssertInvalidArgument(result, expectedCommand, "Unsupported SKILL category: advanced.");
+        AssertValidationPathsWereNotCreated(repoRoot, outputRoot);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task Prune_WhenCategoryWasRemovedFromBundle_ReturnsSuccessfulEmptyResult ()
+    {
+        using var scope = TestDirectories.CreateTempScope("skills-command-validation", "removed-category-prune");
+
+        var result = await ExecuteUnavailableCategoryAsync(
+            UcliCommandNames.PruneSubcommand,
+            scope.GetPath("repo"),
+            scope.GetPath("exported"));
 
         Assert.Equal((int)CliExitCode.Success, result.ExitCode);
         using var outputJson = StdoutJsonParser.ParseSinglePrettyPrintedObject(result.StdOut);
-        CommandResultAssert.HasSuccessEnvelope(
-            outputJson.RootElement,
-            expectedCommand);
+        CommandResultAssert.HasSuccessEnvelope(outputJson.RootElement, UcliCommandNames.SkillsPrune);
         JsonAssert.For(outputJson.RootElement)
             .HasProperty("payload", static payload => payload
-                .HasArrayLength("tiers", 1)
-                .HasArrayLength("skillNames", 0));
-        Assert.Equal("advanced", outputJson.RootElement.GetProperty("payload").GetProperty("tiers")[0].GetString());
+                .HasArrayLength("categories", 1)
+                .HasArrayLength("skillNames", 0)
+                .HasArrayLength("actions", 0));
+        Assert.Equal("advanced", outputJson.RootElement.GetProperty("payload").GetProperty("categories")[0].GetString());
     }
 
     [Theory]
@@ -179,7 +194,7 @@ public sealed class SkillsCommandValidationTests
                 Output = outputRoot,
                 Scope = "project",
                 RepoRoot = repoRoot,
-                Tier = ["basic"],
+                Category = ["basic"],
             });
     }
 
@@ -199,7 +214,7 @@ public sealed class SkillsCommandValidationTests
             });
     }
 
-    private static Task<CommandExecutionResult> ExecuteEmptyTierAsync (
+    private static Task<CommandExecutionResult> ExecuteUnavailableCategoryAsync (
         string subcommand,
         string repoRoot,
         string outputRoot)
@@ -213,7 +228,7 @@ public sealed class SkillsCommandValidationTests
                 Scope = "project",
                 RepoRoot = repoRoot,
                 DryRun = true,
-                Tier = ["advanced"],
+                Category = ["advanced"],
             });
     }
 
@@ -230,7 +245,7 @@ public sealed class SkillsCommandValidationTests
                 Output = outputRoot,
                 Scope = "project",
                 RepoRoot = repoRoot,
-                Tier = ["basic"],
+                Category = ["basic"],
             });
     }
 
@@ -246,7 +261,7 @@ public sealed class SkillsCommandValidationTests
                 Host = "openai",
                 Scope = scope,
                 RepoRoot = repoRoot,
-                Tier = ["basic"],
+                Category = ["basic"],
             });
     }
 

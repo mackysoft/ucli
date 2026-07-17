@@ -1,7 +1,4 @@
 using System.Text.Json;
-using MackySoft.AgentSkills.Digests;
-using MackySoft.AgentSkills.Installation.Validation;
-using MackySoft.AgentSkills.Manifests;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace MackySoft.Ucli.Tests;
@@ -25,6 +22,13 @@ internal static class SkillsCliOutputContractTestSupport
     public static ServiceProvider SharedServiceProvider => SharedSkillsServiceProvider.Value;
 
     public static SkillsCommandTestRunner SharedRunner => SharedSkillsRunner.Value;
+
+    public static int ReadExpectedSkillBundleVersion ()
+    {
+        var descriptorPath = TestRepositoryPaths.GetFullPath("skills", "generated", "bundle.json");
+        using var descriptor = JsonDocument.Parse(File.ReadAllText(descriptorPath));
+        return descriptor.RootElement.GetProperty("skillBundleVersion").GetInt32();
+    }
 
     public static SkillsCommandTestRunner GetRunner (IServiceProvider? serviceProvider)
     {
@@ -87,7 +91,7 @@ internal static class SkillsCliOutputContractTestSupport
             DryRun = dryRun,
             Force = force,
             PrintDiff = printDiff,
-            Tier = skill is null ? ["basic"] : null,
+            Category = skill is null ? ["basic"] : null,
             Skill = skill,
         });
     }
@@ -106,7 +110,7 @@ internal static class SkillsCliOutputContractTestSupport
             RepoRoot = repoRoot,
             DryRun = dryRun,
             Force = force,
-            Tier = skill is null ? ["basic"] : null,
+            Category = skill is null ? ["basic"] : null,
             Skill = skill,
         });
     }
@@ -125,7 +129,7 @@ internal static class SkillsCliOutputContractTestSupport
             RepoRoot = repoRoot,
             DryRun = dryRun,
             Force = force,
-            Tier = skill is null ? ["basic"] : null,
+            Category = skill is null ? ["basic"] : null,
             Skill = skill,
         });
     }
@@ -149,7 +153,7 @@ internal static class SkillsCliOutputContractTestSupport
             DryRun = dryRun,
             Force = force,
             PrintDiff = printDiff,
-            Tier = skill is null ? ["basic"] : null,
+            Category = skill is null ? ["basic"] : null,
             Skill = skill,
         });
     }
@@ -164,7 +168,7 @@ internal static class SkillsCliOutputContractTestSupport
             Host = "openai",
             Scope = "project",
             RepoRoot = repoRoot,
-            Tier = skill is null ? ["basic"] : null,
+            Category = skill is null ? ["basic"] : null,
             Skill = skill,
         });
     }
@@ -182,7 +186,7 @@ internal static class SkillsCliOutputContractTestSupport
                 Host = "openai",
                 Scope = "user",
                 TargetDir = targetRoot,
-                Tier = skill is null ? ["basic"] : null,
+                Category = skill is null ? ["basic"] : null,
                 Skill = skill,
             });
     }
@@ -208,7 +212,7 @@ internal static class SkillsCliOutputContractTestSupport
                 DryRun = dryRun,
                 Force = force,
                 PrintDiff = printDiff,
-                Tier = ["basic"],
+                Category = ["basic"],
             });
     }
 
@@ -223,7 +227,7 @@ internal static class SkillsCliOutputContractTestSupport
             subcommand,
             "--host",
             "openai",
-            "--tier",
+            "--category",
             "basic",
             "--scope",
             "project",
@@ -234,56 +238,6 @@ internal static class SkillsCliOutputContractTestSupport
         }
 
         return CliInProcessRunner.RunCommandWithWorkingDirectoryAsync(workingDirectory, args.ToArray());
-    }
-
-    public static Task RewriteInstalledSkillBodyAndManifestAsOlderAsync (InstalledSkillFixture installed)
-    {
-        return RewriteInstalledSkillBodyAndManifestAsOlderAsync(
-            installed.TargetRoot,
-            installed.SkillName);
-    }
-
-    private static async Task RewriteInstalledSkillBodyAndManifestAsOlderAsync (
-        string targetRoot,
-        string skillName)
-    {
-        var skillDirectory = Path.Combine(targetRoot, skillName);
-        var skillPath = Path.Combine(skillDirectory, "SKILL.md");
-        var manifestPath = Path.Combine(skillDirectory, "agent-skill.json");
-        var skillText = NormalizeToLf(await File.ReadAllTextAsync(skillPath));
-        Assert.True(SkillHostMaterializationInspector.TryExtractFrontmatter(skillText, out var frontmatter));
-        var body = skillText[frontmatter.Length..];
-        if (body.StartsWith('\n'))
-        {
-            body = body[1..];
-        }
-
-        var olderBody = body + "\nSynthetic previous version.\n";
-        await File.WriteAllTextAsync(skillPath, frontmatter + "\n" + olderBody);
-
-        var digestInputs = new List<SkillDigestInputFile>
-        {
-            new("SKILL.md", olderBody),
-        };
-        var referencesRoot = Path.Combine(skillDirectory, "references");
-        if (Directory.Exists(referencesRoot))
-        {
-            foreach (var referencePath in Directory.EnumerateFiles(referencesRoot, "*", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
-            {
-                var relativePath = Path.GetRelativePath(skillDirectory, referencePath).Replace(Path.DirectorySeparatorChar, '/');
-                var content = NormalizeToLf(await File.ReadAllTextAsync(referencePath));
-                digestInputs.Add(new SkillDigestInputFile(relativePath, content));
-            }
-        }
-
-        var serializer = new SkillManifestJsonSerializer();
-        var manifestResult = serializer.TryDeserialize(await File.ReadAllTextAsync(manifestPath));
-        Assert.True(manifestResult.IsSuccess, manifestResult.Failure?.Message);
-        var manifest = new SkillManifestDigestCalculator(serializer).WithComputedManifestDigest(manifestResult.Value! with
-        {
-            ContentDigest = new SkillDigestCalculator().ComputeDigest(digestInputs),
-        });
-        await File.WriteAllTextAsync(manifestPath, serializer.Serialize(manifest));
     }
 
     public static JsonElement FindAction (
@@ -351,11 +305,6 @@ internal static class SkillsCliOutputContractTestSupport
         Assert.Contains("Injected instruction.", modified.GetProperty("beforeContent").GetString(), StringComparison.Ordinal);
         Assert.DoesNotContain("Injected instruction.", modified.GetProperty("afterContent").GetString(), StringComparison.Ordinal);
         return action;
-    }
-
-    private static string NormalizeToLf (string text)
-    {
-        return text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
     }
 
     public readonly record struct InstalledSkillFixture (

@@ -6,7 +6,7 @@ namespace MackySoft.Ucli.Hosting.Cli.Skills;
 /// <summary> Maps SKILL-domain failures to the shared CLI failure model. </summary>
 internal static class SkillFailureApplicationFailureMapper
 {
-    private const string SkillTierMismatchMessageFragment = "does not match selected tiers";
+    private const string SkillCategoryMismatchMessageFragment = "does not match selected categories";
     private const string EmptyHostMessage = "SKILL host literal must not be empty.";
     private const string EmptyScopeMessage = "SKILL scope literal must not be empty.";
     private const string UnsupportedScopeLiteralPrefix = "Unsupported SKILL scope literal: ";
@@ -35,7 +35,7 @@ internal static class SkillFailureApplicationFailureMapper
         }
 
         return failure.Code == SkillFailureCodes.InputInvalid
-            && !message.Contains(SkillTierMismatchMessageFragment, StringComparison.Ordinal);
+            && !message.Contains(SkillCategoryMismatchMessageFragment, StringComparison.Ordinal);
     }
 
     private static bool IsInvalidArgumentFailureCode (SkillFailureCode code)

@@ -21,8 +21,6 @@ internal static class SkillsServiceCollectionExtensions
         services.AddAgentSkillsCommandRuntime(options =>
         {
             options.ProductName = "uCLI";
-            options.CatalogId = UcliSkillCatalogLiterals.Official;
-            options.Tiers = UcliSkillTierLiterals.Defined;
             options.PackageBaseDirectory = AppContext.BaseDirectory;
             options.CommandRoot = UcliCommandNames.Skills;
             options.RepositoryRootResolver = UcliStoragePathResolver.ResolveStorageRoot;

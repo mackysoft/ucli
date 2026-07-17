@@ -1,3 +1,4 @@
+using MackySoft.AgentSkills.Bundles;
 using MackySoft.AgentSkills.Distribution;
 using MackySoft.Ucli.Hosting.Composition.Features;
 using Microsoft.Extensions.DependencyInjection;
@@ -14,7 +15,7 @@ public sealed class SkillsPruneCliOutputContractTests
         using var scope = TestDirectories.CreateTempScope("skills-cli-output-contract", "prune-removed-managed");
         var repoRoot = scope.CreateDirectory("repo");
         var installed = await SkillsCliOutputContractTestSupport.InstallSelectedProjectSkillAsync(repoRoot);
-        var prunedCatalogBaseDirectory = CreatePackageBaseWithoutSkill(scope, SkillsCliOutputContractTestSupport.SelectedSingleSkillName);
+        var prunedCatalogBaseDirectory = await CreatePackageBaseWithoutSkillAsync(scope, SkillsCliOutputContractTestSupport.SelectedSingleSkillName);
         using var serviceProvider = CreateSkillsServiceProvider(prunedCatalogBaseDirectory);
 
         var result = await SkillsCliOutputContractTestSupport.RunOpenAiPruneAsync(
@@ -80,12 +81,20 @@ public sealed class SkillsPruneCliOutputContractTests
         return services.BuildServiceProvider();
     }
 
-    private static string CreatePackageBaseWithoutSkill (
+    private static async Task<string> CreatePackageBaseWithoutSkillAsync (
         TestDirectoryScope scope,
         string removedSkillName)
     {
         var sourceRoot = Path.Combine(AppContext.BaseDirectory, "skills");
         Assert.True(Directory.Exists(sourceRoot), $"Bundled test skills directory does not exist: {sourceRoot}");
+
+        var bundleReader = SkillsCliOutputContractTestSupport.SharedServiceProvider.GetRequiredService<CanonicalSkillBundleReader>();
+        var sourceBundleResult = await bundleReader.ReadAsync(sourceRoot);
+        Assert.True(sourceBundleResult.IsSuccess, sourceBundleResult.Failure?.Message);
+        var sourceBundle = sourceBundleResult.Value!;
+        var remainingPackages = sourceBundle.Packages
+            .Where(package => !string.Equals(package.Manifest.SkillName.Value, removedSkillName, StringComparison.Ordinal))
+            .ToArray();
 
         var baseDirectory = scope.CreateDirectory("pruned-catalog-base");
         var targetRoot = Path.Combine(baseDirectory, "skills");
@@ -101,6 +110,17 @@ public sealed class SkillsPruneCliOutputContractTests
 
             CopyDirectory(skillDirectory, Path.Combine(targetRoot, skillName));
         }
+
+        var bundleDigestCalculator = SkillsCliOutputContractTestSupport.SharedServiceProvider.GetRequiredService<SkillBundleDigestCalculator>();
+        var bundleSerializer = SkillsCliOutputContractTestSupport.SharedServiceProvider.GetRequiredService<SkillBundleJsonSerializer>();
+        var descriptor = new SkillBundleDescriptor(
+            sourceBundle.Descriptor.SchemaVersion,
+            sourceBundle.Descriptor.CatalogId,
+            sourceBundle.Descriptor.SkillBundleVersion,
+            bundleDigestCalculator.ComputeDigest(remainingPackages));
+        await File.WriteAllTextAsync(
+            Path.Combine(targetRoot, "bundle.json"),
+            bundleSerializer.SerializeDescriptor(descriptor));
 
         return baseDirectory;
     }

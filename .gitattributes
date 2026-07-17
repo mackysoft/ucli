@@ -1,12 +1,2 @@
-# Auto detect text files and perform LF normalization
-* text=auto
-
-# C# sources are formatted with LF based on .editorconfig.
-*.cs text eol=lf
-
-# SKILL definitions and generated packages must compare byte-for-byte with generator output.
-skills/definitions/** text eol=lf
-skills/generated/** text eol=lf
-
-# Generated schema artifacts must compare byte-for-byte with generator output.
-schemas/** text eol=lf
+# Auto detect text files and normalize them to LF.
+* text=auto eol=lf
