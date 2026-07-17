@@ -23,6 +23,13 @@ internal static class SkillsCliOutputContractTestSupport
 
     public static SkillsCommandTestRunner SharedRunner => SharedSkillsRunner.Value;
 
+    public static int ReadExpectedSkillBundleVersion ()
+    {
+        var descriptorPath = TestRepositoryPaths.GetFullPath("skills", "generated", "bundle.json");
+        using var descriptor = JsonDocument.Parse(File.ReadAllText(descriptorPath));
+        return descriptor.RootElement.GetProperty("skillBundleVersion").GetInt32();
+    }
+
     public static SkillsCommandTestRunner GetRunner (IServiceProvider? serviceProvider)
     {
         return serviceProvider is null

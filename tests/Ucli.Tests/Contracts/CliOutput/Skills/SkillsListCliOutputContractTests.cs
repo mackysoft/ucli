@@ -22,6 +22,7 @@ public sealed class SkillsListCliOutputContractTests
         CommandResultAssert.HasNoErrors(outputJson.RootElement);
 
         var payload = outputJson.RootElement.GetProperty("payload");
+        var expectedSkillBundleVersion = SkillsCliOutputContractTestSupport.ReadExpectedSkillBundleVersion();
         JsonAssert.For(payload)
             .HasArrayLength("categories", 1)
             .HasArrayLength("skillNames", 0)
@@ -31,14 +32,14 @@ public sealed class SkillsListCliOutputContractTests
             .HasProperty("availableCategories", 0, static category => category
                 .HasString("category", "basic")
                 .HasInt32("skillCount", SkillsCliOutputContractTestSupport.ExpectedSkillNames.Length))
-            .HasProperty("skills", 0, static skill => skill
+            .HasProperty("skills", 0, skill => skill
                 .HasString("skillName", SkillsCliOutputContractTestSupport.ExpectedSkillNames[0])
                 .HasValueKind("displayName", JsonValueKind.String)
                 .HasValueKind("description", JsonValueKind.String)
                 .HasArrayLength("dependencies", 0)
                 .HasString("category", "basic")
                 .HasString("catalogId", "com.mackysoft.ucli")
-                .HasInt32("skillBundleVersion", 1)
+                .HasInt32("skillBundleVersion", expectedSkillBundleVersion)
                 .HasValueKind("contentDigest", JsonValueKind.String)
                 .HasArrayLength("hostArtifacts", 3))
             .HasProperty("supportedHosts", 0, static host => host
