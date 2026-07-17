@@ -1,86 +1,65 @@
-# Screenshot Fidelity GUI System Test
+# Screenshot Surface GUI System Test
 
-This macOS-only system-test lane compares committed screenshot artifacts with an independent WindowServer capture of the same Unity presentation. It is a `Medium` test because it coordinates the uCLI process, one GUI Unity Editor process, and the macOS window-capture process on one machine.
+This macOS-only `Medium` test verifies that the public screenshot commands read the presentation surfaces used by Unity's GameView and active SceneView. It runs the production CLI against one GUI Unity Editor in stable Edit Mode and again with the project's normal Play Mode settings.
 
-The lane does not establish public screenshot semantics. The command and property references define the public contract; the screenshot compatibility document is a non-normative implementation and measurement record. A successful run is evidence for the exact environment and source snapshot recorded in `fidelity-result.json`; it does not implicitly enable other Unity versions, operating-system versions, graphics devices, display modes, or render pipelines.
+The test does not define screenshot semantics and does not judge whether the cube, scene, game, lighting, gizmos, overlays, or any other displayed content is correct. Public behavior comes from the command and property references. The test only checks the capture boundary, output integrity, requested dimensions, and request-owned state restoration.
 
-## Independent oracle boundary
+## Capture boundary
 
-Production and reference pixels follow separate paths:
+Production and reference images use separate paths:
 
-| Target | Production path | Reference path |
+| Target | Production path | Independent reference |
 | --- | --- | --- |
-| GameView | GameView backing texture, production normalization, production PNG encoder | WindowServer window ID, `/usr/sbin/screencapture`, ImageIO and ColorSync decode |
-| SceneView | Unity Editor window-framebuffer helper, production normalization, production PNG encoder | WindowServer window ID, `/usr/sbin/screencapture`, ImageIO and ColorSync decode |
+| GameView | The existing main GameView presentation texture, production normalization, production PNG encoder | The same visible GameView window captured by WindowServer window ID |
+| SceneView | The active SceneView HostView framebuffer content rectangle, production normalization, production PNG encoder | The same visible SceneView window captured by WindowServer window ID |
 
-The oracle does not reference the production capture API, normalization shader, row-order calibration, or PNG validator. GameView uses four asymmetric fixture sentinels. SceneView uses three asymmetric edge sentinels placed from the active `OnSceneGUI` clip observed through `GUIClip.visibleRect`; the fixture does not use the production `SceneView.cameraViewport` crop authority.
+For current-surface captures, the oracle color-manages both images into Display P3 and compares the complete physical-pixel surface. The fixed limits are mean absolute RGB-channel error `0.5/255`, p95 `2/255`, and maximum `4/255`. Rounded WindowServer corner-mask pixels may be excluded only at the window corners, and at least `0.999` of the surface must remain comparable. The artifact must be fully opaque and contain its required PNG `sRGB` chunk.
 
-Before comparing artifact and reference colors, the oracle requires the camera-rendered 17-step gray ramp to retain sufficient luminance range and distinct levels, and requires every named color patch to be non-black and distinguishable from the other patches. The Canvas and `OnSceneGUI` probes do not duplicate those samples. An absent world-render path therefore cannot be hidden by a later UI composite.
+The fixture creates a camera-facing colored cube so orientation and crop errors are visible to the full-surface comparison. It does not test the cube's meaning or require a particular display configuration. GameView and SceneView are never compared with each other.
 
-GameView additionally requires independent presence signatures for the world pattern, the intentional post-process Volume, the overlay camera in the camera stack, Screen Space Overlay UI, and runtime IMGUI. The post-process probe starts as a neutral shader color and must show the predeclared warm-channel separation after presentation. The resolution marker is encoded independently by the Canvas and must decode to the artifact dimensions. The runner executes synthetic positive and one-missing-route oracle checks before launching Unity and writes the result to `oracle-self-check.json`.
+Requested-resolution GameView capture is checked by the returned PNG dimensions and by restoring the original GameView selection, size count, and target dimensions. Its restored WindowServer image has a different physical size, so the test does not invent a pixel comparison for that case.
 
-GameView current-surface and SceneView capture additionally compare every corresponding decoded Display P3 8-bit RGB channel at the same physical pixel. Display P3 is the fixed common full-image space because it contains the artifact's sRGB gamut; reducing an 8-bit Display P3 WindowServer reference to 8-bit sRGB would amplify quantization at saturated sRGB boundaries before comparison. Fixture location and named color samples remain decoded in sRGB. The fixed limits are mean absolute error `0.5/255`, p95 absolute error `2/255`, and maximum absolute error `4/255`. Requested-resolution GameView capture has a different physical size from the restored WindowServer reference, so it uses the route, sample, exact-dimension, and restoration gates instead of a false one-to-one full-image comparison. These limits and route-presence thresholds are benchmark inputs fixed before the candidate run and are not calibrated from its output.
+## Environment boundary
 
-WindowServer's rounded window mask can make the outer corner pixels non-opaque. Such pixels are excluded only when every non-opaque component touches an image corner, remains inside the coverage-derived corner envelope, and the compared before/after WindowServer masks are identical. At least `0.999` of physical pixels must remain compared. An interior mask, a changed mask, or lower coverage fails the lane. The screenshot artifact itself must remain fully opaque.
+The product does not require Unity to be frontmost or to own keyboard focus. The independent WindowServer reference requires only that its exact fixture window remain on-screen and unminimized. A locked desktop or missing Screen Recording permission prevents the reference capture and is reported as a test-environment failure, not a product contract.
 
-## Prerequisites
+Prerequisites:
 
 - macOS with an unlocked interactive desktop session
 - Screen Recording permission for the invoking terminal or automation runner
 - Xcode command-line tools with `swiftc`
 - .NET 8 SDK
-- `jq`, `rsync`, `nuget` (or `nuget.exe`), and `system_profiler`
-- a licensed Unity Editor that can open the copied `src/Ucli.Unity` project
-
-The Unity window must remain on-screen and unminimized. Each WindowServer reference waits until the Unity fixture process is frontmost, and the Scene fixture fixes its selected object, transform tool, camera mode, lighting, gizmo, and Scene effects state before measurement. A locked desktop, missing Screen Recording permission, an ambiguous window, an empty OS capture, an unknown image color space, or a missing fixture border fails the lane.
-
-The disposable fixture contains no `Light`. Fog, skybox, ambient contribution, reflections, shadows, light probes, reflection probes, occlusion culling, dynamic resolution, antialiasing, XR, and project renderer features are disabled. The pattern and overlay marker use separate explicit layers and an `SRPDefaultUnlit` pass. The only intentional presentation effects are the declared post-process Volume, camera stack, Game-only Screen Space Overlay Canvas and runtime IMGUI, and Scene-only handles. The Game probes are disabled during Scene measurement because Unity otherwise represents the Screen Space Overlay Canvas as world content that covers the independent Scene samples. Their target-specific state is checked after every fixture action and recorded in `fixture-render-isolation.json`.
+- `jq`, `rsync`, `nuget` or `nuget.exe`, and `system_profiler`
+- a licensed Unity Editor able to open the copied `src/Ucli.Unity` project
 
 ## Run
-
-Pass either a Unity application bundle or the Unity executable:
 
 ```bash
 bash tests/System/ScreenshotFidelity/run-macos.sh \
   --unity-editor "/Applications/Unity/Hub/Editor/2023.2.22f1/Unity.app" \
+  --color-space linear \
   --results-dir "$PWD/TestResults/ScreenshotFidelity/local"
 ```
 
-Use `--keep-work-directory` to retain the imported disposable Unity project for diagnosis. Without it, the runner removes the copied Unity `Library`, `Temp`, and `Logs` directories after the run.
-An explicit `--results-dir` must not already exist; the runner reserves it atomically so concurrent measurements cannot share a Unity project or evidence files.
+`--color-space` accepts `linear` or `gamma` and changes only the disposable Unity project. Run both values when changing source selection, normalization, or encoding. `--keep-work-directory` retains the disposable project for diagnosis. An explicit results directory must not already exist.
 
-Unity starts only through uCLI's production GUI bootstrap. After the GUI daemon session is ready, the runner uses the exact-allowlisted existing `ucli.cs.eval` operation to call the fixture's public `Start` API; the test assembly owns neither an `InitializeOnLoad` bootstrap nor an `-executeMethod` entry point. Eval is explicitly authorized as dangerous because the activated control protocol writes under the supplied isolated run directory. The complete GUI log is rejected if it contains C# diagnostics, shader compilation failures, or rejected importer registrations.
+The runner builds all inputs from the recorded source snapshot. It starts the production GUI daemon, invokes the fixture's allowlisted `ucli.cs.eval` entry point, and leaves the project's normal Domain Reload and Scene Reload settings unchanged.
 
 ## Cases
 
-The lane runs these contracts through the public CLI:
+The lane runs these public-command cases:
 
-1. GameView current surface matches the color-managed WindowServer presentation.
-2. GameView requested `321x197` capture contains the requested-resolution marker and restores the original GameView state.
-3. SceneView current presentation matches the complete physical-pixel WindowServer content while the Overlay Menu is closed and every configurable Overlay except the included orientation gizmo is hidden.
-4. SceneView capture fails with `SCREENSHOT_CAPTURE_UNSUPPORTED`, preserves the displayed UI state, and commits no screenshot artifact while the actual Overlay Menu popup is displayed.
-5. SceneView capture has the same fail-closed and state-preservation behavior while one real configurable Overlay panel is displayed.
+1. SceneView current surface in stable Edit Mode.
+2. GameView current surface in stable Edit Mode.
+3. GameView requested `321x197` resolution in stable Edit Mode, including restoration.
+4. SceneView current surface in stable Play Mode.
+5. GameView current surface in stable Play Mode.
+6. GameView requested `321x197` resolution in stable Play Mode, including restoration.
 
-The requested-resolution case deliberately uses `321x197`: both dimensions are odd and neither is a power of two. This makes preset rounding, alignment assumptions, and one-pixel dimension errors observable; replacing the case with `512` or `1024` dimensions would weaken that coverage. Current-surface dimensions are not normalized benchmark inputs. They are the physical sizes of the presentations observed through the actual Editor windows and therefore vary with window chrome and display scale.
-
-The fixture discovers the Overlay Menu and configurable panel through the members exposed by the running Editor. It does not branch on a Unity version string. If the fixture cannot construct or observe the required condition, the harness reports an unsupported fixture failure rather than treating the case as passing.
-
-The fixture includes asymmetric corners, a one-pixel edge signature, a camera-rendered 17-step gray ramp and color patches, an independently identifiable URP post-process probe, camera-stack marker, Screen Space resolution marker, runtime IMGUI signature, and SceneView handles. The oracle rejects vertical or horizontal inversion, channel swaps, crop padding, non-opaque artifact alpha, a missing render route, invalid or collapsed fixture samples, material color or luminance changes, stale requested-resolution frames, and presentation changes between the before and after OS captures. GameView current-surface and SceneView full-image comparison also reject any localized difference beyond the fixed limits.
+The odd, non-power-of-two requested size exposes rounding and one-pixel errors without adding any content requirement.
 
 ## Results
 
-`fidelity-result.json` contains:
+`fidelity-result.json` records the source snapshot, Unity and macOS environment, active color space, diagnostics counts, GameView restoration state, and the six case results. Current-surface case directories contain the command result, artifact PNG, same-window reference PNG, and comparison JSON. Requested-resolution directories contain the command result, artifact PNG, before/after GameView state, and dimension analysis.
 
-- Unity, macOS, GPU, graphics API, active color space, render pipeline, display, and backing-scale observations
-- per-case crop, alpha-mask topology, physical-pixel coverage, full-image RGB error, color-difference, luminance, gray-ramp, and resolution-marker results
-- the GameView state comparison and `GameViewSizes.asset` hash before and after Editor exit
-- the fixture lighting, RenderSettings, renderer-feature, camera, layer, Volume, Canvas, shader-message, and SceneView isolation state
-- the measurement-window Unity runtime error and warning counts, plus pre-bootstrap compiler and importer-registration diagnostics from the complete GUI log
-- the source revision, exact Git tree assembled from tracked and non-ignored untracked working-tree files, and whether that source snapshot differed from the revision
-- the path, digest, and file count of `execution-input-manifest.json`, which hashes every file and symbolic link supplied to the disposable Unity project, published uCLI host, and WindowServer oracle
-
-The runner materializes the recorded Git tree before building. It creates the ignored Unity shared-package restore outputs in a separate build workspace from that tree, then records the complete derived execution inputs before launching Unity. It never consumes ignored package DLLs from the caller's working tree.
-
-Each case directory retains the command result, standard error, available artifact PNG, WindowServer captures, WindowServer metadata, fixture state, and analysis JSON. Fail-closed cases retain the screenshot artifact path/digest set from before and after the command. A failed run leaves `runner-status.json` and the available intermediate evidence.
-
-The runner copies `GameViewSizes.asset` into the results directory for diagnosis and compares its hash after Unity exits. It never overwrites or deletes the real preference file because another Unity process or the user may have changed it concurrently. A hash difference fails the lane and reports the backup path. Fixture Scene and Overlay state live in the disposable Unity project; production capture remains responsible for observing existing state without changing it.
+Warnings unrelated to screenshot execution are retained as diagnostics and are not promoted to screenshot failures. Compiler diagnostics, importer registration failures, fixture errors, command errors, and pixel-surface mismatches fail the lane.

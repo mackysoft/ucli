@@ -14,8 +14,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
     {
         private const string NormalizeShaderName = "Hidden/uCLI/ScreenshotNormalize";
 
-        private static readonly GraphicsFormat StagingGraphicsFormat = GraphicsFormat.R8G8B8A8_SRGB;
-
         public static UnityScreenshotNormalizationResult Normalize (
             Texture source,
             int width,
@@ -27,23 +25,28 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             cancellationToken.ThrowIfCancellationRequested();
             if (source == null)
             {
-                return Unsupported("Screenshot source texture is unavailable.");
+                return UnityScreenshotNormalizationResult.Failure("Screenshot source texture is unavailable.");
             }
 
             if (!SystemInfo.IsFormatSupported(source.graphicsFormat, GraphicsFormatUsage.Sample))
             {
-                return Unsupported($"Screenshot source format is not sampleable: {source.graphicsFormat}.");
+                return UnityScreenshotNormalizationResult.Failure(
+                    $"Screenshot source format is not sampleable: {source.graphicsFormat}.");
             }
 
-            if (!TryValidateStagingFormat(out var formatError))
+            var stagingGraphicsFormat = colorSpace == IpcScreenshotColorSpace.Linear
+                ? GraphicsFormat.R8G8B8A8_SRGB
+                : GraphicsFormat.R8G8B8A8_UNorm;
+            if (!TryValidateStagingFormat(stagingGraphicsFormat, out var formatError))
             {
-                return Unsupported(formatError);
+                return UnityScreenshotNormalizationResult.Failure(formatError);
             }
 
             var shader = Shader.Find(NormalizeShaderName);
             if (shader == null || !shader.isSupported)
             {
-                return Unsupported($"Screenshot normalization shader is unavailable: {NormalizeShaderName}.");
+                return UnityScreenshotNormalizationResult.Failure(
+                    $"Screenshot normalization shader is unavailable: {NormalizeShaderName}.");
             }
 
             Material material = null;
@@ -63,11 +66,11 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     width,
                     height,
                     "uCLI screenshot staging",
-                    StagingGraphicsFormat,
+                    stagingGraphicsFormat,
                     out staging,
                     out var stagingError))
                 {
-                    return Unsupported(stagingError);
+                    return UnityScreenshotNormalizationResult.Failure(stagingError);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -79,7 +82,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     cancellationToken,
                     out var drawError))
                 {
-                    return Unsupported(drawError);
+                    return UnityScreenshotNormalizationResult.Failure(drawError);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
@@ -90,18 +93,19 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     out var rawBytes,
                     out var readError))
                 {
-                    return Unsupported(readError);
+                    return UnityScreenshotNormalizationResult.Failure(readError);
                 }
 
                 cancellationToken.ThrowIfCancellationRequested();
                 if (!TryResolveRawRowOrder(
                     material,
+                    stagingGraphicsFormat,
                     colorSpace,
                     cancellationToken,
                     out var rawIsTopDown,
                     out var calibrationError))
                 {
-                    return Unsupported(calibrationError);
+                    return UnityScreenshotNormalizationResult.Failure(calibrationError);
                 }
 
                 if (!rawIsTopDown)
@@ -204,6 +208,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
 
         private static bool TryResolveRawRowOrder (
             Material material,
+            GraphicsFormat stagingGraphicsFormat,
             IpcScreenshotColorSpace colorSpace,
             CancellationToken cancellationToken,
             out bool rawIsTopDown,
@@ -219,7 +224,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                     width: 2,
                     height: 2,
                     "uCLI screenshot calibration",
-                    StagingGraphicsFormat,
+                    stagingGraphicsFormat,
                     out calibration,
                     out errorMessage)
                     || !TryDraw(
@@ -344,7 +349,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                 cpuTexture = new Texture2D(
                     source.width,
                     source.height,
-                    StagingGraphicsFormat,
+                    source.graphicsFormat,
                     TextureCreationFlags.None)
                 {
                     hideFlags = HideFlags.HideAndDontSave,
@@ -391,24 +396,21 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             }
         }
 
-        private static bool TryValidateStagingFormat (out string errorMessage)
+        private static bool TryValidateStagingFormat (
+            GraphicsFormat stagingGraphicsFormat,
+            out string errorMessage)
         {
-            if (!SystemInfo.IsFormatSupported(StagingGraphicsFormat, GraphicsFormatUsage.Sample)
-                || !SystemInfo.IsFormatSupported(StagingGraphicsFormat, GraphicsFormatUsage.Render)
-                || !SystemInfo.IsFormatSupported(StagingGraphicsFormat, GraphicsFormatUsage.ReadPixels))
+            if (!SystemInfo.IsFormatSupported(stagingGraphicsFormat, GraphicsFormatUsage.Sample)
+                || !SystemInfo.IsFormatSupported(stagingGraphicsFormat, GraphicsFormatUsage.Render)
+                || !SystemInfo.IsFormatSupported(stagingGraphicsFormat, GraphicsFormatUsage.ReadPixels))
             {
                 errorMessage =
-                    $"Screenshot staging format does not support sample, render, and readback usage: {StagingGraphicsFormat}.";
+                    $"Screenshot staging format does not support sample, render, and readback usage: {stagingGraphicsFormat}.";
                 return false;
             }
 
             errorMessage = null;
             return true;
-        }
-
-        private static UnityScreenshotNormalizationResult Unsupported (string message)
-        {
-            return UnityScreenshotNormalizationResult.Failure(message);
         }
 
         private static void ReverseRowsInPlace (

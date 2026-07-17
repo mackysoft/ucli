@@ -748,6 +748,8 @@ Common operation groups include:
 | `ucli daemon` | Manage daemon sessions. |
 | `ucli test` | Run Unity Test Framework tests. |
 
+`ucli screenshot game` and `ucli screenshot scene` capture their presentation surfaces in stable Edit Mode or Play Mode. Screenshot capture waits for waitable lifecycle work within the command timeout and does not commit an artifact if the Editor state changes during capture.
+
 `ucli logs unity clear` clears only the visible Unity Editor Console. It does not remove entries retained by `ucli logs unity read`.
 
 Common options:

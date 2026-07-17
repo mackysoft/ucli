@@ -22,18 +22,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
                     return false;
                 }
 
-                if (!sceneView.hasFocus)
-                {
-                    errorMessage =
-                        "The active SceneView must have focus so Unity can capture its final window framebuffer.";
-                    return false;
-                }
-
                 if (!UnityEditorHostViewProbe.TryGetSelectedState(
                     sceneView,
                     out var hostView,
                     out var backingScale,
-                    out var hdrActive,
                     out errorMessage))
                 {
                     return false;
@@ -43,7 +35,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
                 var contentRect = sceneView.cameraViewport;
                 if (!UnitySceneViewCaptureCapabilityResolver.TryResolveCurrent(
                     hostView,
-                    hdrActive,
                     backingScale,
                     windowRect,
                     contentRect,
@@ -51,35 +42,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
                     out errorMessage))
                 {
                     return false;
-                }
-
-                if (!UnitySceneViewOverlayProbe.TryInspect(
-                    sceneView,
-                    out var excludedPresentation,
-                    out errorMessage))
-                {
-                    return false;
-                }
-
-                switch (excludedPresentation)
-                {
-                    case SceneViewOverlayPolicy.ExcludedPresentation.None:
-                        break;
-                    case SceneViewOverlayPolicy.ExcludedPresentation.OverlayMenu:
-                        errorMessage =
-                            "Displayed SceneView Overlay Menu cannot be excluded from the final window framebuffer without changing Editor state.";
-                        return false;
-                    case SceneViewOverlayPolicy.ExcludedPresentation.ConfigurableOverlayPanelOrToolbar:
-                        errorMessage =
-                            "Displayed configurable Overlay panel or toolbar cannot be excluded from the final SceneView framebuffer without changing Editor state.";
-                        return false;
-                    case SceneViewOverlayPolicy.ExcludedPresentation.ConfigurableOverlayPopup:
-                        errorMessage =
-                            "Displayed configurable Overlay popup cannot be excluded from the final SceneView framebuffer without changing Editor state.";
-                        return false;
-                    default:
-                        errorMessage = "SceneView Overlay inspection returned an unknown presentation kind.";
-                        return false;
                 }
 
                 source = new SceneViewPresentationSource(

@@ -15,7 +15,6 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var result = TryCreate(
                 GetRequiredGrabPixelsMethod(typeof(SupportedMemberShapeFixture)),
-                sourceStartsAtTop: true,
                 out var capability,
                 out var errorMessage);
 
@@ -27,16 +26,17 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void TryCreateCapability_WithBottomOriginSource_FailsClosed ()
+        public void TryCreateCapability_WithNativeBgraUnorm_ReturnsCapability ()
         {
-            var result = TryCreate(
+            var result = UnitySceneViewCaptureCapabilityResolver.TryCreateCapability(
+                GraphicsFormat.B8G8R8A8_UNorm,
                 GetRequiredGrabPixelsMethod(typeof(SupportedMemberShapeFixture)),
-                sourceStartsAtTop: false,
-                out _,
+                CreateMapping(),
+                out var capability,
                 out var errorMessage);
 
-            Assert.That(result, Is.False);
-            Assert.That(errorMessage, Does.Contain("top-origin"));
+            Assert.That(result, Is.True, errorMessage);
+            Assert.That(capability.FramebufferGraphicsFormat, Is.EqualTo(GraphicsFormat.B8G8R8A8_UNorm));
         }
 
         [TestCase(typeof(StaticMemberShapeFixture))]
@@ -47,7 +47,6 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var result = TryCreate(
                 GetRequiredGrabPixelsMethod(fixtureType),
-                sourceStartsAtTop: true,
                 out _,
                 out var errorMessage);
 
@@ -57,27 +56,30 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static bool TryCreate (
             MethodInfo method,
-            bool sourceStartsAtTop,
             out UnitySceneViewCaptureCapability capability,
             out string errorMessage)
         {
-            var mapping = new UnitySceneViewPresentationMapping(
-                FramebufferWidth: 2,
-                FramebufferHeight: 2,
-                ContentWidth: 2,
-                ContentHeight: 2,
-                BackingScale: 1f,
-                WindowRect: new Rect(0f, 0f, 2f, 2f),
-                ContentRect: new Rect(0f, 0f, 2f, 2f),
-                SourceUvTransform: new Vector4(1f, -1f, 0f, 1f));
             return UnitySceneViewCaptureCapabilityResolver.TryCreateCapability(
-                hdrActive: false,
-                sourceStartsAtTop,
                 GraphicsFormat.B8G8R8A8_SRGB,
                 method,
-                mapping,
+                CreateMapping(),
                 out capability,
                 out errorMessage);
+        }
+
+        private static UnitySceneViewPresentationMapping CreateMapping ()
+        {
+            if (!UnitySceneViewPresentationMapping.TryResolve(
+                new Rect(0f, 0f, 2f, 2f),
+                new Rect(0f, 0f, 2f, 2f),
+                backingScale: 1f,
+                out var mapping,
+                out var errorMessage))
+            {
+                throw new InvalidOperationException(errorMessage);
+            }
+
+            return mapping;
         }
 
         private static MethodInfo GetRequiredGrabPixelsMethod (Type fixtureType)

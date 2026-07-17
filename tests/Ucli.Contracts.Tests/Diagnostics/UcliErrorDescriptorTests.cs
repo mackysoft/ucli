@@ -336,6 +336,17 @@ public sealed class UcliErrorDescriptorTests
         }
     }
 
+    [Fact]
+    [Trait("Size", "Small")]
+    public void EditorPlaymodeDescriptor_DoesNotApplyToScreenshotCommands ()
+    {
+        var descriptor = FindDescriptor(EditorLifecycleErrorCodes.EditorPlaymode);
+
+        Assert.DoesNotContain(UcliCommandIds.Screenshot, descriptor.AppliesTo);
+        Assert.DoesNotContain(UcliCommandIds.ScreenshotGame, descriptor.AppliesTo);
+        Assert.DoesNotContain(UcliCommandIds.ScreenshotScene, descriptor.AppliesTo);
+    }
+
     private static UcliErrorDescriptor FindDescriptor (UcliCode code)
     {
         return UcliKnownErrorDescriptors.All.Single(descriptor => descriptor.Code == code);

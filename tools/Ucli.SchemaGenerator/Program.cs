@@ -1409,30 +1409,51 @@ internal static class Program
         var requestedDimensionSchema = hasRequestedResolution
             ? PositiveIntegerSchema()
             : NullSchema();
-        return ObjectSchema(
+        var captureSchema = ObjectSchema(
             additionalProperties: false,
-            Required("project", ReferenceSchema("../defs/project.schema.json")),
-            Required("capture", ObjectSchema(
-                additionalProperties: false,
-                Required("target", ConstString(target)),
-                Required("sizeMode", ConstString(sizeMode)),
-                Required("requestedWidth", requestedDimensionSchema),
-                Required("requestedHeight", requestedDimensionSchema),
-                Required("width", PositiveIntegerSchema()),
-                Required("height", PositiveIntegerSchema()),
-                Required(
-                    "colorSpace",
-                    EnumSchema(ContractLiteralCodec.GetLiterals<IpcScreenshotColorSpace>().ToArray())),
+            Required("target", ConstString(target)),
+            Required("sizeMode", ConstString(sizeMode)),
+            Required("requestedWidth", requestedDimensionSchema),
+            Required("requestedHeight", requestedDimensionSchema),
+            Required("width", PositiveIntegerSchema()),
+            Required("height", PositiveIntegerSchema()),
+            Required(
+                "colorSpace",
+                EnumSchema(ContractLiteralCodec.GetLiterals<IpcScreenshotColorSpace>().ToArray())),
+            Required(
+                "lifecycleStateAtCapture",
+                StringSchema()),
+            Required(
+                "compileStateAtCapture",
+                ConstString(ContractLiteralCodec.ToValue(IpcCompileState.Ready))),
+            Required("generations", CreateUnityGenerationSnapshotSchema()),
+            Required(
+                "playModeState",
+                StringSchema()));
+        captureSchema["oneOf"] = new[]
+        {
+            ObjectSchema(
+                additionalProperties: true,
                 Required(
                     "lifecycleStateAtCapture",
                     ConstString(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready))),
                 Required(
-                    "compileStateAtCapture",
-                    ConstString(ContractLiteralCodec.ToValue(IpcCompileState.Ready))),
-                Required("generations", CreateUnityGenerationSnapshotSchema()),
+                    "playModeState",
+                    ConstString(ContractLiteralCodec.ToValue(IpcPlayModeState.Stopped)))),
+            ObjectSchema(
+                additionalProperties: true,
+                Required(
+                    "lifecycleStateAtCapture",
+                    ConstString(ContractLiteralCodec.ToValue(IpcEditorLifecycleState.PlayMode))),
                 Required(
                     "playModeState",
-                    ConstString(ContractLiteralCodec.ToValue(IpcPlayModeState.Stopped))))),
+                    ConstString(ContractLiteralCodec.ToValue(IpcPlayModeState.Playing)))),
+        };
+
+        return ObjectSchema(
+            additionalProperties: false,
+            Required("project", ReferenceSchema("../defs/project.schema.json")),
+            Required("capture", captureSchema),
             Required("artifact", ObjectSchema(
                 additionalProperties: false,
                 Required(
