@@ -2,7 +2,7 @@ namespace MackySoft.Ucli.Contracts;
 
 internal static class EditorLifecycleErrorCodeDescriptors
 {
-    private static readonly UcliCommand[] UnityExecutionCommands =
+    private static readonly UcliCommand[] EditorPlaymodeApplicableCommands =
     [
         UcliCommandIds.Status,
         UcliCommandIds.DaemonStatus,
@@ -14,6 +14,11 @@ internal static class EditorLifecycleErrorCodeDescriptors
         UcliCommandIds.Refresh,
         UcliCommandIds.Ops,
         UcliCommandIds.TestRun,
+    ];
+
+    private static readonly UcliCommand[] UnityExecutionCommands =
+    [
+        .. EditorPlaymodeApplicableCommands,
         UcliCommandIds.Screenshot,
         UcliCommandIds.ScreenshotGame,
         UcliCommandIds.ScreenshotScene,
@@ -85,7 +90,7 @@ internal static class EditorLifecycleErrorCodeDescriptors
             category: "lifecycle",
             summary: "Unity Editor is in Play Mode.",
             meaning: "The requested command requires Edit Mode or a mutation policy that is incompatible with the current Play Mode state.",
-            appliesTo: UnityExecutionCommands,
+            appliesTo: EditorPlaymodeApplicableCommands,
             possiblePhases: ["readinessWait", "operationAuthorization"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,

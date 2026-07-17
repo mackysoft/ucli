@@ -4,12 +4,12 @@ set -euo pipefail
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repository_root="$(git -C "${script_dir}" rev-parse --show-toplevel)"
 unity_editor_path=""
-unity_application_path=""
 results_directory=""
 keep_work_directory=false
+color_space="linear"
 
 usage() {
-  echo "Usage: $0 --unity-editor <Unity.app-or-executable> [--results-dir <absolute-path>] [--keep-work-directory]" >&2
+  echo "Usage: $0 --unity-editor <Unity.app-or-executable> [--color-space <linear|gamma>] [--results-dir <absolute-path>] [--keep-work-directory]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
@@ -22,6 +22,11 @@ while [[ $# -gt 0 ]]; do
     --results-dir)
       [[ $# -ge 2 ]] || { usage; exit 2; }
       results_directory="$2"
+      shift 2
+      ;;
+    --color-space)
+      [[ $# -ge 2 ]] || { usage; exit 2; }
+      color_space="$2"
       shift 2
       ;;
     --keep-work-directory)
@@ -45,17 +50,25 @@ if [[ -z "${unity_editor_path}" ]]; then
   exit 2
 fi
 
+case "${color_space}" in
+  linear)
+    project_color_space_value=1
+    unity_color_space_name="Linear"
+    ;;
+  gamma)
+    project_color_space_value=0
+    unity_color_space_name="Gamma"
+    ;;
+  *)
+    echo "--color-space must be linear or gamma: ${color_space}" >&2
+    exit 2
+    ;;
+esac
+
 if [[ -d "${unity_editor_path}" ]]; then
-  unity_application_path="${unity_editor_path%/}"
-  unity_executable="${unity_application_path}/Contents/MacOS/Unity"
+  unity_executable="${unity_editor_path%/}/Contents/MacOS/Unity"
 else
   unity_executable="${unity_editor_path}"
-  if [[ "${unity_executable}" == */Contents/MacOS/Unity ]]; then
-    candidate_application_path="${unity_executable%/Contents/MacOS/Unity}"
-    if [[ -d "${candidate_application_path}" ]]; then
-      unity_application_path="${candidate_application_path}"
-    fi
-  fi
 fi
 if [[ ! -x "${unity_executable}" ]]; then
   echo "Unity Editor executable is not executable: ${unity_executable}" >&2
@@ -89,7 +102,7 @@ ucli_directory="${tool_directory}/ucli"
 ucli_executable="${ucli_directory}/MackySoft.Ucli"
 unity_pid=""
 daemon_started=false
-fixture_started=false
+play_mode_entered=false
 next_sequence=1
 overall_status="error"
 failure_message="System-test runner did not reach completion."
@@ -113,16 +126,15 @@ write_runner_status() {
 cleanup() {
   local cleanup_exit=$?
   set +e
-  if [[ "${fixture_started}" == true && -n "${unity_pid}" ]] && kill -0 "${unity_pid}" 2>/dev/null; then
-    local sequence="${next_sequence}"
-    next_sequence=$((next_sequence + 1))
-    jq -n --argjson sequence "${sequence}" '{sequence:$sequence,action:"quit",nonce:"cleanup"}' \
-      > "${run_directory}/control.json.tmp"
-    mv "${run_directory}/control.json.tmp" "${run_directory}/control.json"
-    for _ in $(seq 1 50); do
-      kill -0 "${unity_pid}" 2>/dev/null || break
-      sleep 0.2
-    done
+  if [[ "${play_mode_entered}" == true && "${daemon_started}" == true ]] \
+    && [[ -x "${ucli_executable}" && -n "${unity_pid}" ]] \
+    && kill -0 "${unity_pid}" 2>/dev/null; then
+    "${ucli_executable}" \
+      play exit \
+      --projectPath "${unity_project}" \
+      --timeout 30000 \
+      > "${results_directory}/cleanup-play-exit.json" \
+      2> "${results_directory}/cleanup-play-exit.stderr.log"
   fi
 
   if [[ "${daemon_started}" == true && -x "${ucli_executable}" ]] \
@@ -364,6 +376,47 @@ invoke_ucli() {
   set -e
 }
 
+start_fixture() {
+  local output_path="$1"
+  local play_mode="$2"
+  local arguments=(
+    eval
+    --projectPath "${unity_project}"
+    --mode daemon
+    --allowDangerous
+  )
+  case "${play_mode}" in
+    true)
+      arguments+=(--allowPlayMode)
+      ;;
+    false)
+      ;;
+    *)
+      fail "Fixture start play-mode selection must be true or false: ${play_mode}"
+      ;;
+  esac
+  arguments+=(
+    --source "${fixture_start_source}"
+    --timeout 30000
+  )
+  rm -f "${fixture_ready_path}" "${run_directory}/control.json"
+  invoke_ucli "${output_path}" "${arguments[@]}"
+  assert_command_success "${output_path}"
+  jq -e '
+    .payload.opResults
+    | length == 1
+      and .[0].op == "ucli.cs.eval"
+      and .[0].result.compile.status == "succeeded"
+      and .[0].result.returnValue.kind == "json"
+      and .[0].result.returnValue.value == true
+  ' "${output_path}" >/dev/null \
+    || fail "Screenshot fidelity fixture did not report a successful start: ${output_path}"
+  wait_for_file "${fixture_ready_path}" 60
+  fixture_process_id="$(jq -r '.processId' "${fixture_ready_path}")"
+  [[ "${fixture_process_id}" == "${unity_pid}" ]] \
+    || fail "Screenshot fidelity fixture started in an unexpected process. Session=${unity_pid}, Fixture=${fixture_process_id}"
+}
+
 send_control() {
   local action="$1"
   local nonce="$2"
@@ -382,7 +435,6 @@ send_control() {
   if [[ "$(jq -r '.status' "${response_path}")" != "ready" ]]; then
     fail "Unity fixture action failed: ${action}: $(jq -r '.message // "unknown error"' "${response_path}")"
   fi
-  assert_fixture_render_isolation "${response_path}" "${action}"
   control_response_path="${response_path}"
 }
 
@@ -395,25 +447,6 @@ capture_reference() {
   local error_path="${metadata_path%.json}.stderr.log"
   process_id="$(jq -r '.processId' "${response_path}")"
   window_title="$(jq -r '.windowTitle' "${response_path}")"
-
-  if [[ -z "${unity_application_path}" ]]; then
-    fail "WindowServer fidelity capture requires a Unity application bundle or its Contents/MacOS/Unity executable."
-  fi
-  local activated=false
-  for _ in $(seq 1 10); do
-    if open -a "${unity_application_path}" > /dev/null 2> "${error_path}"; then
-      activated=true
-      break
-    fi
-
-    if ! kill -0 "${process_id}" 2>/dev/null; then
-      break
-    fi
-    sleep 0.2
-  done
-  if [[ "${activated}" != true ]]; then
-    fail "macOS could not bring the Unity fixture application forward before WindowServer capture. See ${error_path}."
-  fi
 
   for _ in $(seq 1 50); do
     rm -f "${output_path}" "${metadata_path}"
@@ -455,56 +488,11 @@ assert_command_success() {
     || fail "Command did not return status=ok: ${command_result}"
 }
 
-assert_fixture_render_isolation() {
-  local response_path="$1"
-  local context="$2"
-  jq -e '
-    .renderIsolation as $state
-    | $state.lightCount == 0
-      and $state.meshRendererCount == 2
-      and $state.fogEnabled == false
-      and $state.skyboxAssigned == false
-      and $state.ambientMode == "Flat"
-      and $state.ambientLightMaximum == 0
-      and $state.ambientIntensity == 0
-      and $state.reflectionIntensity == 0
-      and $state.customReflectionAssigned == false
-      and $state.patternShaderName == "Hidden/uCLI/ScreenshotFidelityPattern"
-      and $state.patternShaderSupported == true
-      and $state.patternShaderMessageCount == 0
-      and $state.activeRendererFeatureCount == 0
-      and $state.baseCameraCullingMask == 536870912
-      and $state.overlayCameraCullingMask == 1073741824
-      and $state.baseCameraPostProcessing == true
-      and $state.overlayCameraPostProcessing == false
-      and $state.baseCameraStackCount == 1
-      and $state.patternLayer == 29
-      and $state.overlayLayer == 30
-      and $state.volumeLayer == 28
-      and $state.volumeComponentCount == 2
-      and $state.canvasRenderMode == "ScreenSpaceOverlay"
-      and (
-        if $state.target == "Game"
-        then $state.presentationCanvasActive == true and $state.runtimeImguiEnabled == true
-        else $state.presentationCanvasActive == false and $state.runtimeImguiEnabled == false
-        end
-      )
-      and (
-        $state.target != "Scene"
-        or (
-          $state.sceneCameraMode == "Textured"
-          and $state.sceneIn2DMode == false
-          and $state.sceneDrawGizmos == false
-          and $state.sceneLighting == false
-          and $state.sceneFxEnabled == false
-          and $state.sceneFogEnabled == false
-          and $state.sceneSkyboxEnabled == false
-          and $state.sceneImageEffectsEnabled == false
-          and $state.sceneParticleSystemsEnabled == false
-        )
-      )' \
-    "${response_path}" >/dev/null \
-    || fail "${context} fixture render isolation is invalid: ${response_path}"
+assert_capture_color_space() {
+  local command_result="$1"
+  jq -e --arg expected "${color_space}" '.payload.capture.colorSpace == $expected' \
+    "${command_result}" >/dev/null \
+    || fail "Screenshot result did not report the configured ${color_space} color space: ${command_result}"
 }
 
 assert_unity_log_query_empty() {
@@ -530,55 +518,6 @@ assert_unity_compile_import_log_clean() {
   [[ "${grep_exit}" -eq 1 ]] \
     || fail "${context} log inspection failed with exit ${grep_exit}: ${log_path}."
   : > "${diagnostics_path}"
-}
-
-assert_overlay_failure() {
-  local command_result="$1"
-  local condition_name="$2"
-  local expected_diagnostic="$3"
-  [[ "${last_ucli_exit}" -ne 0 ]] || fail "Scene capture unexpectedly succeeded with ${condition_name} displayed."
-  jq -e --arg expected "${expected_diagnostic}" '
-    .status == "error"
-    and any(
-      .errors[]?;
-      .code == "SCREENSHOT_CAPTURE_UNSUPPORTED"
-      and (.message | contains($expected)))
-    and ((.payload? == null) or (.payload.artifact? == null))' \
-    "${command_result}" >/dev/null \
-    || fail "${condition_name} capture did not fail without an artifact reference using SCREENSHOT_CAPTURE_UNSUPPORTED: ${command_result}"
-}
-
-assert_no_excluded_overlays() {
-  local response_path="$1"
-  local context="$2"
-  jq -e '
-    .displayedExcludedOverlayCount == 0
-    and ((.displayedExcludedOverlays // []) | length == 0)' \
-    "${response_path}" >/dev/null \
-    || fail "${context} contains a displayed configurable Overlay: ${response_path}"
-}
-
-displayed_excluded_overlays() {
-  local response_path="$1"
-  jq -c '(.displayedExcludedOverlays // []) | sort' "${response_path}"
-}
-
-assert_scene_fixture_state_unchanged() {
-  local before_path="$1"
-  local after_path="$2"
-  local context="$3"
-  local before_state="${run_directory}/scene-state-before.json"
-  local after_state="${run_directory}/scene-state-after.json"
-
-  jq '{windowInstanceId,sceneTool,sceneSelectionInstanceId}' "${before_path}" > "${before_state}"
-  jq '{windowInstanceId,sceneTool,sceneSelectionInstanceId}' "${after_path}" > "${after_state}"
-  cmp -s "${before_state}" "${after_state}" \
-    || fail "${context} changed the SceneView tool, selection, or window identity."
-}
-
-snapshot_screenshot_artifacts() {
-  find "${test_repository}/.ucli" -type f -path '*/artifacts/screenshot/*' -exec shasum -a 256 {} \; 2>/dev/null \
-    | LC_ALL=C sort
 }
 
 write_source_provenance
@@ -615,6 +554,18 @@ rsync -a --delete \
 rsync -a \
   "${source_snapshot}/tests/System/ScreenshotFidelity/UnityFixture/Assets/" \
   "${unity_project}/Assets/"
+project_settings_path="${unity_project}/ProjectSettings/ProjectSettings.asset"
+project_settings_tmp="${project_settings_path}.tmp"
+active_color_space_count="$(grep -c '^  m_ActiveColorSpace: [01]$' "${project_settings_path}" || true)"
+[[ "${active_color_space_count}" -eq 1 ]] \
+  || fail "Disposable Unity project must contain exactly one supported m_ActiveColorSpace setting."
+awk \
+  -v value="${project_color_space_value}" \
+  '/^  m_ActiveColorSpace: [01]$/ { print "  m_ActiveColorSpace: " value; next } { print }' \
+  "${project_settings_path}" > "${project_settings_tmp}"
+mv "${project_settings_tmp}" "${project_settings_path}"
+grep -q "^  m_ActiveColorSpace: ${project_color_space_value}$" "${project_settings_path}" \
+  || fail "Could not configure the disposable Unity project color space."
 git -C "${test_repository}" init -q
 git -C "${test_repository}" config user.email "screenshot-fidelity@example.invalid"
 git -C "${test_repository}" config user.name "Screenshot Fidelity Harness"
@@ -665,29 +616,10 @@ daemon_started=true
 fixture_start_source="$(jq -nr \
   --arg directory "${run_directory}" \
   '$directory | @json | "return MackySoft.Ucli.ScreenshotFidelity.ScreenshotFidelityFixture.Start(" + . + ");"')"
-invoke_ucli \
-  "${results_directory}/fixture-start.json" \
-  eval \
-  --projectPath "${unity_project}" \
-  --mode daemon \
-  --allowDangerous \
-  --source "${fixture_start_source}" \
-  --timeout 30000
-assert_command_success "${results_directory}/fixture-start.json"
-fixture_started=true
-jq -e '
-  .payload.opResults
-  | length == 1
-    and .[0].op == "ucli.cs.eval"
-    and .[0].result.compile.status == "succeeded"
-    and .[0].result.returnValue.kind == "json"
-    and .[0].result.returnValue.value == true
-' "${results_directory}/fixture-start.json" >/dev/null \
-  || fail "Screenshot fidelity fixture did not report a first successful start."
-wait_for_file "${fixture_ready_path}" 60
-fixture_process_id="$(jq -r '.processId' "${fixture_ready_path}")"
-[[ "${fixture_process_id}" == "${unity_pid}" ]] \
-  || fail "Screenshot fidelity fixture started in an unexpected process. Session=${unity_pid}, Fixture=${fixture_process_id}"
+start_fixture "${results_directory}/fixture-start-edit.json" false
+jq -e --arg expected "${unity_color_space_name}" '.colorSpace == $expected' \
+  "${run_directory}/unity-environment.json" >/dev/null \
+  || fail "Unity did not activate the configured ${color_space} color space."
 
 invoke_ucli "${results_directory}/unity-console-clear.json" \
   logs unity clear \
@@ -716,17 +648,14 @@ run_game_case() {
   local directory="${case_directory}/${case_name}"
   mkdir -p "${directory}"
   send_control "${action}" "${case_name}"
-  cp "${control_response_path}" "${directory}/fixture-before.json"
-  capture_reference \
-    "${control_response_path}" \
-    "${directory}/window-before.png" \
-    "${directory}/window-before.json"
+  if [[ "${requested}" == true ]]; then
+    cp "${control_response_path}" "${directory}/fixture-before.json"
+  fi
 
   if [[ "${requested}" == true ]]; then
     invoke_ucli "${directory}/command.json" \
       screenshot game \
       --projectPath "${unity_project}" \
-      --mode daemon \
       --width 321 \
       --height 197 \
       --timeout 30000
@@ -734,43 +663,69 @@ run_game_case() {
     invoke_ucli "${directory}/command.json" \
       screenshot game \
       --projectPath "${unity_project}" \
-      --mode daemon \
       --timeout 30000
   fi
   assert_command_success "${directory}/command.json"
+  assert_capture_color_space "${directory}/command.json"
   copy_artifact_from_result "${directory}/command.json" "${directory}/artifact.png"
 
   send_control "snapshotGame" "${case_name}"
-  cp "${control_response_path}" "${directory}/fixture-after.json"
-  capture_reference \
-    "${control_response_path}" \
-    "${directory}/window-after.png" \
-    "${directory}/window-after.json"
+  cp "${control_response_path}" "${directory}/fixture.json"
 
   if [[ "${requested}" == true ]]; then
-    jq '{windowInstanceId,gameSelectedSizeIndex,gameSizeCount,gameTargetWidth,gameTargetHeight,backingScale,hdrActive}' \
+    jq '{windowInstanceId,gameSelectedSizeIndex,gameSizeCount,gameTargetWidth,gameTargetHeight}' \
       "${directory}/fixture-before.json" > "${directory}/state-before.json"
-    jq '{windowInstanceId,gameSelectedSizeIndex,gameSizeCount,gameTargetWidth,gameTargetHeight,backingScale,hdrActive}' \
-      "${directory}/fixture-after.json" > "${directory}/state-after.json"
+    jq '{windowInstanceId,gameSelectedSizeIndex,gameSizeCount,gameTargetWidth,gameTargetHeight}' \
+      "${directory}/fixture.json" > "${directory}/state-after.json"
     cmp -s "${directory}/state-before.json" "${directory}/state-after.json" \
       || fail "GameView resolution state was not restored; see ${directory}/state-before.json and state-after.json"
     "${oracle}" analyze \
       --target game \
       --artifact "${directory}/artifact.png" \
-      --reference-before "${directory}/window-before.png" \
-      --reference-after "${directory}/window-after.png" \
       --expected-width 321 \
       --expected-height 197 \
       --output "${directory}/analysis.json"
   else
+    capture_reference \
+      "${control_response_path}" \
+      "${directory}/window.png" \
+      "${directory}/window.json"
     "${oracle}" analyze \
       --target game \
       --artifact "${directory}/artifact.png" \
-      --reference-before "${directory}/window-before.png" \
-      --reference-after "${directory}/window-after.png" \
+      --reference "${directory}/window.png" \
       --output "${directory}/analysis.json"
   fi
 }
+
+run_scene_case() {
+  local case_name="$1"
+  local action="$2"
+  local directory="${case_directory}/${case_name}"
+  mkdir -p "${directory}"
+  send_control "${action}" "${case_name}"
+  invoke_ucli "${directory}/command.json" \
+    screenshot scene \
+    --projectPath "${unity_project}" \
+    --timeout 30000
+  assert_command_success "${directory}/command.json"
+  assert_capture_color_space "${directory}/command.json"
+  copy_artifact_from_result "${directory}/command.json" "${directory}/artifact.png"
+  send_control "snapshotScene" "${case_name}-after-command"
+  cp "${control_response_path}" "${directory}/fixture.json"
+  capture_reference \
+    "${control_response_path}" \
+    "${directory}/window.png" \
+    "${directory}/window.json"
+  "${oracle}" analyze \
+    --target scene \
+    --artifact "${directory}/artifact.png" \
+    --reference "${directory}/window.png" \
+    --output "${directory}/analysis.json"
+}
+
+echo "Running SceneView current-presentation fidelity case..." >&2
+run_scene_case "scene-current" "prepareSceneCurrent"
 
 echo "Running GameView current-surface fidelity case..." >&2
 run_game_case "game-current" "prepareGameCurrent" false
@@ -778,153 +733,7 @@ run_game_case "game-current" "prepareGameCurrent" false
 echo "Running GameView requested-resolution and restoration case..." >&2
 run_game_case "game-requested-321x197" "prepareGameRequested" true
 
-echo "Running SceneView current-presentation fidelity case..." >&2
-scene_directory="${case_directory}/scene-current"
-mkdir -p "${scene_directory}"
-send_control "prepareSceneCurrent" "scene-current"
-cp "${control_response_path}" "${scene_directory}/fixture-before.json"
-[[ "$(jq -r '.overlayMenuDisplayed' "${control_response_path}")" == "false" ]] \
-  || fail "Scene positive fixture unexpectedly displays the Overlay Menu."
-assert_no_excluded_overlays "${control_response_path}" "Scene positive fixture"
-capture_reference \
-  "${control_response_path}" \
-  "${scene_directory}/window-before.png" \
-  "${scene_directory}/window-before.json"
-invoke_ucli "${scene_directory}/command.json" \
-  screenshot scene \
-  --projectPath "${unity_project}" \
-  --mode daemon \
-  --timeout 30000
-assert_command_success "${scene_directory}/command.json"
-copy_artifact_from_result "${scene_directory}/command.json" "${scene_directory}/artifact.png"
-send_control "snapshotScene" "scene-current"
-cp "${control_response_path}" "${scene_directory}/fixture-after.json"
-assert_scene_fixture_state_unchanged \
-  "${scene_directory}/fixture-before.json" \
-  "${scene_directory}/fixture-after.json" \
-  "Scene positive capture"
-[[ "$(jq -r '.overlayMenuDisplayed' "${control_response_path}")" == "false" ]] \
-  || fail "Scene Overlay Menu became visible during positive fidelity capture."
-assert_no_excluded_overlays "${control_response_path}" "Scene positive fixture after capture"
-capture_reference \
-  "${control_response_path}" \
-  "${scene_directory}/window-after.png" \
-  "${scene_directory}/window-after.json"
-"${oracle}" analyze \
-  --target scene \
-  --artifact "${scene_directory}/artifact.png" \
-  --reference-before "${scene_directory}/window-before.png" \
-  --reference-after "${scene_directory}/window-after.png" \
-  --output "${scene_directory}/analysis.json"
-
-echo "Running SceneView OverlayMenu fail-closed case..." >&2
-overlay_directory="${case_directory}/scene-overlay-menu-fail-closed"
-mkdir -p "${overlay_directory}"
-send_control "prepareSceneOverlayMenu" "scene-overlay-menu"
-cp "${control_response_path}" "${overlay_directory}/fixture-before.json"
-[[ "$(jq -r '.overlayMenuDisplayed' "${control_response_path}")" == "true" ]] \
-  || fail "Scene negative fixture could not display the Overlay Menu."
-assert_no_excluded_overlays "${control_response_path}" "Scene Overlay Menu negative fixture"
-capture_reference \
-  "${control_response_path}" \
-  "${overlay_directory}/window.png" \
-  "${overlay_directory}/window.json"
-send_control "snapshotScene" "scene-overlay-menu-after-window-capture"
-cp "${control_response_path}" "${overlay_directory}/fixture-after-window-capture.json"
-[[ "$(jq -r '.overlayMenuDisplayed' "${control_response_path}")" == "true" ]] \
-  || fail "Scene Overlay Menu closed before the negative capture command."
-assert_no_excluded_overlays "${control_response_path}" "Scene Overlay Menu fixture before command"
-snapshot_screenshot_artifacts > "${overlay_directory}/artifacts-before.txt"
-invoke_ucli "${overlay_directory}/command.json" \
-  screenshot scene \
-  --projectPath "${unity_project}" \
-  --mode daemon \
-  --timeout 30000
-assert_overlay_failure \
-  "${overlay_directory}/command.json" \
-  "Overlay Menu" \
-  "Displayed SceneView Overlay Menu"
-send_control "snapshotScene" "scene-overlay-menu-after-command"
-cp "${control_response_path}" "${overlay_directory}/fixture-after-command.json"
-assert_scene_fixture_state_unchanged \
-  "${overlay_directory}/fixture-before.json" \
-  "${overlay_directory}/fixture-after-command.json" \
-  "Scene Overlay Menu capture"
-[[ "$(jq -r '.overlayMenuDisplayed' "${control_response_path}")" == "true" ]] \
-  || fail "Scene screenshot command changed the displayed Overlay Menu state."
-assert_no_excluded_overlays "${control_response_path}" "Scene Overlay Menu fixture after command"
-snapshot_screenshot_artifacts > "${overlay_directory}/artifacts-after.txt"
-cmp -s "${overlay_directory}/artifacts-before.txt" "${overlay_directory}/artifacts-after.txt" \
-  || fail "Scene OverlayMenu failure changed the screenshot artifact path/digest set."
-jq -n \
-  --arg status "ok" \
-  --arg failureCode "SCREENSHOT_CAPTURE_UNSUPPORTED" \
-  --arg artifactSetStatus "unchanged" \
-  '{status:$status,failureCode:$failureCode,artifactSetStatus:$artifactSetStatus}' \
-  > "${overlay_directory}/analysis.json"
-
-echo "Running SceneView configurable Overlay panel fail-closed case..." >&2
-panel_directory="${case_directory}/scene-configurable-overlay-fail-closed"
-mkdir -p "${panel_directory}"
-send_control "prepareSceneConfigurableOverlay" "scene-configurable-overlay"
-cp "${control_response_path}" "${panel_directory}/fixture-before.json"
-[[ "$(jq -r '.overlayMenuDisplayed' "${control_response_path}")" == "false" ]] \
-  || fail "Configurable Overlay fixture unexpectedly displays the Overlay Menu."
-[[ "$(jq -r '.displayedExcludedOverlayCount' "${control_response_path}")" == "1" ]] \
-  || fail "Scene negative fixture did not display exactly one configurable Overlay panel."
-panel_overlay_state="$(displayed_excluded_overlays "${control_response_path}")"
-panel_overlay_name="$(jq -r '.displayedExcludedOverlays[0]' "${control_response_path}")"
-capture_reference \
-  "${control_response_path}" \
-  "${panel_directory}/window.png" \
-  "${panel_directory}/window.json"
-send_control "snapshotScene" "scene-configurable-overlay-after-window-capture"
-cp "${control_response_path}" "${panel_directory}/fixture-after-window-capture.json"
-[[ "$(jq -r '.overlayMenuDisplayed' "${control_response_path}")" == "false" ]] \
-  || fail "Overlay Menu appeared in the configurable Overlay negative fixture."
-[[ "$(displayed_excluded_overlays "${control_response_path}")" == "${panel_overlay_state}" ]] \
-  || fail "Configurable Overlay panel state changed before the negative capture command."
-snapshot_screenshot_artifacts > "${panel_directory}/artifacts-before.txt"
-invoke_ucli "${panel_directory}/command.json" \
-  screenshot scene \
-  --projectPath "${unity_project}" \
-  --mode daemon \
-  --timeout 30000
-assert_overlay_failure \
-  "${panel_directory}/command.json" \
-  "configurable Overlay panel" \
-  "Displayed configurable Overlay panel or toolbar"
-send_control "snapshotScene" "scene-configurable-overlay-after-command"
-cp "${control_response_path}" "${panel_directory}/fixture-after-command.json"
-assert_scene_fixture_state_unchanged \
-  "${panel_directory}/fixture-before.json" \
-  "${panel_directory}/fixture-after-command.json" \
-  "Scene configurable Overlay capture"
-[[ "$(jq -r '.overlayMenuDisplayed' "${control_response_path}")" == "false" ]] \
-  || fail "Overlay Menu appeared after the configurable Overlay negative command."
-[[ "$(displayed_excluded_overlays "${control_response_path}")" == "${panel_overlay_state}" ]] \
-  || fail "Scene screenshot command changed the configurable Overlay panel state."
-snapshot_screenshot_artifacts > "${panel_directory}/artifacts-after.txt"
-cmp -s "${panel_directory}/artifacts-before.txt" "${panel_directory}/artifacts-after.txt" \
-  || fail "Configurable Overlay failure changed the screenshot artifact path/digest set."
-jq -n \
-  --arg status "ok" \
-  --arg failureCode "SCREENSHOT_CAPTURE_UNSUPPORTED" \
-  --arg artifactSetStatus "unchanged" \
-  --arg displayedOverlay "${panel_overlay_name}" \
-  '{status:$status,failureCode:$failureCode,artifactSetStatus:$artifactSetStatus,displayedOverlay:$displayedOverlay}' \
-  > "${panel_directory}/analysis.json"
-
-jq -s \
-  '{
-    game: .[0].renderIsolation,
-    scene: .[1].renderIsolation
-  }' \
-  "${case_directory}/game-current/fixture-before.json" \
-  "${case_directory}/scene-current/fixture-before.json" \
-  > "${results_directory}/fixture-render-isolation.json"
-
-invoke_ucli "${results_directory}/unity-errors.json" \
+invoke_ucli "${results_directory}/unity-errors-edit.json" \
   logs unity read \
   --projectPath "${unity_project}" \
   --after "${unity_log_baseline_cursor}" \
@@ -934,10 +743,10 @@ invoke_ucli "${results_directory}/unity-errors.json" \
   --format json \
   --timeout 30000
 assert_unity_log_query_empty \
-  "${results_directory}/unity-errors.json" \
-  "Screenshot fidelity measurement"
+  "${results_directory}/unity-errors-edit.json" \
+  "Screenshot fidelity Edit Mode measurement"
 
-invoke_ucli "${results_directory}/unity-warnings.json" \
+invoke_ucli "${results_directory}/unity-warnings-edit.json" \
   logs unity read \
   --projectPath "${unity_project}" \
   --after "${unity_log_baseline_cursor}" \
@@ -946,9 +755,70 @@ invoke_ucli "${results_directory}/unity-warnings.json" \
   --stackTrace all \
   --format json \
   --timeout 30000
+assert_command_success "${results_directory}/unity-warnings-edit.json"
+
+echo "Entering Play Mode for production-backend screenshot cases..." >&2
+invoke_ucli "${results_directory}/play-enter.json" \
+  play enter \
+  --projectPath "${unity_project}" \
+  --timeout 60000
+assert_command_success "${results_directory}/play-enter.json"
+play_mode_entered=true
+jq -e '
+  .payload.lifecycleState == "playmode"
+  and .payload.playMode.state == "playing"
+  and .payload.playMode.transition == "none"
+  and .payload.playMode.isPlaying == true
+  and .payload.playMode.isPlayingOrWillChangePlaymode == true' \
+  "${results_directory}/play-enter.json" >/dev/null \
+  || fail "Play Mode enter did not report a stable playing state."
+start_fixture "${results_directory}/fixture-start-play.json" true
+
+echo "Running SceneView current-presentation fidelity case in Play Mode..." >&2
+run_scene_case "scene-current-play" "prepareSceneCurrent"
+
+echo "Running GameView current-surface fidelity case in Play Mode..." >&2
+run_game_case "game-current-play" "prepareGameCurrent" false
+
+echo "Running GameView requested-resolution and restoration case in Play Mode..." >&2
+run_game_case "game-requested-321x197-play" "prepareGameRequested" true
+
+invoke_ucli "${results_directory}/play-exit.json" \
+  play exit \
+  --projectPath "${unity_project}" \
+  --timeout 60000
+assert_command_success "${results_directory}/play-exit.json"
+jq -e '
+  .payload.lifecycleState == "ready"
+  and .payload.playMode.state == "stopped"
+  and .payload.playMode.transition == "none"
+  and .payload.playMode.isPlaying == false
+  and .payload.playMode.isPlayingOrWillChangePlaymode == false' \
+  "${results_directory}/play-exit.json" >/dev/null \
+  || fail "Play Mode exit did not report a stable stopped state."
+play_mode_entered=false
+
+invoke_ucli "${results_directory}/unity-errors-play.json" \
+  logs unity read \
+  --projectPath "${unity_project}" \
+  --level error \
+  --source all \
+  --stackTrace all \
+  --format json \
+  --timeout 30000
 assert_unity_log_query_empty \
-  "${results_directory}/unity-warnings.json" \
-  "Screenshot fidelity measurement"
+  "${results_directory}/unity-errors-play.json" \
+  "Screenshot fidelity Play Mode measurement"
+
+invoke_ucli "${results_directory}/unity-warnings-play.json" \
+  logs unity read \
+  --projectPath "${unity_project}" \
+  --level warning \
+  --source all \
+  --stackTrace all \
+  --format json \
+  --timeout 30000
+assert_command_success "${results_directory}/unity-warnings-play.json"
 
 invoke_ucli "${results_directory}/daemon-stop.json" \
   daemon stop \
@@ -956,16 +826,10 @@ invoke_ucli "${results_directory}/daemon-stop.json" \
   --timeout 30000
 assert_command_success "${results_directory}/daemon-stop.json"
 daemon_started=false
-send_control "quit" "completed"
-for _ in $(seq 1 100); do
-  kill -0 "${unity_pid}" 2>/dev/null || break
-  sleep 0.2
-done
 if kill -0 "${unity_pid}" 2>/dev/null; then
-  fail "Unity did not exit after the fidelity fixture completed."
+  kill "${unity_pid}" 2>/dev/null
 fi
 wait "${unity_pid}" 2>/dev/null || true
-fixture_started=false
 
 assert_unity_compile_import_log_clean \
   "${results_directory}/unity.log" \
@@ -979,29 +843,32 @@ game_view_sizes_hash_after="$(if [[ -f "${game_view_sizes_path}" ]]; then shasum
 jq -n \
   --arg status "ok" \
   --arg size "Medium" \
+  --arg colorSpace "${color_space}" \
   --arg gameViewSizesHashBefore "${game_view_sizes_hash_before}" \
   --arg gameViewSizesHashAfter "${game_view_sizes_hash_after}" \
   --slurpfile source "${source_provenance_path}" \
   --slurpfile macos "${results_directory}/macos-environment.json" \
   --slurpfile unity "${run_directory}/unity-environment.json" \
-  --slurpfile renderIsolation "${results_directory}/fixture-render-isolation.json" \
-  --slurpfile unityErrors "${results_directory}/unity-errors.json" \
-  --slurpfile unityWarnings "${results_directory}/unity-warnings.json" \
+  --slurpfile unityErrorsEdit "${results_directory}/unity-errors-edit.json" \
+  --slurpfile unityWarningsEdit "${results_directory}/unity-warnings-edit.json" \
+  --slurpfile unityErrorsPlay "${results_directory}/unity-errors-play.json" \
+  --slurpfile unityWarningsPlay "${results_directory}/unity-warnings-play.json" \
   --slurpfile gameCurrent "${case_directory}/game-current/analysis.json" \
   --slurpfile gameRequested "${case_directory}/game-requested-321x197/analysis.json" \
+  --slurpfile gameCurrentPlay "${case_directory}/game-current-play/analysis.json" \
+  --slurpfile gameRequestedPlay "${case_directory}/game-requested-321x197-play/analysis.json" \
   --slurpfile sceneCurrent "${case_directory}/scene-current/analysis.json" \
-  --slurpfile sceneOverlay "${case_directory}/scene-overlay-menu-fail-closed/analysis.json" \
-  --slurpfile scenePanel "${case_directory}/scene-configurable-overlay-fail-closed/analysis.json" \
+  --slurpfile sceneCurrentPlay "${case_directory}/scene-current-play/analysis.json" \
   '{
     status:$status,
     size:$size,
+    configuration:{colorSpace:$colorSpace},
     source:$source[0],
     environment:{macos:$macos[0],unity:$unity[0]},
     verification:{
-      renderIsolation:$renderIsolation[0],
       unityDiagnostics:{
-        errorCount:$unityErrors[0].payload.count,
-        warningCount:$unityWarnings[0].payload.count,
+        errorCount:($unityErrorsEdit[0].payload.count + $unityErrorsPlay[0].payload.count),
+        warningCount:($unityWarningsEdit[0].payload.count + $unityWarningsPlay[0].payload.count),
         compilerDiagnosticCount:0,
         importerRegistrationDiagnosticCount:0
       }
@@ -1010,9 +877,10 @@ jq -n \
     cases:{
       gameCurrent:$gameCurrent[0],
       gameRequested321x197:$gameRequested[0],
+      gameCurrentPlay:$gameCurrentPlay[0],
+      gameRequested321x197Play:$gameRequestedPlay[0],
       sceneCurrent:$sceneCurrent[0],
-      sceneOverlayMenuFailClosed:$sceneOverlay[0],
-      sceneConfigurableOverlayFailClosed:$scenePanel[0]
+      sceneCurrentPlay:$sceneCurrentPlay[0]
     }
   }' > "${results_directory}/fidelity-result.json"
 

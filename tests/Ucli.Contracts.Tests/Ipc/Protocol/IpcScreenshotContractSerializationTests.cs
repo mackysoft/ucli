@@ -30,7 +30,7 @@ public sealed class IpcScreenshotContractSerializationTests
                 ColorSpace: IpcScreenshotColorSpace.Linear,
                 State: new UnityEditorStateSnapshot(
                     editorMode: DaemonEditorMode.Gui,
-                    lifecycleState: IpcEditorLifecycleState.Ready,
+                    lifecycleState: IpcEditorLifecycleState.PlayMode,
                     compileState: IpcCompileState.Ready,
                     generations: new IpcUnityGenerationSnapshot(
                         CompileGeneration: 6,
@@ -67,7 +67,7 @@ public sealed class IpcScreenshotContractSerializationTests
                 .HasString("colorSpace", "linear")
                 .HasProperty("state", state => state
                     .HasString("editorMode", "gui")
-                    .HasString("lifecycleState", "ready")
+                    .HasString("lifecycleState", "playmode")
                     .HasString("compileState", "ready")
                     .HasProperty("generations", generations => generations
                         .HasInt32("compileGeneration", 6)
@@ -136,7 +136,7 @@ public sealed class IpcScreenshotContractSerializationTests
                 1,
                 1,
                 IpcScreenshotColorSpace.Linear,
-                CreateState()),
+                CreateStableEditState()),
             "capture-size-mode" => () => _ = new IpcScreenshotCapture(
                 IpcScreenshotTarget.Game,
                 (IpcScreenshotSizeMode)0,
@@ -145,7 +145,7 @@ public sealed class IpcScreenshotContractSerializationTests
                 1,
                 1,
                 IpcScreenshotColorSpace.Linear,
-                CreateState()),
+                CreateStableEditState()),
             "capture-color-space" => () => _ = new IpcScreenshotCapture(
                 IpcScreenshotTarget.Game,
                 IpcScreenshotSizeMode.CurrentSurface,
@@ -154,7 +154,7 @@ public sealed class IpcScreenshotContractSerializationTests
                 1,
                 1,
                 (IpcScreenshotColorSpace)0,
-                CreateState()),
+                CreateStableEditState()),
             "staging-pixel-format" => () => _ = new IpcScreenshotStagingImage(
                 1,
                 1,
@@ -215,7 +215,7 @@ public sealed class IpcScreenshotContractSerializationTests
                 1,
                 1,
                 IpcScreenshotColorSpace.Linear,
-                CreateState()),
+                CreateStableEditState()),
             "capture-dimensions" => () => _ = new IpcScreenshotCapture(
                 IpcScreenshotTarget.Game,
                 IpcScreenshotSizeMode.RequestedResolution,
@@ -224,7 +224,7 @@ public sealed class IpcScreenshotContractSerializationTests
                 2,
                 1,
                 IpcScreenshotColorSpace.Linear,
-                CreateState()),
+                CreateStableEditState()),
             "staging-row-stride" => () => _ = new IpcScreenshotStagingImage(
                 1,
                 1,
@@ -256,6 +256,70 @@ public sealed class IpcScreenshotContractSerializationTests
         Assert.ThrowsAny<ArgumentException>(construction);
     }
 
+    [Theory]
+    [InlineData(IpcEditorLifecycleState.Ready, IpcPlayModeState.Stopped, false, false)]
+    [InlineData(IpcEditorLifecycleState.PlayMode, IpcPlayModeState.Playing, true, true)]
+    [Trait("Size", "Small")]
+    public void ScreenshotCapture_WithSupportedStableState_Constructs (
+        IpcEditorLifecycleState lifecycleState,
+        IpcPlayModeState playModeState,
+        bool isPlaying,
+        bool isPlayingOrWillChangePlaymode)
+    {
+        var capture = new IpcScreenshotCapture(
+            IpcScreenshotTarget.Game,
+            IpcScreenshotSizeMode.CurrentSurface,
+            RequestedWidth: null,
+            RequestedHeight: null,
+            Width: 1,
+            Height: 1,
+            IpcScreenshotColorSpace.Linear,
+            CreateState(
+                lifecycleState,
+                IpcCompileState.Ready,
+                playModeState,
+                IpcPlayModeTransition.None,
+                isPlaying,
+                isPlayingOrWillChangePlaymode));
+
+        Assert.Equal(lifecycleState, capture.State.LifecycleState);
+    }
+
+    [Theory]
+    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.Ready, IpcCompileState.Ready, IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true)]
+    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.PlayMode, IpcCompileState.Compiling, IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, true)]
+    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.PlayMode, IpcCompileState.Ready, IpcPlayModeState.Playing, IpcPlayModeTransition.Entering, true, true)]
+    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.PlayMode, IpcCompileState.Ready, IpcPlayModeState.Playing, IpcPlayModeTransition.None, false, true)]
+    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.PlayMode, IpcCompileState.Ready, IpcPlayModeState.Playing, IpcPlayModeTransition.None, true, false)]
+    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.Ready, IpcCompileState.Ready, IpcPlayModeState.Stopped, IpcPlayModeTransition.None, true, false)]
+    [InlineData(IpcScreenshotTarget.Game, IpcEditorLifecycleState.Ready, IpcCompileState.Ready, IpcPlayModeState.Stopped, IpcPlayModeTransition.None, false, true)]
+    [Trait("Size", "Small")]
+    public void ScreenshotCapture_WithUnsupportedOrIncoherentState_ThrowsArgumentException (
+        IpcScreenshotTarget target,
+        IpcEditorLifecycleState lifecycleState,
+        IpcCompileState compileState,
+        IpcPlayModeState playModeState,
+        IpcPlayModeTransition playModeTransition,
+        bool isPlaying,
+        bool isPlayingOrWillChangePlaymode)
+    {
+        Assert.Throws<ArgumentException>(() => new IpcScreenshotCapture(
+            target,
+            IpcScreenshotSizeMode.CurrentSurface,
+            RequestedWidth: null,
+            RequestedHeight: null,
+            Width: 1,
+            Height: 1,
+            IpcScreenshotColorSpace.Linear,
+            CreateState(
+                lifecycleState,
+                compileState,
+                playModeState,
+                playModeTransition,
+                isPlaying,
+                isPlayingOrWillChangePlaymode)));
+    }
+
     private static (object Contract, Type ContractType) CreateContract (string contractName)
     {
         object contract = contractName switch
@@ -282,7 +346,7 @@ public sealed class IpcScreenshotContractSerializationTests
             1,
             1,
             IpcScreenshotColorSpace.Linear,
-            CreateState());
+            CreateStableEditState());
     }
 
     private static IpcScreenshotStagingImage CreateStaging ()
@@ -296,17 +360,34 @@ public sealed class IpcScreenshotContractSerializationTests
             4);
     }
 
-    private static UnityEditorStateSnapshot CreateState ()
+    private static UnityEditorStateSnapshot CreateStableEditState ()
+    {
+        return CreateState(
+            IpcEditorLifecycleState.Ready,
+            IpcCompileState.Ready,
+            IpcPlayModeState.Stopped,
+            IpcPlayModeTransition.None,
+            isPlaying: false,
+            isPlayingOrWillChangePlaymode: false);
+    }
+
+    private static UnityEditorStateSnapshot CreateState (
+        IpcEditorLifecycleState lifecycleState,
+        IpcCompileState compileState,
+        IpcPlayModeState playModeState,
+        IpcPlayModeTransition playModeTransition,
+        bool isPlaying,
+        bool isPlayingOrWillChangePlaymode)
     {
         return new UnityEditorStateSnapshot(
             DaemonEditorMode.Gui,
-            IpcEditorLifecycleState.Ready,
-            IpcCompileState.Ready,
+            lifecycleState,
+            compileState,
             new IpcUnityGenerationSnapshot(1, 2, 3, 4),
             new IpcPlayModeSnapshot(
-                IpcPlayModeState.Stopped,
-                IpcPlayModeTransition.None,
-                IsPlaying: false,
-                IsPlayingOrWillChangePlaymode: false));
+                playModeState,
+                playModeTransition,
+                isPlaying,
+                isPlayingOrWillChangePlaymode));
     }
 }

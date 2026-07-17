@@ -39,7 +39,7 @@ Shader "Hidden/uCLI/ScreenshotNormalize"
             float4 NormalizeFragment (VertexToFragment input) : SV_Target
             {
                 float2 sourceUv = input.outputUv * _SourceUvTransform.xy + _SourceUvTransform.zw;
-                float4 source = tex2D(_SourceTex, sourceUv);
+                float4 source = tex2Dlod(_SourceTex, float4(sourceUv, 0.0, 0.0));
                 return float4(source.rgb, 1.0);
             }
             ENDHLSL

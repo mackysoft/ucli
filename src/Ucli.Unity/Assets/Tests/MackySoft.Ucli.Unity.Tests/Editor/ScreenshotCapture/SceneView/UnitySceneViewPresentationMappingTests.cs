@@ -9,7 +9,7 @@ namespace MackySoft.Ucli.Unity.Tests
         [TestCase(1f, 100, 50)]
         [TestCase(2f, 200, 100)]
         [Category("Size.Small")]
-        public void TryResolve_WithTopOriginFullWindow_MapsBackingScale (
+        public void TryResolve_WithFullWindow_MapsBackingScale (
             float backingScale,
             int expectedWidth,
             int expectedHeight)
@@ -18,7 +18,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new Rect(0f, 0f, 100f, 50f),
                 new Rect(0f, 0f, 100f, 50f),
                 backingScale,
-                sourceStartsAtTop: true,
                 out var mapping,
                 out var errorMessage);
 
@@ -32,13 +31,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [Test]
         [Category("Size.Small")]
-        public void TryResolve_WithNonZeroTopOriginCrop_MapsPhysicalUvTransform ()
+        public void TryResolve_WithBottomOriginViewport_MapsTopOriginGrabPixelsUvTransform ()
         {
             var result = UnitySceneViewPresentationMapping.TryResolve(
                 new Rect(0f, 0f, 200f, 100f),
                 new Rect(10f, 20f, 100f, 50f),
                 backingScale: 2f,
-                sourceStartsAtTop: true,
                 out var mapping,
                 out var errorMessage);
 
@@ -49,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(mapping.ContentHeight, Is.EqualTo(100));
             Assert.That(
                 mapping.SourceUvTransform,
-                Is.EqualTo(new Vector4(0.5f, -0.5f, 0.05f, 0.7f)));
+                Is.EqualTo(new Vector4(0.5f, -0.5f, 0.05f, 0.8f)));
         }
 
         [Test]
@@ -60,7 +58,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new Rect(0f, 0f, 10.2f, 8.2f),
                 new Rect(0.3f, 0.4f, 4.4f, 3.4f),
                 backingScale: 2f,
-                sourceStartsAtTop: true,
                 out var mapping,
                 out var errorMessage);
 
@@ -71,23 +68,7 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(mapping.ContentHeight, Is.EqualTo(7));
             Assert.That(
                 mapping.SourceUvTransform,
-                Is.EqualTo(new Vector4(0.4f, -0.4375f, 0.05f, 0.5f)));
-        }
-
-        [Test]
-        [Category("Size.Small")]
-        public void TryResolve_WithBottomOriginSource_FailsClosed ()
-        {
-            var result = UnitySceneViewPresentationMapping.TryResolve(
-                new Rect(0f, 0f, 100f, 50f),
-                new Rect(0f, 0f, 100f, 50f),
-                backingScale: 1f,
-                sourceStartsAtTop: false,
-                out _,
-                out var errorMessage);
-
-            Assert.That(result, Is.False);
-            Assert.That(errorMessage, Does.Contain("top-origin"));
+                Is.EqualTo(new Vector4(0.4f, -0.4375f, 0.05f, 0.9375f)));
         }
 
         [TestCase(0f, 100f, 0f, 0f, 100f, 50f, 1f)]
@@ -108,7 +89,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 new Rect(0f, 0f, windowWidth, windowHeight),
                 new Rect(contentX, contentY, contentWidth, contentHeight),
                 backingScale,
-                sourceStartsAtTop: true,
                 out _,
                 out var errorMessage);
 

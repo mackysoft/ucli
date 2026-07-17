@@ -13,7 +13,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
         /// <summary> Resolves the current SceneView source only when every validated capability input is present. </summary>
         public static bool TryResolveCurrent (
             UnityEngine.Object hostView,
-            bool hdrActive,
             float backingScale,
             Rect windowRect,
             Rect contentRect,
@@ -42,7 +41,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
                 windowRect,
                 contentRect,
                 backingScale,
-                SystemInfo.graphicsUVStartsAtTop,
                 out var mapping,
                 out errorMessage))
             {
@@ -50,8 +48,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
             }
 
             return TryCreateCapability(
-                hdrActive,
-                SystemInfo.graphicsUVStartsAtTop,
                 framebufferGraphicsFormat,
                 grabPixelsMethod,
                 mapping,
@@ -61,8 +57,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
 
         /// <summary> Creates a capability from explicit observations for deterministic contract tests. </summary>
         internal static bool TryCreateCapability (
-            bool hdrActive,
-            bool sourceStartsAtTop,
             GraphicsFormat framebufferGraphicsFormat,
             MethodInfo grabPixelsMethod,
             UnitySceneViewPresentationMapping mapping,
@@ -70,12 +64,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
             out string errorMessage)
         {
             capability = null;
-            if (hdrActive
-                || !sourceStartsAtTop
-                || framebufferGraphicsFormat != GraphicsFormat.B8G8R8A8_SRGB)
+            if (!UnityScreenshotSourceFormatPolicy.TryValidateSceneFramebufferFormat(
+                framebufferGraphicsFormat,
+                out errorMessage))
             {
-                errorMessage =
-                    "SceneView source is outside the independently validated SDR top-origin BGRA framebuffer capability.";
                 return false;
             }
 
@@ -104,7 +96,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.SceneView
         {
             if (method == null
                 || method.IsStatic
-                || !method.IsAssembly
                 || method.IsGenericMethod
                 || method.ContainsGenericParameters
                 || !string.Equals(method.Name, "GrabPixels", StringComparison.Ordinal)

@@ -142,8 +142,20 @@ namespace MackySoft.Ucli.Unity.Tests
                 writer,
                 NoOpDaemonLogger.Instance);
 
-            var executionStartTask = executionStartSource.RaiseRequestExecutionStartingAsync(
-                CancellationToken.None);
+            var originalSynchronizationContext = SynchronizationContext.Current;
+            var droppingSynchronizationContext = new DroppingSynchronizationContext();
+            Task executionStartTask;
+            try
+            {
+                SynchronizationContext.SetSynchronizationContext(droppingSynchronizationContext);
+                executionStartTask = executionStartSource.RaiseRequestExecutionStartingAsync(
+                    CancellationToken.None);
+            }
+            finally
+            {
+                SynchronizationContext.SetSynchronizationContext(originalSynchronizationContext);
+            }
+
             await WaitUntilAsync(() => persistence.WriteCount == 2, "mutation busy sidecar write start");
 
             Assert.That(executionStartTask.IsCompleted, Is.False);
@@ -159,6 +171,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     IpcEditorLifecycleState.Ready,
                     IpcEditorLifecycleState.Busy,
                 }));
+            Assert.That(droppingSynchronizationContext.PostCallCount, Is.Zero);
 
             await TestAwaiter.WaitAsync(
                 writer.StopAsync(CancellationToken.None),
@@ -671,6 +684,18 @@ namespace MackySoft.Ucli.Unity.Tests
             public UnityEditorObservation CaptureAvailabilityObservation ()
             {
                 return observation;
+            }
+        }
+
+        private sealed class DroppingSynchronizationContext : SynchronizationContext
+        {
+            private int postCallCount;
+
+            public int PostCallCount => Volatile.Read(ref postCallCount);
+
+            public override void Post (SendOrPostCallback callback, object state)
+            {
+                Interlocked.Increment(ref postCallCount);
             }
         }
     }

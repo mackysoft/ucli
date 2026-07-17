@@ -133,7 +133,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
                         OpId: null));
             }
 
-            if (IsCaptureReady(snapshot))
+            if (IpcScreenshotCapture.IsSuccessfulCaptureState(snapshot.State))
             {
                 return UnityEditorExecutionReadinessResult.Ready(snapshot);
             }
@@ -141,22 +141,23 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Capture
             var readinessResult = await readinessGate.EnsureExecutionReadyAsync(
                 failFast: false,
                 cancellationToken);
-            if (IsCaptureReady(readinessResult.Observation))
+            if (IpcScreenshotCapture.IsSuccessfulCaptureState(readinessResult.Observation.State))
             {
                 return UnityEditorExecutionReadinessResult.Ready(readinessResult.Observation);
             }
 
-            return readinessResult;
-        }
-
-        private static bool IsCaptureReady (UnityEditorObservation snapshot)
-        {
-            if (snapshot == null || snapshot.State.EditorMode != DaemonEditorMode.Gui)
+            if (!readinessResult.IsReady
+                && readinessResult.Error.Code != EditorLifecycleErrorCodes.EditorPlaymode)
             {
-                return false;
+                return readinessResult;
             }
 
-            return snapshot.State.LifecycleState == IpcEditorLifecycleState.Ready;
+            return UnityEditorExecutionReadinessResult.Blocked(
+                readinessResult.Observation,
+                new IpcError(
+                    ScreenshotErrorCodes.ScreenshotCaptureUnsupported,
+                    "Screenshot capture requires a stable Editor presentation state outside lifecycle transitions.",
+                    OpId: null));
         }
 
     }
