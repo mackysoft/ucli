@@ -5,26 +5,26 @@
   "tier": "development",
   "skillName": "csharp-authoring-rules",
   "displayName": "C# Authoring Rules",
-  "description": "C# のコードを実装、変更、レビューするときに、API 契約、例外、null、非同期処理、依存性注入、リソースの寿命、言語機能、XML ドキュメント、割り当てに関する C# 固有の判断規則を適用する。言語非依存の設計判断には code-authoring-rules を併用する。",
+  "description": "C# のコードを実装、変更、レビューするときに、API 契約、例外、`null`、非同期処理、依存性注入、リソースの寿命、言語機能、XML ドキュメント、割り当てに関する C# 固有の判断規則を適用する。言語非依存の設計判断には $code-authoring-rules を併用する。",
   "dependencies": [
     "code-authoring-rules"
   ],
-  "contentDigest": "e034aef1028395171f6faa81fd1d0235b86886683f06e16dfcfa19d29506b383",
-  "manifestDigest": "7173a414fb51c76c0100293b1e2d6402275d322b34257012f7065c39e91010ea",
+  "contentDigest": "d99e5a6586d3eae18ded5ef052da67c38cfcd0287d548f531469bb9e77cfd0f1",
+  "manifestDigest": "e1f45ae67d433e5f1a26faecac6828ba7a27c13b80b8b1c03e20aff1dd85fb11",
   "hostArtifacts": [
     {
       "host": "claude",
-      "materializedFrontmatterDigest": "4bd14584cb7a2fd8a63ee38b4a5b02646538ef4bf8ccab440458383b4dde9ef5"
+      "materializedFrontmatterDigest": "39b2d1ffaf6a3d70264f6d8c8001fc5fb95aef8f36e5d8b1c3fb21bbc52ed6ce"
     },
     {
       "host": "copilot",
-      "materializedFrontmatterDigest": "a883e8541315b9340a1113f6b8569897ab32ba41c13e7eaf836da286ec326442"
+      "materializedFrontmatterDigest": "548276a399f7b9854efa5d6a0c8e28300a16398ea9f1a61b9d71a302383ee3bd"
     },
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "8ea7023c2345b0312f929a64c045b15b6e59176b8e0c3043010f62d39071c4cd",
-      "materializedFrontmatterDigest": "1905aea7f0a214043ec08c76e48182619cbb3ad0755f145878b1bfa8f4ef34ce"
+      "digest": "fa37567878e546803f18435de4c4a2b3777083e64d7367cc7f21af8978dc7be2",
+      "materializedFrontmatterDigest": "c5e51789869bb3f30fa332b315a2efeadffff7bc7c70810a9313da470ede2a39"
     }
   ]
 }

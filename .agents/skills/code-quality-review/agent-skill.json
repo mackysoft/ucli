@@ -5,24 +5,24 @@
   "tier": "development",
   "skillName": "code-quality-review",
   "displayName": "Code Quality Review",
-  "description": "コードベース全体または変更差分に対して、既存ユーティリティの再実装、本質的な重複、低凝集、冗長な状態管理、不要抽象化を findings-first でレビューする。品質上の懸念を整理し、改善方向まで含めた指摘を返したいときに使う。",
+  "description": "コードベース全体または変更差分について、既存処理の再実装、本質的な重複、低凝集、冗長な状態管理、不要な抽象化をレビューし、優先度、影響、根拠、改善方向を所見として返す。",
   "dependencies": [],
-  "contentDigest": "ef0e5065f0f555a89b652f983b366e824cb585febde6be7c687f5635957932e1",
-  "manifestDigest": "aa65f1c9f18efafe2876df980706adf77ee593fbb5e331481d22d2be2dafa44b",
+  "contentDigest": "fa0af17d3efb726ceac578e11f59dd0998f5df7d3df0a3ca80d7a130322a39fe",
+  "manifestDigest": "acda74932dd833d0e047d5d610de459895508565d4ec3dd833d206228e39b639",
   "hostArtifacts": [
     {
       "host": "claude",
-      "materializedFrontmatterDigest": "ac0c456703361622c386df6788a2bb66909a9bfab95717a7cbae9ab73c9c09a7"
+      "materializedFrontmatterDigest": "f8ebad573d7ed25ceae088aee149172a7bfb4748f11f5052263efdac1bcacb9f"
     },
     {
       "host": "copilot",
-      "materializedFrontmatterDigest": "1641c5732ff4c0a7e8941d9d9a2c91dc9efc9fbdde63404008dd5e36f2aa69ea"
+      "materializedFrontmatterDigest": "a65e2a0c5e8225a991d6b0338d2c54f6bfe796a4f8c9c30b7ca498e11b4a09d0"
     },
     {
       "host": "openai",
       "path": "agents/openai.yaml",
-      "digest": "f3df3f59ced49420f3217497c5244ced8124f75da2340a270f1ee0457cc0d3bd",
-      "materializedFrontmatterDigest": "c5cbc10816012ede90bbae38b0bcea6d44cf153fe1ab483ad60f92664627794a"
+      "digest": "c4530aae4dcdd6c8a24cc3459fc047acc355cc335cbefdae147a69f0eadb6fa5",
+      "materializedFrontmatterDigest": "a2d93a91e8560b5c8512eaa924c49cfc682dc0902dacbcadffc4db12376a3876"
     }
   ]
 }
