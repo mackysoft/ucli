@@ -10,37 +10,46 @@ namespace MackySoft.Ucli.Unity.Tests
     {
         [TestCase(GraphicsFormat.R8G8B8A8_SRGB, Category = "Size.Small")]
         [TestCase(GraphicsFormat.B8G8R8A8_SRGB, Category = "Size.Small")]
-        public void TryValidateGameViewSource_WithSupportedSrgbFormat_ReturnsTrue (
+        public void TryValidateGameViewSource_WithSupportedLinearFormat_ReturnsTrue (
             GraphicsFormat graphicsFormat)
         {
             var result = UnityScreenshotSourceFormatPolicy.TryValidateGameViewSource(
                 graphicsFormat,
                 TextureDimension.Tex2D,
                 antiAliasing: 1,
-                useMipMap: false,
                 IpcScreenshotColorSpace.Linear,
                 out var errorMessage);
 
             Assert.That(result, Is.True, errorMessage);
         }
 
-        [TestCase(GraphicsFormat.R8G8B8A8_UNorm, TextureDimension.Tex2D, 1, false, Category = "Size.Small")]
-        [TestCase(GraphicsFormat.B8G8R8A8_UNorm, TextureDimension.Tex2D, 1, false, Category = "Size.Small")]
-        [TestCase(GraphicsFormat.R16G16B16A16_SFloat, TextureDimension.Tex2D, 1, false, Category = "Size.Small")]
-        [TestCase(GraphicsFormat.R8G8B8A8_SRGB, TextureDimension.Tex2D, 2, false, Category = "Size.Small")]
-        [TestCase(GraphicsFormat.R8G8B8A8_SRGB, TextureDimension.Tex2D, 1, true, Category = "Size.Small")]
-        [TestCase(GraphicsFormat.R8G8B8A8_SRGB, TextureDimension.Tex2DArray, 1, false, Category = "Size.Small")]
+        [TestCase(GraphicsFormat.R8G8B8A8_UNorm, Category = "Size.Small")]
+        [TestCase(GraphicsFormat.B8G8R8A8_UNorm, Category = "Size.Small")]
+        public void TryValidateGameViewSource_WithSupportedGammaFormat_ReturnsTrue (
+            GraphicsFormat graphicsFormat)
+        {
+            var result = UnityScreenshotSourceFormatPolicy.TryValidateGameViewSource(
+                graphicsFormat,
+                TextureDimension.Tex2D,
+                antiAliasing: 1,
+                IpcScreenshotColorSpace.Gamma,
+                out var errorMessage);
+
+            Assert.That(result, Is.True, errorMessage);
+        }
+
+        [TestCase(GraphicsFormat.R16G16B16A16_SFloat, TextureDimension.Tex2D, 1, Category = "Size.Small")]
+        [TestCase(GraphicsFormat.R8G8B8A8_SRGB, TextureDimension.Tex2D, 2, Category = "Size.Small")]
+        [TestCase(GraphicsFormat.R8G8B8A8_SRGB, TextureDimension.Tex2DArray, 1, Category = "Size.Small")]
         public void TryValidateGameViewSource_WithUnsupportedFormatContract_ReturnsFalse (
             GraphicsFormat graphicsFormat,
             TextureDimension dimension,
-            int antiAliasing,
-            bool useMipMap)
+            int antiAliasing)
         {
             var result = UnityScreenshotSourceFormatPolicy.TryValidateGameViewSource(
                 graphicsFormat,
                 dimension,
                 antiAliasing,
-                useMipMap,
                 IpcScreenshotColorSpace.Linear,
                 out var errorMessage);
 
@@ -48,20 +57,21 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(errorMessage, Is.Not.Empty);
         }
 
-        [Test]
-        [Category("Size.Small")]
-        public void TryValidateGameViewSource_WithUnsupportedColorSpace_ReturnsFalse ()
+        [TestCase(GraphicsFormat.R8G8B8A8_SRGB, IpcScreenshotColorSpace.Gamma, Category = "Size.Small")]
+        [TestCase(GraphicsFormat.R8G8B8A8_UNorm, IpcScreenshotColorSpace.Linear, Category = "Size.Small")]
+        public void TryValidateGameViewSource_WithMismatchedColorSpaceAndFormat_ReturnsFalse (
+            GraphicsFormat graphicsFormat,
+            IpcScreenshotColorSpace colorSpace)
         {
             var result = UnityScreenshotSourceFormatPolicy.TryValidateGameViewSource(
-                GraphicsFormat.R8G8B8A8_SRGB,
+                graphicsFormat,
                 TextureDimension.Tex2D,
                 antiAliasing: 1,
-                useMipMap: false,
-                IpcScreenshotColorSpace.Gamma,
+                colorSpace,
                 out var errorMessage);
 
             Assert.That(result, Is.False);
-            Assert.That(errorMessage, Does.Contain("color space"));
+            Assert.That(errorMessage, Does.Contain("active color space"));
         }
 
         [Test]
@@ -75,8 +85,18 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(result, Is.True, errorMessage);
         }
 
+        [Test]
+        [Category("Size.Small")]
+        public void TryValidateSceneFramebufferFormat_WithNativeBgraUnorm_ReturnsTrue ()
+        {
+            var result = UnityScreenshotSourceFormatPolicy.TryValidateSceneFramebufferFormat(
+                GraphicsFormat.B8G8R8A8_UNorm,
+                out var errorMessage);
+
+            Assert.That(result, Is.True, errorMessage);
+        }
+
         [TestCase(GraphicsFormat.R8G8B8A8_SRGB, Category = "Size.Small")]
-        [TestCase(GraphicsFormat.B8G8R8A8_UNorm, Category = "Size.Small")]
         [TestCase(GraphicsFormat.R16G16B16A16_SFloat, Category = "Size.Small")]
         public void TryValidateSceneFramebufferFormat_WithUnsafeNativeFormat_ReturnsFalse (
             GraphicsFormat graphicsFormat)

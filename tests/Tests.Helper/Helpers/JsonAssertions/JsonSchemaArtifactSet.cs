@@ -180,7 +180,6 @@ internal sealed class JsonSchemaArtifactSet : IDisposable
         if (schema.TryGetProperty("oneOf", out var oneOfElement))
         {
             ValidateOneOf(element, oneOfElement, schemaPath, path, errors);
-            return;
         }
 
         if (schema.TryGetProperty("type", out var typeElement)

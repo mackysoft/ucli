@@ -10,12 +10,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.EditorInternals
             EditorWindow window,
             out Object hostView,
             out float backingScale,
-            out bool hdrActive,
             out string errorMessage)
         {
             hostView = null;
             backingScale = 0f;
-            hdrActive = false;
             if (window == null)
             {
                 errorMessage = "Target Editor window is unavailable.";
@@ -30,7 +28,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.EditorInternals
             }
 
             var actualViewProperty = UnityEditorReflection.FindProperty(parent.GetType(), "actualView");
-            var hdrActiveProperty = UnityEditorReflection.FindProperty(parent.GetType(), "hdrActive");
             var getBackingScaleFactor = UnityEditorReflection.FindMethod(
                 parent.GetType(),
                 "GetBackingScaleFactor",
@@ -43,20 +40,17 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.EditorInternals
                 return false;
             }
 
-            if (hdrActiveProperty?.GetValue(parent) is not bool resolvedHdrActive
-                || getBackingScaleFactor?.Invoke(parent, parameters: null) is not float resolvedBackingScale
+            if (getBackingScaleFactor?.Invoke(parent, parameters: null) is not float resolvedBackingScale
                 || !UnityScreenshotMath.IsFinitePositive(resolvedBackingScale))
             {
-                errorMessage = "Target Editor window backing scale or HDR state could not be resolved.";
+                errorMessage = "Target Editor window backing scale could not be resolved.";
                 return false;
             }
 
             backingScale = resolvedBackingScale;
-            hdrActive = resolvedHdrActive;
             hostView = parent;
             errorMessage = null;
             return true;
         }
-
     }
 }

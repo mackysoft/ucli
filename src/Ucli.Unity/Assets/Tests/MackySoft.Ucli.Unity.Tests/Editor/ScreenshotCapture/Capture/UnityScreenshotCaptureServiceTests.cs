@@ -259,9 +259,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(writer.DeletedCaptureIds, Is.EqualTo(new[] { CaptureId }));
         }
 
-        [Test]
+        [TestCase(IpcScreenshotTarget.Game)]
+        [TestCase(IpcScreenshotTarget.Scene)]
         [Category("Size.Small")]
-        public void CaptureAsync_DuringStablePlayMode_ReturnsLifecycleBlockerBeforePixelCapture ()
+        public void CaptureAsync_DuringStablePlayMode_CapturesPixels (
+            IpcScreenshotTarget target)
         {
             var snapshot = CreateSnapshot(
                 DaemonEditorMode.Gui,
@@ -273,20 +275,91 @@ namespace MackySoft.Ucli.Unity.Tests
                 backend,
                 new StubStagingImageWriter());
 
+            var result = service.CaptureAsync(CreateRequest(target), CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+
+            Assert.That(result.IsSuccess, Is.True);
+            Assert.That(backend.CallCount, Is.EqualTo(1));
+            Assert.That(result.Response.Capture.Target, Is.EqualTo(target));
+            Assert.That(
+                result.Response.Capture.State.LifecycleState,
+                Is.EqualTo(IpcEditorLifecycleState.PlayMode));
+            Assert.That(
+                result.Response.Capture.State.PlayMode.State,
+                Is.EqualTo(IpcPlayModeState.Playing));
+        }
+
+        [TestCase(IpcScreenshotTarget.Game)]
+        [TestCase(IpcScreenshotTarget.Scene)]
+        [Category("Size.Small")]
+        public void CaptureAsync_DuringPlayModeTransition_ReturnsCaptureUnsupported (
+            IpcScreenshotTarget target)
+        {
+            var snapshot = new UnityEditorObservation(
+                new UnityEditorStateSnapshot(
+                    DaemonEditorMode.Gui,
+                    IpcEditorLifecycleState.PlayMode,
+                    IpcCompileState.Ready,
+                    new IpcUnityGenerationSnapshot(3, 7, 5, 2),
+                    new IpcPlayModeSnapshot(
+                        IpcPlayModeState.Playing,
+                        IpcPlayModeTransition.Exiting,
+                        IsPlaying: true,
+                        IsPlayingOrWillChangePlaymode: true)),
+                DateTimeOffset.UnixEpoch);
+            var backend = new StubCaptureBackend(CreateBackendSuccess());
+            var service = new UnityScreenshotCaptureService(
+                new SequenceReadinessGate(snapshot, snapshot),
+                backend,
+                new StubStagingImageWriter());
+
+            var result = service.CaptureAsync(CreateRequest(target), CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+
+            Assert.That(result.IsSuccess, Is.False);
+            Assert.That(result.Error.Code, Is.EqualTo(ScreenshotErrorCodes.ScreenshotCaptureUnsupported));
+            Assert.That(backend.CallCount, Is.Zero);
+        }
+
+        [Test]
+        [Category("Size.Small")]
+        public void CaptureAsync_WhenGeneralReadinessAcceptsIncoherentState_ReturnsCaptureUnsupported ()
+        {
+            var snapshot = new UnityEditorObservation(
+                new UnityEditorStateSnapshot(
+                    DaemonEditorMode.Gui,
+                    IpcEditorLifecycleState.Ready,
+                    IpcCompileState.Ready,
+                    new IpcUnityGenerationSnapshot(3, 7, 5, 2),
+                    new IpcPlayModeSnapshot(
+                        IpcPlayModeState.Playing,
+                        IpcPlayModeTransition.None,
+                        IsPlaying: true,
+                        IsPlayingOrWillChangePlaymode: true)),
+                DateTimeOffset.UnixEpoch);
+            var backend = new StubCaptureBackend(CreateBackendSuccess());
+            var service = new UnityScreenshotCaptureService(
+                new SequenceReadinessGate(snapshot, snapshot),
+                backend,
+                new StubStagingImageWriter());
+
             var result = service.CaptureAsync(CreateRequest(), CancellationToken.None)
                 .GetAwaiter()
                 .GetResult();
 
             Assert.That(result.IsSuccess, Is.False);
-            Assert.That(result.Error.Code, Is.EqualTo(EditorLifecycleErrorCodes.EditorPlaymode));
+            Assert.That(result.Error.Code, Is.EqualTo(ScreenshotErrorCodes.ScreenshotCaptureUnsupported));
             Assert.That(backend.CallCount, Is.Zero);
         }
 
-        private static IpcScreenshotCaptureRequest CreateRequest ()
+        private static IpcScreenshotCaptureRequest CreateRequest (
+            IpcScreenshotTarget target = IpcScreenshotTarget.Game)
         {
             return new IpcScreenshotCaptureRequest(
                 CaptureId,
-                IpcScreenshotTarget.Game,
+                target,
                 RequestedWidth: null,
                 RequestedHeight: null);
         }

@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
@@ -7,7 +8,7 @@ namespace MackySoft.Ucli.Contracts.Ipc;
 public sealed record IpcScreenshotCapture
 {
     /// <summary> Initializes screenshot capture metadata observed at the successful pixel-readback boundary. </summary>
-    /// <exception cref="ArgumentException"> Thrown when the target, size mode, requested size, and captured size are inconsistent. </exception>
+    /// <exception cref="ArgumentException"> Thrown when the target, size mode, requested size, captured size, or capture state are inconsistent. </exception>
     /// <exception cref="ArgumentNullException"> Thrown when <paramref name="State" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when a required contract literal or captured dimension is invalid. </exception>
     [JsonConstructor]
@@ -34,6 +35,14 @@ public sealed record IpcScreenshotCapture
         if (!ContractLiteralCodec.IsDefined(ColorSpace))
         {
             throw new ArgumentOutOfRangeException(nameof(ColorSpace), ColorSpace, "Screenshot color space must be specified.");
+        }
+
+        var state = State ?? throw new ArgumentNullException(nameof(State));
+        if (!IsSuccessfulCaptureState(state))
+        {
+            throw new ArgumentException(
+                "Screenshot capture state must represent a stable supported Editor presentation state.",
+                nameof(State));
         }
 
         if (!IpcScreenshotCaptureLimits.TryCalculateRgba8Layout(Width, Height, out _, out _))
@@ -93,7 +102,41 @@ public sealed record IpcScreenshotCapture
         this.Width = Width;
         this.Height = Height;
         this.ColorSpace = ColorSpace;
-        this.State = State ?? throw new ArgumentNullException(nameof(State));
+        this.State = state;
+    }
+
+    /// <summary> Determines whether an Editor state can produce successful screenshot metadata. </summary>
+    /// <param name="state"> The Editor state observed at the pixel-readback boundary. </param>
+    /// <returns>
+    /// <see langword="true" /> when the state represents stable Edit Mode or stable Play Mode;
+    /// otherwise, <see langword="false" />.
+    /// </returns>
+    internal static bool IsSuccessfulCaptureState (UnityEditorStateSnapshot state)
+    {
+        if (state.EditorMode != DaemonEditorMode.Gui
+            || state.CompileState != IpcCompileState.Ready)
+        {
+            return false;
+        }
+
+        var playMode = state.PlayMode;
+        if (playMode.Transition != IpcPlayModeTransition.None)
+        {
+            return false;
+        }
+
+        if (state.LifecycleState == IpcEditorLifecycleState.Ready
+            && playMode.State == IpcPlayModeState.Stopped
+            && !playMode.IsPlaying
+            && !playMode.IsPlayingOrWillChangePlaymode)
+        {
+            return true;
+        }
+
+        return state.LifecycleState == IpcEditorLifecycleState.PlayMode
+            && playMode.State == IpcPlayModeState.Playing
+            && playMode.IsPlaying
+            && playMode.IsPlayingOrWillChangePlaymode;
     }
 
     /// <summary> Gets the screenshot target. </summary>

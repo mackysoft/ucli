@@ -1,4 +1,3 @@
-using System;
 using MackySoft.Ucli.Contracts.Ipc;
 using UnityEngine;
 using UnityEngine.Experimental.Rendering;
@@ -25,7 +24,6 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
                 source.graphicsFormat,
                 source.dimension,
                 source.antiAliasing,
-                source.useMipMap,
                 colorSpace,
                 out errorMessage);
         }
@@ -35,7 +33,9 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             out GraphicsFormat graphicsFormat,
             out string errorMessage)
         {
-            graphicsFormat = SystemInfo.GetGraphicsFormat(DefaultFormat.LDR);
+            graphicsFormat = QualitySettings.activeColorSpace == ColorSpace.Linear
+                ? GraphicsFormat.B8G8R8A8_SRGB
+                : GraphicsFormat.B8G8R8A8_UNorm;
             if (!TryValidateSceneFramebufferFormat(graphicsFormat, out errorMessage))
             {
                 return false;
@@ -53,34 +53,35 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             return true;
         }
 
-        /// <summary> Validates explicit GameView source-format properties. </summary>
+        /// <summary> Validates the GameView texture shape required by the sampling shader. </summary>
         internal static bool TryValidateGameViewSource (
             GraphicsFormat graphicsFormat,
             TextureDimension dimension,
             int antiAliasing,
-            bool useMipMap,
             IpcScreenshotColorSpace colorSpace,
             out string errorMessage)
         {
             if (dimension != TextureDimension.Tex2D
-                || antiAliasing != 1
-                || useMipMap)
+                || antiAliasing != 1)
             {
-                errorMessage = "GameView source must be a non-MSAA, non-mipmapped 2D presentation texture.";
+                errorMessage = "GameView source must be a non-MSAA 2D presentation texture.";
                 return false;
             }
 
-            if (colorSpace != IpcScreenshotColorSpace.Linear)
+            var formatSupported = colorSpace switch
             {
-                errorMessage = $"GameView source color space is unsupported: {colorSpace}.";
-                return false;
-            }
-
-            if (graphicsFormat != GraphicsFormat.R8G8B8A8_SRGB
-                && graphicsFormat != GraphicsFormat.B8G8R8A8_SRGB)
+                IpcScreenshotColorSpace.Linear =>
+                    graphicsFormat == GraphicsFormat.R8G8B8A8_SRGB
+                    || graphicsFormat == GraphicsFormat.B8G8R8A8_SRGB,
+                IpcScreenshotColorSpace.Gamma =>
+                    graphicsFormat == GraphicsFormat.R8G8B8A8_UNorm
+                    || graphicsFormat == GraphicsFormat.B8G8R8A8_UNorm,
+                _ => false,
+            };
+            if (!formatSupported)
             {
                 errorMessage =
-                    $"GameView source is not a compatible 8-bit SDR sRGB presentation format: {graphicsFormat}.";
+                    $"GameView source format is incompatible with the active color space: {graphicsFormat} / {colorSpace}.";
                 return false;
             }
 
@@ -94,9 +95,10 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Pixels
             out string errorMessage)
         {
             // CaptureSceneView/GrabPixels creates an internal temporary texture from the destination
-            // descriptor. On macOS Metal, passing the canonical RGBA staging descriptor can crash the
-            // native window-copy path. Only the native BGRA LDR framebuffer contract reaches that API.
-            if (graphicsFormat != GraphicsFormat.B8G8R8A8_SRGB)
+            // descriptor. On macOS Metal, passing an RGBA descriptor can crash the native window-copy
+            // path. The color-space variant may be sRGB or UNorm, but the native-safe channel layout is BGRA.
+            if (graphicsFormat != GraphicsFormat.B8G8R8A8_SRGB
+                && graphicsFormat != GraphicsFormat.B8G8R8A8_UNorm)
             {
                 errorMessage =
                     $"SceneView native framebuffer format is incompatible with window capture: {graphicsFormat}.";

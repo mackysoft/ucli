@@ -57,10 +57,10 @@ internal static class ScreenshotErrorCodeDescriptors
         UcliErrorDescriptorFactory.Create(
             code: ScreenshotErrorCodes.ScreenshotCaptureUnsupported,
             category: "screenshot",
-            summary: "The target surface cannot be captured faithfully in the current environment.",
-            meaning: "uCLI could not establish a supported capture path that preserves the target surface orientation, dimensions, and visual appearance, so it did not commit a PNG artifact.",
+            summary: "The target surface cannot be captured in a stable, faithful state.",
+            meaning: "uCLI could not establish a stable Edit Mode or Play Mode presentation state, or a supported capture path that preserves the target surface orientation, dimensions, and visual appearance, so it did not commit a PNG artifact.",
             appliesTo: ScreenshotCommands,
-            possiblePhases: ["capturePreflight", "surfaceCapture", "pixelNormalization", "artifactValidation"],
+            possiblePhases: ["readinessWait", "lifecycleValidation", "capturePreflight", "surfaceCapture", "pixelNormalization", "artifactValidation"],
             impliesNotApplied: true,
             mayBeIndeterminate: false,
             safeToRetry: UcliErrorRetryClass.ContextDependent,
@@ -68,12 +68,16 @@ internal static class ScreenshotErrorCodeDescriptors
             [
                 "errors[].code",
                 "errors[].message",
+                "status",
                 UcliErrorInspectTargets.UnityErrorLogsCommand,
             ],
             nextActions:
             [
                 new UcliErrorNextActionDescriptor(
-                    When: null,
+                    When: "Unity is entering or exiting Play Mode, compiling, or changing lifecycle state",
+                    Action: "Wait until status reports a stable Edit Mode or Play Mode state, then retry."),
+                new UcliErrorNextActionDescriptor(
+                    When: "the reported condition concerns the surface or graphics environment",
                     Action: "Inspect the reported unsupported surface or graphics condition and Unity logs; retry only after the capture environment changes."),
             ],
             relatedCodes: null),
