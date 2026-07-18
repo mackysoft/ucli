@@ -1,7 +1,0 @@
-interface:
-  display_name: "Review Triage"
-  short_description: "レビュー所見を対象成果物、要求、契約、関連資料と照合し、妥当性と今回の対象との関係を分けて判断する。重複を統合し、`採用 / 却下 / 保留 / 要確認` に分類して対応方針へまとめる。"
-  default_prompt: "Use $review-triage to follow the Review Triage workflow."
-
-policy:
-  allow_implicit_invocation: true

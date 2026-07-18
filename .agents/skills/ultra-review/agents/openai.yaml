@@ -1,7 +1,0 @@
-interface:
-  display_name: "Ultra Review"
-  short_description: "タスク完了前の成果物、変更差分、または指定範囲に対し、対象と起こり得る失敗から必要な観点を選んで複数のサブエージェントで最終点検する。所見の妥当性と今回の対象との関係をトリアージし、対象内の修正、検証、再レビューを収束させる。深いレビュー、修正込みレビュー、または ultra-review が求められたときに使う。編集禁止やレビューのみの指定がある場合は所見と対応方針だけを返す。"
-  default_prompt: "Use $ultra-review to follow the Ultra Review workflow."
-
-policy:
-  allow_implicit_invocation: true
