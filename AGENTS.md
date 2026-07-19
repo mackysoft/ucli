@@ -14,6 +14,7 @@
 
 ## 仕様文書
 - uCLI の製品仕様を確認または変更するときは、`$HOME/Repositories/mackysoft/engineering-principles/ucli/` を参照する。
+- 公開コマンド、JSON 契約、スキーマ、公式 SKILL の意味を変更する場合は、実装と対応する仕様文書を同じ変更で整合させる。
 
 ## テスト実行
 .NET の変更中確認
@@ -41,6 +42,22 @@ bash scripts/verify.sh --include-unity \
 ```
 
 Unity Editor のインストールとライセンス有効化は実行環境の前提とし、スクリプト内では隠蔽しない。
+
+### スクリーンショット取得の専用検証
+
+GameView または SceneView の取得面、画像の正規化、PNG 符号化を変更する場合は、[tests/System/ScreenshotFidelity/README.md](tests/System/ScreenshotFidelity/README.md) の前提条件を満たし、macOS の GUI システムテストを Linear と Gamma の両方で実行する。
+
+```bash
+bash tests/System/ScreenshotFidelity/run-macos.sh \
+  --unity-editor "<UNITY_EDITOR>" \
+  --color-space linear \
+  --results-dir "$PWD/TestResults/ScreenshotFidelity/linear"
+
+bash tests/System/ScreenshotFidelity/run-macos.sh \
+  --unity-editor "<UNITY_EDITOR>" \
+  --color-space gamma \
+  --results-dir "$PWD/TestResults/ScreenshotFidelity/gamma"
+```
 
 ## コードフォーマット
 コードフォーマットは `.editorconfig` と `scripts/code-quality.sh` を正とする。`.editorconfig` は Unity コードベースにも適用する。
