@@ -57,6 +57,23 @@ bash scripts/code-quality.sh verify --include "<TARGET_PATH>" ["<TARGET_PATH>"..
 
 - フォーマット後は対象のテストを実行し、回帰がないことを確認すること。
 
+## パッケージ復元とリリース
+
+- `Ucli.Contracts`、`Ucli.Infrastructure`、または Unity 側の NuGet 依存を変更した場合は、`scripts/update-local-shared-packages.sh` でローカルパッケージを再生成して復元する。
+
+```bash
+bash scripts/update-local-shared-packages.sh
+```
+
+- 直接実行では、重複アセンブリを除く必要がある場合だけ `--prune` を指定する。`scripts/test-unity.sh` は既定で不要な対象フレームワーク向けファイルを除去し、`--no-prune` で無効にする。
+- リリース前に、GitHub Actions の `verify` ワークフローが現在の `master` 先頭コミットで成功していることを確認する。リリースは最新の `master` から、`v` を付けない `<major>.<minor>.<patch>` を指定して `package-publish` を起動する。
+
+```bash
+gh workflow run package-publish.yaml --ref master -f release_tag=1.2.3
+```
+
+- パッケージや GitHub Release を手動で公開せず、ワークフローの完了と公開結果を確認する。
+
 ## 作業規則
 - ユーザー明示が無い限り、uCLI は開発中のアプリケーションとして扱い、互換性維持のためだけのコードや説明を追加しない
 - 変更を加えた場合は、影響範囲を確認し、必要な修正を同じ作業範囲で行う
