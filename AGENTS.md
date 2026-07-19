@@ -12,6 +12,9 @@
 - `schemas/`：公開スキーマ成果物
 - `skills/`：公式 SKILL のバンドルと生成済み成果物
 
+## 仕様文書
+- uCLI の製品仕様を確認または変更するときは、`$HOME/Repositories/mackysoft/engineering-principles/ucli/` を参照する。
+
 ## テスト実行
 .NET の変更中確認
 ```bash
