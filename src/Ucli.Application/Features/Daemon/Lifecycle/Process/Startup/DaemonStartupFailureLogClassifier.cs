@@ -567,11 +567,25 @@ internal static class DaemonStartupFailureLogClassifier
 
     private static bool IsUcliPluginDependencyMissingLine (string line)
     {
+        var compilerDiagnosticIndex = line.IndexOf("error CS0234", StringComparison.OrdinalIgnoreCase);
+        var ucliPluginSourceIndex = line.IndexOf("MackySoft.Ucli.Unity", StringComparison.Ordinal);
+        var isUcliPluginJsonNamespaceDiagnostic = compilerDiagnosticIndex >= 0
+            && ucliPluginSourceIndex >= 0
+            && ucliPluginSourceIndex < compilerDiagnosticIndex
+            && line.Contains("namespace name 'Json'", StringComparison.Ordinal)
+            && line.Contains("namespace 'MackySoft'", StringComparison.Ordinal);
         var mentionsUcliDependency = line.Contains("MackySoft.Ucli.Contracts", StringComparison.Ordinal)
             || line.Contains("MackySoft.Ucli.Infrastructure", StringComparison.Ordinal)
             || (line.Contains("MackySoft.Ucli", StringComparison.Ordinal)
                 && (line.Contains("Contracts", StringComparison.Ordinal)
-                    || line.Contains("Infrastructure", StringComparison.Ordinal)));
+                    || line.Contains("Infrastructure", StringComparison.Ordinal)))
+            || line.Contains("MackySoft.Json.Canonicalization", StringComparison.Ordinal)
+            || (line.Contains("MackySoft.Json", StringComparison.Ordinal)
+                && line.Contains("Canonicalization", StringComparison.Ordinal))
+            || isUcliPluginJsonNamespaceDiagnostic
+            || line.Contains("Rfc8785JsonCanonicalizer", StringComparison.Ordinal)
+            || line.Contains("JsonCanonicalizationException", StringComparison.Ordinal)
+            || line.Contains("JsonCanonicalizationFailureKind", StringComparison.Ordinal);
         if (!mentionsUcliDependency)
         {
             return false;
