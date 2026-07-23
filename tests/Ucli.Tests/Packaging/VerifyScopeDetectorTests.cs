@@ -52,6 +52,17 @@ public sealed class VerifyScopeDetectorTests
             NeedsUnityPack: "false",
             NeedsReleasePack: "true"),
         new(
+            "external vocabulary dependency",
+            "src/Ucli.Contracts/Ucli.Contracts.csproj",
+            """<PackageReference Include="MackySoft.Text.Vocabularies" Version="0.1.0" />""",
+            """<PackageReference Include="MackySoft.Text.Vocabularies" Version="0.1.1" />""",
+            NeedsDotnet: "true",
+            NeedsSharedPack: "true",
+            NeedsCliPack: "true",
+            NeedsUnity: "true",
+            NeedsUnityPack: "false",
+            NeedsReleasePack: "false"),
+        new(
             "Agent Skills sync workflow",
             ".github/workflows/agent-skills-sync.yaml",
             "name: agent-skills-sync\n",
