@@ -1,11 +1,11 @@
 using System.Collections.Generic;
-using MackySoft.Ucli.Unity.ScreenshotCapture.GameView.Resolution;
+using MackySoft.Ucli.Unity.ScreenshotCapture.GameView;
 using NUnit.Framework;
 using UnityEngine;
 
 namespace MackySoft.Ucli.Unity.Tests
 {
-    public sealed class UnityScreenshotRequestedResolutionFreshnessTrackerTests
+    public sealed class UnityGameViewPresentationFreshnessTrackerTests
     {
         private readonly List<RenderTexture> textures = new List<RenderTexture>();
 
@@ -28,7 +28,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Observe_AfterFirstDimensionMatch_RequiresSubsequentEditorUpdate ()
         {
             var texture = CreateTexture();
-            var tracker = new UnityScreenshotRequestedResolutionFreshnessTracker(321, 197);
+            var tracker = new UnityGameViewPresentationFreshnessTracker(321, 197);
 
             var firstMatch = Observe(tracker, texture, 321, 197, completedEditorUpdateGeneration: 7);
             var sameGeneration = Observe(tracker, texture, 321, 197, completedEditorUpdateGeneration: 7);
@@ -37,15 +37,15 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 firstMatch,
                 Is.EqualTo(
-                    UnityScreenshotRequestedResolutionFreshnessTracker.Observation.WaitingForSubsequentEditorUpdate));
+                    UnityGameViewPresentationFreshnessTracker.Observation.WaitingForSubsequentEditorUpdate));
             Assert.That(
                 sameGeneration,
                 Is.EqualTo(
-                    UnityScreenshotRequestedResolutionFreshnessTracker.Observation.WaitingForSubsequentEditorUpdate));
+                    UnityGameViewPresentationFreshnessTracker.Observation.WaitingForSubsequentEditorUpdate));
             Assert.That(
                 nextGeneration,
                 Is.EqualTo(
-                    UnityScreenshotRequestedResolutionFreshnessTracker.Observation.ReadyForImmediateRepaint));
+                    UnityGameViewPresentationFreshnessTracker.Observation.ReadyForImmediateRepaint));
         }
 
         [Test]
@@ -54,7 +54,7 @@ namespace MackySoft.Ucli.Unity.Tests
         {
             var firstTexture = CreateTexture();
             var replacementTexture = CreateTexture();
-            var tracker = new UnityScreenshotRequestedResolutionFreshnessTracker(321, 197);
+            var tracker = new UnityGameViewPresentationFreshnessTracker(321, 197);
 
             Observe(tracker, firstTexture, 321, 197, completedEditorUpdateGeneration: 7);
             var replacement = Observe(
@@ -73,11 +73,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 replacement,
                 Is.EqualTo(
-                    UnityScreenshotRequestedResolutionFreshnessTracker.Observation.WaitingForSubsequentEditorUpdate));
+                    UnityGameViewPresentationFreshnessTracker.Observation.WaitingForSubsequentEditorUpdate));
             Assert.That(
                 replacementRendered,
                 Is.EqualTo(
-                    UnityScreenshotRequestedResolutionFreshnessTracker.Observation.ReadyForImmediateRepaint));
+                    UnityGameViewPresentationFreshnessTracker.Observation.ReadyForImmediateRepaint));
         }
 
         [Test]
@@ -85,7 +85,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Observe_WhenDimensionsDrift_RequiresNewMatchingBaseline ()
         {
             var texture = CreateTexture();
-            var tracker = new UnityScreenshotRequestedResolutionFreshnessTracker(321, 197);
+            var tracker = new UnityGameViewPresentationFreshnessTracker(321, 197);
 
             Observe(tracker, texture, 321, 197, completedEditorUpdateGeneration: 7);
             var drifted = Observe(tracker, texture, 320, 197, completedEditorUpdateGeneration: 8);
@@ -94,11 +94,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 drifted,
                 Is.EqualTo(
-                    UnityScreenshotRequestedResolutionFreshnessTracker.Observation.WaitingForRequestedDimensions));
+                    UnityGameViewPresentationFreshnessTracker.Observation.WaitingForExpectedDimensions));
             Assert.That(
                 returned,
                 Is.EqualTo(
-                    UnityScreenshotRequestedResolutionFreshnessTracker.Observation.WaitingForSubsequentEditorUpdate));
+                    UnityGameViewPresentationFreshnessTracker.Observation.WaitingForSubsequentEditorUpdate));
         }
 
         [Test]
@@ -106,7 +106,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Observe_WhenTextureDimensionsRemainOld_DoesNotStartFreshnessBaseline ()
         {
             var texture = CreateTexture();
-            var tracker = new UnityScreenshotRequestedResolutionFreshnessTracker(321, 197);
+            var tracker = new UnityGameViewPresentationFreshnessTracker(321, 197);
 
             var oldTextureSize = tracker.Observe(
                 texture,
@@ -125,11 +125,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 oldTextureSize,
                 Is.EqualTo(
-                    UnityScreenshotRequestedResolutionFreshnessTracker.Observation.WaitingForRequestedDimensions));
+                    UnityGameViewPresentationFreshnessTracker.Observation.WaitingForExpectedDimensions));
             Assert.That(
                 firstExactMatch,
                 Is.EqualTo(
-                    UnityScreenshotRequestedResolutionFreshnessTracker.Observation.WaitingForSubsequentEditorUpdate));
+                    UnityGameViewPresentationFreshnessTracker.Observation.WaitingForSubsequentEditorUpdate));
         }
 
         [Test]
@@ -137,7 +137,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Observe_WhenEditorUpdateGenerationWraps_StillRecognizesNewGeneration ()
         {
             var texture = CreateTexture();
-            var tracker = new UnityScreenshotRequestedResolutionFreshnessTracker(321, 197);
+            var tracker = new UnityGameViewPresentationFreshnessTracker(321, 197);
 
             Observe(tracker, texture, 321, 197, uint.MaxValue);
             var result = Observe(tracker, texture, 321, 197, completedEditorUpdateGeneration: 0);
@@ -145,11 +145,11 @@ namespace MackySoft.Ucli.Unity.Tests
             Assert.That(
                 result,
                 Is.EqualTo(
-                    UnityScreenshotRequestedResolutionFreshnessTracker.Observation.ReadyForImmediateRepaint));
+                    UnityGameViewPresentationFreshnessTracker.Observation.ReadyForImmediateRepaint));
         }
 
-        private static UnityScreenshotRequestedResolutionFreshnessTracker.Observation Observe (
-            UnityScreenshotRequestedResolutionFreshnessTracker tracker,
+        private static UnityGameViewPresentationFreshnessTracker.Observation Observe (
+            UnityGameViewPresentationFreshnessTracker tracker,
             RenderTexture texture,
             int width,
             int height,

@@ -7,6 +7,8 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.GameView
     {
         bool TryGetSource (out GameViewPresentationSource source, out string errorMessage);
 
+        bool TryValidateSource (GameViewPresentationSource source, out string errorMessage);
+
         bool IsCurrentTarget (EditorWindow gameView);
 
         bool TryRepaintImmediately (EditorWindow gameView, out string errorMessage);
