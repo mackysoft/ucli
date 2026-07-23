@@ -1,4 +1,7 @@
 using System.Text.RegularExpressions;
+using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 
 namespace MackySoft.Ucli.Tests.Architecture;
 
@@ -40,6 +43,9 @@ public sealed class GuardedPathBoundaryStructureTests
             [CreateMatchKey(
             "src/Ucli.Application/Shared/Execution/ReadIndex/Scenes/SceneTreeLiteSourcePaths.cs",
             "RootRelativePath.Parse(sceneRelativePath.Value+UnityAssetPathContract.MetaFileExtension)")] = 1,
+            [CreateMatchKey(
+            "src/Ucli/Features/Daemon/Supervisor/Transport/SupervisorUnixSocketEndpointOwnership.cs",
+            """RootRelativePath.Parse($".{Path.GetFileName(canonicalAddress.Value)}.{publicationToken:N}.link")""")] = 1,
         };
 
     private static readonly IReadOnlyDictionary<string, int> ExpectedPathValidationCatchMatches =
@@ -113,18 +119,6 @@ public sealed class GuardedPathBoundaryStructureTests
 
     private static readonly Regex SystemPathStaticUsingPattern = new(
         @"^\s*(?:global\s+)?using\s+static\s+(?:global\s*::\s*)?System\s*\.\s*IO\s*\.\s*Path\s*;",
-        RegexOptions.CultureInvariant | RegexOptions.Multiline);
-
-    private static readonly Regex GuardedPathAliasPattern = new(
-        @"^\s*(?:global\s+)?using\s+(?<alias>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:global\s*::\s*)?MackySoft\s*\.\s*FileSystem\s*\.\s*(?:AbsolutePath|RootRelativePath|ContainedPath)\s*;",
-        RegexOptions.CultureInvariant | RegexOptions.Multiline);
-
-    private static readonly Regex GuardedPathNamespaceAliasPattern = new(
-        @"^\s*(?:global\s+)?using\s+(?<alias>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:global\s*::\s*)?MackySoft\s*\.\s*FileSystem\s*;",
-        RegexOptions.CultureInvariant | RegexOptions.Multiline);
-
-    private static readonly Regex GuardedPathStaticUsingPattern = new(
-        @"^\s*(?:global\s+)?using\s+static\s+(?:global\s*::\s*)?MackySoft\s*\.\s*FileSystem\s*\.\s*(?:AbsolutePath|RootRelativePath|ContainedPath)\s*;",
         RegexOptions.CultureInvariant | RegexOptions.Multiline);
 
     [Fact]
@@ -273,7 +267,7 @@ public sealed class GuardedPathBoundaryStructureTests
 
     [Fact]
     [Trait("Size", "Small")]
-    public void GuardedValueReentryDetection_CoversAliasesResolveMethodsAndMultilineArguments ()
+    public void GuardedValueReentryDetection_CoversAliasesNestedTransformationsAndMultilineArguments ()
     {
         var sourceFile = new SourceFile(
             "src/Synthetic/GuardedPathConsumer.cs",
@@ -297,13 +291,79 @@ public sealed class GuardedPathBoundaryStructureTests
             var namespaceAliased = Fs.AbsolutePath.Parse(candidate.Value);
             var transformed = RootRelativePath.Parse(candidate.Value + ".meta");
             var interpolated = RootRelativePath.Parse($"{candidate.Value}.meta");
+            var nested = RootRelativePath.Parse(Path.GetFileName(candidate.Value));
             var rawPath = candidate.Value;
             var staticallyImported = Parse(rawPath);
+            var transformedPath = Path.GetFileName(candidate.Value);
+            var transformedLocal = RootRelativePath.Parse(transformedPath);
+            var rawFileNameSource = candidate.Value;
+            var nestedTransformedLocal = RootRelativePath.Parse(Path.GetFileName(rawFileNameSource));
+            var instanceRawPath = candidate.Value;
+            var instanceTransformedLocal = RootRelativePath.Parse(instanceRawPath.TrimEnd());
+            """);
+        var unrelatedScopeSourceFile = new SourceFile(
+            "src/Synthetic/UnrelatedLocalScope.cs",
+            """
+            static void CaptureGuardedText (AbsolutePath candidate)
+            {
+                var transformedPath = Path.GetFileName(candidate.Value);
+            }
+
+            static void ParseUnrelatedText (string transformedPath)
+            {
+                _ = RootRelativePath.Parse(transformedPath);
+            }
+            """);
+        var unrelatedFieldSourceFile = new SourceFile(
+            "src/Synthetic/UnrelatedFieldScope.cs",
+            """
+            internal sealed class GuardedCapture
+            {
+                private static readonly AbsolutePath Candidate = AbsolutePath.Parse("/tmp");
+                private static readonly string TransformedPath = Candidate.Value;
+            }
+
+            internal sealed class UnrelatedParser
+            {
+                private static void ParseUnrelatedText (string TransformedPath)
+                {
+                    _ = RootRelativePath.Parse(TransformedPath);
+                }
+            }
+            """);
+        var unrelatedMemberNameSourceFile = new SourceFile(
+            "src/Synthetic/UnrelatedMemberName.cs",
+            """
+            var GetFileName = candidate.Value;
+            var unrelated = "unrelated";
+            _ = RootRelativePath.Parse(Path.GetFileName(unrelated));
             """);
 
-        var matches = FindGuardedValueReentryMatches([sourceFile]).ToArray();
+        var matches = FindGuardedValueReentryMatches(
+            [
+                sourceFile,
+                unrelatedScopeSourceFile,
+                unrelatedFieldSourceFile,
+                unrelatedMemberNameSourceFile,
+            ]).ToArray();
 
-        Assert.Equal(7, matches.Length);
+        AssertExactMatches(
+            matches,
+            new Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                [CreateMatchKey(sourceFile.Path, "GuardedAbsolute.Parse(candidate.Value)")] = 1,
+                [CreateMatchKey(sourceFile.Path, "AbsolutePath.Resolve(boundary,candidate.Value)")] = 1,
+                [CreateMatchKey(sourceFile.Path, "ContainedPath.TryResolve(boundary,candidate.Value,out_,out_)")] = 1,
+                [CreateMatchKey(sourceFile.Path, "Fs.AbsolutePath.Parse(candidate.Value)")] = 1,
+                [CreateMatchKey(sourceFile.Path, """RootRelativePath.Parse(candidate.Value+".meta")""")] = 1,
+                [CreateMatchKey(sourceFile.Path, """RootRelativePath.Parse($"{candidate.Value}.meta")""")] = 1,
+                [CreateMatchKey(sourceFile.Path, "RootRelativePath.Parse(Path.GetFileName(candidate.Value))")] = 1,
+                [CreateMatchKey(sourceFile.Path, "Parse(rawPath)")] = 1,
+                [CreateMatchKey(sourceFile.Path, "RootRelativePath.Parse(transformedPath)")] = 1,
+                [CreateMatchKey(sourceFile.Path, "RootRelativePath.Parse(Path.GetFileName(rawFileNameSource))")] = 1,
+                [CreateMatchKey(sourceFile.Path, "RootRelativePath.Parse(instanceRawPath.TrimEnd())")] = 1,
+            },
+            "Guarded path factory re-entry detection must cover each supported syntax without crossing local lexical scopes.");
     }
 
     [Fact]
@@ -431,80 +491,216 @@ public sealed class GuardedPathBoundaryStructureTests
     private static IEnumerable<SourceMatch> FindGuardedValueReentryMatches (
         IEnumerable<SourceFile> sourceFiles)
     {
-        const string builtInOwnerPattern =
-            @"(?:(?:global\s*::\s*)?MackySoft\s*\.\s*FileSystem\s*\.\s*)?(?:AbsolutePath|RootRelativePath|ContainedPath)";
-        const string memberAccessPattern =
-            @"[A-Za-z_][A-Za-z0-9_]*(?:\s*!?\s*\.\s*[A-Za-z_][A-Za-z0-9_]*)*";
-        var sourceFileArray = sourceFiles.ToArray();
-
-        foreach (var sourceFile in sourceFileArray)
+        foreach (var sourceFile in sourceFiles)
         {
-            var aliases = GuardedPathAliasPattern
-                .Matches(sourceFile.Text)
-                .Select(static match => Regex.Escape(match.Groups["alias"].Value))
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
-            var namespaceAliases = GuardedPathNamespaceAliasPattern
-                .Matches(sourceFile.Text)
-                .Select(static match =>
-                    Regex.Escape(match.Groups["alias"].Value)
-                    + @"\s*\.\s*(?:AbsolutePath|RootRelativePath|ContainedPath)")
-                .Distinct(StringComparer.Ordinal)
-                .ToArray();
-            var ownerAlternatives = new[] { builtInOwnerPattern }
-                .Concat(aliases)
-                .Concat(namespaceAliases);
-            var ownerPattern = $"(?:{string.Join("|", ownerAlternatives)})";
-            var allowsStaticFactoryCalls = GuardedPathStaticUsingPattern.IsMatch(sourceFile.Text);
-            var factoryPrefixPattern = allowsStaticFactoryCalls
-                ? $@"(?:(?:{ownerPattern})\s*\.\s*)?"
-                : $@"(?:{ownerPattern})\s*\.\s*";
-            var valueAccessPattern = $@"{memberAccessPattern}\s*!?\s*\.\s*Value";
-            var directFactoryPattern = new Regex(
-                $@"\b{factoryPrefixPattern}(?:Parse|TryParse)\s*\(\s*[^(),;]{{0,300}}?{valueAccessPattern}[^(),;]{{0,300}}?(?:,|\))",
-                RegexOptions.CultureInvariant | RegexOptions.Singleline);
-            var resolveFactoryPattern = new Regex(
-                $@"\b{factoryPrefixPattern}(?:Resolve|TryResolve)\s*\(\s*[^(),;]{{0,300}},\s*[^(),;]{{0,300}}?{valueAccessPattern}[^(),;]{{0,300}}?(?:,|\))",
-                RegexOptions.CultureInvariant | RegexOptions.Singleline);
+            var root = CSharpSyntaxTree.ParseText(sourceFile.Text).GetRoot();
+            var guardedPathAliases = root
+                .DescendantNodes()
+                .OfType<UsingDirectiveSyntax>()
+                .Where(static directive =>
+                    directive.Alias is not null
+                    && IsGuardedPathTypeName(directive.Name))
+                .Select(static directive => directive.Alias!.Name.Identifier.ValueText)
+                .ToHashSet(StringComparer.Ordinal);
+            var allowsStaticFactoryCalls = root
+                .DescendantNodes()
+                .OfType<UsingDirectiveSyntax>()
+                .Any(static directive =>
+                    !directive.StaticKeyword.IsKind(SyntaxKind.None)
+                    && IsGuardedPathTypeName(directive.Name));
 
-            foreach (var match in FindMatches([sourceFile], directFactoryPattern))
+            foreach (var invocation in root.DescendantNodes().OfType<InvocationExpressionSyntax>())
             {
-                yield return match;
-            }
-
-            foreach (var match in FindMatches([sourceFile], resolveFactoryPattern))
-            {
-                yield return match;
-            }
-
-            var guardedValueAssignments = new Regex(
-                    $@"\b(?:var|string)\s+(?<variable>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*{valueAccessPattern}\s*;",
-                    RegexOptions.CultureInvariant)
-                .Matches(sourceFile.Text)
-                .Cast<Match>()
-                .Select(static match => match.Groups["variable"].Value)
-                .Distinct(StringComparer.Ordinal);
-            foreach (var variable in guardedValueAssignments)
-            {
-                var escapedVariable = Regex.Escape(variable);
-                var assignedDirectFactoryPattern = new Regex(
-                    $@"\b{factoryPrefixPattern}(?:Parse|TryParse)\s*\(\s*{escapedVariable}\s*(?:,|\))",
-                    RegexOptions.CultureInvariant);
-                var assignedResolveFactoryPattern = new Regex(
-                    $@"\b{factoryPrefixPattern}(?:Resolve|TryResolve)\s*\(\s*(?:(?!;).){{0,300}}?,\s*{escapedVariable}\s*(?:,|\))",
-                    RegexOptions.CultureInvariant | RegexOptions.Singleline);
-
-                foreach (var match in FindMatches([sourceFile], assignedDirectFactoryPattern))
+                if (!TryGetRawPathFactoryArgument(
+                        invocation,
+                        guardedPathAliases,
+                        allowsStaticFactoryCalls,
+                        out var rawPathArgument)
+                    || !ReferencesGuardedPathValue(rawPathArgument, invocation))
                 {
-                    yield return match;
+                    continue;
                 }
 
-                foreach (var match in FindMatches([sourceFile], assignedResolveFactoryPattern))
-                {
-                    yield return match;
-                }
+                var line = invocation
+                    .GetLocation()
+                    .GetLineSpan()
+                    .StartLinePosition
+                    .Line + 1;
+                yield return new SourceMatch(
+                    sourceFile.Path,
+                    line,
+                    invocation.ToString());
             }
         }
+    }
+
+    private static bool ReferencesGuardedPathValue (
+        ExpressionSyntax expression,
+        SyntaxNode useSite)
+    {
+        if (expression
+            .DescendantNodesAndSelf()
+            .OfType<MemberAccessExpressionSyntax>()
+            .Any(static memberAccess =>
+                memberAccess.Name.Identifier.ValueText == "Value"))
+        {
+            return true;
+        }
+
+        return expression
+            .DescendantNodesAndSelf()
+            .OfType<IdentifierNameSyntax>()
+            .Where(IsRawPathTextOperand)
+            .Select(static identifier => identifier.Identifier.ValueText)
+            .Distinct(StringComparer.Ordinal)
+            .Select(variableName => FindNearestVisibleAssignment(variableName, useSite))
+            .Any(static assignedExpression =>
+                assignedExpression is not null
+                && assignedExpression
+                    .DescendantNodesAndSelf()
+                    .OfType<MemberAccessExpressionSyntax>()
+                    .Any(static memberAccess =>
+                        memberAccess.Name.Identifier.ValueText == "Value"));
+    }
+
+    private static bool IsRawPathTextOperand (IdentifierNameSyntax identifier)
+    {
+        return identifier.Parent switch
+        {
+            MemberAccessExpressionSyntax memberAccess
+                when ReferenceEquals(memberAccess.Name, identifier) => false,
+            MemberAccessExpressionSyntax memberAccess
+                when ReferenceEquals(memberAccess.Expression, identifier) =>
+                memberAccess.Parent is InvocationExpressionSyntax invocation
+                && ReferenceEquals(invocation.Expression, memberAccess),
+            ElementAccessExpressionSyntax elementAccess
+                when ReferenceEquals(elementAccess.Expression, identifier) => false,
+            _ => true,
+        };
+    }
+
+    private static ExpressionSyntax? FindNearestVisibleAssignment (
+        string variableName,
+        SyntaxNode useSite)
+    {
+        var root = useSite.SyntaxTree.GetRoot();
+        var declarationAssignments = root
+            .DescendantNodes()
+            .OfType<VariableDeclaratorSyntax>()
+            .Where(declarator =>
+                declarator.Identifier.ValueText == variableName
+                && declarator.Initializer is not null
+                && IsLocalVariableDeclarator(declarator))
+            .Select(static declarator => (
+                Node: (SyntaxNode)declarator,
+                Value: declarator.Initializer!.Value));
+        var explicitAssignments = root
+            .DescendantNodes()
+            .OfType<AssignmentExpressionSyntax>()
+            .Where(assignment =>
+                assignment.Left is IdentifierNameSyntax identifier
+                && identifier.Identifier.ValueText == variableName)
+            .Select(static assignment => (
+                Node: (SyntaxNode)assignment,
+                Value: assignment.Right));
+
+        return declarationAssignments
+            .Concat(explicitAssignments)
+            .Where(candidate =>
+                candidate.Node.SpanStart < useSite.SpanStart
+                && FindLexicalScope(candidate.Node) is { } scope
+                && scope.FullSpan.Contains(useSite.SpanStart))
+            .OrderByDescending(static candidate => candidate.Node.SpanStart)
+            .Select(static candidate => candidate.Value)
+            .FirstOrDefault();
+    }
+
+    private static bool IsLocalVariableDeclarator (VariableDeclaratorSyntax declarator)
+    {
+        return declarator.Parent?.Parent is LocalDeclarationStatementSyntax
+            or ForStatementSyntax
+            or UsingStatementSyntax
+            or FixedStatementSyntax;
+    }
+
+    private static SyntaxNode? FindLexicalScope (SyntaxNode node)
+    {
+        return node
+            .Ancestors()
+            .FirstOrDefault(static ancestor =>
+                ancestor is BlockSyntax
+                    or ForStatementSyntax
+                    or SwitchSectionSyntax
+                    or CompilationUnitSyntax);
+    }
+
+    private static bool TryGetRawPathFactoryArgument (
+        InvocationExpressionSyntax invocation,
+        IReadOnlySet<string> guardedPathAliases,
+        bool allowsStaticFactoryCalls,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out ExpressionSyntax? rawPathArgument)
+    {
+        rawPathArgument = null;
+        string factoryName;
+        if (invocation.Expression is MemberAccessExpressionSyntax memberAccess)
+        {
+            factoryName = memberAccess.Name.Identifier.ValueText;
+            var ownerName = GetRightmostIdentifier(memberAccess.Expression);
+            if (ownerName is null
+                || (!IsGuardedPathTypeName(ownerName)
+                    && !guardedPathAliases.Contains(ownerName)))
+            {
+                return false;
+            }
+        }
+        else if (invocation.Expression is IdentifierNameSyntax identifier
+                 && allowsStaticFactoryCalls)
+        {
+            factoryName = identifier.Identifier.ValueText;
+        }
+        else
+        {
+            return false;
+        }
+
+        var argumentIndex = factoryName switch
+        {
+            "Parse" or "TryParse" => 0,
+            "Resolve" or "TryResolve" => 1,
+            _ => -1,
+        };
+        if (argumentIndex < 0
+            || invocation.ArgumentList.Arguments.Count <= argumentIndex)
+        {
+            return false;
+        }
+
+        rawPathArgument = invocation.ArgumentList.Arguments[argumentIndex].Expression;
+        return true;
+    }
+
+    private static bool IsGuardedPathTypeName (NameSyntax? name)
+    {
+        return name is not null
+            && IsGuardedPathTypeName(GetRightmostIdentifier(name));
+    }
+
+    private static bool IsGuardedPathTypeName (string? name)
+    {
+        return name is "AbsolutePath" or "RootRelativePath" or "ContainedPath";
+    }
+
+    private static string? GetRightmostIdentifier (SyntaxNode expression)
+    {
+        return expression switch
+        {
+            IdentifierNameSyntax identifier => identifier.Identifier.ValueText,
+            GenericNameSyntax generic => generic.Identifier.ValueText,
+            MemberAccessExpressionSyntax memberAccess => memberAccess.Name.Identifier.ValueText,
+            QualifiedNameSyntax qualified => qualified.Right.Identifier.ValueText,
+            AliasQualifiedNameSyntax aliasQualified => aliasQualified.Name.Identifier.ValueText,
+            _ => null,
+        };
     }
 
     private static IEnumerable<SourceMatch> FindLowLevelPathApiMatches (
