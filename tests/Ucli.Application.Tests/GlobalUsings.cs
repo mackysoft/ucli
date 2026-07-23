@@ -1,3 +1,4 @@
+global using MackySoft.FileSystem;
 global using MackySoft.Tests;
 global using MackySoft.Ucli.Application.Features.Assurance;
 global using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Contracts;

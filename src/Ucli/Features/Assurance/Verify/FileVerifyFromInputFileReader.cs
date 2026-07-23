@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Input;
 using MackySoft.Ucli.Application.Features.Assurance.Verify.Vocabulary;
 using MackySoft.Ucli.Application.Shared.Execution;
@@ -10,7 +11,7 @@ internal sealed class FileVerifyFromInputFileReader : IVerifyFromInputFileReader
     /// <inheritdoc />
     public async ValueTask<VerifyFromInputFileReadResult> ReadAsync (
         string fromPath,
-        string repositoryRoot,
+        AbsolutePath repositoryRoot,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -18,21 +19,23 @@ internal sealed class FileVerifyFromInputFileReader : IVerifyFromInputFileReader
         if (!VerifyRepositoryFilePathResolver.TryResolve(
                 repositoryRoot,
                 fromPath,
-                out var fullPath,
-                out _,
+                out var resolvedPath,
                 out _))
         {
             return Failure("The --from path must resolve to a file under the repository root.");
         }
 
-        if (!File.Exists(fullPath))
+        if (!File.Exists(resolvedPath!.Target.Value))
         {
             return Failure($"The --from path does not exist: {fromPath}.");
         }
 
         try
         {
-            var json = await File.ReadAllTextAsync(fullPath, cancellationToken).ConfigureAwait(false);
+            var json = await File.ReadAllTextAsync(
+                    resolvedPath.Target.Value,
+                    cancellationToken)
+                .ConfigureAwait(false);
             return VerifyFromInputFileReadResult.Success(json);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)

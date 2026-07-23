@@ -22,7 +22,9 @@ internal static class BuildServiceExecuteMethodRunnerTestSupport
             arguments: string.Empty,
             environment: string.Empty);
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                profileJson,
+                DefaultBuildProfilePath)),
             requestExecutor: CreateBuildResponseExecutor(
                 runnerResult.Status,
                 completionReason,
@@ -79,7 +81,9 @@ internal static class BuildServiceExecuteMethodRunnerTestSupport
             arguments: string.Empty,
             environment: string.Empty);
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                profileJson,
+                DefaultBuildProfilePath)),
             requestExecutor: new RecordingUnityRequestExecutor(payload =>
             {
                 var buildRunPayload = (UnityRequestPayload.BuildRun)payload;

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -331,7 +332,7 @@ public sealed class SupervisorStabilityVerifierTests
         }
 
         public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -340,7 +341,7 @@ public sealed class SupervisorStabilityVerifierTests
         }
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             DaemonDiagnosis diagnosis,
             CancellationToken cancellationToken = default)
@@ -350,7 +351,7 @@ public sealed class SupervisorStabilityVerifierTests
         }
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {

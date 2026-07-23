@@ -11,6 +11,6 @@ namespace MackySoft.Ucli.Unity.Build
         IpcBuildReportArtifact? Run (
             IpcUnityBuildProfileInput unityBuildProfile,
             UnityBuildResolvedInput resolvedInput,
-            IpcBuildOutputLayout outputLayout);
+            ResolvedBuildPipelineOutputLayout outputLayout);
     }
 }

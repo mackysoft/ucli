@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Contracts.Storage;
 
@@ -28,6 +29,6 @@ internal static class DaemonGuiStartupBlockerObservationTestFactory
                 primaryDiagnostic),
             processId,
             processStartedAtUtc,
-            unityLogPath);
+            AbsolutePath.Parse(unityLogPath));
     }
 }

@@ -1,3 +1,4 @@
+using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -116,6 +117,50 @@ public sealed class SupervisorClientEnsureRunningTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Contains("projectFingerprint mismatch", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public async Task EnsureRunning_WhenResponseUnixSocketAddressExceedsTransportLimit_ReturnsInternalError ()
+    {
+        var transportClient = new StubIpcTransportClient
+        {
+            SendHandler = (_, request, _, _) =>
+            {
+                var sessionContract = DaemonSessionContractMapper.ToContract(
+                    SupervisorClientTestSupport.CreateGuiDaemonSession()) with
+                {
+                    EndpointAddress = Path.Combine(
+                        Path.GetTempPath(),
+                        new string('s', 120) + ".sock"),
+                };
+                return ValueTask.FromResult(new IpcResponse(
+                    protocolVersion: request.ProtocolVersion,
+                    requestId: request.RequestId,
+                    status: IpcResponseStatus.Ok,
+                    payload: IpcPayloadCodec.SerializeToElement(
+                        new SupervisorIpcContracts.EnsureRunningResponse(
+                            StartStatus: DaemonStartStatus.Started,
+                            Session: sessionContract,
+                            LifecycleObservation: SupervisorClientTestSupport.CreateReadyLifecycleObservation())),
+                    errors: []));
+            },
+        };
+        var client = new SupervisorClient(transportClient, TimeProvider.System);
+
+        var result = await client.EnsureRunningAsync(
+            SupervisorClientTestSupport.CreateManifest(),
+            Guid.NewGuid(),
+            SupervisorClientTestSupport.CreateUnityProject(),
+            ExecutionDeadline.Start(TimeSpan.FromMilliseconds(100), TimeProvider.System),
+            editorMode: DaemonEditorMode.Gui,
+            onStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto,
+            cancellationToken: CancellationToken.None);
+
+        Assert.False(result.IsSuccess);
+        var error = Assert.IsType<ExecutionError>(result.Error);
+        Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
+        Assert.Contains("UTF-8 byte length", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]

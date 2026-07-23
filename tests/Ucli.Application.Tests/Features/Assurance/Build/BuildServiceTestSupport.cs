@@ -21,6 +21,14 @@ internal static class BuildServiceTestSupport
 {
     public static readonly Guid RunId = Guid.Parse("b7516435-a107-4dc1-a10b-f72ec743d297");
     public static readonly ProjectFingerprint DefaultProjectFingerprint = ProjectFingerprintTestFactory.Create("project-fingerprint");
+    public static readonly AbsolutePath DefaultBuildProfilePath = AbsolutePath.Parse(
+        Path.Combine(ProjectPathTestValues.WorkspaceRoot, "build.ucli.json"));
+    public static readonly string DefaultOutputLocationPath = Path.Combine(
+        ProjectPathTestValues.WorkspaceRoot,
+        ".ucli",
+        "output",
+        "player",
+        "Player");
 
     public const string ProfileJson = """
         {
@@ -125,7 +133,9 @@ internal static class BuildServiceTestSupport
         return new BuildService(
             projectContextResolver ?? new StaticProjectContextResolver(ProjectContextResolutionResult.Success(ProjectContextTestFactory.Create(
                 projectFingerprint: DefaultProjectFingerprint))),
-            profileFileReader ?? new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(ProfileJson, "/workspace/build.ucli.json")),
+            profileFileReader ?? new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                ProfileJson,
+                DefaultBuildProfilePath)),
             environmentVariableReader ?? new StubEnvironmentVariableReader(),
             modeDecisionService ?? new StubModeDecisionService(UnityExecutionModeDecisionResult.Success(new UnityExecutionModeDecision(
                 UnityExecutionMode.Auto,
@@ -370,7 +380,7 @@ internal static class BuildServiceTestSupport
                 OutputLayout: outputLayout ?? (useDefaultOutputLayout
                     ? new IpcBuildOutputLayout(
                         Shape: IpcBuildOutputLayoutShape.File,
-                        LocationPathName: "/workspace/.ucli/output/player/Player")
+                        LocationPathName: DefaultOutputLocationPath)
                     : null),
                 UnityBuildProfile: unityBuildProfile,
                 Report: omitReport
@@ -378,7 +388,7 @@ internal static class BuildServiceTestSupport
                     : CreateBuildReportArtifact(
                         reportResult,
                         unityBuildTarget ?? "StandaloneLinux64",
-                        reportOutputPath ?? "/workspace/.ucli/output/player/Player",
+                        reportOutputPath ?? DefaultOutputLocationPath,
                         errorCount),
                 Logs: new IpcBuildLogSummary(
                     EntryCount: errorCount == 0 ? 3 : 4,

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
@@ -17,13 +18,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         private static readonly TimeSpan ManifestLockAcquireTimeout = TimeSpan.FromSeconds(1);
 
         public static async ValueTask<PublicationLease> AcquirePublicationLeaseAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken)
         {
-            if (string.IsNullOrWhiteSpace(storageRoot))
+            if (storageRoot == null)
             {
-                throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
+                throw new ArgumentNullException(nameof(storageRoot));
             }
 
             if (projectFingerprint == null)
@@ -43,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         public static void Delete (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             IpcSessionToken expectedSessionToken)
         {
@@ -63,7 +64,7 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static void DeleteWhileLockIsHeld (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             IpcSessionToken expectedSessionToken)
         {
@@ -111,18 +112,18 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         internal sealed class PublicationLease : IDisposable
         {
-            private readonly string storageRoot;
+            private readonly AbsolutePath storageRoot;
 
             private readonly ProjectFingerprint projectFingerprint;
 
             private FileExclusiveLock manifestLock;
 
             public PublicationLease (
-                string storageRoot,
+                AbsolutePath storageRoot,
                 ProjectFingerprint projectFingerprint,
                 FileExclusiveLock manifestLock)
             {
-                this.storageRoot = storageRoot;
+                this.storageRoot = storageRoot ?? throw new ArgumentNullException(nameof(storageRoot));
                 this.projectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
                 this.manifestLock = manifestLock ?? throw new ArgumentNullException(nameof(manifestLock));
             }
@@ -161,8 +162,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(
                     storageRoot,
                     projectFingerprint);
-                var manifestDirectory = Path.GetDirectoryName(manifestPath);
-                if (string.IsNullOrEmpty(manifestDirectory))
+                if (!manifestPath.TryGetParent(out var manifestDirectory))
                 {
                     throw new InvalidOperationException(
                         $"GUI supervisor manifest directory could not be resolved. Path={manifestPath}");

@@ -1,6 +1,7 @@
 using System.Runtime.ExceptionServices;
 using System.Text;
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -24,11 +25,11 @@ internal sealed class SupervisorManifestStore
         encoderShouldEmitUTF8Identifier: false,
         throwOnInvalidBytes: true);
 
-    private readonly Func<string, CancellationToken, ValueTask<ReadOnlyMemory<byte>?>> readAllBytesOrNull;
+    private readonly Func<AbsolutePath, CancellationToken, ValueTask<ReadOnlyMemory<byte>?>> readAllBytesOrNull;
 
-    private readonly Func<string, ReadOnlyMemory<byte>, CancellationToken, ValueTask> writeAllBytesAtomically;
+    private readonly Func<AbsolutePath, ReadOnlyMemory<byte>, CancellationToken, ValueTask> writeAllBytesAtomically;
 
-    private readonly Action<string> deleteIfExists;
+    private readonly Action<AbsolutePath> deleteIfExists;
 
     private readonly TimeProvider timeProvider;
 
@@ -39,9 +40,9 @@ internal sealed class SupervisorManifestStore
     /// <param name="deleteIfExists"> Delegate that deletes a manifest file when present. </param>
     public SupervisorManifestStore (
         TimeProvider timeProvider,
-        Func<string, CancellationToken, ValueTask<ReadOnlyMemory<byte>?>> readAllBytesOrNull,
-        Func<string, ReadOnlyMemory<byte>, CancellationToken, ValueTask> writeAllBytesAtomically,
-        Action<string> deleteIfExists)
+        Func<AbsolutePath, CancellationToken, ValueTask<ReadOnlyMemory<byte>?>> readAllBytesOrNull,
+        Func<AbsolutePath, ReadOnlyMemory<byte>, CancellationToken, ValueTask> writeAllBytesAtomically,
+        Action<AbsolutePath> deleteIfExists)
     {
         this.timeProvider = timeProvider ?? throw new ArgumentNullException(nameof(timeProvider));
         this.readAllBytesOrNull = readAllBytesOrNull ?? throw new ArgumentNullException(nameof(readAllBytesOrNull));
@@ -54,7 +55,7 @@ internal sealed class SupervisorManifestStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The manifest when present; otherwise <see langword="null" />. </returns>
     public async ValueTask<SupervisorInstanceManifest?> ReadOrNullAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -86,7 +87,7 @@ internal sealed class SupervisorManifestStore
     /// <returns> The manifest when present; otherwise <see langword="null" />. </returns>
     /// <exception cref="TimeoutException"> Thrown when the read operation exceeds <paramref name="timeout" />. </exception>
     public async ValueTask<SupervisorInstanceManifest?> ReadOrNullAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -116,7 +117,7 @@ internal sealed class SupervisorManifestStore
     /// <returns> The consistently published manifest when present; otherwise <see langword="null" />. </returns>
     /// <exception cref="TimeoutException"> Thrown when publication or reading exceeds <paramref name="timeout" />. </exception>
     public async ValueTask<SupervisorInstanceManifest?> ReadAfterEndpointPublicationAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -151,7 +152,7 @@ internal sealed class SupervisorManifestStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> A task that completes when persistence finishes. </returns>
     public async ValueTask WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         SupervisorInstanceManifest manifest,
         CancellationToken cancellationToken = default)
     {
@@ -178,7 +179,7 @@ internal sealed class SupervisorManifestStore
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> A lease that can publish the successor manifest before releasing mutation ownership. </returns>
     public async ValueTask<SupervisorEndpointPublicationLease> AcquireEndpointPublicationLeaseAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -217,7 +218,7 @@ internal sealed class SupervisorManifestStore
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The outcome of the compare-and-delete operation. </returns>
     public ValueTask<SupervisorManifestCleanupStatus> CleanupObservedRuntimeIfManifestMatchesAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         SupervisorInstanceManifest expectedManifest,
         SupervisorUnixSocketCleanupTarget? unixSocketCleanupTarget,
         TimeSpan timeout,
@@ -240,7 +241,7 @@ internal sealed class SupervisorManifestStore
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The outcome of the compare-and-delete operation. </returns>
     public ValueTask<SupervisorManifestCleanupStatus> CleanupObservedRuntimeIfMalformedArtifactMatchesAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         Sha256Digest expectedArtifactIdentity,
         SupervisorUnixSocketCleanupTarget? unixSocketCleanupTarget,
         TimeSpan timeout,
@@ -264,7 +265,7 @@ internal sealed class SupervisorManifestStore
     /// <returns> The outcome of the compare-and-delete operation. </returns>
     /// <remarks> The caller must retain the storage root's runtime ownership lease until this operation completes. </remarks>
     public ValueTask<SupervisorManifestCleanupStatus> CleanupOwnedRuntimeIfManifestMatchesAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         SupervisorInstanceManifest expectedManifest,
         SupervisorUnixSocketCleanupTarget? unixSocketCleanupTarget,
         TimeSpan mutationLockTimeout,
@@ -280,7 +281,7 @@ internal sealed class SupervisorManifestStore
     }
 
     private async ValueTask<SupervisorManifestCleanupStatus> CleanupObservedRuntimeIfArtifactMatchesAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         Func<SupervisorManifestArtifact, bool> isExpectedArtifact,
         SupervisorUnixSocketCleanupTarget? unixSocketCleanupTarget,
         TimeSpan timeout,
@@ -312,7 +313,7 @@ internal sealed class SupervisorManifestStore
     }
 
     private async ValueTask<SupervisorManifestCleanupStatus> CleanupOwnedRuntimeIfArtifactMatchesAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         Func<SupervisorManifestArtifact, bool> isExpectedArtifact,
         SupervisorUnixSocketCleanupTarget? unixSocketCleanupTarget,
         TimeSpan mutationLockTimeout,
@@ -356,7 +357,7 @@ internal sealed class SupervisorManifestStore
     }
 
     private static bool IsExpectedManifest (
-        string storageRoot,
+        AbsolutePath storageRoot,
         SupervisorManifestArtifact artifact,
         SupervisorInstanceManifest expectedManifest)
     {
@@ -373,7 +374,7 @@ internal sealed class SupervisorManifestStore
 
     private static SupervisorInstanceManifest DeserializeAndValidate (
         string json,
-        string manifestPath)
+        AbsolutePath manifestPath)
     {
         var contract = JsonSerializer.Deserialize<SupervisorInstanceManifestJsonContract>(json, SerializerOptions)
             ?? throw new JsonException("Supervisor manifest JSON is null.");
@@ -406,7 +407,7 @@ internal sealed class SupervisorManifestStore
             return new SupervisorInstanceManifest(
                 contract.ProcessId,
                 sessionToken,
-                endpoint,
+                SupervisorTransportEndpoint.FromContract(endpoint),
                 contract.IssuedAtUtc);
         }
         catch (ArgumentException exception)
@@ -418,7 +419,7 @@ internal sealed class SupervisorManifestStore
     }
 
     private async ValueTask WriteWhileMutationLockIsHeldAsync (
-        string manifestPath,
+        AbsolutePath manifestPath,
         SupervisorInstanceManifest manifest,
         CancellationToken cancellationToken)
     {
@@ -433,15 +434,19 @@ internal sealed class SupervisorManifestStore
             manifest.IssuedAtUtc);
         var json = JsonSerializer.Serialize(contract, SerializerOptions) + Environment.NewLine;
         var bytes = StrictUtf8.GetBytes(json);
-        var manifestDirectoryPath = Path.GetDirectoryName(manifestPath)
-            ?? throw new InvalidOperationException($"Supervisor manifest directory path could not be resolved: {manifestPath}");
+        if (!manifestPath.TryGetParent(out var manifestDirectoryPath))
+        {
+            throw new InvalidOperationException(
+                $"Supervisor manifest directory path could not be resolved: {manifestPath.Value}");
+        }
+
         FileSystemAccessBoundary.EnsureSecureDirectory(manifestDirectoryPath);
         await writeAllBytesAtomically(manifestPath, bytes, cancellationToken).ConfigureAwait(false);
         FileSystemAccessBoundary.EnsureSecureFile(manifestPath);
     }
 
     private async ValueTask RestoreWhileMutationLockIsHeldAsync (
-        string manifestPath,
+        AbsolutePath manifestPath,
         SupervisorManifestArtifact? replacedManifestArtifact)
     {
         if (replacedManifestArtifact is null)
@@ -450,8 +455,12 @@ internal sealed class SupervisorManifestStore
             return;
         }
 
-        var manifestDirectoryPath = Path.GetDirectoryName(manifestPath)
-            ?? throw new InvalidOperationException($"Supervisor manifest directory path could not be resolved: {manifestPath}");
+        if (!manifestPath.TryGetParent(out var manifestDirectoryPath))
+        {
+            throw new InvalidOperationException(
+                $"Supervisor manifest directory path could not be resolved: {manifestPath.Value}");
+        }
+
         FileSystemAccessBoundary.EnsureSecureDirectory(manifestDirectoryPath);
         try
         {
@@ -477,7 +486,7 @@ internal sealed class SupervisorManifestStore
     }
 
     private async ValueTask<SupervisorManifestArtifact?> ReadArtifactOrNullAsync (
-        string manifestPath,
+        AbsolutePath manifestPath,
         CancellationToken cancellationToken)
     {
         var externalBytes = await readAllBytesOrNull(manifestPath, cancellationToken).ConfigureAwait(false);
@@ -488,7 +497,7 @@ internal sealed class SupervisorManifestStore
 
     private static void Validate (
         SupervisorInstanceManifestJsonContract manifest,
-        string manifestPath)
+        AbsolutePath manifestPath)
     {
         if (manifest.ProcessId <= 0)
         {
@@ -548,7 +557,7 @@ internal sealed class SupervisorManifestStore
     {
         private readonly SupervisorManifestStore owner;
 
-        private readonly string manifestPath;
+        private readonly AbsolutePath manifestPath;
 
         private readonly SupervisorManifestArtifact? replacedManifestArtifact;
 
@@ -556,14 +565,12 @@ internal sealed class SupervisorManifestStore
 
         internal SupervisorEndpointPublicationLease (
             SupervisorManifestStore owner,
-            string manifestPath,
+            AbsolutePath manifestPath,
             SupervisorManifestArtifact? replacedManifestArtifact,
             FileExclusiveLock manifestLock)
         {
             this.owner = owner ?? throw new ArgumentNullException(nameof(owner));
-            this.manifestPath = !string.IsNullOrWhiteSpace(manifestPath)
-                ? manifestPath
-                : throw new ArgumentException("Manifest path must not be empty.", nameof(manifestPath));
+            this.manifestPath = manifestPath ?? throw new ArgumentNullException(nameof(manifestPath));
             this.replacedManifestArtifact = replacedManifestArtifact;
             this.manifestLock = manifestLock ?? throw new ArgumentNullException(nameof(manifestLock));
         }

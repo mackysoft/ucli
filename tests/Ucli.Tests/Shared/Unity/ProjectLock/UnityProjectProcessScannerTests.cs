@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Process;
 using MackySoft.Ucli.Tests.Helpers.Unity;
@@ -22,7 +23,7 @@ public sealed class UnityProjectProcessScannerTests
             0,
             standardOutput: processOutput)));
 
-        var result = await scanner.FindProcessesForProjectAsync(projectPath, CancellationToken.None);
+        var result = await scanner.FindProcessesForProjectAsync(AbsolutePath.Parse(projectPath), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var match = Assert.Single(result.Matches);
@@ -45,7 +46,7 @@ public sealed class UnityProjectProcessScannerTests
             0,
             standardOutput: processOutput)));
 
-        var result = await scanner.FindProcessesForProjectAsync(projectPath, CancellationToken.None);
+        var result = await scanner.FindProcessesForProjectAsync(AbsolutePath.Parse(projectPath), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var match = Assert.Single(result.Matches);
@@ -69,7 +70,7 @@ public sealed class UnityProjectProcessScannerTests
             0,
             standardOutput: processOutput)));
 
-        var result = await scanner.FindProcessesForProjectAsync(projectPath, CancellationToken.None);
+        var result = await scanner.FindProcessesForProjectAsync(AbsolutePath.Parse(projectPath), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         Assert.Empty(result.Matches);
@@ -89,7 +90,7 @@ public sealed class UnityProjectProcessScannerTests
         var processRunner = new RecordingProcessRunner(ProcessRunResult.Exited(0, standardOutput: string.Empty));
         var scanner = new UnityProjectProcessScanner(processRunner);
 
-        _ = await scanner.FindProcessesForProjectAsync(projectPath, CancellationToken.None);
+        _ = await scanner.FindProcessesForProjectAsync(AbsolutePath.Parse(projectPath), CancellationToken.None);
 
         UnityProjectProcessScannerAssert.UsesAbsoluteUnixPsExecutable(processRunner);
     }
@@ -107,7 +108,7 @@ public sealed class UnityProjectProcessScannerTests
         var projectPath = scope.CreateDirectory("UnityProject");
         var scanner = new UnityProjectProcessScanner(new RecordingProcessRunner(ProcessRunResult.StartFailed("ps denied")));
 
-        var result = await scanner.FindProcessesForProjectAsync(projectPath, CancellationToken.None);
+        var result = await scanner.FindProcessesForProjectAsync(AbsolutePath.Parse(projectPath), CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.Contains("ps denied", result.ErrorMessage, StringComparison.Ordinal);
@@ -130,7 +131,7 @@ public sealed class UnityProjectProcessScannerTests
             standardOutput: processOutput));
         var scanner = new UnityProjectProcessScanner(processRunner);
 
-        var result = await scanner.FindProcessesForProjectAsync(projectPath, CancellationToken.None);
+        var result = await scanner.FindProcessesForProjectAsync(AbsolutePath.Parse(projectPath), CancellationToken.None);
 
         Assert.True(result.IsSuccess);
         var match = Assert.Single(result.Matches);

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Contracts.Storage;
@@ -22,7 +23,8 @@ internal static class DaemonLaunchAttemptStoreTestSupport
         int minuteOffset = 0)
     {
         var updatedAtUtc = new DateTimeOffset(2026, 03, 12, 0, minuteOffset, 0, TimeSpan.Zero);
-        var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(storageRoot, ProjectFingerprint);
+        var guardedStorageRoot = AbsolutePath.Parse(storageRoot);
+        var unityLogPath = UcliStoragePathResolver.ResolveUnityLogPath(guardedStorageRoot, ProjectFingerprint);
         var diagnosis = new DaemonDiagnosis(
             Reason: DaemonDiagnosisReason.StartupFailed,
             Message: "startup failed",
@@ -55,7 +57,10 @@ internal static class DaemonLaunchAttemptStoreTestSupport
             ProcessId: 1234,
             ProcessStartedAtUtc: updatedAtUtc,
             UnityLogPath: unityLogPath,
-            ArtifactPath: UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(storageRoot, ProjectFingerprint, launchAttemptId),
+            ArtifactPath: UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
+                guardedStorageRoot,
+                ProjectFingerprint,
+                launchAttemptId),
             Diagnosis: diagnosis);
     }
 
@@ -64,7 +69,11 @@ internal static class DaemonLaunchAttemptStoreTestSupport
         string storageRoot,
         DaemonLaunchAttempt attempt)
     {
-        var writeResult = await store.WriteFailureAsync(storageRoot, ProjectFingerprint, attempt, CancellationToken.None);
+        var writeResult = await store.WriteFailureAsync(
+            AbsolutePath.Parse(storageRoot),
+            ProjectFingerprint,
+            attempt,
+            CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
     }

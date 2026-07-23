@@ -1,6 +1,7 @@
 #nullable enable
 
 using System;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 
@@ -10,17 +11,20 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
     internal sealed record PlanTokenEnvironmentSnapshot
     {
         /// <summary> Initializes one plan-token environment snapshot. </summary>
-        /// <exception cref="ArgumentNullException"> <paramref name="projectFingerprint" /> is <see langword="null" />. </exception>
+        /// <exception cref="ArgumentNullException">
+        /// <paramref name="projectRoot" />, <paramref name="repositoryRoot" />, or
+        /// <paramref name="projectFingerprint" /> is <see langword="null" />.
+        /// </exception>
         public PlanTokenEnvironmentSnapshot (
-            string projectRoot,
-            string repositoryRoot,
+            AbsolutePath projectRoot,
+            AbsolutePath repositoryRoot,
             ProjectFingerprint projectFingerprint,
             string unityVersion,
             IpcCompileState compileState,
             long domainReloadGeneration)
         {
-            ProjectRoot = projectRoot;
-            RepositoryRoot = repositoryRoot;
+            ProjectRoot = projectRoot ?? throw new ArgumentNullException(nameof(projectRoot));
+            RepositoryRoot = repositoryRoot ?? throw new ArgumentNullException(nameof(repositoryRoot));
             ProjectFingerprint = projectFingerprint ?? throw new ArgumentNullException(nameof(projectFingerprint));
             UnityVersion = unityVersion;
             CompileState = compileState;
@@ -28,10 +32,10 @@ namespace MackySoft.Ucli.Unity.Execution.PlanToken
         }
 
         /// <summary> Gets the Unity project root path. </summary>
-        public string ProjectRoot { get; init; }
+        public AbsolutePath ProjectRoot { get; init; }
 
         /// <summary> Gets the repository root path. </summary>
-        public string RepositoryRoot { get; init; }
+        public AbsolutePath RepositoryRoot { get; init; }
 
         /// <summary> Gets the deterministic project fingerprint. </summary>
         public ProjectFingerprint ProjectFingerprint { get; init; }

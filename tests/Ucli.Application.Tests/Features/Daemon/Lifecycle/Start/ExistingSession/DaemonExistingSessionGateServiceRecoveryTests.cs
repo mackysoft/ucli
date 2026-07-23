@@ -75,8 +75,8 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             editorMode: DaemonEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            endpointTransportKind: session.Endpoint.TransportKind,
-            endpointAddress: session.Endpoint.Address,
+            endpointTransportKind: session.EndpointContract.TransportKind,
+            endpointAddress: session.EndpointContract.Address,
             ownerProcessId: session.OwnerProcessId,
             editorInstanceId: editorInstanceId,
             sessionGenerationId: Guid.NewGuid());
@@ -129,8 +129,8 @@ public sealed class DaemonExistingSessionGateServiceRecoveryTests
             editorMode: DaemonEditorMode.Gui,
             ownerKind: DaemonSessionOwnerKind.User,
             canShutdownProcess: false,
-            endpointTransportKind: session.Endpoint.TransportKind,
-            endpointAddress: session.Endpoint.Address,
+            endpointTransportKind: session.EndpointContract.TransportKind,
+            endpointAddress: session.EndpointContract.Address,
             ownerProcessId: session.OwnerProcessId,
             editorInstanceId: editorInstanceId,
             sessionGenerationId: Guid.NewGuid());

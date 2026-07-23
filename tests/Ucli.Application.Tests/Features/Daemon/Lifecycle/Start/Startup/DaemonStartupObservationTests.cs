@@ -151,7 +151,11 @@ public sealed class DaemonStartupObservationTests
             1234,
             new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero),
             1000,
-            "/repo/.ucli/launch-attempts/startup-diagnosis.json");
+            AbsolutePath.Parse(Path.Combine(
+                ProjectPathTestValues.RepositoryRoot,
+                ".ucli",
+                "launch-attempts",
+                "startup-diagnosis.json")));
     }
 
     public enum InvalidEnumField
@@ -176,5 +180,5 @@ public sealed class DaemonStartupObservationTests
         int? ProcessId,
         DateTimeOffset? StartedAtUtc,
         int? ElapsedMilliseconds,
-        string? ArtifactPath);
+        AbsolutePath? ArtifactPath);
 }

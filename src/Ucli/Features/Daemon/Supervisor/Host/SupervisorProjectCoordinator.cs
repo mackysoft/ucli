@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Reachability;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Timing;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
@@ -556,7 +557,7 @@ internal sealed class SupervisorProjectCoordinator
     }
 
     private async Task WriteRuntimeLogBestEffortAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         string level,
         string message)
     {

@@ -468,8 +468,8 @@ public sealed class DaemonShutdownClientTests
         _ = IpcRequestAssert.SingleRequestId(transportClient.Requests);
         Assert.Collection(
             transportClient.Endpoints,
-            endpoint => Assert.Equal(initialSession.Endpoint, endpoint),
-            endpoint => Assert.Equal(successorSession.Endpoint, endpoint));
+            endpoint => Assert.Equal(initialSession.EndpointContract, endpoint),
+            endpoint => Assert.Equal(successorSession.EndpointContract, endpoint));
         Assert.All(
             transportClient.Requests,
             request => Assert.Equal(startedAtUtc + TimeSpan.FromSeconds(5), request.RequestDeadlineUtc));

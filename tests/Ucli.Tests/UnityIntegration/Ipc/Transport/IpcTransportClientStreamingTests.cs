@@ -364,7 +364,7 @@ public sealed class IpcTransportClientStreamingTests
         var connector = new SequencedConnector(firstStream, singleStream, resumedStream);
         var timeProvider = new ManualTimeProvider();
         var client = new IpcTransportClient(connector, timeProvider);
-        var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "stream-admission-test");
+        var endpoint = IpcTransportEndpoint.FromNamedPipeAddress("stream-admission-test");
         var callbackStartedSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var callbackCompletionSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var callbackExitedSource = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -467,7 +467,7 @@ public sealed class IpcTransportClientStreamingTests
 
     private static async Task<IpcResponse> SendAfterPreviousOperationConvergesAsync (
         IpcTransportClient client,
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request)
     {
         using var waitCancellationTokenSource = new CancellationTokenSource(IpcTransportClientTestSupport.WaitTimeout);
@@ -515,7 +515,7 @@ public sealed class IpcTransportClientStreamingTests
         public int ConnectionCount => Volatile.Read(ref connectionCount);
 
         public ValueTask<Stream> ConnectAsync (
-            IpcEndpoint endpoint,
+            IpcTransportEndpoint endpoint,
             CancellationToken cancellationToken)
         {
             _ = endpoint;

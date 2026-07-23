@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Features.Daemon.Supervisor;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -17,10 +18,10 @@ public sealed class LaunchdSupervisorProcessManagerTests
             ProcessRunResult.Exited(3),
             ProcessRunResult.Exited(0));
         var manager = new LaunchdSupervisorProcessManager(processRunner);
-        var plistPath = UcliStoragePathResolver.ResolveSupervisorLaunchAgentPlistPath(scope.FullPath);
+        var plistPath = UcliStoragePathResolver.ResolveSupervisorLaunchAgentPlistPath(AbsolutePath.Parse(scope.FullPath));
 
         var result = await manager.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
 
@@ -28,12 +29,12 @@ public sealed class LaunchdSupervisorProcessManagerTests
         Assert.Null(result.Error);
         var lease = Assert.IsAssignableFrom<ISupervisorProcessLaunchLease>(result.Lease);
         await lease.CommitAsync();
-        Assert.True(File.Exists(plistPath));
+        Assert.True(File.Exists(plistPath.Value));
         Assert.Collection(
             processRunner.Invocations,
             invocation => Assert.Equal(["-u"], invocation.Request.Arguments),
             invocation => Assert.Equal("--wait", invocation.Request.Arguments[1]),
-            invocation => Assert.Equal(["bootstrap", "gui/501", plistPath], invocation.Request.Arguments));
+            invocation => Assert.Equal(["bootstrap", "gui/501", plistPath.Value], invocation.Request.Arguments));
     }
 
     [Fact]
@@ -49,7 +50,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
         var manager = new LaunchdSupervisorProcessManager(processRunner);
 
         var launchResult = await manager.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
         var lease = Assert.IsAssignableFrom<ISupervisorProcessLaunchLease>(launchResult.Lease);
@@ -60,9 +61,9 @@ public sealed class LaunchdSupervisorProcessManagerTests
         Assert.Collection(
             processRunner.Invocations,
             invocation => Assert.Equal(["-u"], invocation.Request.Arguments),
-            invocation => Assert.Equal(["bootout", "--wait", GetServiceTarget(scope.FullPath)], invocation.Request.Arguments),
+            invocation => Assert.Equal(["bootout", "--wait", GetServiceTarget(AbsolutePath.Parse(scope.FullPath))], invocation.Request.Arguments),
             invocation => Assert.Equal("bootstrap", invocation.Request.Arguments[0]),
-            invocation => Assert.Equal(["bootout", "--wait", GetServiceTarget(scope.FullPath)], invocation.Request.Arguments));
+            invocation => Assert.Equal(["bootout", "--wait", GetServiceTarget(AbsolutePath.Parse(scope.FullPath))], invocation.Request.Arguments));
     }
 
     [Theory]
@@ -76,15 +77,15 @@ public sealed class LaunchdSupervisorProcessManagerTests
             ProcessRunResult.Exited(0, standardOutput: "501\n"),
             ProcessRunResult.Exited(bootoutExitCode));
         var processManager = new LaunchdSupervisorProcessManager(processRunner);
-        var plistPath = UcliStoragePathResolver.ResolveSupervisorLaunchAgentPlistPath(scope.FullPath);
-        Assert.False(File.Exists(plistPath));
+        var plistPath = UcliStoragePathResolver.ResolveSupervisorLaunchAgentPlistPath(AbsolutePath.Parse(scope.FullPath));
+        Assert.False(File.Exists(plistPath.Value));
 
         var error = await processManager.ReleaseCurrentProcessRegistrationAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             CancellationToken.None);
 
         Assert.Null(error);
-        Assert.False(File.Exists(plistPath));
+        Assert.False(File.Exists(plistPath.Value));
         Assert.Collection(
             processRunner.Invocations,
             invocation =>
@@ -94,7 +95,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
             },
             invocation =>
             {
-                var worktreeIdentity = SupervisorWorktreeIdentity.Create(scope.FullPath);
+                var worktreeIdentity = SupervisorWorktreeIdentity.Create(AbsolutePath.Parse(scope.FullPath));
                 var label = "dev.mackysoft.ucli.supervisor." + worktreeIdentity.LaunchServiceNameSuffix;
                 Assert.Equal("/bin/launchctl", invocation.Request.FileName);
                 Assert.Equal(["bootout", $"gui/501/{label}"], invocation.Request.Arguments);
@@ -114,7 +115,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
         var processManager = new LaunchdSupervisorProcessManager(processRunner);
 
         var launchResult = await processManager.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
         var lease = Assert.IsAssignableFrom<ISupervisorProcessLaunchLease>(launchResult.Lease);
@@ -139,7 +140,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
         var processManager = new LaunchdSupervisorProcessManager(processRunner);
 
         var launchResult = await processManager.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
         var lease = Assert.IsAssignableFrom<ISupervisorProcessLaunchLease>(launchResult.Lease);
@@ -163,14 +164,17 @@ public sealed class LaunchdSupervisorProcessManagerTests
         var processManager = new LaunchdSupervisorProcessManager(processRunner);
 
         var result = await processManager.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
 
         Assert.False(result.IsSuccess);
         Assert.NotNull(result.Error);
         Assert.Null(result.Lease);
-        Assert.False(File.Exists(UcliStoragePathResolver.ResolveSupervisorLaunchAgentPlistPath(scope.FullPath)));
+        Assert.False(File.Exists(
+            UcliStoragePathResolver.ResolveSupervisorLaunchAgentPlistPath(
+                    AbsolutePath.Parse(scope.FullPath))
+                .Value));
         Assert.Collection(
             processRunner.Invocations,
             invocation => Assert.Equal(["-u"], invocation.Request.Arguments),
@@ -190,7 +194,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
         var manager = new LaunchdSupervisorProcessManager(processRunner);
 
         var result = await manager.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
 
@@ -203,7 +207,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
             invocation => Assert.Equal(["-u"], invocation.Request.Arguments),
             invocation => Assert.Equal("bootout", invocation.Request.Arguments[0]),
             invocation => Assert.Equal("bootstrap", invocation.Request.Arguments[0]),
-            invocation => Assert.Equal(["bootout", "--wait", GetServiceTarget(scope.FullPath)], invocation.Request.Arguments));
+            invocation => Assert.Equal(["bootout", "--wait", GetServiceTarget(AbsolutePath.Parse(scope.FullPath))], invocation.Request.Arguments));
     }
 
     [Fact]
@@ -229,7 +233,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
         var manager = new LaunchdSupervisorProcessManager(processRunner);
 
         var resultTask = manager.LaunchAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 new SupervisorLaunchCommand("ucli", []),
                 cancellation.Token)
             .AsTask();
@@ -250,7 +254,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
             invocation => Assert.Equal("bootstrap", invocation.Request.Arguments[0]),
             invocation =>
             {
-                Assert.Equal(["bootout", "--wait", GetServiceTarget(scope.FullPath)], invocation.Request.Arguments);
+                Assert.Equal(["bootout", "--wait", GetServiceTarget(AbsolutePath.Parse(scope.FullPath))], invocation.Request.Arguments);
                 Assert.Equal(CancellationToken.None, invocation.CancellationToken);
             });
     }
@@ -275,7 +279,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
         var manager = new LaunchdSupervisorProcessManager(processRunner);
 
         var launchResult = await manager.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             cancellation.Token);
 
@@ -298,7 +302,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
         var manager = new LaunchdSupervisorProcessManager(processRunner);
 
         var launchResult = await manager.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
 
@@ -330,7 +334,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
         var manager = new LaunchdSupervisorProcessManager(processRunner);
 
         var launchResult = await manager.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             cancellation.Token);
 
@@ -364,7 +368,7 @@ public sealed class LaunchdSupervisorProcessManagerTests
         return rollbackAllowed.Task;
     }
 
-    private static string GetServiceTarget (string storageRoot)
+    private static string GetServiceTarget (AbsolutePath storageRoot)
     {
         var worktreeIdentity = SupervisorWorktreeIdentity.Create(storageRoot);
         return $"gui/501/dev.mackysoft.ucli.supervisor.{worktreeIdentity.LaunchServiceNameSuffix}";

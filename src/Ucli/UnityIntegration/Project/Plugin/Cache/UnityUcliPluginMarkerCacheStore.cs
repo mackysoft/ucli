@@ -1,6 +1,6 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
@@ -15,11 +15,11 @@ internal sealed class UnityUcliPluginMarkerCacheStore
         WriteIndented = true,
     };
 
-    private readonly Func<string, CancellationToken, ValueTask<string?>> readAllTextOrNull;
+    private readonly Func<AbsolutePath, CancellationToken, ValueTask<string?>> readAllTextOrNull;
 
-    private readonly Func<string, string, CancellationToken, ValueTask> writeAllTextAtomically;
+    private readonly Func<AbsolutePath, string, CancellationToken, ValueTask> writeAllTextAtomically;
 
-    private readonly Action<string> deleteIfExists;
+    private readonly Action<AbsolutePath> deleteIfExists;
 
     /// <summary> Initializes a new instance of the <see cref="UnityUcliPluginMarkerCacheStore" /> class. </summary>
     public UnityUcliPluginMarkerCacheStore ()
@@ -35,9 +35,9 @@ internal sealed class UnityUcliPluginMarkerCacheStore
     /// <param name="writeAllTextAtomically"> Delegate that writes cache JSON atomically. </param>
     /// <param name="deleteIfExists"> Delegate that deletes a cache file when present. </param>
     internal UnityUcliPluginMarkerCacheStore (
-        Func<string, CancellationToken, ValueTask<string?>> readAllTextOrNull,
-        Func<string, string, CancellationToken, ValueTask> writeAllTextAtomically,
-        Action<string> deleteIfExists)
+        Func<AbsolutePath, CancellationToken, ValueTask<string?>> readAllTextOrNull,
+        Func<AbsolutePath, string, CancellationToken, ValueTask> writeAllTextAtomically,
+        Action<AbsolutePath> deleteIfExists)
     {
         this.readAllTextOrNull = readAllTextOrNull ?? throw new ArgumentNullException(nameof(readAllTextOrNull));
         this.writeAllTextAtomically = writeAllTextAtomically ?? throw new ArgumentNullException(nameof(writeAllTextAtomically));
@@ -50,32 +50,20 @@ internal sealed class UnityUcliPluginMarkerCacheStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cache read result. </returns>
     public async ValueTask<UnityUcliPluginMarkerCacheReadResult> ReadOrNullAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string cachePath;
-        try
-        {
-            cachePath = UcliStoragePathResolver.ResolveUnityUcliPluginMarkerCachePath(storageRoot, projectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityUcliPluginMarkerCacheReadResult.Failure(ExecutionError.InvalidArgument(
-                $"uCLI Unity plugin marker cache path is invalid. {exception.Message}"));
-        }
+        var cachePath = UcliStoragePathResolver.ResolveUnityUcliPluginMarkerCachePath(
+            storageRoot,
+            projectFingerprint);
 
         string? json;
         try
         {
             json = await readAllTextOrNull(cachePath, cancellationToken).ConfigureAwait(false);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityUcliPluginMarkerCacheReadResult.Failure(ExecutionError.InvalidArgument(
-                $"uCLI Unity plugin marker cache path is invalid: {cachePath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
@@ -121,7 +109,7 @@ internal sealed class UnityUcliPluginMarkerCacheStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The cache operation result. </returns>
     public async ValueTask<UnityUcliPluginMarkerCacheStoreOperationResult> WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         UnityUcliPluginMarkerCache cache,
         CancellationToken cancellationToken = default)
@@ -129,23 +117,17 @@ internal sealed class UnityUcliPluginMarkerCacheStore
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(cache);
 
-        string cachePath;
-        try
-        {
-            cachePath = UcliStoragePathResolver.ResolveUnityUcliPluginMarkerCachePath(storageRoot, projectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityUcliPluginMarkerCacheStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"uCLI Unity plugin marker cache path is invalid. {exception.Message}"));
-        }
+        var cachePath = UcliStoragePathResolver.ResolveUnityUcliPluginMarkerCachePath(
+            storageRoot,
+            projectFingerprint);
 
         try
         {
             Validate(cache, cachePath);
             var json = JsonSerializer.Serialize(cache, SerializerOptions) + Environment.NewLine;
-            var cacheDirectoryPath = Path.GetDirectoryName(cachePath)
-                ?? throw new InvalidOperationException($"uCLI Unity plugin marker cache directory path could not be resolved: {cachePath}");
+            var cacheDirectoryPath = UcliStoragePathResolver.ResolveProjectDirectory(
+                storageRoot,
+                projectFingerprint);
             FileSystemAccessBoundary.EnsureSecureDirectory(cacheDirectoryPath);
             await writeAllTextAtomically(cachePath, json, cancellationToken).ConfigureAwait(false);
             return UnityUcliPluginMarkerCacheStoreOperationResult.Success();
@@ -154,11 +136,6 @@ internal sealed class UnityUcliPluginMarkerCacheStore
         {
             return UnityUcliPluginMarkerCacheStoreOperationResult.Failure(ExecutionError.InvalidArgument(
                 $"uCLI Unity plugin marker cache is invalid: {cachePath}. {exception.Message}"));
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityUcliPluginMarkerCacheStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"uCLI Unity plugin marker cache path is invalid: {cachePath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
@@ -172,29 +149,17 @@ internal sealed class UnityUcliPluginMarkerCacheStore
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <returns> The cache operation result. </returns>
     public UnityUcliPluginMarkerCacheStoreOperationResult DeleteIfExists (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint)
     {
-        string cachePath;
-        try
-        {
-            cachePath = UcliStoragePathResolver.ResolveUnityUcliPluginMarkerCachePath(storageRoot, projectFingerprint);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityUcliPluginMarkerCacheStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"uCLI Unity plugin marker cache path is invalid. {exception.Message}"));
-        }
+        var cachePath = UcliStoragePathResolver.ResolveUnityUcliPluginMarkerCachePath(
+            storageRoot,
+            projectFingerprint);
 
         try
         {
             deleteIfExists(cachePath);
             return UnityUcliPluginMarkerCacheStoreOperationResult.Success();
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityUcliPluginMarkerCacheStoreOperationResult.Failure(ExecutionError.InvalidArgument(
-                $"uCLI Unity plugin marker cache path is invalid: {cachePath}. {exception.Message}"));
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
@@ -205,33 +170,18 @@ internal sealed class UnityUcliPluginMarkerCacheStore
 
     private static void Validate (
         UnityUcliPluginMarkerCache cache,
-        string cachePath)
+        AbsolutePath cachePath)
     {
         ArgumentNullException.ThrowIfNull(cache);
-        ArgumentException.ThrowIfNullOrWhiteSpace(cachePath);
 
-        if (string.IsNullOrWhiteSpace(cache.ProjectRelativeMarkerPath))
+        if (!RootRelativePath.TryParse(
+                cache.ProjectRelativeMarkerPath,
+                out _,
+                out _))
         {
-            throw new ArgumentException("projectRelativeMarkerPath must not be empty.", nameof(cache));
-        }
-
-        if (Path.IsPathRooted(PathStringNormalizer.ToPlatformSeparated(cache.ProjectRelativeMarkerPath)))
-        {
-            throw new ArgumentException("projectRelativeMarkerPath must be relative.", nameof(cache));
-        }
-
-        var normalizedProjectRelativeMarkerPath = PathStringNormalizer.TrimTrailingDirectorySeparators(
-            PathStringNormalizer.ToPlatformSeparated(cache.ProjectRelativeMarkerPath));
-        var segments = normalizedProjectRelativeMarkerPath.Split(
-            Path.DirectorySeparatorChar,
-            StringSplitOptions.RemoveEmptyEntries);
-        foreach (var segment in segments)
-        {
-            if (string.Equals(segment, ".", StringComparison.Ordinal)
-                || string.Equals(segment, "..", StringComparison.Ordinal))
-            {
-                throw new ArgumentException("projectRelativeMarkerPath must not contain traversal tokens.", nameof(cache));
-            }
+            throw new ArgumentException(
+                "projectRelativeMarkerPath must be a valid root-relative path.",
+                nameof(cache));
         }
 
         if (string.IsNullOrWhiteSpace(cache.PluginId))

@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -10,90 +11,110 @@ namespace MackySoft.Ucli.Infrastructure.Ipc;
 internal static class UcliIpcEndpointResolver
 {
     /// <summary> Resolves the daemon transport endpoint for the given project identity. </summary>
-    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="storageRoot"> The guarded storage-root path. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <returns> The resolved daemon transport endpoint. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> is empty. </exception>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> is <see langword="null" />. </exception>
-    public static IpcEndpoint ResolveDaemonEndpoint (
-        string storageRoot,
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />.
+    /// </exception>
+    public static IpcTransportEndpoint ResolveDaemonEndpoint (
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint)
     {
-        if (string.IsNullOrWhiteSpace(storageRoot))
+        var unixSocketPath = ResolveDaemonUnixSocketPathOrNull(storageRoot, projectFingerprint);
+        if (unixSocketPath is null)
         {
-            throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
+            var pipeName = UcliIpcEndpointNames.DaemonAddressPrefix + projectFingerprint;
+            return IpcTransportEndpoint.FromNamedPipeAddress(pipeName);
+        }
+
+        return IpcTransportEndpoint.FromUnixSocketPath(unixSocketPath);
+    }
+
+    /// <summary> Resolves the guarded daemon Unix-domain socket path used by filesystem operations. </summary>
+    /// <param name="storageRoot"> The guarded storage-root path. </param>
+    /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
+    /// <returns>
+    /// The guarded Unix-domain socket path, or <see langword="null" /> when the current platform uses named pipes.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />.
+    /// </exception>
+    public static AbsolutePath? ResolveDaemonUnixSocketPathOrNull (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint)
+    {
+        if (storageRoot == null)
+        {
+            throw new ArgumentNullException(nameof(storageRoot));
         }
 
         if (projectFingerprint == null)
         {
             throw new ArgumentNullException(nameof(projectFingerprint));
         }
-
-        var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            var pipeName = UcliIpcEndpointNames.DaemonAddressPrefix + projectFingerprint;
-            return new IpcEndpoint(IpcTransportKind.NamedPipe, pipeName);
+            return null;
         }
 
-        var preferredSocketPath = Path.Combine(
-            UcliStoragePathResolver.ResolveProjectDirectory(normalizedStorageRoot, projectFingerprint),
-            UcliIpcEndpointNames.UnixSocketFileName);
+        var preferredSocketPath = ContainedPath.Create(
+            UcliStoragePathResolver.ResolveProjectDirectory(storageRoot, projectFingerprint),
+            RootRelativePath.Parse(UcliIpcEndpointNames.UnixSocketFileName)).Target;
 
-        if (Encoding.UTF8.GetByteCount(preferredSocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
+        if (Encoding.UTF8.GetByteCount(preferredSocketPath.Value) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
         {
-            return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, preferredSocketPath);
+            return preferredSocketPath;
         }
 
         var fallbackPath = new UnixSocketFallbackPath(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             UnixSocketFallbackPurpose.Daemon,
-            $"{normalizedStorageRoot}\n{projectFingerprint}");
-        return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, fallbackPath.SocketPath);
+            $"{storageRoot}\n{projectFingerprint}");
+        return fallbackPath.SocketPath;
     }
 
     /// <summary> Resolves the GUI supervisor transport endpoint for the given project identity. </summary>
-    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="storageRoot"> The guarded storage-root path. </param>
     /// <param name="projectFingerprint"> The canonical project fingerprint. </param>
     /// <returns> The resolved GUI supervisor transport endpoint. </returns>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> is empty. </exception>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> is <see langword="null" />. </exception>
-    public static IpcEndpoint ResolveGuiSupervisorEndpoint (
-        string storageRoot,
+    /// <exception cref="ArgumentNullException">
+    /// Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />.
+    /// </exception>
+    public static IpcTransportEndpoint ResolveGuiSupervisorEndpoint (
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint)
     {
-        if (string.IsNullOrWhiteSpace(storageRoot))
+        if (storageRoot == null)
         {
-            throw new ArgumentException("Storage root must not be empty.", nameof(storageRoot));
+            throw new ArgumentNullException(nameof(storageRoot));
         }
 
         if (projectFingerprint == null)
         {
             throw new ArgumentNullException(nameof(projectFingerprint));
         }
-
-        var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             var pipeName = UcliIpcEndpointNames.GuiSupervisorAddressPrefix + projectFingerprint;
-            return new IpcEndpoint(IpcTransportKind.NamedPipe, pipeName);
+            return IpcTransportEndpoint.FromNamedPipeAddress(pipeName);
         }
 
-        var preferredSocketPath = Path.Combine(
-            UcliStoragePathResolver.ResolveProjectDirectory(normalizedStorageRoot, projectFingerprint),
-            "gui-supervisor.sock");
+        var preferredSocketPath = ContainedPath.Create(
+            UcliStoragePathResolver.ResolveProjectDirectory(storageRoot, projectFingerprint),
+            RootRelativePath.Parse("gui-supervisor.sock")).Target;
 
-        if (Encoding.UTF8.GetByteCount(preferredSocketPath) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
+        if (Encoding.UTF8.GetByteCount(preferredSocketPath.Value) <= IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
         {
-            return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, preferredSocketPath);
+            return IpcTransportEndpoint.FromUnixSocketPath(preferredSocketPath);
         }
 
         var fallbackPath = new UnixSocketFallbackPath(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             UnixSocketFallbackPurpose.GuiSupervisor,
-            $"{normalizedStorageRoot}\n{projectFingerprint}");
-        return new IpcEndpoint(IpcTransportKind.UnixDomainSocket, fallbackPath.SocketPath);
+            $"{storageRoot}\n{projectFingerprint}");
+        return IpcTransportEndpoint.FromUnixSocketPath(fallbackPath.SocketPath);
     }
 }

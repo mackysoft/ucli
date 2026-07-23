@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -25,7 +26,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
         };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
         var response = await SendRequestAsync(
@@ -38,7 +39,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
@@ -53,9 +54,10 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
             response.Payload,
             out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
             out _));
-        Assert.Equal(diagnosis, payload.Diagnosis);
-        Assert.Equal(startup, payload.Startup);
-        Assert.Equal(DaemonStatusKind.Stale, payload.DaemonStatus);
+        Assert.True(SupervisorEnsureRunningFailurePayloadMapper.TryToMetadata(payload, out var metadata));
+        Assert.Equal(diagnosis, metadata.Diagnosis);
+        Assert.Equal(startup, metadata.Startup);
+        Assert.Equal(DaemonStatusKind.Stale, metadata.DaemonStatus);
     }
 
     [Fact]
@@ -78,7 +80,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
         };
         var dispatcher = CreateDispatcher(startOperation, timeProvider);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
         var response = await SendRequestAsync(
@@ -91,7 +93,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
@@ -106,7 +108,8 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
             response.Payload,
             out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
             out _));
-        Assert.Equal(diagnosis, payload.Diagnosis);
+        Assert.True(SupervisorEnsureRunningFailurePayloadMapper.TryToMetadata(payload, out var metadata));
+        Assert.Equal(diagnosis, metadata.Diagnosis);
     }
 
     [Fact]
@@ -129,7 +132,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
         };
         var dispatcher = CreateDispatcher(startOperation, timeProvider);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
         var frames = await SendStreamingRequestAsync(
@@ -142,7 +145,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),
@@ -159,7 +162,8 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
             response.Payload,
             out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
             out _));
-        Assert.Equal(diagnosis, payload.Diagnosis);
+        Assert.True(SupervisorEnsureRunningFailurePayloadMapper.TryToMetadata(payload, out var metadata));
+        Assert.Equal(diagnosis, metadata.Diagnosis);
     }
 
     [Fact]
@@ -172,7 +176,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
         };
         var dispatcher = CreateDispatcher(startOperation);
         var runtimeContext = CreateRuntimeContext();
-        var unityProjectRoot = Path.Combine(runtimeContext.StorageRoot, "UnityProject");
+        var unityProjectRoot = AbsolutePath.Parse(Path.Combine(runtimeContext.StorageRoot.Value, "UnityProject"));
         var projectFingerprint = UnityProjectFingerprintCalculator.Create(runtimeContext.StorageRoot, unityProjectRoot);
 
         var response = await SendRequestWithCallerDisconnectAsync(
@@ -185,7 +189,7 @@ public sealed class SupervisorRequestDispatcherFailurePayloadTests
                 method: ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning),
                 payload: IpcPayloadCodec.SerializeToElement(
                     new SupervisorIpcContracts.EnsureRunningRequest(
-                        UnityProjectRoot: unityProjectRoot,
+                        UnityProjectRoot: unityProjectRoot.Value,
                         ProjectFingerprint: projectFingerprint,
                         EditorMode: null,
                         OnStartupBlocked: DaemonStartupBlockedProcessPolicy.Auto)),

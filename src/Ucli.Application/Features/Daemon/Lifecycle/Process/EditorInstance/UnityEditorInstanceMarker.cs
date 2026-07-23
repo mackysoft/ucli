@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorInstance;
 
 /// <summary> Represents one Unity <c>Library/EditorInstance.json</c> marker candidate. </summary>
@@ -7,8 +9,8 @@ namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.EditorIns
 /// <param name="AppPath"> The optional Unity application path recorded by Unity. </param>
 /// <param name="AppContentsPath"> The optional Unity application contents path recorded by Unity. </param>
 internal sealed record UnityEditorInstanceMarker (
-    string MarkerPath,
+    AbsolutePath MarkerPath,
     int ProcessId,
     DateTimeOffset UpdatedAtUtc,
-    string? AppPath,
-    string? AppContentsPath);
+    AbsolutePath? AppPath,
+    AbsolutePath? AppContentsPath);

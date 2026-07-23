@@ -1,9 +1,9 @@
 using System;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Project;
@@ -14,30 +14,30 @@ namespace MackySoft.Ucli.Unity.Ipc
     internal static class UnityBatchmodeBootstrapEndpointValidator
     {
         /// <summary> Resolves the current project's daemon endpoint and validates one daemon bootstrap declaration. </summary>
-        internal static IpcEndpoint ResolveValidatedDaemonEndpoint (IpcDaemonBootstrapArguments bootstrapArguments)
+        internal static UnityIpcEndpointBinding ResolveValidatedDaemonEndpoint (UnityDaemonBootstrapContext bootstrapContext)
         {
-            if (bootstrapArguments == null)
+            if (bootstrapContext == null)
             {
-                throw new ArgumentNullException(nameof(bootstrapArguments));
+                throw new ArgumentNullException(nameof(bootstrapContext));
             }
 
             ResolveCurrentProject(out var storageRoot, out var projectFingerprint, out var endpoint);
-            if (!PathIdentity.IsSamePath(bootstrapArguments.RepositoryRoot, storageRoot))
+            if (!bootstrapContext.RepositoryRoot.IsSameAs(storageRoot))
             {
                 throw new InvalidOperationException(
-                    $"Daemon bootstrap storage root does not match the current Unity project. Expected={storageRoot}, Actual={bootstrapArguments.RepositoryRoot}");
+                    $"Daemon bootstrap storage root does not match the current Unity project. Expected={storageRoot.Value}, Actual={bootstrapContext.RepositoryRoot.Value}");
             }
 
             ValidateDeclaredIdentity(
                 projectFingerprint,
                 endpoint,
-                bootstrapArguments.ProjectFingerprint,
-                bootstrapArguments.Endpoint);
-            return endpoint;
+                bootstrapContext.ProjectFingerprint,
+                bootstrapContext.EndpointBinding.Endpoint);
+            return bootstrapContext.EndpointBinding;
         }
 
         /// <summary> Resolves the current project's oneshot endpoint and validates one persisted bootstrap generation. </summary>
-        internal static IpcEndpoint ResolveValidatedOneshotEndpoint (IpcOneshotBootstrapEnvelope bootstrapEnvelope)
+        internal static UnityIpcEndpointBinding ResolveValidatedOneshotEndpoint (IpcOneshotBootstrapEnvelope bootstrapEnvelope)
         {
             if (bootstrapEnvelope == null)
             {
@@ -50,18 +50,18 @@ namespace MackySoft.Ucli.Unity.Ipc
                 endpoint,
                 bootstrapEnvelope.ProjectFingerprint,
                 bootstrapEnvelope.Endpoint);
-            return endpoint;
+            return UnityIpcEndpointBinding.Create(bootstrapEnvelope.Endpoint);
         }
 
         private static void ResolveCurrentProject (
-            out string storageRoot,
+            out AbsolutePath storageRoot,
             out ProjectFingerprint projectFingerprint,
             out IpcEndpoint endpoint)
         {
             var projectRoot = UnityProjectPathResolver.ResolveProjectRootPath();
             storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectRoot);
             projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectRoot);
-            endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
+            endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint).Contract;
         }
 
         private static void ValidateDeclaredIdentity (

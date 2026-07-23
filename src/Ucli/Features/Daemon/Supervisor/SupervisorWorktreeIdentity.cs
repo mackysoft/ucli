@@ -1,6 +1,7 @@
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Infrastructure.Cryptography;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor;
 
@@ -11,7 +12,7 @@ internal sealed record SupervisorWorktreeIdentity
     private const int NamedPipeAddressSegmentLength = 24;
 
     private SupervisorWorktreeIdentity (
-        string normalizedStorageRoot,
+        AbsolutePath normalizedStorageRoot,
         string launchServiceNameSuffix,
         string namedPipeAddressSegment)
     {
@@ -21,7 +22,7 @@ internal sealed record SupervisorWorktreeIdentity
     }
 
     /// <summary> Gets the normalized absolute storage-root path used to derive this identity. </summary>
-    public string NormalizedStorageRoot { get; }
+    public AbsolutePath NormalizedStorageRoot { get; }
 
     /// <summary> Gets the fixed-length suffix used by launchd and systemd service names. </summary>
     public string LaunchServiceNameSuffix { get; }
@@ -32,12 +33,13 @@ internal sealed record SupervisorWorktreeIdentity
     /// <summary> Creates one identity after normalizing the supplied storage-root path. </summary>
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <returns> The worktree-local supervisor identity. </returns>
-    public static SupervisorWorktreeIdentity Create (string storageRoot)
+    public static SupervisorWorktreeIdentity Create (AbsolutePath storageRoot)
     {
-        var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
-        var digest = Sha256Digest.Compute(Encoding.UTF8.GetBytes(normalizedStorageRoot)).ToString();
+        ArgumentNullException.ThrowIfNull(storageRoot);
+        var identityText = DeterministicPathText.ForIdentity(storageRoot);
+        var digest = Sha256Digest.Compute(Encoding.UTF8.GetBytes(identityText)).ToString();
         return new SupervisorWorktreeIdentity(
-            normalizedStorageRoot,
+            storageRoot,
             digest[..LaunchServiceNameSuffixLength],
             digest[..NamedPipeAddressSegmentLength]);
     }

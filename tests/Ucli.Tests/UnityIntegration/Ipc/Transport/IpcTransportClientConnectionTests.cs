@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
@@ -32,7 +33,7 @@ public sealed class IpcTransportClientConnectionTests
         var exception = await Assert.ThrowsAsync<IpcConnectException>(async () =>
         {
             await client.SendAsync(
-                new IpcEndpoint(IpcTransportKind.NamedPipe, "test-transport"),
+                IpcTransportEndpoint.FromNamedPipeAddress("test-transport"),
                 IpcTransportTestHarness.CreateSingleRequest(),
                 IpcTransportClientTestSupport.DefaultTimeout);
         });
@@ -52,7 +53,7 @@ public sealed class IpcTransportClientConnectionTests
         var exception = await Assert.ThrowsAsync<IpcConnectTimeoutException>(async () =>
         {
             await client.SendAsync(
-                new IpcEndpoint(IpcTransportKind.NamedPipe, "test-transport"),
+                IpcTransportEndpoint.FromNamedPipeAddress("test-transport"),
                 IpcTransportTestHarness.CreateSingleRequest(),
                 IpcTransportClientTestSupport.DefaultTimeout);
         });
@@ -72,7 +73,7 @@ public sealed class IpcTransportClientConnectionTests
         var exception = await Assert.ThrowsAsync(connectorFailure.GetType(), async () =>
         {
             await client.SendAsync(
-                new IpcEndpoint(IpcTransportKind.NamedPipe, "test-transport"),
+                IpcTransportEndpoint.FromNamedPipeAddress("test-transport"),
                 IpcTransportTestHarness.CreateSingleRequest(),
                 IpcTransportClientTestSupport.DefaultTimeout);
         });
@@ -89,10 +90,9 @@ public sealed class IpcTransportClientConnectionTests
             return;
         }
 
-        var endpoint = new IpcEndpoint(
-            IpcTransportKind.UnixDomainSocket,
+        var endpoint = IpcTransportEndpoint.FromUnixSocketPath(
             new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Supervisor,
                 Guid.NewGuid().ToString("N")).SocketPath);
         var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
@@ -118,9 +118,7 @@ public sealed class IpcTransportClientConnectionTests
             return;
         }
 
-        var endpoint = new IpcEndpoint(
-            IpcTransportKind.NamedPipe,
-            $"ucli-missing-{Guid.NewGuid():N}");
+        var endpoint = IpcTransportEndpoint.FromNamedPipeAddress($"ucli-missing-{Guid.NewGuid():N}");
         var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
 
         var exception = await Assert.ThrowsAsync<IpcConnectTimeoutException>(async () =>
@@ -142,9 +140,7 @@ public sealed class IpcTransportClientConnectionTests
             return;
         }
 
-        var endpoint = new IpcEndpoint(
-            IpcTransportKind.NamedPipe,
-            $"ucli-missing-{Guid.NewGuid():N}");
+        var endpoint = IpcTransportEndpoint.FromNamedPipeAddress($"ucli-missing-{Guid.NewGuid():N}");
         var client = IpcTransportClientTestSupport.CreateClient(TimeProvider.System);
         using var cancellationTokenSource = new CancellationTokenSource();
 
@@ -175,7 +171,7 @@ public sealed class IpcTransportClientConnectionTests
         }
 
         public ValueTask<Stream> ConnectAsync (
-            IpcEndpoint endpoint,
+            IpcTransportEndpoint endpoint,
             CancellationToken cancellationToken)
         {
             _ = endpoint;

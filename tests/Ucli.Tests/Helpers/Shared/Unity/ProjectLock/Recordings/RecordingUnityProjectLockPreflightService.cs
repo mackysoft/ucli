@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 namespace MackySoft.Ucli.Tests.Helpers.Unity;
@@ -14,11 +15,11 @@ internal sealed class RecordingUnityProjectLockPreflightService : IUnityProjectL
     {
         this.prepareResults = prepareResults is { Length: > 0 }
             ? prepareResults
-            : [UnityProjectLockPreflightResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile")];
+            : [UnityProjectLockPreflightResult.Unlocked(DefaultLockFilePath)];
     }
 
     public UnityProjectLockPreflightResult CleanupResult { get; set; }
-        = UnityProjectLockPreflightResult.Unlocked("/tmp/unity-project/Temp/UnityLockfile");
+        = UnityProjectLockPreflightResult.Unlocked(DefaultLockFilePath);
 
     public Func<ResolvedUnityProjectContext, CancellationToken, ValueTask<UnityProjectLockPreflightResult>>? PrepareAsyncHandler { get; set; }
 
@@ -27,6 +28,10 @@ internal sealed class RecordingUnityProjectLockPreflightService : IUnityProjectL
     public IReadOnlyList<Invocation> PrepareInvocations => prepareInvocations;
 
     public IReadOnlyList<Invocation> CleanupInvocations => cleanupInvocations;
+
+    private static AbsolutePath DefaultLockFilePath { get; } = AbsolutePath.Resolve(
+        AbsolutePath.Parse(Environment.CurrentDirectory),
+        "unity-project/Temp/UnityLockfile");
 
     public void AssertStartPreflightRetriedFor (
         ResolvedUnityProjectContext expectedUnityProject,

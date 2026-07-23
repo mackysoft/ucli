@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
@@ -9,6 +8,7 @@ using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
+using MackySoft.Ucli.Features.Daemon.Common.Ipc;
 using MackySoft.Ucli.Infrastructure.Execution;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -69,7 +69,7 @@ internal sealed class SupervisorClient
                     "Timed out before probing supervisor reachability.",
                     "Timed out while probing supervisor reachability.",
                     operationCancellationToken => transportClient.SendAsync(
-                        manifest.Endpoint,
+                        manifest.TransportEndpoint.RuntimeEndpoint,
                         request,
                         remainingTimeout,
                         operationCancellationToken))
@@ -166,7 +166,7 @@ internal sealed class SupervisorClient
         try
         {
             var ensureRunningPayload = new SupervisorIpcContracts.EnsureRunningRequest(
-                UnityProjectRoot: unityProject.UnityProjectRoot,
+                UnityProjectRoot: unityProject.UnityProjectRoot.Value,
                 ProjectFingerprint: unityProject.ProjectFingerprint,
                 EditorMode: editorMode,
                 OnStartupBlocked: onStartupBlocked);
@@ -202,12 +202,12 @@ internal sealed class SupervisorClient
                     "Timed out while waiting for the supervisor ensureRunning terminal response.",
                     operationCancellationToken => progressFrameForwarder is null
                         ? transportClient.SendWithUnboundedResponseWaitAsync(
-                            manifest.Endpoint,
+                            manifest.TransportEndpoint.RuntimeEndpoint,
                             request,
                             attemptTimeout,
                             operationCancellationToken)
                         : transportClient.SendStreamingWithUnboundedResponseWaitAsync(
-                            manifest.Endpoint,
+                            manifest.TransportEndpoint.RuntimeEndpoint,
                             request,
                             attemptTimeout,
                             progressFrameForwarder.ForwardAsync,
@@ -246,7 +246,7 @@ internal sealed class SupervisorClient
                     "Supervisor ensureRunning response is missing its session or lifecycle observation."));
             }
 
-            if (!DaemonSessionContractMapper.TryCreate(
+            if (!DaemonSessionIpcTransportEndpointAdapter.TryCreate(
                     payload.Session,
                     unityProject.ProjectFingerprint,
                     "received from the supervisor ensureRunning response.",
@@ -321,7 +321,7 @@ internal sealed class SupervisorClient
                 requestId,
                 SupervisorIpcMethod.StopProject,
                 new SupervisorIpcContracts.StopProjectRequest(
-                    UnityProjectRoot: unityProject.UnityProjectRoot,
+                    UnityProjectRoot: unityProject.UnityProjectRoot.Value,
                     ProjectFingerprint: unityProject.ProjectFingerprint),
                 deadline.UtcDeadline,
                 timeoutMilliseconds,
@@ -334,7 +334,7 @@ internal sealed class SupervisorClient
                     "Timed out before waiting for the supervisor stopProject terminal response.",
                     "Timed out while waiting for the supervisor stopProject terminal response.",
                     operationCancellationToken => transportClient.SendWithUnboundedResponseWaitAsync(
-                        manifest.Endpoint,
+                        manifest.TransportEndpoint.RuntimeEndpoint,
                         request,
                         attemptTimeout,
                         operationCancellationToken))
@@ -422,14 +422,18 @@ internal sealed class SupervisorClient
         return ExecutionError.InternalError(firstError.Message, firstError.Code);
     }
 
-    private static SupervisorIpcContracts.EnsureRunningFailureResponse? TryReadEnsureRunningFailurePayload (IpcResponse response)
+    private static SupervisorEnsureRunningFailureMetadata? TryReadEnsureRunningFailurePayload (IpcResponse response)
     {
-        return IpcPayloadCodec.TryDeserialize(
-            response.Payload,
-            out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
-            out _)
-            ? payload
-            : null;
+        if (!IpcPayloadCodec.TryDeserialize(
+                response.Payload,
+                out SupervisorIpcContracts.EnsureRunningFailureResponse payload,
+                out _)
+            || !SupervisorEnsureRunningFailurePayloadMapper.TryToMetadata(payload, out var metadata))
+        {
+            return null;
+        }
+
+        return metadata;
     }
 
 }

@@ -19,13 +19,13 @@ public sealed class DaemonListQueryServiceTests
         var worktreeB = CreateUnityProject("/repo/wt-b", "UnityProject", "fp-b");
         var gitWorktreeQueryService = new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
             CurrentWorktreeRoot: currentProject.RepositoryRoot,
-            ProjectRelativePath: "UnityProject",
+            ProjectRelativePath: GuardedRelativePath("UnityProject"),
             Worktrees:
             [
-                new GitWorktreeInfo("/repo/wt-b", "bbbbbbbb", "refs/heads/feature/worktree-b"),
-                new GitWorktreeInfo("/repo/wt-missing", "mmmmmmmm", "refs/heads/missing"),
-                new GitWorktreeInfo("/repo/wt-a", "aaaaaaaa", null),
-                new GitWorktreeInfo("/repo/wt-current", "cccccccc", "refs/heads/main"),
+                new GitWorktreeInfo(GuardedAbsolutePath("/repo/wt-b"), "bbbbbbbb", "refs/heads/feature/worktree-b"),
+                new GitWorktreeInfo(GuardedAbsolutePath("/repo/wt-missing"), "mmmmmmmm", "refs/heads/missing"),
+                new GitWorktreeInfo(GuardedAbsolutePath("/repo/wt-a"), "aaaaaaaa", null),
+                new GitWorktreeInfo(GuardedAbsolutePath("/repo/wt-current"), "cccccccc", "refs/heads/main"),
             ])));
         var unityProjectResolver = RecordingUnityProjectResolver.FromContexts(
             currentProject,
@@ -69,7 +69,7 @@ public sealed class DaemonListQueryServiceTests
                 WorktreePath: "/repo/wt-a",
                 BranchRef: null,
                 Head: "aaaaaaaa",
-                ProjectPath: worktreeA.UnityProjectRoot,
+                ProjectPath: worktreeA.UnityProjectRoot.Value,
                 ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-a"),
                 ProcessId: 1001,
                 EditorMode: DaemonEditorMode.Batchmode,
@@ -80,7 +80,7 @@ public sealed class DaemonListQueryServiceTests
                 WorktreePath: "/repo/wt-b",
                 BranchRef: "refs/heads/feature/worktree-b",
                 Head: "bbbbbbbb",
-                ProjectPath: worktreeB.UnityProjectRoot,
+                ProjectPath: worktreeB.UnityProjectRoot.Value,
                 ProjectFingerprint: ProjectFingerprintTestFactory.Create("fp-b"),
                 ProcessId: 1002,
                 EditorMode: DaemonEditorMode.Batchmode,

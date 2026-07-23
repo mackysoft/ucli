@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -28,7 +29,7 @@ public sealed class DaemonArtifactCleanerTests
         var successorSession = DaemonSessionTestFactory.Create(
             sessionToken: "successor-session-token",
             projectFingerprint: projectFingerprint);
-        var lockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(scope.FullPath, projectFingerprint);
+        var lockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
         using var publicationLock = await FileExclusiveLock.AcquireAsync(
             lockPath,
             TimeSpan.FromSeconds(1),
@@ -39,7 +40,7 @@ public sealed class DaemonArtifactCleanerTests
             ExecutionDeadline.Start(TimeSpan.FromSeconds(5), TimeProvider.System),
             CancellationToken.None).AsTask();
         Assert.False(cleanupTask.IsCompleted);
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
         await FileUtilities.WriteAllTextAtomicallyAsync(
             sessionPath,
             Serialize(successorSession) + Environment.NewLine,
@@ -48,7 +49,7 @@ public sealed class DaemonArtifactCleanerTests
 
         var cleanupResult = await cleanupTask;
         var currentSessionResult = await sessionStore.ReadAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             projectFingerprint,
             CancellationToken.None);
 
@@ -74,10 +75,10 @@ public sealed class DaemonArtifactCleanerTests
             sessionToken: "successor-session-token",
             projectFingerprint: projectFingerprint,
             issuedAtUtc: retiredSession.IssuedAtUtc.AddSeconds(1));
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
         await File.WriteAllTextAsync(
-            sessionPath,
+            sessionPath.Value,
             Serialize(retiredSession) + Environment.NewLine,
             CancellationToken.None);
         var cleanupReadStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -108,7 +109,7 @@ public sealed class DaemonArtifactCleanerTests
             CancellationToken.None).AsTask();
         await cleanupReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
         var successorWriteTask = successorStore.WriteAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             successorSession,
             CancellationToken.None).AsTask();
         Assert.False(successorWriteTask.IsCompleted);
@@ -117,7 +118,7 @@ public sealed class DaemonArtifactCleanerTests
         var cleanupResult = await cleanupTask;
         var successorWriteResult = await successorWriteTask;
         var currentSessionResult = await successorStore.ReadAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             projectFingerprint,
             CancellationToken.None);
 
@@ -138,10 +139,10 @@ public sealed class DaemonArtifactCleanerTests
         var expectedSession = DaemonSessionTestFactory.Create(
             sessionToken: "matching-session-token",
             projectFingerprint: projectFingerprint);
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
         await File.WriteAllTextAsync(
-            sessionPath,
+            sessionPath.Value,
             Serialize(expectedSession) + Environment.NewLine,
             CancellationToken.None);
         var sessionStore = new RecordingDaemonSessionStore
@@ -150,11 +151,11 @@ public sealed class DaemonArtifactCleanerTests
         };
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
-        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(scope.FullPath, projectFingerprint);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        if (endpoint.Contract.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Address)!);
-            await File.WriteAllTextAsync(endpoint.Address, string.Empty, CancellationToken.None);
+            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Contract.Address)!);
+            await File.WriteAllTextAsync(endpoint.Contract.Address, string.Empty, CancellationToken.None);
         }
 
         var cleaner = new DaemonArtifactCleaner(sessionStore, lifecycleStore, launchAttemptStore);
@@ -168,12 +169,12 @@ public sealed class DaemonArtifactCleanerTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.False(File.Exists(sessionPath));
+        Assert.False(File.Exists(sessionPath.Value));
         Assert.Single(lifecycleStore.DeleteInvocations);
         Assert.Single(launchAttemptStore.PruneInvocations);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (endpoint.Contract.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
-            Assert.False(File.Exists(endpoint.Address));
+            Assert.False(File.Exists(endpoint.Contract.Address));
         }
     }
 
@@ -188,11 +189,11 @@ public sealed class DaemonArtifactCleanerTests
             projectFingerprint: projectFingerprint);
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
-        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(scope.FullPath, projectFingerprint);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        if (endpoint.Contract.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Address)!);
-            await File.WriteAllTextAsync(endpoint.Address, string.Empty, CancellationToken.None);
+            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Contract.Address)!);
+            await File.WriteAllTextAsync(endpoint.Contract.Address, string.Empty, CancellationToken.None);
         }
 
         var cleaner = new DaemonArtifactCleaner(
@@ -211,9 +212,9 @@ public sealed class DaemonArtifactCleanerTests
         Assert.True(result.IsSuccess);
         Assert.Single(lifecycleStore.DeleteInvocations);
         Assert.Single(launchAttemptStore.PruneInvocations);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (endpoint.Contract.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
-            Assert.False(File.Exists(endpoint.Address));
+            Assert.False(File.Exists(endpoint.Contract.Address));
         }
     }
 
@@ -357,28 +358,28 @@ public sealed class DaemonArtifactCleanerTests
         var successorSession = DaemonSessionTestFactory.Create(
             sessionToken: "successor-session-token",
             projectFingerprint: projectFingerprint);
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
-        await File.WriteAllTextAsync(sessionPath, invalidSessionJson, CancellationToken.None);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
+        await File.WriteAllTextAsync(sessionPath.Value, invalidSessionJson, CancellationToken.None);
         var persistentSessionStore = new DaemonSessionStore();
         var invalidObservation = await persistentSessionStore.ReadAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             projectFingerprint,
             CancellationToken.None);
         var expectedArtifactIdentity = Assert.IsType<DaemonSessionArtifactIdentity>(invalidObservation.ArtifactIdentity);
         var successorWriteResult = await persistentSessionStore.WriteAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             successorSession,
             CancellationToken.None);
         Assert.True(successorWriteResult.IsSuccess);
-        var successorSessionJson = await File.ReadAllTextAsync(sessionPath, CancellationToken.None);
+        var successorSessionJson = await File.ReadAllTextAsync(sessionPath.Value, CancellationToken.None);
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
-        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(scope.FullPath, projectFingerprint);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        if (endpoint.Contract.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Address)!);
-            await File.WriteAllTextAsync(endpoint.Address, string.Empty, CancellationToken.None);
+            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Contract.Address)!);
+            await File.WriteAllTextAsync(endpoint.Contract.Address, string.Empty, CancellationToken.None);
         }
 
         var cleaner = new DaemonArtifactCleaner(persistentSessionStore, lifecycleStore, launchAttemptStore);
@@ -392,12 +393,12 @@ public sealed class DaemonArtifactCleanerTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(successorSessionJson, await File.ReadAllTextAsync(sessionPath, CancellationToken.None));
+        Assert.Equal(successorSessionJson, await File.ReadAllTextAsync(sessionPath.Value, CancellationToken.None));
         Assert.Empty(lifecycleStore.DeleteInvocations);
         Assert.Empty(launchAttemptStore.PruneInvocations);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (endpoint.Contract.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
-            Assert.True(File.Exists(endpoint.Address));
+            Assert.True(File.Exists(endpoint.Contract.Address));
         }
     }
 
@@ -407,17 +408,17 @@ public sealed class DaemonArtifactCleanerTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "malformed-utf8-successor-session");
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-malformed-utf8-successor");
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
-        await File.WriteAllBytesAsync(sessionPath, new byte[] { (byte)'{', 0xff, (byte)'}' }, CancellationToken.None);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
+        await File.WriteAllBytesAsync(sessionPath.Value, new byte[] { (byte)'{', 0xff, (byte)'}' }, CancellationToken.None);
         var sessionStore = new DaemonSessionStore();
         var invalidObservation = await sessionStore.ReadAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             projectFingerprint,
             CancellationToken.None);
         var expectedArtifactIdentity = Assert.IsType<DaemonSessionArtifactIdentity>(invalidObservation.ArtifactIdentity);
         var successorBytes = new byte[] { (byte)'{', 0xfe, (byte)'}' };
-        await File.WriteAllBytesAsync(sessionPath, successorBytes, CancellationToken.None);
+        await File.WriteAllBytesAsync(sessionPath.Value, successorBytes, CancellationToken.None);
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
         var cleaner = new DaemonArtifactCleaner(sessionStore, lifecycleStore, launchAttemptStore);
@@ -432,7 +433,7 @@ public sealed class DaemonArtifactCleanerTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.Equal(successorBytes, await File.ReadAllBytesAsync(sessionPath, CancellationToken.None));
+        Assert.Equal(successorBytes, await File.ReadAllBytesAsync(sessionPath.Value, CancellationToken.None));
         Assert.Empty(lifecycleStore.DeleteInvocations);
         Assert.Empty(launchAttemptStore.PruneInvocations);
     }
@@ -444,12 +445,12 @@ public sealed class DaemonArtifactCleanerTests
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "invalid-current-session");
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-invalid-current");
         const string invalidSessionJson = "{ invalid session json";
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
-        await File.WriteAllTextAsync(sessionPath, invalidSessionJson, CancellationToken.None);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
+        await File.WriteAllTextAsync(sessionPath.Value, invalidSessionJson, CancellationToken.None);
         var sessionStore = new DaemonSessionStore();
         var invalidObservation = await sessionStore.ReadAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             projectFingerprint,
             CancellationToken.None);
         var expectedArtifactIdentity = Assert.IsType<DaemonSessionArtifactIdentity>(invalidObservation.ArtifactIdentity);
@@ -467,7 +468,7 @@ public sealed class DaemonArtifactCleanerTests
             CancellationToken.None);
 
         Assert.True(result.IsSuccess);
-        Assert.False(File.Exists(sessionPath));
+        Assert.False(File.Exists(sessionPath.Value));
         Assert.Single(lifecycleStore.DeleteInvocations);
         Assert.Single(launchAttemptStore.PruneInvocations);
     }
@@ -521,11 +522,11 @@ public sealed class DaemonArtifactCleanerTests
         };
         var lifecycleStore = new RecordingDaemonLifecycleStore();
         var launchAttemptStore = new RecordingDaemonLaunchAttemptStore();
-        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(scope.FullPath, projectFingerprint);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        if (endpoint.Contract.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Address)!);
-            await File.WriteAllTextAsync(endpoint.Address, string.Empty, CancellationToken.None);
+            Directory.CreateDirectory(Path.GetDirectoryName(endpoint.Contract.Address)!);
+            await File.WriteAllTextAsync(endpoint.Contract.Address, string.Empty, CancellationToken.None);
         }
 
         var cleaner = new DaemonArtifactCleaner(sessionStore, lifecycleStore, launchAttemptStore);
@@ -542,9 +543,9 @@ public sealed class DaemonArtifactCleanerTests
         Assert.Empty(sessionStore.DeleteInvocations);
         Assert.Empty(lifecycleStore.DeleteInvocations);
         Assert.Empty(launchAttemptStore.PruneInvocations);
-        if (endpoint.TransportKind == IpcTransportKind.UnixDomainSocket)
+        if (endpoint.Contract.TransportKind == IpcTransportKind.UnixDomainSocket)
         {
-            Assert.True(File.Exists(endpoint.Address));
+            Assert.True(File.Exists(endpoint.Contract.Address));
         }
     }
 
@@ -560,10 +561,10 @@ public sealed class DaemonArtifactCleanerTests
         using var scope = TestDirectories.CreateTempScope("daemon-artifact-cleaner", "fallback-socket");
         var storageRoot = Path.Combine(scope.FullPath, new string('a', 160), new string('b', 160));
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-cleanup");
-        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(storageRoot, projectFingerprint);
-        Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.TransportKind);
+        var endpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(AbsolutePath.Parse(storageRoot), projectFingerprint);
+        Assert.Equal(IpcTransportKind.UnixDomainSocket, endpoint.Contract.TransportKind);
 
-        var socketPath = endpoint.Address;
+        var socketPath = endpoint.Contract.Address;
         var socketDirectoryPath = Path.GetDirectoryName(socketPath)!;
         Directory.CreateDirectory(socketDirectoryPath);
         await File.WriteAllTextAsync(socketPath, string.Empty, CancellationToken.None);

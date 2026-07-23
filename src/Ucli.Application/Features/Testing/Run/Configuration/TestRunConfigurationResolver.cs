@@ -63,7 +63,7 @@ internal sealed class TestRunConfigurationResolver : ITestRunConfigurationResolv
         }
 
         var projectPathCandidate = ResolveProjectPath(input, profile);
-        var mergedConfiguration = TestRunConfigurationMerger.Merge(input, profile, projectPathCandidate.Path);
+        var mergedConfiguration = TestRunConfigurationMerger.Merge(input, profile);
         var validationErrors = ValidateMergedConfigurationValues(mergedConfiguration);
         if (validationErrors.Count > 0)
         {

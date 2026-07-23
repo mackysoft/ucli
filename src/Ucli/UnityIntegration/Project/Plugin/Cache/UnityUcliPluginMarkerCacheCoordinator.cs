@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;
 
@@ -30,13 +31,11 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> One located marker result when cache succeeded; otherwise <see langword="null" />. </returns>
     public async ValueTask<UnityUcliPluginLocateResult?> TryLocateFromCacheAsync (
-        string unityProjectRoot,
-        string storageRoot,
+        AbsolutePath unityProjectRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
 
         var cacheReadResult = await pluginMarkerCacheStore.ReadOrNullAsync(
@@ -70,8 +69,7 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
         if (!pluginMarkerValidator.TryResolveCachedMarkerPath(
                 unityProjectRoot,
                 cache.ProjectRelativeMarkerPath,
-                out var cachedMarkerPath)
-            || string.IsNullOrWhiteSpace(cachedMarkerPath))
+                out var cachedMarkerPath))
         {
             DeleteBestEffort(storageRoot, projectFingerprint);
             return null;
@@ -84,7 +82,9 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
             return null;
         }
 
-        return UnityUcliPluginLocateResult.Found(cachedMarkerPath, UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
+        return UnityUcliPluginLocateResult.Found(
+            cachedMarkerPath,
+            UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
     }
 
     /// <summary> Queues one best-effort cache write for one resolved marker path. </summary>
@@ -93,27 +93,23 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     /// <param name="markerPath"> The resolved absolute marker path. </param>
     public void WriteBestEffort (
-        string unityProjectRoot,
-        string storageRoot,
+        AbsolutePath unityProjectRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
-        string markerPath)
+        AbsolutePath markerPath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
-        ArgumentException.ThrowIfNullOrWhiteSpace(markerPath);
 
         if (!pluginMarkerValidator.TryCreateProjectRelativeMarkerPath(
                 unityProjectRoot,
                 markerPath,
-                out var projectRelativeMarkerPath)
-            || string.IsNullOrWhiteSpace(projectRelativeMarkerPath))
+                out var projectRelativeMarkerPath))
         {
             return;
         }
 
         var cache = new UnityUcliPluginMarkerCache(
-            projectRelativeMarkerPath,
+            projectRelativeMarkerPath.Value,
             UnityUcliPluginMarkerContract.ExpectedPluginId,
             UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
 
@@ -132,10 +128,9 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
     /// <param name="storageRoot"> The storage-root path. </param>
     /// <param name="projectFingerprint"> The project fingerprint value. </param>
     public void DeleteBestEffort (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
 
         // NOTE:
@@ -148,12 +143,11 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
     }
 
     private async Task PersistCacheWriteBestEffortAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         UnityUcliPluginMarkerCache cache,
         long cacheMutationVersion)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
         ArgumentNullException.ThrowIfNull(cache);
 
@@ -179,11 +173,10 @@ internal sealed class UnityUcliPluginMarkerCacheCoordinator
     }
 
     private async Task PersistCacheDeleteBestEffortAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         long cacheMutationVersion)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
         ArgumentNullException.ThrowIfNull(projectFingerprint);
 
         await cacheMutationGate.WaitAsync(CancellationToken.None).ConfigureAwait(false);

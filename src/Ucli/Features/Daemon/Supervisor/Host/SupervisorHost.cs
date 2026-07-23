@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.Timeout;
 using MackySoft.Ucli.Infrastructure.Storage;
@@ -61,13 +62,10 @@ internal sealed class SupervisorHost
     /// <param name="cancellationToken"> The cancellation token propagated by the hosting environment. </param>
     /// <returns>The process exit code.</returns>
     public async Task<int> RunAsync (
-        string repositoryRoot,
+        AbsolutePath repositoryRoot,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(repositoryRoot))
-        {
-            return 1;
-        }
+        ArgumentNullException.ThrowIfNull(repositoryRoot);
 
         var runtimeContext = CreateRuntimeContext(repositoryRoot);
         FileExclusiveLock runtimeOwnership;
@@ -147,7 +145,7 @@ internal sealed class SupervisorHost
                         hostCancellationToken)
                     .ConfigureAwait(false);
                 await transportServer.RunAsync(
-                        runtimeContext.Manifest.Endpoint,
+                        runtimeContext.Manifest.TransportEndpoint,
                         (stream, token) => requestDispatcher.HandleConnectionAsync(
                             stream,
                             runtimeContext,
@@ -215,9 +213,9 @@ internal sealed class SupervisorHost
         }
     }
 
-    private SupervisorRuntimeContext CreateRuntimeContext (string repositoryRoot)
+    private SupervisorRuntimeContext CreateRuntimeContext (AbsolutePath repositoryRoot)
     {
-        var storageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(repositoryRoot);
+        var storageRoot = repositoryRoot;
         var sessionToken = sessionTokenGenerator.Create();
         var endpoint = endpointResolver.ResolveRuntimeEndpoint(storageRoot, sessionToken);
         return new SupervisorRuntimeContext(
@@ -282,7 +280,7 @@ internal sealed class SupervisorHost
         }
     }
 
-    private async Task ReleaseProcessRegistrationIfUnclaimedAsync (string storageRoot)
+    private async Task ReleaseProcessRegistrationIfUnclaimedAsync (AbsolutePath storageRoot)
     {
         try
         {

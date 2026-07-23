@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Shared.Unity.ProjectLock;
@@ -6,13 +7,13 @@ namespace MackySoft.Ucli.Shared.Unity.ProjectLock;
 internal sealed class UnityProjectLockFileCleaner : IUnityProjectLockFileCleaner
 {
     /// <inheritdoc />
-    public UnityProjectLockFileCleanupResult Delete (string lockFilePath)
+    public UnityProjectLockFileCleanupResult Delete (AbsolutePath lockFilePath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
+        ArgumentNullException.ThrowIfNull(lockFilePath);
 
         try
         {
-            File.Delete(lockFilePath);
+            File.Delete(lockFilePath.Value);
             return UnityProjectLockFileCleanupResult.Success();
         }
         catch (FileNotFoundException)
@@ -22,10 +23,6 @@ internal sealed class UnityProjectLockFileCleaner : IUnityProjectLockFileCleaner
         catch (DirectoryNotFoundException)
         {
             return UnityProjectLockFileCleanupResult.Success();
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityProjectLockFileCleanupResult.Failure(UnityProjectLockFailureMessage.CreateCleanupFailed(lockFilePath, exception.Message));
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

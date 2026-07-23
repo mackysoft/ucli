@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -23,18 +24,18 @@ internal static class DaemonStartOperationAssert
 
     public static RecordingDaemonStartOperation.Invocation EnsureRunningRequested (
         RecordingDaemonStartOperation startOperation,
-        string expectedRepositoryRoot,
-        string expectedUnityProjectRoot,
+        AbsolutePath expectedRepositoryRoot,
+        AbsolutePath expectedUnityProjectRoot,
         ProjectFingerprint expectedProjectFingerprint,
         TimeSpan maximumTimeout,
         DaemonEditorMode? expectedEditorMode,
         DaemonStartupBlockedProcessPolicy expectedStartupBlockedPolicy)
     {
         var invocation = Assert.Single(startOperation.Invocations);
-        FileSystemAssert.ForPath(invocation.UnityProject.RepositoryRoot)
-            .EqualsNormalized(expectedRepositoryRoot);
-        FileSystemAssert.ForPath(invocation.UnityProject.UnityProjectRoot)
-            .EqualsNormalized(expectedUnityProjectRoot);
+        FileSystemAssert.ForPath(invocation.UnityProject.RepositoryRoot.Value)
+            .EqualsNormalized(expectedRepositoryRoot.Value);
+        FileSystemAssert.ForPath(invocation.UnityProject.UnityProjectRoot.Value)
+            .EqualsNormalized(expectedUnityProjectRoot.Value);
         Assert.Equal(expectedProjectFingerprint, invocation.UnityProject.ProjectFingerprint);
         Assert.True(invocation.RemainingTimeout > TimeSpan.Zero);
         Assert.True(invocation.RemainingTimeout <= maximumTimeout);
@@ -45,8 +46,8 @@ internal static class DaemonStartOperationAssert
 
     public static RecordingDaemonStartOperation.Invocation EnsureRunningStreamRequested (
         RecordingDaemonStartOperation startOperation,
-        string expectedRepositoryRoot,
-        string expectedUnityProjectRoot,
+        AbsolutePath expectedRepositoryRoot,
+        AbsolutePath expectedUnityProjectRoot,
         ProjectFingerprint expectedProjectFingerprint,
         TimeSpan maximumTimeout,
         DaemonEditorMode? expectedEditorMode,

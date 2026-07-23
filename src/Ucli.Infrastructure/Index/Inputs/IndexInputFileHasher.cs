@@ -1,6 +1,6 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Infrastructure.Cryptography;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Infrastructure.Index;
 
@@ -9,7 +9,7 @@ internal static class IndexInputFileHasher
 {
     /// <summary> Computes the content hash for all files under one directory. </summary>
     public static ValueTask<Sha256Digest?> TryHashDirectoryContentAsync (
-        string directoryPath,
+        AbsolutePath directoryPath,
         CancellationToken cancellationToken)
     {
         return TryHashDirectoryFilesAsync(
@@ -42,12 +42,12 @@ internal static class IndexInputFileHasher
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!Directory.Exists(sourcePaths.AssetsPath) || !Directory.Exists(sourcePaths.PackagesPath))
+        if (!Directory.Exists(sourcePaths.AssetsPath.Value) || !Directory.Exists(sourcePaths.PackagesPath.Value))
         {
             return null;
         }
 
-        var files = new List<string>();
+        var files = new List<FileHashInput>();
         if (!TryCollectFiles(sourcePaths.AssetsPath, "*.asmdef", files)
             || !TryCollectFiles(sourcePaths.AssetsPath, "*.asmref", files)
             || !TryCollectFiles(sourcePaths.PackagesPath, "*.asmdef", files)
@@ -56,7 +56,7 @@ internal static class IndexInputFileHasher
             return null;
         }
 
-        files.Sort(StringComparer.Ordinal);
+        files.Sort(static (left, right) => StringComparer.Ordinal.Compare(left.IdentityText, right.IdentityText));
         return await TryHashFilesWithPathMetadataAsync(files, cancellationToken).ConfigureAwait(false);
     }
 
@@ -74,13 +74,13 @@ internal static class IndexInputFileHasher
     }
 
     private static async ValueTask<Sha256Digest?> TryHashDirectoryFilesAsync (
-        string directoryPath,
+        AbsolutePath directoryPath,
         string searchPattern,
         SearchOption searchOption,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        if (!Directory.Exists(directoryPath))
+        if (!Directory.Exists(directoryPath.Value))
         {
             return null;
         }
@@ -88,26 +88,32 @@ internal static class IndexInputFileHasher
         string[] files;
         try
         {
-            files = Directory.GetFiles(directoryPath, searchPattern, searchOption);
+            files = Directory.GetFiles(directoryPath.Value, searchPattern, searchOption);
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
             return null;
         }
 
-        Array.Sort(files, StringComparer.Ordinal);
-        return await TryHashFilesWithPathMetadataAsync(files, cancellationToken).ConfigureAwait(false);
+        var guardedFiles = new FileHashInput[files.Length];
+        for (var index = 0; index < files.Length; index++)
+        {
+            guardedFiles[index] = FileHashInput.Create(AbsolutePath.Parse(files[index]));
+        }
+
+        Array.Sort(guardedFiles, static (left, right) => StringComparer.Ordinal.Compare(left.IdentityText, right.IdentityText));
+        return await TryHashFilesWithPathMetadataAsync(guardedFiles, cancellationToken).ConfigureAwait(false);
     }
 
     private static bool TryCollectFiles (
-        string directoryPath,
+        AbsolutePath directoryPath,
         string searchPattern,
-        List<string> destination)
+        List<FileHashInput> destination)
     {
         string[] files;
         try
         {
-            files = Directory.GetFiles(directoryPath, searchPattern, SearchOption.AllDirectories);
+            files = Directory.GetFiles(directoryPath.Value, searchPattern, SearchOption.AllDirectories);
         }
         catch (Exception exception) when (IsIoFailure(exception))
         {
@@ -116,14 +122,17 @@ internal static class IndexInputFileHasher
 
         if (files.Length > 0)
         {
-            destination.AddRange(files);
+            for (var index = 0; index < files.Length; index++)
+            {
+                destination.Add(FileHashInput.Create(AbsolutePath.Parse(files[index])));
+            }
         }
 
         return true;
     }
 
     private static async ValueTask<Sha256Digest?> TryHashFilesWithPathMetadataAsync (
-        IReadOnlyList<string> files,
+        IReadOnlyList<FileHashInput> files,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -166,17 +175,16 @@ internal static class IndexInputFileHasher
 
     private static async ValueTask<bool> TryAppendFileHashMetadataAsync (
         Utf8Sha256HashWriter hashWriter,
-        string filePath,
+        FileHashInput file,
         CancellationToken cancellationToken)
     {
-        var fileHash = await FileContentHash.TryComputeFileHashAsync(filePath, cancellationToken).ConfigureAwait(false);
+        var fileHash = await FileContentHash.TryComputeFileHashAsync(file.Path, cancellationToken).ConfigureAwait(false);
         if (fileHash == null)
         {
             return false;
         }
 
-        var normalizedPath = PathStringNormalizer.NormalizeAbsolutePathForHash(filePath);
-        hashWriter.Append(normalizedPath);
+        hashWriter.Append(file.IdentityText);
         hashWriter.Append('\n');
         hashWriter.Append(fileHash.ToString());
         hashWriter.Append('\n');
@@ -187,5 +195,17 @@ internal static class IndexInputFileHasher
     {
         return exception is IOException
             || exception is UnauthorizedAccessException;
+    }
+
+    private readonly record struct FileHashInput (
+        AbsolutePath Path,
+        string IdentityText)
+    {
+        public static FileHashInput Create (AbsolutePath path)
+        {
+            return new FileHashInput(
+                path,
+                DeterministicPathText.ForIdentity(path));
+        }
     }
 }

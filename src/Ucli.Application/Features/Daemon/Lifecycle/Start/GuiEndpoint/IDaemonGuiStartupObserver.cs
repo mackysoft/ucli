@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.GuiEndpoint;
 
 /// <summary> Observes one CLI-launched GUI Unity Editor until daemon session registration succeeds or startup reaches a terminal blocker. </summary>
@@ -8,7 +10,7 @@ internal interface IDaemonGuiStartupObserver
         ResolvedUnityProjectContext unityProject,
         int processId,
         DateTimeOffset processStartedAtUtc,
-        string unityLogPath,
+        AbsolutePath unityLogPath,
         ExecutionDeadline deadline,
         CancellationToken cancellationToken = default);
 }

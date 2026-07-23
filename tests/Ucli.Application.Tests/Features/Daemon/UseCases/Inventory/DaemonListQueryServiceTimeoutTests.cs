@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
@@ -22,7 +23,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         var service = CreateService(
             new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
                 CurrentWorktreeRoot: currentProject.RepositoryRoot,
-                ProjectRelativePath: "UnityProject",
+                ProjectRelativePath: GuardedRelativePath("UnityProject"),
                 Worktrees:
                 [
                     new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
@@ -67,7 +68,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         var service = CreateService(
             new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
                 CurrentWorktreeRoot: currentProject.RepositoryRoot,
-                ProjectRelativePath: "UnityProject",
+                ProjectRelativePath: GuardedRelativePath("UnityProject"),
                 Worktrees:
                 [
                     new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
@@ -123,7 +124,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         var service = CreateService(
             new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
                 CurrentWorktreeRoot: currentProject.RepositoryRoot,
-                ProjectRelativePath: "UnityProject",
+                ProjectRelativePath: GuardedRelativePath("UnityProject"),
                 Worktrees:
                 [
                     new GitWorktreeInfo(currentProject.RepositoryRoot, "abcdef01", "refs/heads/main"),
@@ -252,11 +253,11 @@ public sealed class DaemonListQueryServiceTimeoutTests
         var timeProvider = new ManualTimeProvider();
         var gitWorktreeQueryService = new RecordingGitWorktreeQueryService(GitWorktreeQueryResult.Success(new GitWorktreeQueryOutput(
             CurrentWorktreeRoot: currentProject.RepositoryRoot,
-            ProjectRelativePath: "UnityProject",
+            ProjectRelativePath: GuardedRelativePath("UnityProject"),
             Worktrees:
             [
-                new GitWorktreeInfo("/repo/wt-a", "aaaaaaaa", "refs/heads/a"),
-                new GitWorktreeInfo("/repo/wt-b", "bbbbbbbb", "refs/heads/b"),
+                new GitWorktreeInfo(GuardedAbsolutePath("/repo/wt-a"), "aaaaaaaa", "refs/heads/a"),
+                new GitWorktreeInfo(GuardedAbsolutePath("/repo/wt-b"), "bbbbbbbb", "refs/heads/b"),
             ])));
         var unityProjectResolver = RecordingUnityProjectResolver.FromContexts(worktreeA, worktreeB);
         var sessionStore = new RecordingDaemonSessionStore(DaemonSessionReadResult.Missing())
@@ -464,7 +465,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         public Task ReadStarted => readStarted.Task;
 
         public async ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -475,7 +476,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         }
 
         public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -490,7 +491,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         public Task ReadStarted => readStarted.Task;
 
         public async ValueTask<DaemonDiagnosisReadResult> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -501,7 +502,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         }
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             DaemonDiagnosis diagnosis,
             CancellationToken cancellationToken = default)
@@ -510,7 +511,7 @@ public sealed class DaemonListQueryServiceTimeoutTests
         }
 
         public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {

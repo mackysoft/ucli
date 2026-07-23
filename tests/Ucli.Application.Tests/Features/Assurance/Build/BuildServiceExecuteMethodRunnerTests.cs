@@ -44,7 +44,9 @@ public sealed class BuildServiceExecuteMethodRunnerTests
             runnerResult: CreateExecuteMethodRunnerResult(),
             omitReport: true);
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, profilePath)),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                profileJson,
+                AbsolutePath.Parse(profilePath))),
             environmentVariableReader: new StubEnvironmentVariableReader(new Dictionary<string, string?>(StringComparer.Ordinal)
             {
                 ["UCLI_MODE"] = EnvironmentValue,
@@ -61,7 +63,7 @@ public sealed class BuildServiceExecuteMethodRunnerTests
             Assert.Fail(string.Join(Environment.NewLine, result.Errors.Select(static error => $"{error.Code}: {error.Message}")));
         }
 
-        var outputDirectory = artifactStore.PreparedPaths!.RunnerOutputDirectory;
+        var outputDirectory = artifactStore.PreparedPaths!.RunnerOutputDirectory.Value;
         var profileDigest = BuildProfileResolver.ResolveJson(profileJson).Profile!.Digest;
         BuildRunInvocationAssert.ExecuteMethodRunnerRequest(
             requestExecutor,
@@ -142,7 +144,7 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         var service = CreateService(
             profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
                 profileJson,
-                Path.Combine(ProjectContextTestFactory.RepositoryRoot, "build.ucli.json"))),
+                AbsolutePath.Parse(Path.Combine(ProjectContextTestFactory.RepositoryRoot, "build.ucli.json")))),
             requestExecutor: CreateBuildResponseExecutor(
                 IpcBuildReportResult.Succeeded,
                 IpcBuildLogCompletionReason.Completed,
@@ -158,7 +160,7 @@ public sealed class BuildServiceExecuteMethodRunnerTests
         var accountingRequest = Assert.IsType<BuildRunArtifactAccountingRequest>(artifactStore.AccountingRequest);
         Assert.NotNull(accountingRequest.BuildReport);
         Assert.Equal(
-            new BuildRunnerOutputPath("reports/build-report.json"),
+            RootRelativePath.Parse("reports/build-report.json"),
             accountingRequest.BuildReport.RunnerOutputRelativePath);
         var output = result.Output!;
         Assert.Equal(BuildArtifactKind.BuildReport, output.Build.Summary.ReportRef);

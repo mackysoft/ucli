@@ -22,7 +22,7 @@ internal static class ScreenshotServiceCollectionExtensions
                 serviceProvider.GetRequiredService<Rgba8SrgbPngValidator>(),
                 serviceProvider.GetRequiredService<TimeProvider>(),
                 FileSystemAccessBoundary.EnsureSecureDirectory,
-                File.Delete));
+                static path => File.Delete(path.Value)));
         return services;
     }
 }

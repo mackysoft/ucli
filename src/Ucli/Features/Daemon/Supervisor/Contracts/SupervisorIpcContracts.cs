@@ -1,7 +1,5 @@
 using System.Text.Json.Serialization;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
-using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Startup;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Status;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -52,8 +50,52 @@ internal static class SupervisorIpcContracts
     /// <param name="Startup"> The startup observation attached to the start failure when available. </param>
     internal sealed record EnsureRunningFailureResponse (
         DaemonStatusKind? DaemonStatus,
-        DaemonDiagnosis? Diagnosis,
-        DaemonStartupObservation? Startup);
+        EnsureRunningFailureDiagnosis? Diagnosis,
+        EnsureRunningFailureStartupObservation? Startup);
+
+    /// <summary>
+    /// Carries diagnosis values over supervisor IPC while representing filesystem paths as transport strings.
+    /// </summary>
+    internal sealed record EnsureRunningFailureDiagnosis (
+        DaemonDiagnosisReason Reason,
+        string Message,
+        DaemonDiagnosisReportedBy ReportedBy,
+        bool IsInferred,
+        DateTimeOffset UpdatedAtUtc,
+        int? ProcessId,
+        string? EditorInstancePath,
+        DateTimeOffset SessionIssuedAtUtc,
+        DateTimeOffset? ProcessStartedAtUtc,
+        string? UnityLogPath,
+        DaemonDiagnosisStartupPhase? StartupPhase,
+        DaemonDiagnosisActionRequired? ActionRequired,
+        EnsureRunningFailurePrimaryDiagnostic? PrimaryDiagnostic);
+
+    /// <summary> Carries the optional structured cause embedded in a transported diagnosis. </summary>
+    internal sealed record EnsureRunningFailurePrimaryDiagnostic (
+        DaemonDiagnosisPrimaryDiagnosticKind Kind,
+        string? Code,
+        string? File,
+        int? Line,
+        int? Column,
+        string? Message);
+
+    /// <summary>
+    /// Carries startup observation values over supervisor IPC while representing the artifact path as transport text.
+    /// </summary>
+    internal sealed record EnsureRunningFailureStartupObservation (
+        DaemonStartupStatus StartupStatus,
+        DaemonStartupBlockingReason StartupBlockingReason,
+        Guid? LaunchAttemptId,
+        DaemonStartupProcessAction ProcessAction,
+        DaemonStartupRetryDisposition RetryDisposition,
+        DaemonEditorMode? EditorMode,
+        DaemonSessionOwnerKind? OwnerKind,
+        bool? CanShutdownProcess,
+        int? ProcessId,
+        DateTimeOffset? StartedAtUtc,
+        int? ElapsedMilliseconds,
+        string? ArtifactPath);
 
     /// <summary> Represents the payload used to stop one Unity daemon. </summary>
     /// <param name="UnityProjectRoot"> The absolute Unity project root path. </param>

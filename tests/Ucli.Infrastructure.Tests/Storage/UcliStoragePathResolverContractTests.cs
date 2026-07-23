@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -37,6 +38,19 @@ public sealed class UcliStoragePathResolverContractTests
         UcliStoragePathResolverTestSupport.AssertProjectPath(
             supervisorLockPath,
             UcliStoragePathNames.GuiSupervisorManifestLockFileName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void ResolveDaemonLifecycleLockPath_ReturnsProjectScopedPathWithoutReparsingTheLifecyclePath ()
+    {
+        var lockPath = UcliStoragePathResolver.ResolveDaemonLifecycleLockPath(
+            UcliStoragePathResolverTestSupport.StorageRoot,
+            UcliStoragePathResolverTestSupport.ProjectFingerprint);
+
+        UcliStoragePathResolverTestSupport.AssertProjectPath(
+            lockPath,
+            UcliStoragePathNames.DaemonLifecycleFileName + ".lock");
     }
 
     [Fact]
@@ -104,13 +118,13 @@ public sealed class UcliStoragePathResolverContractTests
     [Trait("Size", "Small")]
     public void ResolveUcliDirectoryPath_WithLongStorageRoot_ReturnsPath ()
     {
-        var storageRoot = CreateRootedPathWithLength(160);
+        var storageRoot = AbsolutePath.Parse(CreateRootedPathWithLength(160));
 
         var resolvedPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(storageRoot);
 
         Assert.Equal(
-            Path.Combine(storageRoot, UcliStoragePathNames.UcliDirectoryName),
-            resolvedPath);
+            Path.Combine(storageRoot.Value, UcliStoragePathNames.UcliDirectoryName),
+            resolvedPath.Value);
     }
 
     private static string CreateRootedPathWithLength (int length)

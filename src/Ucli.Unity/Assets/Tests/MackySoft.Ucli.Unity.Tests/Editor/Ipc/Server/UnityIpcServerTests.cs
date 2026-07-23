@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -107,7 +108,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
-        public IEnumerator Start_WhenEndpointIsNull_ThrowsArgumentNullException () => UniTask.ToCoroutine(async () =>
+        public IEnumerator Start_WhenEndpointBindingIsNull_ThrowsArgumentNullException () => UniTask.ToCoroutine(async () =>
         {
             var server = CreateServerForLifecycle();
             var exception = await AsyncExceptionCapture.CaptureAsync<ArgumentNullException>(async () =>
@@ -115,7 +116,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 await server.StartAsync(null).AsUniTask();
             }, "Null endpoint start", SignalWaitTimeout);
 
-            Assert.That(exception.ParamName, Is.EqualTo("endpoint"));
+            Assert.That(exception.ParamName, Is.EqualTo("endpointBinding"));
         });
 
         [Test]
@@ -145,7 +146,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator Start_ThenStop_TransitionsRunningState () => UniTask.ToCoroutine(async () =>
         {
             var server = CreateServerForLifecycle();
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test");
+            var endpoint = CreateNamedPipeEndpointBinding("ucli-daemon-test");
             await TestAwaiter.WaitAsync(
                 server.StartAsync(endpoint).AsUniTask(),
                 "Server lifecycle start",
@@ -161,6 +162,43 @@ namespace MackySoft.Ucli.Unity.Tests
 
         [UnityTest]
         [Category("Size.Small")]
+        public IEnumerator Start_ForwardsSameGuardedEndpointBindingToTransportListener () => UniTask.ToCoroutine(async () =>
+        {
+            var listener = new BlockingTransportListener(
+                IpcTransportKind.NamedPipe,
+                signalStarted: true);
+            var server = new UnityIpcServer(
+                new StubConnectionHandler(),
+                new IUnityIpcTransportListener[]
+                {
+                    listener,
+                },
+                new StubDaemonShutdownSignal(),
+                NoOpDaemonLogger.Instance,
+                UnityIpcServer.DefaultListenerStopTimeout);
+            var endpointBinding = CreateNamedPipeEndpointBinding(
+                "ucli-daemon-test-guarded-binding");
+
+            try
+            {
+                await TestAwaiter.WaitAsync(
+                    server.StartAsync(endpointBinding),
+                    "Guarded endpoint binding server start",
+                    SignalWaitTimeout);
+
+                Assert.That(listener.LastEndpointBinding, Is.SameAs(endpointBinding));
+            }
+            finally
+            {
+                await TestAwaiter.WaitAsync(
+                    server.StopAsync(),
+                    "Guarded endpoint binding server stop",
+                    SignalWaitTimeout);
+            }
+        });
+
+        [UnityTest]
+        [Category("Size.Small")]
         public IEnumerator UnixDomainSocketListener_Run_WhenUsingFallbackEndpoint_AppliesOwnerOnlyBoundaryAndPreservesDirectory () => UniTask.ToCoroutine(async () =>
         {
             if (Application.platform == RuntimePlatform.WindowsEditor)
@@ -169,21 +207,23 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             var fallbackPath = new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Daemon,
                 Guid.NewGuid().ToString("N"));
-            var address = fallbackPath.SocketPath;
-            var socketDirectoryPath = fallbackPath.DirectoryPath;
+            var address = fallbackPath.SocketPath.Value;
+            var socketDirectoryPath = fallbackPath.DirectoryPath.Value;
+            var endpointBinding = UnityIpcEndpointBinding.Create(
+                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address));
             var listener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
-                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address),
+                endpointBinding,
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
             var startedTaskSource = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             using var cancellationTokenSource = new CancellationTokenSource();
 
             var runTask = listener.RunAsync(
-                address,
+                endpointBinding,
                 new StubConnectionHandler(),
                 () => startedTaskSource.TrySetResult(true),
                 _ => { },
@@ -231,6 +271,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator NamedPipeListener_Run_WhenConnectionHandled_ReportsCompletionAfterConnectionClosed () => UniTask.ToCoroutine(async () =>
         {
             var address = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            var endpointBinding = CreateNamedPipeEndpointBinding(address);
             var listener = new NamedPipeUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
                 MaximumActiveConnections,
@@ -241,7 +282,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using var cancellationTokenSource = new CancellationTokenSource();
 
             var runTask = listener.RunAsync(
-                address,
+                endpointBinding,
                 connectionHandler,
                 () => startedTaskSource.TrySetResult(true),
                 result => connectionCompletedTaskSource.TrySetResult(result),
@@ -290,6 +331,7 @@ namespace MackySoft.Ucli.Unity.Tests
         public IEnumerator NamedPipeListener_Run_WhenFirstConnectionIsStillHandling_AcceptsSecondConnection () => UniTask.ToCoroutine(async () =>
         {
             var address = "ucli-" + Guid.NewGuid().ToString("N").Substring(0, 8);
+            var endpointBinding = CreateNamedPipeEndpointBinding(address);
             var listener = new NamedPipeUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
                 MaximumActiveConnections,
@@ -299,7 +341,7 @@ namespace MackySoft.Ucli.Unity.Tests
             using var cancellationTokenSource = new CancellationTokenSource();
 
             var runTask = listener.RunAsync(
-                address,
+                endpointBinding,
                 connectionHandler,
                 () => startedTaskSource.TrySetResult(true),
                 _ => { },
@@ -601,7 +643,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     listener,
                 });
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-shutdown-complete");
+            var endpoint = CreateNamedPipeEndpointBinding("ucli-daemon-test-shutdown-complete");
 
             try
             {
@@ -634,22 +676,27 @@ namespace MackySoft.Ucli.Unity.Tests
 
             var testIdentity = Guid.NewGuid().ToString("N");
             var expectedAddress = new UnixSocketFallbackPath(
-                Path.GetTempPath(),
+                AbsolutePath.Parse(Path.GetTempPath()),
                 UnixSocketFallbackPurpose.Daemon,
-                testIdentity).SocketPath;
-            var foreignRoot = Path.Combine(Path.GetTempPath(), "ucli-listener-foreign-" + testIdentity);
+                testIdentity).SocketPath.Value;
+            var foreignRoot = Path.Combine(
+                Path.DirectorySeparatorChar.ToString(),
+                "tmp",
+                "ucli-f-" + testIdentity.Substring(0, 8));
             var address = Path.Combine(
                 foreignRoot,
                 ".ucli",
                 "local",
                 "fingerprints",
-                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                "foreign",
                 UcliIpcEndpointNames.UnixSocketFileName);
             Directory.CreateDirectory(Path.GetDirectoryName(address)!);
             File.WriteAllText(address, "must-remain");
+            var expectedEndpointBinding = UnityIpcEndpointBinding.Create(
+                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, expectedAddress));
             var listener = new UnixDomainSocketUnityIpcTransportListener(
                 NoOpDaemonLogger.Instance,
-                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, expectedAddress),
+                expectedEndpointBinding,
                 MaximumActiveConnections,
                 ConnectionDrainTimeout);
             try
@@ -657,7 +704,8 @@ namespace MackySoft.Ucli.Unity.Tests
                 await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
                 {
                     await listener.RunAsync(
-                            address,
+                            UnityIpcEndpointBinding.Create(
+                                new IpcEndpoint(IpcTransportKind.UnixDomainSocket, address)),
                             new StubConnectionHandler(),
                             () => { },
                             _ => { },
@@ -702,7 +750,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     listener,
                 });
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-stop-context");
+            var endpoint = CreateNamedPipeEndpointBinding("ucli-daemon-test-stop-context");
 
             await TestAwaiter.WaitAsync(
                 server.StartAsync(endpoint).AsUniTask(),
@@ -748,7 +796,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     listener,
                 });
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-lifecycle-release");
+            var endpoint = CreateNamedPipeEndpointBinding("ucli-daemon-test-lifecycle-release");
 
             await TestAwaiter.WaitAsync(
                 server.StartAsync(endpoint).AsUniTask(),
@@ -777,7 +825,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     new ThrowingTransportListener(IpcTransportKind.NamedPipe, "listener failed"),
                 });
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-failure");
+            var endpoint = CreateNamedPipeEndpointBinding("ucli-daemon-test-failure");
 
             await AsyncExceptionCapture.CaptureAsync<InvalidOperationException>(async () =>
             {
@@ -803,7 +851,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     listener,
                 });
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-delayed-failure");
+            var endpoint = CreateNamedPipeEndpointBinding("ucli-daemon-test-delayed-failure");
             var startTask = server.StartAsync(endpoint).AsUniTask();
 
             await TestAwaiter.WaitAsync(listener.RunEntered, "Delayed fault listener entry", SignalWaitTimeout);
@@ -831,7 +879,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     blockingListener,
                 });
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-start-cancel");
+            var endpoint = CreateNamedPipeEndpointBinding("ucli-daemon-test-start-cancel");
             using var cancellationTokenSource = new CancellationTokenSource();
 
             var startTask = server.StartAsync(endpoint, cancellationTokenSource.Token);
@@ -863,7 +911,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 {
                     listener,
                 });
-            var endpoint = new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test-fault-after-startup");
+            var endpoint = CreateNamedPipeEndpointBinding("ucli-daemon-test-fault-after-startup");
 
             await TestAwaiter.WaitAsync(
                 server.StartAsync(endpoint).AsUniTask(),
@@ -1340,10 +1388,17 @@ namespace MackySoft.Ucli.Unity.Tests
                         ConnectionDrainTimeout),
                     new UnixDomainSocketUnityIpcTransportListener(
                         NoOpDaemonLogger.Instance,
-                        new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test"),
+                        UnityIpcEndpointBinding.Create(
+                            new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-daemon-test")),
                         MaximumActiveConnections,
                         ConnectionDrainTimeout),
                 });
+        }
+
+        private static UnityIpcEndpointBinding CreateNamedPipeEndpointBinding (string pipeName)
+        {
+            return UnityIpcEndpointBinding.Create(
+                new IpcEndpoint(IpcTransportKind.NamedPipe, pipeName));
         }
 
         private static UnityIpcRequestHandler CreateRequestHandler (
@@ -1858,7 +1913,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public IpcTransportKind TransportKind { get; }
 
             public Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1900,7 +1955,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1941,7 +1996,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -1979,7 +2034,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public int ConnectionCompletedCallCount { get; private set; }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
@@ -2026,13 +2081,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public Task CancellationObserved => cancellationObserved.Task;
 
+            public UnityIpcEndpointBinding LastEndpointBinding { get; private set; }
+
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,
                 CancellationToken cancellationToken)
             {
+                LastEndpointBinding = endpointBinding;
                 runEntered.TrySetResult(true);
                 if (signalStarted)
                 {
@@ -2079,7 +2137,7 @@ namespace MackySoft.Ucli.Unity.Tests
             }
 
             public async Task RunAsync (
-                string address,
+                UnityIpcEndpointBinding endpointBinding,
                 IUnityIpcConnectionHandler connectionHandler,
                 Action onStarted,
                 Action<UnityIpcConnectionHandleResult> onConnectionCompleted,

@@ -1,5 +1,6 @@
 using System.Text;
 using MackySoft.Ucli.Contracts.Cryptography;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -250,7 +251,7 @@ public sealed class UcliStoragePathResolverIndexContractTests
     [Trait("Size", "Small")]
     public void ResolveSceneTreeLiteLookupPath_ReturnsHashedSceneScopedPath ()
     {
-        const string scenePath = @"Assets\Scenes\Sample.unity";
+        var scenePath = new SceneAssetPath(@"Assets\Scenes\Sample.unity");
 
         var resolvedPath = UcliStoragePathResolver.ResolveSceneTreeLiteLookupPath(
             UcliStoragePathResolverTestSupport.StorageRoot,

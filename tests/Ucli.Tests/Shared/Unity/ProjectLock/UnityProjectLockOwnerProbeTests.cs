@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -124,9 +125,9 @@ public sealed class UnityProjectLockOwnerProbeTests
         Assert.Contains("ps denied", result.Message, StringComparison.Ordinal);
     }
 
-    private static string CreateLockFilePath (TestDirectoryScope scope)
+    private static AbsolutePath CreateLockFilePath (TestDirectoryScope scope)
     {
-        return scope.GetPath("UnityProject/Temp/UnityLockfile");
+        return AbsolutePath.Parse(scope.GetPath("UnityProject/Temp/UnityLockfile"));
     }
 
 }

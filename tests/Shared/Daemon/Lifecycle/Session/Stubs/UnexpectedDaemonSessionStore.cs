@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 namespace MackySoft.Ucli.TestSupport;
@@ -12,7 +13,7 @@ internal sealed class UnexpectedDaemonSessionStore : IDaemonSessionStore
     }
 
     public ValueTask<DaemonSessionReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
@@ -20,7 +21,7 @@ internal sealed class UnexpectedDaemonSessionStore : IDaemonSessionStore
     }
 
     public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         DaemonSession session,
         CancellationToken cancellationToken = default)
     {
@@ -28,7 +29,7 @@ internal sealed class UnexpectedDaemonSessionStore : IDaemonSessionStore
     }
 
     public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {

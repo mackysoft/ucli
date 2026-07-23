@@ -31,9 +31,12 @@ internal sealed record VerifyProfileDefinition
         {
             throw new ArgumentException("Built-in profiles must not have a repository-relative path.", nameof(RepositoryRelativePath));
         }
-        if (Source == VerifyProfileSource.File && !RelativePathContract.IsNormalized(RepositoryRelativePath))
+        if (Source == VerifyProfileSource.File
+            && !RelativePathContract.IsNormalized(RepositoryRelativePath))
         {
-            throw new ArgumentException("File profiles require a normalized repository-relative path.", nameof(RepositoryRelativePath));
+            throw new ArgumentException(
+                "File profiles require a normalized portable repository-relative path.",
+                nameof(RepositoryRelativePath));
         }
 
         var canonicalSteps = Steps

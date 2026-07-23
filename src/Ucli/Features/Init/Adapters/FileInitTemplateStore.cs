@@ -1,9 +1,9 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Init.Common.Contracts;
 using MackySoft.Ucli.Application.Features.Init.Ports;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Storage;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Init.Adapters;
@@ -30,24 +30,21 @@ internal sealed class FileInitTemplateStore : IInitTemplateStore
         ArgumentNullException.ThrowIfNull(config);
         cancellationToken.ThrowIfCancellationRequested();
 
-        string repositoryRoot;
-        string ucliDirectoryPath;
-        string configPath;
-        string gitIgnorePath;
-        try
-        {
-            var currentDirectoryPath = Path.GetFullPath(Environment.CurrentDirectory);
-            repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(currentDirectoryPath);
-            ucliDirectoryPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(repositoryRoot);
-            configPath = UcliStoragePathResolver.ResolveConfigPath(repositoryRoot);
-            gitIgnorePath = Path.Combine(ucliDirectoryPath, UcliStoragePathNames.GitIgnoreFileName);
-        }
-        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
+        if (!AbsolutePath.TryParse(
+                Environment.CurrentDirectory,
+                out var currentDirectoryPath,
+                out var pathFailure))
         {
             return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Current working directory path is invalid: {Environment.CurrentDirectory}. {ex.Message}"));
+                $"Current working directory path is invalid: {Environment.CurrentDirectory}. {pathFailure.Message}"));
         }
 
+        var repositoryRoot = UcliStoragePathResolver.ResolveStorageRoot(currentDirectoryPath);
+        var ucliDirectoryPath = UcliStoragePathResolver.ResolveUcliDirectoryPath(repositoryRoot);
+        var configPath = UcliStoragePathResolver.ResolveConfigPath(repositoryRoot);
+        var gitIgnorePath = ContainedPath.Create(
+            ucliDirectoryPath,
+            RootRelativePath.Parse(UcliStoragePathNames.GitIgnoreFileName)).Target;
         var existingPaths = CollectExistingTemplatePaths(configPath, gitIgnorePath);
 
         if (!force && existingPaths.Count > 0)
@@ -59,12 +56,7 @@ internal sealed class FileInitTemplateStore : IInitTemplateStore
 
         try
         {
-            Directory.CreateDirectory(ucliDirectoryPath);
-        }
-        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
-        {
-            return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
-                $"uCLI directory path is invalid: {ucliDirectoryPath}. {ex.Message}"));
+            Directory.CreateDirectory(ucliDirectoryPath.Value);
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
@@ -85,15 +77,10 @@ internal sealed class FileInitTemplateStore : IInitTemplateStore
         try
         {
             await File.WriteAllTextAsync(
-                    gitIgnorePath,
+                    gitIgnorePath.Value,
                     UcliLocalStorageBootstrapper.LocalDirectoryIgnoreEntry + Environment.NewLine,
                     cancellationToken)
                 .ConfigureAwait(false);
-        }
-        catch (Exception ex) when (PathFormatExceptionClassifier.IsPathFormatException(ex))
-        {
-            return InitExecutionResult.Failure(ExecutionError.InvalidArgument(
-                $"Git ignore path is invalid: {gitIgnorePath}. {ex.Message}"));
         }
         catch (Exception ex) when (IsIoFailure(ex))
         {
@@ -102,8 +89,8 @@ internal sealed class FileInitTemplateStore : IInitTemplateStore
         }
 
         var output = new InitExecutionOutput(
-            ConfigPath: configPath,
-            GitIgnorePath: gitIgnorePath);
+            ConfigPath: configPath.Value,
+            GitIgnorePath: gitIgnorePath.Value);
         return InitExecutionResult.Success(output);
     }
 
@@ -111,17 +98,17 @@ internal sealed class FileInitTemplateStore : IInitTemplateStore
     /// <param name="configPath"> The config file path. </param>
     /// <param name="gitIgnorePath"> The git-ignore file path. </param>
     /// <returns> Existing file paths that would be overwritten. </returns>
-    private static List<string> CollectExistingTemplatePaths (
-        string configPath,
-        string gitIgnorePath)
+    private static List<AbsolutePath> CollectExistingTemplatePaths (
+        AbsolutePath configPath,
+        AbsolutePath gitIgnorePath)
     {
-        var existingPaths = new List<string>(2);
-        if (File.Exists(configPath))
+        var existingPaths = new List<AbsolutePath>(2);
+        if (File.Exists(configPath.Value))
         {
             existingPaths.Add(configPath);
         }
 
-        if (File.Exists(gitIgnorePath))
+        if (File.Exists(gitIgnorePath.Value))
         {
             existingPaths.Add(gitIgnorePath);
         }

@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
 /// <summary> Reads and atomically publishes the current immutable read-index generation identifier. </summary>
@@ -10,7 +12,7 @@ internal interface IReadIndexGenerationPointerStore
     /// <returns> The current non-empty identifier, or <see langword="null" /> when no generation has committed. </returns>
     /// <exception cref="InvalidDataException"> Thrown when the persisted pointer is not one canonical non-empty GUID. </exception>
     ValueTask<Guid?> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken);
 
@@ -22,7 +24,7 @@ internal interface IReadIndexGenerationPointerStore
     /// <returns> A task that completes after the pointer replacement is durable to the filesystem API boundary. </returns>
     /// <exception cref="ArgumentException"> Thrown when <paramref name="generationId" /> is empty. </exception>
     ValueTask PublishAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         Guid generationId,
         CancellationToken cancellationToken);

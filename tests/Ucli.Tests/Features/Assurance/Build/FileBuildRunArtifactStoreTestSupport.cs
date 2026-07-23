@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -54,14 +55,16 @@ internal static class FileBuildRunArtifactStoreTestSupport
         params string[] outputSourcePaths)
     {
         var sourcePaths = outputSourcePaths.Length == 0
-            ? [Path.Combine(paths.RunnerOutputDirectory, "build")]
+            ? [Path.Combine(paths.RunnerOutputDirectory.Value, "build")]
             : outputSourcePaths;
         return new BuildRunArtifactAccountingRequest(
             paths,
             BuildTargetStableName.StandaloneLinux64,
             "StandaloneLinux64",
             buildReportSource,
-            sourcePaths.Select(static path => BuildOutputSourceEntry.FromAbsolutePath(path)).ToArray(),
+            sourcePaths
+                .Select(static path => BuildOutputSourceEntry.FromAbsolutePath(AbsolutePath.Parse(path)))
+                .ToArray(),
             allowEmptyOutputManifest: false);
     }
 
@@ -84,7 +87,7 @@ internal static class FileBuildRunArtifactStoreTestSupport
             SchemaVersion: 1,
             Result: IpcBuildReportResult.Succeeded,
             UnityBuildTarget: "StandaloneLinux64",
-            OutputPath: Path.Combine(paths.RunnerOutputDirectory, "build"),
+            OutputPath: Path.Combine(paths.RunnerOutputDirectory.Value, "build"),
             DurationMilliseconds: 2500,
             TotalSizeBytes: 4096,
             ErrorCount: 0,
@@ -120,22 +123,23 @@ internal static class FileBuildRunArtifactStoreTestSupport
             throw new ArgumentOutOfRangeException(nameof(pathKind), pathKind, "Unknown artifact path kind.");
         }
 
+        var guardedEscapedPath = AbsolutePath.Parse(escapedPath);
         return new BuildRunArtifactPaths(
             paths.RepositoryRoot,
             paths.RunId,
             paths.ArtifactsDirectory,
-            pathKind == "buildJson" ? escapedPath : paths.BuildJsonPath,
-            pathKind == "buildReport" ? escapedPath : paths.BuildReportJsonPath,
-            pathKind == "buildLog" ? escapedPath : paths.BuildLogPath,
-            pathKind == "outputManifest" ? escapedPath : paths.OutputManifestJsonPath,
-            pathKind == "runnerOutput" ? escapedPath : paths.RunnerOutputDirectory,
-            pathKind == "artifactOutput" ? escapedPath : paths.ArtifactOutputDirectory);
+            pathKind == "buildJson" ? guardedEscapedPath : paths.BuildJsonPath,
+            pathKind == "buildReport" ? guardedEscapedPath : paths.BuildReportJsonPath,
+            pathKind == "buildLog" ? guardedEscapedPath : paths.BuildLogPath,
+            pathKind == "outputManifest" ? guardedEscapedPath : paths.OutputManifestJsonPath,
+            pathKind == "runnerOutput" ? guardedEscapedPath : paths.RunnerOutputDirectory,
+            pathKind == "artifactOutput" ? guardedEscapedPath : paths.ArtifactOutputDirectory);
     }
 
     public static void WriteUnityGeneratedArtifacts (BuildRunArtifactPaths paths)
     {
-        WriteUtf8(paths.BuildReportJsonPath, "{\"result\":\"succeeded\"}\n");
-        WriteUtf8(paths.BuildLogPath, "build log\n");
+        WriteUtf8(paths.BuildReportJsonPath.Value, "{\"result\":\"succeeded\"}\n");
+        WriteUtf8(paths.BuildLogPath.Value, "build log\n");
     }
 
     public static bool TryCreateFileSymbolicLink (

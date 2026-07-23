@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using System.ComponentModel;
 using System.Diagnostics;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -10,14 +11,15 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
     [Trait("Size", "Small")]
     public void BuildStartInfo_AppendsInternalSupervisorInvocationArguments ()
     {
-        var storageRoot = Path.Combine(Path.GetTempPath(), "windows-detached-supervisor-launcher", "start-info");
-        var normalizedStorageRoot = Path.GetFullPath(storageRoot);
+        var storageRoot = AbsolutePath.Parse(
+            Path.Combine(Path.GetTempPath(), "windows-detached-supervisor-launcher", "start-info"));
+        var normalizedStorageRoot = AbsolutePath.Parse(Path.GetFullPath(storageRoot.Value));
         var launchCommand = new SupervisorLaunchCommand("ucli", ["--base"]);
 
         var startInfo = WindowsDetachedSupervisorProcessLauncher.BuildStartInfo(storageRoot, launchCommand);
 
         Assert.Equal("ucli", startInfo.FileName);
-        Assert.Equal(normalizedStorageRoot, startInfo.WorkingDirectory);
+        Assert.Equal(normalizedStorageRoot.Value, startInfo.WorkingDirectory);
         Assert.True(startInfo.UseShellExecute);
         Assert.True(startInfo.CreateNoWindow);
         Assert.Equal(
@@ -40,7 +42,7 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
         var launcher = new WindowsDetachedSupervisorProcessLauncher(processStarter);
 
         var result = launcher.Launch(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             new SupervisorLaunchCommand("ucli", Array.Empty<string>()));
 
         Assert.True(result.IsSuccess);
@@ -62,7 +64,7 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
         var launcher = new WindowsDetachedSupervisorProcessLauncher(processStarter);
 
         var result = launcher.Launch(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             new SupervisorLaunchCommand("ucli", Array.Empty<string>()));
 
         Assert.False(result.IsSuccess);
@@ -79,7 +81,7 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
         var launcher = new WindowsDetachedSupervisorProcessLauncher(processStarter);
 
         var result = launcher.Launch(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             new SupervisorLaunchCommand("ucli", Array.Empty<string>()));
 
         Assert.False(result.IsSuccess);
@@ -99,7 +101,7 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
                 ProcessHandle = processHandle,
             });
         var launchResult = launcher.Launch(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             new SupervisorLaunchCommand("ucli", Array.Empty<string>()));
 
         await launchResult.Lease!.CommitAsync();
@@ -124,7 +126,7 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
                 ProcessHandle = processHandle,
             });
         var launchResult = launcher.Launch(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             new SupervisorLaunchCommand("ucli", Array.Empty<string>()));
 
         await launchResult.Lease!.CommitAsync();
@@ -146,7 +148,7 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
                 ProcessHandle = processHandle,
             });
         var launchResult = launcher.Launch(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             new SupervisorLaunchCommand("ucli", Array.Empty<string>()));
 
         var rollbackResult = await launchResult.Lease!.RollbackAsync();
@@ -173,7 +175,7 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
                 ProcessHandle = processHandle,
             });
         var launchResult = launcher.Launch(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             new SupervisorLaunchCommand("ucli", Array.Empty<string>()));
 
         var firstRollbackResult = await launchResult.Lease!.RollbackAsync();
@@ -203,7 +205,7 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
                 ProcessHandle = processHandle,
             });
         var launchResult = launcher.Launch(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             new SupervisorLaunchCommand("ucli", Array.Empty<string>()));
 
         var firstRollbackResult = await launchResult.Lease!.RollbackAsync();
@@ -233,7 +235,7 @@ public sealed class WindowsDetachedSupervisorProcessLauncherTests
                 ProcessHandle = processHandle,
             });
         var launchResult = launcher.Launch(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             new SupervisorLaunchCommand("ucli", Array.Empty<string>()));
 
         var firstRollbackResult = await launchResult.Lease!.RollbackAsync();

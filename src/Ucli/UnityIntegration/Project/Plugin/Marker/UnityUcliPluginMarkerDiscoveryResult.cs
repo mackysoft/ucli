@@ -1,11 +1,12 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Plugin.Marker;
 
 /// <summary> Represents the result of enumerating uCLI Unity plugin marker candidates. </summary>
 internal sealed record UnityUcliPluginMarkerDiscoveryResult (
-    IReadOnlyList<string>? MarkerPaths,
-    string? Path,
+    IReadOnlyList<AbsolutePath>? MarkerPaths,
+    AbsolutePath? Path,
     ExecutionError? Error)
 {
     /// <summary> Gets a value indicating whether marker enumeration succeeded. </summary>
@@ -14,7 +15,7 @@ internal sealed record UnityUcliPluginMarkerDiscoveryResult (
     /// <summary> Creates a successful marker enumeration result. </summary>
     /// <param name="markerPaths"> The enumerated marker paths. </param>
     /// <returns> The successful result. </returns>
-    public static UnityUcliPluginMarkerDiscoveryResult Success (IReadOnlyList<string> markerPaths)
+    public static UnityUcliPluginMarkerDiscoveryResult Success (IReadOnlyList<AbsolutePath> markerPaths)
     {
         ArgumentNullException.ThrowIfNull(markerPaths);
         return new UnityUcliPluginMarkerDiscoveryResult(markerPaths, null, null);
@@ -25,10 +26,10 @@ internal sealed record UnityUcliPluginMarkerDiscoveryResult (
     /// <param name="error"> The structured error. </param>
     /// <returns> The failed result. </returns>
     public static UnityUcliPluginMarkerDiscoveryResult Failure (
-        string path,
+        AbsolutePath path,
         ExecutionError error)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(path);
+        ArgumentNullException.ThrowIfNull(path);
         ArgumentNullException.ThrowIfNull(error);
         return new UnityUcliPluginMarkerDiscoveryResult(null, path, error);
     }

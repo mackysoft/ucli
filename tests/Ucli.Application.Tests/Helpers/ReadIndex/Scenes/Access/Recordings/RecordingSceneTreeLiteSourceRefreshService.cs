@@ -20,6 +20,7 @@ internal sealed class RecordingSceneTreeLiteSourceRefreshService : ISceneTreeLit
         UnityExecutionMode mode,
         TimeSpan timeout,
         UnityScenePath scenePath,
+        SceneTreeLiteSourcePaths? indexSourcePaths,
         string fallbackReason,
         bool failFast = false,
         CancellationToken cancellationToken = default)
@@ -32,6 +33,7 @@ internal sealed class RecordingSceneTreeLiteSourceRefreshService : ISceneTreeLit
             mode,
             timeout,
             scenePath,
+            indexSourcePaths,
             fallbackReason,
             failFast,
             cancellationToken));
@@ -45,6 +47,7 @@ internal sealed class RecordingSceneTreeLiteSourceRefreshService : ISceneTreeLit
         UnityExecutionMode Mode,
         TimeSpan Timeout,
         UnityScenePath ScenePath,
+        SceneTreeLiteSourcePaths? IndexSourcePaths,
         string FallbackReason,
         bool FailFast,
         CancellationToken CancellationToken);

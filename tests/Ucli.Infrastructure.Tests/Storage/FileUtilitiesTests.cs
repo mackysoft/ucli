@@ -1,4 +1,5 @@
 using System.Runtime.Versioning;
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -13,7 +14,7 @@ public sealed class FileUtilitiesTests
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "reopen-safe-sync-read");
         var path = scope.WriteFile("session.json", "session-contents");
 
-        var contents = FileUtilities.ReadAllTextOrNull(path);
+        var contents = FileUtilities.ReadAllTextOrNull(AbsolutePath.Parse(path));
 
         Assert.Equal("session-contents", contents);
     }
@@ -31,7 +32,7 @@ public sealed class FileUtilitiesTests
         }
 
         await Assert.ThrowsAsync<IOException>(() => FileUtilities
-            .ReadAllTextOrNullAsync(symbolicLinkPath, CancellationToken.None)
+            .ReadAllTextOrNullAsync(AbsolutePath.Parse(symbolicLinkPath), CancellationToken.None)
             .AsTask());
 
         Assert.Equal("target-contents", await File.ReadAllTextAsync(targetPath));
@@ -50,7 +51,7 @@ public sealed class FileUtilitiesTests
         }
 
         await Assert.ThrowsAsync<IOException>(() => FileUtilities
-            .ReadAllTextOrNullAsync(symbolicLinkPath, CancellationToken.None)
+            .ReadAllTextOrNullAsync(AbsolutePath.Parse(symbolicLinkPath), CancellationToken.None)
             .AsTask());
 
         Assert.False(File.Exists(missingTargetPath));
@@ -69,7 +70,10 @@ public sealed class FileUtilitiesTests
         }
 
         await Assert.ThrowsAsync<IOException>(() => FileUtilities
-            .WriteAllTextAtomicallyAsync(symbolicLinkPath, "replacement", CancellationToken.None)
+            .WriteAllTextAtomicallyAsync(
+                AbsolutePath.Parse(symbolicLinkPath),
+                "replacement",
+                CancellationToken.None)
             .AsTask());
 
         Assert.Equal("target-contents", await File.ReadAllTextAsync(targetPath));
@@ -85,7 +89,7 @@ public sealed class FileUtilitiesTests
         await File.WriteAllBytesAsync(path, expected, CancellationToken.None);
 
         var contents = await FileUtilities.ReadBytesOrNullWithinLimitAsync(
-            path,
+            AbsolutePath.Parse(path),
             expected.Length,
             CancellationToken.None);
 
@@ -102,7 +106,7 @@ public sealed class FileUtilitiesTests
         await File.WriteAllBytesAsync(path, new byte[] { 1, 2, 3, 4 }, CancellationToken.None);
 
         await Assert.ThrowsAsync<IOException>(() => FileUtilities.ReadBytesOrNullWithinLimitAsync(
-                path,
+                AbsolutePath.Parse(path),
                 maximumBytes: 3,
                 CancellationToken.None)
             .AsTask());
@@ -176,7 +180,7 @@ public sealed class FileUtilitiesTests
         var path = scope.WriteFile("lifecycle.json", "old-contents");
         var temporaryPath = scope.WriteFile("lifecycle.json.tmp", "new-contents");
 
-        using var stream = FileUtilities.OpenReopenSafeReadStream(path);
+        using var stream = FileUtilities.OpenReopenSafeReadStream(AbsolutePath.Parse(path));
         File.Replace(temporaryPath, path, destinationBackupFileName: null, ignoreMetadataErrors: true);
 
         using var reader = new StreamReader(stream);
@@ -198,6 +202,7 @@ public sealed class FileUtilitiesTests
 
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "atomic-write-sharing-violation");
         var path = scope.WriteFile("lifecycle.json", "old-contents");
+        var guardedPath = AbsolutePath.Parse(path);
         Task writeTask;
         bool observationCompleted;
         bool temporaryFileObserved;
@@ -205,8 +210,8 @@ public sealed class FileUtilitiesTests
         using (new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
         {
             writeTask = useAsyncApi
-                ? FileUtilities.WriteAllTextAtomicallyAsync(path, "new-contents").AsTask()
-                : Task.Run(() => FileUtilities.WriteAllTextAtomically(path, "new-contents"));
+                ? FileUtilities.WriteAllTextAtomicallyAsync(guardedPath, "new-contents").AsTask()
+                : Task.Run(() => FileUtilities.WriteAllTextAtomically(guardedPath, "new-contents"));
 
             observationCompleted = SpinWait.SpinUntil(
                 () => writeTask.IsCompleted || Directory.GetFiles(scope.FullPath).Length > 1,
@@ -239,7 +244,10 @@ public sealed class FileUtilitiesTests
         var path = Path.Combine(scope.FullPath, "daemon-diagnosis.json");
         await File.WriteAllTextAsync(path, "old-contents", CancellationToken.None);
 
-        await FileUtilities.WriteAllTextAtomicallyAsync(path, "new-contents", CancellationToken.None);
+        await FileUtilities.WriteAllTextAtomicallyAsync(
+            AbsolutePath.Parse(path),
+            "new-contents",
+            CancellationToken.None);
 
         var contents = await File.ReadAllTextAsync(path, CancellationToken.None);
         Assert.Equal("new-contents", contents);
@@ -255,19 +263,21 @@ public sealed class FileUtilitiesTests
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "atomic-write-temporary-file");
 
-        string temporaryPath;
-        using (var stream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(scope.FullPath, out temporaryPath))
+        AbsolutePath temporaryPath;
+        using (var stream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
+                   AbsolutePath.Parse(scope.FullPath),
+                   out temporaryPath))
         {
             Assert.Equal(
                 Path.GetFullPath(scope.FullPath),
-                Path.GetFullPath(Path.GetDirectoryName(temporaryPath)!));
-            var temporaryFileName = Path.GetFileName(temporaryPath);
+                Path.GetFullPath(Path.GetDirectoryName(temporaryPath.Value)!));
+            var temporaryFileName = Path.GetFileName(temporaryPath.Value);
             Assert.StartsWith(".tmp-", temporaryFileName, StringComparison.Ordinal);
             Assert.Equal(17, temporaryFileName.Length);
             Assert.Throws<IOException>(() =>
             {
                 using var conflictingStream = new FileStream(
-                    temporaryPath,
+                    temporaryPath.Value,
                     FileMode.CreateNew,
                     FileAccess.Write,
                     FileShare.None);
@@ -275,9 +285,9 @@ public sealed class FileUtilitiesTests
             stream.WriteByte(0x2a);
         }
 
-        Assert.True(File.Exists(temporaryPath));
+        Assert.True(File.Exists(temporaryPath.Value));
         FileUtilities.DeleteIfExists(temporaryPath);
-        Assert.False(File.Exists(temporaryPath));
+        Assert.False(File.Exists(temporaryPath.Value));
     }
 
     [Fact]
@@ -286,16 +296,16 @@ public sealed class FileUtilitiesTests
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "atomic-write-reservation-failure");
         var missingDirectoryPath = scope.GetPath("missing");
-        var temporaryPath = "not-empty";
+        AbsolutePath? temporaryPath = null;
 
         Assert.Throws<DirectoryNotFoundException>(() =>
         {
             using var stream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
-                missingDirectoryPath,
-                out temporaryPath);
+                AbsolutePath.Parse(missingDirectoryPath),
+                out temporaryPath!);
         });
 
-        Assert.Empty(temporaryPath);
+        Assert.Null(temporaryPath);
     }
 
     [Fact]
@@ -307,15 +317,15 @@ public sealed class FileUtilitiesTests
             "atomic-write-cross-directory-publication");
         var destinationDirectoryPath = scope.GetPath("destination");
         Directory.CreateDirectory(destinationDirectoryPath);
-        string temporaryPath;
+        AbsolutePath temporaryPath;
         await using (var stream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
-                         scope.FullPath,
+                         AbsolutePath.Parse(scope.FullPath),
                          out temporaryPath))
         {
             await stream.WriteAsync(new byte[] { 0x2a });
         }
 
-        var destinationPath = Path.Combine(destinationDirectoryPath, "artifact.json");
+        var destinationPath = AbsolutePath.Parse(Path.Combine(destinationDirectoryPath, "artifact.json"));
         var exception = await Assert.ThrowsAsync<ArgumentException>(() =>
             FileUtilities.PublishAtomicWriteTemporaryFileAsync(
                     temporaryPath,
@@ -324,8 +334,8 @@ public sealed class FileUtilitiesTests
                 .AsTask());
 
         Assert.Equal("temporaryPath", exception.ParamName);
-        Assert.True(File.Exists(temporaryPath));
-        Assert.False(File.Exists(destinationPath));
+        Assert.True(File.Exists(temporaryPath.Value));
+        Assert.False(File.Exists(destinationPath.Value));
     }
 
     private sealed class IOExceptionWithHResult : IOException

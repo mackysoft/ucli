@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Preflight;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Plugin;
@@ -16,7 +17,7 @@ internal sealed class UnityPluginVerifier : IUnityPluginVerifier
 
     /// <inheritdoc />
     public async ValueTask<UnityPluginVerificationResult> VerifyAsync (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         CancellationToken cancellationToken = default)
     {
         var locateResult = await pluginLocator.LocateAsync(unityProjectRoot, cancellationToken).ConfigureAwait(false);

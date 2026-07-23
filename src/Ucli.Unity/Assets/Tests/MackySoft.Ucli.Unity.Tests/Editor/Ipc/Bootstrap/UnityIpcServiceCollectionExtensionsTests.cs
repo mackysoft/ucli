@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Threading;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Execution;
@@ -28,16 +29,18 @@ namespace MackySoft.Ucli.Unity.Tests
                 out var projectPath,
                 out var projectFingerprint);
             var endpoint = CreateEndpoint("daemon");
-            var bootstrapArguments = new IpcDaemonBootstrapArguments(
-                RepositoryRoot: projectPath,
-                ProjectFingerprint: projectFingerprint,
-                SessionPath: Path.Combine(projectPath, "Library", "ucli-composition-root-session.json"),
-                SessionGenerationId: Guid.NewGuid(),
-                SessionIssuedAtUtc: ObservedUtc,
-                Endpoint: endpoint);
+            var bootstrapContext = new UnityDaemonBootstrapContext(
+                AbsolutePath.Parse(projectPath),
+                projectFingerprint,
+                AbsolutePath.Parse(Path.Combine(
+                    projectPath,
+                    "Library",
+                    "ucli-composition-root-session.json")),
+                Guid.NewGuid(),
+                ObservedUtc,
+                UnityIpcEndpointBinding.Create(endpoint));
             services.AddUnityIpcDaemonHostServices(
-                bootstrapArguments,
-                endpoint,
+                bootstrapContext,
                 new DaemonLogRingBuffer(),
                 Guid.NewGuid());
 
@@ -62,7 +65,8 @@ namespace MackySoft.Ucli.Unity.Tests
             var endpoint = CreateEndpoint("oneshot");
             var exitCount = 0;
             var watchdog = new OneshotProcessLifetimeWatchdog(
-                storageRoot: "ucli-composition-root-tests",
+                storageRoot: AbsolutePath.Parse(
+                    Path.Combine(Path.GetTempPath(), "ucli-composition-root-tests")),
                 bootstrapEnvelope: new IpcOneshotBootstrapEnvelope(
                     BootstrapId: Guid.NewGuid(),
                     ParentProcess: new ProcessIdentity(42, 123),
@@ -79,7 +83,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 terminateProcess: () => Interlocked.Increment(ref exitCount));
             try
             {
-                services.AddUnityIpcOneshotHostServices(endpoint, watchdog);
+                services.AddUnityIpcOneshotHostServices(
+                    UnityIpcEndpointBinding.Create(endpoint),
+                    watchdog);
 
                 using var serviceProvider = services.BuildServiceProvider();
 
@@ -107,9 +113,10 @@ namespace MackySoft.Ucli.Unity.Tests
             out string projectPath,
             out ProjectFingerprint projectFingerprint)
         {
-            projectPath = Path.GetFullPath(UnityProjectPathResolver.ResolveProjectRootPath());
-            var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
-            projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, projectPath);
+            var guardedProjectPath = UnityProjectPathResolver.ResolveProjectRootPath();
+            projectPath = guardedProjectPath.Value;
+            var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(guardedProjectPath);
+            projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, guardedProjectPath);
             var services = new ServiceCollection();
             services.AddUnityIpcApplicationServices(
                 new PermitAllSessionTokenValidator(),

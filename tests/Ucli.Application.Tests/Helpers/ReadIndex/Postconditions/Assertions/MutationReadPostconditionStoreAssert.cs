@@ -10,7 +10,7 @@ internal static class MutationReadPostconditionStoreAssert
         ProjectFingerprint expectedProjectFingerprint)
     {
         var invocation = Assert.Single(store.WriteInvocations);
-        Assert.Equal(expectedStorageRoot, invocation.StorageRoot);
+        Assert.Equal(expectedStorageRoot, invocation.StorageRoot.Value);
         Assert.Equal(expectedProjectFingerprint, invocation.ProjectFingerprint);
         return invocation;
     }

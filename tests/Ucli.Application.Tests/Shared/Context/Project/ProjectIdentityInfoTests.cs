@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Tests.Shared.Context.Project;
@@ -23,7 +24,7 @@ public sealed class ProjectIdentityInfoTests
 
         var result = ProjectIdentityInfo.From(resolvedProject);
 
-        Assert.Equal(resolvedProject.UnityProjectRoot, result.ProjectPath);
+        Assert.Equal(resolvedProject.UnityProjectRoot.Value, result.ProjectPath);
         Assert.Equal(resolvedProject.ProjectFingerprint, result.ProjectFingerprint);
         Assert.Equal(resolvedProject.UnityVersion, result.UnityVersion);
     }
@@ -34,7 +35,7 @@ public sealed class ProjectIdentityInfoTests
     {
         var resolvedProject = CreateResolvedProject();
         var hostProject = new IpcProjectIdentity(
-            projectPath: resolvedProject.UnityProjectRoot + Path.DirectorySeparatorChar,
+            projectPath: resolvedProject.UnityProjectRoot.Value + Path.DirectorySeparatorChar,
             projectFingerprint: resolvedProject.ProjectFingerprint,
             unityVersion: resolvedProject.UnityVersion);
 
@@ -54,7 +55,7 @@ public sealed class ProjectIdentityInfoTests
     {
         var resolvedProject = CreateResolvedProject(unityVersion: ProjectIdentityDefaults.UnknownUnityVersion);
         var hostProject = new IpcProjectIdentity(
-            projectPath: resolvedProject.UnityProjectRoot,
+            projectPath: resolvedProject.UnityProjectRoot.Value,
             projectFingerprint: resolvedProject.ProjectFingerprint,
             unityVersion: "6000.1.4f1");
 
@@ -80,7 +81,7 @@ public sealed class ProjectIdentityInfoTests
         var hostProject = new IpcProjectIdentity(
             projectPath: expectedMismatchKind == ProjectIdentityMismatchKind.ProjectPath
                 ? Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli-tests", "DifferentUnityProject"))
-                : resolvedProject.UnityProjectRoot,
+                : resolvedProject.UnityProjectRoot.Value,
             projectFingerprint: expectedMismatchKind == ProjectIdentityMismatchKind.ProjectFingerprint
                 ? ProjectFingerprintTestFactory.Create("different-project")
                 : resolvedProject.ProjectFingerprint,
@@ -99,13 +100,38 @@ public sealed class ProjectIdentityInfoTests
         Assert.Equal(expectedMismatchKind, mismatchKind);
     }
 
+    [Theory]
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("relative/UnityProject")]
+    [Trait("Size", "Small")]
+    public void TryFromHost_WhenProjectPathWireTextIsInvalid_ClassifiesProjectPathMismatch (
+        string projectPath)
+    {
+        var resolvedProject = CreateResolvedProject();
+        var hostProject = new IpcProjectIdentity(
+            projectPath,
+            resolvedProject.ProjectFingerprint,
+            resolvedProject.UnityVersion);
+
+        var succeeded = ProjectIdentityInfo.TryFromHost(
+            resolvedProject,
+            hostProject,
+            out var result,
+            out var mismatchKind);
+
+        Assert.False(succeeded);
+        Assert.Null(result);
+        Assert.Equal(ProjectIdentityMismatchKind.ProjectPath, mismatchKind);
+    }
+
     private static ResolvedUnityProjectContext CreateResolvedProject (
         string unityVersion = "6000.1.4f1")
     {
         var repositoryRoot = Path.GetFullPath(Path.Combine(Path.GetTempPath(), "ucli-tests"));
         return ResolvedUnityProjectContext.Create(
-            unityProjectRoot: Path.Combine(repositoryRoot, "UnityProject"),
-            repositoryRoot: repositoryRoot,
+            unityProjectRoot: AbsolutePath.Parse(Path.Combine(repositoryRoot, "UnityProject")),
+            repositoryRoot: AbsolutePath.Parse(repositoryRoot),
             projectFingerprint: Fingerprint,
             pathSource: UnityProjectPathSource.CommandOption,
             pathSourceLabel: null,

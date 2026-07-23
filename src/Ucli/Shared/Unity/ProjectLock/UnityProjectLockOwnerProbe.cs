@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Infrastructure.Execution;
@@ -31,12 +32,12 @@ internal sealed class UnityProjectLockOwnerProbe : IUnityProjectLockOwnerProbe
     /// <inheritdoc />
     public async ValueTask<UnityProjectLockOwnerProbeResult> ProbeOwnerAsync (
         ResolvedUnityProjectContext unityProject,
-        string lockFilePath,
+        AbsolutePath lockFilePath,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
         ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
+        ArgumentNullException.ThrowIfNull(lockFilePath);
 
         var sessionOwnerResult = await ProbeDaemonSessionOwnerAsync(unityProject, lockFilePath, cancellationToken).ConfigureAwait(false);
         if (sessionOwnerResult.Status != UnityProjectLockOwnerProbeStatus.NoOwner)
@@ -88,7 +89,7 @@ internal sealed class UnityProjectLockOwnerProbe : IUnityProjectLockOwnerProbe
 
     private async ValueTask<UnityProjectLockOwnerProbeResult> ProbeDaemonSessionOwnerAsync (
         ResolvedUnityProjectContext unityProject,
-        string lockFilePath,
+        AbsolutePath lockFilePath,
         CancellationToken cancellationToken)
     {
         var readResult = await daemonSessionStore.ReadAsync(

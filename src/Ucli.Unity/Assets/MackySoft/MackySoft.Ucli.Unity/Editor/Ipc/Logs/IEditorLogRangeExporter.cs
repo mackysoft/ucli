@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
@@ -16,8 +17,8 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <param name="cancellationToken"> The cancellation token propagated by caller. </param>
         /// <returns> The counters collected from the exported log range. </returns>
         Task<EditorLogRangeExportResult> ExportRangeAsync (
-            string sourcePath,
-            string destinationPath,
+            AbsolutePath sourcePath,
+            AbsolutePath destinationPath,
             long startOffset,
             long endOffset,
             IEnumerable<string>? redactionValues = null,

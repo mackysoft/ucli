@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 namespace MackySoft.Ucli.TestSupport;
@@ -24,7 +25,7 @@ internal sealed class RecordingDaemonSessionStore : IDaemonSessionStore
 
     public Action? OnRead { get; set; }
 
-    public Func<string, ProjectFingerprint, CancellationToken, ValueTask<DaemonSessionReadResult>>? ReadAsyncHandler { get; set; }
+    public Func<AbsolutePath, ProjectFingerprint, CancellationToken, ValueTask<DaemonSessionReadResult>>? ReadAsyncHandler { get; set; }
 
     public Func<IReadOnlyList<ReadInvocation>, DaemonSessionReadResult>? ReadHandler { get; set; }
 
@@ -49,7 +50,7 @@ internal sealed class RecordingDaemonSessionStore : IDaemonSessionStore
     public IReadOnlyList<DeleteInvocation> DeleteInvocations => deleteInvocations;
 
     public ValueTask<DaemonSessionReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
@@ -71,7 +72,7 @@ internal sealed class RecordingDaemonSessionStore : IDaemonSessionStore
     }
 
     public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         DaemonSession session,
         CancellationToken cancellationToken = default)
     {
@@ -89,7 +90,7 @@ internal sealed class RecordingDaemonSessionStore : IDaemonSessionStore
     }
 
     public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
@@ -106,17 +107,17 @@ internal sealed class RecordingDaemonSessionStore : IDaemonSessionStore
     }
 
     internal readonly record struct ReadInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 
     internal readonly record struct WriteInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         DaemonSession Session,
         CancellationToken CancellationToken);
 
     internal readonly record struct DeleteInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -8,9 +9,9 @@ internal sealed class RecordingSupervisorProcessManager : ISupervisorProcessMana
 
     private readonly List<ReleaseInvocation> releaseInvocations = [];
 
-    public Func<string, CancellationToken, ValueTask<SupervisorProcessLaunchResult>>? LaunchHandler { get; set; }
+    public Func<AbsolutePath, CancellationToken, ValueTask<SupervisorProcessLaunchResult>>? LaunchHandler { get; set; }
 
-    public Func<string, CancellationToken, ValueTask<ExecutionError?>>? ReleaseHandler { get; set; }
+    public Func<AbsolutePath, CancellationToken, ValueTask<ExecutionError?>>? ReleaseHandler { get; set; }
 
     public ExecutionError? LaunchError { get; set; }
 
@@ -23,7 +24,7 @@ internal sealed class RecordingSupervisorProcessManager : ISupervisorProcessMana
     public IReadOnlyList<ReleaseInvocation> ReleaseInvocations => releaseInvocations;
 
     public async ValueTask<SupervisorProcessLaunchResult> LaunchAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         CancellationToken cancellationToken)
     {
         try
@@ -52,7 +53,7 @@ internal sealed class RecordingSupervisorProcessManager : ISupervisorProcessMana
     }
 
     public async ValueTask<ExecutionError?> ReleaseCurrentProcessRegistrationAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -66,10 +67,10 @@ internal sealed class RecordingSupervisorProcessManager : ISupervisorProcessMana
     }
 
     internal readonly record struct Invocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         CancellationToken CancellationToken);
 
     internal readonly record struct ReleaseInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         CancellationToken CancellationToken);
 }

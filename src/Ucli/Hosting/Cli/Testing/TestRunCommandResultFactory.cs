@@ -21,8 +21,8 @@ internal static class TestRunCommandResultFactory
             ["result"] = serviceResult.ResultValue,
             ["errorKind"] = serviceResult.ErrorKindValue,
             ["runId"] = serviceResult.RunId,
-            ["artifactsDir"] = serviceResult.ArtifactsDir,
-            ["summaryJsonPath"] = serviceResult.SummaryJsonPath,
+            ["artifactsDir"] = serviceResult.ArtifactsDir?.Value,
+            ["summaryJsonPath"] = serviceResult.SummaryJsonPath?.Value,
         };
         if (serviceResult.ErrorKind is not null)
         {

@@ -1,21 +1,30 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Infrastructure.Index;
 
 /// <summary> Holds filesystem source paths used to compute read-index input fingerprints. </summary>
 internal sealed record IndexInputSourcePaths (
-    string ScriptAssembliesPath,
-    string PackagesManifestPath,
-    string PackagesLockPath,
-    string AssetsPath,
-    string PackagesPath)
+    AbsolutePath ScriptAssembliesPath,
+    AbsolutePath PackagesManifestPath,
+    AbsolutePath PackagesLockPath,
+    AbsolutePath AssetsPath,
+    AbsolutePath PackagesPath)
 {
-    /// <summary> Creates source paths from one normalized Unity project root path. </summary>
-    public static IndexInputSourcePaths FromNormalizedProjectRoot (string normalizedProjectRoot)
+    /// <summary> Creates guarded source paths from one Unity project root. </summary>
+    public static IndexInputSourcePaths FromProjectRoot (AbsolutePath projectRoot)
     {
         return new IndexInputSourcePaths(
-            ScriptAssembliesPath: Path.Combine(normalizedProjectRoot, "Library", "ScriptAssemblies"),
-            PackagesManifestPath: Path.Combine(normalizedProjectRoot, "Packages", "manifest.json"),
-            PackagesLockPath: Path.Combine(normalizedProjectRoot, "Packages", "packages-lock.json"),
-            AssetsPath: Path.Combine(normalizedProjectRoot, "Assets"),
-            PackagesPath: Path.Combine(normalizedProjectRoot, "Packages"));
+            ScriptAssembliesPath: Resolve(projectRoot, "Library/ScriptAssemblies"),
+            PackagesManifestPath: Resolve(projectRoot, "Packages/manifest.json"),
+            PackagesLockPath: Resolve(projectRoot, "Packages/packages-lock.json"),
+            AssetsPath: Resolve(projectRoot, "Assets"),
+            PackagesPath: Resolve(projectRoot, "Packages"));
+    }
+
+    private static AbsolutePath Resolve (
+        AbsolutePath projectRoot,
+        string relativePath)
+    {
+        return ContainedPath.Create(projectRoot, RootRelativePath.Parse(relativePath)).Target;
     }
 }

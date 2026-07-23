@@ -9,12 +9,14 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Ipc;
+using MackySoft.Ucli.Unity.Project;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 
@@ -40,7 +42,10 @@ namespace MackySoft.Ucli.Unity.Tests
         public void Create_WhenHostEditorInstanceIdIsEmpty_ThrowsArgumentException ()
         {
             var exception = Assert.Throws<ArgumentException>(() => FileRecoverableIpcOperationStore.Create(
-                new IpcProjectIdentity(Path.GetTempPath(), ProjectFingerprint, "6000.1.4f1"),
+                new UnityHostProjectIdentity(
+                    AbsolutePath.Parse(Path.GetTempPath()),
+                    ProjectFingerprint,
+                    "6000.1.4f1"),
                 Guid.Empty));
 
             Assert.That(exception.ParamName, Is.EqualTo("hostEditorInstanceId"));
@@ -629,7 +634,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     projectPath,
                     record => record.StartedAtUtc = nowUtc.AddHours(-25));
 
-                var operationLockPath = GetPrivateField<string>(maintenanceStore, "operationLockPath");
+                var operationLockPath = GetPrivateField<AbsolutePath>(maintenanceStore, "operationLockPath");
                 Task<RecoverableIpcOperationStoreResult> purgeTask;
                 Task<RecoverableIpcOperationStoreResult> writeTask;
                 using (FileExclusiveLock.Acquire(
@@ -1101,8 +1106,8 @@ namespace MackySoft.Ucli.Unity.Tests
         private static FileRecoverableIpcOperationStore CreateStore (string projectPath)
         {
             return FileRecoverableIpcOperationStore.Create(
-                new IpcProjectIdentity(
-                    projectPath,
+                new UnityHostProjectIdentity(
+                    AbsolutePath.Parse(projectPath),
                     ProjectFingerprint,
                     "6000.1.4f1"),
                 EditorInstanceId);
@@ -1144,11 +1149,13 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private static string ResolveOperationsDirectoryPath (string projectPath)
         {
-            var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(projectPath);
+            var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(AbsolutePath.Parse(projectPath));
             var projectDirectory = UcliStoragePathResolver.ResolveProjectDirectory(
                 storageRoot,
                 ProjectFingerprint);
-            return Path.Combine(projectDirectory, UcliStoragePathNames.IpcOperationsDirectoryName);
+            return ContainedPath.Create(
+                projectDirectory,
+                RootRelativePath.Parse(UcliStoragePathNames.IpcOperationsDirectoryName)).Target.Value;
         }
 
         private static string ReadOperationRecordText (string projectPath)

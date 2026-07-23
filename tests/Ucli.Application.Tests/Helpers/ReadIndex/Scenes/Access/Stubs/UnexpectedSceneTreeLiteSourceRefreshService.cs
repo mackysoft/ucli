@@ -13,6 +13,7 @@ internal sealed class UnexpectedSceneTreeLiteSourceRefreshService : ISceneTreeLi
         UnityExecutionMode mode,
         TimeSpan timeout,
         UnityScenePath scenePath,
+        SceneTreeLiteSourcePaths? indexSourcePaths,
         string fallbackReason,
         bool failFast = false,
         CancellationToken cancellationToken = default)

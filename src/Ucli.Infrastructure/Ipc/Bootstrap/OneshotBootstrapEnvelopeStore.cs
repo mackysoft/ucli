@@ -1,6 +1,7 @@
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -29,7 +30,7 @@ internal static class OneshotBootstrapEnvelopeStore
 
     /// <summary> Creates one envelope file without replacing an existing generation. </summary>
     public static void Create (
-        string storageRoot,
+        AbsolutePath storageRoot,
         IpcOneshotBootstrapEnvelope envelope)
     {
         if (envelope == null)
@@ -53,7 +54,7 @@ internal static class OneshotBootstrapEnvelopeStore
             throw new InvalidOperationException("Oneshot bootstrap envelope exceeds its storage limit.");
         }
 
-        var temporaryPath = string.Empty;
+        AbsolutePath? temporaryPath = null;
         try
         {
             using (var stream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
@@ -67,11 +68,11 @@ internal static class OneshotBootstrapEnvelopeStore
             FileSystemAccessBoundary.EnsureSecureFile(temporaryPath);
             // NOTE: The same-directory move preserves the secured file node and is deliberately the final operation.
             // A failure must not be reported after the secret-bearing envelope has become publicly addressable.
-            File.Move(temporaryPath, envelopePath);
+            File.Move(temporaryPath.Value, envelopePath.Value);
         }
         catch
         {
-            if (temporaryPath.Length != 0)
+            if (temporaryPath is not null)
             {
                 TryDeleteFile(temporaryPath);
             }
@@ -82,7 +83,7 @@ internal static class OneshotBootstrapEnvelopeStore
 
     /// <summary> Reads and validates the generation referenced by one bootstrap identifier. </summary>
     public static IpcOneshotBootstrapEnvelope Read (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint expectedProjectFingerprint,
         Guid bootstrapId,
         DateTimeOffset nowUtc)
@@ -99,9 +100,11 @@ internal static class OneshotBootstrapEnvelopeStore
             storageRoot,
             expectedProjectFingerprint,
             bootstrapId);
-        if (!Directory.Exists(directoryPath))
+        if (!Directory.Exists(directoryPath.Value))
         {
-            throw new FileNotFoundException("Oneshot bootstrap envelope directory was not found.", envelopePath);
+            throw new FileNotFoundException(
+                "Oneshot bootstrap envelope directory was not found.",
+                envelopePath.Value);
         }
 
         FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
@@ -129,7 +132,7 @@ internal static class OneshotBootstrapEnvelopeStore
         var expectedEndpoint = UcliIpcEndpointResolver.ResolveDaemonEndpoint(
             storageRoot,
             expectedProjectFingerprint);
-        if (envelope.Endpoint != expectedEndpoint)
+        if (envelope.Endpoint != expectedEndpoint.Contract)
         {
             throw new InvalidDataException("Oneshot bootstrap envelope endpoint does not match the current project endpoint.");
         }
@@ -144,7 +147,7 @@ internal static class OneshotBootstrapEnvelopeStore
 
     /// <summary> Deletes a file only while its complete immutable generation still matches the expected owner. </summary>
     public static bool TryDeleteIfOwned (
-        string storageRoot,
+        AbsolutePath storageRoot,
         IpcOneshotBootstrapEnvelope expectedEnvelope)
     {
         if (expectedEnvelope == null)
@@ -157,7 +160,7 @@ internal static class OneshotBootstrapEnvelopeStore
             expectedEnvelope.BootstrapId);
         try
         {
-            if (!File.Exists(path))
+            if (!File.Exists(path.Value))
             {
                 return false;
             }
@@ -168,8 +171,11 @@ internal static class OneshotBootstrapEnvelopeStore
                 return false;
             }
 
-            File.Delete(path);
-            TryDeleteEmptyDirectory(Path.GetDirectoryName(path));
+            File.Delete(path.Value);
+            TryDeleteEmptyDirectory(
+                UcliStoragePathResolver.ResolveOneshotBootstrapDirectory(
+                    storageRoot,
+                    expectedEnvelope.ProjectFingerprint));
             return true;
         }
         catch (Exception exception) when (exception is InvalidDataException
@@ -180,16 +186,20 @@ internal static class OneshotBootstrapEnvelopeStore
         }
     }
 
-    private static IpcOneshotBootstrapEnvelope ReadEnvelope (string path)
+    private static IpcOneshotBootstrapEnvelope ReadEnvelope (AbsolutePath path)
     {
-        var attributes = File.GetAttributes(path);
+        var attributes = File.GetAttributes(path.Value);
         if (!FileSystemNodeClassifier.IsRegularFile(path, attributes))
         {
             throw new InvalidDataException("Oneshot bootstrap envelope must be a regular file.");
         }
 
         string json;
-        using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var stream = new FileStream(
+                   path.Value,
+                   FileMode.Open,
+                   FileAccess.Read,
+                   FileShare.Read))
         {
             if (stream.Length <= 0 || stream.Length > MaximumEnvelopeBytes)
             {
@@ -263,31 +273,32 @@ internal static class OneshotBootstrapEnvelopeStore
     }
 
     private static void CleanupExpiredCore (
-        string directoryPath,
+        AbsolutePath directoryPath,
         ProjectFingerprint projectFingerprint,
         DateTimeOffset nowUtc)
     {
         foreach (var path in Directory.EnumerateFiles(
-                     directoryPath,
+                     directoryPath.Value,
                      "*" + UcliStoragePathNames.OneshotBootstrapFileExtension,
                      SearchOption.TopDirectoryOnly)
                  .Take(MaximumMaintenanceFiles))
         {
-            if (!TryGetOwnedBootstrapId(path, out var bootstrapId))
+            var envelopePath = AbsolutePath.Parse(path);
+            if (!TryGetOwnedBootstrapId(envelopePath, out var bootstrapId))
             {
                 continue;
             }
 
             try
             {
-                var envelope = ReadEnvelope(path);
+                var envelope = ReadEnvelope(envelopePath);
                 if (envelope.BootstrapId == bootstrapId
                     && envelope.ProjectFingerprint == projectFingerprint
                     && (envelope.ExitDeadlineUtc <= nowUtc
                     || !ProcessLivenessProbe.IsSameProcess(envelope.ParentProcess)))
                 {
-                    FileUtilities.EnsureRegularFile(path, "Oneshot bootstrap envelope");
-                    File.Delete(path);
+                    FileUtilities.EnsureRegularFile(envelopePath, "Oneshot bootstrap envelope");
+                    File.Delete(envelopePath.Value);
                 }
             }
             catch (Exception exception) when (exception is InvalidDataException
@@ -299,11 +310,11 @@ internal static class OneshotBootstrapEnvelopeStore
     }
 
     private static bool TryGetOwnedBootstrapId (
-        string path,
+        AbsolutePath path,
         out Guid bootstrapId)
     {
         if (!string.Equals(
-                Path.GetExtension(path),
+                Path.GetExtension(path.Value),
                 UcliStoragePathNames.OneshotBootstrapFileExtension,
                 StringComparison.Ordinal))
         {
@@ -312,7 +323,7 @@ internal static class OneshotBootstrapEnvelopeStore
         }
 
         return StoragePathSegmentCodec.TryDecodeNonEmptyGuid(
-            Path.GetFileNameWithoutExtension(path),
+            Path.GetFileNameWithoutExtension(path.Value),
             out bootstrapId);
     }
 
@@ -341,27 +352,22 @@ internal static class OneshotBootstrapEnvelopeStore
         }
     }
 
-    private static void TryDeleteFile (string path)
+    private static void TryDeleteFile (AbsolutePath path)
     {
         try
         {
-            File.Delete(path);
+            File.Delete(path.Value);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
         }
     }
 
-    private static void TryDeleteEmptyDirectory (string? directoryPath)
+    private static void TryDeleteEmptyDirectory (AbsolutePath directoryPath)
     {
-        if (directoryPath is null)
-        {
-            return;
-        }
-
         try
         {
-            Directory.Delete(directoryPath, recursive: false);
+            Directory.Delete(directoryPath.Value, recursive: false);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {

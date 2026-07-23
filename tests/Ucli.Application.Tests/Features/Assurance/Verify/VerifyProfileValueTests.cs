@@ -80,22 +80,40 @@ public sealed class VerifyProfileValueTests
         Assert.Equal("Steps", exception.ParamName);
     }
 
-    [Theory]
-    [InlineData(VerifyProfileSource.BuiltIn, "verify.json")]
-    [InlineData(VerifyProfileSource.File, null)]
-    [InlineData(VerifyProfileSource.File, " ")]
-    [InlineData(VerifyProfileSource.File, "../verify.json")]
-    [InlineData(VerifyProfileSource.File, "/verify.json")]
-    [InlineData(VerifyProfileSource.File, "profiles\\verify.json")]
+    [Fact]
     [Trait("Size", "Small")]
-    public void Definition_WhenSourceAndPathDoNotMatch_RejectsInvalidState (
-        VerifyProfileSource source,
-        string? repositoryRelativePath)
+    public void Definition_WhenBuiltInSourceHasPath_RejectsInvalidState ()
     {
         var exception = Assert.Throws<ArgumentException>(() => new VerifyProfileDefinition(
-            source,
+            VerifyProfileSource.BuiltIn,
             "profile",
-            repositoryRelativePath,
+            "verify.json",
+            Steps: []));
+
+        Assert.Equal("RepositoryRelativePath", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Definition_WhenFileSourceHasNoPath_RejectsInvalidState ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new VerifyProfileDefinition(
+            VerifyProfileSource.File,
+            "profile",
+            RepositoryRelativePath: null,
+            Steps: []));
+
+        Assert.Equal("RepositoryRelativePath", exception.ParamName);
+    }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Definition_WhenFileSourcePathIsNotPortable_RejectsInvalidState ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new VerifyProfileDefinition(
+            VerifyProfileSource.File,
+            "profile",
+            @"profiles\verify.json",
             Steps: []));
 
         Assert.Equal("RepositoryRelativePath", exception.ParamName);

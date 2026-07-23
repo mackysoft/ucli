@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -17,12 +18,12 @@ public sealed class FileReadIndexGenerationPointerStoreTests
         using var scope = TestDirectories.CreateTempScope("read-index-generation-pointer", "invalid");
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
         FileReadIndexArtifactReaderTestSupport.WriteText(
-            UcliStoragePathResolver.ResolveReadIndexCurrentGenerationPath(scope.FullPath, fingerprint),
+            UcliStoragePathResolver.ResolveReadIndexCurrentGenerationPath(AbsolutePath.Parse(scope.FullPath), fingerprint),
             value);
         var store = new FileReadIndexGenerationPointerStore();
 
         await Assert.ThrowsAsync<InvalidDataException>(async () => await store.ReadAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             fingerprint,
             CancellationToken.None));
     }
@@ -36,14 +37,14 @@ public sealed class FileReadIndexGenerationPointerStoreTests
         var store = new FileReadIndexGenerationPointerStore();
 
         var exception = await Assert.ThrowsAsync<ArgumentException>(async () => await store.PublishAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             fingerprint,
             Guid.Empty,
             CancellationToken.None));
 
         Assert.Equal("generationId", exception.ParamName);
         Assert.False(File.Exists(UcliStoragePathResolver.ResolveReadIndexCurrentGenerationPath(
-            scope.FullPath,
-            fingerprint)));
+            AbsolutePath.Parse(scope.FullPath),
+            fingerprint).Value));
     }
 }

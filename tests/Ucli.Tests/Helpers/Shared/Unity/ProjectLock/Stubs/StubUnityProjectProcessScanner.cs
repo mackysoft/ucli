@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 namespace MackySoft.Ucli.Tests.Helpers.Unity;
@@ -12,7 +13,7 @@ internal sealed class StubUnityProjectProcessScanner : IUnityProjectProcessScann
     }
 
     public ValueTask<UnityProjectProcessScanResult> FindProcessesForProjectAsync (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();

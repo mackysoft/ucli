@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Context.Project;
@@ -33,7 +34,7 @@ internal sealed record ProjectIdentityInfo
         ArgumentNullException.ThrowIfNull(project);
 
         return new ProjectIdentityInfo(
-            project.UnityProjectRoot,
+            project.UnityProjectRoot.Value,
             project.ProjectFingerprint,
             project.UnityVersion);
     }
@@ -60,10 +61,8 @@ internal sealed record ProjectIdentityInfo
             return false;
         }
 
-        var pathComparison = OperatingSystem.IsWindows()
-            ? StringComparison.OrdinalIgnoreCase
-            : StringComparison.Ordinal;
-        if (!string.Equals(hostProject.ProjectPath, expectedProject.UnityProjectRoot, pathComparison))
+        if (!AbsolutePath.TryParse(hostProject.ProjectPath, out var hostProjectPath, out _)
+            || hostProjectPath != expectedProject.UnityProjectRoot)
         {
             mismatchKind = ProjectIdentityMismatchKind.ProjectPath;
             return false;
@@ -78,7 +77,7 @@ internal sealed record ProjectIdentityInfo
         }
 
         project = new ProjectIdentityInfo(
-            expectedProject.UnityProjectRoot,
+            expectedProject.UnityProjectRoot.Value,
             expectedProject.ProjectFingerprint,
             string.Equals(expectedUnityVersion, ProjectIdentityDefaults.UnknownUnityVersion, StringComparison.Ordinal)
                 ? hostProject.UnityVersion

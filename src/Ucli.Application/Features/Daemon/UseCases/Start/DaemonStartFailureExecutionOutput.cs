@@ -68,7 +68,7 @@ internal sealed record DaemonStartFailureExecutionOutput (
             ElapsedMilliseconds: startup.ElapsedMilliseconds,
             ProcessAction: startup.ProcessAction,
             ProcessTermination: null,
-            ArtifactPath: startup.ArtifactPath,
+            ArtifactPath: startup.ArtifactPath?.Value,
             RetryDisposition: retryDisposition);
     }
 }

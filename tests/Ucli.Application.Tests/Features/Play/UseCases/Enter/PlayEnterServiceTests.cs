@@ -79,7 +79,7 @@ public sealed class PlayEnterServiceTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayEnterExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
-        Assert.Equal(context.UnityProject.UnityProjectRoot, output.Project.ProjectPath);
+        Assert.Equal(context.UnityProject.UnityProjectRoot.Value, output.Project.ProjectPath);
         Assert.Equal("0.5.0", output.ServerVersion);
         Assert.Equal(DaemonEditorMode.Gui, output.EditorMode);
         Assert.Equal(IpcEditorLifecycleState.PlayMode, output.LifecycleState);

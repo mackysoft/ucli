@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
 using MackySoft.Ucli.Contracts.Testing;
@@ -30,7 +31,8 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
         var profileLoader = new StubTestRunProfileLoader(TestRunProfileLoadResult.Success(profile));
         var unityProjectResolver = new RecordingUnityProjectResolver(UnityProjectResolutionResult.Success(unityProject));
         var unityVersionResolver = new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1"));
-        var unityEditorPathResolver = new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity")));
+        var unityEditorPathResolver = new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(
+            AbsolutePath.Parse(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
 
         var resolver = new TestRunConfigurationResolver(
             profileLoader,
@@ -40,7 +42,7 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
             unityEditorPathResolver);
 
         var input = new TestRunConfigurationRequest(
-            ProjectPath: unityProject.UnityProjectRoot,
+            ProjectPath: unityProject.UnityProjectRoot.Value,
             ProfilePath: scope.GetPath("test.profile.json"),
             Mode: UnityExecutionMode.Oneshot,
             UnityVersion: "6000.1.4f1",
@@ -86,7 +88,8 @@ public sealed class TestRunConfigurationResolverInputProjectionTests
             new RecordingProjectPathInputResolver(static (commandOptionProjectPath, fallbackProjectPath) => commandOptionProjectPath ?? fallbackProjectPath),
             new RecordingUnityProjectResolver(UnityProjectResolutionResult.Success(CreateUnityProjectContext(scope, "profile-project"))),
             new RecordingUnityVersionResolver(UnityVersionResolutionResult.Success("6000.1.4f1")),
-            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(scope.GetPath("Editors/6000.1.4f1/Editor/Unity"))));
+            new StubUnityEditorPathResolver(UnityEditorPathResolutionResult.Success(
+                AbsolutePath.Parse(scope.GetPath("Editors/6000.1.4f1/Editor/Unity")))));
 
         var input = new TestRunConfigurationRequest(
             ProjectPath: null,

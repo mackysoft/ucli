@@ -21,9 +21,9 @@ internal sealed class DaemonDiagnosisOutputMapper : IDaemonDiagnosisOutputMapper
             IsInferred: diagnosis.IsInferred,
             UpdatedAtUtc: diagnosis.UpdatedAtUtc,
             ProcessId: diagnosis.ProcessId,
-            EditorInstancePath: diagnosis.EditorInstancePath,
+            EditorInstancePath: diagnosis.EditorInstancePath?.Value,
             ProcessStartedAtUtc: diagnosis.ProcessStartedAtUtc,
-            UnityLogPath: diagnosis.UnityLogPath,
+            UnityLogPath: diagnosis.UnityLogPath?.Value,
             StartupPhase: diagnosis.StartupPhase,
             ActionRequired: diagnosis.ActionRequired,
             PrimaryDiagnostic: diagnosis.PrimaryDiagnostic is null

@@ -85,7 +85,7 @@ public sealed class IpcDaemonPingClientRequestTests
             unityProject.ProjectFingerprint);
         DaemonIpcDispatchAssert.SingleDispatchSentToEndpoint(
             unityIpcClient,
-            expectedEndpointAddress: expectedEndpoint.Address,
+            expectedEndpointAddress: expectedEndpoint.Contract.Address,
             expectedMethod: UnityIpcMethod.Ping,
             expectedSessionToken: sessionToken.GetEncodedValue());
     }
@@ -156,8 +156,8 @@ public sealed class IpcDaemonPingClientRequestTests
         Assert.Equal(requestId, unityIpcClient.Requests[1].RequestId);
         Assert.Collection(
             unityIpcClient.Endpoints,
-            endpoint => Assert.Equal(rejectedSession.Endpoint, endpoint),
-            endpoint => Assert.Equal(replacementSession.Endpoint, endpoint));
+            endpoint => Assert.Equal(rejectedSession.EndpointContract, endpoint),
+            endpoint => Assert.Equal(replacementSession.EndpointContract, endpoint));
     }
 
     [Fact]

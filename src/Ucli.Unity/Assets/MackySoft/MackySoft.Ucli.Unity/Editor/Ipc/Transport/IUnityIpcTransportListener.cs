@@ -12,13 +12,13 @@ namespace MackySoft.Ucli.Unity.Ipc
         IpcTransportKind TransportKind { get; }
 
         /// <summary> Runs transport-specific accept loop until cancellation is requested. </summary>
-        /// <param name="address"> The transport-specific address value. </param>
+        /// <param name="endpointBinding"> The guarded runtime endpoint binding for this listener generation. </param>
         /// <param name="connectionHandler"> The connection handler dependency. </param>
         /// <param name="onStarted"> The callback invoked after transport listener successfully starts accepting connections. </param>
         /// <param name="onConnectionCompleted"> The callback invoked after a connection exchange is completed and its transport stream is closed. </param>
         /// <param name="cancellationToken"> The cancellation token for listener lifecycle. </param>
         Task RunAsync (
-            string address,
+            UnityIpcEndpointBinding endpointBinding,
             IUnityIpcConnectionHandler connectionHandler,
             Action onStarted,
             Action<UnityIpcConnectionHandleResult> onConnectionCompleted,

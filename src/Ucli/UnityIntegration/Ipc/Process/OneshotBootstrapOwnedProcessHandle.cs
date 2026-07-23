@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -8,7 +9,7 @@ internal sealed class OneshotBootstrapOwnedProcessHandle : IUnityBatchmodeProces
 {
     private readonly IUnityBatchmodeProcessHandle innerHandle;
 
-    private readonly string storageRoot;
+    private readonly AbsolutePath storageRoot;
 
     private readonly IpcOneshotBootstrapEnvelope bootstrapEnvelope;
 
@@ -17,12 +18,11 @@ internal sealed class OneshotBootstrapOwnedProcessHandle : IUnityBatchmodeProces
     /// <summary> Initializes ownership of one process handle and bootstrap generation. </summary>
     public OneshotBootstrapOwnedProcessHandle (
         IUnityBatchmodeProcessHandle innerHandle,
-        string storageRoot,
+        AbsolutePath storageRoot,
         IpcOneshotBootstrapEnvelope bootstrapEnvelope)
     {
         this.innerHandle = innerHandle ?? throw new ArgumentNullException(nameof(innerHandle));
-        ArgumentException.ThrowIfNullOrWhiteSpace(storageRoot);
-        this.storageRoot = storageRoot;
+        this.storageRoot = storageRoot ?? throw new ArgumentNullException(nameof(storageRoot));
         this.bootstrapEnvelope = bootstrapEnvelope ?? throw new ArgumentNullException(nameof(bootstrapEnvelope));
     }
 

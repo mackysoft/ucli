@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 
 /// <summary> Persists daemon launch-attempt diagnosis artifacts. </summary>
@@ -10,7 +12,7 @@ internal interface IDaemonLaunchAttemptStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The store operation result. </returns>
     ValueTask<DaemonLaunchAttemptStoreOperationResult> WriteFailureAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DaemonLaunchAttempt launchAttempt,
         CancellationToken cancellationToken = default);
@@ -21,7 +23,7 @@ internal interface IDaemonLaunchAttemptStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The read result. </returns>
     ValueTask<DaemonLaunchAttemptReadResult> ReadLastFailureAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 
@@ -32,7 +34,7 @@ internal interface IDaemonLaunchAttemptStore
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The store operation result. </returns>
     ValueTask<DaemonLaunchAttemptStoreOperationResult> PruneAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         int keepCount,
         CancellationToken cancellationToken = default);

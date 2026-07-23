@@ -24,7 +24,7 @@ public sealed class PlayStatusServiceIpcStatusTests
         Assert.True(result.IsSuccess);
         var output = Assert.IsType<PlayStatusExecutionOutput>(result.Output);
         Assert.Equal(DaemonStatusKind.Running, output.DaemonStatus);
-        Assert.Equal(context.UnityProject.UnityProjectRoot, output.Project.ProjectPath);
+        Assert.Equal(context.UnityProject.UnityProjectRoot.Value, output.Project.ProjectPath);
         Assert.Equal(context.UnityProject.ProjectFingerprint, output.Project.ProjectFingerprint);
         Assert.Equal("6000.1.4f1", output.Project.UnityVersion);
         Assert.Equal("0.5.0", output.ServerVersion);

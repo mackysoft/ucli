@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.Versioning;
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -12,7 +13,7 @@ public sealed class FileExclusiveLockTests
     public async Task AcquireAsync_WhenOwnerRetainsSameLock_TimesOut ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "exclusive-lock-timeout");
-        var lockPath = Path.Combine(scope.FullPath, "session.lock");
+        var lockPath = AbsolutePath.Parse(Path.Combine(scope.FullPath, "session.lock"));
         using var owner = FileExclusiveLock.Acquire(
             lockPath,
             TimeSpan.FromSeconds(1),
@@ -26,7 +27,7 @@ public sealed class FileExclusiveLockTests
                 CancellationToken.None);
         });
 
-        Assert.Contains(lockPath, exception.Message, StringComparison.Ordinal);
+        Assert.Contains(lockPath.Value, exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -34,7 +35,7 @@ public sealed class FileExclusiveLockTests
     public async Task AcquireAsync_WhenWaitingIsCanceled_ReleasesWaiterForNextOwner ()
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "exclusive-lock-cancellation");
-        var lockPath = Path.Combine(scope.FullPath, "session.lock");
+        var lockPath = AbsolutePath.Parse(Path.Combine(scope.FullPath, "session.lock"));
         using var owner = FileExclusiveLock.Acquire(
             lockPath,
             TimeSpan.FromSeconds(1),
@@ -66,8 +67,8 @@ public sealed class FileExclusiveLockTests
     {
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "exclusive-lock-symlink");
         var targetPath = scope.WriteFile("target.txt", "target-contents");
-        var lockPath = scope.GetPath("session.lock");
-        if (!TestSymbolicLinks.TryCreateFile(lockPath, targetPath))
+        var lockPath = AbsolutePath.Parse(scope.GetPath("session.lock"));
+        if (!TestSymbolicLinks.TryCreateFile(lockPath.Value, targetPath))
         {
             return;
         }
@@ -94,18 +95,18 @@ public sealed class FileExclusiveLockTests
         }
 
         using var scope = TestDirectories.CreateTempScope("infrastructure-storage", "exclusive-lock-child-process");
-        var lockPath = Path.Combine(scope.FullPath, "session.lock");
+        var lockPath = AbsolutePath.Parse(Path.Combine(scope.FullPath, "session.lock"));
         using var owner = FileExclusiveLock.Acquire(
             lockPath,
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
 
-        var ownedResult = await RunLockfProbeAsync(lockfPath, truePath, lockPath);
+        var ownedResult = await RunLockfProbeAsync(lockfPath, truePath, lockPath.Value);
 
         Assert.NotEqual(0, ownedResult.ExitCode);
         owner.Dispose();
 
-        var releasedResult = await RunLockfProbeAsync(lockfPath, truePath, lockPath);
+        var releasedResult = await RunLockfProbeAsync(lockfPath, truePath, lockPath.Value);
 
         Assert.True(releasedResult.ExitCode == 0, releasedResult.StandardError);
     }

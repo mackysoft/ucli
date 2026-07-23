@@ -1,49 +1,37 @@
+using System.Diagnostics.CodeAnalysis;
 using MackySoft.Ucli.Contracts.Assurance.Build;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
-/// <summary> Resolves command-owned BuildPipeline output layouts from stable build target names. </summary>
-internal static class IpcBuildOutputLayoutResolver
+/// <summary> Resolves command-owned portable BuildPipeline output layouts from stable build target names. </summary>
+internal static class BuildPipelineOutputLayoutPolicy
 {
-    private const string PlayerDirectoryName = "player";
     private const string PlayerFileName = "Player";
     private const string PlayerAppBundleName = "Player.app";
     private const string WindowsPlayerFileName = "Player.exe";
     private const string AndroidPlayerFileName = "Player.apk";
     private const string AndroidPlayerAppBundleFileName = "Player.aab";
 
-    /// <summary> Tries to resolve the BuildPipeline output layout for the target. </summary>
-    /// <param name="outputDirectory"> The absolute runner working output root. </param>
+    /// <summary> Tries to resolve the portable BuildPipeline output layout for the target. </summary>
     /// <param name="buildTarget"> The uCLI build target stable name. </param>
     /// <param name="androidAppBundle"> <see langword="true" /> when the Android output is an App Bundle. Ignored for non-Android targets. </param>
     /// <param name="layout"> The resolved output layout when successful. </param>
     /// <returns> <see langword="true" /> when the target has a deterministic output layout; otherwise <see langword="false" />. </returns>
     public static bool TryResolve (
-        string outputDirectory,
         BuildTargetStableName buildTarget,
         bool androidAppBundle,
-        out IpcBuildOutputLayout? layout)
+        [NotNullWhen(true)] out BuildPipelineOutputLayoutDefinition? layout)
     {
         layout = null;
-        if (string.IsNullOrWhiteSpace(outputDirectory))
-        {
-            return false;
-        }
-
         if (!TryResolveShapeAndFileName(buildTarget, androidAppBundle, out var shape, out var fileName))
         {
             return false;
         }
 
-        layout = new IpcBuildOutputLayout(
-            Shape: shape,
-            LocationPathName: CombineProtocolPath(outputDirectory, PlayerDirectoryName, fileName));
+        layout = new BuildPipelineOutputLayoutDefinition(
+            shape,
+            new BuildRunnerOutputPath($"player/{fileName}"));
         return true;
-    }
-
-    private static string CombineProtocolPath (string root, string firstSegment, string secondSegment)
-    {
-        return string.Concat(PortablePathText.TrimTrailingDirectorySeparators(root), "/", firstSegment, "/", secondSegment);
     }
 
     private static bool TryResolveShapeAndFileName (

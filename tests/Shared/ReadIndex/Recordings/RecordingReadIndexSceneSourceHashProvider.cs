@@ -1,5 +1,5 @@
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.TestSupport;
 
@@ -34,15 +34,13 @@ internal sealed class RecordingReadIndexSceneSourceHashProvider : IReadIndexScen
     }
 
     public ValueTask<Sha256Digest?> TryComputeAsync (
-        ResolvedUnityProjectContext unityProject,
-        SceneAssetPath scenePath,
+        SceneTreeLiteSourcePaths sourcePaths,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentNullException.ThrowIfNull(scenePath);
+        ArgumentNullException.ThrowIfNull(sourcePaths);
         cancellationToken.ThrowIfCancellationRequested();
 
-        invocations.Add(new Invocation(unityProject, scenePath, cancellationToken));
+        invocations.Add(new Invocation(sourcePaths, cancellationToken));
         if (results.TryDequeue(out var result))
         {
             return ValueTask.FromResult(result);
@@ -57,7 +55,6 @@ internal sealed class RecordingReadIndexSceneSourceHashProvider : IReadIndexScen
     }
 
     internal readonly record struct Invocation (
-        ResolvedUnityProjectContext UnityProject,
-        SceneAssetPath ScenePath,
+        SceneTreeLiteSourcePaths SourcePaths,
         CancellationToken CancellationToken);
 }

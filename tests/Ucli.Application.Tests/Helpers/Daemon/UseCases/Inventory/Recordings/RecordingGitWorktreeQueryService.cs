@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Git;
 
 namespace MackySoft.Ucli.Application.Tests;
@@ -14,12 +15,12 @@ internal sealed class RecordingGitWorktreeQueryService : IGitWorktreeQueryServic
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
-    public IReadOnlyList<string> QueryPaths => invocations
+    public IReadOnlyList<AbsolutePath> QueryPaths => invocations
         .Select(static invocation => invocation.Path)
         .ToArray();
 
     public ValueTask<GitWorktreeQueryResult> GetWorktreeInfoAsync (
-        string path,
+        AbsolutePath path,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
@@ -29,7 +30,7 @@ internal sealed class RecordingGitWorktreeQueryService : IGitWorktreeQueryServic
     }
 
     internal readonly record struct Invocation (
-        string Path,
+        AbsolutePath Path,
         TimeSpan Timeout,
         CancellationToken CancellationToken);
 }

@@ -1,5 +1,5 @@
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
@@ -15,8 +15,7 @@ internal interface IReadIndexFreshnessEvaluator
 
     /// <summary> Observes freshness for one scene-tree-lite artifact without applying read-index mode constraints. </summary>
     ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLiteAsync (
-        ResolvedUnityProjectContext unityProject,
-        SceneAssetPath scenePath,
+        SceneTreeLiteSourcePaths sourcePaths,
         Sha256Digest persistedSourceInputsHash,
         CancellationToken cancellationToken = default);
 }

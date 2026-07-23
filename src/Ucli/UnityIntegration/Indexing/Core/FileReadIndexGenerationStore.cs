@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -35,8 +36,8 @@ internal sealed class FileReadIndexGenerationStore
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The immutable generation directory, or <see langword="null" /> before the first commit. </returns>
     /// <exception cref="InvalidDataException"> Thrown when the pointer does not identify a complete generation directory. </exception>
-    public async ValueTask<string?> ResolveCurrentDirectoryAsync (
-        string storageRoot,
+    public async ValueTask<AbsolutePath?> ResolveCurrentDirectoryAsync (
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken)
     {
@@ -64,7 +65,7 @@ internal sealed class FileReadIndexGenerationStore
     /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>
     /// <returns> The owned generation transaction. </returns>
     public async ValueTask<WriteTransaction> BeginWriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken)
     {
@@ -74,7 +75,7 @@ internal sealed class FileReadIndexGenerationStore
                 cancellationToken)
             .ConfigureAwait(false);
         var writeLockOwned = true;
-        string? stagingDirectoryPath = null;
+        AbsolutePath? stagingDirectoryPath = null;
         try
         {
             var currentDirectoryPath = await ResolveCurrentDirectoryAsync(
@@ -84,10 +85,11 @@ internal sealed class FileReadIndexGenerationStore
                 .ConfigureAwait(false);
             PruneAbandonedStagingDirectories(storageRoot, projectFingerprint);
 
-            var generationId = CreateAvailableGenerationId(
+            var allocation = CreateAvailableGeneration(
                 storageRoot,
-                projectFingerprint,
-                out stagingDirectoryPath);
+                projectFingerprint);
+            var generationId = allocation.GenerationId;
+            stagingDirectoryPath = allocation.StagingDirectoryPath;
             FileSystemAccessBoundary.EnsureSecureDirectory(stagingDirectoryPath);
             if (currentDirectoryPath != null)
             {
@@ -119,15 +121,14 @@ internal sealed class FileReadIndexGenerationStore
         }
     }
 
-    private static Guid CreateAvailableGenerationId (
-        string storageRoot,
-        ProjectFingerprint projectFingerprint,
-        out string stagingDirectoryPath)
+    private static (Guid GenerationId, AbsolutePath StagingDirectoryPath) CreateAvailableGeneration (
+        AbsolutePath storageRoot,
+        ProjectFingerprint projectFingerprint)
     {
         for (var attempt = 0; attempt < GenerationIdCreationAttemptLimit; attempt++)
         {
             var generationId = Guid.NewGuid();
-            stagingDirectoryPath = UcliStoragePathResolver.ResolveReadIndexStagingGenerationDirectory(
+            var stagingDirectoryPath = UcliStoragePathResolver.ResolveReadIndexStagingGenerationDirectory(
                 storageRoot,
                 projectFingerprint,
                 generationId);
@@ -135,27 +136,26 @@ internal sealed class FileReadIndexGenerationStore
                 storageRoot,
                 projectFingerprint,
                 generationId);
-            if (!File.Exists(stagingDirectoryPath)
-                && !Directory.Exists(stagingDirectoryPath)
-                && !File.Exists(generationDirectoryPath)
-                && !Directory.Exists(generationDirectoryPath))
+            if (!File.Exists(stagingDirectoryPath.Value)
+                && !Directory.Exists(stagingDirectoryPath.Value)
+                && !File.Exists(generationDirectoryPath.Value)
+                && !Directory.Exists(generationDirectoryPath.Value))
             {
-                return generationId;
+                return (generationId, stagingDirectoryPath);
             }
         }
 
-        stagingDirectoryPath = string.Empty;
         throw new IOException("A unique read-index generation identifier could not be allocated.");
     }
 
-    private static void ValidateCommittedGenerationDirectory (string generationDirectoryPath)
+    private static void ValidateCommittedGenerationDirectory (AbsolutePath generationDirectoryPath)
     {
-        if (!Directory.Exists(generationDirectoryPath))
+        if (!Directory.Exists(generationDirectoryPath.Value))
         {
             throw new InvalidDataException("The current read-index generation directory was not found.");
         }
 
-        var attributes = File.GetAttributes(generationDirectoryPath);
+        var attributes = File.GetAttributes(generationDirectoryPath.Value);
         if ((attributes & FileAttributes.Directory) == 0
             || (attributes & FileAttributes.ReparsePoint) != 0)
         {
@@ -164,25 +164,37 @@ internal sealed class FileReadIndexGenerationStore
     }
 
     private static void CopyGeneration (
-        string sourceDirectoryPath,
-        string destinationDirectoryPath)
+        AbsolutePath sourceDirectoryPath,
+        AbsolutePath destinationDirectoryPath)
     {
-        foreach (var sourcePath in Directory.EnumerateFileSystemEntries(sourceDirectoryPath, "*", SearchOption.TopDirectoryOnly))
+        ValidateCommittedGenerationDirectory(sourceDirectoryPath);
+        foreach (var rawSourcePath in Directory.EnumerateFileSystemEntries(
+                     sourceDirectoryPath.Value,
+                     "*",
+                     SearchOption.TopDirectoryOnly))
         {
-            var attributes = File.GetAttributes(sourcePath);
-            if (!FileSystemNodeClassifier.IsRegularFile(sourcePath, attributes))
+            if (!AbsolutePath.TryParse(rawSourcePath, out var sourcePath, out _)
+                || !ContainedPath.TryCreate(sourceDirectoryPath, sourcePath, out var containedSourcePath, out _))
+            {
+                throw new InvalidDataException("Read-index generation entry escaped its generation directory.");
+            }
+
+            var attributes = File.GetAttributes(containedSourcePath.Target.Value);
+            if (!FileSystemNodeClassifier.IsRegularFile(containedSourcePath.Target, attributes))
             {
                 throw new InvalidDataException("Read-index generations must contain regular files only.");
             }
 
-            var destinationPath = Path.Combine(destinationDirectoryPath, Path.GetFileName(sourcePath));
-            File.Copy(sourcePath, destinationPath, overwrite: false);
+            var destinationPath = ContainedPath.Create(
+                destinationDirectoryPath,
+                containedSourcePath.RelativePath).Target;
+            File.Copy(containedSourcePath.Target.Value, destinationPath.Value, overwrite: false);
             FileSystemAccessBoundary.EnsureSecureFile(destinationPath);
         }
     }
 
     private static void PruneAbandonedStagingDirectories (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint)
     {
         var stagingRootDirectoryPath = UcliStoragePathResolver.ResolveReadIndexStagingDirectory(
@@ -193,9 +205,16 @@ internal sealed class FileReadIndexGenerationStore
             return;
         }
 
-        foreach (var directoryPath in Directory.EnumerateDirectories(stagingRootDirectoryPath, "*", SearchOption.TopDirectoryOnly))
+        foreach (var rawDirectoryPath in Directory.EnumerateDirectories(
+                     stagingRootDirectoryPath.Value,
+                     "*",
+                     SearchOption.TopDirectoryOnly))
         {
-            TryDeleteOwnedDirectory(directoryPath);
+            if (AbsolutePath.TryParse(rawDirectoryPath, out var directoryPath, out _)
+                && ContainedPath.TryCreate(stagingRootDirectoryPath, directoryPath, out var containedDirectoryPath, out _))
+            {
+                TryDeleteOwnedDirectory(containedDirectoryPath.Target);
+            }
         }
     }
 
@@ -215,7 +234,7 @@ internal sealed class FileReadIndexGenerationStore
                 UcliStoragePathResolver.ResolveReadIndexGenerationsDirectory(
                     transaction.StorageRoot,
                     transaction.ProjectFingerprint));
-            Directory.Move(transaction.StagingDirectoryPath, generationDirectoryPath);
+            Directory.Move(transaction.StagingDirectoryPath.Value, generationDirectoryPath.Value);
             transaction.ReleaseStagingDirectoryOwnership();
             generationDirectoryOwned = true;
 
@@ -269,7 +288,7 @@ internal sealed class FileReadIndexGenerationStore
     }
 
     private async ValueTask PruneGenerationsAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint)
     {
         var generationsDirectoryPath = UcliStoragePathResolver.ResolveReadIndexGenerationsDirectory(
@@ -292,9 +311,8 @@ internal sealed class FileReadIndexGenerationStore
             }
 
             var generationDirectories = Directory
-                .EnumerateDirectories(generationsDirectoryPath, "*", SearchOption.TopDirectoryOnly)
-                .Select(static path => new DirectoryInfo(path))
-                .Select(static directory => TryGetOwnedGeneration(directory))
+                .EnumerateDirectories(generationsDirectoryPath.Value, "*", SearchOption.TopDirectoryOnly)
+                .Select(path => TryGetOwnedGeneration(generationsDirectoryPath, path))
                 .Where(static generation => generation.HasValue)
                 .Select(static generation => generation!.Value)
                 .ToArray();
@@ -381,7 +399,7 @@ internal sealed class FileReadIndexGenerationStore
     }
 
     private async ValueTask<Guid?> TryReadCurrentGenerationAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint)
     {
         try
@@ -416,7 +434,7 @@ internal sealed class FileReadIndexGenerationStore
     }
 
     private async ValueTask<bool> HasDeletionGracePeriodElapsedAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         Guid generationId)
     {
@@ -478,8 +496,17 @@ internal sealed class FileReadIndexGenerationStore
         return nowUtcTicks - eligibleSinceUtcTicks >= GenerationDeletionGracePeriod.Ticks;
     }
 
-    private static GenerationDirectory? TryGetOwnedGeneration (DirectoryInfo directory)
+    private static GenerationDirectory? TryGetOwnedGeneration (
+        AbsolutePath expectedParent,
+        string rawDirectoryPath)
     {
+        if (!AbsolutePath.TryParse(rawDirectoryPath, out var directoryPath, out _)
+            || !ContainedPath.TryCreate(expectedParent, directoryPath, out var containedDirectory, out _))
+        {
+            return null;
+        }
+
+        var directory = new DirectoryInfo(containedDirectory.Target.Value);
         if (!StoragePathSegmentCodec.TryDecodeNonEmptyGuid(directory.Name, out var generationId))
         {
             return null;
@@ -503,41 +530,57 @@ internal sealed class FileReadIndexGenerationStore
 
         return new GenerationDirectory(
             generationId,
-            directory.FullName,
+            containedDirectory.Target,
             directory.LastWriteTimeUtc);
     }
 
-    private static bool IsRegularDirectory (string directoryPath)
+    private static bool IsRegularDirectory (AbsolutePath directoryPath)
     {
-        if (!Directory.Exists(directoryPath))
+        if (!Directory.Exists(directoryPath.Value))
         {
             return false;
         }
 
-        var attributes = File.GetAttributes(directoryPath);
+        var attributes = File.GetAttributes(directoryPath.Value);
         return (attributes & FileAttributes.Directory) != 0
             && (attributes & FileAttributes.ReparsePoint) == 0;
     }
 
-    private static bool TryDeleteOwnedDirectory (string directoryPath)
+    private static bool TryDeleteOwnedDirectory (AbsolutePath directoryPath)
     {
         try
         {
-            var directory = new DirectoryInfo(directoryPath);
-            if (TryGetOwnedGeneration(directory) == null)
+            var directory = new DirectoryInfo(directoryPath.Value);
+            if (!StoragePathSegmentCodec.TryDecodeNonEmptyGuid(directory.Name, out _))
             {
                 return false;
             }
 
-            var entryPaths = Directory.EnumerateFileSystemEntries(
-                    directoryPath,
+            var directoryAttributes = directory.Attributes;
+            if ((directoryAttributes & FileAttributes.Directory) == 0
+                || (directoryAttributes & FileAttributes.ReparsePoint) != 0)
+            {
+                return false;
+            }
+
+            var rawEntryPaths = Directory
+                .EnumerateFileSystemEntries(
+                    directoryPath.Value,
                     "*",
                     SearchOption.TopDirectoryOnly)
                 .ToArray();
-            foreach (var entryPath in entryPaths)
+            var entryPaths = new AbsolutePath[rawEntryPaths.Length];
+            for (var index = 0; index < rawEntryPaths.Length; index++)
             {
-                var attributes = File.GetAttributes(entryPath);
-                if (!FileSystemNodeClassifier.IsRegularFile(entryPath, attributes))
+                if (!AbsolutePath.TryParse(rawEntryPaths[index], out var entryPath, out _)
+                    || !ContainedPath.TryCreate(directoryPath, entryPath, out var containedEntryPath, out _))
+                {
+                    return false;
+                }
+
+                entryPaths[index] = containedEntryPath.Target;
+                var attributes = File.GetAttributes(entryPaths[index].Value);
+                if (!FileSystemNodeClassifier.IsRegularFile(entryPaths[index], attributes))
                 {
                     return false;
                 }
@@ -546,10 +589,10 @@ internal sealed class FileReadIndexGenerationStore
             foreach (var entryPath in entryPaths)
             {
                 FileUtilities.EnsureRegularFile(entryPath, "Read-index generation artifact");
-                File.Delete(entryPath);
+                File.Delete(entryPath.Value);
             }
 
-            Directory.Delete(directoryPath, recursive: false);
+            Directory.Delete(directoryPath.Value, recursive: false);
             return true;
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
@@ -560,7 +603,7 @@ internal sealed class FileReadIndexGenerationStore
     }
 
     private static void TryDeleteOwnedRetentionMarker (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         Guid generationId)
     {
@@ -570,19 +613,19 @@ internal sealed class FileReadIndexGenerationStore
             generationId);
         try
         {
-            if (!File.Exists(markerPath) && !Directory.Exists(markerPath))
+            if (!File.Exists(markerPath.Value) && !Directory.Exists(markerPath.Value))
             {
                 return;
             }
 
-            if (!StoragePathSegmentCodec.TryDecodeNonEmptyGuid(Path.GetFileName(markerPath), out var markerGenerationId)
+            if (!StoragePathSegmentCodec.TryDecodeNonEmptyGuid(Path.GetFileName(markerPath.Value), out var markerGenerationId)
                 || markerGenerationId != generationId)
             {
                 return;
             }
 
             FileUtilities.EnsureRegularFile(markerPath, "Read-index retention marker");
-            File.Delete(markerPath);
+            File.Delete(markerPath.Value);
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -592,7 +635,7 @@ internal sealed class FileReadIndexGenerationStore
 
     private readonly record struct GenerationDirectory (
         Guid GenerationId,
-        string FullName,
+        AbsolutePath FullName,
         DateTime LastWriteTimeUtc);
 
     /// <summary> Owns one staged generation and the project writer lock until commit or disposal. </summary>
@@ -608,10 +651,10 @@ internal sealed class FileReadIndexGenerationStore
 
         internal WriteTransaction (
             FileReadIndexGenerationStore owner,
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             Guid generationId,
-            string stagingDirectoryPath,
+            AbsolutePath stagingDirectoryPath,
             FileExclusiveLock writeLock)
         {
             this.owner = owner;
@@ -622,14 +665,14 @@ internal sealed class FileReadIndexGenerationStore
             this.writeLock = writeLock;
         }
 
-        internal string StorageRoot { get; }
+        internal AbsolutePath StorageRoot { get; }
 
         internal ProjectFingerprint ProjectFingerprint { get; }
 
         internal Guid GenerationId { get; }
 
         /// <summary> Gets the owned mutable staging directory cloned from the current generation. </summary>
-        public string StagingDirectoryPath { get; }
+        public AbsolutePath StagingDirectoryPath { get; }
 
         /// <summary> Publishes this staged directory as the complete current generation. </summary>
         /// <param name="cancellationToken"> The cancellation token propagated by the caller. </param>

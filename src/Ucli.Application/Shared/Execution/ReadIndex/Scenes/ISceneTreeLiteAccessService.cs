@@ -20,4 +20,17 @@ internal interface ISceneTreeLiteAccessService
         int? depth,
         bool failFast = false,
         CancellationToken cancellationToken = default);
+
+    /// <summary> Reads scene-tree-lite data for one scene path already known to identify an Assets scene. </summary>
+    ValueTask<SceneTreeLiteReadResult> ReadAsync (
+        ResolvedUnityProjectContext project,
+        UcliConfig config,
+        UcliCommand command,
+        UnityExecutionModeValue mode,
+        TimeSpan timeout,
+        ReadIndexMode readIndexMode,
+        SceneAssetPath scenePath,
+        int? depth,
+        bool failFast = false,
+        CancellationToken cancellationToken = default);
 }

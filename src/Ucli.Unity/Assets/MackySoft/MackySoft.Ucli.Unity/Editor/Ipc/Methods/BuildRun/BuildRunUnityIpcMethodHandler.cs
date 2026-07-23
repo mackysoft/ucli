@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Assurance.Build;
@@ -17,6 +18,7 @@ using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.Unity.Build;
+using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEngine;
 
@@ -45,7 +47,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private readonly IEditorLogRangeExporter editorLogRangeExporter;
 
-        private readonly IpcProjectIdentity projectIdentity;
+        private readonly UnityHostProjectIdentity projectIdentity;
 
         private readonly UnityLogRedactionScopeProvider unityLogRedactionScopeProvider;
 
@@ -64,7 +66,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             IUnityBuildProfileBuildRunner buildProfileBuildRunner,
             BuildExecuteMethodRunner executeMethodRunner,
             IEditorLogRangeExporter editorLogRangeExporter,
-            IpcProjectIdentity projectIdentity,
+            UnityHostProjectIdentity projectIdentity,
             UnityLogRedactionScopeProvider unityLogRedactionScopeProvider,
             IUnityLogStream unityLogStream,
             IUnityMutationLaneControl mutationLaneControl,
@@ -106,7 +108,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return errorResponse!;
             }
 
-            var executionRequest = BuildRunExecutionRequest.Create(buildRunRequest!);
+            var executionRequest = TryCreateExecutionRequest(
+                request,
+                buildRunRequest!,
+                out var pathErrorResponse);
+            if (executionRequest == null)
+            {
+                return pathErrorResponse!;
+            }
+
             return await HandleDecodedAsync(
                 request,
                 executionRequest,
@@ -139,7 +149,15 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return errorResponse!;
             }
 
-            var executionRequest = BuildRunExecutionRequest.Create(buildRunRequest!);
+            var executionRequest = TryCreateExecutionRequest(
+                request,
+                buildRunRequest!,
+                out var pathErrorResponse);
+            if (executionRequest == null)
+            {
+                return pathErrorResponse!;
+            }
+
             return await HandleDecodedAsync(
                 request,
                 executionRequest,
@@ -148,6 +166,27 @@ namespace MackySoft.Ucli.Unity.Ipc
                     executionRequest.RunId,
                     executionCancellationToken),
                 cancellation);
+        }
+
+        private static BuildRunExecutionRequest? TryCreateExecutionRequest (
+            ValidatedUnityIpcRequest request,
+            IpcBuildRunRequest buildRunRequest,
+            out IpcResponse? errorResponse)
+        {
+            try
+            {
+                errorResponse = null;
+                return BuildRunExecutionRequest.Create(buildRunRequest);
+            }
+            catch (PathValidationException exception)
+            {
+                errorResponse = UnityIpcResponseFactory.CreateErrorResponse(
+                    request,
+                    UcliCoreErrorCodes.InvalidArgument,
+                    $"Build request path is invalid. {exception.Failure.Message}",
+                    null);
+                return null;
+            }
         }
 
         private async ValueTask<IpcResponse> HandleDecodedAsync (
@@ -171,12 +210,13 @@ namespace MackySoft.Ucli.Unity.Ipc
             UnityBuildPreconditionProbeResult? precondition = null;
             IpcUnityBuildProfileInput? unityBuildProfile = null;
             UnityIpcBuildRunProgressSink? progressSink = null;
+            var projectPath = projectIdentity.ProjectPath;
             try
             {
                 var executionCancellationToken = cancellation.Token;
                 progressSink = progressSinkFactory?.Invoke(executionCancellationToken);
                 UnityBuildPreconditionInput preconditionInput;
-                IpcBuildOutputLayout? outputLayout;
+                ResolvedBuildPipelineOutputLayout? outputLayout;
                 if (executionRequest is BuildRunExecutionRequest.UnityBuildProfile unityBuildProfileRequest)
                 {
                     var profileResolution = await buildProfileInputResolver.ResolveAsync(
@@ -236,7 +276,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 FileSystemAccessBoundary.EnsureSecureDirectory(executionRequest.OutputPath);
                 if (outputLayout != null)
                 {
-                    EnsureBuildPipelineOutputLayoutReady(outputLayout);
+                    EnsureBuildPipelineOutputLayoutReady(outputLayout.LocationPath);
                 }
 
                 if (executeMethodRequest == null)
@@ -250,14 +290,14 @@ namespace MackySoft.Ucli.Unity.Ipc
                         runnerStatus: null);
                 }
 
-                var logSourcePath = Application.consoleLogPath;
+                AbsolutePath.TryParse(Application.consoleLogPath, out var logSourcePath, out _);
                 var logStartOffset = GetLogLength(logSourcePath);
                 var logStartSnapshot = unityLogStream.Snapshot();
                 using var unityLogRedactionScope = executeMethodRequest != null
                     ? unityLogRedactionScopeProvider.BeginScope(executeMethodRequest.RunnerEnvironmentSecretValues.Values)
                     : null;
                 var startedAtUtc = DateTimeOffset.UtcNow;
-                var mutationBaseline = projectMutationAuditProbe.CaptureBaseline(projectIdentity.ProjectPath);
+                var mutationBaseline = projectMutationAuditProbe.CaptureBaseline(projectPath);
                 executionCancellationToken.ThrowIfCancellationRequested();
                 IpcBuildRunnerResultArtifact? runnerResult = null;
                 IpcBuildReportArtifact? normalizedReport = null;
@@ -269,7 +309,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     {
                         var invocationResult = executeMethodRunner.Run(
                             executeMethodRequest,
-                            projectIdentity,
+                            projectIdentity.IpcIdentity,
                             resolvedInput,
                             new BuildRunExecuteMethodProgressSink(progressSink, executeMethodRequest));
                         if (!invocationResult.IsSuccess)
@@ -343,7 +383,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 }
 
                 var projectMutation = projectMutationAuditProbe.Complete(
-                    projectIdentity.ProjectPath,
+                    projectPath,
                     executionRequest.ProjectMutationMode,
                     mutationBaseline);
                 var logEndOffset = GetLogLength(logSourcePath);
@@ -398,7 +438,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                     LifecycleAfter: lifecycleAfter,
                     DirtyState: precondition.DirtyState!,
                     Input: precondition.InputProbe!,
-                    OutputLayout: outputLayout,
+                    OutputLayout: outputLayout?.ToContract(),
                     UnityBuildProfile: unityBuildProfile,
                     Report: normalizedReport,
                     Logs: logs,
@@ -674,15 +714,15 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private async Task<EditorLogRangeExportResult> ExportBuildLogAsync (
-            string sourcePath,
-            string destinationPath,
+            AbsolutePath? sourcePath,
+            AbsolutePath destinationPath,
             long startOffset,
             long endOffset,
             IReadOnlyDictionary<string, string>? sensitiveValues,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (string.IsNullOrWhiteSpace(sourcePath) || !File.Exists(sourcePath))
+            if (sourcePath == null || !File.Exists(sourcePath.Value))
             {
                 await WriteTextAtomicallyAsync(destinationPath, string.Empty, cancellationToken).ConfigureAwait(false);
                 return new EditorLogRangeExportResult(0, 0, 0);
@@ -729,7 +769,7 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         internal static bool TryValidateRequest (
             BuildRunExecutionRequest request,
-            IpcProjectIdentity projectIdentity,
+            UnityHostProjectIdentity projectIdentity,
             out string? errorMessage)
         {
             if (request == null)
@@ -753,9 +793,9 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (!PathEquals(request.OutputPath, expectedOutputPath!)
-                || !PathEquals(request.BuildReportPath, expectedBuildReportPath!)
-                || !PathEquals(request.BuildLogPath, expectedBuildLogPath!))
+            if (!request.OutputPath.IsSameAs(expectedOutputPath!)
+                || !request.BuildReportPath.IsSameAs(expectedBuildReportPath!)
+                || !request.BuildLogPath.IsSameAs(expectedBuildLogPath!))
             {
                 errorMessage = "Build output and artifact paths must match the expected uCLI build artifact layout.";
                 return false;
@@ -768,8 +808,7 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
 
             var buildTarget = buildPipelineRequest.BuildTarget;
-            if (!IpcBuildOutputLayoutResolver.TryResolve(
-                expectedOutputPath!,
+            if (!BuildPipelineOutputLayoutPolicy.TryResolve(
                 buildTarget,
                 androidAppBundle: false,
                 out var expectedOutputLayout))
@@ -778,8 +817,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 return false;
             }
 
-            if (buildPipelineRequest.OutputLayout.Shape != expectedOutputLayout!.Shape
-                || !PathEquals(buildPipelineRequest.OutputLayout.LocationPathName, expectedOutputLayout.LocationPathName))
+            var expectedOutputLocation = ContainedPath.Create(
+                expectedOutputPath!,
+                BuildRunnerOutputPathAdapter.ToRootRelativePath(expectedOutputLayout.RunnerOutputPath));
+
+            if (buildPipelineRequest.OutputLayout.Shape != expectedOutputLayout.Shape
+                || !buildPipelineRequest.OutputLayout.LocationPath.IsSameAs(expectedOutputLocation.Target))
             {
                 errorMessage = "Build outputLayout must match the expected uCLI build artifact layout.";
                 return false;
@@ -791,10 +834,10 @@ namespace MackySoft.Ucli.Unity.Ipc
 
         private static bool TryResolveExpectedArtifactPaths (
             Guid runId,
-            IpcProjectIdentity projectIdentity,
-            out string? expectedOutputPath,
-            out string? expectedBuildReportPath,
-            out string? expectedBuildLogPath,
+            UnityHostProjectIdentity projectIdentity,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out AbsolutePath? expectedOutputPath,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out AbsolutePath? expectedBuildReportPath,
+            [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out AbsolutePath? expectedBuildLogPath,
             out string? errorMessage)
         {
             expectedOutputPath = null;
@@ -810,12 +853,12 @@ namespace MackySoft.Ucli.Unity.Ipc
                 expectedOutputPath = UcliStoragePathResolver.ResolveBuildRunOutputDirectory(
                     storageRoot,
                     runId);
-                expectedBuildReportPath = Path.GetFullPath(Path.Combine(
+                expectedBuildReportPath = ContainedPath.Create(
                     expectedArtifactsDirectory,
-                    UcliStoragePathNames.BuildReportFileName));
-                expectedBuildLogPath = Path.GetFullPath(Path.Combine(
+                    RootRelativePath.Parse(UcliStoragePathNames.BuildReportFileName)).Target;
+                expectedBuildLogPath = ContainedPath.Create(
                     expectedArtifactsDirectory,
-                    UcliStoragePathNames.BuildLogFileName));
+                    RootRelativePath.Parse(UcliStoragePathNames.BuildLogFileName)).Target;
                 errorMessage = null;
                 return true;
             }
@@ -826,82 +869,56 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        private static bool PathEquals (
-            string actualPath,
-            string expectedPath)
+        private static void EnsureBuildPipelineOutputLayoutReady (AbsolutePath outputPath)
         {
-            if (string.IsNullOrWhiteSpace(actualPath))
+            if (outputPath == null)
             {
-                return false;
+                throw new ArgumentNullException(nameof(outputPath));
             }
 
-            if (!Path.IsPathFullyQualified(actualPath))
-            {
-                return false;
-            }
-
-            try
-            {
-                return PathIdentity.IsSamePath(actualPath, expectedPath);
-            }
-            catch (Exception exception) when (exception is ArgumentException or IOException or NotSupportedException)
-            {
-                return false;
-            }
-        }
-
-        private static void EnsureBuildPipelineOutputLayoutReady (IpcBuildOutputLayout outputLayout)
-        {
-            if (outputLayout == null)
-            {
-                throw new InvalidOperationException("BuildPipeline outputLayout must be specified.");
-            }
-
-            var parentDirectory = Path.GetDirectoryName(outputLayout.LocationPathName);
-            if (string.IsNullOrWhiteSpace(parentDirectory))
+            if (!outputPath.TryGetParent(out var parentDirectory))
             {
                 throw new InvalidOperationException(
-                    $"BuildPipeline output parent directory could not be resolved: {outputLayout.LocationPathName}");
+                    $"BuildPipeline output parent directory could not be resolved: {outputPath.Value}");
             }
 
             FileSystemAccessBoundary.EnsureSecureDirectory(parentDirectory);
-            EnsureBuildPipelineOutputTargetDoesNotExist(outputLayout.LocationPathName);
+            EnsureBuildPipelineOutputTargetDoesNotExist(outputPath);
         }
 
-        private static void EnsureBuildPipelineOutputTargetDoesNotExist (string locationPathName)
+        private static void EnsureBuildPipelineOutputTargetDoesNotExist (AbsolutePath locationPath)
         {
-            if (!File.Exists(locationPathName) && !Directory.Exists(locationPathName))
+            if (!File.Exists(locationPath.Value) && !Directory.Exists(locationPath.Value))
             {
                 return;
             }
 
-            var attributes = File.GetAttributes(locationPathName);
+            var attributes = File.GetAttributes(locationPath.Value);
             if ((attributes & FileAttributes.ReparsePoint) != 0)
             {
-                throw new IOException($"BuildPipeline output target must not be a reparse point: {locationPathName}");
+                throw new IOException($"BuildPipeline output target must not be a reparse point: {locationPath.Value}");
             }
 
-            throw new IOException($"BuildPipeline output target already exists: {locationPathName}");
+            throw new IOException($"BuildPipeline output target already exists: {locationPath.Value}");
         }
 
-        private static long GetLogLength (string path)
+        private static long GetLogLength (AbsolutePath? path)
         {
-            if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            if (path == null || !File.Exists(path.Value))
             {
                 return 0;
             }
 
-            return new FileInfo(path).Length;
+            return new FileInfo(path.Value).Length;
         }
 
         private static async Task WriteJsonAtomicallyAsync<T> (
-            string path,
+            AbsolutePath path,
             T value,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var directoryPath = Path.GetDirectoryName(path);
-            if (string.IsNullOrWhiteSpace(directoryPath))
+            if (!path.TryGetParent(out var directoryPath))
             {
                 throw new InvalidOperationException($"Artifact directory path could not be resolved: {path}");
             }
@@ -940,13 +957,12 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         private static async Task WriteTextAtomicallyAsync (
-            string path,
+            AbsolutePath path,
             string value,
             CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var directoryPath = Path.GetDirectoryName(path);
-            if (string.IsNullOrWhiteSpace(directoryPath))
+            if (!path.TryGetParent(out var directoryPath))
             {
                 throw new InvalidOperationException($"Artifact directory path could not be resolved: {path}");
             }

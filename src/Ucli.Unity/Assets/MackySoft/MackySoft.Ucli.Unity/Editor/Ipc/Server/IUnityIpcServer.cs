@@ -1,22 +1,20 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
 {
     /// <summary> Starts and stops Unity-side IPC listener lifecycles. </summary>
     internal interface IUnityIpcServer
     {
-        /// <summary> Starts the server listener for the specified endpoint. </summary>
-        /// <param name="endpoint"> The endpoint definition used by server binding. Must not be <see langword="null" />, and its address must not be empty or whitespace. </param>
+        /// <summary> Starts the server listener for the specified guarded endpoint binding. </summary>
+        /// <param name="endpointBinding"> The runtime endpoint binding used by the transport listener. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> A task that produces the listener generation fence required before durable endpoint publication. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="endpoint" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when endpoint address is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="endpointBinding" /> is <see langword="null" />. </exception>
         /// <exception cref="InvalidOperationException"> Thrown when a listener is already active or a prior listener generation did not terminate safely. </exception>
         Task<IUnityIpcServerPublicationFence> StartAsync (
-            IpcEndpoint endpoint,
+            UnityIpcEndpointBinding endpointBinding,
             CancellationToken cancellationToken = default);
 
         /// <summary> Stops the server listener and releases endpoint resources. </summary>

@@ -1,9 +1,11 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Testing;
@@ -189,9 +191,14 @@ namespace MackySoft.Ucli.Unity.Tests
                 testFilter: null,
                 testCategories: Array.Empty<string>(),
                 assemblyNames: Array.Empty<string>(),
-                resultsXmlPath: "/tmp/results.xml",
-                editorLogPath: "/tmp/editor.log",
-                consoleLogPath: "/tmp/console.log");
+                resultsXmlPath: CreateAbsolutePath("results.xml"),
+                editorLogPath: CreateAbsolutePath("editor.log"),
+                consoleLogPath: CreateAbsolutePath("console.log"));
+        }
+
+        private static AbsolutePath CreateAbsolutePath (string fileName)
+        {
+            return AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-unity-test-run-service", fileName));
         }
 
         private sealed class StubUnityTestRunRequestContextFactory : IUnityTestRunRequestContextFactory
@@ -237,7 +244,7 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public void Write (
                 ITestResultAdaptor testResult,
-                string resultsXmlPath)
+                AbsolutePath resultsXmlPath)
             {
                 CallCount++;
             }
@@ -245,16 +252,16 @@ namespace MackySoft.Ucli.Unity.Tests
 
         private sealed class SpyEditorLogRangeExporter : IEditorLogRangeExporter
         {
-            private readonly List<(string SourcePath, string DestinationPath, long StartOffset, long EndOffset)> invocations =
-                new List<(string SourcePath, string DestinationPath, long StartOffset, long EndOffset)>();
+            private readonly List<(AbsolutePath SourcePath, AbsolutePath DestinationPath, long StartOffset, long EndOffset)> invocations =
+                new List<(AbsolutePath SourcePath, AbsolutePath DestinationPath, long StartOffset, long EndOffset)>();
 
             public int CallCount { get; private set; }
 
-            public IReadOnlyList<(string SourcePath, string DestinationPath, long StartOffset, long EndOffset)> Invocations => invocations;
+            public IReadOnlyList<(AbsolutePath SourcePath, AbsolutePath DestinationPath, long StartOffset, long EndOffset)> Invocations => invocations;
 
             public Task<EditorLogRangeExportResult> ExportRangeAsync (
-                string sourcePath,
-                string destinationPath,
+                AbsolutePath sourcePath,
+                AbsolutePath destinationPath,
                 long startOffset,
                 long endOffset,
                 IEnumerable<string>? redactionValues = null,

@@ -1,4 +1,5 @@
 using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
 namespace MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -18,46 +19,46 @@ internal sealed class StubIpcTransportClient : IIpcTransportClient
     public List<StubIpcTransportInvocation> Invocations { get; } = [];
 
     public ValueTask<IpcResponse> SendAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
-        Invocations.Add(new StubIpcTransportInvocation(endpoint, request, timeout, UsesUnboundedResponseWait: false));
+        Invocations.Add(new StubIpcTransportInvocation(endpoint.Contract, request, timeout, UsesUnboundedResponseWait: false));
         if (SendHandler == null)
         {
             throw new InvalidOperationException("Stub IPC transport handler is not configured.");
         }
 
-        return SendHandler(endpoint, request, timeout, cancellationToken);
+        return SendHandler(endpoint.Contract, request, timeout, cancellationToken);
     }
 
     public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         CancellationToken cancellationToken = default)
     {
-        Invocations.Add(new StubIpcTransportInvocation(endpoint, request, sendTimeout, UsesUnboundedResponseWait: true));
+        Invocations.Add(new StubIpcTransportInvocation(endpoint.Contract, request, sendTimeout, UsesUnboundedResponseWait: true));
         if (SendHandler == null)
         {
             throw new InvalidOperationException("Stub IPC transport handler is not configured.");
         }
 
-        return SendHandler(endpoint, request, sendTimeout, cancellationToken);
+        return SendHandler(endpoint.Contract, request, sendTimeout, cancellationToken);
     }
 
     public ValueTask<IpcResponse> SendStreamingAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
     {
-        Invocations.Add(new StubIpcTransportInvocation(endpoint, request, timeout, UsesUnboundedResponseWait: false));
+        Invocations.Add(new StubIpcTransportInvocation(endpoint.Contract, request, timeout, UsesUnboundedResponseWait: false));
         if (StreamingHandler != null)
         {
-            return StreamingHandler(endpoint, request, timeout, onProgressFrame, cancellationToken);
+            return StreamingHandler(endpoint.Contract, request, timeout, onProgressFrame, cancellationToken);
         }
 
         if (SendHandler == null)
@@ -65,20 +66,20 @@ internal sealed class StubIpcTransportClient : IIpcTransportClient
             throw new InvalidOperationException("Stub IPC transport handler is not configured.");
         }
 
-        return SendHandler(endpoint, request, timeout, cancellationToken);
+        return SendHandler(endpoint.Contract, request, timeout, cancellationToken);
     }
 
     public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
         CancellationToken cancellationToken = default)
     {
-        Invocations.Add(new StubIpcTransportInvocation(endpoint, request, sendTimeout, UsesUnboundedResponseWait: true));
+        Invocations.Add(new StubIpcTransportInvocation(endpoint.Contract, request, sendTimeout, UsesUnboundedResponseWait: true));
         if (StreamingHandler != null)
         {
-            return StreamingHandler(endpoint, request, sendTimeout, onProgressFrame, cancellationToken);
+            return StreamingHandler(endpoint.Contract, request, sendTimeout, onProgressFrame, cancellationToken);
         }
 
         if (SendHandler == null)
@@ -86,6 +87,6 @@ internal sealed class StubIpcTransportClient : IIpcTransportClient
             throw new InvalidOperationException("Stub IPC transport handler is not configured.");
         }
 
-        return SendHandler(endpoint, request, sendTimeout, cancellationToken);
+        return SendHandler(endpoint.Contract, request, sendTimeout, cancellationToken);
     }
 }

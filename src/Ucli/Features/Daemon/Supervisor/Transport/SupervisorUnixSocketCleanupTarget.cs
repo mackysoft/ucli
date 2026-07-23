@@ -1,6 +1,6 @@
 using System.Text;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Transport;
 
@@ -9,30 +9,20 @@ internal sealed class SupervisorUnixSocketCleanupTarget
 {
     /// <summary> Initializes one validated Unix-domain socket cleanup target. </summary>
     /// <param name="socketPath"> The fully qualified canonical socket path. </param>
-    public SupervisorUnixSocketCleanupTarget (string socketPath)
+    public SupervisorUnixSocketCleanupTarget (AbsolutePath socketPath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(socketPath);
-        if (!Path.IsPathFullyQualified(socketPath))
-        {
-            throw new ArgumentException("Supervisor Unix socket cleanup path must be fully qualified.", nameof(socketPath));
-        }
+        ArgumentNullException.ThrowIfNull(socketPath);
 
-        var pathResult = PathNormalizer.TryNormalizeFullPath(socketPath);
-        if (!pathResult.IsSuccess)
-        {
-            throw new ArgumentException(pathResult.DiagnosticMessage, nameof(socketPath));
-        }
-
-        if (Encoding.UTF8.GetByteCount(pathResult.FullPath!) > IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
+        if (Encoding.UTF8.GetByteCount(socketPath.Value) > IpcTransportConstraints.UnixDomainSocketPathMaxBytes)
         {
             throw new ArgumentException(
                 "Supervisor Unix socket cleanup path exceeds the transport path limit.",
                 nameof(socketPath));
         }
 
-        SocketPath = pathResult.FullPath!;
+        SocketPath = socketPath;
     }
 
     /// <summary> Gets the fully qualified canonical Unix-domain socket path. </summary>
-    public string SocketPath { get; }
+    public AbsolutePath SocketPath { get; }
 }

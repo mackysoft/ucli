@@ -1,7 +1,6 @@
-using MackySoft.Ucli.Application.Shared.Context.Project;
 using MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Index;
 
 namespace MackySoft.Ucli.UnityIntegration.Indexing.Core;
@@ -19,12 +18,13 @@ internal sealed class InfrastructureReadIndexSceneSourceHashProvider : IReadInde
 
     /// <inheritdoc />
     public ValueTask<Sha256Digest?> TryComputeAsync (
-        ResolvedUnityProjectContext unityProject,
-        SceneAssetPath scenePath,
+        SceneTreeLiteSourcePaths sourcePaths,
         CancellationToken cancellationToken = default)
     {
-        ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentNullException.ThrowIfNull(scenePath);
-        return sourceHashCalculator.TryComputeAsync(unityProject.UnityProjectRoot, scenePath, cancellationToken);
+        ArgumentNullException.ThrowIfNull(sourcePaths);
+        return sourceHashCalculator.TryComputeAsync(
+            sourcePaths.SceneFilePath,
+            sourcePaths.MetaFilePath,
+            cancellationToken);
     }
 }

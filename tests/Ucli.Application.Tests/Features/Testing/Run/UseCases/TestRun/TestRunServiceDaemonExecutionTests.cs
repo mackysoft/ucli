@@ -300,9 +300,9 @@ public sealed class TestRunServiceDaemonExecutionTests
             "Failed to execute Unity daemon IPC request. Pipe is broken.";
         var daemonTestRunClient = new RecordingDaemonTestRunClient((_, artifactPaths, _, _, _) =>
         {
-            Directory.CreateDirectory(artifactPaths.ArtifactsDir);
-            File.WriteAllText(artifactPaths.ResultsXmlPath, "<test-run />");
-            File.WriteAllText(artifactPaths.EditorLogPath, string.Empty);
+            Directory.CreateDirectory(artifactPaths.ArtifactsDir.Value);
+            File.WriteAllText(artifactPaths.ResultsXmlPath.Value, "<test-run />");
+            File.WriteAllText(artifactPaths.EditorLogPath.Value, string.Empty);
             return ValueTask.FromResult(UnityTestExecutionResult.Failure(
                 UnityTestExecutionFailureKind.IpcTransportInterrupted,
                 failureMessage,

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -211,7 +212,7 @@ public sealed class UcliStoragePathResolverArtifactContractTests
     [Trait("Size", "Small")]
     public void ScreenshotCapturePathResolvers_WithEmptyCaptureId_ThrowArgumentException ()
     {
-        Func<Guid, string>[] resolvers =
+        Func<Guid, AbsolutePath>[] resolvers =
         [
             static captureId => UcliStoragePathResolver.ResolveScreenshotCaptureArtifactsDirectory(
                 UcliStoragePathResolverTestSupport.StorageRoot,
@@ -267,7 +268,7 @@ public sealed class UcliStoragePathResolverArtifactContractTests
     [Trait("Size", "Small")]
     public void LaunchAttemptPathResolvers_WithEmptyLaunchAttemptId_ThrowArgumentException ()
     {
-        Func<Guid, string>[] resolvers =
+        Func<Guid, AbsolutePath>[] resolvers =
         [
             static launchAttemptId => UcliStoragePathResolver.ResolveLaunchAttemptDirectory(
                 UcliStoragePathResolverTestSupport.StorageRoot,
@@ -309,7 +310,7 @@ public sealed class UcliStoragePathResolverArtifactContractTests
     [Trait("Size", "Small")]
     public void BuildRunPathResolvers_WithEmptyRunId_ThrowArgumentException ()
     {
-        Func<Guid, string>[] resolvers =
+        Func<Guid, AbsolutePath>[] resolvers =
         [
             static runId => UcliStoragePathResolver.ResolveBuildRunDirectory(
                 UcliStoragePathResolverTestSupport.StorageRoot,

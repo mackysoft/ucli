@@ -1,4 +1,5 @@
 using System.Text.Json.Nodes;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.LaunchAttempts;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.LaunchAttempts;
@@ -21,8 +22,8 @@ public sealed class DaemonLaunchAttemptStoreReadTests
             scope.FullPath,
             DaemonStartupStatus.Blocked);
 
-        var writeResult = await store.WriteFailureAsync(scope.FullPath, ProjectFingerprint, attempt, CancellationToken.None);
-        var readResult = await store.ReadLastFailureAsync(scope.FullPath, ProjectFingerprint, CancellationToken.None);
+        var writeResult = await store.WriteFailureAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprint, attempt, CancellationToken.None);
+        var readResult = await store.ReadLastFailureAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprint, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
         Assert.True(readResult.IsSuccess);
@@ -33,11 +34,11 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         Assert.Equal(attempt.UnityLogPath, actual.Diagnosis.UnityLogPath);
         Assert.Equal(
             UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 ProjectFingerprint,
                 attempt.LaunchAttemptId),
             actual.ArtifactPath);
-        Assert.True(File.Exists(actual.ArtifactPath));
+        Assert.True(File.Exists(actual.ArtifactPath.Value));
     }
 
     [Fact]
@@ -52,13 +53,13 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         await WriteAttemptAsync(store, scope.FullPath, failed);
         await WriteAttemptAsync(store, scope.FullPath, completed);
         Directory.SetLastWriteTimeUtc(
-            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, ProjectFingerprint, failed.LaunchAttemptId),
+            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(AbsolutePath.Parse(scope.FullPath), ProjectFingerprint, failed.LaunchAttemptId).Value,
             failed.UpdatedAtUtc.UtcDateTime);
         Directory.SetLastWriteTimeUtc(
-            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, ProjectFingerprint, completed.LaunchAttemptId),
+            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(AbsolutePath.Parse(scope.FullPath), ProjectFingerprint, completed.LaunchAttemptId).Value,
             completed.UpdatedAtUtc.UtcDateTime);
 
-        var readResult = await store.ReadLastFailureAsync(scope.FullPath, ProjectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadLastFailureAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprint, CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.Equal(failed.LaunchAttemptId, readResult.LaunchAttempt!.LaunchAttemptId);
@@ -76,13 +77,13 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         await WriteAttemptAsync(store, scope.FullPath, newer);
         await WriteAttemptAsync(store, scope.FullPath, older);
         Directory.SetLastWriteTimeUtc(
-            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, ProjectFingerprint, older.LaunchAttemptId),
+            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(AbsolutePath.Parse(scope.FullPath), ProjectFingerprint, older.LaunchAttemptId).Value,
             newer.UpdatedAtUtc.AddMinutes(10).UtcDateTime);
         Directory.SetLastWriteTimeUtc(
-            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(scope.FullPath, ProjectFingerprint, newer.LaunchAttemptId),
+            UcliStoragePathResolver.ResolveLaunchAttemptDirectory(AbsolutePath.Parse(scope.FullPath), ProjectFingerprint, newer.LaunchAttemptId).Value,
             older.UpdatedAtUtc.UtcDateTime);
 
-        var readResult = await store.ReadLastFailureAsync(scope.FullPath, ProjectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadLastFailureAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprint, CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.Equal(newer.LaunchAttemptId, readResult.LaunchAttempt!.LaunchAttemptId);
@@ -96,17 +97,39 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         var store = new DaemonLaunchAttemptStore();
         var attemptId = CreateLaunchAttemptId(1);
         var diagnosisPath = UcliStoragePathResolver.ResolveLaunchAttemptStartupDiagnosisPath(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             ProjectFingerprint,
             attemptId);
-        Directory.CreateDirectory(Path.GetDirectoryName(diagnosisPath)!);
-        await File.WriteAllTextAsync(diagnosisPath, "{ invalid json", CancellationToken.None);
+        Directory.CreateDirectory(Path.GetDirectoryName(diagnosisPath.Value)!);
+        await File.WriteAllTextAsync(diagnosisPath.Value, "{ invalid json", CancellationToken.None);
 
-        var readResult = await store.ReadLastFailureAsync(scope.FullPath, ProjectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadLastFailureAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
+    public async Task ReadLastFailure_WhenUnityLogPathIsRelative_ReturnsInvalidArgument ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-launch-attempt-store", "relative-unity-log");
+        var store = new DaemonLaunchAttemptStore();
+        var attempt = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
+        await WriteAttemptAsync(store, scope.FullPath, attempt);
+        var json = JsonNode.Parse(await File.ReadAllTextAsync(attempt.ArtifactPath.Value, CancellationToken.None))!.AsObject();
+        json["unityLogPath"] = "relative/unity.log";
+        await File.WriteAllTextAsync(attempt.ArtifactPath.Value, json.ToJsonString(), CancellationToken.None);
+
+        var readResult = await store.ReadLastFailureAsync(
+            AbsolutePath.Parse(scope.FullPath),
+            ProjectFingerprint,
+            CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        Assert.Equal(ExecutionErrorKind.InvalidArgument, readResult.Error!.Kind);
+        Assert.Contains("unityLogPath", readResult.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -118,9 +141,9 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         var attempt = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
         await WriteAttemptAsync(store, scope.FullPath, attempt);
         var mismatchedId = CreateLaunchAttemptId(2);
-        var json = await File.ReadAllTextAsync(attempt.ArtifactPath, CancellationToken.None);
+        var json = await File.ReadAllTextAsync(attempt.ArtifactPath.Value, CancellationToken.None);
         await File.WriteAllTextAsync(
-            attempt.ArtifactPath,
+            attempt.ArtifactPath.Value,
             json.Replace(
                 attempt.LaunchAttemptId.ToString("D"),
                 mismatchedId.ToString("D"),
@@ -128,7 +151,7 @@ public sealed class DaemonLaunchAttemptStoreReadTests
             CancellationToken.None);
 
         var readResult = await store.ReadLastFailureAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             ProjectFingerprint,
             CancellationToken.None);
 
@@ -156,11 +179,11 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         var store = new DaemonLaunchAttemptStore();
         var attempt = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
         await WriteAttemptAsync(store, scope.FullPath, attempt);
-        var json = await File.ReadAllTextAsync(attempt.ArtifactPath, CancellationToken.None);
+        var json = await File.ReadAllTextAsync(attempt.ArtifactPath.Value, CancellationToken.None);
         Assert.Contains(oldValue, json, StringComparison.Ordinal);
-        await File.WriteAllTextAsync(attempt.ArtifactPath, json.Replace(oldValue, newValue, StringComparison.Ordinal), CancellationToken.None);
+        await File.WriteAllTextAsync(attempt.ArtifactPath.Value, json.Replace(oldValue, newValue, StringComparison.Ordinal), CancellationToken.None);
 
-        var readResult = await store.ReadLastFailureAsync(scope.FullPath, ProjectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadLastFailureAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);
@@ -184,11 +207,11 @@ public sealed class DaemonLaunchAttemptStoreReadTests
         var store = new DaemonLaunchAttemptStore();
         var attempt = CreateAttempt(CreateLaunchAttemptId(1), scope.FullPath, DaemonStartupStatus.Failed);
         await WriteAttemptAsync(store, scope.FullPath, attempt);
-        var root = JsonNode.Parse(await File.ReadAllTextAsync(attempt.ArtifactPath, CancellationToken.None))!.AsObject();
+        var root = JsonNode.Parse(await File.ReadAllTextAsync(attempt.ArtifactPath.Value, CancellationToken.None))!.AsObject();
         MutateInvalidField(root, field);
-        await File.WriteAllTextAsync(attempt.ArtifactPath, root.ToJsonString(), CancellationToken.None);
+        await File.WriteAllTextAsync(attempt.ArtifactPath.Value, root.ToJsonString(), CancellationToken.None);
 
-        var readResult = await store.ReadLastFailureAsync(scope.FullPath, ProjectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadLastFailureAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(readResult.Error);

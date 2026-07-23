@@ -1,5 +1,5 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
@@ -29,24 +29,12 @@ internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
 
     /// <inheritdoc />
     public async ValueTask<UnityUcliPluginLocateResult> LocateAsync (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
 
-        LocateContext locateContext;
-        try
-        {
-            locateContext = CreateLocateContext(unityProjectRoot);
-        }
-        catch (Exception exception) when (PathFormatExceptionClassifier.IsPathFormatException(exception))
-        {
-            return UnityUcliPluginLocateResult.InvalidMarker(
-                unityProjectRoot,
-                ExecutionError.InvalidArgument(
-                    $"uCLI Unity plugin marker is invalid. Path='{unityProjectRoot}'. Reason=Unity project path is invalid. {exception.Message}"));
-        }
+        var locateContext = CreateLocateContext(unityProjectRoot);
 
         var cachedLocateResult = await pluginMarkerCacheCoordinator.TryLocateFromCacheAsync(
                 locateContext.UnityProjectRoot,
@@ -62,7 +50,9 @@ internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
         var markerPathResult = pluginMarkerDiscovery.TryEnumerateMarkerPaths(locateContext.UnityProjectRoot);
         if (!markerPathResult.IsSuccess)
         {
-            return UnityUcliPluginLocateResult.InvalidMarker(markerPathResult.Path!, markerPathResult.Error!);
+            return UnityUcliPluginLocateResult.InvalidMarker(
+                markerPathResult.Path!,
+                markerPathResult.Error!);
         }
 
         if (markerPathResult.MarkerPaths!.Count == 0)
@@ -101,25 +91,16 @@ internal sealed class UnityUcliPluginLocator : IUnityUcliPluginLocator
             UnityUcliPluginMarkerContract.ExpectedProtocolVersion);
     }
 
-    private static LocateContext CreateLocateContext (string unityProjectRoot)
+    private static LocateContext CreateLocateContext (AbsolutePath unityProjectRoot)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-
-        var projectRootResult = PathNormalizer.TryNormalizeFullPath(unityProjectRoot);
-        if (!projectRootResult.IsSuccess)
-        {
-            throw new ArgumentException(projectRootResult.DiagnosticMessage, nameof(unityProjectRoot));
-        }
-
-        var normalizedUnityProjectRoot = projectRootResult.FullPath!;
-        var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(normalizedUnityProjectRoot);
-        var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, normalizedUnityProjectRoot);
-        return new LocateContext(normalizedUnityProjectRoot, storageRoot, projectFingerprint);
+        var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectRoot);
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, unityProjectRoot);
+        return new LocateContext(unityProjectRoot, storageRoot, projectFingerprint);
     }
 
     /// <summary> Carries normalized storage identity used by marker cache lookup. </summary>
     private sealed record LocateContext (
-        string UnityProjectRoot,
-        string StorageRoot,
+        AbsolutePath UnityProjectRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint);
 }

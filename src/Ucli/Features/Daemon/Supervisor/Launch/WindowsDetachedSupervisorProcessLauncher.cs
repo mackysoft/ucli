@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Infrastructure.Storage;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
 
@@ -22,7 +22,7 @@ internal sealed class WindowsDetachedSupervisorProcessLauncher
     /// <param name="launchCommand"> The resolved relaunch command. </param>
     /// <returns> The launch outcome, including any generation lease whose cleanup ownership remains with the caller. </returns>
     public SupervisorProcessLaunchResult Launch (
-        string storageRoot,
+        AbsolutePath storageRoot,
         SupervisorLaunchCommand launchCommand)
     {
         try
@@ -45,16 +45,15 @@ internal sealed class WindowsDetachedSupervisorProcessLauncher
     }
 
     internal static ProcessStartInfo BuildStartInfo (
-        string storageRoot,
+        AbsolutePath storageRoot,
         SupervisorLaunchCommand launchCommand)
     {
         ArgumentNullException.ThrowIfNull(launchCommand);
 
-        var normalizedStorageRoot = UcliStoragePathResolver.NormalizeStorageRootPath(storageRoot);
         var startInfo = new ProcessStartInfo
         {
             FileName = launchCommand.FileName,
-            WorkingDirectory = normalizedStorageRoot,
+            WorkingDirectory = storageRoot.Value,
             UseShellExecute = true,
             CreateNoWindow = true,
             WindowStyle = ProcessWindowStyle.Hidden,
@@ -64,7 +63,7 @@ internal sealed class WindowsDetachedSupervisorProcessLauncher
             startInfo.ArgumentList.Add(launchCommand.Arguments[i]);
         }
 
-        var supervisorArguments = SupervisorInvocationArguments.Build(normalizedStorageRoot);
+        var supervisorArguments = SupervisorInvocationArguments.Build(storageRoot);
         for (var i = 0; i < supervisorArguments.Length; i++)
         {
             startInfo.ArgumentList.Add(supervisorArguments[i]);

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Shared.Unity.ProjectLock;
 using MackySoft.Ucli.Tests.Helpers.Unity;
 
@@ -32,7 +33,9 @@ public sealed class UnityProjectLockPreflightServiceTests
         var service = new UnityProjectLockPreflightService(
             new UnityProjectLockFileProbe(),
             new StubUnityProjectLockOwnerProbe(UnityProjectLockOwnerProbeResult.ActiveOwner(
-                UnityProjectLockFailureMessage.CreateAlreadyOpen(unityProject.UnityProjectRoot, lockFilePath))),
+                UnityProjectLockFailureMessage.CreateAlreadyOpen(
+                    unityProject.UnityProjectRoot,
+                    AbsolutePath.Parse(lockFilePath)))),
             new UnexpectedUnityProjectLockFileCleaner());
 
         var result = await service.PrepareForUnityProcessStartAsync(unityProject, CancellationToken.None);
@@ -89,7 +92,9 @@ public sealed class UnityProjectLockPreflightServiceTests
             new UnityProjectLockFileProbe(),
             new StubUnityProjectLockOwnerProbe(UnityProjectLockOwnerProbeResult.NoOwner()),
             new StubUnityProjectLockFileCleaner(UnityProjectLockFileCleanupResult.Failure(
-                UnityProjectLockFailureMessage.CreateCleanupFailed(lockFilePath, "access denied"))));
+                UnityProjectLockFailureMessage.CreateCleanupFailed(
+                    AbsolutePath.Parse(lockFilePath),
+                    "access denied"))));
 
         var result = await service.PrepareForUnityProcessStartAsync(unityProject, CancellationToken.None);
 

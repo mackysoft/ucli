@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.TestSupport;
 
 internal sealed class RecordingUnityVersionResolver : IUnityVersionResolver
@@ -21,7 +23,7 @@ internal sealed class RecordingUnityVersionResolver : IUnityVersionResolver
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public UnityVersionResolutionResult Resolve (
-        string unityProjectRoot,
+        AbsolutePath unityProjectRoot,
         string? preferredUnityVersion)
     {
         invocations.Add(new Invocation(
@@ -32,6 +34,6 @@ internal sealed class RecordingUnityVersionResolver : IUnityVersionResolver
     }
 
     internal readonly record struct Invocation (
-        string UnityProjectRoot,
+        AbsolutePath UnityProjectRoot,
         string? PreferredUnityVersion);
 }

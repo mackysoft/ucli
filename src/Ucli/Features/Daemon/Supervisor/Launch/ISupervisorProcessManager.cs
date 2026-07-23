@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Features.Daemon.Supervisor.Launch;
@@ -10,7 +11,7 @@ internal interface ISupervisorProcessManager
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The launch outcome, including any generation lease whose cleanup ownership remains with the caller. </returns>
     ValueTask<SupervisorProcessLaunchResult> LaunchAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         CancellationToken cancellationToken);
 
     /// <summary> Releases the operating-system registration of the currently executing supervisor. </summary>
@@ -18,6 +19,6 @@ internal interface ISupervisorProcessManager
     /// <param name="cancellationToken"> The cancellation token propagated by supervisor retirement. </param>
     /// <returns> One structured error when release fails; otherwise <see langword="null" />. </returns>
     ValueTask<ExecutionError?> ReleaseCurrentProcessRegistrationAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         CancellationToken cancellationToken);
 }

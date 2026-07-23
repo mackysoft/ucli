@@ -1,4 +1,5 @@
 using System.Net.Sockets;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Application.Shared.Execution.UnityExecutionMode.Decision;
@@ -1119,7 +1120,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
         }
 
         public override ValueTask<DaemonSessionReadResult> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -1152,7 +1153,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
         public Task CancellationObserved => cancellationObservedSource.Task;
 
         public override async ValueTask<DaemonSessionReadResult> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {
@@ -1211,7 +1212,7 @@ public sealed class UnityDaemonIpcClientDispatchTests
         public Task CancellationCallbackStarted => cancellationCallbackStartedSource.Task;
 
         public override async ValueTask<DaemonSessionReadResult> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken = default)
         {

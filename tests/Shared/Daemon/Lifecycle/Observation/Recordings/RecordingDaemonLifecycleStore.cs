@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Observation;
 
 namespace MackySoft.Ucli.TestSupport;
@@ -19,10 +20,10 @@ internal sealed class RecordingDaemonLifecycleStore : IDaemonLifecycleStore
 
     public Action? OnRead { get; set; }
 
-    public Func<string, ProjectFingerprint, CancellationToken, ValueTask<DaemonLifecycleObservationReadResult>>? ReadAsyncHandler { get; set; }
+    public Func<AbsolutePath, ProjectFingerprint, CancellationToken, ValueTask<DaemonLifecycleObservationReadResult>>? ReadAsyncHandler { get; set; }
 
     public ValueTask<DaemonLifecycleObservationReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
@@ -39,7 +40,7 @@ internal sealed class RecordingDaemonLifecycleStore : IDaemonLifecycleStore
     }
 
     public ValueTask<DaemonLifecycleStoreOperationResult> DeleteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
@@ -51,12 +52,12 @@ internal sealed class RecordingDaemonLifecycleStore : IDaemonLifecycleStore
     }
 
     internal readonly record struct ReadInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 
     internal readonly record struct DeleteInvocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         CancellationToken CancellationToken);
 }

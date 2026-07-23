@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
@@ -13,15 +14,6 @@ public sealed class UnixSocketAccessBoundaryTests
         OwnerOnlyDirectoryMode |
         UnixFileMode.GroupRead | UnixFileMode.GroupExecute |
         UnixFileMode.OtherRead | UnixFileMode.OtherExecute;
-
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Constructor_WhenAuthorizedPathIsRelative_ThrowsArgumentException ()
-    {
-        var exception = Assert.Throws<ArgumentException>(() => new UnixSocketAccessBoundary("relative/ipc.sock"));
-
-        Assert.Equal("authorizedSocketPath", exception.ParamName);
-    }
 
     [Fact]
     [Trait("Size", "Medium")]
@@ -44,7 +36,7 @@ public sealed class UnixSocketAccessBoundaryTests
         File.WriteAllText(socketPath, "stale");
         File.SetUnixFileMode(socketDirectoryPath, SharedDirectoryMode);
 
-        var boundary = new UnixSocketAccessBoundary(socketPath);
+        var boundary = new UnixSocketAccessBoundary(AbsolutePath.Parse(socketPath));
 
         boundary.PrepareForBind();
 
@@ -63,25 +55,25 @@ public sealed class UnixSocketAccessBoundaryTests
 
         using var scope = TestDirectories.CreateTempScope("infrastructure-ipc", "fallback-socket-boundary");
         var fallbackPath = new UnixSocketFallbackPath(
-            Path.GetTempPath(),
+            AbsolutePath.Parse(Path.GetTempPath()),
             UnixSocketFallbackPurpose.Daemon,
             $"{scope.FullPath}\n{Guid.NewGuid():N}");
-        Directory.CreateDirectory(fallbackPath.DirectoryPath);
-        File.WriteAllText(fallbackPath.SocketPath, "stale");
+        Directory.CreateDirectory(fallbackPath.DirectoryPath.Value);
+        File.WriteAllText(fallbackPath.SocketPath.Value, "stale");
         var boundary = new UnixSocketAccessBoundary(fallbackPath.SocketPath);
 
         try
         {
             boundary.Cleanup();
 
-            Assert.False(File.Exists(fallbackPath.SocketPath));
-            Assert.True(Directory.Exists(fallbackPath.DirectoryPath));
+            Assert.False(File.Exists(fallbackPath.SocketPath.Value));
+            Assert.True(Directory.Exists(fallbackPath.DirectoryPath.Value));
         }
         finally
         {
-            if (Directory.Exists(fallbackPath.DirectoryPath))
+            if (Directory.Exists(fallbackPath.DirectoryPath.Value))
             {
-                Directory.Delete(fallbackPath.DirectoryPath, recursive: true);
+                Directory.Delete(fallbackPath.DirectoryPath.Value, recursive: true);
             }
         }
     }

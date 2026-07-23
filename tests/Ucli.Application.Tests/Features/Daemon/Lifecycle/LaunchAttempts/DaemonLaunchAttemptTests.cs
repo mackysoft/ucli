@@ -184,7 +184,11 @@ public sealed class DaemonLaunchAttemptTests
             1234,
             new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero),
             null,
-            "/repo/.ucli/launch-attempts/startup-diagnosis.json",
+            AbsolutePath.Parse(Path.Combine(
+                ProjectPathTestValues.RepositoryRoot,
+                ".ucli",
+                "launch-attempts",
+                "startup-diagnosis.json")),
             DaemonDiagnosisTestFactory.Create());
     }
 
@@ -215,7 +219,7 @@ public sealed class DaemonLaunchAttemptTests
         DaemonEditorMode? EditorMode,
         int? ProcessId,
         DateTimeOffset? ProcessStartedAtUtc,
-        string? UnityLogPath,
-        string ArtifactPath,
+        AbsolutePath? UnityLogPath,
+        AbsolutePath ArtifactPath,
         MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis.DaemonDiagnosis Diagnosis);
 }

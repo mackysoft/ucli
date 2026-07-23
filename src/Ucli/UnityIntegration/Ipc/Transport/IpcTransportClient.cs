@@ -31,7 +31,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
 
     /// <inheritdoc />
     public ValueTask<IpcResponse> SendAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
@@ -52,7 +52,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
 
     /// <inheritdoc />
     public ValueTask<IpcResponse> SendStreamingAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
@@ -75,7 +75,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
 
     /// <inheritdoc />
     public ValueTask<IpcResponse> SendWithUnboundedResponseWaitAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         CancellationToken cancellationToken = default)
@@ -96,7 +96,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
 
     /// <inheritdoc />
     public ValueTask<IpcResponse> SendStreamingWithUnboundedResponseWaitAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan sendTimeout,
         Func<IpcStreamFrame, CancellationToken, ValueTask> onProgressFrame,
@@ -118,7 +118,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
     }
 
     private async ValueTask<IpcResponse> SendCoreAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
         bool responseWaitIsBounded,
@@ -306,7 +306,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
     }
 
     private async ValueTask<IpcResponse> ExecuteTransportOperationAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         IpcRequestEnvelope request,
         Func<IpcStreamFrame, CancellationToken, ValueTask>? onProgressFrame,
         IpcTransportOperationState operationState,
@@ -356,7 +356,7 @@ internal sealed class IpcTransportClient : IIpcTransportClient
     }
 
     private async ValueTask<Stream> ConnectAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         CancellationToken cancellationToken)
     {
         try

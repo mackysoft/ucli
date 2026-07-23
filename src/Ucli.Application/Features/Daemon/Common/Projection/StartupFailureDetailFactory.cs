@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Common.CommandContracts;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Process.Startup;
@@ -12,7 +13,7 @@ internal static class StartupFailureDetailFactory
     public static StartupFailureDetail CreateClassifiedBatchmodeFailure (
         DaemonStartupFailureClassification classification,
         string message,
-        string? unityLogPath,
+        AbsolutePath? unityLogPath,
         int? processId,
         DateTimeOffset? processStartedAtUtc,
         DateTimeOffset updatedAtUtc)
@@ -29,7 +30,7 @@ internal static class StartupFailureDetailFactory
             ProcessId: processId,
             EditorInstancePath: null,
             ProcessStartedAtUtc: processStartedAtUtc,
-            UnityLogPath: unityLogPath,
+            UnityLogPath: unityLogPath?.Value,
             StartupPhase: classification.StartupPhase,
             ActionRequired: classification.ActionRequired,
             PrimaryDiagnostic: ToOutput(classification.PrimaryDiagnostic));
@@ -58,7 +59,7 @@ internal static class StartupFailureDetailFactory
     /// <summary> Creates a detail for an endpoint that never became reachable before the command timeout. </summary>
     public static StartupFailureDetail CreateEndpointNotRegisteredFailure (
         string message,
-        string? unityLogPath,
+        AbsolutePath? unityLogPath,
         int? processId,
         DateTimeOffset? processStartedAtUtc,
         DateTimeOffset updatedAtUtc)
@@ -74,7 +75,7 @@ internal static class StartupFailureDetailFactory
             ProcessId: processId,
             EditorInstancePath: null,
             ProcessStartedAtUtc: processStartedAtUtc,
-            UnityLogPath: unityLogPath,
+            UnityLogPath: unityLogPath?.Value,
             StartupPhase: DaemonDiagnosisStartupPhase.EndpointRegistration,
             ActionRequired: null,
             PrimaryDiagnostic: null);
@@ -103,7 +104,7 @@ internal static class StartupFailureDetailFactory
     /// <summary> Creates a detail for an unclassified Unity process exit before endpoint or test-runner startup completed. </summary>
     public static StartupFailureDetail CreateProcessExitedFailure (
         string message,
-        string? unityLogPath,
+        AbsolutePath? unityLogPath,
         int? processId,
         DateTimeOffset? processStartedAtUtc,
         DateTimeOffset updatedAtUtc)
@@ -119,7 +120,7 @@ internal static class StartupFailureDetailFactory
             ProcessId: processId,
             EditorInstancePath: null,
             ProcessStartedAtUtc: processStartedAtUtc,
-            UnityLogPath: unityLogPath,
+            UnityLogPath: unityLogPath?.Value,
             StartupPhase: DaemonDiagnosisStartupPhase.ProcessExit,
             ActionRequired: null,
             PrimaryDiagnostic: null);

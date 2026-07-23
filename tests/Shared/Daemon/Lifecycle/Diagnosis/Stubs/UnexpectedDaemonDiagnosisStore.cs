@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Diagnosis;
 
 namespace MackySoft.Ucli.TestSupport;
@@ -12,7 +13,7 @@ internal sealed class UnexpectedDaemonDiagnosisStore : IDaemonDiagnosisStore
     }
 
     public ValueTask<DaemonDiagnosisReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {
@@ -20,7 +21,7 @@ internal sealed class UnexpectedDaemonDiagnosisStore : IDaemonDiagnosisStore
     }
 
     public ValueTask<DaemonDiagnosisStoreOperationResult> WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         DaemonDiagnosis diagnosis,
         CancellationToken cancellationToken = default)
@@ -29,7 +30,7 @@ internal sealed class UnexpectedDaemonDiagnosisStore : IDaemonDiagnosisStore
     }
 
     public ValueTask<DaemonDiagnosisStoreOperationResult> DeleteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {

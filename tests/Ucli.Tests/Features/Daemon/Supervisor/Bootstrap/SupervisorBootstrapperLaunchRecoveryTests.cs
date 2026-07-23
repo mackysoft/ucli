@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using System.Text;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -45,7 +46,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             timeProvider);
 
         var resultTask = bootstrapper.EnsureReadyAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 TimeSpan.FromSeconds(30),
                 CancellationToken.None)
             .AsTask();
@@ -128,7 +129,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             timeProvider);
 
         var resultTask = bootstrapper.EnsureReadyAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 TimeSpan.FromSeconds(60),
                 CancellationToken.None)
             .AsTask();
@@ -198,7 +199,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             timeProvider);
 
         var resultTask = bootstrapper.EnsureReadyAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 TimeSpan.FromSeconds(60),
                 CancellationToken.None)
             .AsTask();
@@ -257,7 +258,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             timeProvider);
 
         var resultTask = bootstrapper.EnsureReadyAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 TimeSpan.FromSeconds(30),
                 CancellationToken.None)
             .AsTask();
@@ -304,7 +305,7 @@ public sealed class SupervisorBootstrapperLaunchRecoveryTests
             timeProvider);
 
         var result = await bootstrapper.EnsureReadyAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
 

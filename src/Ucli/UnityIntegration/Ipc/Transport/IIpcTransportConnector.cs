@@ -1,4 +1,4 @@
-using MackySoft.Ucli.Contracts.Ipc;
+using MackySoft.Ucli.Infrastructure.Ipc;
 
 namespace MackySoft.Ucli.UnityIntegration.Ipc.Transport;
 
@@ -10,6 +10,6 @@ internal interface IIpcTransportConnector
     /// <param name="cancellationToken"> The cancellation token propagated by the transport operation. </param>
     /// <returns> The connected stream. The caller owns the returned stream. </returns>
     ValueTask<Stream> ConnectAsync (
-        IpcEndpoint endpoint,
+        IpcTransportEndpoint endpoint,
         CancellationToken cancellationToken);
 }

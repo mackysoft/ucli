@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 
@@ -17,19 +18,18 @@ internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
     }
 
     /// <summary> Sends one IPC request to the resolved endpoint and returns its response. </summary>
-    /// <param name="storageRoot"> The storage-root path. Must not be <see langword="null" />, empty, or whitespace. </param>
-    /// <param name="projectFingerprint"> The Unity project fingerprint. Must not be <see langword="null" />, empty, or whitespace. </param>
+    /// <param name="storageRoot"> The guarded storage-root path. </param>
+    /// <param name="projectFingerprint"> The guarded Unity project fingerprint. </param>
     /// <param name="request"> The request envelope to send. Must not be <see langword="null" />. </param>
     /// <param name="timeout"> The timeout for one IPC request. Must be greater than <see cref="TimeSpan.Zero" />. </param>
     /// <param name="cancellationToken"> The cancellation token propagated by command execution. </param>
     /// <returns> The response returned by Unity daemon. </returns>
-    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="request" /> is <see langword="null" />. </exception>
-    /// <exception cref="ArgumentException"> Thrown when <paramref name="storageRoot" /> or <paramref name="projectFingerprint" /> is <see langword="null" />, empty, or whitespace. </exception>
+    /// <exception cref="ArgumentNullException"> Thrown when <paramref name="projectFingerprint" /> or <paramref name="request" /> is <see langword="null" />. </exception>
     /// <exception cref="ArgumentOutOfRangeException"> Thrown when <paramref name="timeout" /> is less than or equal to <see cref="TimeSpan.Zero" />. </exception>
     /// <exception cref="TimeoutException"> Thrown when one IPC request exceeds <paramref name="timeout" />. </exception>
     /// <exception cref="IpcResponseReadInterruptedException"> Thrown when request transmission completed but the response frame read was interrupted. </exception>
     public async ValueTask<IpcResponse> SendAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         IpcRequestEnvelope request,
         TimeSpan timeout,
@@ -45,7 +45,7 @@ internal sealed class UnityIpcTransportClient : IUnityIpcTransportClient
 
     /// <inheritdoc />
     public async ValueTask<IpcResponse> SendStreamingAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         IpcRequestEnvelope request,
         TimeSpan timeout,

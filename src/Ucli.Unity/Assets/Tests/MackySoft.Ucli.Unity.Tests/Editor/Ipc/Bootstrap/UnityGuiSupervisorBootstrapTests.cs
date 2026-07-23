@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Ipc.Authorization;
 using MackySoft.Ucli.Contracts.Storage;
@@ -28,7 +29,8 @@ namespace MackySoft.Ucli.Unity.Tests
             services.AddUnityGuiSupervisorHostServices(
                 new PermitAllSessionTokenValidator(),
                 ProjectFingerprintTestFactory.Create("gui-supervisor-services"),
-                new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-supervisor-services"),
+                UnityIpcEndpointBinding.Create(
+                    new IpcEndpoint(IpcTransportKind.NamedPipe, "ucli-supervisor-services")),
                 NoOpDaemonLogger.Instance);
 
             using var serviceProvider = services.BuildServiceProvider();
@@ -289,7 +291,10 @@ namespace MackySoft.Ucli.Unity.Tests
                 NoOpDaemonLogger.Instance);
             try
             {
-                state.AttachIdentity("storage-root", projectFingerprint, sessionToken);
+                state.AttachIdentity(
+                    AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "storage-root")),
+                    projectFingerprint,
+                    sessionToken);
                 var foreignManifest = new GuiSupervisorManifestJsonContract(
                     SchemaVersion: GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
                     SessionToken: IpcSessionToken.CreateRandom(),
@@ -371,7 +376,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(
                     File.Exists(UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(
                         storageRoot,
-                        projectFingerprint)),
+                        projectFingerprint).Value),
                     Is.False);
                 Assert.That(state.TryClaimNormalCleanup(), Is.False);
             }
@@ -547,16 +552,17 @@ namespace MackySoft.Ucli.Unity.Tests
             }
         });
 
-        private static string CreateStorageRoot ()
+        private static AbsolutePath CreateStorageRoot ()
         {
-            return Path.Combine(Path.GetTempPath(), $"ucli-gui-supervisor-bootstrap-tests-{Guid.NewGuid():N}");
+            return AbsolutePath.Parse(
+                Path.Combine(Path.GetTempPath(), $"ucli-gui-supervisor-bootstrap-tests-{Guid.NewGuid():N}"));
         }
 
-        private static void DeleteDirectory (string storageRoot)
+        private static void DeleteDirectory (AbsolutePath storageRoot)
         {
-            if (Directory.Exists(storageRoot))
+            if (Directory.Exists(storageRoot.Value))
             {
-                Directory.Delete(storageRoot, recursive: true);
+                Directory.Delete(storageRoot.Value, recursive: true);
             }
         }
 
@@ -574,7 +580,7 @@ namespace MackySoft.Ucli.Unity.Tests
             public int ReleaseCallCount { get; private set; }
 
             public Task<IUnityIpcServerPublicationFence> StartAsync (
-                IpcEndpoint endpoint,
+                UnityIpcEndpointBinding endpointBinding,
                 CancellationToken cancellationToken = default)
             {
                 return Task.FromResult<IUnityIpcServerPublicationFence>(

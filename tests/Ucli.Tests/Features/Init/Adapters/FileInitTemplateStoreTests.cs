@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Init.Common.Contracts;
 using MackySoft.Ucli.Application.Shared.Configuration;
 using MackySoft.Ucli.Application.Shared.Foundation;
@@ -23,8 +24,8 @@ public sealed class FileInitTemplateStoreTests
             SaveHandler = static (storageRoot, _, _) =>
             {
                 var configPath = UcliStoragePathResolver.ResolveConfigPath(storageRoot);
-                Directory.CreateDirectory(Path.GetDirectoryName(configPath)!);
-                File.WriteAllText(configPath, "{}");
+                Directory.CreateDirectory(Path.GetDirectoryName(configPath.Value)!);
+                File.WriteAllText(configPath.Value, "{}");
                 return ValueTask.FromResult(UcliConfigSaveResult.Success());
             },
         };
@@ -36,14 +37,15 @@ public sealed class FileInitTemplateStoreTests
         Assert.True(result.IsSuccess);
         Assert.Null(result.Error);
         var output = Assert.IsType<InitExecutionOutput>(result.Output);
-        var expectedStorageRoot = UcliStoragePathResolver.ResolveStorageRoot(workingDirectoryPath);
+        var expectedStorageRoot = UcliStoragePathResolver.ResolveStorageRoot(
+            AbsolutePath.Parse(Environment.CurrentDirectory));
         var expectedConfigPath = UcliStoragePathResolver.ResolveConfigPath(expectedStorageRoot);
         var expectedGitIgnorePath = Path.Combine(
-            UcliStoragePathResolver.ResolveUcliDirectoryPath(expectedStorageRoot),
+            UcliStoragePathResolver.ResolveUcliDirectoryPath(expectedStorageRoot).Value,
             UcliStoragePathNames.GitIgnoreFileName);
 
         UcliConfigStoreAssert.ConfigSavedFor(configStore, expectedStorageRoot, config);
-        FileSystemAssert.ForPath(output.ConfigPath).EqualsNormalized(expectedConfigPath).Exists();
+        FileSystemAssert.ForPath(output.ConfigPath).EqualsNormalized(expectedConfigPath.Value).Exists();
         FileSystemAssert.ForPath(output.GitIgnorePath).EqualsNormalized(expectedGitIgnorePath).Exists();
         Assert.Equal(
             UcliLocalStorageBootstrapper.LocalDirectoryIgnoreEntry + Environment.NewLine,
@@ -120,7 +122,10 @@ public sealed class FileInitTemplateStoreTests
         var error = Assert.IsType<ExecutionError>(result.Error);
         Assert.Equal(ExecutionErrorKind.InternalError, error.Kind);
         Assert.Equal("config save failed.", error.Message);
-        UcliConfigStoreAssert.ConfigSavedFor(configStore, UcliStoragePathResolver.ResolveStorageRoot(workingDirectoryPath), config);
+        UcliConfigStoreAssert.ConfigSavedFor(
+            configStore,
+            UcliStoragePathResolver.ResolveStorageRoot(AbsolutePath.Parse(Environment.CurrentDirectory)),
+            config);
     }
 
     [Fact]
@@ -158,9 +163,10 @@ public sealed class FileInitTemplateStoreTests
         Assert.Equal(ExecutionErrorKind.InvalidArgument, error.Kind);
         Assert.Contains("Config timeout is invalid.", error.Message, StringComparison.Ordinal);
         Assert.Contains("Config allowlist pattern is invalid.", error.Message, StringComparison.Ordinal);
-        var expectedStorageRoot = UcliStoragePathResolver.ResolveStorageRoot(workingDirectoryPath);
+        var expectedStorageRoot = UcliStoragePathResolver.ResolveStorageRoot(
+            AbsolutePath.Parse(Environment.CurrentDirectory));
         var expectedGitIgnorePath = Path.Combine(
-            UcliStoragePathResolver.ResolveUcliDirectoryPath(expectedStorageRoot),
+            UcliStoragePathResolver.ResolveUcliDirectoryPath(expectedStorageRoot).Value,
             UcliStoragePathNames.GitIgnoreFileName);
         Assert.False(File.Exists(expectedGitIgnorePath));
         UcliConfigStoreAssert.ConfigSavedFor(configStore, expectedStorageRoot, config);

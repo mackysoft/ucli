@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Artifacts;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Features.Testing.Run.Results;
@@ -41,7 +42,7 @@ internal static class TestRunServiceTestFactory
                 unityVersion: ProjectIdentityDefaults.UnknownUnityVersion),
             Mode: mode,
             UnityVersion: "6000.1.4f1",
-            UnityEditorPath: Path.GetFullPath("./Editors/6000.1.4f1/Editor/Unity"),
+            UnityEditorPath: AbsolutePath.Parse(Path.GetFullPath("./Editors/6000.1.4f1/Editor/Unity")),
             TestPlatform: TestRunPlatform.EditMode,
             TestFilter: null,
             TestCategories: [],

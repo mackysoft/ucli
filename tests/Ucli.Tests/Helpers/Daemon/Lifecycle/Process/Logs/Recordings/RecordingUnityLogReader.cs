@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Tests.Helpers.Process;
 
 internal sealed class RecordingUnityLogReader : IUnityLogReader
@@ -16,12 +18,12 @@ internal sealed class RecordingUnityLogReader : IUnityLogReader
 
     public UnityLogReadResult NextResult { get; set; }
 
-    public Func<string, ProjectFingerprint, int, CancellationToken, ValueTask<UnityLogReadResult>>? ReadAsyncHandler { get; set; }
+    public Func<AbsolutePath, ProjectFingerprint, int, CancellationToken, ValueTask<UnityLogReadResult>>? ReadAsyncHandler { get; set; }
 
     public IReadOnlyList<Invocation> Invocations => invocations;
 
     public ValueTask<UnityLogReadResult> ReadTailAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         int maxBytes = IUnityLogReader.DefaultMaxBytes,
         CancellationToken cancellationToken = default)
@@ -37,7 +39,7 @@ internal sealed class RecordingUnityLogReader : IUnityLogReader
     }
 
     internal readonly record struct Invocation (
-        string StorageRoot,
+        AbsolutePath StorageRoot,
         ProjectFingerprint ProjectFingerprint,
         int MaxBytes,
         CancellationToken CancellationToken);

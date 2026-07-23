@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Compensation;
@@ -389,7 +390,7 @@ internal sealed class DaemonCompensationOperationOwner
     }
 
     private readonly record struct OwnedOperationKey (
-        string UnityProjectRoot,
+        AbsolutePath UnityProjectRoot,
         ProjectFingerprint ProjectFingerprint,
         DaemonOperationLane Lane);
 

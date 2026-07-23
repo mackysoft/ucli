@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 namespace MackySoft.Ucli.Tests.Supervisor;
 
 public sealed class SupervisorInvocationArgumentsTests
@@ -8,7 +9,7 @@ public sealed class SupervisorInvocationArgumentsTests
     {
         const string repositoryRoot = "/repo";
 
-        var arguments = SupervisorInvocationArguments.Build(repositoryRoot);
+        var arguments = SupervisorInvocationArguments.Build(AbsolutePath.Parse(repositoryRoot));
 
         Assert.Equal(
             [
@@ -19,10 +20,4 @@ public sealed class SupervisorInvocationArgumentsTests
             arguments);
     }
 
-    [Fact]
-    [Trait("Size", "Small")]
-    public void Build_WhenRepositoryRootIsEmpty_ThrowsArgumentException ()
-    {
-        Assert.Throws<ArgumentException>(() => SupervisorInvocationArguments.Build(" "));
-    }
 }

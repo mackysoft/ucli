@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using MackySoft.FileSystem;
 using MackySoft.Tests;
 using MackySoft.Ucli.Infrastructure.Storage;
 
@@ -11,18 +12,18 @@ public sealed class EditorLogTemporaryFilePathTests
     public void OpenExclusiveWrite_ReservesCurrentProcessOwnedSiblingFile ()
     {
         using var scope = TestDirectories.CreateTempScope("editor-log-temporary-file", "create");
-        var destinationPath = scope.GetPath("editor.log");
+        var destinationPath = AbsolutePath.Parse(scope.GetPath("editor.log"));
         using var process = Process.GetCurrentProcess();
 
-        string temporaryPath;
+        AbsolutePath temporaryPath;
         using (var stream = EditorLogTemporaryFilePath.OpenExclusiveWrite(
                    destinationPath,
                    bufferSize: 4096,
                    out temporaryPath))
         {
-            Assert.True(File.Exists(temporaryPath));
+            Assert.True(File.Exists(temporaryPath.Value));
             Assert.Throws<IOException>(() => new FileStream(
-                temporaryPath,
+                temporaryPath.Value,
                 FileMode.CreateNew,
                 FileAccess.Write,
                 FileShare.None));
@@ -30,15 +31,15 @@ public sealed class EditorLogTemporaryFilePathTests
         }
 
         Assert.True(EditorLogTemporaryFilePath.TryGetOwnerProcessId(
-            Path.GetFileName(temporaryPath),
+            Path.GetFileName(temporaryPath.Value),
             out var processId));
         Assert.Equal(process.Id, processId);
         Assert.Equal(
             Path.GetFullPath(scope.FullPath),
-            Path.GetFullPath(Path.GetDirectoryName(temporaryPath)!));
-        Assert.StartsWith(".tmp-", Path.GetFileName(temporaryPath), StringComparison.Ordinal);
-        Assert.DoesNotContain(Path.GetFileName(destinationPath), Path.GetFileName(temporaryPath), StringComparison.Ordinal);
-        Assert.True(Path.GetFileName(temporaryPath).Length <= EditorLogTemporaryFilePath.MaximumFileNameLength);
+            Path.GetFullPath(Path.GetDirectoryName(temporaryPath.Value)!));
+        Assert.StartsWith(".tmp-", Path.GetFileName(temporaryPath.Value), StringComparison.Ordinal);
+        Assert.DoesNotContain(Path.GetFileName(destinationPath.Value), Path.GetFileName(temporaryPath.Value), StringComparison.Ordinal);
+        Assert.True(Path.GetFileName(temporaryPath.Value).Length <= EditorLogTemporaryFilePath.MaximumFileNameLength);
     }
 
     [Fact]
@@ -78,9 +79,9 @@ public sealed class EditorLogTemporaryFilePathTests
     public async Task OpenExclusiveWrite_CreatesFileAcceptedByAtomicPublication ()
     {
         using var scope = TestDirectories.CreateTempScope("editor-log-temporary-file", "publish");
-        var destinationPath = scope.GetPath("editor.log");
+        var destinationPath = AbsolutePath.Parse(scope.GetPath("editor.log"));
 
-        string temporaryPath;
+        AbsolutePath temporaryPath;
         await using (var stream = EditorLogTemporaryFilePath.OpenExclusiveWrite(
                          destinationPath,
                          bufferSize: 4096,
@@ -94,7 +95,7 @@ public sealed class EditorLogTemporaryFilePathTests
             destinationPath,
             CancellationToken.None);
 
-        Assert.False(File.Exists(temporaryPath));
-        Assert.Equal("editor log", await File.ReadAllTextAsync(destinationPath));
+        Assert.False(File.Exists(temporaryPath.Value));
+        Assert.Equal("editor log", await File.ReadAllTextAsync(destinationPath.Value));
     }
 }

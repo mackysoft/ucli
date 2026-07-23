@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Unity.Runtime;
 
@@ -94,9 +95,9 @@ namespace MackySoft.Ucli.Unity.Ipc
         /// <summary> Reads file length when file exists; otherwise returns zero. </summary>
         /// <param name="path"> The file path. </param>
         /// <returns> The file length when existing; otherwise <c>0</c>. </returns>
-        private static long GetFileLengthOrZero (string path)
+        private static long GetFileLengthOrZero (AbsolutePath path)
         {
-            return File.Exists(path) ? new FileInfo(path).Length : 0L;
+            return File.Exists(path.Value) ? new FileInfo(path.Value).Length : 0L;
         }
     }
 }

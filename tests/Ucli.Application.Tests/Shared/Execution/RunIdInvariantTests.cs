@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Artifacts;
 using MackySoft.Ucli.Application.Features.Assurance.Build.Payload;
 using MackySoft.Ucli.Application.Features.Assurance.Compile.Payload;
@@ -161,7 +162,14 @@ public sealed class RunIdInvariantTests
     [Trait("Size", "Small")]
     public void ArtifactsSession_WhenStartedAtUtcIsNotCanonicalUtc_ThrowsArgumentException ()
     {
-        var paths = new ArtifactPaths("artifacts", "meta", "xml", "log", "results", "summary");
+        var artifactRoot = AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-run-id-invariant"));
+        var paths = new ArtifactPaths(
+            artifactRoot,
+            AbsolutePath.Resolve(artifactRoot, "meta"),
+            AbsolutePath.Resolve(artifactRoot, "xml"),
+            AbsolutePath.Resolve(artifactRoot, "log"),
+            AbsolutePath.Resolve(artifactRoot, "results"),
+            AbsolutePath.Resolve(artifactRoot, "summary"));
         var exception = Assert.Throws<ArgumentException>(() => new ArtifactsSession(
             Guid.NewGuid(),
             paths,
@@ -174,11 +182,15 @@ public sealed class RunIdInvariantTests
     [Trait("Size", "Small")]
     public void TestRunServiceResult_WhenRunIdIsEmpty_ThrowsArgumentException ()
     {
+        var artifactsDirectory = AbsolutePath.Parse(Path.Combine(
+            Path.GetTempPath(),
+            "ucli-run-id-invariant",
+            "artifacts"));
         var exception = Assert.Throws<ArgumentException>(() => TestRunServiceResult.Pass(
             "Tests passed.",
             Guid.Empty,
-            "/tmp/artifacts",
-            "/tmp/artifacts/summary.json"));
+            artifactsDirectory,
+            AbsolutePath.Resolve(artifactsDirectory, "summary.json")));
 
         Assert.Equal("runId", exception.ParamName);
     }

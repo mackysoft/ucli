@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.AgentSkills.Hosting.Composition;
 using MackySoft.AgentSkills.Hosting.Reporting;
 using MackySoft.Ucli.Hosting.Cli.Common.Contracts;
@@ -23,7 +24,8 @@ internal static class SkillsServiceCollectionExtensions
             options.ProductName = "uCLI";
             options.PackageBaseDirectory = AppContext.BaseDirectory;
             options.CommandRoot = UcliCommandNames.Skills;
-            options.RepositoryRootResolver = UcliStoragePathResolver.ResolveStorageRoot;
+            options.RepositoryRootResolver = static path =>
+                UcliStoragePathResolver.ResolveStorageRoot(AbsolutePath.Parse(path)).Value;
         });
         services.AddSingleton<IAgentSkillsCommandResultEmitter, UcliAgentSkillsCommandResultEmitter>();
 

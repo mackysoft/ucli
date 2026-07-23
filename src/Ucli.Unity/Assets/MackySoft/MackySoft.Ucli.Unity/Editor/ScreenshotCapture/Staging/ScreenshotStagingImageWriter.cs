@@ -2,24 +2,24 @@ using System;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Unity.Project;
 
 namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
 {
     /// <summary> Writes raw screenshot staging images through an adjacent temporary file. </summary>
     internal sealed class ScreenshotStagingImageWriter : IScreenshotStagingImageWriter
     {
-        private readonly string storageRoot;
+        private readonly AbsolutePath storageRoot;
 
         private readonly ProjectFingerprint projectFingerprint;
 
-        private readonly string screenshotWorkDirectory;
+        private readonly AbsolutePath screenshotWorkDirectory;
 
         /// <summary> Initializes a writer scoped to the project fingerprint served by this daemon. </summary>
-        public ScreenshotStagingImageWriter (IpcProjectIdentity projectIdentity)
+        public ScreenshotStagingImageWriter (UnityHostProjectIdentity projectIdentity)
         {
             if (projectIdentity == null)
             {
@@ -46,16 +46,13 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
             }
 
             var fullPath = ResolvePreparedStagingPath(captureId);
-            var directoryPath = Path.GetDirectoryName(fullPath);
-            if (string.IsNullOrWhiteSpace(directoryPath))
+            if (!fullPath.TryGetParent(out var directoryPath))
             {
                 throw new InvalidOperationException(
                     "Validated screenshot staging path has no parent directory.");
             }
 
-            FileSystemAccessBoundary.EnsureSecureDirectoryChain(
-                screenshotWorkDirectory,
-                directoryPath);
+            FileSystemAccessBoundary.EnsureSecureDirectory(directoryPath);
             EnsureTargetDoesNotExist(fullPath);
 
             var temporaryStream = FileUtilities.OpenAtomicWriteTemporaryFileInDirectory(
@@ -72,7 +69,7 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
 
                 cancellationToken.ThrowIfCancellationRequested();
                 FileSystemAccessBoundary.EnsureSecureFile(temporaryPath);
-                File.Move(temporaryPath, fullPath);
+                File.Move(temporaryPath.Value, fullPath.Value);
                 published = true;
                 FileSystemAccessBoundary.EnsureSecureFile(fullPath);
                 return bytes.Length;
@@ -110,22 +107,27 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
             DeletePathIfExists(path);
         }
 
-        private string ResolvePreparedStagingPath (Guid captureId)
+        private AbsolutePath ResolvePreparedStagingPath (Guid captureId)
         {
-            var fullPath = Path.GetFullPath(
-                UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
-                    storageRoot,
-                    projectFingerprint,
-                    captureId));
-            var directoryPath = Path.GetDirectoryName(fullPath);
-            var parentPath = string.IsNullOrWhiteSpace(directoryPath)
-                ? null
-                : Path.GetDirectoryName(directoryPath);
-            if (string.IsNullOrWhiteSpace(directoryPath)
-                || string.IsNullOrWhiteSpace(parentPath)
-                || !PathIdentity.IsSamePath(parentPath, screenshotWorkDirectory)
-                || !Directory.Exists(screenshotWorkDirectory)
-                || !Directory.Exists(directoryPath))
+            var fullPath = UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
+                storageRoot,
+                projectFingerprint,
+                captureId);
+            if (!fullPath.TryGetParent(out var directoryPath))
+            {
+                throw new IOException(
+                    "Screenshot staging path must be inside one existing capture directory owned by this project fingerprint.");
+            }
+
+            if (!directoryPath.TryGetParent(out var parentPath))
+            {
+                throw new IOException(
+                    "Screenshot staging path must be inside one existing capture directory owned by this project fingerprint.");
+            }
+
+            if (!parentPath.IsSameAs(screenshotWorkDirectory)
+                || !Directory.Exists(screenshotWorkDirectory.Value)
+                || !Directory.Exists(directoryPath.Value))
             {
                 throw new IOException(
                     "Screenshot staging path must be inside one existing capture directory owned by this project fingerprint.");
@@ -134,27 +136,27 @@ namespace MackySoft.Ucli.Unity.ScreenshotCapture.Staging
             return fullPath;
         }
 
-        private static void EnsureTargetDoesNotExist (string path)
+        private static void EnsureTargetDoesNotExist (AbsolutePath path)
         {
-            if (!File.Exists(path) && !Directory.Exists(path))
+            if (!File.Exists(path.Value) && !Directory.Exists(path.Value))
             {
                 return;
             }
 
-            var attributes = File.GetAttributes(path);
+            var attributes = File.GetAttributes(path.Value);
             if ((attributes & FileAttributes.ReparsePoint) != 0)
             {
-                throw new IOException($"Screenshot staging target must not be a reparse point: {path}");
+                throw new IOException($"Screenshot staging target must not be a reparse point: {path.Value}");
             }
 
-            throw new IOException($"Screenshot staging target already exists: {path}");
+            throw new IOException($"Screenshot staging target already exists: {path.Value}");
         }
 
-        private static void DeletePathIfExists (string path)
+        private static void DeletePathIfExists (AbsolutePath path)
         {
-            if (File.Exists(path))
+            if (File.Exists(path.Value))
             {
-                File.Delete(path);
+                File.Delete(path.Value);
             }
         }
     }

@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Assurance;
 using MackySoft.Ucli.Contracts.Daemon;
@@ -11,6 +12,7 @@ using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Infrastructure.Paths;
 using MackySoft.Ucli.Unity.Ipc;
+using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.Runtime;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -297,27 +299,20 @@ namespace MackySoft.Ucli.Unity.Build
 
         private static bool HasProjectLocalPackagePath (ProjectMutationAuditPath path)
         {
-            var projectRootPathResult = PathNormalizer.TryNormalizeFullPath(Path.Combine(Application.dataPath, ".."));
-            if (!projectRootPathResult.IsSuccess)
+            var projectRootPath = UnityProjectPathResolver.ResolveProjectRootPath();
+            var packagePath = ContainedPath.Create(
+                projectRootPath,
+                ProjectMutationAuditPathAdapter.ToRootRelativePath(path));
+
+            var packageRootPath = ContainedPath.Create(
+                projectRootPath,
+                RootRelativePath.Parse("Packages")).Target;
+            if (!packageRootPath.IsSameOrAncestorOf(packagePath.Target))
             {
                 return false;
             }
 
-            var projectRootPath = projectRootPathResult.FullPath!;
-            var packageRootPath = Path.Combine(projectRootPath, "Packages");
-            var packagePathResult = RepositoryPathNormalizer.TryNormalize(projectRootPath, path.Value);
-            if (!packagePathResult.IsSuccess)
-            {
-                return false;
-            }
-
-            var packagePath = packagePathResult.FullPath!;
-            if (!RepositoryPathNormalizer.TryNormalize(packageRootPath, packagePath).IsSuccess)
-            {
-                return false;
-            }
-
-            return File.Exists(packagePath) || Directory.Exists(packagePath);
+            return File.Exists(packagePath.Target.Value) || Directory.Exists(packagePath.Target.Value);
         }
 
         private static bool IsEditorModeAllowed (

@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Contracts.Ipc;
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Unity.Project;
 using UnityEditor;
 using UnityEngine;
 
@@ -27,7 +27,7 @@ namespace MackySoft.Ucli.Unity.Index
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var normalizedAssetPath = PathStringNormalizer.ToSlashSeparated(assetPaths[i]);
+                var normalizedAssetPath = UnityAssetPathUtility.NormalizeProjectRelativeSeparators(assetPaths[i]);
                 if (!UnityAssetPathContract.IsNormalizedAssetsDescendantPath(normalizedAssetPath)
                     || AssetDatabase.IsValidFolder(normalizedAssetPath))
                 {

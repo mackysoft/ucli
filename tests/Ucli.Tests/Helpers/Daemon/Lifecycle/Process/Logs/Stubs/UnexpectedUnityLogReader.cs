@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Tests.Helpers.Process;
 
 internal sealed class UnexpectedUnityLogReader : IUnityLogReader
@@ -12,7 +14,7 @@ internal sealed class UnexpectedUnityLogReader : IUnityLogReader
     }
 
     public ValueTask<UnityLogReadResult> ReadTailAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         int maxBytes = IUnityLogReader.DefaultMaxBytes,
         CancellationToken cancellationToken = default)

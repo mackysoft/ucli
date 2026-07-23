@@ -5,6 +5,7 @@ using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Execution;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -19,7 +20,8 @@ namespace MackySoft.Ucli.Unity.Tests
 {
     public sealed class UnityOneshotConnectionHandlerTests
     {
-        private const string StorageRoot = "oneshot-connection-handler-tests";
+        private static readonly AbsolutePath StorageRoot = AbsolutePath.Parse(
+            Path.Combine(Path.GetTempPath(), "oneshot-connection-handler-tests"));
 
         private static readonly DateTimeOffset ObservedUtc =
             new DateTimeOffset(2026, 7, 14, 0, 0, 0, TimeSpan.Zero);

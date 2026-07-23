@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using System.Net.Sockets;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Tests.Helpers.Daemon;

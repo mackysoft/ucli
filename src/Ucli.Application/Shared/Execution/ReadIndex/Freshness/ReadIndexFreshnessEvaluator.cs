@@ -1,5 +1,5 @@
+using MackySoft.Ucli.Application.Shared.Execution.ReadIndex.Scenes;
 using MackySoft.Ucli.Contracts.Cryptography;
-using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.ReadIndex;
 
@@ -54,17 +54,15 @@ internal sealed class ReadIndexFreshnessEvaluator : IReadIndexFreshnessEvaluator
 
     /// <inheritdoc />
     public async ValueTask<IndexFreshnessEvaluationResult> ObserveSceneTreeLiteAsync (
-        ResolvedUnityProjectContext unityProject,
-        SceneAssetPath scenePath,
+        SceneTreeLiteSourcePaths sourcePaths,
         Sha256Digest persistedSourceInputsHash,
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        ArgumentNullException.ThrowIfNull(unityProject);
-        ArgumentNullException.ThrowIfNull(scenePath);
+        ArgumentNullException.ThrowIfNull(sourcePaths);
         ArgumentNullException.ThrowIfNull(persistedSourceInputsHash);
 
-        var currentSourceHash = await sceneSourceHashProvider.TryComputeAsync(unityProject, scenePath, cancellationToken).ConfigureAwait(false);
+        var currentSourceHash = await sceneSourceHashProvider.TryComputeAsync(sourcePaths, cancellationToken).ConfigureAwait(false);
         if (currentSourceHash == null)
         {
             return IndexFreshnessEvaluationResult.Success(IndexFreshness.Probable);

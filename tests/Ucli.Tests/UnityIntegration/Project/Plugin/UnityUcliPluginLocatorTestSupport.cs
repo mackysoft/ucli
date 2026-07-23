@@ -1,4 +1,5 @@
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Project;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin;
@@ -12,14 +13,14 @@ internal static class UnityUcliPluginLocatorTestSupport
 
     public static Task WriteMarkerAsync (
         TestDirectoryScope scope,
-        string markerDirectoryRelativePath,
+        RootRelativePath markerDirectoryRelativePath,
         string? contents = null)
     {
         ArgumentNullException.ThrowIfNull(scope);
-        ArgumentException.ThrowIfNullOrWhiteSpace(markerDirectoryRelativePath);
+        ArgumentNullException.ThrowIfNull(markerDirectoryRelativePath);
 
         return scope.WriteFileAsync(
-            Path.Combine(markerDirectoryRelativePath, UnityUcliPluginMarkerContract.MarkerFileName),
+            Path.Combine(markerDirectoryRelativePath.Value, UnityUcliPluginMarkerContract.MarkerFileName),
             contents
             ?? """
                {
@@ -29,17 +30,28 @@ internal static class UnityUcliPluginLocatorTestSupport
                """);
     }
 
-    public static async Task<UnityUcliPluginMarkerCache> ReadCacheAsync (
-        TestDirectoryScope scope,
-        string unityProjectPath)
+    public static AbsolutePath ResolveMarkerPath (
+        AbsolutePath unityProjectRoot,
+        RootRelativePath markerDirectoryRelativePath)
     {
-        ArgumentNullException.ThrowIfNull(scope);
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectPath);
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
+        ArgumentNullException.ThrowIfNull(markerDirectoryRelativePath);
 
-        var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectPath);
-        var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, unityProjectPath);
+        var markerRelativePath = RootRelativePath.Parse(
+            Path.Combine(
+                markerDirectoryRelativePath.Value,
+                UnityUcliPluginMarkerContract.MarkerFileName));
+        return ContainedPath.Create(unityProjectRoot, markerRelativePath).Target;
+    }
+
+    public static async Task<UnityUcliPluginMarkerCache> ReadCacheAsync (AbsolutePath unityProjectRoot)
+    {
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
+
+        var storageRoot = UcliStoragePathResolver.ResolveStorageRoot(unityProjectRoot);
+        var projectFingerprint = UnityProjectFingerprintCalculator.Create(storageRoot, unityProjectRoot);
         var cachePath = UcliStoragePathResolver.ResolveUnityUcliPluginMarkerCachePath(storageRoot, projectFingerprint);
-        var json = await File.ReadAllTextAsync(cachePath);
+        var json = await File.ReadAllTextAsync(cachePath.Value);
         return JsonSerializer.Deserialize<UnityUcliPluginMarkerCache>(
                 json,
                 new JsonSerializerOptions

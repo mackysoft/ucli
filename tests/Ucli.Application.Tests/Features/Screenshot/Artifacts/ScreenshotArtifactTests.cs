@@ -45,4 +45,17 @@ public sealed class ScreenshotArtifactTests
 
         Assert.Equal("createdAtUtc", exception.ParamName);
     }
+
+    [Fact]
+    [Trait("Size", "Small")]
+    public void Constructor_WhenPathIsNotPortable_ThrowsArgumentException ()
+    {
+        var exception = Assert.Throws<ArgumentException>(() => new ScreenshotArtifact(
+            @"artifacts\screenshot.png",
+            Digest,
+            1,
+            DateTimeOffset.UnixEpoch));
+
+        Assert.Equal("path", exception.ParamName);
+    }
 }

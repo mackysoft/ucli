@@ -45,7 +45,9 @@ public sealed class BuildServiceInputValidationTests
             }
             """;
         var service = CreateService(
-            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(profileJson, "/workspace/build.ucli.json")),
+            profileFileReader: new StubBuildProfileFileReader(BuildProfileFileReadResult.Success(
+                profileJson,
+                DefaultBuildProfilePath)),
             requestExecutor: new UnexpectedUnityRequestExecutor(),
             artifactStore: new StubBuildRunArtifactStore(tempDirectory.FullPath));
 

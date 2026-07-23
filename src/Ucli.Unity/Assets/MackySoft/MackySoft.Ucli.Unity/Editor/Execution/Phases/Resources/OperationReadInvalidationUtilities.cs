@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Infrastructure.Paths;
+using MackySoft.Ucli.Unity.Project;
 
 #nullable enable
 
@@ -59,7 +59,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             {
                 new OperationReadInvalidation(
                     OperationReadInvalidationSurface.SceneTreeLite,
-                    PathStringNormalizer.ToSlashSeparated(scenePath)),
+                    UnityAssetPathUtility.NormalizeProjectRelativeSeparators(scenePath)),
             };
         }
 

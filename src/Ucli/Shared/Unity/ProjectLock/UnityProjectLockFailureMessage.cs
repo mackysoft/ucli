@@ -1,3 +1,5 @@
+using MackySoft.FileSystem;
+
 namespace MackySoft.Ucli.Shared.Unity.ProjectLock;
 
 /// <summary> Builds user-facing messages for Unity project lock failures. </summary>
@@ -8,13 +10,14 @@ internal static class UnityProjectLockFailureMessage
     /// <param name="lockFilePath"> The Unity lock-file path when available. </param>
     /// <returns> The project-already-open message. </returns>
     public static string CreateAlreadyOpen (
-        string unityProjectRoot,
-        string? lockFilePath = null)
+        AbsolutePath unityProjectRoot,
+        AbsolutePath? lockFilePath = null)
     {
-        var lockFileSuffix = string.IsNullOrWhiteSpace(lockFilePath)
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
+        var lockFileSuffix = lockFilePath is null
             ? string.Empty
-            : $" LockFile={lockFilePath}";
-        return $"Unity project is already open or locked by another Unity process. ProjectPath={unityProjectRoot}.{lockFileSuffix}";
+            : $" LockFile={lockFilePath.Value}";
+        return $"Unity project is already open or locked by another Unity process. ProjectPath={unityProjectRoot.Value}.{lockFileSuffix}";
     }
 
     /// <summary> Builds a message for a Unity lock file whose ownership could not be decided safely. </summary>
@@ -23,15 +26,14 @@ internal static class UnityProjectLockFailureMessage
     /// <param name="reason"> The ambiguity reason. </param>
     /// <returns> The ambiguous lock message. </returns>
     public static string CreateAmbiguous (
-        string unityProjectRoot,
-        string lockFilePath,
+        AbsolutePath unityProjectRoot,
+        AbsolutePath? lockFilePath,
         string reason)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(unityProjectRoot);
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
+        ArgumentNullException.ThrowIfNull(unityProjectRoot);
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
 
-        return $"Unity project lock-file ownership could not be determined safely. ProjectPath={unityProjectRoot}. LockFile={lockFilePath}. {reason}";
+        return $"Unity project lock-file ownership could not be determined safely. ProjectPath={unityProjectRoot.Value}. LockFile={lockFilePath?.Value ?? "<unknown>"}. {reason}";
     }
 
     /// <summary> Builds a message for stale Unity lock-file cleanup failure. </summary>
@@ -39,23 +41,22 @@ internal static class UnityProjectLockFailureMessage
     /// <param name="reason"> The cleanup failure reason. </param>
     /// <returns> The cleanup failure message. </returns>
     public static string CreateCleanupFailed (
-        string lockFilePath,
+        AbsolutePath? lockFilePath,
         string reason)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
         ArgumentException.ThrowIfNullOrWhiteSpace(reason);
 
-        return $"Stale Unity project lock file could not be removed. LockFile={lockFilePath}. {reason}";
+        return $"Stale Unity project lock file could not be removed. LockFile={lockFilePath?.Value ?? "<unknown>"}. {reason}";
     }
 
     /// <summary> Builds a diagnostic for a stale Unity lock file that uCLI removed. </summary>
     /// <param name="lockFilePath"> The removed Unity lock-file path. </param>
     /// <returns> The stale cleanup diagnostic message. </returns>
-    public static string CreateStaleLockCleared (string lockFilePath)
+    public static string CreateStaleLockCleared (AbsolutePath lockFilePath)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
+        ArgumentNullException.ThrowIfNull(lockFilePath);
 
-        return $"Stale Unity project lock file was removed. LockFile={lockFilePath}";
+        return $"Stale Unity project lock file was removed. LockFile={lockFilePath.Value}";
     }
 
     /// <summary> Builds a message for a lock-file state that could not be inspected. </summary>
@@ -63,13 +64,13 @@ internal static class UnityProjectLockFailureMessage
     /// <param name="exception"> The exception raised while inspecting the path. </param>
     /// <returns> The lock-file inspection failure message. </returns>
     public static string CreateInspectionFailed (
-        string lockFilePath,
+        AbsolutePath lockFilePath,
         Exception exception)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(lockFilePath);
+        ArgumentNullException.ThrowIfNull(lockFilePath);
         ArgumentNullException.ThrowIfNull(exception);
 
-        return $"Unity project lock-file state could not be inspected. LockFile={lockFilePath}. {exception.Message}";
+        return $"Unity project lock-file state could not be inspected. LockFile={lockFilePath.Value}. {exception.Message}";
     }
 
 }

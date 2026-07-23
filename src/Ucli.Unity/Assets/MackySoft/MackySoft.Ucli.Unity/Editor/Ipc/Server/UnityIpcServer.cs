@@ -79,26 +79,20 @@ namespace MackySoft.Ucli.Unity.Ipc
             }
         }
 
-        /// <summary> Starts the IPC server listener for the specified endpoint. </summary>
-        /// <param name="endpoint"> The endpoint definition used by server binding. Must not be <see langword="null" />, and its address must not be empty or whitespace. </param>
+        /// <summary> Starts the IPC server listener for the specified guarded endpoint binding. </summary>
+        /// <param name="endpointBinding"> The runtime endpoint binding used by the transport listener. </param>
         /// <param name="cancellationToken"> The cancellation token propagated by operation pipelines. </param>
         /// <returns> A task that produces the listener generation fence required before durable endpoint publication. </returns>
-        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="endpoint" /> is <see langword="null" />. </exception>
-        /// <exception cref="ArgumentException"> Thrown when endpoint address is empty or whitespace. </exception>
+        /// <exception cref="ArgumentNullException"> Thrown when <paramref name="endpointBinding" /> is <see langword="null" />. </exception>
         /// <exception cref="InvalidOperationException"> Thrown when a listener is already active or a prior listener generation did not terminate safely. </exception>
         public async Task<IUnityIpcServerPublicationFence> StartAsync (
-            IpcEndpoint endpoint,
+            UnityIpcEndpointBinding endpointBinding,
             CancellationToken cancellationToken = default)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (endpoint == null)
+            if (endpointBinding == null)
             {
-                throw new ArgumentNullException(nameof(endpoint));
-            }
-
-            if (string.IsNullOrWhiteSpace(endpoint.Address))
-            {
-                throw new ArgumentException("Endpoint address must not be empty or whitespace.", nameof(endpoint));
+                throw new ArgumentNullException(nameof(endpointBinding));
             }
 
             ListenerGenerationPublicationState nextListenerPublicationState;
@@ -127,7 +121,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         ?? lifecycleTransportReleaseCompletionSource?.Task;
                     if (lifecycleTransitionTask == null)
                     {
-                        nextTransportListener = ResolveTransportListener(endpoint.TransportKind);
+                        nextTransportListener = ResolveTransportListener(endpointBinding.Endpoint.TransportKind);
                         nextListenerPublicationState = new ListenerGenerationPublicationState();
                         nextListenerCancellationTokenSource = new CancellationTokenSource();
                         startupCoordinator = new UnityIpcServerStartupCoordinator();
@@ -148,7 +142,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                         activeListenerPublicationState = nextListenerPublicationState;
                         listenerCancellationTokenSource = nextListenerCancellationTokenSource;
                         nextListenerTask = Task.Run(() => RunServerLoopAsync(
-                            endpoint,
+                            endpointBinding,
                             nextTransportListener,
                             startupCoordinator,
                             nextListenerPublicationState,
@@ -433,11 +427,11 @@ namespace MackySoft.Ucli.Unity.Ipc
         }
 
         /// <summary> Runs endpoint-specific listener loop. </summary>
-        /// <param name="endpoint"> The configured IPC endpoint. </param>
+        /// <param name="endpointBinding"> The guarded runtime endpoint binding. </param>
         /// <param name="listener"> The transport listener reserved for this server generation. </param>
         /// <param name="cancellationToken"> The cancellation token for listener lifecycle. </param>
         private async Task RunServerLoopAsync (
-            IpcEndpoint endpoint,
+            UnityIpcEndpointBinding endpointBinding,
             IUnityIpcTransportListener listener,
             UnityIpcServerStartupCoordinator startupCoordinator,
             ListenerGenerationPublicationState publicationState,
@@ -450,7 +444,7 @@ namespace MackySoft.Ucli.Unity.Ipc
                 try
                 {
                     var listenerRunTask = listener.RunAsync(
-                        endpoint.Address,
+                        endpointBinding,
                         connectionHandler,
                         () => SignalStartupForGeneration(publicationState, startupCoordinator),
                         result => HandleConnectionCompleted(publicationState, result),

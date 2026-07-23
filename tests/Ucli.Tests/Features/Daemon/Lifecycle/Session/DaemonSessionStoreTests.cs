@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 using MackySoft.Ucli.Infrastructure.Storage;
 namespace MackySoft.Ucli.Tests.Daemon;
@@ -6,6 +7,7 @@ using System.Runtime.Versioning;
 using MackySoft.Tests;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Contracts.Daemon;
+using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Tests;
@@ -23,19 +25,19 @@ public sealed class DaemonSessionStoreTests
             projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-write-generation-lock-owned"),
             sessionToken: "successor-token");
         var lockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             session.ProjectFingerprint);
         using var sessionLock = FileExclusiveLock.Acquire(
             lockPath,
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
 
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(AbsolutePath.Parse(scope.FullPath), session, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         Assert.False(File.Exists(UcliStoragePathResolver.ResolveSessionPath(
-            scope.FullPath,
-            session.ProjectFingerprint)));
+            AbsolutePath.Parse(scope.FullPath),
+            session.ProjectFingerprint).Value));
     }
 
     [Fact]
@@ -44,20 +46,20 @@ public sealed class DaemonSessionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "delete-generation-lock-owned");
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-delete-generation-lock-owned");
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
-        await File.WriteAllTextAsync(sessionPath, "current-session", CancellationToken.None);
-        var lockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(scope.FullPath, projectFingerprint);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
+        await File.WriteAllTextAsync(sessionPath.Value, "current-session", CancellationToken.None);
+        var lockPath = UcliStoragePathResolver.ResolveDaemonSessionLockPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
         using var sessionLock = FileExclusiveLock.Acquire(
             lockPath,
             TimeSpan.FromSeconds(1),
             CancellationToken.None);
         var store = new DaemonSessionStore();
 
-        var deleteResult = await store.DeleteAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+        var deleteResult = await store.DeleteAsync(AbsolutePath.Parse(scope.FullPath), projectFingerprint, CancellationToken.None);
 
         Assert.False(deleteResult.IsSuccess);
-        Assert.Equal("current-session", await File.ReadAllTextAsync(sessionPath, CancellationToken.None));
+        Assert.Equal("current-session", await File.ReadAllTextAsync(sessionPath.Value, CancellationToken.None));
     }
 
     [Fact]
@@ -72,14 +74,14 @@ public sealed class DaemonSessionStoreTests
             UcliStoragePathNames.UcliDirectoryName,
             UcliStoragePathNames.GitIgnoreFileName);
 
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(AbsolutePath.Parse(scope.FullPath), session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
         Assert.Null(writeResult.Error);
         FileSystemAssert.ForFile(gitIgnorePath).Exists();
         Assert.Equal(UcliContractConstants.LocalDirectoryIgnoreEntry + Environment.NewLine, File.ReadAllText(gitIgnorePath));
 
-        var readResult = await store.ReadAsync(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), session.ProjectFingerprint, CancellationToken.None);
 
         Assert.True(readResult.IsSuccess);
         Assert.True(readResult.Exists);
@@ -89,19 +91,20 @@ public sealed class DaemonSessionStoreTests
         Assert.Equal(session.EditorMode, loadedSession.EditorMode);
         Assert.Equal(session.OwnerKind, loadedSession.OwnerKind);
         Assert.Equal(session.CanShutdownProcess, loadedSession.CanShutdownProcess);
-        Assert.Equal(session.Endpoint, loadedSession.Endpoint);
+        Assert.Equal(session.EndpointContract, loadedSession.EndpointContract);
+        Assert.Equal(session.UnixSocketEndpointPath, loadedSession.UnixSocketEndpointPath);
         Assert.Equal(session.ProcessId, loadedSession.ProcessId);
         Assert.Equal(session.ProcessStartedAtUtc, loadedSession.ProcessStartedAtUtc);
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), session.ProjectFingerprint);
         Assert.Equal(
-            DaemonSessionArtifactIdentity.Create(await File.ReadAllBytesAsync(sessionPath, CancellationToken.None)),
+            DaemonSessionArtifactIdentity.Create(await File.ReadAllBytesAsync(sessionPath.Value, CancellationToken.None)),
             readResult.ArtifactIdentity);
         Assert.Null(readResult.InvalidEvidence);
 
-        var deleteResult = await store.DeleteAsync(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
+        var deleteResult = await store.DeleteAsync(AbsolutePath.Parse(scope.FullPath), session.ProjectFingerprint, CancellationToken.None);
 
         Assert.True(deleteResult.IsSuccess);
-        var readAfterDeleteResult = await store.ReadAsync(scope.FullPath, session.ProjectFingerprint, CancellationToken.None);
+        var readAfterDeleteResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), session.ProjectFingerprint, CancellationToken.None);
         Assert.True(readAfterDeleteResult.IsSuccess);
         Assert.False(readAfterDeleteResult.Exists);
     }
@@ -118,7 +121,7 @@ public sealed class DaemonSessionStoreTests
             UcliStoragePathNames.GitIgnoreFileName);
         var gitIgnorePath = scope.WriteFile(relativeGitIgnorePath, "legacy/" + Environment.NewLine);
 
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(AbsolutePath.Parse(scope.FullPath), session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
         Assert.Equal("legacy/" + Environment.NewLine, File.ReadAllText(gitIgnorePath));
@@ -139,17 +142,17 @@ public sealed class DaemonSessionStoreTests
         var store = new DaemonSessionStore();
         var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-owner-only"), sessionToken: "token-1");
 
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(AbsolutePath.Parse(scope.FullPath), session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
 
-        var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(scope.FullPath);
-        var projectDirectoryPath = UcliStoragePathResolver.ResolveProjectDirectory(scope.FullPath, session.ProjectFingerprint);
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
+        var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(AbsolutePath.Parse(scope.FullPath));
+        var projectDirectoryPath = UcliStoragePathResolver.ResolveProjectDirectory(AbsolutePath.Parse(scope.FullPath), session.ProjectFingerprint);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), session.ProjectFingerprint);
 
-        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(localDirectoryPath);
-        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(projectDirectoryPath);
-        PosixAccessBoundaryAssert.FileIsOwnerOnly(sessionPath);
+        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(localDirectoryPath.Value);
+        PosixAccessBoundaryAssert.DirectoryIsOwnerOnly(projectDirectoryPath.Value);
+        PosixAccessBoundaryAssert.FileIsOwnerOnly(sessionPath.Value);
     }
 
     [Fact]
@@ -166,17 +169,17 @@ public sealed class DaemonSessionStoreTests
         var store = new DaemonSessionStore();
         var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-current-user-only"), sessionToken: "token-1");
 
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(AbsolutePath.Parse(scope.FullPath), session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
 
-        var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(scope.FullPath);
-        var projectDirectoryPath = UcliStoragePathResolver.ResolveProjectDirectory(scope.FullPath, session.ProjectFingerprint);
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, session.ProjectFingerprint);
+        var localDirectoryPath = UcliStoragePathResolver.ResolveLocalDirectoryPath(AbsolutePath.Parse(scope.FullPath));
+        var projectDirectoryPath = UcliStoragePathResolver.ResolveProjectDirectory(AbsolutePath.Parse(scope.FullPath), session.ProjectFingerprint);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), session.ProjectFingerprint);
 
-        WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(localDirectoryPath);
-        WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(projectDirectoryPath);
-        WindowsAccessBoundaryAssert.FileIsCurrentUserOnly(sessionPath);
+        WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(localDirectoryPath.Value);
+        WindowsAccessBoundaryAssert.DirectoryIsCurrentUserOnly(projectDirectoryPath.Value);
+        WindowsAccessBoundaryAssert.FileIsCurrentUserOnly(sessionPath.Value);
     }
 
     [Fact]
@@ -195,7 +198,7 @@ public sealed class DaemonSessionStoreTests
         var store = new DaemonSessionStore();
         var session = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-blocked"), sessionToken: "token-1");
 
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(AbsolutePath.Parse(scope.FullPath), session, CancellationToken.None);
 
         Assert.False(writeResult.IsSuccess);
         var error = Assert.IsType<ExecutionError>(writeResult.Error);
@@ -209,11 +212,11 @@ public sealed class DaemonSessionStoreTests
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "malformed-json");
         var store = new DaemonSessionStore();
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-malformed"));
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
-        await File.WriteAllTextAsync(sessionPath, "{", CancellationToken.None);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), ProjectFingerprintTestFactory.Create("fingerprint-malformed"));
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
+        await File.WriteAllTextAsync(sessionPath.Value, "{", CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, ProjectFingerprintTestFactory.Create("fingerprint-malformed"), CancellationToken.None);
+        var readResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), ProjectFingerprintTestFactory.Create("fingerprint-malformed"), CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -228,19 +231,47 @@ public sealed class DaemonSessionStoreTests
 
     [Fact]
     [Trait("Size", "Medium")]
+    public async Task Read_WhenUnixSocketAddressExceedsTransportLimit_ReturnsInvalidSession ()
+    {
+        using var scope = TestDirectories.CreateTempScope("daemon-session-store", "unix-address-too-long");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
+        var store = new DaemonSessionStore();
+        var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-unix-address-too-long");
+        var session = DaemonSessionTestFactory.Create(projectFingerprint: projectFingerprint);
+        var contract = DaemonSessionContractMapper.ToContract(session) with
+        {
+            EndpointTransportKind = IpcTransportKind.UnixDomainSocket,
+            EndpointAddress = Path.Combine(scope.FullPath, new string('s', 120) + ".sock"),
+        };
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(storageRoot, projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
+        await File.WriteAllTextAsync(
+            sessionPath.Value,
+            DaemonSessionJsonContractSerializer.Serialize(contract),
+            CancellationToken.None);
+
+        var readResult = await store.ReadAsync(storageRoot, projectFingerprint, CancellationToken.None);
+
+        Assert.False(readResult.IsSuccess);
+        Assert.Equal(DaemonSessionReadFailureKind.InvalidSession, readResult.FailureKind);
+        Assert.Contains("UTF-8 byte length", Assert.IsType<ExecutionError>(readResult.Error).Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    [Trait("Size", "Medium")]
     public async Task Read_WhenSessionJsonExceedsStorageLimit_ReturnsIoFailure ()
     {
         using var scope = TestDirectories.CreateTempScope("daemon-session-store", "oversized-json");
         var store = new DaemonSessionStore();
         var projectFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-oversized-json");
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
         await File.WriteAllBytesAsync(
-            sessionPath,
+            sessionPath.Value,
             new byte[DaemonSessionStorageContract.MaximumFileSizeBytes + 1],
             CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), projectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -276,14 +307,14 @@ public sealed class DaemonSessionStoreTests
             },
             _ => throw new ArgumentOutOfRangeException(nameof(timestamp), timestamp, null),
         };
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
         await File.WriteAllTextAsync(
-            sessionPath,
+            sessionPath.Value,
             DaemonSessionJsonContractSerializer.Serialize(invalidContract),
             CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), projectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -304,15 +335,15 @@ public sealed class DaemonSessionStoreTests
             projectFingerprint: projectFingerprint,
             editorMode: DaemonEditorMode.Gui,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
         var validJson = Serialize(session);
         var serializedEditorInstanceId = DaemonSessionTestFactory.DefaultEditorInstanceId.ToString("D");
         Assert.Contains(serializedEditorInstanceId, validJson, StringComparison.Ordinal);
         var invalidJson = validJson.Replace(serializedEditorInstanceId, "not-a-guid", StringComparison.Ordinal);
-        await File.WriteAllTextAsync(sessionPath, invalidJson, CancellationToken.None);
+        await File.WriteAllTextAsync(sessionPath.Value, invalidJson, CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, projectFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), projectFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -334,14 +365,14 @@ public sealed class DaemonSessionStoreTests
         var requestedFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-requested");
         var mismatchedSession = DaemonSessionTestFactory.Create(projectFingerprint: ProjectFingerprintTestFactory.Create("fingerprint-other"), sessionToken: "token-1");
 
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), requestedFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
         await File.WriteAllTextAsync(
-            sessionPath,
+            sessionPath.Value,
             Serialize(mismatchedSession) + Environment.NewLine,
             CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, requestedFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), requestedFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -360,20 +391,20 @@ public sealed class DaemonSessionStoreTests
         var requestedFingerprint = ProjectFingerprintTestFactory.Create("fingerprint-read-invalid-editor-mode");
         var session = DaemonSessionTestFactory.Create(projectFingerprint: requestedFingerprint, sessionToken: "token-1");
 
-        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(scope.FullPath, requestedFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath)!);
+        var sessionPath = UcliStoragePathResolver.ResolveSessionPath(AbsolutePath.Parse(scope.FullPath), requestedFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(sessionPath.Value)!);
         var json = Serialize(session);
         var editorModeProperty = $"\"editorMode\": \"{ContractLiteralCodec.ToValue(session.EditorMode)}\"";
         Assert.Contains(editorModeProperty, json, StringComparison.Ordinal);
         await File.WriteAllTextAsync(
-            sessionPath,
+            sessionPath.Value,
             json.Replace(
                 editorModeProperty,
                 "\"editorMode\": \"unsupported\"",
                 StringComparison.Ordinal) + Environment.NewLine,
             CancellationToken.None);
 
-        var readResult = await store.ReadAsync(scope.FullPath, requestedFingerprint, CancellationToken.None);
+        var readResult = await store.ReadAsync(AbsolutePath.Parse(scope.FullPath), requestedFingerprint, CancellationToken.None);
 
         Assert.False(readResult.IsSuccess);
         Assert.False(readResult.Exists);
@@ -397,7 +428,7 @@ public sealed class DaemonSessionStoreTests
             canShutdownProcess: false,
             editorInstanceId: DaemonSessionTestFactory.DefaultEditorInstanceId);
 
-        var writeResult = await store.WriteAsync(scope.FullPath, session, CancellationToken.None);
+        var writeResult = await store.WriteAsync(AbsolutePath.Parse(scope.FullPath), session, CancellationToken.None);
 
         Assert.True(writeResult.IsSuccess);
     }

@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Project.Plugin.Cache;
 
@@ -25,7 +26,7 @@ internal sealed class ObservedPluginMarkerCacheStore
     }
 
     private async ValueTask WriteAllTextAtomicallyAsync (
-        string path,
+        AbsolutePath path,
         string contents,
         CancellationToken cancellationToken)
     {

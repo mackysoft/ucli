@@ -1,6 +1,6 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Testing.Run.Configuration;
 using MackySoft.Ucli.Application.Shared.Foundation;
-using MackySoft.Ucli.Infrastructure.Paths;
 
 namespace MackySoft.Ucli.Features.Testing.Run.Configuration;
 
@@ -14,35 +14,29 @@ internal sealed class FileTestRunProfileJsonReader : ITestRunProfileJsonReader
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        if (string.IsNullOrWhiteSpace(profilePath))
-        {
-            return TestRunProfileJsonReadResult.Failure(ExecutionError.InvalidArgument("profilePath is empty."));
-        }
-
-        var normalizedProfilePathResult = PathNormalizer.TryNormalizeFullPath(profilePath);
-        if (!normalizedProfilePathResult.IsSuccess)
+        var currentDirectory = AbsolutePath.Parse(Directory.GetCurrentDirectory());
+        if (!AbsolutePath.TryResolve(currentDirectory, profilePath, out var normalizedProfilePath, out _))
         {
             return TestRunProfileJsonReadResult.Failure(ExecutionError.InvalidArgument(
                 "profilePath is invalid: Path format is invalid."));
         }
 
-        var normalizedProfilePath = normalizedProfilePathResult.FullPath!;
-        if (!File.Exists(normalizedProfilePath))
+        if (!File.Exists(normalizedProfilePath.Value))
         {
             return TestRunProfileJsonReadResult.Failure(ExecutionError.InvalidArgument(
-                $"profilePath does not exist: {normalizedProfilePath}"));
+                $"profilePath does not exist: {normalizedProfilePath.Value}"));
         }
 
         try
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var json = await File.ReadAllTextAsync(normalizedProfilePath, cancellationToken).ConfigureAwait(false);
+            var json = await File.ReadAllTextAsync(normalizedProfilePath.Value, cancellationToken).ConfigureAwait(false);
             return TestRunProfileJsonReadResult.Success(json);
         }
         catch (Exception exception) when (exception is UnauthorizedAccessException or IOException)
         {
             return TestRunProfileJsonReadResult.Failure(ExecutionError.InternalError(
-                $"Failed to read profile file: {normalizedProfilePath}. {exception.Message}"));
+                $"Failed to read profile file: {normalizedProfilePath.Value}. {exception.Message}"));
         }
     }
 }

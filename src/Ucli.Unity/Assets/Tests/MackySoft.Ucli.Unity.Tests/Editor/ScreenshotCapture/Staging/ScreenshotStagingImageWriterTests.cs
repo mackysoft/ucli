@@ -4,9 +4,10 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
-using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Storage;
+using MackySoft.Ucli.Unity.Project;
 using MackySoft.Ucli.Unity.ScreenshotCapture.Staging;
 using NUnit.Framework;
 using UnityEngine;
@@ -88,19 +89,19 @@ namespace MackySoft.Ucli.Unity.Tests
             using var scope = new TemporaryScreenshotDirectory();
             var writer = scope.CreateWriter();
             var screenshotWorkDirectory = UcliStoragePathResolver.ResolveScreenshotWorkDirectory(
-                scope.ProjectPath,
+                scope.ProjectAbsolutePath,
                 TemporaryScreenshotDirectory.ProjectFingerprint);
-            Directory.CreateDirectory(screenshotWorkDirectory);
+            Directory.CreateDirectory(screenshotWorkDirectory.Value);
             var outsideDirectory = Path.Combine(scope.RootPath, "symlink-target");
             Directory.CreateDirectory(outsideDirectory);
             var captureDirectory = UcliStoragePathResolver.ResolveScreenshotCaptureStagingDirectory(
-                scope.ProjectPath,
+                scope.ProjectAbsolutePath,
                 TemporaryScreenshotDirectory.ProjectFingerprint,
                 SymlinkCaptureId);
             using (var process = Process.Start(new ProcessStartInfo
             {
                 FileName = "/bin/ln",
-                Arguments = $"-s \"{outsideDirectory}\" \"{captureDirectory}\"",
+                Arguments = $"-s \"{outsideDirectory}\" \"{captureDirectory.Value}\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
             }))
@@ -116,7 +117,6 @@ namespace MackySoft.Ucli.Unity.Tests
                 Assert.That(process.ExitCode, Is.Zero);
             }
 
-            var path = Path.Combine(captureDirectory, "capture.rgba");
             Assert.ThrowsAsync<IOException>(() =>
                 writer.WriteAtomicAsync(SymlinkCaptureId, new byte[] { 1, 2, 3, 4 }, CancellationToken.None));
             Assert.That(File.Exists(Path.Combine(outsideDirectory, "capture.rgba")), Is.False);
@@ -133,6 +133,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     Path.GetTempPath(),
                     $"ucli-screenshot-writer-{Guid.NewGuid():N}");
                 ProjectPath = Path.Combine(RootPath, "UnityProject");
+                ProjectAbsolutePath = AbsolutePath.Parse(ProjectPath);
                 Directory.CreateDirectory(ProjectPath);
             }
 
@@ -140,10 +141,12 @@ namespace MackySoft.Ucli.Unity.Tests
 
             public string ProjectPath { get; }
 
+            public AbsolutePath ProjectAbsolutePath { get; }
+
             public ScreenshotStagingImageWriter CreateWriter ()
             {
-                return new ScreenshotStagingImageWriter(new IpcProjectIdentity(
-                    ProjectPath,
+                return new ScreenshotStagingImageWriter(new UnityHostProjectIdentity(
+                    ProjectAbsolutePath,
                     ProjectFingerprint,
                     "2023.2.22f1"));
             }
@@ -151,14 +154,14 @@ namespace MackySoft.Ucli.Unity.Tests
             public string PrepareCapturePath (Guid captureId)
             {
                 var captureDirectory = UcliStoragePathResolver.ResolveScreenshotCaptureStagingDirectory(
-                    ProjectPath,
+                    ProjectAbsolutePath,
                     ProjectFingerprint,
                     captureId);
-                Directory.CreateDirectory(captureDirectory);
+                Directory.CreateDirectory(captureDirectory.Value);
                 return UcliStoragePathResolver.ResolveScreenshotCaptureRawStagingPath(
-                    ProjectPath,
+                    ProjectAbsolutePath,
                     ProjectFingerprint,
-                    captureId);
+                    captureId).Value;
             }
 
             public void Dispose ()

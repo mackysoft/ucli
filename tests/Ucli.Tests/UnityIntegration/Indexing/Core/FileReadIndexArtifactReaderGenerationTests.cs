@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Infrastructure.Storage;
 using MackySoft.Ucli.UnityIntegration.Indexing.Core;
 
@@ -11,12 +12,13 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
     {
         using var scope = TestDirectories.CreateTempScope("read-index-generation-reader", "consistent-generation");
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var firstSnapshot = CreateSnapshot("01234567");
         var secondSnapshot = CreateSnapshot("89abcdef");
         var pointerStore = new FileReadIndexGenerationPointerStore();
         var writer = CreateWriter(new FileReadIndexGenerationStore(pointerStore, TimeProvider.System));
         await writer.WriteAssetLookupsAsync(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:00:00Z"),
             Array.Empty<IndexAssetSearchEntryJsonContract>(),
@@ -24,7 +26,7 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
             firstSnapshot,
             CancellationToken.None);
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:01:00Z"),
             OperationCatalogTestFixtures.CreateSnapshot(
@@ -34,11 +36,11 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
             firstSnapshot,
             CancellationToken.None);
         var firstGenerationId = await pointerStore.ReadAsync(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             CancellationToken.None) ?? throw new InvalidOperationException("The first generation did not commit.");
         await writer.WriteAssetLookupsAsync(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:02:00Z"),
             Array.Empty<IndexAssetSearchEntryJsonContract>(),
@@ -46,7 +48,7 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
             secondSnapshot,
             CancellationToken.None);
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:03:00Z"),
             OperationCatalogTestFixtures.CreateSnapshot(
@@ -56,7 +58,7 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
             secondSnapshot,
             CancellationToken.None);
         var secondGenerationId = await pointerStore.ReadAsync(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             CancellationToken.None) ?? throw new InvalidOperationException("The second generation did not commit.");
         var changingPointerStore = new ChangingGenerationPointerStore(
@@ -84,12 +86,13 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
     {
         using var scope = TestDirectories.CreateTempScope("read-index-generation-reader", "retention-grace");
         var fingerprint = ProjectFingerprintTestFactory.Create("fingerprint");
+        var storageRoot = AbsolutePath.Parse(scope.FullPath);
         var snapshot = CreateSnapshot("01234567");
         var pointerStore = new FileReadIndexGenerationPointerStore();
         var timeProvider = new ManualTimeProvider(DateTimeOffset.Parse("2026-07-15T00:00:00Z"));
         var writer = CreateWriter(new FileReadIndexGenerationStore(pointerStore, timeProvider));
         await writer.WriteAssetLookupsAsync(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:00:00Z"),
             Array.Empty<IndexAssetSearchEntryJsonContract>(),
@@ -97,7 +100,7 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
             snapshot,
             CancellationToken.None);
         await writer.WriteOpsCatalogAsync(
-            scope.FullPath,
+            storageRoot,
             fingerprint,
             DateTimeOffset.Parse("2026-07-15T00:01:00Z"),
             OperationCatalogTestFixtures.CreateSnapshot(
@@ -118,7 +121,7 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
             for (var index = 0; index < 10; index++)
             {
                 await writer.WriteOpsCatalogAsync(
-                    scope.FullPath,
+                    storageRoot,
                     fingerprint,
                     DateTimeOffset.Parse("2026-07-15T00:02:00Z").AddMinutes(index),
                     OperationCatalogTestFixtures.CreateSnapshot(
@@ -130,9 +133,9 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
             }
 
             Assert.True(Directory.Exists(UcliStoragePathResolver.ResolveReadIndexGenerationDirectory(
-                scope.FullPath,
+                storageRoot,
                 fingerprint,
-                blockingPointerStore.ResolvedGenerationId)));
+                blockingPointerStore.ResolvedGenerationId).Value));
         }
         finally
         {
@@ -189,7 +192,7 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
         }
 
         public ValueTask<Guid?> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken)
         {
@@ -200,7 +203,7 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
         }
 
         public ValueTask PublishAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             Guid generationId,
             CancellationToken cancellationToken)
@@ -225,7 +228,7 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
         public Guid ResolvedGenerationId { get; private set; }
 
         public async ValueTask<Guid?> ReadAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             CancellationToken cancellationToken)
         {
@@ -238,7 +241,7 @@ public sealed class FileReadIndexArtifactReaderGenerationTests
         }
 
         public ValueTask PublishAsync (
-            string storageRoot,
+            AbsolutePath storageRoot,
             ProjectFingerprint projectFingerprint,
             Guid generationId,
             CancellationToken cancellationToken)

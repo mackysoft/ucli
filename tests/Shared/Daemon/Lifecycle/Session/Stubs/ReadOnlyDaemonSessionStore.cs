@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Session;
 
 namespace MackySoft.Ucli.TestSupport;
@@ -5,12 +6,12 @@ namespace MackySoft.Ucli.TestSupport;
 internal abstract class ReadOnlyDaemonSessionStore : IDaemonSessionStore
 {
     public abstract ValueTask<DaemonSessionReadResult> ReadAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default);
 
     public ValueTask<DaemonSessionStoreOperationResult> WriteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         DaemonSession session,
         CancellationToken cancellationToken = default)
     {
@@ -18,7 +19,7 @@ internal abstract class ReadOnlyDaemonSessionStore : IDaemonSessionStore
     }
 
     public ValueTask<DaemonSessionStoreOperationResult> DeleteAsync (
-        string storageRoot,
+        AbsolutePath storageRoot,
         ProjectFingerprint projectFingerprint,
         CancellationToken cancellationToken = default)
     {

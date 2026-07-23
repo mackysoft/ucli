@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 
 namespace MackySoft.Ucli.UnityIntegration.Project.Plugin.Contracts;
@@ -10,14 +11,14 @@ namespace MackySoft.Ucli.UnityIntegration.Project.Plugin.Contracts;
 /// <param name="Error"> The structured error when marker lookup failed. </param>
 internal sealed record UnityUcliPluginLocateResult (
     UnityUcliPluginLocateStatus Status,
-    string? MarkerPath,
+    AbsolutePath? MarkerPath,
     int? ProtocolVersion,
-    IReadOnlyList<string> MarkerPaths,
+    IReadOnlyList<AbsolutePath> MarkerPaths,
     ExecutionError? Error)
 {
     /// <summary> Gets a value indicating whether exactly one valid marker was found. </summary>
     public bool IsSuccess => Status == UnityUcliPluginLocateStatus.Found
-        && !string.IsNullOrWhiteSpace(MarkerPath)
+        && MarkerPath is not null
         && ProtocolVersion is not null
         && Error is null;
 
@@ -26,10 +27,10 @@ internal sealed record UnityUcliPluginLocateResult (
     /// <param name="protocolVersion"> The marker protocol version. </param>
     /// <returns> The successful result. </returns>
     public static UnityUcliPluginLocateResult Found (
-        string markerPath,
+        AbsolutePath markerPath,
         int protocolVersion)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(markerPath);
+        ArgumentNullException.ThrowIfNull(markerPath);
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(protocolVersion, 0);
 
         return new UnityUcliPluginLocateResult(
@@ -54,7 +55,7 @@ internal sealed record UnityUcliPluginLocateResult (
             Status: UnityUcliPluginLocateStatus.NotFound,
             MarkerPath: null,
             ProtocolVersion: null,
-            MarkerPaths: Array.Empty<string>(),
+            MarkerPaths: Array.Empty<AbsolutePath>(),
             Error: error);
     }
 
@@ -63,7 +64,7 @@ internal sealed record UnityUcliPluginLocateResult (
     /// <param name="error"> The structured failure error. </param>
     /// <returns> The failed result. </returns>
     public static UnityUcliPluginLocateResult MultipleFound (
-        IReadOnlyList<string> markerPaths,
+        IReadOnlyList<AbsolutePath> markerPaths,
         ExecutionError error)
     {
         ArgumentNullException.ThrowIfNull(markerPaths);
@@ -82,10 +83,10 @@ internal sealed record UnityUcliPluginLocateResult (
     /// <param name="error"> The structured failure error. </param>
     /// <returns> The failed result. </returns>
     public static UnityUcliPluginLocateResult InvalidMarker (
-        string markerPath,
+        AbsolutePath markerPath,
         ExecutionError error)
     {
-        ArgumentException.ThrowIfNullOrWhiteSpace(markerPath);
+        ArgumentNullException.ThrowIfNull(markerPath);
         ArgumentNullException.ThrowIfNull(error);
 
         return new UnityUcliPluginLocateResult(

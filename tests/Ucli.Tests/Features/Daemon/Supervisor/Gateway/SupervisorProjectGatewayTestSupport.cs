@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Stop;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Daemon;
@@ -19,7 +20,11 @@ internal static class SupervisorProjectGatewayTestSupport
         var manifest = SupervisorClientTestSupport.CreateManifest();
         var manifestStore = SupervisorManifestStoreTestSupport.CreateFileBacked(
             effectiveTimeProvider);
-        await manifestStore.WriteAsync(repositoryRoot, manifest, CancellationToken.None).ConfigureAwait(false);
+        await manifestStore.WriteAsync(
+                AbsolutePath.Parse(repositoryRoot),
+                manifest,
+                CancellationToken.None)
+            .ConfigureAwait(false);
 
         var transportClient = new StubIpcTransportClient();
         var client = new SupervisorClient(transportClient, effectiveTimeProvider);

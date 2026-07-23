@@ -58,8 +58,8 @@ public sealed class DaemonStatusServiceProjectionTests
         Assert.Equal(launchAttempt.StartupBlockingReason, actual.StartupBlockingReason);
         Assert.Equal(launchAttempt.RetryDisposition, actual.RetryDisposition);
         Assert.Equal(launchAttempt.ProcessAction, actual.ProcessAction);
-        Assert.Equal(launchAttempt.ArtifactPath, actual.ArtifactPath);
-        Assert.Equal(launchAttempt.UnityLogPath, actual.UnityLogPath);
+        Assert.Equal(launchAttempt.ArtifactPath.Value, actual.ArtifactPath);
+        Assert.Equal(launchAttempt.UnityLogPath?.Value, actual.UnityLogPath);
         Assert.Equal(launchAttempt.UpdatedAtUtc, actual.UpdatedAtUtc);
         Assert.Equal(launchAttempt.ProcessId, actual.ProcessId);
         Assert.Equal(launchAttempt.ProcessStartedAtUtc, actual.ProcessStartedAtUtc);
@@ -79,8 +79,22 @@ public sealed class DaemonStatusServiceProjectionTests
             EditorMode: DaemonEditorMode.Gui,
             ProcessId: 1234,
             ProcessStartedAtUtc: new DateTimeOffset(2026, 03, 12, 0, 0, 1, TimeSpan.Zero),
-            UnityLogPath: "/tmp/repo-root/.ucli/local/fingerprints/fingerprint/unity.log",
-            ArtifactPath: "/tmp/repo-root/.ucli/local/fingerprints/fingerprint/launch-attempts/0123456789abcdef0123456789abcdef/startup-diagnosis.json",
+            UnityLogPath: AbsolutePath.Parse(Path.Combine(
+                ProjectPathTestValues.TemporaryRepositoryRoot,
+                ".ucli",
+                "local",
+                "fingerprints",
+                "fingerprint",
+                "unity.log")),
+            ArtifactPath: AbsolutePath.Parse(Path.Combine(
+                ProjectPathTestValues.TemporaryRepositoryRoot,
+                ".ucli",
+                "local",
+                "fingerprints",
+                "fingerprint",
+                "launch-attempts",
+                "0123456789abcdef0123456789abcdef",
+                "startup-diagnosis.json")),
             Diagnosis: diagnosis);
     }
 }

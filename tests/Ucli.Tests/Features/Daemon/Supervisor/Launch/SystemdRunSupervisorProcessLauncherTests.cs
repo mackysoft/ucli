@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Application.Shared.Foundation;
 using MackySoft.Ucli.Features.Daemon.Supervisor;
 using MackySoft.Ucli.Tests.Helpers.Process;
@@ -11,11 +12,12 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
     public void BuildArguments_AppendsInternalSupervisorInvocationArguments ()
     {
         const string repositoryRoot = "/repo";
+        var absoluteRepositoryRoot = AbsolutePath.Parse(repositoryRoot);
         const string unitName = "mackysoft-ucli-supervisor-test";
         var launchCommand = new SupervisorLaunchCommand("ucli", ["--base"]);
 
         var arguments = SystemdRunSupervisorProcessLauncher.BuildArguments(
-            repositoryRoot,
+            absoluteRepositoryRoot,
             unitName,
             launchCommand);
 
@@ -30,7 +32,7 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
                 repositoryRoot,
                 "ucli",
                 "--base",
-                ..SupervisorInvocationArguments.Build(repositoryRoot),
+                ..SupervisorInvocationArguments.Build(absoluteRepositoryRoot),
             ],
             arguments);
     }
@@ -44,7 +46,7 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
         var launcher = new SystemdRunSupervisorProcessLauncher(processRunner);
 
         var launchResult = await launcher.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
         var lease = Assert.IsAssignableFrom<ISupervisorProcessLaunchLease>(launchResult.Lease);
@@ -68,10 +70,10 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
             ProcessRunResult.Exited(0),
             ProcessRunResult.Exited(stopExitCode));
         var launcher = new SystemdRunSupervisorProcessLauncher(processRunner);
-        var unitName = GetUnitName(scope.FullPath);
+        var unitName = GetUnitName(AbsolutePath.Parse(scope.FullPath));
 
         var launchResult = await launcher.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
         var lease = Assert.IsAssignableFrom<ISupervisorProcessLaunchLease>(launchResult.Lease);
@@ -103,9 +105,9 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
             ProcessRunResult.TimedOut("systemctl stop timed out"),
             ProcessRunResult.Exited(0));
         var launcher = new SystemdRunSupervisorProcessLauncher(processRunner);
-        var unitName = GetUnitName(scope.FullPath);
+        var unitName = GetUnitName(AbsolutePath.Parse(scope.FullPath));
         var launchResult = await launcher.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
         var lease = Assert.IsAssignableFrom<ISupervisorProcessLaunchLease>(launchResult.Lease);
@@ -142,7 +144,7 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
         var launcher = new SystemdRunSupervisorProcessLauncher(processRunner);
 
         var launchResult = await launcher.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             cancellation.Token);
 
@@ -161,10 +163,10 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
             ProcessRunResult.TimedOut("systemd-run timed out"),
             ProcessRunResult.Exited(0));
         var launcher = new SystemdRunSupervisorProcessLauncher(processRunner);
-        var unitName = GetUnitName(scope.FullPath);
+        var unitName = GetUnitName(AbsolutePath.Parse(scope.FullPath));
 
         var launchResult = await launcher.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
 
@@ -189,7 +191,7 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
         var launcher = new SystemdRunSupervisorProcessLauncher(processRunner);
 
         var launchResult = await launcher.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             CancellationToken.None);
 
@@ -223,10 +225,10 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
             return Task.FromResult(ProcessRunResult.Exited(0));
         };
         var launcher = new SystemdRunSupervisorProcessLauncher(processRunner);
-        var unitName = GetUnitName(scope.FullPath);
+        var unitName = GetUnitName(AbsolutePath.Parse(scope.FullPath));
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => launcher.LaunchAsync(
-                scope.FullPath,
+                AbsolutePath.Parse(scope.FullPath),
                 new SupervisorLaunchCommand("ucli", []),
                 cancellation.Token)
             .AsTask());
@@ -257,7 +259,7 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
         var launcher = new SystemdRunSupervisorProcessLauncher(processRunner);
 
         var launchResult = await launcher.LaunchAsync(
-            scope.FullPath,
+            AbsolutePath.Parse(scope.FullPath),
             new SupervisorLaunchCommand("ucli", []),
             cancellation.Token);
 
@@ -269,7 +271,7 @@ public sealed class SystemdRunSupervisorProcessLauncherTests
         Assert.Equal(2, processRunner.Invocations.Count);
     }
 
-    private static string GetUnitName (string storageRoot)
+    private static string GetUnitName (AbsolutePath storageRoot)
     {
         var worktreeIdentity = SupervisorWorktreeIdentity.Create(storageRoot);
         return "mackysoft-ucli-supervisor-" + worktreeIdentity.LaunchServiceNameSuffix;

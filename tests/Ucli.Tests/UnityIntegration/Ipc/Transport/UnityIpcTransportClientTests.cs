@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Infrastructure.Ipc;
 using MackySoft.Ucli.Tests.Helpers.Ipc;
@@ -8,6 +9,9 @@ namespace MackySoft.Ucli.Tests.Ipc;
 public sealed class UnityIpcTransportClientTests
 {
     private static readonly TimeSpan DefaultTimeout = TimeSpan.FromSeconds(1);
+    private static readonly AbsolutePath StorageRoot = AbsolutePath.Resolve(
+        AbsolutePath.Parse(Environment.CurrentDirectory),
+        "storage-root");
 
     [Fact]
     [Trait("Size", "Small")]
@@ -20,7 +24,7 @@ public sealed class UnityIpcTransportClientTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var response = await client.SendAsync(
-            "storage-root",
+            StorageRoot,
             ProjectFingerprintTestFactory.Create("project-fingerprint"),
             request,
             DefaultTimeout,
@@ -29,7 +33,7 @@ public sealed class UnityIpcTransportClientTests
         Assert.Same(sendResponse, response);
         UnityIpcTransportClientAssert.SendForwardedToResolvedEndpoint(
             transportClient,
-            UcliIpcEndpointResolver.ResolveDaemonEndpoint("storage-root", ProjectFingerprintTestFactory.Create("project-fingerprint")),
+            UcliIpcEndpointResolver.ResolveDaemonEndpoint(StorageRoot, ProjectFingerprintTestFactory.Create("project-fingerprint")).Contract,
             request,
             DefaultTimeout,
             cancellationTokenSource.Token);
@@ -48,7 +52,7 @@ public sealed class UnityIpcTransportClientTests
         using var cancellationTokenSource = new CancellationTokenSource();
 
         var response = await client.SendStreamingAsync(
-            "storage-root",
+            StorageRoot,
             ProjectFingerprintTestFactory.Create("project-fingerprint"),
             request,
             DefaultTimeout,
@@ -62,7 +66,7 @@ public sealed class UnityIpcTransportClientTests
         Assert.Same(streamingResponse, response);
         UnityIpcTransportClientAssert.StreamingSendForwardedToResolvedEndpoint(
             transportClient,
-            UcliIpcEndpointResolver.ResolveDaemonEndpoint("storage-root", ProjectFingerprintTestFactory.Create("project-fingerprint")),
+            UcliIpcEndpointResolver.ResolveDaemonEndpoint(StorageRoot, ProjectFingerprintTestFactory.Create("project-fingerprint")).Contract,
             request,
             DefaultTimeout,
             cancellationTokenSource.Token);
@@ -81,7 +85,7 @@ public sealed class UnityIpcTransportClientTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
             await client.SendAsync(
-                    "storage-root",
+                    StorageRoot,
                     ProjectFingerprintTestFactory.Create("project-fingerprint"),
                     IpcTransportTestHarness.CreateSingleRequest(),
                     TimeSpan.FromMilliseconds(timeoutMilliseconds))
@@ -102,7 +106,7 @@ public sealed class UnityIpcTransportClientTests
         await Assert.ThrowsAsync<ArgumentOutOfRangeException>(async () =>
         {
             await client.SendStreamingAsync(
-                    "storage-root",
+                    StorageRoot,
                     ProjectFingerprintTestFactory.Create("project-fingerprint"),
                     IpcTransportTestHarness.CreateStreamingRequest(),
                     TimeSpan.FromMilliseconds(timeoutMilliseconds),
@@ -124,7 +128,7 @@ public sealed class UnityIpcTransportClientTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             await client.SendAsync(
-                    "storage-root",
+                    StorageRoot,
                     ProjectFingerprintTestFactory.Create("project-fingerprint"),
                     IpcTransportTestHarness.CreateSingleRequest(),
                     DefaultTimeout,
@@ -146,7 +150,7 @@ public sealed class UnityIpcTransportClientTests
         await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
         {
             await client.SendStreamingAsync(
-                    "storage-root",
+                    StorageRoot,
                     ProjectFingerprintTestFactory.Create("project-fingerprint"),
                     IpcTransportTestHarness.CreateStreamingRequest(),
                     DefaultTimeout,

@@ -1,6 +1,7 @@
 namespace MackySoft.Ucli.Tests.Daemon;
 
 using System.Text.Json;
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Storage;
 using MackySoft.Ucli.Features.Daemon.Lifecycle.Start.GuiAttach;
@@ -36,13 +37,15 @@ internal static class DaemonGuiRebootstrapClientTestSupport
         ProjectFingerprint projectFingerprint,
         TManifest manifest)
     {
-        var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(storageRoot, projectFingerprint);
-        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath)!);
+        var manifestPath = UcliStoragePathResolver.ResolveGuiSupervisorManifestPath(
+            AbsolutePath.Parse(storageRoot),
+            projectFingerprint);
+        Directory.CreateDirectory(Path.GetDirectoryName(manifestPath.Value)!);
         var json = manifest is GuiSupervisorManifestJsonContract contract
             ? GuiSupervisorManifestJsonContractSerializer.Serialize(contract)
             : JsonSerializer.Serialize(manifest, IpcJsonSerializerOptions.Default);
         await File.WriteAllTextAsync(
-            manifestPath,
+            manifestPath.Value,
             json);
     }
 }

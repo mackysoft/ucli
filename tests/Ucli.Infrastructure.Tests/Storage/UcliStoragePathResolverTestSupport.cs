@@ -1,3 +1,4 @@
+using MackySoft.FileSystem;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Storage;
 
@@ -13,17 +14,18 @@ internal static class UcliStoragePathResolverTestSupport
     internal static readonly ProjectFingerprint ProjectFingerprint = new(ProjectFingerprintText);
     internal static readonly Guid RunId = Guid.Parse(RunIdText);
 
-    internal static string StorageRoot => Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root");
+    internal static AbsolutePath StorageRoot { get; } =
+        AbsolutePath.Parse(Path.Combine(Path.GetTempPath(), "ucli-infrastructure-storage-root"));
 
     internal static void AssertStoragePath (
-        string actualPath,
+        AbsolutePath actualPath,
         params string[] expectedRelativeSegments)
     {
-        Assert.Equal(ExpectedStoragePath(expectedRelativeSegments), actualPath);
+        Assert.Equal(ExpectedStoragePath(expectedRelativeSegments), actualPath.Value);
     }
 
     internal static void AssertProjectPath (
-        string actualPath,
+        AbsolutePath actualPath,
         params string[] expectedFingerprintRelativeSegments)
     {
         var expectedRelativeSegments = new string[expectedFingerprintRelativeSegments.Length + 4];
@@ -39,12 +41,12 @@ internal static class UcliStoragePathResolverTestSupport
     private static string ExpectedStoragePath (params string[] relativeSegments)
     {
         var pathSegments = new string[relativeSegments.Length + 1];
-        pathSegments[0] = Path.GetFullPath(StorageRoot);
+        pathSegments[0] = StorageRoot.Value;
         Array.Copy(relativeSegments, 0, pathSegments, 1, relativeSegments.Length);
         return Path.Combine(pathSegments);
     }
 
     internal sealed record RunScopedPathResolverCase (
         string Name,
-        Func<string, ProjectFingerprint, Guid, string> Resolve);
+        Func<AbsolutePath, ProjectFingerprint, Guid, AbsolutePath> Resolve);
 }
