@@ -83,8 +83,8 @@ public sealed class DaemonStartCommandTests
         JsonAssert.For(outputJson.RootElement.GetProperty("payload"))
             .HasString("startStatus", "started")
             .HasString("daemonStatus", "running")
-            .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Compiling))
-            .HasString("blockingReason", ContractLiteralCodec.ToValue(IpcEditorBlockingReason.Compile))
+            .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.Compiling))
+            .HasString("blockingReason", TextVocabulary.GetText(IpcEditorBlockingReason.Compile))
             .HasBoolean("canAcceptExecutionRequests", false);
 
         var payload = outputJson.RootElement.GetProperty("payload");

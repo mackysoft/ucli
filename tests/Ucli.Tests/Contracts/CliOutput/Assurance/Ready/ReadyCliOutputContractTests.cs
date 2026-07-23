@@ -18,7 +18,7 @@ public sealed class ReadyCliOutputContractTests
         Assert.True(result.IsValid);
         var claim = Assert.Single(payload.GetProperty("claims").EnumerateArray());
         var validity = claim.GetProperty("validity");
-        Assert.Equal(ContractLiteralCodec.ToValue(ReadyValidityKind.ProbeOnly), validity.GetProperty("kind").GetString());
+        Assert.Equal(TextVocabulary.GetText(ReadyValidityKind.ProbeOnly), validity.GetProperty("kind").GetString());
         Assert.False(validity.GetProperty("guaranteesReusableSession").GetBoolean());
     }
 
@@ -34,9 +34,9 @@ public sealed class ReadyCliOutputContractTests
         Assert.True(result.IsValid);
         Assert.Equal("readIndex", payload.GetProperty("target").GetString());
         Assert.Equal(
-            ContractLiteralCodec.ToValue(AssuranceResolvedExecutionMode.NotApplicable),
+            TextVocabulary.GetText(AssuranceResolvedExecutionMode.NotApplicable),
             payload.GetProperty("resolvedMode").GetString());
-        Assert.Equal(ContractLiteralCodec.ToValue(AssuranceSessionKind.ArtifactOnly), payload.GetProperty("sessionKind").GetString());
+        Assert.Equal(TextVocabulary.GetText(AssuranceSessionKind.ArtifactOnly), payload.GetProperty("sessionKind").GetString());
         Assert.Equal(JsonValueKind.Null, payload.GetProperty("lifecycle").ValueKind);
         Assert.Equal(JsonValueKind.Object, payload.GetProperty("readIndex").ValueKind);
         Assert.Equal(3, payload.GetProperty("readIndex").GetProperty("artifacts").GetArrayLength());

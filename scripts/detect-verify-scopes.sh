@@ -152,7 +152,7 @@ is_shared_pack_input() {
   fi
 
   case "${file}" in
-    .gitattributes|Directory.Build.props|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/verify-shared-packages.sh)
+    .gitattributes|Directory.Build.props|.github/workflows/verify.yaml|scripts/detect-verify-scopes.sh|scripts/verify-shared-packages.sh|src/Ucli.Contracts/README.md|src/Ucli.Infrastructure/README.md)
       return 0
       ;;
   esac

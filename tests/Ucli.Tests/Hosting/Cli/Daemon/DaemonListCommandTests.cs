@@ -92,19 +92,19 @@ public sealed class DaemonListCommandTests
                     .HasString("ownerKind", "cli")
                     .HasBoolean("canShutdownProcess", true)
                     .HasProperty("diagnosis", diagnosis => diagnosis
-                        .HasString("reason", ContractLiteralCodec.ToValue(DaemonDiagnosisReason.ShutdownRequested))
+                        .HasString("reason", TextVocabulary.GetText(DaemonDiagnosisReason.ShutdownRequested))
                         .HasString("message", "daemon shutdown completed")
-                        .HasString("reportedBy", ContractLiteralCodec.ToValue(DaemonDiagnosisReportedBy.Unity))
+                        .HasString("reportedBy", TextVocabulary.GetText(DaemonDiagnosisReportedBy.Unity))
                         .HasBoolean("isInferred", false)
                         .HasInt32("processId", 1234)
                         .HasString("processStartedAtUtc", "2026-03-09T11:59:00+00:00")
                         .HasString(
                             "unityLogPath",
                             "/repo/wt-a/.ucli/local/projects/pnab2tvoljg22qqdccv40fepmntci2sj9dh3vbk7lcvc97qqj6l0/unity.log")
-                        .HasString("startupPhase", ContractLiteralCodec.ToValue(DaemonDiagnosisStartupPhase.EndpointRegistration))
-                        .HasString("actionRequired", ContractLiteralCodec.ToValue(DaemonDiagnosisActionRequired.InspectUnityLog))
+                        .HasString("startupPhase", TextVocabulary.GetText(DaemonDiagnosisStartupPhase.EndpointRegistration))
+                        .HasString("actionRequired", TextVocabulary.GetText(DaemonDiagnosisActionRequired.InspectUnityLog))
                         .HasProperty("primaryDiagnostic", primaryDiagnostic => primaryDiagnostic
-                            .HasString("kind", ContractLiteralCodec.ToValue(DaemonDiagnosisPrimaryDiagnosticKind.Compiler))
+                            .HasString("kind", TextVocabulary.GetText(DaemonDiagnosisPrimaryDiagnosticKind.Compiler))
                             .HasString("code", "CS0103")
                             .HasString("file", "Assets/Foo.cs")
                             .HasInt32("line", 12)

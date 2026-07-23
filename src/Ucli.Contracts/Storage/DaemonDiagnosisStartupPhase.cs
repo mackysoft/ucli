@@ -1,27 +1,27 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Storage;
 
 /// <summary> Defines normalized daemon diagnosis startup-phase literals. </summary>
+[VocabularyDefinition]
 public enum DaemonDiagnosisStartupPhase
 {
     /// <summary> Unity script compilation blocked startup. </summary>
-    [UcliContractLiteral("scriptCompilation")]
+    [VocabularyText("scriptCompilation")]
     ScriptCompilation = 1,
 
     /// <summary> Unity package resolution blocked startup. </summary>
-    [UcliContractLiteral("packageResolution")]
+    [VocabularyText("packageResolution")]
     PackageResolution = 2,
 
     /// <summary> Unity Editor is waiting for user action. </summary>
-    [UcliContractLiteral("userAction")]
+    [VocabularyText("userAction")]
     UserAction = 3,
 
     /// <summary> Unity Editor exited before bootstrap completed. </summary>
-    [UcliContractLiteral("processExit")]
+    [VocabularyText("processExit")]
     ProcessExit = 4,
 
     /// <summary> Startup is waiting for GUI endpoint registration. </summary>
-    [UcliContractLiteral("endpointRegistration")]
+    [VocabularyText("endpointRegistration")]
     EndpointRegistration = 5,
 }

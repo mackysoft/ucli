@@ -21,22 +21,22 @@ public sealed record IpcUnityLogsReadRequest
         int? StackTraceMaxFrames,
         int? StackTraceMaxChars)
     {
-        if (Level.HasValue && !ContractLiteralCodec.IsDefined(Level.Value))
+        if (Level.HasValue && !TextVocabulary.IsDefined(Level.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(Level), Level, "Log level must be defined.");
         }
 
-        if (QueryTarget.HasValue && !ContractLiteralCodec.IsDefined(QueryTarget.Value))
+        if (QueryTarget.HasValue && !TextVocabulary.IsDefined(QueryTarget.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(QueryTarget), QueryTarget, "Log query target must be defined.");
         }
 
-        if (Source.HasValue && !ContractLiteralCodec.IsDefined(Source.Value))
+        if (Source.HasValue && !TextVocabulary.IsDefined(Source.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(Source), Source, "Unity log source must be defined.");
         }
 
-        if (StackTrace.HasValue && !ContractLiteralCodec.IsDefined(StackTrace.Value))
+        if (StackTrace.HasValue && !TextVocabulary.IsDefined(StackTrace.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(StackTrace), StackTrace, "Unity log stack-trace mode must be defined.");
         }

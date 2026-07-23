@@ -22,7 +22,7 @@ public sealed class SupervisorClientProgressValidationTests
             "payload kind mismatches event",
             request => SupervisorClientTestSupport.CreateProgressFrame(
                 request,
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+                TextVocabulary.GetText(DaemonStartProgressEvent.WaitingForEndpoint),
                 new
                 {
                     payloadKind = "lifecycleSnapshot",
@@ -32,7 +32,7 @@ public sealed class SupervisorClientProgressValidationTests
             "known event has no stream payload contract",
             request => SupervisorClientTestSupport.CreateProgressFrame(
                 request,
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed),
+                TextVocabulary.GetText(DaemonStartProgressEvent.Completed),
                 new
                 {
                     payloadKind = "startupObservation",
@@ -42,7 +42,7 @@ public sealed class SupervisorClientProgressValidationTests
             "progress envelope targets different project",
             request => SupervisorClientTestSupport.CreateProgressFrame(
                 request,
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+                TextVocabulary.GetText(DaemonStartProgressEvent.WaitingForEndpoint),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                     projectFingerprint: ProjectFingerprintTestFactory.Create("other-fingerprint"),
                     timeoutMilliseconds: 5000,
@@ -58,7 +58,7 @@ public sealed class SupervisorClientProgressValidationTests
             "lifecycle tuple is inconsistent",
             request => SupervisorClientTestSupport.CreateProgressFrame(
                 request,
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved),
+                TextVocabulary.GetText(DaemonStartProgressEvent.LifecycleObserved),
                 new
                 {
                     payloadKind = "lifecycleSnapshot",

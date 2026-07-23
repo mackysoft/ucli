@@ -1,5 +1,7 @@
 using System;
 using System.Text;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Operations;
 using MackySoft.Ucli.Contracts.Text;
@@ -28,7 +30,7 @@ namespace MackySoft.Ucli.Unity.Execution.CsEval
                 "\n",
                 "ucli.cs.eval",
                 sourceDigest,
-                ContractLiteralCodec.ToValue(sourceKind),
+                TextVocabulary.GetText(sourceKind),
                 wrapperVersion,
                 CsEvalEntryPointName.RequiredSignature,
                 roslynVersion,

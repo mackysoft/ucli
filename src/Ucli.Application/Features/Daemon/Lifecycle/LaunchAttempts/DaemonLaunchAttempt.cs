@@ -59,7 +59,7 @@ internal sealed record DaemonLaunchAttempt
                 "Unsupported terminal daemon startup status.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(StartupBlockingReason))
+        if (!TextVocabulary.IsDefined(StartupBlockingReason))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(StartupBlockingReason),
@@ -67,7 +67,7 @@ internal sealed record DaemonLaunchAttempt
                 "Unsupported daemon startup blocking reason.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(RetryDisposition))
+        if (!TextVocabulary.IsDefined(RetryDisposition))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(RetryDisposition),
@@ -75,7 +75,7 @@ internal sealed record DaemonLaunchAttempt
                 "Unsupported daemon startup retry disposition.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(ProcessAction))
+        if (!TextVocabulary.IsDefined(ProcessAction))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(ProcessAction),
@@ -83,7 +83,7 @@ internal sealed record DaemonLaunchAttempt
                 "Unsupported daemon startup process action.");
         }
 
-        if (EditorMode.HasValue && !ContractLiteralCodec.IsDefined(EditorMode.Value))
+        if (EditorMode.HasValue && !TextVocabulary.IsDefined(EditorMode.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(EditorMode), EditorMode, "Unsupported daemon Editor mode.");
         }

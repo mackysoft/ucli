@@ -16,7 +16,7 @@ internal sealed record LogsReadCommandPayload
     {
         Count = count;
         NextCursor = nextCursor;
-        CompletionReason = ContractLiteralCodec.ToValue(completionReason);
+        CompletionReason = TextVocabulary.GetText(completionReason);
         ActionRequired = actionRequired;
     }
 

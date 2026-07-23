@@ -66,8 +66,8 @@ internal sealed class OperationAuthorizationService : IOperationAuthorizationSer
         UcliOperationDescriptor operation,
         UcliConfig config)
     {
-        var requiredPolicy = ContractLiteralCodec.ToValue(operation.Policy);
-        var configuredPolicy = ContractLiteralCodec.ToValue(config.OperationPolicy);
+        var requiredPolicy = TextVocabulary.GetText(operation.Policy);
+        var configuredPolicy = TextVocabulary.GetText(config.OperationPolicy);
         return
             $"Operation '{operation.Name}' requires operationPolicy='{requiredPolicy}' but current operationPolicy='{configuredPolicy}'. " +
             $"Set operationPolicy to at least '{requiredPolicy}' in .ucli/config.json only after accepting that policy's effects, or choose an operation allowed by the current policy.";

@@ -52,8 +52,8 @@ public sealed class IpcPlayContractSerializationTests
                 .HasString("observedAtUtc", "2026-05-21T00:00:00+00:00")
                 .HasProperty("state", state => state
                     .HasString("editorMode", "gui")
-                    .HasString("lifecycleState", ContractLiteralCodec.ToValue(IpcEditorLifecycleState.Ready))
-                    .HasString("compileState", ContractLiteralCodec.ToValue(IpcCompileState.Ready))
+                    .HasString("lifecycleState", TextVocabulary.GetText(IpcEditorLifecycleState.Ready))
+                    .HasString("compileState", TextVocabulary.GetText(IpcCompileState.Ready))
                     .HasProperty("generations", generations => generations
                         .HasInt32("compileGeneration", 12)
                         .HasInt32("domainReloadGeneration", 7)
@@ -67,8 +67,8 @@ public sealed class IpcPlayContractSerializationTests
 
         JsonAssert.For(transition)
             .HasProperty("transition", transition => transition
-                .HasString("transition", ContractLiteralCodec.ToValue(IpcPlayTransitionCommand.Enter))
-                .HasString("result", ContractLiteralCodec.ToValue(IpcPlayTransitionOutcome.Entered))
+                .HasString("transition", TextVocabulary.GetText(IpcPlayTransitionCommand.Enter))
+                .HasString("result", TextVocabulary.GetText(IpcPlayTransitionOutcome.Entered))
                 .HasProperty("before", beforeSnapshot => beforeSnapshot
                     .HasProperty("state", state => state
                         .HasProperty("playMode", playMode => playMode

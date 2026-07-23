@@ -3,6 +3,8 @@ using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Daemon;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -159,7 +161,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     observedAtUtc: DateTimeOffset.UnixEpoch);
 
                 var result = UnityEditorExecutionReadinessPolicy.CreateBlockedResult(snapshot);
-                var testCaseName = ContractLiteralCodec.ToValue(testCase.LifecycleState);
+                var testCaseName = TextVocabulary.GetText(testCase.LifecycleState);
 
                 Assert.That(result.IsReady, Is.False, testCaseName);
                 Assert.That(result.Observation, Is.EqualTo(snapshot), testCaseName);

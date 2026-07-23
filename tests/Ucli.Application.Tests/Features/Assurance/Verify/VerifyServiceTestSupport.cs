@@ -102,7 +102,7 @@ internal static class VerifyServiceTestSupport
                     Statement: "Unity is ready.",
                     Subject: new Dictionary<string, object?>(StringComparer.Ordinal)
                     {
-                        ["target"] = ContractLiteralCodec.ToValue(target),
+                        ["target"] = TextVocabulary.GetText(target),
                     },
                     Validity: new ReadyClaimValidityOutput(
                         ReadyValidityKind.ProbeOnly,

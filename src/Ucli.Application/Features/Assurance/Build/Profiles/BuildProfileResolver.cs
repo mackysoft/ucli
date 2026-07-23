@@ -176,7 +176,7 @@ internal static class BuildProfileResolver
 
         if (kind != BuildProfileInputsKind.Explicit)
         {
-            error = InvalidProfile($"Build profile inputs.kind is unsupported: {ContractLiteralCodec.ToValue(kind)}.");
+            error = InvalidProfile($"Build profile inputs.kind is unsupported: {TextVocabulary.GetText(kind)}.");
             return false;
         }
 
@@ -231,7 +231,7 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse(stableName, out buildTarget))
+        if (!TextVocabulary.TryGetValue(stableName, out buildTarget))
         {
             error = BuildProfileResolutionResult.Failure(ExecutionError.InvalidArgument(
                 $"Build profile inputs.buildTarget is unsupported: {stableName}.",
@@ -260,7 +260,7 @@ internal static class BuildProfileResolver
         {
             if (scenesElement.TryGetProperty("paths", out _))
             {
-                error = InvalidProfile($"Build profile inputs.scenes.paths must not be specified when source is {ContractLiteralCodec.ToValue(BuildProfileSceneSource.EditorBuildSettings)}.");
+                error = InvalidProfile($"Build profile inputs.scenes.paths must not be specified when source is {TextVocabulary.GetText(BuildProfileSceneSource.EditorBuildSettings)}.");
                 return false;
             }
 
@@ -271,7 +271,7 @@ internal static class BuildProfileResolver
 
         if (source != BuildProfileSceneSource.Explicit)
         {
-            error = InvalidProfile($"Build profile inputs.scenes.source is unsupported: {ContractLiteralCodec.ToValue(source)}.");
+            error = InvalidProfile($"Build profile inputs.scenes.source is unsupported: {TextVocabulary.GetText(source)}.");
             return false;
         }
 
@@ -387,7 +387,7 @@ internal static class BuildProfileResolver
 
         if (kind != BuildRunnerKind.ExecuteMethod)
         {
-            error = InvalidProfile($"Build profile runner.kind is unsupported: {ContractLiteralCodec.ToValue(kind)}.");
+            error = InvalidProfile($"Build profile runner.kind is unsupported: {TextVocabulary.GetText(kind)}.");
             return false;
         }
 
@@ -743,7 +743,7 @@ internal static class BuildProfileResolver
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse(literal, out value))
+        if (!TextVocabulary.TryGetValue(literal, out value))
         {
             error = InvalidProfile($"{objectName}.{propertyName} is unsupported: {literal}.");
             return false;
@@ -784,7 +784,7 @@ internal static class BuildProfileResolver
                 return false;
             }
 
-            if (!ContractLiteralCodec.TryParse(literal, out TEnum value))
+            if (!TextVocabulary.TryGetValue(literal, out TEnum value))
             {
                 error = InvalidProfile($"{objectName}.{propertyName}[{i}] is unsupported: {literal}.");
                 return false;

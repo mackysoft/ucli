@@ -3,6 +3,8 @@ using System.Collections;
 using System.Threading;
 using System.Threading.Tasks;
 using Cysharp.Threading.Tasks;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Ipc;
@@ -175,9 +177,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "session-token",
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Shutdown),
+                method: TextVocabulary.GetText(UnityIpcMethod.Shutdown),
                 payload: IpcPayloadCodec.SerializeToElement(new UcliEmptyArgs()),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
                 requestDeadlineRemainingMilliseconds: 30_000);
 
@@ -211,7 +213,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "session-token",
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.TestRun),
+                method: TextVocabulary.GetText(UnityIpcMethod.TestRun),
                 payload: IpcPayloadCodec.SerializeToElement(new IpcTestRunRequest(
                     TestPlatform: TestRunPlatformCodec.EditMode,
                     TestFilter: null,
@@ -219,7 +221,7 @@ namespace MackySoft.Ucli.Unity.Tests
                     AssemblyNames: Array.Empty<string>(),
                     RunId: Guid.Parse("00000000-0000-0000-0000-000000000619"),
                     FailFast: false)),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Stream),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Stream),
                 requestDeadlineUtc: DateTimeOffset.UtcNow + TimeSpan.FromSeconds(30),
                 requestDeadlineRemainingMilliseconds: 30_000);
             using var phaseScope = new IpcRequestPhaseScopeFactory().Create(
@@ -530,9 +532,9 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: Guid.NewGuid(),
                 sessionToken: "session-token",
-                method: ContractLiteralCodec.ToValue(UnityIpcMethod.Ping),
+                method: TextVocabulary.GetText(UnityIpcMethod.Ping),
                 payload: IpcPayloadCodec.SerializeToElement(new IpcPingRequest("tests")),
-                responseMode: ContractLiteralCodec.ToValue(IpcResponseMode.Single),
+                responseMode: TextVocabulary.GetText(IpcResponseMode.Single),
                 requestDeadlineUtc: expiredAtUtc,
                 requestDeadlineRemainingMilliseconds: 1);
 
@@ -1542,7 +1544,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 protocolVersion: IpcProtocol.CurrentVersion,
                 requestId: requestId,
                 sessionToken: "session-token",
-                method: ContractLiteralCodec.ToValue(method),
+                method: TextVocabulary.GetText(method),
                 payload: IpcPayloadCodec.SerializeToElement(payload),
                 responseMode: "single",
                 requestDeadlineUtc: DateTimeOffset.UtcNow + duration,
@@ -1559,7 +1561,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken,
                 TimeSpan.FromSeconds(1));
             Assert.That(
-                ContractLiteralCodec.TryParse(request.Method, out UnityIpcMethod method),
+                TextVocabulary.TryGetValue(request.Method, out UnityIpcMethod method),
                 Is.True);
             var validatedRequest = CreateValidatedRequest(request, method, IpcResponseMode.Single);
             return await dispatcher.DispatchAsync(
@@ -1578,7 +1580,7 @@ namespace MackySoft.Ucli.Unity.Tests
                 cancellationToken,
                 TimeSpan.FromSeconds(1));
             Assert.That(
-                ContractLiteralCodec.TryParse(request.Method, out UnityIpcMethod method),
+                TextVocabulary.TryGetValue(request.Method, out UnityIpcMethod method),
                 Is.True);
             var validatedRequest = CreateValidatedRequest(request, method, IpcResponseMode.Stream);
             return await dispatcher.DispatchStreamingAsync(

@@ -48,7 +48,7 @@ internal static class UnityIpcTransportClientAssert
         UnityIpcMethod expectedMethod)
     {
         var request = Assert.Single(transportClient.StreamingRequests);
-        Assert.Equal(ContractLiteralCodec.ToValue(expectedMethod), request.Method);
+        Assert.Equal(TextVocabulary.GetText(expectedMethod), request.Method);
         return request;
     }
 }

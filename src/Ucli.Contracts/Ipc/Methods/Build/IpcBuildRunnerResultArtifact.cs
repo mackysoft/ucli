@@ -32,12 +32,12 @@ public sealed record IpcBuildRunnerResultArtifact
         IReadOnlyList<BuildRunnerOutputPath> Outputs,
         IpcBuildRunnerResultBuildReport? BuildReport)
     {
-        if (!ContractLiteralCodec.IsDefined(Source))
+        if (!TextVocabulary.IsDefined(Source))
         {
             throw new ArgumentOutOfRangeException(nameof(Source), Source, "Build runner result source must be specified.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(Status) || Status == IpcBuildReportResult.Unknown)
+        if (!TextVocabulary.IsDefined(Status) || Status == IpcBuildReportResult.Unknown)
         {
             throw new ArgumentOutOfRangeException(nameof(Status), Status, "Build runner status must be terminal.");
         }

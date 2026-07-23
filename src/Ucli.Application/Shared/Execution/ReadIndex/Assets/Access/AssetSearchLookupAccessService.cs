@@ -137,7 +137,7 @@ internal sealed class AssetSearchLookupAccessService : IAssetSearchLookupAccessS
                 mode,
                 timeout,
                 query,
-                $"Existing asset-search index freshness is '{ContractLiteralCodec.ToValue(freshnessResult.Freshness)}'.",
+                $"Existing asset-search index freshness is '{TextVocabulary.GetText(freshnessResult.Freshness)}'.",
                 failFast,
                 cancellationToken)
             .ConfigureAwait(false);

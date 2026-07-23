@@ -14,7 +14,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="0.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../Ucli.Contracts/Ucli.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="MackySoft.Text.Vocabularies.Json" />
   </ItemGroup>
 
   <ItemGroup>

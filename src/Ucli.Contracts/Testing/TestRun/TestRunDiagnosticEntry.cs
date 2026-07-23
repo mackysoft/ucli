@@ -22,7 +22,7 @@ public sealed record TestRunDiagnosticEntry
             throw new ArgumentException("Run id must not be empty.", nameof(RunId));
         }
 
-        if (!ContractLiteralCodec.IsDefined(Severity))
+        if (!TextVocabulary.IsDefined(Severity))
         {
             throw new ArgumentOutOfRangeException(nameof(Severity), Severity, "Test-run diagnostic severity must be specified.");
         }

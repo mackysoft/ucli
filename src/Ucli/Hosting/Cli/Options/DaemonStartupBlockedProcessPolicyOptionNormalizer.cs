@@ -18,14 +18,14 @@ internal static class DaemonStartupBlockedProcessPolicyOptionNormalizer
                 DaemonStartupBlockedProcessPolicy.Auto);
         }
 
-        if (ContractLiteralInputParser.TryParseTrimmed<DaemonStartupBlockedProcessPolicy>(optionValue, out var policy))
+        if (VocabularyInputParser.TryParseTrimmed<DaemonStartupBlockedProcessPolicy>(optionValue, out var policy))
         {
             return DaemonStartupBlockedProcessPolicyOptionNormalizationResult.Success(policy);
         }
 
         return DaemonStartupBlockedProcessPolicyOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(
-            $"onStartupBlocked must be one of '{ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Auto)}', " +
-            $"'{ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Keep)}', '{ContractLiteralCodec.ToValue(DaemonStartupBlockedProcessPolicy.Terminate)}'. " +
+            $"onStartupBlocked must be one of '{TextVocabulary.GetText(DaemonStartupBlockedProcessPolicy.Auto)}', " +
+            $"'{TextVocabulary.GetText(DaemonStartupBlockedProcessPolicy.Keep)}', '{TextVocabulary.GetText(DaemonStartupBlockedProcessPolicy.Terminate)}'. " +
             $"Actual: {optionValue}."));
     }
 }

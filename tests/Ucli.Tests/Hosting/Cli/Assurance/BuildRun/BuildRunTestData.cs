@@ -140,7 +140,7 @@ internal static class BuildRunTestData
         var succeededStatus = reportResult == IpcBuildReportResult.Succeeded
             ? passed
             : AssuranceClaimStatus.Failed;
-        var reportResultLiteral = ContractLiteralCodec.ToValue(reportResult);
+        var reportResultLiteral = TextVocabulary.GetText(reportResult);
 
         return
         [

@@ -119,7 +119,7 @@ public sealed class PlanCliOutputContractTests
         CommandResultAssert.HasStandardEnvelope(
             outputJson.RootElement,
             UcliCommandNames.Plan,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             (int)CliExitCode.ToolError);
         AssertPayloadHasGeneratedRequestId(outputJson.RootElement);
         JsonAssert.For(outputJson.RootElement)

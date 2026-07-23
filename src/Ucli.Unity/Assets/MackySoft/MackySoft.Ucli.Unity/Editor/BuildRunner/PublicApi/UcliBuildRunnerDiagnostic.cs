@@ -1,4 +1,6 @@
 using System;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
@@ -24,7 +26,7 @@ namespace MackySoft.Ucli.Unity
                 throw new ArgumentException("code must not be empty.", nameof(code));
             }
 
-            if (!ContractLiteralCodec.IsDefined(severity))
+            if (!TextVocabulary.IsDefined(severity))
             {
                 throw new ArgumentOutOfRangeException(nameof(severity), severity, "severity must be specified.");
             }

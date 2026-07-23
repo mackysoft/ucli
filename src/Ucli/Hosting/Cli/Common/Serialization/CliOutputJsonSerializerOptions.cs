@@ -11,7 +11,7 @@ internal static class CliOutputJsonSerializerOptions
     {
         Converters =
         {
-            new ContractLiteralJsonConverterFactory(),
+            new VocabularyJsonConverterFactory(),
             new MackySoft.AgentSkills.Shared.Text.ContractLiteralJsonConverterFactory(),
         },
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

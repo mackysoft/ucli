@@ -19,7 +19,7 @@ public sealed class VerifyCliOutputContractTests
         var result = CliAssuranceSemanticInvariantValidatorFactory.CreateVerifyValidator().Validate(payload);
 
         Assert.Equal(
-            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
+            TextVocabulary.GetText(CommandResultStatus.Ok),
             root.GetProperty("status").GetString());
         Assert.True(
             result.IsValid,
@@ -34,7 +34,7 @@ public sealed class VerifyCliOutputContractTests
         var root = document.RootElement;
 
         Assert.Equal(
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             root.GetProperty("status").GetString());
         Assert.Equal(3, root.GetProperty("exitCode").GetInt32());
         Assert.Equal("INVALID_ARGUMENT", root.GetProperty("errors")[0].GetProperty("code").GetString());

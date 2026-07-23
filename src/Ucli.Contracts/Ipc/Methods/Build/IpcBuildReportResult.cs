@@ -1,23 +1,23 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines normalized Unity BuildReport result literals. </summary>
+[VocabularyDefinition]
 public enum IpcBuildReportResult
 {
     /// <summary> The BuildReport indicated success. </summary>
-    [UcliContractLiteral("succeeded")]
+    [VocabularyText("succeeded")]
     Succeeded = 1,
 
     /// <summary> The BuildReport indicated failure. </summary>
-    [UcliContractLiteral("failed")]
+    [VocabularyText("failed")]
     Failed = 2,
 
     /// <summary> The BuildReport indicated cancellation. </summary>
-    [UcliContractLiteral("canceled")]
+    [VocabularyText("canceled")]
     Canceled = 3,
 
     /// <summary> The BuildReport result could not be classified. </summary>
-    [UcliContractLiteral("unknown")]
+    [VocabularyText("unknown")]
     Unknown = 4,
 }

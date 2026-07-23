@@ -14,7 +14,7 @@ internal static class CodeCatalogPayloadProjector
     private static readonly IReadOnlyList<string> ListedKindLiterals = Enum
         .GetValues<CodeCatalogKind>()
         .Where(static kind => kind != CodeCatalogKind.Unknown)
-        .Select(ContractLiteralCodec.ToValue)
+        .Select(TextVocabulary.GetText)
         .ToArray();
 
     /// <summary> Creates the public payload for <c>codes list</c>. </summary>
@@ -30,7 +30,7 @@ internal static class CodeCatalogPayloadProjector
             ListedKindLiterals,
             result.Descriptors!.Select(static descriptor => new CodeListItemPayload(
                 descriptor.Code.Value,
-                ContractLiteralCodec.ToValue(descriptor.Kind),
+                TextVocabulary.GetText(descriptor.Kind),
                 descriptor.Category,
                 descriptor.Summary)).ToArray());
     }
@@ -46,7 +46,7 @@ internal static class CodeCatalogPayloadProjector
         return new DescribePayload(
             descriptor.Code.Value,
             result.Known,
-            ContractLiteralCodec.ToValue(descriptor.Kind),
+            TextVocabulary.GetText(descriptor.Kind),
             descriptor.Category,
             descriptor.Summary,
             descriptor.Meaning,

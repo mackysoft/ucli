@@ -4,6 +4,8 @@ using System.Globalization;
 using System.IO;
 using System.Text.Json;
 using System.Threading;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Cryptography;
 using MackySoft.Ucli.Contracts.Text;
@@ -42,7 +44,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             cancellationToken.ThrowIfCancellationRequested();
 
             var unityVersion = StringValueNormalizer.TrimOrFallback(snapshot.UnityVersion, NaLiteral);
-            var compileState = ContractLiteralCodec.ToValue(snapshot.CompileState);
+            var compileState = TextVocabulary.GetText(snapshot.CompileState);
             var domainReloadGeneration = snapshot.DomainReloadGeneration.ToString(CultureInfo.InvariantCulture);
             var configDigest = ComputeConfigDigest(snapshot.RepositoryRoot, cancellationToken);
             var touchedDigest = ComputeTouchedDigest(snapshot.ProjectRoot, operationTraces, cancellationToken);
@@ -148,7 +150,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
                     writer.WriteStartObject();
                     writer.WriteBoolean("exists", entry.Exists);
                     writer.WriteString("guid", entry.AssetGuid?.ToString("N") ?? NaLiteral);
-                    writer.WriteString("kind", ContractLiteralCodec.ToValue(entry.Kind));
+                    writer.WriteString("kind", TextVocabulary.GetText(entry.Kind));
                     writer.WriteNumber("lastWriteUtcTicks", entry.LastWriteUtcTicks);
                     writer.WriteString("path", entry.Path);
                     writer.WriteNumber("size", entry.Size);

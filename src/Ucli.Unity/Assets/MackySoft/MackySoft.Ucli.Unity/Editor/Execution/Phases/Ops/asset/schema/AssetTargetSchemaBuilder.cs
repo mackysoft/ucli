@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Index;
 using MackySoft.Ucli.Unity.Index;
 using UnityEditor;
@@ -30,8 +32,8 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             var properties = CollectProperties(serializedObject, assetType);
             var typeId = IndexTypeIdFormatter.Format(assetType);
             return new IndexSchemaEntryJsonContract(
-                SchemaKey: $"{ContractLiteralCodec.ToValue(IndexSchemaKind.Asset)}:{typeId}",
-                Kind: ContractLiteralCodec.ToValue(IndexSchemaKind.Asset),
+                SchemaKey: $"{TextVocabulary.GetText(IndexSchemaKind.Asset)}:{typeId}",
+                Kind: TextVocabulary.GetText(IndexSchemaKind.Asset),
                 TypeId: typeId,
                 DisplayName: assetType.Name,
                 Properties: properties);

@@ -34,7 +34,7 @@ public sealed record TestCaseFinishedEntry
             throw new ArgumentException("Run id must not be empty.", nameof(RunId));
         }
 
-        if (!ContractLiteralCodec.IsDefined(Result))
+        if (!TextVocabulary.IsDefined(Result))
         {
             throw new ArgumentOutOfRangeException(nameof(Result), Result, "Test-case result must be specified.");
         }

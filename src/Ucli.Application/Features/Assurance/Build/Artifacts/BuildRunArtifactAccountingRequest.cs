@@ -16,7 +16,7 @@ internal sealed class BuildRunArtifactAccountingRequest
         bool allowEmptyOutputManifest)
     {
         Paths = paths ?? throw new ArgumentNullException(nameof(paths));
-        if (!ContractLiteralCodec.IsDefined(buildTarget))
+        if (!TextVocabulary.IsDefined(buildTarget))
         {
             throw new ArgumentOutOfRangeException(nameof(buildTarget), buildTarget, "Build target must be specified.");
         }

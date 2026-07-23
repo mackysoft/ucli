@@ -18,7 +18,7 @@ internal static class ReadyTargetOptionNormalizer
         }
 
         var normalizedValue = optionValue.Trim();
-        return ContractLiteralInputParser.TryParseIgnoreCase<ReadyTarget>(normalizedValue, out var target)
+        return VocabularyInputParser.TryParseIgnoreCase<ReadyTarget>(normalizedValue, out var target)
             ? ReadyTargetOptionNormalizationResult.Success(target)
             : ReadyTargetOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(InvalidTargetMessage));
     }

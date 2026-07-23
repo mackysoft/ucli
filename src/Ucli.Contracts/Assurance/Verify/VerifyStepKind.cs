@@ -1,27 +1,27 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Identifies a verifier step in a verify profile. </summary>
+[VocabularyDefinition]
 public enum VerifyStepKind
 {
     /// <summary> Evaluates Unity readiness. </summary>
-    [UcliContractLiteral("ready")]
+    [VocabularyText("ready")]
     Ready = 1,
 
     /// <summary> Runs compile assurance. </summary>
-    [UcliContractLiteral("compile")]
+    [VocabularyText("compile")]
     Compile = 2,
 
     /// <summary> Evaluates post-read operation evidence. </summary>
-    [UcliContractLiteral("postRead")]
+    [VocabularyText("postRead")]
     PostRead = 3,
 
     /// <summary> Runs Unity tests. </summary>
-    [UcliContractLiteral("test")]
+    [VocabularyText("test")]
     Test = 4,
 
     /// <summary> Collects Unity logs after non-passing claims. </summary>
-    [UcliContractLiteral("logs")]
+    [VocabularyText("logs")]
     Logs = 5,
 }

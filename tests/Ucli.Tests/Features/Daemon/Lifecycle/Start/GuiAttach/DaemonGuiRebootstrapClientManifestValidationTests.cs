@@ -17,7 +17,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             0,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             IpcSessionTokenTestFactory.Create("schema-version-token").GetEncodedValue(),
-            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            TextVocabulary.GetText(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
             ProcessStartedAtUtc),
         new(
@@ -25,7 +25,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             ProjectFingerprintTestFactory.Create("other-fingerprint"),
             IpcSessionTokenTestFactory.Create("project-fingerprint-token").GetEncodedValue(),
-            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            TextVocabulary.GetText(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
             ProcessStartedAtUtc),
         new(
@@ -33,7 +33,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             IpcSessionTokenTestFactory.Create("started-at-token").GetEncodedValue(),
-            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            TextVocabulary.GetText(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
             ProcessStartedAtUtc.Add(DaemonProcessStartTimeMatcher.Tolerance).AddMilliseconds(1)),
         new(
@@ -41,7 +41,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             "",
-            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            TextVocabulary.GetText(IpcTransportKind.UnixDomainSocket),
             "/tmp/ucli-gui-supervisor.sock",
             ProcessStartedAtUtc),
         new(
@@ -57,7 +57,7 @@ public sealed class DaemonGuiRebootstrapClientManifestValidationTests
             GuiSupervisorManifestJsonContract.CurrentSchemaVersion,
             ProjectFingerprintTestFactory.Create("fingerprint"),
             IpcSessionTokenTestFactory.Create("endpoint-address-token").GetEncodedValue(),
-            ContractLiteralCodec.ToValue(IpcTransportKind.UnixDomainSocket),
+            TextVocabulary.GetText(IpcTransportKind.UnixDomainSocket),
             "",
             ProcessStartedAtUtc),
     ];

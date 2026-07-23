@@ -1,11 +1,11 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Operations;
 
 /// <summary> Defines supported type-kind constraint parameters. </summary>
+[VocabularyDefinition]
 public enum UcliOperationTypeKind
 {
     /// <summary> Unity component type. </summary>
-    [UcliContractLiteral("component")]
+    [VocabularyText("component")]
     Component = 1,
 }

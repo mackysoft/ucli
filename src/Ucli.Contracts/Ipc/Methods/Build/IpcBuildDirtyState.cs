@@ -13,7 +13,7 @@ public sealed record IpcBuildDirtyState
         IpcBuildDirtyStateCoverage Coverage,
         IReadOnlyList<IpcBuildDirtyStateItem> Items)
     {
-        if (!ContractLiteralCodec.IsDefined(Coverage))
+        if (!TextVocabulary.IsDefined(Coverage))
         {
             throw new ArgumentOutOfRangeException(nameof(Coverage), Coverage, "Dirty-state coverage must be specified.");
         }

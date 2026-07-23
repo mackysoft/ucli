@@ -150,22 +150,22 @@ public sealed class FileBuildRunArtifactStoreTests
         var artifacts = buildRoot.GetProperty("artifacts");
         Assert.Equal(
             [
-                ContractLiteralCodec.ToValue(BuildArtifactKind.BuildReport),
-                ContractLiteralCodec.ToValue(BuildArtifactKind.BuildOutputManifest),
-                ContractLiteralCodec.ToValue(BuildArtifactKind.BuildLog),
+                TextVocabulary.GetText(BuildArtifactKind.BuildReport),
+                TextVocabulary.GetText(BuildArtifactKind.BuildOutputManifest),
+                TextVocabulary.GetText(BuildArtifactKind.BuildLog),
             ],
             artifacts.EnumerateObject().Select(static property => property.Name).ToArray());
-        Assert.False(artifacts.TryGetProperty(ContractLiteralCodec.ToValue(BuildArtifactKind.Build), out _));
+        Assert.False(artifacts.TryGetProperty(TextVocabulary.GetText(BuildArtifactKind.Build), out _));
         AssertArtifactRef(
-            artifacts.GetProperty(ContractLiteralCodec.ToValue(BuildArtifactKind.BuildReport)),
+            artifacts.GetProperty(TextVocabulary.GetText(BuildArtifactKind.BuildReport)),
             UcliStoragePathNames.BuildReportFileName,
             result.BuildReport.Digest);
         AssertArtifactRef(
-            artifacts.GetProperty(ContractLiteralCodec.ToValue(BuildArtifactKind.BuildOutputManifest)),
+            artifacts.GetProperty(TextVocabulary.GetText(BuildArtifactKind.BuildOutputManifest)),
             UcliStoragePathNames.BuildOutputManifestFileName,
             result.BuildOutputManifest.Digest);
         AssertArtifactRef(
-            artifacts.GetProperty(ContractLiteralCodec.ToValue(BuildArtifactKind.BuildLog)),
+            artifacts.GetProperty(TextVocabulary.GetText(BuildArtifactKind.BuildLog)),
             UcliStoragePathNames.BuildLogFileName,
             result.BuildLog.Digest);
         await AssertFileSha256Async(paths.BuildJsonPath, buildRef.Digest);

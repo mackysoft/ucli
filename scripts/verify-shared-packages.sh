@@ -22,6 +22,7 @@ fi
 package_dir="$(cd "${package_dir}" && pwd)"
 temp_dir="$(mktemp -d)"
 trap 'rm -rf "${temp_dir}"' EXIT
+external_vocabulary_version="0.1.0"
 package_ids=(
   "MackySoft.Ucli.Contracts"
   "MackySoft.Ucli.Infrastructure"
@@ -49,11 +50,19 @@ for package_id in "${package_ids[@]}"; do
       required_library_entries=(
         "lib/netstandard2.1/MackySoft.Ucli.Contracts.dll"
       )
+      required_dependencies=(
+        "MackySoft.Text.Vocabularies"
+        "MackySoft.Text.Vocabularies.Json"
+      )
       ;;
     MackySoft.Ucli.Infrastructure)
       required_library_entries=(
         "lib/netstandard2.1/MackySoft.Ucli.Infrastructure.dll"
         "lib/net8.0/MackySoft.Ucli.Infrastructure.dll"
+      )
+      required_dependencies=(
+        "MackySoft.Ucli.Contracts"
+        "MackySoft.Text.Vocabularies.Json"
       )
       ;;
     *)
@@ -82,12 +91,14 @@ for package_id in "${package_ids[@]}"; do
     exit 1
   fi
 
-  if [[ "${package_id}" == "MackySoft.Ucli.Infrastructure" ]]; then
+  for dependency_id in "${required_dependencies[@]}"; do
     dependency_versions="$(
-      perl -ne '
+      DEPENDENCY_ID="${dependency_id}" perl -ne '
+        my $dependency_id = $ENV{"DEPENDENCY_ID"};
         while (/<dependency\b([^>]*)>/g) {
           my $attributes = $1;
-          next unless $attributes =~ /\bid="MackySoft\.Ucli\.Contracts"/;
+          next unless $attributes =~ /\bid="([^"]+)"/;
+          next unless $1 eq $dependency_id;
           if ($attributes =~ /\bversion="([^"]+)"/) {
             print "$1\n";
           }
@@ -96,19 +107,28 @@ for package_id in "${package_ids[@]}"; do
     )"
 
     if [[ -z "${dependency_versions}" ]]; then
-      echo "MackySoft.Ucli.Infrastructure is missing dependency: MackySoft.Ucli.Contracts." >&2
+      echo "${package_id} is missing dependency: ${dependency_id}." >&2
       exit 1
     fi
 
+    case "${dependency_id}" in
+      MackySoft.Text.Vocabularies|MackySoft.Text.Vocabularies.Json)
+        required_dependency_version="${external_vocabulary_version}"
+        ;;
+      *)
+        required_dependency_version="${expected_version}"
+        ;;
+    esac
+
     unexpected_dependency_versions="$(
-      grep -Fvx "${expected_version}" <<< "${dependency_versions}" || true
+      grep -Fvx "${required_dependency_version}" <<< "${dependency_versions}" || true
     )"
     if [[ -n "${unexpected_dependency_versions}" ]]; then
-      echo "MackySoft.Ucli.Infrastructure dependency version does not match ${expected_version}." >&2
+      echo "${package_id} dependency ${dependency_id} does not match ${required_dependency_version}." >&2
       printf '%s\n' "${unexpected_dependency_versions}" >&2
       exit 1
     fi
-  fi
+  done
 done
 
 consumer_dir="${temp_dir}/consumer"
@@ -121,9 +141,22 @@ EXPECTED_VERSION="${expected_version}" perl -0pi -e '
   my $version = $ENV{"EXPECTED_VERSION"};
   s{</Project>}{  <ItemGroup>\n    <PackageReference Include="MackySoft.Ucli.Contracts" Version="$version" />\n    <PackageReference Include="MackySoft.Ucli.Infrastructure" Version="$version" />\n  </ItemGroup>\n</Project>};
 ' "${consumer_dir}/consumer.csproj"
+cat > "${consumer_dir}/UcliSharedPackageConsumer.cs" <<'CS'
+using MackySoft.Ucli.Contracts;
+using MackySoft.Ucli.Infrastructure.Ipc;
+
+public static class UcliSharedPackageConsumer
+{
+    public static void UsePublicTypes ()
+    {
+        _ = typeof(ScreenshotArtifactKind);
+        _ = typeof(IpcFrameCodec);
+    }
+}
+CS
 dotnet restore "${consumer_dir}/consumer.csproj" \
   --source "${package_dir}" \
-  --source https://api.nuget.org/v3/index.json >/dev/null
-dotnet build "${consumer_dir}/consumer.csproj" --configuration Release --no-restore >/dev/null
+  --source https://api.nuget.org/v3/index.json
+dotnet build "${consumer_dir}/consumer.csproj" --configuration Release --no-restore
 
 echo "Shared package verification passed: ${package_dir}"

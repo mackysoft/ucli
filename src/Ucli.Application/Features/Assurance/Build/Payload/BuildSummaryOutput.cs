@@ -15,7 +15,7 @@ internal sealed record BuildSummaryOutput
         int WarningCount,
         BuildArtifactKind? ReportRef)
     {
-        if (!ContractLiteralCodec.IsDefined(Result) || Result == IpcBuildReportResult.Unknown)
+        if (!TextVocabulary.IsDefined(Result) || Result == IpcBuildReportResult.Unknown)
         {
             throw new ArgumentOutOfRangeException(nameof(Result), Result, "Build summary result must be terminal.");
         }

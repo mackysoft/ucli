@@ -124,8 +124,8 @@ internal sealed record OpsCatalogDescriptorSnapshot : IReadIndexArtifactSnapshot
         if (entry == null
             || string.IsNullOrWhiteSpace(entry.Name)
             || string.IsNullOrWhiteSpace(entry.Description)
-            || !ContractLiteralCodec.TryParse<UcliOperationKind>(entry.Kind, out var kind)
-            || !ContractLiteralCodec.TryParse<OperationPolicy>(entry.Policy, out var policy)
+            || !TextVocabulary.TryGetValue<UcliOperationKind>(entry.Kind, out var kind)
+            || !TextVocabulary.TryGetValue<OperationPolicy>(entry.Policy, out var policy)
             || !Sha256Digest.TryParse(entry.DescribeKey, out var describeKey)
             || !Sha256Digest.TryParse(entry.DescribeHash, out var describeHash))
         {

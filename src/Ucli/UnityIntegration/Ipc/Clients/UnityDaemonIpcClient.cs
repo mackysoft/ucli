@@ -73,7 +73,7 @@ internal sealed class UnityDaemonIpcClient : IUnityIpcClient
         if (!UnityIpcMethodCapabilities.SupportsStreaming(dispatchRequest.Method))
         {
             return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
-                $"IPC method does not support streaming: {ContractLiteralCodec.ToValue(dispatchRequest.Method)}."));
+                $"IPC method does not support streaming: {TextVocabulary.GetText(dispatchRequest.Method)}."));
         }
 
         return await SendCoreAsync(

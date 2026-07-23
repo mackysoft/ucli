@@ -35,7 +35,7 @@ internal static class UcliOperationCodeContractValidator
         out string errorMessage)
     {
         if (!codeContract.Language.HasValue
-            || !ContractLiteralCodec.IsDefined(codeContract.Language.Value))
+            || !TextVocabulary.IsDefined(codeContract.Language.Value))
         {
             errorMessage = $"{ownerName} has an unsupported codeContract language.";
             return false;
@@ -107,7 +107,7 @@ internal static class UcliOperationCodeContractValidator
             return false;
         }
 
-        if (!ContractLiteralCodec.IsDefined(sourceForm.Kind.Value))
+        if (!TextVocabulary.IsDefined(sourceForm.Kind.Value))
         {
             errorMessage = $"{ownerName} has an unsupported codeContract source form at index {sourceFormIndex}.";
             return false;

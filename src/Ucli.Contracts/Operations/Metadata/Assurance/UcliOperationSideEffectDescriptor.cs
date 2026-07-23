@@ -23,7 +23,7 @@ internal sealed class UcliOperationSideEffectDescriptor
         IReadOnlyList<UcliTouchedResourceKind> requiredTouchedKinds)
     {
         SideEffect = sideEffect;
-        Value = ContractLiteralCodec.ToValue(sideEffect);
+        Value = TextVocabulary.GetText(sideEffect);
         MinimumPolicy = minimumPolicy;
         DerivesMayDirty = derivesMayDirty;
         DerivesMayPersist = derivesMayPersist;
@@ -62,7 +62,7 @@ internal sealed class UcliOperationSideEffectDescriptor
         var copy = new UcliTouchedResourceKind[requiredTouchedKinds.Count];
         for (var i = 0; i < requiredTouchedKinds.Count; i++)
         {
-            if (!ContractLiteralCodec.IsDefined(requiredTouchedKinds[i]))
+            if (!TextVocabulary.IsDefined(requiredTouchedKinds[i]))
             {
                 throw new ArgumentException("Required touched kinds must contain only specified contract values.", nameof(requiredTouchedKinds));
             }

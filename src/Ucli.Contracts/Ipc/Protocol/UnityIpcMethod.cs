@@ -1,75 +1,75 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines the methods supported by Unity IPC endpoints. </summary>
+[VocabularyDefinition]
 public enum UnityIpcMethod
 {
     /// <summary> Checks connectivity to a Unity IPC endpoint. </summary>
-    [UcliContractLiteral("ping")]
+    [VocabularyText("ping")]
     Ping = 1,
 
     /// <summary> Executes one Unity command request. </summary>
-    [UcliContractLiteral("execute")]
+    [VocabularyText("execute")]
     Execute,
 
     /// <summary> Runs Unity tests. </summary>
-    [UcliContractLiteral("test.run")]
+    [VocabularyText("test.run")]
     TestRun,
 
     /// <summary> Assures Unity compilation. </summary>
-    [UcliContractLiteral("compile")]
+    [VocabularyText("compile")]
     Compile,
 
     /// <summary> Runs a Unity build assurance request. </summary>
-    [UcliContractLiteral("build.run")]
+    [VocabularyText("build.run")]
     BuildRun,
 
     /// <summary> Reads the Unity operation catalog. </summary>
-    [UcliContractLiteral("ops.read")]
+    [VocabularyText("ops.read")]
     OpsRead,
 
     /// <summary> Reads a Unity asset-index snapshot. </summary>
-    [UcliContractLiteral("index.assets.read")]
+    [VocabularyText("index.assets.read")]
     IndexAssetsRead,
 
     /// <summary> Reads a Unity scene-tree-lite snapshot. </summary>
-    [UcliContractLiteral("index.scene-tree-lite.read")]
+    [VocabularyText("index.scene-tree-lite.read")]
     IndexSceneTreeLiteRead,
 
     /// <summary> Shuts down a Unity daemon endpoint. </summary>
-    [UcliContractLiteral("shutdown")]
+    [VocabularyText("shutdown")]
     Shutdown,
 
     /// <summary> Reads daemon log entries. </summary>
-    [UcliContractLiteral("daemon.logs.read")]
+    [VocabularyText("daemon.logs.read")]
     DaemonLogsRead,
 
     /// <summary> Reads Unity log entries. </summary>
-    [UcliContractLiteral("unity.logs.read")]
+    [VocabularyText("unity.logs.read")]
     UnityLogsRead,
 
     /// <summary> Clears the Unity Editor Console. </summary>
-    [UcliContractLiteral("unity.console.clear")]
+    [VocabularyText("unity.console.clear")]
     UnityConsoleClear,
 
     /// <summary> Captures one Unity Editor screenshot. </summary>
-    [UcliContractLiteral("screenshot.capture")]
+    [VocabularyText("screenshot.capture")]
     ScreenshotCapture,
 
     /// <summary> Reads the current Unity Play Mode status. </summary>
-    [UcliContractLiteral("play.status")]
+    [VocabularyText("play.status")]
     PlayStatus,
 
     /// <summary> Requests entry into Unity Play Mode. </summary>
-    [UcliContractLiteral("play.enter")]
+    [VocabularyText("play.enter")]
     PlayEnter,
 
     /// <summary> Requests exit from Unity Play Mode. </summary>
-    [UcliContractLiteral("play.exit")]
+    [VocabularyText("play.exit")]
     PlayExit,
 
     /// <summary> Rebootstraps a stopped GUI daemon endpoint. </summary>
-    [UcliContractLiteral("gui.rebootstrap")]
+    [VocabularyText("gui.rebootstrap")]
     GuiRebootstrap,
 }

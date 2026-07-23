@@ -116,7 +116,7 @@ internal static class VerifyFromInputReader
     {
         return root.TryGetProperty("status", out var statusElement)
             && statusElement.ValueKind == JsonValueKind.String
-            && ContractLiteralCodec.Matches(statusElement.GetString(), CommandResultStatus.Ok)
+            && TextVocabulary.Matches(statusElement.GetString(), CommandResultStatus.Ok)
             && root.TryGetProperty("exitCode", out var exitCodeElement)
             && exitCodeElement.ValueKind == JsonValueKind.Number
             && exitCodeElement.TryGetInt32(out var exitCode)
@@ -379,7 +379,7 @@ internal static class VerifyFromInputReader
             return false;
         }
 
-        if (!ContractLiteralCodec.TryParse(propertyElement.GetString(), out IpcExecutePostReadCommit commit))
+        if (!TextVocabulary.TryGetValue(propertyElement.GetString(), out IpcExecutePostReadCommit commit))
         {
             return false;
         }
@@ -412,7 +412,7 @@ internal static class VerifyFromInputReader
         value = default;
         return owner.TryGetProperty(propertyName, out var propertyElement)
             && propertyElement.ValueKind == JsonValueKind.String
-            && ContractLiteralCodec.TryParse(propertyElement.GetString(), out value);
+            && TextVocabulary.TryGetValue(propertyElement.GetString(), out value);
     }
 
     private static VerifyFromInputReadResult Failure (

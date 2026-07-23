@@ -14,7 +14,7 @@ public sealed record VerifyStepProgressEntry
         IReadOnlyList<AssuranceEffect> Effects,
         string? SkipReason)
     {
-        if (!ContractLiteralCodec.IsDefined(Kind))
+        if (!TextVocabulary.IsDefined(Kind))
         {
             throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Verify step kind must be defined.");
         }
@@ -23,7 +23,7 @@ public sealed record VerifyStepProgressEntry
         {
             throw new ArgumentNullException(nameof(Effects));
         }
-        if (Effects.Any(static effect => !ContractLiteralCodec.IsDefined(effect)))
+        if (Effects.Any(static effect => !TextVocabulary.IsDefined(effect)))
         {
             throw new ArgumentException("Effects must contain only defined assurance effects.", nameof(Effects));
         }

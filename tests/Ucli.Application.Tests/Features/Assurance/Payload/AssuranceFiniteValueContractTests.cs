@@ -10,44 +10,44 @@ public sealed class AssuranceFiniteValueContractTests
     {
         Assert.Equal(
             ["passed", "failed", "indeterminate", "unverified", "outOfScope"],
-            ContractLiteralCodec.GetLiterals<AssuranceClaimStatus>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(AssuranceClaimStatus)));
+            TextVocabulary.GetTexts<AssuranceClaimStatus>());
+        Assert.False(TextVocabulary.IsDefined(default(AssuranceClaimStatus)));
         Assert.Equal(
             ["full", "partial", "none"],
-            ContractLiteralCodec.GetLiterals<AssuranceCoverage>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(AssuranceCoverage)));
+            TextVocabulary.GetTexts<AssuranceCoverage>());
+        Assert.False(TextVocabulary.IsDefined(default(AssuranceCoverage)));
         Assert.Equal(
             ["sessionBound", "probeOnly"],
-            ContractLiteralCodec.GetLiterals<ReadyValidityKind>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(ReadyValidityKind)));
+            TextVocabulary.GetTexts<ReadyValidityKind>());
+        Assert.False(TextVocabulary.IsDefined(default(ReadyValidityKind)));
         Assert.Equal(
             ["available", "failed"],
-            ContractLiteralCodec.GetLiterals<ReadyReadIndexArtifactStatus>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(ReadyReadIndexArtifactStatus)));
+            TextVocabulary.GetTexts<ReadyReadIndexArtifactStatus>());
+        Assert.False(TextVocabulary.IsDefined(default(ReadyReadIndexArtifactStatus)));
         Assert.Equal(
             ["readIndex.mode", "ops.catalog", "asset-search.lookup", "guid-path.lookup"],
-            ContractLiteralCodec.GetLiterals<ReadyReadIndexArtifactName>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(ReadyReadIndexArtifactName)));
+            TextVocabulary.GetTexts<ReadyReadIndexArtifactName>());
+        Assert.False(TextVocabulary.IsDefined(default(ReadyReadIndexArtifactName)));
         Assert.Equal(
             ["unknown", "disabled", "allowStale", "requireFresh"],
-            ContractLiteralCodec.GetLiterals<ReadyReadIndexMode>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(ReadyReadIndexMode)));
+            TextVocabulary.GetTexts<ReadyReadIndexMode>());
+        Assert.False(TextVocabulary.IsDefined(default(ReadyReadIndexMode)));
         Assert.Equal(
             ["fresh", "probable", "stale"],
-            ContractLiteralCodec.GetLiterals<IndexFreshness>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(IndexFreshness)));
+            TextVocabulary.GetTexts<IndexFreshness>());
+        Assert.False(TextVocabulary.IsDefined(default(IndexFreshness)));
         Assert.Equal(
             ["execution", "mutation", "test", "readIndex"],
-            ContractLiteralCodec.GetLiterals<ReadyTarget>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(ReadyTarget)));
+            TextVocabulary.GetTexts<ReadyTarget>());
+        Assert.False(TextVocabulary.IsDefined(default(ReadyTarget)));
         Assert.Equal(
             ["auto", "daemon", "oneshot"],
-            ContractLiteralCodec.GetLiterals<AssuranceRequestedExecutionMode>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(AssuranceRequestedExecutionMode)));
+            TextVocabulary.GetTexts<AssuranceRequestedExecutionMode>());
+        Assert.False(TextVocabulary.IsDefined(default(AssuranceRequestedExecutionMode)));
         Assert.Equal(
             ["daemon", "oneshot", "notApplicable"],
-            ContractLiteralCodec.GetLiterals<AssuranceResolvedExecutionMode>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(AssuranceResolvedExecutionMode)));
+            TextVocabulary.GetTexts<AssuranceResolvedExecutionMode>());
+        Assert.False(TextVocabulary.IsDefined(default(AssuranceResolvedExecutionMode)));
     }
 
     [Fact]

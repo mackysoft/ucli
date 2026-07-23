@@ -1,35 +1,35 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Assurance;
 
 /// <summary> Defines <c>build.run</c> progress phase literals. </summary>
+[VocabularyDefinition]
 public enum BuildRunProgressPhase
 {
     /// <summary> Emitted after build run identity and profile digest are established. </summary>
-    [UcliContractLiteral("started")]
+    [VocabularyText("started")]
     Started = 1,
 
     /// <summary> Emitted after Unity readiness is confirmed. </summary>
-    [UcliContractLiteral("readiness")]
+    [VocabularyText("readiness")]
     Readiness = 2,
 
     /// <summary> Emitted after the build runner is resolved. </summary>
-    [UcliContractLiteral("runnerResolution")]
+    [VocabularyText("runnerResolution")]
     RunnerResolution = 3,
 
     /// <summary> Emitted while the build runner is invoked. </summary>
-    [UcliContractLiteral("runnerInvocation")]
+    [VocabularyText("runnerInvocation")]
     RunnerInvocation = 4,
 
     /// <summary> Emitted after the runner terminal result is observed or normalized. </summary>
-    [UcliContractLiteral("runnerResult")]
+    [VocabularyText("runnerResult")]
     RunnerResult = 5,
 
     /// <summary> Emitted after build artifacts are accounted. </summary>
-    [UcliContractLiteral("artifactAccounting")]
+    [VocabularyText("artifactAccounting")]
     ArtifactAccounting = 6,
 
     /// <summary> Emitted after the final build payload has been built. </summary>
-    [UcliContractLiteral("completed")]
+    [VocabularyText("completed")]
     Completed = 7,
 }

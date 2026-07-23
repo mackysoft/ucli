@@ -30,7 +30,7 @@ public sealed record IpcStreamFrame
             throw new ArgumentException("Request id must not be empty.", nameof(requestId));
         }
 
-        if (!ContractLiteralCodec.IsDefined(kind))
+        if (!TextVocabulary.IsDefined(kind))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "IPC stream frame kind must be specified.");
         }

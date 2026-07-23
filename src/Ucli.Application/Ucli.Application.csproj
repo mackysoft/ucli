@@ -11,11 +11,17 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MackySoft.Text.Vocabularies" Version="0.1.0" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="10.0.3" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Ucli.Contracts/Ucli.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="MackySoft.Text.Vocabularies" />
+    <Using Include="MackySoft.Text.Vocabularies.Vocabulary" Alias="TextVocabulary" />
   </ItemGroup>
 
 </Project>

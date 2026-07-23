@@ -23,7 +23,7 @@ public sealed class CliOutputGoldenAssuranceSemanticContractTests
         if (!IsAssuranceCommand(command)
             || !string.Equals(
                 CliOutputGoldenContractTestSupport.ReadRequiredString(root, "status", "$.status"),
-                ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
+                TextVocabulary.GetText(CommandResultStatus.Ok),
                 StringComparison.Ordinal))
         {
             return;

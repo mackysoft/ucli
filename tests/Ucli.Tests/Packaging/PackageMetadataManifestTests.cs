@@ -5,6 +5,8 @@ namespace MackySoft.Ucli.Tests.Packaging;
 
 public sealed class PackageMetadataManifestTests
 {
+    private const string ExternalVocabularyVersion = "0.1.0";
+
     [Fact]
     [Trait("Size", "Medium")]
     public void Cli_tool_project_includes_generated_schema_artifacts ()
@@ -56,8 +58,12 @@ public sealed class PackageMetadataManifestTests
 
         IReadOnlyDictionary<string, string> packageConfigVersions = PackageMetadataTestSupport.ReadUnityPackageConfigVersions();
         IReadOnlyDictionary<string, string> nuspecDependencyVersions = PackageMetadataTestSupport.ReadNuspecDependencyVersions(metadata, nuspecNamespace);
+        Assert.Equal(ExternalVocabularyVersion, packageConfigVersions["MackySoft.Text.Vocabularies"]);
+        Assert.Equal(ExternalVocabularyVersion, packageConfigVersions["MackySoft.Text.Vocabularies.Json"]);
         Assert.Equal(centralProperties["Version"], packageConfigVersions["MackySoft.Ucli.Contracts"]);
         Assert.Equal(centralProperties["Version"], packageConfigVersions["MackySoft.Ucli.Infrastructure"]);
+        Assert.Equal(packageConfigVersions["MackySoft.Text.Vocabularies"], nuspecDependencyVersions["MackySoft.Text.Vocabularies"]);
+        Assert.Equal(packageConfigVersions["MackySoft.Text.Vocabularies.Json"], nuspecDependencyVersions["MackySoft.Text.Vocabularies.Json"]);
         Assert.Equal(packageConfigVersions["MackySoft.Ucli.Contracts"], nuspecDependencyVersions["MackySoft.Ucli.Contracts"]);
         Assert.Equal(packageConfigVersions["MackySoft.Ucli.Infrastructure"], nuspecDependencyVersions["MackySoft.Ucli.Infrastructure"]);
     }

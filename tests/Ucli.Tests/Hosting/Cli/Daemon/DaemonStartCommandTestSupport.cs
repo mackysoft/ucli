@@ -47,12 +47,12 @@ internal static class DaemonStartCommandTestSupport
     {
         Assert.NotNull(progressSink);
         await progressSink!.OnEntryAsync(
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Started),
+                TextVocabulary.GetText(DaemonStartProgressEvent.Started),
                 CreateProgressEntry(result: null, startStatus: null, daemonStatus: null, errorCode: null),
                 cancellationToken)
             .ConfigureAwait(false);
         await progressSink.OnEntryAsync(
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.Completed),
+                TextVocabulary.GetText(DaemonStartProgressEvent.Completed),
                 CreateProgressEntry(CommandProgressResult.Succeeded, "started", "running", errorCode: null),
                 cancellationToken)
             .ConfigureAwait(false);
@@ -76,7 +76,7 @@ internal static class DaemonStartCommandTestSupport
     {
         Assert.NotNull(progressSink);
         await progressSink!.OnEntryAsync(
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.WaitingForEndpoint),
+                TextVocabulary.GetText(DaemonStartProgressEvent.WaitingForEndpoint),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                     launchAttemptId: DaemonStartProgressEntryTestFactory.SampleLaunchAttemptId,
                     startedAtUtc: DaemonStartProgressEntryTestFactory.SampleStartedAtUtc,
@@ -85,7 +85,7 @@ internal static class DaemonStartCommandTestSupport
                 cancellationToken)
             .ConfigureAwait(false);
         await progressSink.OnEntryAsync(
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.BlockerDetected),
+                TextVocabulary.GetText(DaemonStartProgressEvent.BlockerDetected),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                     launchAttemptId: DaemonStartProgressEntryTestFactory.SampleLaunchAttemptId,
                     startedAtUtc: DaemonStartProgressEntryTestFactory.SampleStartedAtUtc,
@@ -98,14 +98,14 @@ internal static class DaemonStartCommandTestSupport
                 cancellationToken)
             .ConfigureAwait(false);
         await progressSink.OnEntryAsync(
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.EndpointRegistered),
+                TextVocabulary.GetText(DaemonStartProgressEvent.EndpointRegistered),
                 DaemonStartProgressEntryTestFactory.CreateStartupObservation(
                     launchAttemptId: DaemonStartProgressEntryTestFactory.SampleLaunchAttemptId,
                     startedAtUtc: DaemonStartProgressEntryTestFactory.SampleStartedAtUtc),
                 cancellationToken)
             .ConfigureAwait(false);
         await progressSink.OnEntryAsync(
-                ContractLiteralCodec.ToValue(DaemonStartProgressEvent.LifecycleObserved),
+                TextVocabulary.GetText(DaemonStartProgressEvent.LifecycleObserved),
                 new DaemonStartLifecycleSnapshotProgressEntry(
                     DaemonStartProgressPayloadKind.LifecycleSnapshot,
                     ProjectFingerprintTestFactory.Create("fingerprint"),

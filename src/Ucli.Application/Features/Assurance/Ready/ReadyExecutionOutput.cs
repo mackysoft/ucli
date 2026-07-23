@@ -25,23 +25,23 @@ internal sealed record ReadyExecutionOutput
         ReadyLifecycleOutput? Lifecycle,
         ReadyReadIndexOutput? ReadIndex)
     {
-        if (!ContractLiteralCodec.IsDefined(Verdict))
+        if (!TextVocabulary.IsDefined(Verdict))
         {
             throw new ArgumentOutOfRangeException(nameof(Verdict), Verdict, "Verdict must be defined by the assurance contract.");
         }
-        if (!ContractLiteralCodec.IsDefined(SessionKind))
+        if (!TextVocabulary.IsDefined(SessionKind))
         {
             throw new ArgumentOutOfRangeException(nameof(SessionKind), SessionKind, "Session kind must be defined by the assurance contract.");
         }
-        if (!ContractLiteralCodec.IsDefined(Target))
+        if (!TextVocabulary.IsDefined(Target))
         {
             throw new ArgumentOutOfRangeException(nameof(Target), Target, "Ready target must be defined by the assurance contract.");
         }
-        if (!ContractLiteralCodec.IsDefined(RequestedMode))
+        if (!TextVocabulary.IsDefined(RequestedMode))
         {
             throw new ArgumentOutOfRangeException(nameof(RequestedMode), RequestedMode, "Requested execution mode must be defined by the assurance contract.");
         }
-        if (!ContractLiteralCodec.IsDefined(ResolvedMode))
+        if (!TextVocabulary.IsDefined(ResolvedMode))
         {
             throw new ArgumentOutOfRangeException(nameof(ResolvedMode), ResolvedMode, "Resolved execution mode must be defined by the assurance contract.");
         }

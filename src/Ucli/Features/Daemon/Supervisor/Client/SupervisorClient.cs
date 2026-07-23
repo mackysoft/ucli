@@ -263,7 +263,7 @@ internal sealed class SupervisorClient
                 DaemonStartStatus.AlreadyRunning => DaemonStartResult.AlreadyRunning(session, payload.LifecycleObservation),
                 DaemonStartStatus.Attached => DaemonStartResult.Attached(session, payload.LifecycleObservation),
                 _ => DaemonStartResult.Failure(ExecutionError.InternalError(
-                    $"Supervisor ensureRunning returned unsupported startStatus: {ContractLiteralCodec.ToValue(payload.StartStatus)}.")),
+                    $"Supervisor ensureRunning returned unsupported startStatus: {TextVocabulary.GetText(payload.StartStatus)}.")),
             };
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -395,9 +395,9 @@ internal sealed class SupervisorClient
             protocolVersion: IpcProtocol.CurrentVersion,
             requestId: requestId,
             sessionToken: manifest.SessionToken.GetEncodedValue(),
-            method: ContractLiteralCodec.ToValue(method),
+            method: TextVocabulary.GetText(method),
             payload: IpcPayloadCodec.SerializeToElement(payload),
-            responseMode: ContractLiteralCodec.ToValue(responseMode),
+            responseMode: TextVocabulary.GetText(responseMode),
             requestDeadlineUtc: requestDeadlineUtc,
             requestDeadlineRemainingMilliseconds: requestDeadlineRemainingMilliseconds);
     }

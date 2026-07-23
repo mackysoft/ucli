@@ -435,13 +435,13 @@ internal sealed class IpcTransportClient : IIpcTransportClient
         IpcResponseMode expectedResponseMode,
         string operationName)
     {
-        if (ContractLiteralCodec.TryParse<IpcResponseMode>(request.ResponseMode, out var responseMode)
+        if (TextVocabulary.TryGetValue<IpcResponseMode>(request.ResponseMode, out var responseMode)
             && responseMode == expectedResponseMode)
         {
             return;
         }
 
-        var expectedLiteral = ContractLiteralCodec.ToValue(expectedResponseMode);
+        var expectedLiteral = TextVocabulary.GetText(expectedResponseMode);
         throw new InvalidOperationException($"IPC {operationName} requires responseMode='{expectedLiteral}'. Actual: {request.ResponseMode}.");
     }
 

@@ -1,19 +1,19 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines BuildPipeline output layout shape literals. </summary>
+[VocabularyDefinition]
 public enum IpcBuildOutputLayoutShape
 {
     /// <summary> BuildPipeline writes one file. </summary>
-    [UcliContractLiteral("file")]
+    [VocabularyText("file")]
     File = 1,
 
     /// <summary> BuildPipeline writes one directory. </summary>
-    [UcliContractLiteral("directory")]
+    [VocabularyText("directory")]
     Directory = 2,
 
     /// <summary> BuildPipeline writes one macOS application bundle. </summary>
-    [UcliContractLiteral("appBundle")]
+    [VocabularyText("appBundle")]
     AppBundle = 3,
 }

@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 using MackySoft.Ucli.Hosting.Cli.Common.Streaming;
 using MackySoft.Ucli.Infrastructure.Text;
 
@@ -39,7 +38,7 @@ internal sealed class VerifyProgressTextProjector : ICliCommandProgressTextProje
         string status)
     {
         var required = entry.Required ? "true" : "false";
-        var kind = ContractLiteralCodec.ToValue(entry.Kind);
+        var kind = TextVocabulary.GetText(entry.Kind);
         var length = checked(7 + kind.Length + 10 + required.Length + 1 + status.Length);
         return string.Create(
             length,
@@ -59,9 +58,9 @@ internal sealed class VerifyProgressTextProjector : ICliCommandProgressTextProje
     private static string CreateDiagnosticTextLine (VerifyDiagnosticEntry entry)
     {
         var stepKind = entry.StepKind.HasValue
-            ? ContractLiteralCodec.ToValue(entry.StepKind.Value)
+            ? TextVocabulary.GetText(entry.StepKind.Value)
             : string.Empty;
-        var severity = ContractLiteralCodec.ToValue(entry.Severity);
+        var severity = TextVocabulary.GetText(entry.Severity);
         var hasStep = stepKind.Length != 0;
         var length = checked(
             17

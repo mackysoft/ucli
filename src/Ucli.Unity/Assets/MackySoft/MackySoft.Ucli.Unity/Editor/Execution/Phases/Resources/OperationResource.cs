@@ -1,4 +1,6 @@
 using System;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -20,7 +22,7 @@ namespace MackySoft.Ucli.Unity.Execution.Phases
             UcliTouchedResourceKind kind,
             string path)
         {
-            if (!ContractLiteralCodec.IsDefined(kind))
+            if (!TextVocabulary.IsDefined(kind))
             {
                 throw new ArgumentOutOfRangeException(nameof(kind), kind, "Operation resource kind is not supported.");
             }

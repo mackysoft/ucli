@@ -176,7 +176,7 @@ public sealed class CodeCatalogTests
                 "risk",
                 "unknown",
             ],
-            ContractLiteralCodec.GetLiterals<CodeCatalogKind>());
-        Assert.False(ContractLiteralCodec.IsDefined(default(CodeCatalogKind)));
+            TextVocabulary.GetTexts<CodeCatalogKind>());
+        Assert.False(TextVocabulary.IsDefined(default(CodeCatalogKind)));
     }
 }

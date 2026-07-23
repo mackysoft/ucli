@@ -42,7 +42,7 @@ internal sealed class CodeCatalogService : ICodeCatalogService
 
         if (input.Kind is not null)
         {
-            if (!ContractLiteralCodec.TryParse<CodeCatalogKind>(input.Kind, out var parsedKind)
+            if (!TextVocabulary.TryGetValue<CodeCatalogKind>(input.Kind, out var parsedKind)
                 || parsedKind == CodeCatalogKind.Unknown)
             {
                 return CodeCatalogListResult.Success(EmptyDescriptors);
@@ -100,8 +100,8 @@ internal sealed class CodeCatalogService : ICodeCatalogService
         {
             if (reference.ExpectedKind.HasValue && reference.ExpectedKind.Value != descriptor.Kind)
             {
-                var actualKind = ContractLiteralCodec.ToValue(descriptor.Kind);
-                var expectedKind = ContractLiteralCodec.ToValue(reference.ExpectedKind.Value);
+                var actualKind = TextVocabulary.GetText(descriptor.Kind);
+                var expectedKind = TextVocabulary.GetText(reference.ExpectedKind.Value);
                 return CodeCatalogDescribeResult.Failure(
                     ExecutionError.InvalidArgument(
                         $"Code '{reference.Code}' has kind '{actualKind}', not '{expectedKind}'.",
@@ -127,7 +127,7 @@ internal sealed class CodeCatalogService : ICodeCatalogService
         return new CodeCatalogDescriptor(
             Code: code,
             Kind: CodeCatalogKind.Unknown,
-            Category: ContractLiteralCodec.ToValue(CodeCatalogKind.Unknown),
+            Category: TextVocabulary.GetText(CodeCatalogKind.Unknown),
             Summary: "This code is not known to this uCLI client.",
             Meaning: null,
             AppearsIn: EmptyStrings,

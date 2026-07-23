@@ -17,7 +17,7 @@ public sealed record IpcBuildDirtyStateItem
         IpcBuildDirtyStateItemKind Kind,
         ProjectMutationAuditPath Path)
     {
-        if (!ContractLiteralCodec.IsDefined(Kind))
+        if (!TextVocabulary.IsDefined(Kind))
         {
             throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Dirty-state item kind must be specified.");
         }

@@ -8,28 +8,28 @@ internal static class UcliOperationInputConstraintValidator
 {
     private static readonly HashSet<string> ParameterlessKinds = new(StringComparer.Ordinal)
     {
-        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.NonEmpty),
-        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.ProjectRelativePath),
-        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.GlobalObjectId),
-        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.HierarchyPath),
-        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.TypeExists),
-        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.AssetGuid),
-        ContractLiteralCodec.ToValue(UcliOperationInputConstraintKind.Cursor),
+        TextVocabulary.GetText(UcliOperationInputConstraintKind.NonEmpty),
+        TextVocabulary.GetText(UcliOperationInputConstraintKind.ProjectRelativePath),
+        TextVocabulary.GetText(UcliOperationInputConstraintKind.GlobalObjectId),
+        TextVocabulary.GetText(UcliOperationInputConstraintKind.HierarchyPath),
+        TextVocabulary.GetText(UcliOperationInputConstraintKind.TypeExists),
+        TextVocabulary.GetText(UcliOperationInputConstraintKind.AssetGuid),
+        TextVocabulary.GetText(UcliOperationInputConstraintKind.Cursor),
     };
 
     private static readonly HashSet<string> SupportedAssetKinds = new(StringComparer.Ordinal)
     {
-        ContractLiteralCodec.ToValue(UcliOperationAssetKind.Asset),
-        ContractLiteralCodec.ToValue(UcliOperationAssetKind.Prefab),
-        ContractLiteralCodec.ToValue(UcliOperationAssetKind.ProjectSettings),
-        ContractLiteralCodec.ToValue(UcliOperationAssetKind.Scene),
+        TextVocabulary.GetText(UcliOperationAssetKind.Asset),
+        TextVocabulary.GetText(UcliOperationAssetKind.Prefab),
+        TextVocabulary.GetText(UcliOperationAssetKind.ProjectSettings),
+        TextVocabulary.GetText(UcliOperationAssetKind.Scene),
     };
 
     private static readonly HashSet<string> SupportedReferenceTargetKinds = new(StringComparer.Ordinal)
     {
-        ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.Asset),
-        ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.Component),
-        ContractLiteralCodec.ToValue(UcliOperationReferenceTargetKind.GameObject),
+        TextVocabulary.GetText(UcliOperationReferenceTargetKind.Asset),
+        TextVocabulary.GetText(UcliOperationReferenceTargetKind.Component),
+        TextVocabulary.GetText(UcliOperationReferenceTargetKind.GameObject),
     };
 
     public static bool TryValidate (
@@ -49,7 +49,7 @@ internal static class UcliOperationInputConstraintValidator
         UcliOperationInputConstraintContract constraint,
         out string errorMessage)
     {
-        if (!ContractLiteralCodec.TryParse<UcliOperationInputConstraintKind>(constraint.Kind, out var kind))
+        if (!TextVocabulary.TryGetValue<UcliOperationInputConstraintKind>(constraint.Kind, out var kind))
         {
             return UnsupportedConstraint(constraint.Kind!, out errorMessage);
         }
@@ -153,7 +153,7 @@ internal static class UcliOperationInputConstraintValidator
         UcliOperationInputConstraintContract constraint,
         out string errorMessage)
     {
-        if (!ContractLiteralCodec.Matches(constraint.TypeKind, UcliOperationTypeKind.Component)
+        if (!TextVocabulary.Matches(constraint.TypeKind, UcliOperationTypeKind.Component)
             || constraint.AssetKind != null
             || constraint.TargetKind != null
             || constraint.Access != null
@@ -172,7 +172,7 @@ internal static class UcliOperationInputConstraintValidator
         UcliOperationInputConstraintContract constraint,
         out string errorMessage)
     {
-        if (!ContractLiteralCodec.Matches(constraint.Access, UcliOperationSerializedPropertyAccess.Write)
+        if (!TextVocabulary.Matches(constraint.Access, UcliOperationSerializedPropertyAccess.Write)
             || constraint.AssetKind != null
             || constraint.TargetKind != null
             || constraint.TypeKind != null

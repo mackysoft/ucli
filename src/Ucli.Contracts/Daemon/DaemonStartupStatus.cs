@@ -1,31 +1,31 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Daemon;
 
 /// <summary> Defines daemon startup observation status literals. </summary>
+[VocabularyDefinition]
 public enum DaemonStartupStatus
 {
     /// <summary> Unity launch has started. </summary>
-    [UcliContractLiteral("launching")]
+    [VocabularyText("launching")]
     Launching = 0,
 
     /// <summary> Startup is waiting for endpoint registration. </summary>
-    [UcliContractLiteral("waitingForEndpoint")]
+    [VocabularyText("waitingForEndpoint")]
     WaitingForEndpoint = 1,
 
     /// <summary> Startup is blocked by a classified condition. </summary>
-    [UcliContractLiteral("blocked")]
+    [VocabularyText("blocked")]
     Blocked = 2,
 
     /// <summary> Startup timed out before endpoint registration. </summary>
-    [UcliContractLiteral("timeout")]
+    [VocabularyText("timeout")]
     Timeout = 3,
 
     /// <summary> Startup failed before endpoint registration. </summary>
-    [UcliContractLiteral("failed")]
+    [VocabularyText("failed")]
     Failed = 4,
 
     /// <summary> Startup completed endpoint registration. </summary>
-    [UcliContractLiteral("completed")]
+    [VocabularyText("completed")]
     Completed = 5,
 }

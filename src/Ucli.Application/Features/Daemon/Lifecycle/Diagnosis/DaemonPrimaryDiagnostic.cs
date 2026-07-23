@@ -20,7 +20,7 @@ internal sealed record DaemonPrimaryDiagnostic
         int? Column,
         string? Message)
     {
-        if (!ContractLiteralCodec.IsDefined(Kind))
+        if (!TextVocabulary.IsDefined(Kind))
         {
             throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Unsupported primary diagnostic kind.");
         }

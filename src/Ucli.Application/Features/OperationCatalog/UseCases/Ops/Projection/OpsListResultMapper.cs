@@ -29,8 +29,8 @@ internal sealed class OpsListResultMapper : IOpsListResultMapper
             .OrderBy(static operation => operation.Name, StringComparer.Ordinal)
             .Select(static operation => new OpsOperationListItem(
                 Name: operation.Name,
-                Kind: ContractLiteralCodec.ToValue(operation.Kind),
-                Policy: ContractLiteralCodec.ToValue(operation.Policy),
+                Kind: TextVocabulary.GetText(operation.Kind),
+                Policy: TextVocabulary.GetText(operation.Policy),
                 Description: operation.Description))
             .ToArray();
 

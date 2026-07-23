@@ -117,8 +117,8 @@ internal sealed class LogsUnityReadCommand
             "logs.unity.entry",
             new JsonLinePayload(
                 Timestamp: unityLogEvent.Timestamp.ToString("O", CultureInfo.InvariantCulture),
-                Level: ContractLiteralCodec.ToValue(unityLogEvent.Level),
-                Source: ContractLiteralCodec.ToValue(unityLogEvent.Source),
+                Level: TextVocabulary.GetText(unityLogEvent.Level),
+                Source: TextVocabulary.GetText(unityLogEvent.Source),
                 Message: unityLogEvent.Message,
                 StackTrace: unityLogEvent.StackTrace,
                 Cursor: unityLogEvent.Cursor.Value,

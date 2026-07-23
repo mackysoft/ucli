@@ -26,7 +26,7 @@ internal static class SupervisorManifestStoreTestSupport
             new SupervisorInstanceManifestJsonContract(
                 manifest.ProcessId,
                 manifest.SessionToken.GetEncodedValue(),
-                ContractLiteralCodec.ToValue(manifest.Endpoint.TransportKind),
+                TextVocabulary.GetText(manifest.Endpoint.TransportKind),
                 manifest.Endpoint.Address,
                 manifest.IssuedAtUtc),
             SerializerOptions);

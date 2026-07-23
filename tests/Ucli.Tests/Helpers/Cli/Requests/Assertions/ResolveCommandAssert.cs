@@ -56,7 +56,7 @@ internal static class ResolveCommandAssert
                 .HasProperty("opResults", 0, op => op
                     .HasString("opId", "resolve")
                     .HasString("op", UcliPrimitiveOperationNames.Resolve)
-                    .HasString("phase", ContractLiteralCodec.ToValue(IpcExecuteOperationPhase.Plan))
+                    .HasString("phase", TextVocabulary.GetText(IpcExecuteOperationPhase.Plan))
                     .HasBoolean("applied", false)
                     .HasBoolean("changed", false)
                     .HasProperty("result", result => result

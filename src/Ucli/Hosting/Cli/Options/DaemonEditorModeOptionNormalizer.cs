@@ -17,12 +17,12 @@ internal static class DaemonEditorModeOptionNormalizer
             return DaemonEditorModeOptionNormalizationResult.Success(editorMode: null);
         }
 
-        if (ContractLiteralInputParser.TryParseTrimmed<DaemonEditorMode>(optionValue, out var editorMode))
+        if (VocabularyInputParser.TryParseTrimmed<DaemonEditorMode>(optionValue, out var editorMode))
         {
             return DaemonEditorModeOptionNormalizationResult.Success(editorMode);
         }
 
         return DaemonEditorModeOptionNormalizationResult.Failure(ExecutionError.InvalidArgument(
-            $"editorMode must be one of '{ContractLiteralCodec.ToValue(DaemonEditorMode.Batchmode)}', '{ContractLiteralCodec.ToValue(DaemonEditorMode.Gui)}'. Actual: {optionValue}."));
+            $"editorMode must be one of '{TextVocabulary.GetText(DaemonEditorMode.Batchmode)}', '{TextVocabulary.GetText(DaemonEditorMode.Gui)}'. Actual: {optionValue}."));
     }
 }

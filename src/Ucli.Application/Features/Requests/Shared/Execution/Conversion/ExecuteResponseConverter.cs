@@ -38,7 +38,7 @@ internal static class ExecuteResponseConverter
                 out var projectMismatchKind))
         {
             return CreateInvalidPayloadFailure(
-                $"Execute response payload is invalid. The 'project.{ContractLiteralCodec.ToValue(projectMismatchKind)}' field does not match the requested Unity project.");
+                $"Execute response payload is invalid. The 'project.{TextVocabulary.GetText(projectMismatchKind)}' field does not match the requested Unity project.");
         }
 
         if (!TryValidateContractViolationErrorPair(payload, response.Errors, out var contractViolationPairError))

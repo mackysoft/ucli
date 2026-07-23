@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.CodeCatalog.Catalog;
 
@@ -12,7 +11,7 @@ internal sealed record CodeCatalogCodeReference
         CodeCatalogKind? ExpectedKind)
     {
         this.Code = Code ?? throw new ArgumentNullException(nameof(Code));
-        if (ExpectedKind.HasValue && !ContractLiteralCodec.IsDefined(ExpectedKind.Value))
+        if (ExpectedKind.HasValue && !TextVocabulary.IsDefined(ExpectedKind.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(ExpectedKind), ExpectedKind, "Expected code catalog kind must be specified.");
         }

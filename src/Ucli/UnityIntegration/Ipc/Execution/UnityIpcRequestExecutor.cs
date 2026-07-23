@@ -113,7 +113,7 @@ internal sealed class UnityIpcRequestExecutor : IUnityRequestExecutor, IUnityStr
         if (!UnityIpcMethodCapabilities.SupportsStreaming(dispatchRequest.Method))
         {
             return UnityRequestExecutionResult.Failure(UnityIpcFailureClassifier.InternalError(
-                $"IPC method does not support streaming: {ContractLiteralCodec.ToValue(dispatchRequest.Method)}."));
+                $"IPC method does not support streaming: {TextVocabulary.GetText(dispatchRequest.Method)}."));
         }
 
         var deadline = ExecutionDeadline.Start(timeout, timeProvider);

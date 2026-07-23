@@ -51,7 +51,7 @@ internal static class BuildProfileDigestCalculator
             if (inputs is ResolvedBuildInputs.UnityBuildProfile unityBuildProfileInputs)
             {
                 return new CanonicalBuildInputs(
-                    ContractLiteralCodec.ToValue(inputs.Kind),
+                    TextVocabulary.GetText(inputs.Kind),
                     null,
                     null,
                     null,
@@ -60,8 +60,8 @@ internal static class BuildProfileDigestCalculator
 
             var explicitInputs = (ResolvedBuildInputs.Explicit)inputs;
             return new CanonicalBuildInputs(
-                ContractLiteralCodec.ToValue(inputs.Kind),
-                ContractLiteralCodec.ToValue(explicitInputs.BuildTarget),
+                TextVocabulary.GetText(inputs.Kind),
+                TextVocabulary.GetText(explicitInputs.BuildTarget),
                 CanonicalBuildScenes.From(explicitInputs.Scenes),
                 new CanonicalBuildOptions(explicitInputs.Options.Development),
                 null);
@@ -77,7 +77,7 @@ internal static class BuildProfileDigestCalculator
             var paths = scenes is ResolvedBuildScenes.Explicit explicitScenes
                 ? explicitScenes.Paths
                 : null;
-            return new CanonicalBuildScenes(ContractLiteralCodec.ToValue(scenes.Source), paths);
+            return new CanonicalBuildScenes(TextVocabulary.GetText(scenes.Source), paths);
         }
     }
 
@@ -93,13 +93,13 @@ internal static class BuildProfileDigestCalculator
             if (runner is ResolvedBuildRunner.ExecuteMethod executeMethodRunner)
             {
                 return new CanonicalBuildRunner(
-                    ContractLiteralCodec.ToValue(runner.Kind),
+                    TextVocabulary.GetText(runner.Kind),
                     executeMethodRunner.Method,
                     CanonicalBuildRunnerInvocation.From(executeMethodRunner.Invocation));
             }
 
             return new CanonicalBuildRunner(
-                ContractLiteralCodec.ToValue(runner.Kind),
+                TextVocabulary.GetText(runner.Kind),
                 Method: null,
                 Invocation: null);
         }
@@ -138,7 +138,7 @@ internal static class BuildProfileDigestCalculator
         {
             return new CanonicalBuildPolicy(
                 CanonicalBuildRuntimePolicy.From(policy.Runtime),
-                ContractLiteralCodec.ToValue(policy.ProjectMutationMode));
+                TextVocabulary.GetText(policy.ProjectMutationMode));
         }
     }
 
@@ -149,8 +149,8 @@ internal static class BuildProfileDigestCalculator
         public static CanonicalBuildRuntimePolicy From (ResolvedBuildRuntimePolicy runtime)
         {
             return new CanonicalBuildRuntimePolicy(
-                runtime.AllowedExecutionModes.Select(ContractLiteralCodec.ToValue).ToArray(),
-                runtime.AllowedEditorModes.Select(ContractLiteralCodec.ToValue).ToArray());
+                runtime.AllowedExecutionModes.Select(TextVocabulary.GetText).ToArray(),
+                runtime.AllowedEditorModes.Select(TextVocabulary.GetText).ToArray());
         }
     }
 }

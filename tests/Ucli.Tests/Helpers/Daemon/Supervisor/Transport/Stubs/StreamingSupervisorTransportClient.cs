@@ -17,8 +17,8 @@ internal sealed class StreamingSupervisorTransportClient : IIpcTransportClient
     public void AssertEnsureRunningStreamingRequested (TimeSpan? expectedTimeout = null)
     {
         var call = Assert.Single(streamingCalls);
-        Assert.Equal(ContractLiteralCodec.ToValue(SupervisorIpcMethod.EnsureRunning), call.Request.Method);
-        Assert.Equal(ContractLiteralCodec.ToValue(IpcResponseMode.Stream), call.Request.ResponseMode);
+        Assert.Equal(TextVocabulary.GetText(SupervisorIpcMethod.EnsureRunning), call.Request.Method);
+        Assert.Equal(TextVocabulary.GetText(IpcResponseMode.Stream), call.Request.ResponseMode);
         Assert.True(call.UsesUnboundedResponseWait);
         if (expectedTimeout.HasValue)
         {

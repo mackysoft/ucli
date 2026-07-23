@@ -57,7 +57,7 @@ internal sealed class VerifyProfileStep
         bool required,
         ReadyTarget readyTarget)
     {
-        if (!ContractLiteralCodec.IsDefined(readyTarget))
+        if (!TextVocabulary.IsDefined(readyTarget))
         {
             throw new ArgumentOutOfRangeException(nameof(readyTarget), readyTarget, "Ready target must be defined.");
         }

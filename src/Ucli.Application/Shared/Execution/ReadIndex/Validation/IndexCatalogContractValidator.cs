@@ -125,8 +125,8 @@ internal static class IndexCatalogContractValidator
         where T : struct, Enum
     {
         return requireCanonical
-            ? ContractLiteralCodec.TryParse(value, out parsedValue)
-            : ContractLiteralInputParser.TryParseIgnoreCase(value, out parsedValue);
+            ? TextVocabulary.TryGetValue(value, out parsedValue)
+            : VocabularyInputParser.TryParseIgnoreCase(value, out parsedValue);
     }
 
     private static bool TryResolveCatalogExposure (

@@ -32,7 +32,7 @@ internal static class UcliOperationCodeApiMemberValidator
     {
         if (member == null
             || !member.Kind.HasValue
-            || !ContractLiteralCodec.IsDefined(member.Kind.Value)
+            || !TextVocabulary.IsDefined(member.Kind.Value)
             || string.IsNullOrWhiteSpace(member.Name)
             || string.IsNullOrWhiteSpace(member.Description)
             || !memberNames.Add((member.Name, member.Kind.Value)))

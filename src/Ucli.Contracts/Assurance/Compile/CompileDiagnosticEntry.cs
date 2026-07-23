@@ -19,7 +19,7 @@ public sealed record CompileDiagnosticEntry
         {
             throw new ArgumentException("Run id must not be empty.", nameof(RunId));
         }
-        if (!ContractLiteralCodec.IsDefined(RefreshOrigin))
+        if (!TextVocabulary.IsDefined(RefreshOrigin))
         {
             throw new ArgumentOutOfRangeException(nameof(RefreshOrigin), RefreshOrigin, "Compile refresh origin must be defined.");
         }

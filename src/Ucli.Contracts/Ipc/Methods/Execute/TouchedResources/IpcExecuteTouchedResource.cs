@@ -18,7 +18,7 @@ public sealed record IpcExecuteTouchedResource
         string path,
         Guid? assetGuid)
     {
-        if (!ContractLiteralCodec.IsDefined(kind))
+        if (!TextVocabulary.IsDefined(kind))
         {
             throw new ArgumentOutOfRangeException(nameof(kind), kind, "Touched-resource kind must be specified.");
         }

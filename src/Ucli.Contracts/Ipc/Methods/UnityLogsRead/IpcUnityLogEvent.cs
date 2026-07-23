@@ -16,12 +16,12 @@ public sealed record IpcUnityLogEvent
         string? StackTrace,
         IpcLogCursor Cursor)
     {
-        if (!ContractLiteralCodec.IsDefined(Level))
+        if (!TextVocabulary.IsDefined(Level))
         {
             throw new ArgumentOutOfRangeException(nameof(Level), Level, "Log event level must identify one emitted level.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(Source))
+        if (!TextVocabulary.IsDefined(Source))
         {
             throw new ArgumentOutOfRangeException(nameof(Source), Source, "Unity log event source must identify one emitted source.");
         }

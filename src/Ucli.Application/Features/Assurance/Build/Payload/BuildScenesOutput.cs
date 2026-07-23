@@ -10,7 +10,7 @@ internal sealed record BuildScenesOutput
         BuildProfileSceneSource Source,
         IReadOnlyList<SceneAssetPath> Paths)
     {
-        if (!ContractLiteralCodec.IsDefined(Source))
+        if (!TextVocabulary.IsDefined(Source))
         {
             throw new ArgumentOutOfRangeException(nameof(Source), Source, "Build scene source must be specified.");
         }

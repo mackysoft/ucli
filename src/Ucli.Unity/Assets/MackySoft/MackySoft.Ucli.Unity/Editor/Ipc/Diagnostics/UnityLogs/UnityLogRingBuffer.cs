@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 
 namespace MackySoft.Ucli.Unity.Ipc
@@ -29,12 +31,12 @@ namespace MackySoft.Ucli.Unity.Ipc
             string message,
             string stackTrace = null)
         {
-            if (!MackySoft.Ucli.Contracts.Text.ContractLiteralCodec.IsDefined(source))
+            if (!TextVocabulary.IsDefined(source))
             {
                 throw new ArgumentOutOfRangeException(nameof(source), source, "Unity log source must be defined.");
             }
 
-            if (!MackySoft.Ucli.Contracts.Text.ContractLiteralCodec.IsDefined(level))
+            if (!TextVocabulary.IsDefined(level))
             {
                 throw new ArgumentOutOfRangeException(nameof(level), level, "Unity log level must be defined.");
             }

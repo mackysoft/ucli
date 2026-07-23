@@ -17,9 +17,9 @@ internal static class DaemonCommandOutputProjector
             head = item.Head,
             projectPath = item.ProjectPath,
             projectFingerprint = item.ProjectFingerprint,
-            state = ContractLiteralCodec.ToValue(item.State),
+            state = TextVocabulary.GetText(item.State),
             reason = item.Reason.HasValue
-                ? ContractLiteralCodec.ToValue(item.Reason.Value)
+                ? TextVocabulary.GetText(item.Reason.Value)
                 : null,
             issuedAtUtc = item.IssuedAtUtc,
             processId = item.ProcessId,

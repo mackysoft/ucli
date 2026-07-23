@@ -12,7 +12,16 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MackySoft.Text.Vocabularies" Version="0.1.0" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="../../src/Ucli.Contracts/Ucli.Contracts.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="MackySoft.Text.Vocabularies" />
+    <Using Include="MackySoft.Text.Vocabularies.Vocabulary" Alias="TextVocabulary" />
   </ItemGroup>
 
 </Project>

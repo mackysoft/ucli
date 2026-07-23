@@ -1,19 +1,19 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Daemon.Lifecycle.Start.Contracts;
 
 /// <summary> Defines daemon start operation outcomes. </summary>
+[VocabularyDefinition]
 internal enum DaemonStartStatus
 {
-    [UcliContractLiteral("started")]
+    [VocabularyText("started")]
     Started = 0,
 
-    [UcliContractLiteral("alreadyRunning")]
+    [VocabularyText("alreadyRunning")]
     AlreadyRunning = 1,
 
-    [UcliContractLiteral("failed")]
+    [VocabularyText("failed")]
     Failed = 2,
 
-    [UcliContractLiteral("attached")]
+    [VocabularyText("attached")]
     Attached = 3,
 }

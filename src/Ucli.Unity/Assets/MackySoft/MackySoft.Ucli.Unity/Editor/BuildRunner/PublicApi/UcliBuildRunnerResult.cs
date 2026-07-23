@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using MackySoft.Text.Vocabularies;
+using TextVocabulary = MackySoft.Text.Vocabularies.Vocabulary;
 using MackySoft.Ucli.Contracts.Ipc;
 using MackySoft.Ucli.Contracts.Text;
 
@@ -26,7 +28,7 @@ namespace MackySoft.Ucli.Unity
             IReadOnlyList<UcliBuildRunnerDiagnostic>? diagnostics,
             UcliBuildRunnerBuildReport? buildReport)
         {
-            if (!ContractLiteralCodec.IsDefined(status) || status == IpcBuildReportResult.Unknown)
+            if (!TextVocabulary.IsDefined(status) || status == IpcBuildReportResult.Unknown)
             {
                 throw new ArgumentOutOfRangeException(nameof(status), status, "status must be terminal.");
             }

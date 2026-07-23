@@ -14,6 +14,8 @@
     <description>Unity Editor plugin for uCLI IPC and automation.</description>
     <tags>ucli unity editor automation ipc nugetforunity</tags>
     <dependencies>
+      <dependency id="MackySoft.Text.Vocabularies" version="0.1.0" />
+      <dependency id="MackySoft.Text.Vocabularies.Json" version="0.1.0" />
       <dependency id="MackySoft.Ucli.Contracts" version="0.0.0" />
       <dependency id="MackySoft.Ucli.Infrastructure" version="0.0.0" />
       <dependency id="Microsoft.Bcl.AsyncInterfaces" version="8.0.0" />

@@ -100,7 +100,7 @@ internal static class IndexOpEntryJsonContractWriter
         writer.WriteStartArray();
         for (var i = 0; i < values.Count; i++)
         {
-            writer.WriteStringValue(ContractLiteralCodec.ToValue(values[i]));
+            writer.WriteStringValue(TextVocabulary.GetText(values[i]));
         }
 
         writer.WriteEndArray();
@@ -253,7 +253,7 @@ internal static class IndexOpEntryJsonContractWriter
             writer,
             "language",
             codeContract.Language.HasValue
-                ? ContractLiteralCodec.ToValue(codeContract.Language.Value)
+                ? TextVocabulary.GetText(codeContract.Language.Value)
                 : null);
         WriteCodeEntryPoint(writer, codeContract.EntryPoint);
         WriteArray(writer, "sourceForms", codeContract.SourceForms, WriteCodeSourceForm);
@@ -290,7 +290,7 @@ internal static class IndexOpEntryJsonContractWriter
             writer,
             "kind",
             sourceForm.Kind.HasValue
-                ? ContractLiteralCodec.ToValue(sourceForm.Kind.Value)
+                ? TextVocabulary.GetText(sourceForm.Kind.Value)
                 : null);
         WriteNullableString(writer, "description", sourceForm.Description);
         writer.WriteEndObject();
@@ -317,7 +317,7 @@ internal static class IndexOpEntryJsonContractWriter
             writer,
             "kind",
             member.Kind.HasValue
-                ? ContractLiteralCodec.ToValue(member.Kind.Value)
+                ? TextVocabulary.GetText(member.Kind.Value)
                 : null);
         WriteNullableString(writer, "name", member.Name);
         WriteNullableString(writer, "description", member.Description);

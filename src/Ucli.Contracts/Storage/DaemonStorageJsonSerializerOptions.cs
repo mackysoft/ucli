@@ -18,7 +18,7 @@ internal static class DaemonStorageJsonSerializerOptions
         {
             Converters =
             {
-                new ContractLiteralJsonConverterFactory(),
+                new VocabularyJsonConverterFactory(),
             },
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
             PropertyNameCaseInsensitive = true,

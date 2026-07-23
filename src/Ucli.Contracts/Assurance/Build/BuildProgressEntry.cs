@@ -34,19 +34,19 @@ public sealed record BuildProgressEntry
             throw new ArgumentNullException(nameof(ProfileDigest));
         }
 
-        if (!ContractLiteralCodec.IsDefined(Phase))
+        if (!TextVocabulary.IsDefined(Phase))
         {
             throw new ArgumentOutOfRangeException(nameof(Phase), Phase, "Build progress phase must be specified.");
         }
-        if (RunnerKind.HasValue && !ContractLiteralCodec.IsDefined(RunnerKind.Value))
+        if (RunnerKind.HasValue && !TextVocabulary.IsDefined(RunnerKind.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(RunnerKind), RunnerKind, "Build runner kind must be specified when present.");
         }
-        if (RunnerStatus.HasValue && !ContractLiteralCodec.IsDefined(RunnerStatus.Value))
+        if (RunnerStatus.HasValue && !TextVocabulary.IsDefined(RunnerStatus.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(RunnerStatus), RunnerStatus, "Build runner status must be specified when present.");
         }
-        if (Verdict.HasValue && !ContractLiteralCodec.IsDefined(Verdict.Value))
+        if (Verdict.HasValue && !TextVocabulary.IsDefined(Verdict.Value))
         {
             throw new ArgumentOutOfRangeException(nameof(Verdict), Verdict, "Verdict must be defined by the assurance contract.");
         }
@@ -94,7 +94,7 @@ public sealed record BuildProgressEntry
         for (var index = 0; index < reportRefs.Count; index++)
         {
             var reportRef = reportRefs[index];
-            if (!ContractLiteralCodec.IsDefined(reportRef))
+            if (!TextVocabulary.IsDefined(reportRef))
             {
                 throw new ArgumentOutOfRangeException(nameof(ReportRefs), reportRef, "Build report references must be defined.");
             }

@@ -1,7 +1,7 @@
 namespace MackySoft.Ucli.Contracts.Text;
 
-/// <summary> Parses enum-backed contract literals at input boundaries that accept user spelling variations. </summary>
-internal static class ContractLiteralInputParser
+/// <summary> Applies uCLI input normalization policies before resolving declared vocabulary text. </summary>
+internal static class VocabularyInputParser
 {
     public static bool IsDefinedIgnoreCase<TEnum> (string? literal)
         where TEnum : struct, Enum
@@ -34,7 +34,7 @@ internal static class ContractLiteralInputParser
             return false;
         }
 
-        return ContractLiteralCodec.TryParse(normalizedLiteral, out value);
+        return TextVocabulary.TryGetValue(normalizedLiteral, out value);
     }
 
     private static bool TryParseWithComparison<TEnum> (
@@ -43,11 +43,11 @@ internal static class ContractLiteralInputParser
         out TEnum value)
         where TEnum : struct, Enum
     {
-        foreach (var candidateLiteral in ContractLiteralCodec.GetLiterals<TEnum>())
+        foreach (var candidateLiteral in TextVocabulary.GetTexts<TEnum>())
         {
             if (string.Equals(literal, candidateLiteral, comparison))
             {
-                return ContractLiteralCodec.TryParse(candidateLiteral, out value);
+                return TextVocabulary.TryGetValue(candidateLiteral, out value);
             }
         }
 
@@ -60,7 +60,7 @@ internal static class ContractLiteralInputParser
         StringComparison comparison)
         where TEnum : struct, Enum
     {
-        foreach (var candidateLiteral in ContractLiteralCodec.GetLiterals<TEnum>())
+        foreach (var candidateLiteral in TextVocabulary.GetTexts<TEnum>())
         {
             if (string.Equals(literal, candidateLiteral, comparison))
             {

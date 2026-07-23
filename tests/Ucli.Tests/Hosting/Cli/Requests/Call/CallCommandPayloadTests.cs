@@ -26,10 +26,10 @@ public sealed class CallCommandPayloadTests
                 .HasArrayLength("steps", 1)
                 .HasProperty("steps", 0, step => step
                     .HasString("opId", "step-1")
-                    .HasString("sourceKind", ContractLiteralCodec.ToValue(IpcExecutePostReadSourceKind.Edit))
+                    .HasString("sourceKind", TextVocabulary.GetText(IpcExecutePostReadSourceKind.Edit))
                     .HasBoolean("playModeMutation", false)
-                    .HasString("commit", ContractLiteralCodec.ToValue(IpcExecutePostReadCommit.Context))
+                    .HasString("commit", TextVocabulary.GetText(IpcExecutePostReadCommit.Context))
                     .HasBoolean("persistenceExpected", true)
-                    .HasString("expectedPostState", ContractLiteralCodec.ToValue(IpcExecuteExpectedPostState.Deterministic))));
+                    .HasString("expectedPostState", TextVocabulary.GetText(IpcExecuteExpectedPostState.Deterministic))));
     }
 }

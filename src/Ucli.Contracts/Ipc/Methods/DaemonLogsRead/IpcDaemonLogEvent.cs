@@ -16,7 +16,7 @@ public sealed record IpcDaemonLogEvent
         string? Raw,
         IpcLogCursor Cursor)
     {
-        if (!ContractLiteralCodec.IsDefined(Level))
+        if (!TextVocabulary.IsDefined(Level))
         {
             throw new ArgumentOutOfRangeException(nameof(Level), Level, "Log event level must identify one emitted level.");
         }

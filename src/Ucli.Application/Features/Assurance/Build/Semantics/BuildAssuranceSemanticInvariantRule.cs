@@ -12,13 +12,13 @@ namespace MackySoft.Ucli.Application.Features.Assurance.Build.Semantics;
 /// <summary> Validates build-specific semantic invariants inside the common assurance payload shape. </summary>
 internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInvariantRule, IAssuranceClaimInvariantRule
 {
-    private static readonly string BuildMetadataReportKey = ContractLiteralCodec.ToValue(BuildArtifactKind.Build);
+    private static readonly string BuildMetadataReportKey = TextVocabulary.GetText(BuildArtifactKind.Build);
 
-    private static readonly string BuildReportKey = ContractLiteralCodec.ToValue(BuildArtifactKind.BuildReport);
+    private static readonly string BuildReportKey = TextVocabulary.GetText(BuildArtifactKind.BuildReport);
 
-    private static readonly string BuildOutputManifestReportKey = ContractLiteralCodec.ToValue(BuildArtifactKind.BuildOutputManifest);
+    private static readonly string BuildOutputManifestReportKey = TextVocabulary.GetText(BuildArtifactKind.BuildOutputManifest);
 
-    private static readonly string BuildLogReportKey = ContractLiteralCodec.ToValue(BuildArtifactKind.BuildLog);
+    private static readonly string BuildLogReportKey = TextVocabulary.GetText(BuildArtifactKind.BuildLog);
 
     private static readonly IReadOnlyList<string> RequiredReportKeys =
     [
@@ -206,7 +206,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
             return;
         }
 
-        if (!ContractLiteralCodec.TryParse<BuildProfileInputsKind>(inputKindLiteral, out var inputKind))
+        if (!TextVocabulary.TryGetValue<BuildProfileInputsKind>(inputKindLiteral, out var inputKind))
         {
             AddViolation(violations, "$.build.inputs.inputKind", "Build inputs inputKind must be a supported build input literal.");
             return;
@@ -239,7 +239,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
             {
                 AddViolation(violations, "$.build.inputs.scenes.source", "Build inputs scenes must declare source.");
             }
-            else if (!ContractLiteralCodec.TryParse<BuildProfileSceneSource>(sceneSourceLiteral, out _))
+            else if (!TextVocabulary.TryGetValue<BuildProfileSceneSource>(sceneSourceLiteral, out _))
             {
                 AddViolation(violations, "$.build.inputs.scenes.source", "Build inputs scenes.source must be a supported scene-source literal.");
             }
@@ -277,7 +277,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
         {
             AddViolation(violations, "$.build.runner.kind", "Build runner must declare kind.");
         }
-        else if (!ContractLiteralCodec.TryParse<BuildRunnerKind>(runnerKindLiteral, out _))
+        else if (!TextVocabulary.TryGetValue<BuildRunnerKind>(runnerKindLiteral, out _))
         {
             AddViolation(violations, "$.build.runner.kind", "Build runner kind must be a supported build runner literal.");
         }
@@ -330,7 +330,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
         {
             AddViolation(violations, "$.build.runnerResult.source", "Build runnerResult must declare source.");
         }
-        else if (!ContractLiteralCodec.TryParse<IpcBuildRunnerResultSource>(source, out var runnerResultSource))
+        else if (!TextVocabulary.TryGetValue<IpcBuildRunnerResultSource>(source, out var runnerResultSource))
         {
             AddViolation(violations, "$.build.runnerResult.source", "Build runnerResult source must be a supported runner result source literal.");
         }
@@ -351,7 +351,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
             return;
         }
 
-        if (!ContractLiteralCodec.TryParse<IpcBuildReportResult>(status, out var parsedStatus)
+        if (!TextVocabulary.TryGetValue<IpcBuildReportResult>(status, out var parsedStatus)
             || parsedStatus == IpcBuildReportResult.Unknown)
         {
             AddViolation(violations, "$.build.runnerResult.status", "Build runnerResult status must be a terminal build result literal.");
@@ -359,7 +359,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
         }
 
         if (TryReadBuildResult(buildElement, out var result)
-            && ContractLiteralCodec.TryParse<IpcBuildReportResult>(result, out var parsedResult)
+            && TextVocabulary.TryGetValue<IpcBuildReportResult>(result, out var parsedResult)
             && parsedStatus != parsedResult)
         {
             AddViolation(violations, "$.build.summary.result", "Build summary result must match runnerResult status.");
@@ -568,8 +568,8 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
             || !buildElement.TryGetProperty("logs", out var logsElement)
             || logsElement.ValueKind != JsonValueKind.Object
             || !TryReadString(logsElement, "completionReason", out var completionReason)
-            || !ContractLiteralCodec.TryParse<IpcBuildReportResult>(result, out var parsedResult)
-            || !ContractLiteralCodec.TryParse<IpcBuildLogCompletionReason>(completionReason, out var parsedCompletionReason))
+            || !TextVocabulary.TryGetValue<IpcBuildReportResult>(result, out var parsedResult)
+            || !TextVocabulary.TryGetValue<IpcBuildLogCompletionReason>(completionReason, out var parsedCompletionReason))
         {
             return;
         }
@@ -591,7 +591,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
         List<AssuranceSemanticInvariantViolation> violations)
     {
         if (!TryReadString(claimElement, "status", out var statusLiteral)
-            || !ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status))
+            || !TextVocabulary.TryGetValue(statusLiteral, out AssuranceClaimStatus status))
         {
             return;
         }
@@ -817,7 +817,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
         foreach (var effectElement in effectsElement.EnumerateArray())
         {
             if (effectElement.ValueKind != JsonValueKind.String
-                || !ContractLiteralCodec.TryParse(effectElement.GetString(), out AssuranceEffect effect))
+                || !TextVocabulary.TryGetValue(effectElement.GetString(), out AssuranceEffect effect))
             {
                 AddViolation(violations, $"{effectsPath}[{index}]", "Build verifier effect must be one of the build effect literals.");
                 hasInvalidEffect = true;
@@ -885,9 +885,9 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
         List<AssuranceSemanticInvariantViolation> violations)
     {
         if (!TryReadBuildResult(buildElement, out var resultLiteral)
-            || !ContractLiteralCodec.TryParse(resultLiteral, out IpcBuildReportResult result)
+            || !TextVocabulary.TryGetValue(resultLiteral, out IpcBuildReportResult result)
             || !TryReadString(claimElement, "status", out var statusLiteral)
-            || !ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status))
+            || !TextVocabulary.TryGetValue(statusLiteral, out AssuranceClaimStatus status))
         {
             return;
         }
@@ -915,9 +915,9 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
         List<AssuranceSemanticInvariantViolation> violations)
     {
         if (!TryReadBuildResult(buildElement, out var resultLiteral)
-            || !ContractLiteralCodec.TryParse<IpcBuildReportResult>(resultLiteral, out var result)
+            || !TextVocabulary.TryGetValue<IpcBuildReportResult>(resultLiteral, out var result)
             || !TryReadString(claimElement, "status", out var statusLiteral)
-            || !ContractLiteralCodec.TryParse(statusLiteral, out AssuranceClaimStatus status))
+            || !TextVocabulary.TryGetValue(statusLiteral, out AssuranceClaimStatus status))
         {
             return;
         }
@@ -930,7 +930,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
             AddViolation(
                 violations,
                 BuildPropertyPath(claimPath, "status"),
-                $"UNITY_BUILD_COMPLETED must be {ContractLiteralCodec.ToValue(expectedStatus)} for the BuildReport result.");
+                $"UNITY_BUILD_COMPLETED must be {TextVocabulary.GetText(expectedStatus)} for the BuildReport result.");
         }
     }
 
@@ -1002,10 +1002,10 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
             || !TryReadString(runnerResultElement, "status", out var expectedStatus)
             || !TryReadString(dataElement, "source", out var actualSource)
             || !TryReadString(dataElement, "status", out var actualStatus)
-            || !ContractLiteralCodec.TryParse(expectedSource, out IpcBuildRunnerResultSource expectedSourceValue)
-            || !ContractLiteralCodec.TryParse(expectedStatus, out IpcBuildReportResult expectedStatusValue)
-            || !ContractLiteralCodec.TryParse(actualSource, out IpcBuildRunnerResultSource actualSourceValue)
-            || !ContractLiteralCodec.TryParse(actualStatus, out IpcBuildReportResult actualStatusValue))
+            || !TextVocabulary.TryGetValue(expectedSource, out IpcBuildRunnerResultSource expectedSourceValue)
+            || !TextVocabulary.TryGetValue(expectedStatus, out IpcBuildReportResult expectedStatusValue)
+            || !TextVocabulary.TryGetValue(actualSource, out IpcBuildRunnerResultSource actualSourceValue)
+            || !TextVocabulary.TryGetValue(actualStatus, out IpcBuildReportResult actualStatusValue))
         {
             return false;
         }
@@ -1185,7 +1185,7 @@ internal sealed class BuildAssuranceSemanticInvariantRule : IAssurancePayloadInv
         return buildElement.TryGetProperty("runner", out var runnerElement)
             && runnerElement.ValueKind == JsonValueKind.Object
             && TryReadString(runnerElement, "kind", out var runnerKindLiteral)
-            && ContractLiteralCodec.TryParse(runnerKindLiteral, out runnerKind);
+            && TextVocabulary.TryGetValue(runnerKindLiteral, out runnerKind);
     }
 
     private static bool TryReadBuildResult (

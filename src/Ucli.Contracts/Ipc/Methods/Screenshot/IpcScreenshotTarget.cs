@@ -1,15 +1,15 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Contracts.Ipc;
 
 /// <summary> Defines screenshot capture target literals. </summary>
+[VocabularyDefinition]
 public enum IpcScreenshotTarget
 {
     /// <summary> Captures the main GameView application presentation image. </summary>
-    [UcliContractLiteral("game")]
+    [VocabularyText("game")]
     Game = 1,
 
     /// <summary> Captures the active SceneView presentation image. </summary>
-    [UcliContractLiteral("scene")]
+    [VocabularyText("scene")]
     Scene = 2,
 }

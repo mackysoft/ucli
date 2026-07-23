@@ -15,7 +15,15 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="MackySoft.Text.Vocabularies" Version="0.1.0" />
+    <PackageReference Include="MackySoft.Text.Vocabularies.Json" Version="0.1.0" />
     <PackageReference Include="System.Text.Json" Version="8.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="MackySoft.Text.Vocabularies" />
+    <Using Include="MackySoft.Text.Vocabularies.Vocabulary" Alias="TextVocabulary" />
+    <Using Include="MackySoft.Text.Vocabularies.Json" />
   </ItemGroup>
 
   <ItemGroup>

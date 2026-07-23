@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Features.Assurance.Semantics;
 
@@ -13,12 +12,12 @@ internal readonly record struct AssuranceVerdictClaimState
         bool Required,
         bool HasBlockingResidualRisk)
     {
-        if (!ContractLiteralCodec.IsDefined(Status))
+        if (!TextVocabulary.IsDefined(Status))
         {
             throw new ArgumentOutOfRangeException(nameof(Status), Status, "Claim status must be defined by the assurance contract.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(Coverage))
+        if (!TextVocabulary.IsDefined(Coverage))
         {
             throw new ArgumentOutOfRangeException(nameof(Coverage), Coverage, "Claim coverage must be defined by the assurance contract.");
         }

@@ -54,7 +54,7 @@ internal static class CommandResultAssert
         HasStandardEnvelope(
             root,
             command,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Error),
+            TextVocabulary.GetText(CommandResultStatus.Error),
             (int)CliExitCode.InvalidArgument);
     }
 
@@ -73,7 +73,7 @@ internal static class CommandResultAssert
         HasStandardEnvelope(
             root,
             command,
-            ContractLiteralCodec.ToValue(CommandResultStatus.Ok),
+            TextVocabulary.GetText(CommandResultStatus.Ok),
             (int)CliExitCode.Success);
     }
 

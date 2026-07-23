@@ -16,7 +16,7 @@ internal sealed record DaemonStartupFailureClassification
         DaemonDiagnosisActionRequired actionRequired,
         DaemonPrimaryDiagnostic? primaryDiagnostic)
     {
-        if (!ContractLiteralCodec.IsDefined(startupBlockingReason))
+        if (!TextVocabulary.IsDefined(startupBlockingReason))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(startupBlockingReason),
@@ -24,7 +24,7 @@ internal sealed record DaemonStartupFailureClassification
                 "Unsupported startup blocking reason.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(retryDisposition))
+        if (!TextVocabulary.IsDefined(retryDisposition))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(retryDisposition),
@@ -32,7 +32,7 @@ internal sealed record DaemonStartupFailureClassification
                 "Unsupported retry disposition.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(startupPhase))
+        if (!TextVocabulary.IsDefined(startupPhase))
         {
             throw new ArgumentOutOfRangeException(
                 nameof(startupPhase),
@@ -40,12 +40,12 @@ internal sealed record DaemonStartupFailureClassification
                 "Unsupported startup phase.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(reason))
+        if (!TextVocabulary.IsDefined(reason))
         {
             throw new ArgumentOutOfRangeException(nameof(reason), reason, "Unsupported daemon diagnosis reason.");
         }
 
-        if (!ContractLiteralCodec.IsDefined(actionRequired))
+        if (!TextVocabulary.IsDefined(actionRequired))
         {
             throw new ArgumentOutOfRangeException(nameof(actionRequired), actionRequired, "Unsupported daemon diagnosis action.");
         }

@@ -1,4 +1,3 @@
-using MackySoft.Ucli.Contracts.Text;
 
 namespace MackySoft.Ucli.Application.Shared.Execution.Results;
 
@@ -13,7 +12,7 @@ internal sealed record OperationExecutionTouchedResource
         string Path,
         Guid? AssetGuid)
     {
-        if (!ContractLiteralCodec.IsDefined(Kind))
+        if (!TextVocabulary.IsDefined(Kind))
         {
             throw new ArgumentOutOfRangeException(nameof(Kind), Kind, "Touched resource kind must be defined.");
         }

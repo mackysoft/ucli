@@ -39,7 +39,7 @@ public sealed class IpcLogContractLiteralTests
     [Trait("Size", "Small")]
     public void IpcLogLevel_HasStableContractLiteral (IpcLogLevel value, string expectedLiteral)
     {
-        Assert.Equal(expectedLiteral, ContractLiteralCodec.ToValue(value));
+        Assert.Equal(expectedLiteral, TextVocabulary.GetText(value));
     }
 
     [Theory]
@@ -47,7 +47,7 @@ public sealed class IpcLogContractLiteralTests
     [Trait("Size", "Small")]
     public void IpcLogQueryTarget_HasStableContractLiteral (IpcLogQueryTarget value, string expectedLiteral)
     {
-        Assert.Equal(expectedLiteral, ContractLiteralCodec.ToValue(value));
+        Assert.Equal(expectedLiteral, TextVocabulary.GetText(value));
     }
 
     [Theory]
@@ -55,7 +55,7 @@ public sealed class IpcLogContractLiteralTests
     [Trait("Size", "Small")]
     public void IpcUnityLogSource_HasStableContractLiteral (IpcUnityLogSource value, string expectedLiteral)
     {
-        Assert.Equal(expectedLiteral, ContractLiteralCodec.ToValue(value));
+        Assert.Equal(expectedLiteral, TextVocabulary.GetText(value));
     }
 
     [Theory]
@@ -63,7 +63,7 @@ public sealed class IpcLogContractLiteralTests
     [Trait("Size", "Small")]
     public void IpcUnityLogStackTraceMode_HasStableContractLiteral (IpcUnityLogStackTraceMode value, string expectedLiteral)
     {
-        Assert.Equal(expectedLiteral, ContractLiteralCodec.ToValue(value));
+        Assert.Equal(expectedLiteral, TextVocabulary.GetText(value));
     }
 
     [Theory]
@@ -72,14 +72,14 @@ public sealed class IpcLogContractLiteralTests
     [Trait("Size", "Small")]
     public void IpcLogLevel_DoesNotRepresentFilterWildcard (string literal)
     {
-        Assert.False(ContractLiteralCodec.TryParse(literal, out IpcLogLevel _));
+        Assert.False(TextVocabulary.TryGetValue(literal, out IpcLogLevel _));
     }
 
     [Fact]
     [Trait("Size", "Small")]
     public void IpcUnityLogSource_DoesNotRepresentFilterWildcard ()
     {
-        Assert.False(ContractLiteralCodec.TryParse("all", out IpcUnityLogSource _));
+        Assert.False(TextVocabulary.TryGetValue("all", out IpcUnityLogSource _));
     }
 
     [Fact]
